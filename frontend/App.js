@@ -7,6 +7,7 @@ import AuthNavigator from './src/navigation/AuthNavigator';
 import AppNavigator from './src/navigation/AppNavigator';
 import SportPickerScreen from './src/screens/SportPickerScreen';
 import SportSetupScreen from './src/screens/SportSetupScreen';
+import RummyScorecardScreen from './src/screens/RummyScorecardScreen';
 import legendsApi from './src/services/LegendsApi';
 
 const Stack = createStackNavigator();
@@ -49,6 +50,7 @@ const App = () => {
           {/* SportPicker shown on every launch after auth */}
           <Stack.Screen name="SportPicker" component={SportPickerScreen} />
           <Stack.Screen name="SportSetup" component={SportSetupScreen} />
+          <Stack.Screen name="RummyScorecard" component={RummyScorecardScreen} />
           <Stack.Screen name="MainApp" component={AppNavigator} />
         </Stack.Navigator>
       </NavigationContainer>
