@@ -37,7 +37,7 @@ app.use(morgan('dev'));
 app.get('/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ ok: true });
+    res.json({ ok: true, service: 'local-legends-api', version: '1.0.1' });
   } catch (e) {
     res.status(500).json({ ok: false, error: 'db' });
   }
