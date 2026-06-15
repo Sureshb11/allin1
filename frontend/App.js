@@ -26,6 +26,7 @@ const App = () => {
       />
       <NavigationContainer>
         <Stack.Navigator
+          id="RootStack"
           screenOptions={{ headerShown: false, animationEnabled: false, cardStyle: { backgroundColor: '#0f131f' } }}
           initialRouteName={(DEV_BYPASS_LOGIN || isAuthenticated) ? 'SportPicker' : 'Auth'}
         >

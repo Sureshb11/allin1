@@ -2,12 +2,12 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  RefreshControl, Modal, Share, Dimensions, StatusBar, Animated,
+  RefreshControl, Modal, Share, Dimensions, StatusBar, Animated, Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import SimpleSidebar from '../components/SimpleSidebar';
-import { getSelectedSport } from '../utils/selectedSport';
+import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 
 const { width } = Dimensions.get('window');
 
@@ -268,26 +268,41 @@ export default function HomeScreen({ navigation }) {
   const cfg = SPORT_CONFIG[currentSport.id] || SPORT_CONFIG.cricket;
 
   const selectSport = (sport) => {
-    // Animate sport selector button
-    Animated.sequence([
-      Animated.timing(sportAnim, { toValue: 0.7, duration: 80, useNativeDriver: true }),
-      Animated.spring(sportAnim, { toValue: 1, friction: 4, useNativeDriver: true }),
-    ]).start();
-    // Fade out → switch → fade in content
-    Animated.timing(contentAnim, { toValue: 0, duration: 120, useNativeDriver: true }).start(() => {
-      setCurrentSport(sport);
-      setCurrentFormat(null); // reset format when sport changes from in-app picker
-      setActiveNavTab(0);
-      Animated.timing(contentAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
-    });
     setShowSportPicker(false);
+    if (sport.id === currentSport.id) return;
+    // Confirm before switching — changing sport reloads the whole app for it.
+    Alert.alert(
+      `Switch to ${sport.name}?`,
+      `Local Legends will reload and show everything for ${sport.name}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Switch', onPress: () => doSwitchSport(sport) },
+      ],
+    );
+  };
+
+  const doSwitchSport = async (sport) => {
+    setSelectedSport(sport, null);                 // update shared sport context
+    try { await legendsApi.selectPrimarySport(sport.id); } catch {}   // persist (no-op if logged out)
+    // Reload the entire app scoped to the new sport by re-mounting MainApp.
+    const root = navigation.getParent('RootStack');
+    if (root) {
+      root.reset({ index: 0, routes: [{ name: 'MainApp', params: { sport } }] });
+    } else {
+      // Fallback: soft in-place switch.
+      setCurrentSport(sport);
+      setCurrentFormat(null);
+      setActiveNavTab(0);
+    }
   };
 
   const load = async () => {
     try {
+      const { sport: selSport } = getSelectedSport();
+      const sportId = selSport?.id || 'cricket';
       const [lm, pl] = await Promise.all([
         legendsApi.getLiveScores(),
-        legendsApi.getPlayers(),
+        legendsApi.getPlayers({ sport: sportId }),
       ]);
       if (lm?.success) {
         setLiveMatches((lm.data || []).map(m => ({
