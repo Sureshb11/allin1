@@ -44,11 +44,11 @@ const SPORTS = [
   { id: 'judo',         name: 'Judo',               icon: 'human-handsup',        color: '#3b2f6e' },
   { id: 'karate',       name: 'Karate',             icon: 'karate',               color: '#7c1d1d' },
   { id: 'squash',       name: 'Squash',             icon: 'racquetball',          color: '#92400e' },
-  { id: 'billiards',    name: 'Bowling & Billiards', icon: 'billiards',           color: '#1e4d2b' },
+  { id: 'bowling',      name: 'Bowling & Billiards', icon: 'bowling',             color: '#1e4d2b' },
   { id: 'golf',         name: 'Golf',               icon: 'golf',                 color: '#3a6b1a' },
   { id: 'handball',     name: 'Handball',           icon: 'handball',             color: '#b54d9e' },
   { id: 'pickleball',   name: 'Pickleball',         icon: 'tennis',               color: '#0f766e' },
-  { id: 'snowboarding', name: 'Snowboarding',       icon: 'snowboard',            color: '#1e40af' },
+  { id: 'snowboard',    name: 'Snowboarding',       icon: 'snowboard',            color: '#1e40af' },
 ];
 
 // Generate a default config for any sport
@@ -207,13 +207,13 @@ const _buildConfigs = () => {
       { label: 'Game Winner',   icon: 'trophy-outline', desc: 'Best of 3 games' },
       { label: 'Match Stats',   icon: 'chart-bar',      desc: 'Winners & faults' },
     ], 'No live pickleball matches', 'Start a match and track every rally'),
-    billiards: makeCfg(SPORTS[19], 'GAMES', 'Track frames, breaks & clearances', [
-      { label: 'Frame Tracker', icon: 'billiards',      desc: 'Points per frame' },
+    bowling: makeCfg(SPORTS[19], 'GAMES', 'Track frames, breaks & clearances', [
+      { label: 'Frame Tracker', icon: 'bowling',        desc: 'Points per frame' },
       { label: 'Break Log',     icon: 'chart-bar',      desc: 'Century & max breaks' },
       { label: 'Frame Stats',   icon: 'chart-timeline', desc: 'Per-frame breakdown' },
       { label: 'Leaderboard',   icon: 'trophy-outline', desc: 'Match standings' },
     ], 'No live billiards games', 'Start a game and track every frame'),
-    snowboarding: makeCfg(SPORTS[20], 'EVENTS', 'Track runs, tricks & scores', [
+    snowboard: makeCfg(SPORTS[20], 'EVENTS', 'Track runs, tricks & scores', [
       { label: 'Run Tracker',   icon: 'snowboard',      desc: 'Score per run' },
       { label: 'Trick Log',     icon: 'star-outline',   desc: 'Tricks & grabs' },
       { label: 'Judge Scores',  icon: 'chart-bar',      desc: 'All judge scores' },

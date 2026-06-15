@@ -353,8 +353,8 @@ const SPORT_CONFIG = {
     },
   },
 
-  billiards: {
-    icon: 'billiards', color: '#166534',
+  bowling: {
+    icon: 'bowling', color: '#166534',
     periods: ['Frame 1','Frame 2','Frame 3','Frame 4','Frame 5','Frame 6','Frame 7','Frame 8','Frame 9'],
     maxPeriods: 9,
     actions: [
@@ -365,7 +365,7 @@ const SPORT_CONFIG = {
     scoreLabel: (events, teamId) => `${cnt(events, teamId, 'frame-won')} frames`,
   },
 
-  snowboarding: {
+  snowboard: {
     icon: 'snowboard', color: '#0369a1',
     periods: ['Run 1', 'Run 2'], maxPeriods: 2,
     actions: [
