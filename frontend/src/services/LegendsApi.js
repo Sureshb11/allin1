@@ -235,6 +235,24 @@ class LegendsApi {
     }
   }
 
+  async getComments(postId) {
+    try {
+      const json = await this.request(`/posts/${postId}/comments`);
+      return { success: true, data: json.comments || [] };
+    } catch (error) {
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  async addComment(postId, text) {
+    try {
+      const json = await this.request(`/posts/${postId}/comments`, { method: 'POST', body: { text } });
+      return { success: true, data: json.comment };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Single player (incl. team + stats JSON).
   async getPlayer(id) {
     try {

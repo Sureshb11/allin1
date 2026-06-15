@@ -567,5 +567,19 @@ model Post {
   text       String
   likes      Int      @default(0)
 
+  comments   Comment[]
+
   @@index([sport, createdAt])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  post       Post     @relation(fields: [postId], references: [id])
+  postId     String
+  authorId   String?
+  authorName String
+  text       String
+
+  @@index([postId, createdAt])
 }

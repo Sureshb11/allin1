@@ -58,6 +58,9 @@ export default function SportFeedScreen({ navigation }) {
   const [showCompose, setShowCompose] = useState(false);
   const [composeText, setComposeText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [activeComments, setActiveComments] = useState(null); // post being commented on
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -89,6 +92,24 @@ export default function SportFeedScreen({ navigation }) {
   const onLike = async (id) => {
     setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, likes: (p.likes || 0) + 1 } : p)));
     legendsApi.likePost(id);
+  };
+
+  const openComments = async (post) => {
+    setActiveComments(post);
+    setComments([]);
+    const res = await legendsApi.getComments(post.id);
+    if (res.success) setComments(res.data);
+  };
+
+  const submitComment = async () => {
+    const t = commentText.trim();
+    if (!t || !activeComments) return;
+    const res = await legendsApi.addComment(activeComments.id, t);
+    if (res.success) {
+      setComments((prev) => [...prev, res.data]);
+      setCommentText('');
+      setPosts((prev) => prev.map((p) => (p.id === activeComments.id ? { ...p, commentCount: (p.commentCount || 0) + 1 } : p)));
+    }
   };
 
   return (
@@ -166,10 +187,16 @@ export default function SportFeedScreen({ navigation }) {
                 </View>
               </View>
               <Text style={s.postText}>{p.text}</Text>
-              <TouchableOpacity style={s.likeRow} onPress={() => onLike(p.id)} hitSlop={8}>
-                <Icon name="heart-outline" size={17} color={DS.textMuted} />
-                <Text style={s.likeTxt}>{p.likes || 0}</Text>
-              </TouchableOpacity>
+              <View style={s.postActions}>
+                <TouchableOpacity style={s.likeRow} onPress={() => onLike(p.id)} hitSlop={8}>
+                  <Icon name="heart-outline" size={17} color={DS.textMuted} />
+                  <Text style={s.likeTxt}>{p.likes || 0}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.likeRow} onPress={() => openComments(p)} hitSlop={8}>
+                  <Icon name="comment-outline" size={16} color={DS.textMuted} />
+                  <Text style={s.likeTxt}>{p.commentCount || 0}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ))
         )}
@@ -201,6 +228,46 @@ export default function SportFeedScreen({ navigation }) {
                 <Icon name="send" size={15} color={DS.bg} />
                 <Text style={s.startTxt}>{submitting ? 'Posting…' : 'Post'}</Text>
               </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* comments modal */}
+      <Modal visible={!!activeComments} transparent animationType="slide" onRequestClose={() => setActiveComments(null)}>
+        <View style={s.modalBackdrop}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setActiveComments(null)} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={s.sheet}>
+              <View style={s.grab} />
+              <Text style={s.sheetTitle}>Comments</Text>
+              <ScrollView style={{ maxHeight: 300 }}>
+                {comments.length === 0
+                  ? <Text style={s.emptySub}>No comments yet. Be the first.</Text>
+                  : comments.map((c) => (
+                    <View key={c.id} style={s.commentRow}>
+                      <View style={s.commentAvatar}><Text style={s.badgeTxt}>{initials(c.authorName || 'You')}</Text></View>
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={s.commentAuthor}>{c.authorName}</Text>
+                        <Text style={s.commentText}>{c.text}</Text>
+                      </View>
+                    </View>
+                  ))}
+              </ScrollView>
+              <View style={s.commentInputRow}>
+                <TextInput
+                  style={s.commentInput}
+                  placeholder="Add a comment…"
+                  placeholderTextColor={DS.textMuted}
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  onSubmitEditing={submitComment}
+                  returnKeyType="send"
+                />
+                <TouchableOpacity onPress={submitComment} disabled={!commentText.trim()}>
+                  <Text style={[s.postBtnTxt, { opacity: commentText.trim() ? 1 : 0.4 }]}>Post</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -252,8 +319,16 @@ const s = StyleSheet.create({
   postAuthor: { color: DS.textPrimary, fontSize: 14, fontWeight: '800' },
   postTeam: { color: DS.textMuted, fontSize: 12, marginTop: 1 },
   postText: { color: DS.textVariant, fontSize: 14, lineHeight: 20 },
-  likeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
+  postActions: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 10 },
+  likeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   likeTxt: { color: DS.textMuted, fontSize: 13, fontWeight: '700' },
+  commentRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8 },
+  commentAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
+  commentAuthor: { color: DS.textPrimary, fontSize: 13, fontWeight: '800' },
+  commentText: { color: DS.textVariant, fontSize: 13.5, marginTop: 1 },
+  commentInputRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: DS.line, paddingTop: 12, marginTop: 8 },
+  commentInput: { flex: 1, color: DS.textPrimary, fontSize: 14, paddingVertical: 6 },
+  postBtnTxt: { color: DS.lime, fontSize: 14, fontWeight: '800' },
 
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
   sheet: { backgroundColor: DS.surfaceLow, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, paddingBottom: 28 },

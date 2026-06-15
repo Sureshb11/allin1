@@ -5,12 +5,50 @@ import { authMiddleware } from '../lib/auth.js';
 
 const router = Router();
 
-// GET /posts?sport=cricket — community feed posts for a sport
+// GET /posts?sport=cricket — community feed posts for a sport (+ comment counts)
 router.get('/', async (req, res) => {
   const { sport } = req.query;
   const where = sport ? { sport: String(sport) } : {};
-  const posts = await prisma.post.findMany({ where, orderBy: { createdAt: 'desc' }, take: 50 });
+  const rows = await prisma.post.findMany({
+    where, orderBy: { createdAt: 'desc' }, take: 50,
+    include: { _count: { select: { comments: true } } },
+  });
+  const posts = rows.map(({ _count, ...p }) => ({ ...p, commentCount: _count.comments }));
   res.json({ posts });
+});
+
+// Resolve author from an optional Bearer token, else a provided/guest name.
+async function resolveAuthor(req, fallback = 'You') {
+  const hdr = req.headers.authorization || '';
+  if (hdr.startsWith('Bearer ')) {
+    try {
+      const { default: jwt } = await import('jsonwebtoken');
+      const dec = jwt.verify(hdr.slice(7), process.env.JWT_SECRET);
+      const u = await prisma.user.findUnique({ where: { id: dec.sub } });
+      const name = u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : '';
+      return { authorId: dec.sub, authorName: name || fallback };
+    } catch { /* unauthenticated */ }
+  }
+  return { authorId: null, authorName: fallback };
+}
+
+// GET /posts/:id/comments
+router.get('/:id/comments', async (req, res) => {
+  const comments = await prisma.comment.findMany({ where: { postId: req.params.id }, orderBy: { createdAt: 'asc' }, take: 100 });
+  res.json({ comments });
+});
+
+// POST /posts/:id/comments
+const CommentSchema = z.object({ text: z.string().min(1).max(400), authorName: z.string().optional() });
+router.post('/:id/comments', async (req, res) => {
+  try {
+    const { text, authorName } = CommentSchema.parse(req.body);
+    const author = await resolveAuthor(req, authorName || 'You');
+    const comment = await prisma.comment.create({ data: { postId: req.params.id, text, ...author } });
+    res.status(201).json({ comment });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
 });
 
 const PostSchema = z.object({
