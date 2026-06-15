@@ -387,6 +387,10 @@ const AppNavigator = ({ route: appRoute }) => {
   const initialSport  = appRoute?.params?.sport  || null;
   const initialFormat = appRoute?.params?.format || null;
 
+  // "My Cricket" tab adapts to the active sport (label + icon).
+  const sportName = initialSport?.name || 'Cricket';
+  const sportIcon = initialSport?.icon || 'cricket';
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -403,7 +407,7 @@ const AppNavigator = ({ route: appRoute }) => {
         tabBarIcon: ({ color, size }) => {
           const map = {
             HomeTab: 'home-variant',
-            MyCricketTab: 'cricket',
+            MyCricketTab: sportIcon,
             ScoresTab: 'scoreboard-outline',
           };
           const name = map[route.name] || 'apps';
@@ -420,7 +424,7 @@ const AppNavigator = ({ route: appRoute }) => {
       <Tab.Screen
         name="MyCricketTab"
         component={MyCricketStack}
-        options={{ tabBarLabel: 'My Cricket' }}
+        options={{ tabBarLabel: `My ${sportName}` }}
         initialParams={{ initialSport, initialFormat }}
       />
       <Tab.Screen
