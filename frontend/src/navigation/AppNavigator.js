@@ -58,8 +58,13 @@ import PlaceholderScreen from '../screens/PlaceholderScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-const HomeStack = ({ route: stackRoute, initialRouteName = 'CricketFeed' }) => (
-  <Stack.Navigator initialRouteName={initialRouteName}>
+const HomeStack = ({ route: stackRoute, initialRouteName }) => {
+  // Cricket gets its signature feed; other sports land on the (sport-aware)
+  // dashboard, since the feed is cricket-specific.
+  const sportId = stackRoute?.params?.initialSport?.id || 'cricket';
+  const initial = initialRouteName || (sportId === 'cricket' ? 'CricketFeed' : 'Home');
+  return (
+  <Stack.Navigator initialRouteName={initial}>
     {/* Instagram-style landing feed (cricket) */}
     <Stack.Screen
       name="CricketFeed"
@@ -357,7 +362,8 @@ const HomeStack = ({ route: stackRoute, initialRouteName = 'CricketFeed' }) => (
     <Stack.Screen name="TournamentRegistration" component={PlaceholderScreen} initialParams={{title: 'Tournament Registration'}} />
     <Stack.Screen name="BadgeLeaderboardFilter" component={PlaceholderScreen} initialParams={{title: 'Badge Leaderboard'}} />
   </Stack.Navigator>
-);
+  );
+};
 
 // "My Cricket" tab — same stack, but opens on the cricket dashboard (Home).
 const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="Home" />;
