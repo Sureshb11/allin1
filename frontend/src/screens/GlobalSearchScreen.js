@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport } from '../utils/selectedSport';
 
 const DS = {
   bg: '#0f131f', surfaceLow: '#171b28', surfaceHigh: '#262a37', surfaceHighest: '#313442',
@@ -13,28 +14,40 @@ const DS = {
   line: 'rgba(150,170,210,0.10)',
 };
 
-// "Go to" shortcuts shown before the user types anything (per the reference).
-const GO_TO = [
-  { id: 'stream', label: 'Live streaming matches', icon: 'video-outline',           badge: 'NEW', screen: 'StreamingLanding' },
-  { id: 'near',   label: 'Matches near me',         icon: 'map-marker-radius-outline',             screen: 'MyMatches' },
-  { id: 'tourn',  label: 'Tournaments near me',     icon: 'trophy-outline',                        screen: 'Tournaments' },
-  { id: 'find',   label: 'Find cricketers',         icon: 'account-search-outline',                screen: 'FindCricketers' },
+// Noun used for the "Find …" shortcut per sport.
+const SPORT_NOUN = { cricket: 'Cricketers', football: 'Footballers', badminton: 'Players' };
+
+// "Go to" shortcuts — sport-aware (the "Find" row scopes to the active sport).
+const buildGoTo = (sportId) => [
+  { id: 'stream', label: 'Live streaming matches', icon: 'video-outline',            badge: 'NEW', screen: 'StreamingLanding' },
+  { id: 'near',   label: 'Matches near me',         icon: 'map-marker-radius-outline',              screen: 'MyMatches' },
+  { id: 'tourn',  label: 'Tournaments near me',     icon: 'trophy-outline',                         screen: 'Tournaments' },
+  { id: 'find',   label: `Find ${SPORT_NOUN[sportId] || 'Players'}`, icon: 'account-search-outline', screen: 'FindCricketers', params: { sport: sportId } },
 ];
 
-// "Looking for" shortcuts — the Explore (LookingFor) page categories plus extra
-// discovery shortcuts. Each deep-links to the relevant screen/category.
-const LOOKING_FOR = [
-  { id: 'player',    label: 'Player',               icon: 'account-outline',               screen: 'LookingFor',   params: { initialType: 'player' } },
-  { id: 'team',      label: 'Team',                 icon: 'account-group',                 screen: 'LookingFor',   params: { initialType: 'team' } },
-  { id: 'umpire',    label: 'Umpire',               icon: 'whistle',                       screen: 'LookingFor',   params: { initialType: 'umpire' } },
-  { id: 'scorer',    label: 'Scorer',               icon: 'scoreboard-outline',            screen: 'LookingFor',   params: { initialType: 'scorer' } },
-  { id: 'coach',     label: 'Coach',                icon: 'school-outline',                screen: 'LookingFor',   params: { initialType: 'coach' } },
-  { id: 'opponent',  label: 'Opponent',             icon: 'sword-cross',                   screen: 'LookingFor',   params: { initialType: 'opponent' } },
-  { id: 'teamtourn', label: 'Teams for tournament', icon: 'account-multiple-plus-outline', screen: 'LookingFor',   params: { initialType: 'teamtourn' } },
-  { id: 'tourn2',    label: 'Tournaments',          icon: 'trophy-outline',                screen: 'Tournaments' },
-  { id: 'ground',    label: 'Ground',               icon: 'stadium',                       screen: 'GroundBooking' },
-  { id: 'comm',      label: 'Commentator',          icon: 'account-voice',                 screen: 'LookingFor',   params: { initialType: 'commentator' } },
-];
+// "Looking for" shortcuts — sport-aware. Officials terminology differs per sport
+// (cricket: umpire/scorer/commentator; football: referee; else: official).
+const buildLookingFor = (sportId) => {
+  const officials = sportId === 'cricket'
+    ? [
+        { id: 'umpire', label: 'Umpire',      icon: 'whistle',            screen: 'LookingFor', params: { initialType: 'umpire' } },
+        { id: 'scorer', label: 'Scorer',      icon: 'scoreboard-outline', screen: 'LookingFor', params: { initialType: 'scorer' } },
+        { id: 'comm',   label: 'Commentator', icon: 'account-voice',      screen: 'LookingFor', params: { initialType: 'commentator' } },
+      ]
+    : sportId === 'football'
+      ? [{ id: 'umpire', label: 'Referee',  icon: 'whistle', screen: 'LookingFor', params: { initialType: 'umpire' } }]
+      : [{ id: 'umpire', label: 'Official', icon: 'whistle', screen: 'LookingFor', params: { initialType: 'umpire' } }];
+  return [
+    { id: 'player',    label: 'Player',               icon: 'account-outline',               screen: 'LookingFor',   params: { initialType: 'player' } },
+    { id: 'team',      label: 'Team',                 icon: 'account-group',                 screen: 'LookingFor',   params: { initialType: 'team' } },
+    ...officials,
+    { id: 'coach',     label: 'Coach',                icon: 'school-outline',                screen: 'LookingFor',   params: { initialType: 'coach' } },
+    { id: 'opponent',  label: 'Opponent',             icon: 'sword-cross',                   screen: 'LookingFor',   params: { initialType: 'opponent' } },
+    { id: 'teamtourn', label: 'Teams for tournament', icon: 'account-multiple-plus-outline', screen: 'LookingFor',   params: { initialType: 'teamtourn' } },
+    { id: 'tourn2',    label: 'Tournaments',          icon: 'trophy-outline',                screen: 'Tournaments' },
+    { id: 'ground',    label: 'Ground',               icon: 'stadium',                       screen: 'GroundBooking' },
+  ];
+};
 
 // Bottom action pills.
 const PILLS = [
@@ -46,6 +59,11 @@ const PILLS = [
 const TYPE_ICONS = { player: 'account', team: 'cricket', match: 'scoreboard-outline' };
 
 const GlobalSearchScreen = ({ navigation }) => {
+  // Sport-aware shortcuts based on the active sport.
+  const sportId = getSelectedSport().sport?.id || 'cricket';
+  const goTo = buildGoTo(sportId);
+  const lookingFor = buildLookingFor(sportId);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState({});
   const [loading, setLoading] = useState(false);
@@ -174,10 +192,10 @@ const GlobalSearchScreen = ({ navigation }) => {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 12 }}>
           <Text style={st.goToLabel}>Go to</Text>
-          <View>{GO_TO.map(renderRow)}</View>
+          <View>{goTo.map(renderRow)}</View>
 
           <Text style={st.sectionLabel}>Looking for</Text>
-          <View>{LOOKING_FOR.map(renderRow)}</View>
+          <View>{lookingFor.map(renderRow)}</View>
         </ScrollView>
       )}
 
