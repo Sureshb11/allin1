@@ -6,7 +6,12 @@ import { authMiddleware } from '../lib/auth.js';
 const router = Router();
 
 router.get('/', async (req, res) => {
+  const { sport, status } = req.query;
+  const where = {};
+  if (sport) where.sport = String(sport);
+  if (status) where.status = String(status);
   const tournaments = await prisma.tournament.findMany({
+    where,
     include: { teams: { include: { team: true } } },
     orderBy: { createdAt: 'desc' },
   });

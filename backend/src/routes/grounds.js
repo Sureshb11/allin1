@@ -6,7 +6,10 @@ import { authMiddleware } from '../lib/auth.js';
 const router = Router();
 
 router.get('/', async (req, res) => {
-  const grounds = await prisma.ground.findMany({ orderBy: { name: 'asc' } });
+  // Grounds are typically multi-sport; ?sport= narrows to ones tagged for it.
+  const { sport } = req.query;
+  const where = sport ? { sport: String(sport) } : {};
+  const grounds = await prisma.ground.findMany({ where, orderBy: { name: 'asc' } });
   res.json({ grounds });
 });
 

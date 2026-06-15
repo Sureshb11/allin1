@@ -14,6 +14,7 @@ const DS = {
 
 import HomeScreen from '../screens/HomeScreen';
 import CricketFeedScreen from '../screens/CricketFeedScreen';
+import SportFeedScreen from '../screens/SportFeedScreen';
 import FindCricketersScreen from '../screens/FindCricketersScreen';
 import LiveScoresScreen from '../screens/LiveScoresScreen';
 import ScoringScreen from '../screens/ScoringScreen';
@@ -62,13 +63,19 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
   // Cricket gets its signature feed; other sports land on the (sport-aware)
   // dashboard, since the feed is cricket-specific.
   const sportId = stackRoute?.params?.initialSport?.id || 'cricket';
-  const initial = initialRouteName || (sportId === 'cricket' ? 'CricketFeed' : 'Home');
+  const initial = initialRouteName || (sportId === 'cricket' ? 'CricketFeed' : 'SportFeed');
   return (
   <Stack.Navigator initialRouteName={initial}>
     {/* Instagram-style landing feed (cricket) */}
     <Stack.Screen
       name="CricketFeed"
       component={CricketFeedScreen}
+      options={{ headerShown: false }}
+    />
+    {/* Generic landing feed for non-cricket sports */}
+    <Stack.Screen
+      name="SportFeed"
+      component={SportFeedScreen}
       options={{ headerShown: false }}
     />
     <Stack.Screen

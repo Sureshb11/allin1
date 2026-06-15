@@ -282,9 +282,12 @@ model Tournament {
   prizePool   String?
   description String?
   organizer   String?
+  sport       String   @default("cricket")
 
   teams   TournamentTeam[]
   matches TournamentMatch[]
+
+  @@index([sport])
 }
 
 model Stream {
@@ -306,7 +309,10 @@ model Ground {
   price      Int
   available  Boolean  @default(true)
   facilities Json?    // ["Floodlights", "Pavilion"]
+  sport      String   @default("cricket")
   bookings   Booking[]
+
+  @@index([sport])
 }
 
 model Booking {

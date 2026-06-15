@@ -8,9 +8,10 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const TEAMS = [
-  { id: 'seed-fc1', name: 'Chennai City FC',   city: 'Chennai',   sport: 'football' },
-  { id: 'seed-fc2', name: 'Bengaluru Rovers',  city: 'Bengaluru', sport: 'football' },
+  { id: 'seed-fc1', name: 'Chennai City FC',    city: 'Chennai',   sport: 'football' },
+  { id: 'seed-fc2', name: 'Bengaluru Rovers',   city: 'Bengaluru', sport: 'football' },
   { id: 'seed-bd1', name: 'Smash Masters Club', city: 'Hyderabad', sport: 'badminton' },
+  { id: 'seed-bd2', name: 'Rally Kings Club',   city: 'Chennai',   sport: 'badminton' },
 ];
 
 const PLAYERS = [
@@ -46,8 +47,41 @@ async function main() {
     }
     console.log(`✓ ${p.sport.padEnd(9)} ${p.name} (${p.role})`);
   }
+  // ── Matches (live + completed) so Scores/Live populate per sport ──
+  const MATCHES = [
+    { team1Id: 'seed-fc1', team2Id: 'seed-fc2', sport: 'football', status: 'live',      venue: 'Marina Arena, Chennai',    matchType: 'League',  score1: '2', score2: '1' },
+    { team1Id: 'seed-fc2', team2Id: 'seed-fc1', sport: 'football', status: 'completed', venue: 'Rovers Park, Bengaluru',    matchType: 'League',  score1: '0', score2: '3', result: 'Chennai City FC won 3–0' },
+    { team1Id: 'seed-bd1', team2Id: 'seed-bd2', sport: 'badminton', status: 'live',     venue: 'Indoor Shuttle Hall',      matchType: 'Singles', score1: '1', score2: '1' },
+  ];
+  for (const m of MATCHES) {
+    const existing = await prisma.match.findFirst({ where: { venue: m.venue, sport: m.sport } });
+    if (!existing) await prisma.match.create({ data: m });
+  }
+
+  // ── Tournaments per sport ──
+  const TOURNAMENTS = [
+    { name: 'City Football Cup', sport: 'football',  format: '11-a-side', status: 'ongoing',  venue: 'Chennai',   prizePool: '₹1,00,000', organizer: 'Local Legends' },
+    { name: 'Smash Open',        sport: 'badminton', format: 'Singles',   status: 'upcoming', venue: 'Hyderabad', prizePool: '₹50,000',   organizer: 'Smash Masters' },
+  ];
+  for (const t of TOURNAMENTS) {
+    const existing = await prisma.tournament.findFirst({ where: { name: t.name } });
+    if (!existing) await prisma.tournament.create({ data: t });
+  }
+
+  // ── Grounds per sport ──
+  const GROUNDS = [
+    { name: 'Marina Football Arena', location: 'Chennai',   price: 1500, sport: 'football',  facilities: ['Floodlights', 'Turf', 'Changing rooms'] },
+    { name: 'Indoor Shuttle Hall',   location: 'Hyderabad', price: 600,  sport: 'badminton', facilities: ['Wooden courts', 'AC', 'Seating'] },
+  ];
+  for (const g of GROUNDS) {
+    const existing = await prisma.ground.findFirst({ where: { name: g.name } });
+    if (!existing) await prisma.ground.create({ data: g });
+  }
+
   const counts = await prisma.player.groupBy({ by: ['sport'], _count: true });
   console.log('\nPlayers by sport:', counts.map(c => `${c.sport}:${c._count}`).join('  '));
+  const mc = await prisma.match.groupBy({ by: ['sport'], _count: true });
+  console.log('Matches by sport:', mc.map(c => `${c.sport}:${c._count}`).join('  '));
   console.log(`Done. Created ${created} new players.`);
 }
 
