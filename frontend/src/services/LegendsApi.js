@@ -206,6 +206,35 @@ class LegendsApi {
     }
   }
 
+  // Community feed posts
+  async getPosts(params = {}) {
+    try {
+      const qs = Object.entries(params).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+      const json = await this.request('/posts' + (qs ? `?${qs}` : ''));
+      return { success: true, data: json.posts || [] };
+    } catch (error) {
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  async createPost({ sport = 'cricket', text, team }) {
+    try {
+      const json = await this.request('/posts', { method: 'POST', body: { sport, text, team } });
+      return { success: true, data: json.post };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async likePost(id) {
+    try {
+      const json = await this.request(`/posts/${id}/like`, { method: 'POST' });
+      return { success: true, data: json.post };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Single player (incl. team + stats JSON).
   async getPlayer(id) {
     try {

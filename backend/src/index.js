@@ -26,6 +26,7 @@ import lookingForRoutes from './routes/looking-for.js';
 import coachingRoutes from './routes/coaching.js';
 import umpiresRoutes from './routes/umpires.js';
 import scorersRoutes from './routes/scorers.js';
+import postsRoutes from './routes/posts.js';
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use('/looking-for', lookingForRoutes);
 app.use('/coaching', coachingRoutes);
 app.use('/umpires', umpiresRoutes);
 app.use('/scorers', scorersRoutes);
+app.use('/posts', postsRoutes);
 
 // Not found
 app.use((req, res) => res.status(404).json({ error: 'Not Found' }));

@@ -555,3 +555,17 @@ model MatchMVP {
   reason    String?
   votes     Int      @default(0)
 }
+
+// Community feed post (shared by players, per sport)
+model Post {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  sport      String   @default("cricket")
+  authorId   String?
+  authorName String
+  team       String?
+  text       String
+  likes      Int      @default(0)
+
+  @@index([sport, createdAt])
+}

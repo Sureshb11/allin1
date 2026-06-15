@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList,
-  StatusBar, ActivityIndicator,
+  StatusBar, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -53,17 +53,43 @@ export default function SportFeedScreen({ navigation }) {
   const sportName = sport?.name || cap(sportId);
 
   const [matches, setMatches] = useState([]);
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showCompose, setShowCompose] = useState(false);
+  const [composeText, setComposeText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
-    legendsApi.getLiveScores({ sport: sportId }).then((res) => {
-      setMatches(res?.data || []);
+    Promise.all([
+      legendsApi.getLiveScores({ sport: sportId }),
+      legendsApi.getPosts({ sport: sportId }),
+    ]).then(([mr, pr]) => {
+      setMatches(mr?.data || []);
+      setPosts(pr?.data || []);
       setLoading(false);
     });
   }, [sportId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const submitPost = async () => {
+    const t = composeText.trim();
+    if (!t) return;
+    setSubmitting(true);
+    const res = await legendsApi.createPost({ sport: sportId, text: t });
+    setSubmitting(false);
+    if (res.success) {
+      setComposeText('');
+      setShowCompose(false);
+      setPosts((prev) => [res.data, ...prev]);
+    }
+  };
+
+  const onLike = async (id) => {
+    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, likes: (p.likes || 0) + 1 } : p)));
+    legendsApi.likePost(id);
+  };
 
   return (
     <View style={s.root}>
@@ -113,19 +139,72 @@ export default function SportFeedScreen({ navigation }) {
         )}
 
         {/* community */}
-        <View style={[s.sectionHead, { marginTop: 18 }]}>
+        <View style={[s.sectionHead, { marginTop: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={s.sectionTitle}>From the Community</Text>
-        </View>
-        <View style={s.communityCard}>
-          <Icon name="account-group-outline" size={40} color={DS.surfaceHighest} />
-          <Text style={s.emptyTitle}>No posts yet</Text>
-          <Text style={s.emptySub}>Be the first to share a {sportName.toLowerCase()} moment.</Text>
-          <TouchableOpacity style={[s.startBtn, { marginTop: 12 }]} onPress={() => navigation.navigate('CreatePost')}>
-            <Icon name="plus" size={16} color={DS.bg} />
-            <Text style={s.startTxt}>Create a post</Text>
+          <TouchableOpacity onPress={() => setShowCompose(true)}>
+            <Text style={{ color: DS.lime, fontSize: 13, fontWeight: '800' }}>+ Post</Text>
           </TouchableOpacity>
         </View>
+        {posts.length === 0 ? (
+          <View style={s.communityCard}>
+            <Icon name="account-group-outline" size={40} color={DS.surfaceHighest} />
+            <Text style={s.emptyTitle}>No posts yet</Text>
+            <Text style={s.emptySub}>Be the first to share a {sportName.toLowerCase()} moment.</Text>
+            <TouchableOpacity style={[s.startBtn, { marginTop: 12 }]} onPress={() => setShowCompose(true)}>
+              <Icon name="plus" size={16} color={DS.bg} />
+              <Text style={s.startTxt}>Create a post</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          posts.map((p) => (
+            <View key={p.id} style={s.postCard}>
+              <View style={s.postHead}>
+                <View style={s.postAvatar}><Text style={s.badgeTxt}>{initials(p.authorName || 'You')}</Text></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.postAuthor}>{p.authorName}</Text>
+                  {!!p.team && <Text style={s.postTeam}>{p.team}</Text>}
+                </View>
+              </View>
+              <Text style={s.postText}>{p.text}</Text>
+              <TouchableOpacity style={s.likeRow} onPress={() => onLike(p.id)} hitSlop={8}>
+                <Icon name="heart-outline" size={17} color={DS.textMuted} />
+                <Text style={s.likeTxt}>{p.likes || 0}</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
       </ScrollView>
+
+      {/* compose modal */}
+      <Modal visible={showCompose} transparent animationType="slide" onRequestClose={() => setShowCompose(false)}>
+        <View style={s.modalBackdrop}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowCompose(false)} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={s.sheet}>
+              <View style={s.grab} />
+              <Text style={s.sheetTitle}>Share a {sportName.toLowerCase()} moment</Text>
+              <TextInput
+                style={s.composeInput}
+                placeholder={`What's happening in ${sportName.toLowerCase()}?`}
+                placeholderTextColor={DS.textMuted}
+                value={composeText}
+                onChangeText={setComposeText}
+                multiline
+                autoFocus
+                maxLength={500}
+              />
+              <TouchableOpacity
+                style={[s.startBtn, { alignSelf: 'flex-end', opacity: composeText.trim() ? 1 : 0.5 }]}
+                onPress={submitPost}
+                disabled={!composeText.trim() || submitting}
+              >
+                <Icon name="send" size={15} color={DS.bg} />
+                <Text style={s.startTxt}>{submitting ? 'Posting…' : 'Post'}</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -166,4 +245,19 @@ const s = StyleSheet.create({
   emptySub: { color: DS.textMuted, fontSize: 13 },
   startBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: DS.lime, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16, marginTop: 8 },
   startTxt: { color: DS.bg, fontSize: 13, fontWeight: '800' },
+
+  postCard: { backgroundColor: DS.surfaceLow, marginHorizontal: 16, marginTop: 12, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: DS.line },
+  postHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  postAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
+  postAuthor: { color: DS.textPrimary, fontSize: 14, fontWeight: '800' },
+  postTeam: { color: DS.textMuted, fontSize: 12, marginTop: 1 },
+  postText: { color: DS.textVariant, fontSize: 14, lineHeight: 20 },
+  likeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
+  likeTxt: { color: DS.textMuted, fontSize: 13, fontWeight: '700' },
+
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheet: { backgroundColor: DS.surfaceLow, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, paddingBottom: 28 },
+  grab: { width: 40, height: 4, borderRadius: 2, backgroundColor: DS.surfaceHighest, alignSelf: 'center', marginBottom: 12 },
+  sheetTitle: { color: DS.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 10 },
+  composeInput: { backgroundColor: DS.surfaceHigh, borderRadius: 12, padding: 14, color: DS.textPrimary, fontSize: 15, minHeight: 90, textAlignVertical: 'top' },
 });
