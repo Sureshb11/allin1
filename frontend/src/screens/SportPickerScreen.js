@@ -275,8 +275,9 @@ export default function SportPickerScreen({ navigation }) {
     // Record the chosen sport on the user's profile (no-op if not logged in).
     legendsApi.selectPrimarySport(cell.id);
     // Cricket skips the "select format" screen and goes straight into the app.
+    // Reset so the Arena picker isn't left under MainApp (back must not return here).
     if (cell.id === 'cricket') {
-      navigation.push('MainApp', { sport });
+      navigation.reset({ index: 0, routes: [{ name: 'MainApp', params: { sport } }] });
     } else {
       navigation.push('SportSetup', { sport });
     }

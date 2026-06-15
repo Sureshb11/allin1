@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {StatusBar} from 'react-native';
+import {StatusBar, View} from 'react-native';
 import 'react-native-gesture-handler';
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
@@ -7,6 +7,7 @@ import AuthNavigator from './src/navigation/AuthNavigator';
 import AppNavigator from './src/navigation/AppNavigator';
 import SportPickerScreen from './src/screens/SportPickerScreen';
 import SportSetupScreen from './src/screens/SportSetupScreen';
+import legendsApi from './src/services/LegendsApi';
 
 const Stack = createStackNavigator();
 
@@ -17,6 +18,20 @@ const DEV_BYPASS_LOGIN = false;
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  // Restore a saved session on launch so reopening the app doesn't re-prompt OTP.
+  useEffect(() => {
+    legendsApi.loadToken().then((token) => {
+      setIsAuthenticated(!!token);
+      setReady(true);
+    });
+  }, []);
+
+  if (!ready) {
+    // brief splash while we read the persisted token
+    return <View style={{ flex: 1, backgroundColor: '#0f131f' }} />;
+  }
 
   return (
     <>

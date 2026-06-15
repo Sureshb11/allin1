@@ -1,12 +1,15 @@
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiConfig from '../config/apiConfig';
+
+const TOKEN_KEY = 'll_auth_token';
 
 class LegendsApi {
   constructor() {
     this.baseURL = (typeof global !== 'undefined' && global.API_BASE_URL) 
       ? global.API_BASE_URL 
       : apiConfig.BASE_URL;
-    this.token = null; // in-memory JWT
+    this.token = null; // in-memory JWT (persisted to AsyncStorage)
 
     // Mock data for development/fallbacks where API isn’t implemented
     this.mockData = {
@@ -50,6 +53,30 @@ class LegendsApi {
         }
       ]
     };
+  }
+
+  // ── Auth token persistence ──────────────────────────────────────────
+  async setToken(token) {
+    this.token = token || null;
+    try {
+      if (token) await AsyncStorage.setItem(TOKEN_KEY, token);
+      else await AsyncStorage.removeItem(TOKEN_KEY);
+    } catch { /* ignore storage errors */ }
+  }
+
+  // Restore a saved session on app launch. Returns the token (or null).
+  async loadToken() {
+    try {
+      const t = await AsyncStorage.getItem(TOKEN_KEY);
+      if (t) this.token = t;
+      return t || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async logout() {
+    await this.setToken(null);
   }
 
   // Internal fetch helper with 15s timeout + 1 auto-retry on network error
@@ -285,7 +312,7 @@ class LegendsApi {
         method: 'POST',
         body: { phone, otp, countryCode },
       });
-      this.token = json.token;
+      await this.setToken(json.token);
       return {
         success: true,
         data: { ...json.user, token: json.token },
@@ -303,7 +330,7 @@ class LegendsApi {
         method: 'POST',
         body: signupData,
       });
-      this.token = json.token;
+      await this.setToken(json.token);
       return { success: true, data: { ...json.user, token: json.token } };
     } catch (error) {
       return { success: false, error: error.message };
@@ -315,7 +342,7 @@ class LegendsApi {
     try {
       const json = await this.request('/auth/login', { method: 'POST', body: credentials });
       // store token for subsequent requests
-      this.token = json.token;
+      await this.setToken(json.token);
       return { success: true, data: { ...json.user, token: json.token } };
     } catch (error) {
       return { success: false, error: error.message };

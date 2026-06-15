@@ -331,7 +331,8 @@ export default function SportSetupScreen({ route, navigation }) {
     // Store in singleton so HomeScreen always reads the latest selection,
     // bypassing the unreliable initialParams chain in nested navigators.
     setSelectedSport(sport, selectedFormat);
-    navigation.replace('MainApp', { sport, format: selectedFormat });
+    // Reset the stack so back from the app doesn't return to setup/Arena picker.
+    navigation.reset({ index: 0, routes: [{ name: 'MainApp', params: { sport, format: selectedFormat } }] });
   };
 
   const headerTranslate = headerAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] });
