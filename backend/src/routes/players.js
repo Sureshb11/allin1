@@ -5,7 +5,13 @@ import { prisma } from '../lib/prisma.js';
 const router = Router();
 
 router.get('/', async (req, res) => {
-  const players = await prisma.player.findMany({ include: { team: true }, take: 100 });
+  // Optional filters: ?sport=cricket  ?teamId=...  ?userId=...
+  const { sport, teamId, userId } = req.query;
+  const where = {};
+  if (sport) where.sport = String(sport);
+  if (teamId) where.teamId = String(teamId);
+  if (userId) where.userId = String(userId);
+  const players = await prisma.player.findMany({ where, include: { team: true }, take: 100 });
   res.json({ players });
 });
 

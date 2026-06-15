@@ -88,7 +88,7 @@ export default function FindCricketersScreen({ navigation }) {
 
   useEffect(() => {
     let alive = true;
-    legendsApi.getPlayers().then((res) => {
+    legendsApi.getPlayers({ sport: 'cricket' }).then((res) => {
       if (!alive) return;
       const list = (res?.data || []).map(mapPlayer).filter(Boolean);
       if (list.length) setPlayers(list);

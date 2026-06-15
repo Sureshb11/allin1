@@ -161,10 +161,14 @@ class LegendsApi {
     }
   }
 
-  // Player Management
-  async getPlayers() {
+  // Player Management. Optional filters: { sport, teamId, userId }.
+  async getPlayers(params = {}) {
     try {
-      const json = await this.request('/players');
+      const qs = Object.entries(params)
+        .filter(([, v]) => v != null && v !== '')
+        .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+        .join('&');
+      const json = await this.request('/players' + (qs ? `?${qs}` : ''));
       return { success: true, data: json.players || [] };
     } catch (error) {
       return { success: true, data: this.mockData.players };

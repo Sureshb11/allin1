@@ -4,8 +4,14 @@ import { prisma } from '../lib/prisma.js';
 
 const router = Router();
 
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
+  // Optional filters: ?sport=cricket  ?status=live
+  const { sport, status } = req.query;
+  const where = {};
+  if (sport) where.sport = String(sport);
+  if (status) where.status = String(status);
   const matches = await prisma.match.findMany({
+    where,
     include: { team1: true, team2: true },
     orderBy: { createdAt: 'desc' },
     take: 50,
