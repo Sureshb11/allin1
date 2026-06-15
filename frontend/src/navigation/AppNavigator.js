@@ -16,6 +16,7 @@ import HomeScreen from '../screens/HomeScreen';
 import CricketFeedScreen from '../screens/CricketFeedScreen';
 import SportFeedScreen from '../screens/SportFeedScreen';
 import FindCricketersScreen from '../screens/FindCricketersScreen';
+import MySportsScreen from '../screens/MySportsScreen';
 import LiveScoresScreen from '../screens/LiveScoresScreen';
 import ScoringScreen from '../screens/ScoringScreen';
 import TeamManagementScreen from '../screens/TeamManagementScreen';
@@ -350,6 +351,11 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
     <Stack.Screen
       name="FindCricketers"
       component={FindCricketersScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="MySports"
+      component={MySportsScreen}
       options={{ headerShown: false }}
     />
     <Stack.Screen name="LookingFor" component={LookingForScreen} options={{ headerShown: false }} />
