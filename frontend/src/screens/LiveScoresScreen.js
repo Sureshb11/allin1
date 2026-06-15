@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport } from '../utils/selectedSport';
 
 const DS = {
   bg: '#0f131f',
@@ -83,6 +84,11 @@ function TeamRow({ name, score }) {
 }
 
 export default function LiveScoresScreen({ navigation }) {
+  // Scope scores to the active sport.
+  const activeSport = getSelectedSport().sport;
+  const sportId = activeSport?.id || 'cricket';
+  const sportIcon = activeSport?.icon || 'cricket';
+
   const [matches, setMatches] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -90,7 +96,7 @@ export default function LiveScoresScreen({ navigation }) {
 
   const loadMatches = async () => {
     try {
-      const res = await legendsApi.getLiveScores();
+      const res = await legendsApi.getLiveScores({ sport: sportId });
       if (res.success) {
         setMatches((res.data || []).map(m => ({
           id: m.id,
@@ -127,7 +133,7 @@ export default function LiveScoresScreen({ navigation }) {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Icon name="cricket" size={20} color={DS.textMuted} />
+        <Icon name={sportIcon} size={20} color={DS.textMuted} />
         <Text style={styles.headerTitle}>Live Scores</Text>
         <View style={styles.liveIndicator}>
           <View style={styles.liveDotHeader} />
@@ -162,7 +168,7 @@ export default function LiveScoresScreen({ navigation }) {
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Icon name="cricket" size={52} color={DS.textMuted} />
+            <Icon name={sportIcon} size={52} color={DS.textMuted} />
             <Text style={styles.emptyTitle}>No matches found</Text>
             <Text style={styles.emptySub}>Start a match from the Home screen</Text>
           </View>
