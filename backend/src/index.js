@@ -34,6 +34,13 @@ app.use(helmet());
 app.use(express.json());
 app.use(morgan('dev'));
 
+app.get('/', (req, res) => res.json({
+  service: 'local-legends-api',
+  status: 'ok',
+  version: '1.0.1',
+  health: '/health',
+}));
+
 app.get('/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
