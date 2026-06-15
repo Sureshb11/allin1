@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Plus+Jakarta+Sans:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-container-highest": "#313442",
+            "inverse-on-surface": "#2c303d",
+            "outline-variant": "#434656",
+            "on-primary-fixed-variant": "#0038b6",
+            "tertiary": "#abd600",
+            "surface-container-high": "#262a37",
+            "primary": "#b7c4ff",
+            "on-tertiary": "#283500",
+            "tertiary-container": "#576e00",
+            "inverse-primary": "#004ced",
+            "background": "#0f131f",
+            "on-secondary-container": "#521300",
+            "tertiary-fixed-dim": "#abd600",
+            "on-tertiary-container": "#c5f600",
+            "on-error": "#690005",
+            "surface-bright": "#353946",
+            "secondary-container": "#ff571a",
+            "tertiary-fixed": "#c3f400",
+            "surface": "#0f131f",
+            "on-surface": "#dfe2f3",
+            "primary-fixed": "#dde1ff",
+            "on-secondary-fixed": "#3a0b00",
+            "on-background": "#dfe2f3",
+            "surface-container-lowest": "#0a0e1a",
+            "on-primary-container": "#dfe3ff",
+            "on-surface-variant": "#c3c5d9",
+            "inverse-surface": "#dfe2f3",
+            "on-error-container": "#ffdad6",
+            "surface-tint": "#b7c4ff",
+            "on-secondary-fixed-variant": "#852400",
+            "secondary": "#ffb59e",
+            "error": "#ffb4ab",
+            "surface-container": "#1b1f2c",
+            "on-tertiary-fixed": "#161e00",
+            "secondary-fixed": "#ffdbd0",
+            "on-tertiary-fixed-variant": "#3c4d00",
+            "surface-dim": "#0f131f",
+            "on-primary": "#002682",
+            "primary-fixed-dim": "#b7c4ff",
+            "error-container": "#93000a",
+            "outline": "#8d90a2",
+            "secondary-fixed-dim": "#ffb59e",
+            "on-primary-fixed": "#001452",
+            "surface-container-low": "#171b28",
+            "primary-container": "#0052ff",
+            "on-secondary": "#5e1700",
+            "surface-variant": "#313442"
+          },
+          fontFamily: {
+            "headline": ["Lexend"],
+            "body": ["Plus Jakarta Sans"],
+            "label": ["Lexend"]
+          },
+          borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0f131f;
+      color: #dfe2f3;
+    }
+    .headline-font { font-family: 'Lexend', sans-serif; }
+    .glass-effect {
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#0f131f]/60 backdrop-blur-md flex items-center justify-between px-6 h-16 w-full">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#dfe2f3] hover:bg-[#353946] transition-colors p-2 rounded-full cursor-pointer">menu</span>
+<h1 class="text-2xl font-black italic tracking-tighter text-[#dfe2f3] headline-font">Local Legends</h1>
+</div>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container scale-95 transition-transform active:scale-90 cursor-pointer">
+<img alt="Profile" data-alt="close-up portrait of a young male athlete with a focused expression, high contrast studio lighting with deep shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA405jZHYzBKx_gaIDyuG6f1hyDnjIghPY5uRe258x4bDvY_K6jzDtX3NLMU8Ap24mFSL8yHGtaucNAODsRKZfA3XDDWTIQ5w3K0SVrU3JvO4dlGOmaZ6msZHjwYQ-r04zgnn5ilVyqei05ZMROIkmpkaQljSZdvPvNxsid810N6fDqSw8driQaZHmDoQOLhDrzccarLtRXTonWPgs2azLwRkjfbtyQrTnXOrfLVZZgN9oCDPODSIa1Za69d2UxSFQ7WgFyNg7LWts"/>
+</div>
+</header>
+<main class="pt-20 px-4 md:px-8 max-w-7xl mx-auto">
+<!-- Header Section with Search -->
+<section class="mt-8 mb-10">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="flex-1">
+<p class="font-label text-tertiary text-xs uppercase tracking-[0.2em] mb-2">Athlete Hub</p>
+<h2 class="font-headline text-4xl md:text-5xl font-black tracking-tighter leading-none mb-6">MY TEAMS</h2>
+<!-- Search Bar -->
+<div class="relative group max-w-xl">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full bg-surface-container-low border-b-2 border-surface-container-highest focus:border-tertiary text-on-surface py-4 pl-12 pr-4 outline-none transition-all font-body" placeholder="Find your squad..." type="text"/>
+</div>
+</div>
+<!-- Create Team Card (Prominent) -->
+<div class="surface-container-high p-6 rounded-xl border-l-4 border-tertiary flex flex-col justify-between h-40 w-full md:w-80 group cursor-pointer hover:bg-surface-bright transition-all">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-tertiary text-3xl">add_circle</span>
+<span class="text-[10px] font-label text-on-surface-variant tracking-widest uppercase">New Venture</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-xl leading-tight">Start a New Legend</h3>
+<p class="text-xs text-on-surface-variant font-body mt-1">Create and manage your own squad</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Teams Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+<!-- Team Card 1: Manager Role -->
+<div class="bg-surface-container-high rounded-xl overflow-hidden flex flex-col group hover:scale-[1.01] transition-transform duration-300">
+<div class="h-3 bg-gradient-to-r from-primary-container to-primary"></div>
+<div class="p-6 flex-1">
+<div class="flex justify-between items-start mb-6">
+<div class="w-16 h-16 rounded-xl bg-surface-container-highest flex items-center justify-center p-2">
+<img alt="Team Logo" class="w-full h-full object-contain" data-alt="professional sports team crest featuring a stylized lion in gold and navy colors on a clean background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJxb-kLN8X8TgbirNE4P51XBi7X9fs9S-vmHB_GTEcM5EYafAR_S5egK2LrqPR1N3E_L9VZRzWj3X8smg_xTI4jnFzQS-sOQWIEB9eJWKP3zjKsHe9DuYt-gctuQ5DLd8O4fIXpwGdw_HJY2zW668WmE1dlz0JohOpNceZzcs8jn8WueWU_6iXZLFv2_KGfgYu0DL6r5cykcyLRSrPgTxqY09-UcV9zYm3riBHegOHA1-73eG-3v4NYGK8FV8A9j7YAORBW4ARR4c"/>
+</div>
+<div class="text-right">
+<span class="bg-tertiary/10 text-tertiary text-[10px] font-label font-bold px-2 py-1 rounded border border-tertiary/20 uppercase tracking-wider">Manager</span>
+<p class="text-[10px] text-on-surface-variant font-body mt-2">Cricket</p>
+</div>
+</div>
+<h3 class="font-headline text-2xl font-bold mb-1">Southside Strikers</h3>
+<div class="flex items-center gap-4 mb-6">
+<div class="flex items-center gap-1">
+<span class="text-primary font-headline font-bold">12</span><span class="text-[10px] text-outline font-label">W</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="text-secondary font-headline font-bold">4</span><span class="text-[10px] text-outline font-label">L</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="text-on-surface-variant font-headline font-bold">1</span><span class="text-[10px] text-outline font-label">D</span>
+</div>
+</div>
+<!-- Momentum Meter -->
+<div class="mb-6">
+<div class="flex justify-between text-[10px] font-label text-outline mb-1 uppercase tracking-tighter">
+<span>Win Rate</span>
+<span>75%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-tertiary w-3/4"></div>
+</div>
+</div>
+</div>
+<button class="w-full py-4 bg-surface-container-highest hover:bg-primary-container hover:text-white transition-colors font-label text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+          View Team <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<!-- Team Card 2: Captain Role -->
+<div class="bg-surface-container-high rounded-xl overflow-hidden flex flex-col group hover:scale-[1.01] transition-transform duration-300">
+<div class="h-3 bg-gradient-to-r from-secondary-container to-secondary"></div>
+<div class="p-6 flex-1">
+<div class="flex justify-between items-start mb-6">
+<div class="w-16 h-16 rounded-xl bg-surface-container-highest flex items-center justify-center p-2">
+<img alt="Team Logo" class="w-full h-full object-contain" data-alt="minimalist soccer club logo with geometric shield and lightning bolt in vibrant orange and black" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxg40epuqEBcGvM3X74c9mhEJYtfMUuTVigU-P0rRWHF3tBuPOKHFxHqfsI53zrp6-WLTz-c-w8J1QobS6H8qdaAJa5xSIMkC9sIrQBs0IGbAjDG8Do5RQNZlUqsVwYQkUjJjw-Zrux84G_uEWYUszDrYMBc16swqexNfFg8f9kBJLFyW5WROKVo7GFaqXlhDmtL73VjzCUbXvwDvvTJBL7Vh4Gjc3s07ucluPVpBAVXqK0bdjcK1HlmfkQn7fnKsxrnupdsB0KKY"/>
+</div>
+<div class="text-right">
+<span class="bg-primary/10 text-primary text-[10px] font-label font-bold px-2 py-1 rounded border border-primary/20 uppercase tracking-wider">Captain</span>
+<p class="text-[10px] text-on-surface-variant font-body mt-2">Football</p>
+</div>
+</div>
+<h3 class="font-headline text-2xl font-bold mb-1">Neon Knights FC</h3>
+<div class="flex items-center gap-4 mb-6">
+<div class="flex items-center gap-1">
+<span class="text-primary font-headline font-bold">8</span><span class="text-[10px] text-outline font-label">W</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="text-secondary font-headline font-bold">2</span><span class="text-[10px] text-outline font-label">L</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="text-on-surface-variant font-headline font-bold">5</span><span class="text-[10px] text-outline font-label">D</span>
+</div>
+</div>
+<div class="mb-6">
+<div class="flex justify-between text-[10px] font-label text-outline mb-1 uppercase tracking-tighter">
+<span>Win Rate</span>
+<span>53%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[53%]"></div>
+</div>
+</div>
+</div>
+<button class="w-full py-4 bg-surface-container-highest hover:bg-secondary-container hover:text-white transition-colors font-label text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+          View Team <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<!-- Team Card 3: Player Role -->
+<div class="bg-surface-container-high rounded-xl overflow-hidden flex flex-col group hover:scale-[1.01] transition-transform duration-300">
+<div class="h-3 bg-gradient-to-r from-surface-bright to-surface-container-highest"></div>
+<div class="p-6 flex-1">
+<div class="flex justify-between items-start mb-6">
+<div class="w-16 h-16 rounded-xl bg-surface-container-highest flex items-center justify-center p-2">
+<img alt="Team Logo" class="w-full h-full object-contain" data-alt="basketball team emblem featuring a roaring wolf and basketball graphic in electric purple and silver tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB0J0OCD8XucL5hKTiV9nNWNlOgWK-gextKxRCGmjFrxcDhuwGAfPanwvaHPGq5MAWHy0x-rFvWbr5nzJpL1yz_vcv2NmrAfttF-LCpxr98frhHKslloYiBzBj4konJd2XUd-AksrumIZ215w07POwaz97Y1kFl-H7L8vTw3IeDJc_cfDm3nxiGtDc5o0ybSbyE__POubISwxEooRNI5ZgvUXN7XqH3b_CuqGnVL1ePPmeKuQtpfwpHX5zrub_4jUayTuMyJFhGMAM"/>
+</div>
+<div class="text-right">
+<span class="bg-on-surface-variant/10 text-on-surface-variant text-[10px] font-label font-bold px-2 py-1 rounded border border-on-surface-variant/20 uppercase tracking-wider">Player</span>
+<p class="text-[10px] text-on-surface-variant font-body mt-2">Basketball</p>
+</div>
+</div>
+<h3 class="font-headline text-2xl font-bold mb-1">Metro Mavericks</h3>
+<div class="flex items-center gap-4 mb-6">
+<div class="flex items-center gap-1">
+<span class="text-primary font-headline font-bold">15</span><span class="text-[10px] text-outline font-label">W</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="text-secondary font-headline font-bold">1</span><span class="text-[10px] text-outline font-label">L</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="text-on-surface-variant font-headline font-bold">0</span><span class="text-[10px] text-outline font-label">D</span>
+</div>
+</div>
+<div class="mb-6">
+<div class="flex justify-between text-[10px] font-label text-outline mb-1 uppercase tracking-tighter">
+<span>Win Rate</span>
+<span>94%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[94%] shadow-[0_0_8px_rgba(183,196,255,0.4)]"></div>
+</div>
+</div>
+</div>
+<button class="w-full py-4 bg-surface-container-highest hover:bg-surface-bright transition-colors font-label text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+          View Team <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</section>
+<!-- Empty State / Suggestion -->
+<div class="bg-surface-container-low rounded-xl p-8 flex flex-col items-center text-center border-2 border-dashed border-surface-container-highest">
+<div class="w-16 h-16 bg-surface-container-high rounded-full flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-tertiary text-3xl">sports_kabaddi</span>
+</div>
+<h4 class="font-headline text-xl font-bold mb-2">Looking for more action?</h4>
+<p class="text-on-surface-variant text-sm max-w-md mb-6 font-body">Browse local teams looking for players in your area and join a new league today.</p>
+<button class="px-8 py-3 bg-tertiary text-on-tertiary font-label text-sm font-black uppercase tracking-widest rounded hover:shadow-[0_0_20px_rgba(171,214,0,0.4)] transition-all active:scale-95">Explore Leagues</button>
+</div>
+</main>
+<!-- FAB -->
+<button class="fixed bottom-24 right-6 w-16 h-16 bg-gradient-to-br from-[#0052ff] to-[#b7c4ff] text-white rounded-2xl shadow-[0_10px_30px_rgba(0,82,255,0.4)] flex items-center justify-center z-50 hover:scale-110 active:scale-90 transition-transform md:hidden">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">add</span>
+</button>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-3 pb-6 bg-[#0f131f]/80 backdrop-blur-xl z-50 rounded-t-xl shadow-[0_-10px_40px_rgba(0,0,0,0.4)]">
+<a class="flex flex-col items-center justify-center text-[#353946] py-1 px-4 hover:text-[#dfe2f3] transition-all" href="#">
+<span class="material-symbols-outlined mb-1">home</span>
+<span class="font-lexend text-[10px] uppercase font-bold tracking-widest">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#353946] py-1 px-4 hover:text-[#dfe2f3] transition-all" href="#">
+<span class="material-symbols-outlined mb-1">sports_score</span>
+<span class="font-lexend text-[10px] uppercase font-bold tracking-widest">Matches</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-gradient-to-br from-[#0052ff] to-[#b7c4ff] text-white rounded-xl py-1 px-4 shadow-[0_0_15px_rgba(0,82,255,0.4)] scale-110 duration-300" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">groups</span>
+<span class="font-lexend text-[10px] uppercase font-bold tracking-widest">Teams</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#353946] py-1 px-4 hover:text-[#dfe2f3] transition-all" href="#">
+<span class="material-symbols-outlined mb-1">person</span>
+<span class="font-lexend text-[10px] uppercase font-bold tracking-widest">Profile</span>
+</a>
+</nav>
+</body></html>

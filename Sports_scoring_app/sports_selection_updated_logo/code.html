@@ -1,0 +1,342 @@
+<html class="dark"><head></head><body class="bg-background text-on-background font-body min-h-screen flex flex-col h-screen">```html
+
+
+<meta charset="utf-8"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;700;800;900&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-error": "#690005",
+            "surface-container-high": "#262a37",
+            "on-secondary-container": "#521300",
+            "tertiary-fixed": "#c3f400",
+            "secondary-fixed-dim": "#ffb59e",
+            "primary-fixed-dim": "#b7c4ff",
+            "on-tertiary-fixed-variant": "#3c4d00",
+            "surface-container-highest": "#313442",
+            "secondary": "#ffb59e",
+            "background": "#0f131f",
+            "on-primary-container": "#dfe3ff",
+            "surface-variant": "#313442",
+            "on-surface-variant": "#c3c5d9",
+            "surface-container-lowest": "#0a0e1a",
+            "on-primary": "#002682",
+            "on-primary-fixed": "#001452",
+            "surface-bright": "#353946",
+            "outline": "#8d90a2",
+            "on-tertiary-container": "#c5f600",
+            "primary-fixed": "#dde1ff",
+            "tertiary": "#abd600",
+            "surface": "#0f131f",
+            "on-error-container": "#ffdad6",
+            "outline-variant": "#434656",
+            "surface-tint": "#b7c4ff",
+            "tertiary-container": "#576e00",
+            "on-secondary-fixed-variant": "#852400",
+            "primary": "#b7c4ff",
+            "on-background": "#dfe2f3",
+            "primary-container": "#0052ff",
+            "error": "#ffb4ab",
+            "on-secondary": "#5e1700",
+            "tertiary-fixed-dim": "#abd600",
+            "surface-container": "#1b1f2c",
+            "inverse-on-surface": "#2c303d",
+            "inverse-primary": "#004ced",
+            "secondary-container": "#ff571a",
+            "surface-dim": "#0f131f",
+            "error-container": "#93000a",
+            "secondary-fixed": "#ffdbd0",
+            "inverse-surface": "#dfe2f3",
+            "on-tertiary-fixed": "#161e00",
+            "on-surface": "#dfe2f3",
+            "on-primary-fixed-variant": "#0038b6",
+            "surface-container-low": "#171b28",
+            "on-secondary-fixed": "#3a0b00",
+            "on-tertiary": "#283500"
+          },
+          fontFamily: {
+            "headline": ["Lexend"],
+            "body": ["Plus Jakarta Sans"],
+            "label": ["Lexend"]
+          },
+          borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .gradient-cta {
+      background: linear-gradient(135deg, #0052ff 0%, #b7c4ff 100%);
+    }
+    .glass-effect {
+      background: rgba(23, 27, 40, 0.6);
+      backdrop-filter: blur(20px);
+    }
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<!-- TopAppBar -->
+<header class="bg-[#0f131f] text-[#dfe2f3] font-['Lexend'] font-bold tracking-tight flex items-center justify-between px-6 py-4 w-full docked full-width top-0 z-50">
+<div class="flex items-center gap-4">
+<button class="hover:bg-[#353946] transition-colors p-2 rounded-full active:scale-90 transition-transform text-primary">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<!-- New Logo Structure -->
+<div class="flex items-center gap-2">
+<div class="bg-[#abd600] p-1.5 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-xl" data-icon="star_rate" style="font-variation-settings: 'FILL' 1;">star_rate</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-white text-xl font-black italic tracking-tighter uppercase">Local</span>
+<span class="bg-[#abd600] text-white text-xl font-black italic tracking-tighter uppercase px-2 py-0.5 rounded leading-tight">Legends</span>
+</div>
+</div>
+</div>
+<div class="w-10"></div>
+</header>
+<main class="flex-grow flex flex-col items-center px-6 py-12 relative overflow-hidden overflow-y-auto">
+<!-- Decorative Kinetic Background Element -->
+<div class="absolute -top-24 -right-24 w-96 h-96 bg-primary-container opacity-10 rounded-full blur-[120px]"></div>
+<div class="absolute -bottom-24 -left-24 w-96 h-96 bg-tertiary opacity-10 rounded-full blur-[120px]"></div>
+<div class="max-w-xl w-full space-y-12 relative z-10">
+<!-- Title Section -->
+<div class="space-y-2">
+<h1 class="font-headline text-5xl md:text-7xl font-black uppercase tracking-tighter leading-none">
+          Join the <br/>
+<span class="text-tertiary italic">Team</span>
+</h1>
+<div class="h-1 w-24 bg-tertiary"></div>
+</div>
+<!-- Form Section -->
+<div class="space-y-10">
+<!-- Input Field -->
+<div class="group relative">
+<label class="block font-label text-xs font-bold uppercase tracking-widest text-outline mb-2 group-focus-within:text-tertiary transition-colors" for="full-name">
+            Full Name
+          </label>
+<input class="w-full bg-transparent border-t-0 border-x-0 border-b-2 border-surface-container-highest text-2xl md:text-3xl font-headline font-bold focus:ring-0 focus:border-tertiary transition-all placeholder:text-surface-variant uppercase tracking-tight py-4" id="full-name" placeholder="ENTER YOUR NAME" type="text"/>
+</div>
+<!-- Sports Selection Grid -->
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<h2 class="font-label text-xs font-bold uppercase tracking-widest text-outline">Select your interests</h2>
+<span class="font-label text-[10px] font-bold text-tertiary uppercase">Choose 3 or more</span>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+<!-- Cricket -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLCMpvWLWRgd4p61tZrvTwTa2yXvqqLVb1jOhCWT1OLUxy2Q4vBw0kBa1tFYwtfgn_olhgM4YQfKFZcxJzshNxNiwu9bqzfIoXqai40oUONwpq3K-rciKIQgaaQYQDEx2phkXNSeB7YZNN2KqcQZ5LivQEbsIhPs316aaokhecMxlRGE7ZLQ8TkQA6Y80mn1gSKboSx7NMIxM7hFoESblsoeWtwuXgnClSgfmC_bH5dTeMxlvXJ_FGa_ozKZ5gUcM9K_Zny-ZGS24"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_cricket">sports_cricket</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Cricket</span>
+</div>
+</button>
+<!-- Football -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHFZCUOEFDkruCt9kN-oql815FsV4jp6snHBsScc1wxxk9zkuzfML5mrqHBDh8ELv8RtFkMWIEBnBo0f9a5ZN_5aDFojQ83rHSEmwV34rpAXBp-1wX45nwf3XnAt7ha74qFzE6TjIPbq8m3GVGFpdN02vPdZgMu0xFLe3c-KjSKxxPyCQg0v137628cx6drWr3-r0_zVRHoJ270R5c1Llg_PfBrN9dPvpZt_7DBoPRmAf0p3yKsUXaJ-_WQ2JrzfsnXqfd_ADPtKk"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_soccer">sports_soccer</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Football</span>
+</div>
+</button>
+<!-- Basketball -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4 border-2 border-tertiary">
+<img class="absolute inset-0 w-full h-full object-cover opacity-60 grayscale-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAh3-tAP144sVGH8SbVjuaGGVVivaP2EK-toeGH27celiWgZw_D5qQwnmBMKF3W7XeFIwRnbGiIJGBDav_tsiAR3iD4LR3Q-BoFsuDc9HUMAGhY5xo0D0w0oRuKviE0bF1AlN2Xvr1QQDBT7gyTG8lnAuJpQkqyahBtj0l2Lge1PdmoYdmCS67l5isG2YRU2gRkum8RKRLwyMaP0rxULqSbI3hGAM85soAd4Mo9WXimsRDKjX8kcW3_HhKl76iNy2Y8EtpRfZTnizg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<div class="flex justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_basketball" style="font-variation-settings: 'FILL' 1;">sports_basketball</span>
+<span class="material-symbols-outlined text-tertiary text-sm" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Basketball</span>
+</div>
+</button>
+<!-- Tennis -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDjIbgKVVpOAFjap4Lrz5Rq9LMOrA17IxVo2rtDvQ-u674QCFAaCokY8XIoW3HUSyRB9goZdwRSE0lSj0Zc1XJJybARFn4EXE9sQDVVeSpTC0RkWZNZetJcWMQActekKd99LNTizE3V-vZLytAUO0EDXegjA7hIIMk3FLDHWtfhvJzl_xbtENDah8vzM4R9ATBinVX1fn72ZAi9U0EM2gVKuik-KJkT7_o-jmvNQvY-bbY8fwlFbCxWLr5EXq7TWR8Oh2_h6UXwlY"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_tennis">sports_tennis</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Tennis</span>
+</div>
+</button>
+<!-- Volleyball -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuClstYl_rVodEtYDrtnCZCzKgsKTSz6EtktzUvZjAwWcbUW86G8dTBunGxDSwpByOcqfQDpw03UzuZdBukfeK8IRhZ4ym3na9U_iqGoy_kaJyCjUJrMUrrzXwO8YnHG6FktOjpidngnd5u1Ah-x-8G6kuY_x6M9Nu79ljjxCnBke979VIy18ADhkTeMEFKiFWw5jIsgADXq-nx6R6uW6K92tGrPy9kq4-q91UPo3TaVKdV456OaQNSUfA7A69nwnvHM9grUxOiQQ5c"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_volleyball">sports_volleyball</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Volleyball</span>
+</div>
+</button>
+<!-- Badminton -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyv2vMwRASlkxMu66khZSk-6HygG2yUG_JyF_67ocjUnOhLliGUeA7Io_HXm_bMvLHd6SLxqYTME9tHh5USFuYMhthTOtRxnx5gvs_Lgx4of3dBBbaaJcxwrsjs_vqLTMpATGJOeITtPrDSySySLWsfmGHkY_13s_rnqK6OPMvygqhblgPkPq4rTb4NTQgEfGYftnHLVSbhLuFMVrOP0vtLDPRQmPwnawFmvMiUn0a_KYqwDqL5_gjF6shnO11yazUrOahiFNnvc0"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="badminton">badminton</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Badminton</span>
+</div>
+</button>
+<!-- Table Tennis -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDiORPMB2soBEDQR9XeZU9qLVJhXWTRGZeNDLwGYn2wzz0CwPL_JAxfGwdPhwKqrApPx3S6suO2PH9ib4_0tfsPICxBziQNSjmSGpZ7ou_P_WfkafFlN8svzYdp709SoF8rKfRVGKnl9tcfxtYj8JX1R9pBG2ZiR-n_SIOdIc-_719lAr1X99D59osBpF8HEGCBV_cuyadFkmy01FbtsV9cgzLGnrARFo_XNl7ecGKp2LLmieX7LKdW9D2strfFg8EWvA7nQDJdI0o"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="table_tennis">table_tennis</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Table Tennis</span>
+</div>
+</button>
+<!-- Hockey -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfdrr4xow5GE9VDG3YQZPQFzFazReui-lNimsCUdzISTVbM0WLKEnt_LdGNRy0ARac7MqYyAXV__nvWTPiF7rEXxqrA1z1NuZ0lC46KuMyGvzfQMRsdoUBDIwgLFs97QZn2tTZ5WD8OhjKq-R2vkqlpThS0TWEhjVa1k53XaDiFwefhslzL9F47x4EXIPXu3dXdyvoE6hgHdJVtJ4n9R7Nsu-61VcHooV6WcJO_q94vQIzzZdHeAIbY8Szu2StBO6vmOUhqwGjq48"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_hockey">sports_hockey</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Hockey</span>
+</div>
+</button>
+<!-- Kabaddi -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBir4Fwxsarez3iK4B0k_a-nYWVkGp7S-EvCNYLuVTNeudPKqlAJHmZEtWTxoXf26PzSlBdn71fVI3ZNMia4cQ6tYYAYKzBgImDbOm1M0lF8CWBDElTS7BKWjXUk2oGFaLZVEM6BLlKLlUcdTbMlyRQ3WnNyPfa75hP4Vz280-jW8SmLJ3Si9eUNPxILWlrkhdlivq9Wmro1m5uyCtDshnwWpPbQxFttvpdZGUrgDXaAjvAChUd2tXriP7eCBpHrJUmxQkW1VrNUz8"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="groups">groups</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Kabaddi</span>
+</div>
+</button>
+<!-- Kho-Kho -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdchu8gI_9LOVnDoWK2H9UZ4PI_bWvMQw3LcL712PRTiWvigktFoC6EfKJEcgPRDhTZcgXCKoOSbszAh_SZGZJ8Gvz-vfRtLX3IWgAxzDKX1ccIM-iRict3vBFGfUwVj9ADJVURSA6ENXVJ8MT4nzGozkHjFw8JzfXFexhRQDvPVHIvKjfmFTwmbcHjiMNQ_NTRjqLPIBi8FyTq5PN03MbxvDs6lHFUhJLdf5UIq-aEixXJ5Z_yGoblF_LNZnhd8Z9YJquTiT0GvY"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="directions_run">directions_run</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Kho-Kho</span>
+</div>
+</button>
+<!-- Boxing -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPSz9LTp-EvUjeLdFLJwMoKDha_9k3xwjw5dWaKW9uo7pDhu_12Y7HrWjng9Mz8Yp0vKb3xCGyQqTVFg8mGM7VvfAL4W9BZ3PMXFV1tXSKgOAqkiZ0vXyHz7VJkdfBNqSChWIDLeHJK44ai8o8R2CK3bpYAQPx0KFkifPJg-OfBFKrTvD9r5soN5r9BgdMCBcuowdjkBAMNu9zgabiuMp5Tan6XBZxvi7kY8deZQeo5k2tdcX3PIlS2A08cbw9thdjipQQm5DaRGM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_martial_arts">sports_martial_arts</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Boxing</span>
+</div>
+</button>
+<!-- Karate -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLqJhvgVWI3htS1FFAb8Ba8I7ejnURCf3Kbj_230Jfoh2tLyECNT96YAlBGIqNGErHG5eQx2OkTccB6jrfSdwSs7MLD54BUhtWWWJydsTKiIVVt5-sqpg8F0f-p6dRn20l3l6h6IIQP0LxnKf2LQu6r37cbFtXu81clmnG_OFAN1nUAS0ea6F3bNzwf1Pi4BJIDDuPfcw1c6rx7OpbuZg_zTz0N1e6u7WbsnUZoFzgSz1u7olC7-6ECvKSZ26Ye9gZQL6GBmH15Zw"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="self_improvement">self_improvement</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Karate</span>
+</div>
+</button>
+<!-- Judo -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzG_1DCzpWe0TSz14DYcKGhMz6cstW8Dbyi8Rf8gBaA7rrDQD5QTE0sStulnLmK4Zex4BVSNrGtgrBKtULAHs8xrGzyixI73Fe6HvrMriJY8geoS09Cir_nODqadxLcAq01bYzVhlIoIcd5_On_AF4pSqdzzBfeihU71VjTxerxYtKace13Ui3vND_Eszy05EY1ChSwG6kVmlvtvccTVclzaAoHRjvRLz7SQrhNCa3z2Ym7Jy_doXMtYBALB2pK1i4zJXj20WurdA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="fitness_center">fitness_center</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Judo</span>
+</div>
+</button>
+<!-- Wrestling -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcdXQH2YXIiesoyc3WsLcIARlO8OO2UToBrTpMBu5Sr3tsDYR9B3mnQYrMCuVqw4h_jkY60xWy6Lmz2tpKCddubUd7kpnQCFnCEs89nEmJ2SpZFkKsUwQvQUXVzSR9LJwHnixEbWCkfWIRdJnXojl0LsiT-U4rWkDl3FhP8y8GOjvn9W8YoOSFOcZwYIUaIqB8i-V55faX6yw74Eac3t67f51z_USThVzzjnigJgqTc_ObtK0B-8aQtaOzMfhPshh_atR3Hjfj3P8"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_kabaddi">sports_kabaddi</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Wrestling</span>
+</div>
+</button>
+<!-- Handball -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQUaLUKNItD-kjc1hgQwEcvV6sxq7gUZmP8QGgsP5taieSvQY7HWtH3BWXTYqSOAjXcE-OSTMXt-fw0FKzJTe_Y9bBKUs1pFk5-lTUcilTk32lwWc6uFqApipPxsnQCnA3HzK6ZrZyIbUKD7-OcDbSdY0kUPrnf-VFrRkl_6-SwqbhR5VDSI82IdSjvg-kD-gUjgOaVel3vD13hzvnuo_FLF5euk3ciV2YRKnqW6sR1YZ252_pghYjPkMoaelfImHTASgOYHP2pho"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_handball">sports_handball</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Handball</span>
+</div>
+</button>
+<!-- Golf -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBF99CIeyAcsWD_FymYG10sDaMbh9pMHwSIfoNF4nCPjoEX2VIEnMwYcIiadcw4cWhbeJ1UKEup8-cW9bl1-iNY1Hdo1XrexyPn2fZ1EcEXk2-VK6E_OcLWCdj_g8FIG8zTc--XHsnvtFU2fPLJxD39-qifCMGCMVhUu7Wlwb-VmHfu2d8VUJaHs0H3uws900Udtcf6ZNglCKa51sBMfYpmDQS9I9D4nh1fpV10MJEmloP_2I2yfqa3fNaE5fnUDY-0bnCORx5XY4c"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_golf">sports_golf</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Golf</span>
+</div>
+</button>
+<!-- Archery -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHO-t0dZlxiVVJYHLa5nZ3Ge2f3s6qonqD2vJTpaDHUU2Vf-RKdolvgE9KdmtIVk6a-XGHxhtB78T4FASXfOf_WVyB5z5btyo00NoXwpDt4cF_8ILPnj8TWsI1vyAOeKzT1EQwn9qDPowQ_ryw2jvaU-5ZlkfFjjE6MrfPWZgSocTaphVBTD8cr3Lr97rsgbcqltDa_mH757SWY_HmPoyuYB4AJrqkBeeb0ykSrNExtDUn2n9INkIL5-27nhEy1XxA__yJ1YVNLQ0"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="rebase_edit">rebase_edit</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Archery</span>
+</div>
+</button>
+<!-- Squash -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBSO9OJ-3DNB3mCF4l9oE0S6tqHL57I6DT8rq5Mb9TDuVVpbqk_Rg6-FUCQ40nFFHsBAvRjNKLnlcGfG2x9DhyIVHtbLr7UDcm8-wApO5HPi9eCAmrcGPg1i3KXf6KzRqcAFS7sdAvvA-3mzEcbw7xrnnMmcWOBnrgBAX3_IXZn4STZZhbd6Hh0FictBPqAjN1aw3HLiQ-t6Cj2A1wjrwRXnKy33Jua8OYMole4uy7EpI-T1jbd81CETIZ3r4j00DCzx1kJl8OXSZ8"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_tennis">sports_tennis</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Squash</span>
+</div>
+</button>
+<!-- Pickleball -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9BsckTDwuqPreIynRnMhhrFu55JnUvFnRElsGVsjH54XUnmPPWj6LRxBqjQqpBYJKBitONw_Ah2O84vyYUxi4mTeZvsWb_KHAl8gVCLG9v2vDdzu3zXfML8qUjR6S2XU3OmAMPSneWczbQjMnkoJ2HEj-5v74O5mMUn8bX8pg7qPeeqTxHMXPYrK1a3Qjub72eQMWi9KQRsqVQuGtBb42PEmCy4nr3OS9VRxJX4RZUzWGMfYYcQFWbHK7fmufQcZdS06Dg63YX7s"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_tennis">sports_tennis</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Pickleball</span>
+</div>
+</button>
+<!-- Billiards -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAC83eDrv3tUo6Flrjrx20Vnn2aY5NCDxgVrin9kfrlYIpeL-9cKjFHntH5JnZaCWcaBKnUoPTYaSi5uwFoBrGiNga0bIXjh8G7NauNDo_FgDmaoLYu_oPiqsnOoVPa7yK5DOVPX5yAN89i0MhcvFdUk6n1a0dZCadOEuURLBZ-ojXXE3wxt3BWTB0hDfmJluXOd1BExwU-BG8zrTlHLcm8ezB1IOqti_RkScfWSCAe7F4tjWyzrHBz-Rr_oWx8q05ZAsfBykjVm0s"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="nest_remote">nest_remote</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Billiards</span>
+</div>
+</button>
+<!-- Snowboarding -->
+<button class="group relative h-32 overflow-hidden rounded-xl bg-surface-container-high transition-all active:scale-95 text-left p-4">
+<img class="absolute inset-0 w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0uh9VX2T1Kpoq9CBOwmSh_eCooN0AtpgwF-UhsUfsksjHJJ5sp1GeJ0dDIiRFXKI2J3eMc8hs3tujdsJBPN9Ma44Li5rU99RsRE0Msjr2QGXa-iqF3oB22NYPCVuPlSPLGdfHiCfssCdCGTzVOvUF698bR5KwmPlb70wPZKVQjj_MWdID8ar5auLV5mymUTuE5S-77ew4TV4EkUQrgSvrvt-gsaB14wKVv3RMJ6xj3Cs-0bgy12Sb1VEUrfY5Cg7ZR8OzYyRKSGI"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent"></div>
+<div class="relative flex flex-col h-full justify-between">
+<span class="material-symbols-outlined text-tertiary" data-icon="snowboarding">snowboarding</span>
+<span class="font-headline font-extrabold text-lg uppercase leading-none tracking-tighter">Snowboarding</span>
+</div>
+</button>
+</div>
+</div>
+</div>
+<!-- Action Button -->
+<div class="pt-8 pb-12">
+<button class="w-full gradient-cta text-on-primary font-headline font-black text-xl py-6 rounded-lg uppercase tracking-widest shadow-[0_8px_30px_rgba(0,82,255,0.4)] hover:shadow-[0_8px_40px_rgba(0,82,255,0.6)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+          Start Scoring
+          <span class="material-symbols-outlined font-bold" data-icon="bolt">bolt</span>
+</button>
+<p class="text-center mt-6 font-label text-[10px] text-outline uppercase tracking-[0.2em]">
+          By continuing, you agree to the <span class="text-on-surface underline">Player Terms</span>
+</p>
+</div>
+</div>
+</main>
+```</body></html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Match Summary - Local Legends</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700;800;900&amp;family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-surface-variant": "#c3c5d9",
+                        "inverse-on-surface": "#2c303d",
+                        "tertiary-container": "#576e00",
+                        "surface-tint": "#b7c4ff",
+                        "on-error-container": "#ffdad6",
+                        "error-container": "#93000a",
+                        "primary": "#b7c4ff",
+                        "on-tertiary": "#283500",
+                        "surface-container-high": "#262a37",
+                        "secondary": "#ffb59e",
+                        "surface-container-lowest": "#0a0e1a",
+                        "on-primary-fixed-variant": "#0038b6",
+                        "error": "#ffb4ab",
+                        "on-primary": "#002682",
+                        "on-primary-fixed": "#001452",
+                        "on-primary-container": "#dfe3ff",
+                        "on-tertiary-fixed": "#161e00",
+                        "tertiary-fixed": "#c3f400",
+                        "surface": "#0f131f",
+                        "surface-variant": "#313442",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "on-secondary-fixed": "#3a0b00",
+                        "on-error": "#690005",
+                        "on-secondary-container": "#521300",
+                        "surface-container-highest": "#313442",
+                        "background": "#0f131f",
+                        "on-secondary-fixed-variant": "#852400",
+                        "outline": "#8d90a2",
+                        "secondary-container": "#ff571a",
+                        "outline-variant": "#434656",
+                        "surface-bright": "#353946",
+                        "secondary-fixed": "#ffdbd0",
+                        "on-tertiary-fixed-variant": "#3c4d00",
+                        "primary-container": "#0052ff",
+                        "tertiary": "#abd600",
+                        "surface-dim": "#0f131f",
+                        "tertiary-fixed-dim": "#abd600",
+                        "primary-fixed": "#dde1ff",
+                        "on-secondary": "#5e1700",
+                        "inverse-surface": "#dfe2f3",
+                        "surface-container": "#1b1f2c",
+                        "on-tertiary-container": "#c5f600",
+                        "surface-container-low": "#171b28",
+                        "secondary-fixed-dim": "#ffb59e",
+                        "on-background": "#dfe2f3",
+                        "inverse-primary": "#004ced",
+                        "on-surface": "#dfe2f3"
+                    },
+                    fontFamily: {
+                        "headline": ["Lexend"],
+                        "body": ["Plus Jakarta Sans"],
+                        "label": ["Lexend"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .kinetic-gradient {
+            background: linear-gradient(135deg, #0052ff 0%, #b7c4ff 100%);
+        }
+        .radium-glow {
+            text-shadow: 0 0 12px rgba(171, 214, 0, 0.6);
+        }
+        .stadium-overlay {
+            background: radial-gradient(circle at top, rgba(0, 82, 255, 0.15) 0%, rgba(15, 19, 31, 0) 70%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-tertiary selection:text-on-tertiary antialiased min-h-screen pb-24 overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="bg-[#0f131f]/60 backdrop-blur-md flex justify-between items-center w-full px-6 py-4 fixed top-0 z-50">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#b7c4ff] cursor-pointer hover:bg-[#353946] transition-colors p-2 rounded-full">arrow_back</span>
+<div class="flex items-center gap-2">
+<div class="bg-tertiary p-1 rounded-sm">
+<span class="material-symbols-outlined text-on-tertiary text-lg font-bold" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<div class="flex flex-col leading-none">
+<span class="font-headline font-black text-[#dfe2f3] text-sm tracking-tighter">LOCAL</span>
+<span class="bg-tertiary text-on-tertiary font-headline font-black text-[10px] px-1 rounded-sm self-start">LEGENDS</span>
+</div>
+</div>
+</div>
+<h1 class="font-['Lexend'] uppercase tracking-widest font-bold text-[#dfe2f3] hidden md:block">MATCH SUMMARY</h1>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#b7c4ff] cursor-pointer hover:bg-[#353946] transition-colors p-2 rounded-full">share</span>
+</div>
+</header>
+<main class="pt-24 px-4 max-w-4xl mx-auto stadium-overlay min-h-screen">
+<!-- Victory Banner Section -->
+<section class="text-center mb-12 relative">
+<div class="absolute inset-0 flex justify-center items-center pointer-events-none overflow-hidden -z-10">
+<div class="w-full h-full opacity-20" data-alt="abstract explosion of radium green and neon blue confetti against a deep dark stadium background"></div>
+</div>
+<span class="font-headline font-bold text-tertiary tracking-[0.3em] uppercase text-xs mb-2 block radium-glow">FINAL RESULT</span>
+<h2 class="font-headline font-black text-4xl md:text-6xl text-on-surface leading-none tracking-tight italic uppercase mb-4">
+                GULLY TITANS <br/>
+<span class="text-tertiary radium-glow">WIN BY 5 RUNS</span>
+</h2>
+<div class="flex justify-center gap-2 items-center">
+<span class="h-[2px] w-8 bg-tertiary/30"></span>
+<span class="font-label font-bold text-on-surface-variant text-[10px] tracking-widest uppercase">MATCH ID: #LL-4921</span>
+<span class="h-[2px] w-8 bg-tertiary/30"></span>
+</div>
+</section>
+<!-- Scoreboard Component -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+<!-- Team A -->
+<div class="bg-surface-container-high rounded-xl p-6 flex flex-col items-center border-l-4 border-tertiary relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-8xl" style="font-variation-settings: 'FILL' 1;">shield</span>
+</div>
+<span class="font-headline font-extrabold text-on-surface-variant text-sm mb-4 tracking-widest uppercase">GULLY TITANS</span>
+<div class="flex items-baseline gap-1">
+<span class="font-headline font-black text-5xl text-on-surface">158</span>
+<span class="font-headline font-bold text-2xl text-tertiary">/ 8</span>
+</div>
+<span class="font-body text-on-surface-variant text-xs mt-2 uppercase tracking-tighter">20.0 OVERS</span>
+</div>
+<!-- Team B -->
+<div class="bg-surface-container-low rounded-xl p-6 flex flex-col items-center border-l-4 border-outline-variant relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-8xl" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</div>
+<span class="font-headline font-extrabold text-on-surface-variant text-sm mb-4 tracking-widest uppercase">NEON STRIKERS</span>
+<div class="flex items-baseline gap-1">
+<span class="font-headline font-black text-5xl text-on-surface">153</span>
+<span class="font-headline font-bold text-2xl text-on-surface-variant">/ 10</span>
+</div>
+<span class="font-body text-on-surface-variant text-xs mt-2 uppercase tracking-tighter">19.4 OVERS</span>
+</div>
+</section>
+<!-- Momentum Meter -->
+<section class="bg-surface-container rounded-lg p-4 mb-12">
+<div class="flex justify-between items-center mb-2">
+<span class="text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest">Match Momentum</span>
+<span class="text-[10px] font-headline font-bold text-tertiary uppercase">GT Leading 54%</span>
+</div>
+<div class="h-2 w-full bg-surface-container-highest rounded-full flex overflow-hidden">
+<div class="h-full bg-tertiary shadow-[0_0_8px_rgba(171,214,0,0.4)]" style="width: 54%"></div>
+<div class="h-full bg-secondary shadow-[0_0_8px_rgba(255,181,158,0.4)]" style="width: 46%"></div>
+</div>
+</section>
+<!-- Player of the Match Card -->
+<section class="mb-12">
+<div class="relative group">
+<div class="absolute -top-3 left-6 z-10">
+<div class="bg-tertiary text-on-tertiary px-3 py-1 rounded-sm shadow-xl flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+<span class="font-headline font-black text-[10px] tracking-tighter uppercase">PLAYER OF THE MATCH</span>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-xl overflow-hidden flex flex-col md:flex-row shadow-2xl transition-transform duration-300 group-hover:scale-[1.01]">
+<div class="w-full md:w-48 h-64 md:h-auto overflow-hidden relative">
+<img alt="Professional cricketer in action posing for portrait" class="w-full h-full object-cover" data-alt="dynamic close-up portrait of an athletic cricketer in a dark navy jersey with sweat on forehead and a determined expression under stadium lights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAM2F7jcuInXdhdidX8mHrbkGNTakfNKMobv291Wtr35H0B6A_h3vDUNezzMGTlj22VbbPwJa0R4_UBIs4eog1G-0HqkTy05fopYMwbWaGyhtWKq4zV6Q4rAApljJdY1yBrSisZK7Q8cgZbhXNrx3hlR6klk-LVA5OxI7ZRsYGfbkzphxceTbrfY5HICh7ibx1HR6a8jSaVYSIWBe3oNP3euKeNsmvXpA4o7wX3k4eX-mfl3Jkjjuad9241PRgim6euEOXPsxGXogA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-high via-transparent to-transparent md:hidden"></div>
+</div>
+<div class="flex-1 p-8 relative">
+<div class="flex flex-col gap-1 mb-6">
+<h3 class="font-headline font-black text-3xl text-on-surface tracking-tight uppercase italic leading-none">ALEX "THE FLASH" R.</h3>
+<span class="font-body text-tertiary font-semibold text-xs tracking-widest uppercase">GULLY TITANS • ALL-ROUNDER</span>
+</div>
+<div class="grid grid-cols-2 gap-8">
+<div class="flex flex-col">
+<span class="text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest mb-1">Batting</span>
+<div class="flex items-baseline gap-1">
+<span class="font-headline font-black text-3xl text-on-surface">42</span>
+<span class="font-body text-on-surface-variant text-xs">(24)</span>
+</div>
+<span class="font-body text-[10px] text-on-surface-variant mt-1 uppercase">4 x 4s, 3 x 6s</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-label font-bold text-on-surface-variant uppercase tracking-widest mb-1">Bowling</span>
+<div class="flex items-baseline gap-1">
+<span class="font-headline font-black text-3xl text-on-surface">2</span>
+<span class="font-headline font-bold text-lg text-tertiary">/ 18</span>
+</div>
+<span class="font-body text-[10px] text-on-surface-variant mt-1 uppercase">3.0 OVERS, 1 MDN</span>
+</div>
+</div>
+<div class="absolute bottom-4 right-4 opacity-10">
+<span class="material-symbols-outlined text-7xl">flash_on</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- CTA Actions -->
+<section class="flex flex-col gap-4 mb-12">
+<button class="bg-tertiary hover:bg-tertiary-fixed-dim text-on-tertiary w-full py-5 rounded-lg flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-[0_10px_20px_rgba(171,214,0,0.2)]">
+<span class="material-symbols-outlined font-bold">share</span>
+<span class="font-headline font-black tracking-widest uppercase text-sm">SHARE MATCH SUMMARY</span>
+</button>
+<button class="bg-surface-container-high hover:bg-surface-bright text-on-surface w-full py-5 rounded-lg flex items-center justify-center gap-3 transition-all transform active:scale-95 border border-outline-variant/10">
+<span class="material-symbols-outlined font-bold">home</span>
+<span class="font-headline font-black tracking-widest uppercase text-sm">RETURN TO HOME</span>
+</button>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-20 px-4 pb-4 bg-[#171b28]/80 backdrop-blur-xl z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+<div class="flex flex-col items-center justify-center text-[#353946] hover:text-[#b7c4ff] transition-all cursor-pointer group">
+<span class="material-symbols-outlined group-active:scale-90 duration-200">bolt</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-bold uppercase tracking-tighter">LATEST</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#abd600] drop-shadow-[0_0_8px_rgba(171,214,0,0.4)] cursor-pointer group">
+<span class="material-symbols-outlined group-active:scale-90 duration-200" style="font-variation-settings: 'FILL' 1;">sports_score</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-bold uppercase tracking-tighter">MATCHES</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#353946] hover:text-[#b7c4ff] transition-all cursor-pointer group">
+<span class="material-symbols-outlined group-active:scale-90 duration-200">leaderboard</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-bold uppercase tracking-tighter">STATS</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#353946] hover:text-[#b7c4ff] transition-all cursor-pointer group">
+<span class="material-symbols-outlined group-active:scale-90 duration-200">dashboard</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-bold uppercase tracking-tighter">DASHBOARD</span>
+</div>
+</nav>
+</body></html>

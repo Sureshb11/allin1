@@ -1,0 +1,38 @@
+{
+  "name": "allin1-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon --watch src --exec node src/index.js",
+    "start": "node src/index.js",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:seed": "node prisma/seed.js",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@prisma/client": "^5.19.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "eslint": "^9.9.1",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^17.10.3",
+    "eslint-plugin-promise": "^6.5.2",
+    "nodemon": "^3.1.7",
+    "prisma": "^5.19.1"
+  }
+}

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&amp;family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-error": "#690005",
+            "surface-container-high": "#262a37",
+            "on-secondary-container": "#521300",
+            "tertiary-fixed": "#c3f400",
+            "secondary-fixed-dim": "#ffb59e",
+            "primary-fixed-dim": "#b7c4ff",
+            "on-tertiary-fixed-variant": "#3c4d00",
+            "surface-container-highest": "#313442",
+            "secondary": "#ffb59e",
+            "background": "#0f131f",
+            "on-primary-container": "#dfe3ff",
+            "surface-variant": "#313442",
+            "on-surface-variant": "#c3c5d9",
+            "surface-container-lowest": "#0a0e1a",
+            "on-primary": "#002682",
+            "on-primary-fixed": "#001452",
+            "surface-bright": "#353946",
+            "outline": "#8d90a2",
+            "on-tertiary-container": "#c5f600",
+            "primary-fixed": "#dde1ff",
+            "tertiary": "#abd600",
+            "surface": "#0f131f",
+            "on-error-container": "#ffdad6",
+            "outline-variant": "#434656",
+            "surface-tint": "#b7c4ff",
+            "tertiary-container": "#576e00",
+            "on-secondary-fixed-variant": "#852400",
+            "primary": "#b7c4ff",
+            "on-background": "#dfe2f3",
+            "primary-container": "#0052ff",
+            "error": "#ffb4ab",
+            "on-secondary": "#5e1700",
+            "tertiary-fixed-dim": "#abd600",
+            "surface-container": "#1b1f2c",
+            "inverse-on-surface": "#2c303d",
+            "inverse-primary": "#004ced",
+            "secondary-container": "#ff571a",
+            "surface-dim": "#0f131f",
+            "error-container": "#93000a",
+            "secondary-fixed": "#ffdbd0",
+            "inverse-surface": "#dfe2f3",
+            "on-tertiary-fixed": "#161e00",
+            "on-surface": "#dfe2f3",
+            "on-primary-fixed-variant": "#0038b6",
+            "surface-container-low": "#171b28",
+            "on-secondary-fixed": "#3a0b00",
+            "on-tertiary": "#283500"
+          },
+          fontFamily: {
+            "headline": ["Lexend"],
+            "body": ["Plus Jakarta Sans"],
+            "label": ["Lexend"]
+          },
+          borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    body {
+      background-color: #0f131f;
+      color: #dfe2f3;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen">
+<!-- TopAppBar: Small Center Aligned (Suppressed Nav for Transactional focus) -->
+<header class="bg-[#0f131f] flex items-center justify-between px-6 py-4 w-full sticky top-0 z-50">
+<button class="text-[#b7c4ff] hover:bg-[#353946] transition-colors p-2 rounded-full active:scale-90 transition-transform">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex items-center gap-2">
+<div class="bg-[#abd600] w-8 h-8 flex items-center justify-center rounded-sm">
+<span class="material-symbols-outlined text-white text-xl" style="font-variation-settings: 'FILL' 1;">star_rate</span>
+</div>
+<div class="flex items-center gap-2 font-headline font-black italic tracking-tighter text-xl">
+<span class="text-white uppercase">LOCAL</span>
+<span class="bg-[#abd600] text-[#0f131f] px-2 py-0.5 rounded-sm uppercase">LEGENDS</span>
+</div></div>
+<div class="w-10"></div> <!-- Spacer to center the logo -->
+</header>
+<main class="flex-grow flex items-center justify-center px-6">
+<div class="max-w-md w-full">
+<!-- Kinetic Asymmetry Header Section -->
+<div class="mb-12 relative">
+<div class="absolute -left-6 -top-6 w-24 h-24 bg-primary-container/10 rounded-full blur-3xl"></div>
+<h1 class="font-headline font-extrabold text-4xl tracking-tight text-on-background mb-3">
+          Verify Your Number
+        </h1>
+<p class="font-body text-on-surface-variant text-lg leading-relaxed">
+          Enter the 4-digit code sent to <span class="text-primary font-semibold tracking-wide">+1 234 567 890</span>
+</p>
+</div>
+<!-- OTP Input Group (Bento-style layout / Glassmorphism approach) -->
+<form class="space-y-12">
+<div class="grid grid-cols-4 gap-4">
+<input autofocus="" class="w-full h-20 text-center text-3xl font-headline font-bold bg-surface-container-high border-b-2 border-outline-variant focus:border-tertiary focus:ring-0 focus:outline-none transition-all rounded-lg text-on-background" maxlength="1" placeholder="-" type="text"/>
+<input class="w-full h-20 text-center text-3xl font-headline font-bold bg-surface-container-high border-b-2 border-outline-variant focus:border-tertiary focus:ring-0 focus:outline-none transition-all rounded-lg text-on-background" maxlength="1" placeholder="-" type="text"/>
+<input class="w-full h-20 text-center text-3xl font-headline font-bold bg-surface-container-high border-b-2 border-outline-variant focus:border-tertiary focus:ring-0 focus:outline-none transition-all rounded-lg text-on-background" maxlength="1" placeholder="-" type="text"/>
+<input class="w-full h-20 text-center text-3xl font-headline font-bold bg-surface-container-high border-b-2 border-outline-variant focus:border-tertiary focus:ring-0 focus:outline-none transition-all rounded-lg text-on-background" maxlength="1" placeholder="-" type="text"/>
+</div>
+<!-- Action Button with Gradient shimmer and glow -->
+<div class="space-y-6">
+<button class="w-full py-5 rounded-lg bg-gradient-to-br from-primary-container to-primary text-on-primary font-headline font-bold uppercase tracking-widest text-sm transition-all hover:shadow-[0_0_20px_rgba(0,82,255,0.4)] active:scale-95" type="submit">
+            Verify
+          </button>
+<!-- Resend Section with Secondary signaling -->
+<div class="flex flex-col items-center gap-2">
+<p class="text-on-surface-variant text-sm font-body">Didn't receive the code?</p>
+<a class="text-tertiary font-headline font-bold text-xs uppercase tracking-widest hover:text-tertiary-fixed transition-colors" href="#">
+              Resend Code
+            </a>
+</div>
+</div>
+</form>
+</div>
+</main>
+<!-- Background Decorative Element (The Stadium Feel) -->
+<div class="fixed inset-0 -z-10 pointer-events-none">
+<div class="absolute top-0 right-0 w-[500px] h-[500px] bg-primary-container/5 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-0 left-0 w-[300px] h-[300px] bg-tertiary/5 rounded-full blur-[100px]"></div>
+<div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-10"></div>
+<img class="absolute inset-0 w-full h-full object-cover opacity-10 mix-blend-overlay" data-alt="abstract motion blur of a professional stadium field at night with high contrast stadium floodlights and deep shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPTC14iPDVMTSpi4J_EF-14s4c9Ux6CzmpJWnVeiw8PEFk8BFCyrUM2BtcLRlHmncdk59dSwpx9RHcmP6f9vngledAAW56wVacrLVU7X1wElykrZ6Ku66Hzc24ufDLBQK980K5SMntSjqZBHb-HgK3YlGgl5c3YmZXq6MeZfyWLbkpYEd81fR84KsJtZXMJ3QmaXY37YEmmfIBfcLJkqJdT8SxLcMrgZDcv-KvzfxGM0gdYzX1BCZPxe0XvC71SQyajT5O6ret5fE"/>
+</div>
+<!-- Note: BottomNavBar and FAB suppressed due to Transactional flow rule -->
+<style>
+  .font-variation-fill {
+    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+</style>
+</body></html>

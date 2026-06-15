@@ -1,0 +1,914 @@
+import { Platform } from 'react-native';
+import apiConfig from '../config/apiConfig';
+
+class LegendsApi {
+  constructor() {
+    this.baseURL = (typeof global !== 'undefined' && global.API_BASE_URL) 
+      ? global.API_BASE_URL 
+      : apiConfig.BASE_URL;
+    this.token = null; // in-memory JWT
+
+    // Mock data for development/fallbacks where API isn’t implemented
+    this.mockData = {
+      liveMatches: [
+        {
+          id: '1',
+          team1: 'India',
+          team2: 'Australia', 
+          score1: '287/6 (50)',
+          score2: '245/10 (47.3)',
+          status: 'India won by 42 runs',
+          matchType: 'ODI',
+          venue: 'Melbourne Cricket Ground'
+        }
+      ],
+      players: [
+        {
+          id: '1',
+          name: 'Virat Kohli',
+          role: 'Batsman',
+          team: 'RCB',
+          stats: {
+            matches: 254,
+            runs: 12169,
+            average: 59.07,
+            strikeRate: 92.42
+          }
+        }
+      ],
+      teams: [
+        {
+          id: '1',
+          name: 'Mumbai Indians',
+          captain: 'Rohit Sharma',
+          players: 25,
+          stats: {
+            matches: 213,
+            wins: 120,
+            winRate: 56.3
+          }
+        }
+      ]
+    };
+  }
+
+  // Internal fetch helper with 15s timeout + 1 auto-retry on network error
+  async request(path, { method = 'GET', headers = {}, body, retries = 1 } = {}) {
+    const url = `${this.baseURL}${path}`;
+    const finalHeaders = {
+      'Content-Type': 'application/json',
+      ...headers,
+    };
+    if (this.token) finalHeaders.Authorization = `Bearer ${this.token}`;
+
+    const doFetch = async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      return fetch(url, {
+        method,
+        headers: finalHeaders,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeout));
+    };
+
+    let lastError;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const res = await doFetch();
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const err = json?.error || `HTTP ${res.status}`;
+          throw new Error(err);
+        }
+        return json;
+      } catch (err) {
+        lastError = err;
+        // Only retry on network errors (not HTTP 4xx/5xx)
+        const isNetworkError = err.name === 'AbortError' || err.message === 'Network request failed';
+        if (!isNetworkError || attempt >= retries) break;
+        // Wait 1s before retry
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+    throw lastError;
+  }
+
+  // Live Scores API
+  async getLiveScores() {
+    try {
+      const json = await this.request('/matches');
+      return { success: true, data: json.matches || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  // Match Management
+  async createMatch(matchData) {
+    try {
+      const json = await this.request('/matches', { method: 'POST', body: matchData });
+      return { success: true, data: json.match };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Sport Events (multi-sport scoring)
+  async addSportEvent(matchId, eventData) {
+    try {
+      const json = await this.request(`/matches/${matchId}/sport-events`, { method: 'POST', body: eventData });
+      return { success: true, data: json.data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async deleteSportEvent(matchId, eventId) {
+    try {
+      await this.request(`/matches/${matchId}/sport-events/${eventId}`, { method: 'DELETE' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getSportEvents(matchId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/sport-events`);
+      return { success: true, data: json.data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Team Management
+  async getTeams() {
+    try {
+      const json = await this.request('/teams');
+      return { success: true, data: json.teams || json.data || [] };
+    } catch (error) {
+      return { success: true, data: this.mockData.teams };
+    }
+  }
+
+  async createTeam(teamData) {
+    try {
+      const json = await this.request('/teams', { method: 'POST', body: teamData });
+      return { success: true, data: json.team };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Player Management
+  async getPlayers() {
+    try {
+      const json = await this.request('/players');
+      return { success: true, data: json.players || [] };
+    } catch (error) {
+      return { success: true, data: this.mockData.players };
+    }
+  }
+
+  async createPlayer(playerData) {
+    try {
+      const json = await this.request('/players', { method: 'POST', body: playerData });
+      return { success: true, data: json.player };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Scoring System - detailed ball-by-ball
+  async updateScore(matchId, scoreData) {
+    try {
+      const json = await this.request(`/matches/${matchId}/score`, { method: 'PUT', body: scoreData });
+      return { success: true, data: json.ball || scoreData };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get deep scorecard for a Match
+  async getScorecard(matchId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/scorecard`);
+      return { success: true, data: json.match || null };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Tournament Management
+  async createTournament(tournamentData) {
+    try {
+      const json = await this.request('/tournaments', { method: 'POST', body: { ...tournamentData, status: tournamentData.status || 'upcoming' } });
+      return { success: true, data: json.tournament };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // News Feed
+  async getCricketNews() {
+    try {
+      const json = await this.request('/news');
+      // server returns { news: [...] }
+      return { success: true, data: json.news || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Ground Booking
+  async getAvailableGrounds() {
+    try {
+      const json = await this.request('/grounds');
+      return { success: true, data: json.grounds || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  async bookGround(groundId, date, slot) {
+    try {
+      const json = await this.request('/grounds/book', {
+        method: 'POST',
+        body: { groundId, date, slot },
+      });
+      return { success: true, data: json.booking };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Premium Features
+  async getPremiumFeatures() {
+    // Premium features are static for now (no payment gateway integrated)
+    return {
+      success: true,
+      data: [
+        { id: '1', name: 'Advanced Analytics', description: 'Detailed player and match analytics', price: 299, duration: 'monthly' },
+        { id: '2', name: 'Live Streaming', description: 'Stream matches to followers', price: 499, duration: 'monthly' },
+      ],
+    };
+  }
+
+  // ── Authentication ──────────────────────────────────────────────────
+
+  // Send OTP to mobile number
+  async sendOtp(phone, countryCode = '+91') {
+    try {
+      const json = await this.request('/auth/send-otp', {
+        method: 'POST',
+        body: { phone, countryCode },
+      });
+      return { success: true, message: json.message };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Verify OTP and login (auto-registers new users)
+  async verifyOtp(phone, otp, countryCode = '+91') {
+    try {
+      const json = await this.request('/auth/verify-otp', {
+        method: 'POST',
+        body: { phone, otp, countryCode },
+      });
+      this.token = json.token;
+      return {
+        success: true,
+        data: { ...json.user, token: json.token },
+        isNewUser: json.isNewUser,
+      };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Signup with full details
+  async signup(signupData) {
+    try {
+      const json = await this.request('/auth/signup', {
+        method: 'POST',
+        body: signupData,
+      });
+      this.token = json.token;
+      return { success: true, data: { ...json.user, token: json.token } };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Email + password login
+  async login(credentials) {
+    try {
+      const json = await this.request('/auth/login', { method: 'POST', body: credentials });
+      // store token for subsequent requests
+      this.token = json.token;
+      return { success: true, data: { ...json.user, token: json.token } };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Match update (status, result, score strings)
+  async updateMatch(matchId, data) {
+    try {
+      const json = await this.request(`/matches/${matchId}`, { method: 'PUT', body: data });
+      return { success: true, data: json.match };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Create second inning
+  async createInning(matchId, data) {
+    try {
+      const json = await this.request(`/matches/${matchId}/innings`, { method: 'POST', body: data });
+      return { success: true, data: json.inning };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get innings for a match
+  async getMatchInnings(matchId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/innings`);
+      return { success: true, data: json.innings || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Team update
+  async updateTeam(teamId, data) {
+    try {
+      const json = await this.request(`/teams/${teamId}`, { method: 'PUT', body: data });
+      return { success: true, data: json.team };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get single team
+  async getTeam(teamId) {
+    try {
+      const json = await this.request(`/teams/${teamId}`);
+      return { success: true, data: json.team };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Club Management
+  async getClubs() {
+    try {
+      const json = await this.request('/clubs');
+      return { success: true, data: json.clubs || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  async getClub(clubId) {
+    try {
+      const json = await this.request(`/clubs/${clubId}`);
+      return { success: true, data: json.club };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async createClub(clubData) {
+    try {
+      const json = await this.request('/clubs', { method: 'POST', body: clubData });
+      return { success: true, data: json.club };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async updateClub(clubId, data) {
+    try {
+      const json = await this.request(`/clubs/${clubId}`, { method: 'PUT', body: data });
+      return { success: true, data: json.club };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Chat/Social Features (polling-based)
+  async getChatRooms() {
+    try {
+      const json = await this.request('/chat/rooms');
+      return { success: true, data: json.rooms || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  async createChatRoom(name, type, memberIds) {
+    try {
+      const json = await this.request('/chat/rooms', { method: 'POST', body: { name, type, memberIds } });
+      return { success: true, data: json.room };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getChatMessages(roomId, after) {
+    try {
+      const query = after ? `?after=${encodeURIComponent(after)}` : '';
+      const json = await this.request(`/chat/rooms/${roomId}/messages${query}`);
+      return { success: true, data: json.messages || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  async sendChatMessage(roomId, text) {
+    try {
+      const json = await this.request(`/chat/rooms/${roomId}/messages`, { method: 'POST', body: { text } });
+      return { success: true, data: json.message };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Live Streaming APIs
+  async getLiveStreams() {
+    try {
+      const json = await this.request('/streams');
+      const streams = (json.streams || []).filter(s => s.status === 'live');
+      return { success: true, data: streams };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getUpcomingStreams() {
+    try {
+      const json = await this.request('/streams');
+      const streams = (json.streams || []).filter(s => s.status === 'upcoming');
+      return { success: true, data: streams };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async createStream(streamData) {
+    try {
+      const json = await this.request('/streams', { method: 'POST', body: streamData });
+      return { success: true, data: json.stream };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Video Analysis APIs
+  async getMatchVideos() {
+    try {
+      const json = await this.request('/videos');
+      return { success: true, data: json.videos || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  async getVideoAnalyses() {
+    try {
+      const json = await this.request('/videos/analyses/all');
+      return { success: true, data: json.analyses || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  async uploadVideo(videoData) {
+    try {
+      const json = await this.request('/videos', { method: 'POST', body: videoData });
+      return { success: true, data: json.video };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async analyzeVideo(videoId) {
+    try {
+      const json = await this.request(`/videos/${videoId}/analyze`, { method: 'POST' });
+      return { success: true, data: json.analysis };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Quiz APIs
+  async getDailyQuiz() {
+    try {
+      const json = await this.request('/quizzes/daily');
+      return { success: true, data: json.quiz || json };
+    } catch (error) {
+      return { success: true, data: null };
+    }
+  }
+
+  async submitQuiz(quizId, answers) {
+    try {
+      const json = await this.request('/quizzes/submit', { method: 'POST', body: { quizId, answers } });
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Profile APIs
+  async getUserProfile() {
+    try {
+      if (!this.token) return { success: true, data: {} };
+      const json = await this.request('/users/me');
+      return { success: true, data: json.user };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Logged-in user + their linked player profile (name/role/team/stats).
+  async getMe() {
+    if (!this.token) return { success: false, error: 'Not logged in' };
+    try {
+      const json = await this.request('/users/me');
+      return { success: true, data: json };  // { user, player }
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getUserStats() {
+    try {
+      if (!this.token) return { success: true, data: {} };
+      const json = await this.request('/users/me/stats');
+      return { success: true, data: json.stats || json };
+    } catch (error) {
+      return { success: true, data: { matches: 0, runs: 0, wickets: 0, average: 0, strikeRate: 0, centuries: 0, halfCenturies: 0 } };
+    }
+  }
+
+  // Badge APIs
+  async getUserBadges() {
+    try {
+      const json = await this.request('/badges');
+      return { success: true, data: json.badges || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  async getAvailableBadges() {
+    try {
+      const json = await this.request('/badges');
+      return { success: true, data: json.badges || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  async getBadgeLeaderboard() {
+    try {
+      const json = await this.request('/badges/leaderboard');
+      return { success: true, data: json.leaderboard || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  // Marketplace APIs
+  async getMarketplaceProducts() {
+    try {
+      const json = await this.request('/marketplace/products');
+      return { success: true, data: json.products || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async createMarketplaceProduct(product) {
+    try {
+      const json = await this.request('/marketplace/products', { method: 'POST', body: product });
+      return { success: true, data: json.product };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getMarketplaceCategories() {
+    const categories = [
+      {id: 'equipment', name: 'Equipment', icon: '🏏'},
+      {id: 'services', name: 'Services', icon: '🎯'},
+      {id: 'apparel', name: 'Apparel', icon: '👕'},
+      {id: 'accessories', name: 'Accessories', icon: '🧤'}
+    ];
+    
+    return { success: true, data: categories };
+  }
+
+  // Insights & Analytics APIs
+  async getPlayerInsights(playerId) {
+    try {
+      const json = await this.request(`/players/${playerId}/insights`);
+      return { success: true, data: json.insights || { performance: {}, statistics: {}, recommendations: [] } };
+    } catch (error) {
+      return { success: true, data: { performance: {}, statistics: {}, recommendations: [] } };
+    }
+  }
+
+  // Tournament listing
+  async getTournaments() {
+    try {
+      const json = await this.request('/tournaments');
+      return { success: true, data: json.tournaments || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  async getTournament(id) {
+    try {
+      const json = await this.request(`/tournaments/${id}`);
+      return { success: true, data: json.tournament };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get single product
+  async getMarketplaceProduct(productId) {
+    try {
+      const json = await this.request(`/marketplace/products/${productId}`);
+      return { success: true, data: json.product };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getTeamInsights(teamId) {
+    try {
+      const json = await this.request(`/teams/${teamId}/insights`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: true, data: { stats: {}, form: [], topBatters: [], topBowlers: [] } };
+    }
+  }
+
+  // Single match detail
+  async getMatch(matchId) {
+    try {
+      const json = await this.request(`/matches/${matchId}`);
+      return { success: true, data: json.match };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Match insights (batting/bowling analytics)
+  async getMatchInsights(matchId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/insights`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Tournament — points table
+  async getTournamentPointsTable(tournamentId) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/points-table`);
+      return { success: true, data: json.pointsTable || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Tournament — schedule/fixtures
+  async getTournamentSchedule(tournamentId) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/schedule`);
+      return { success: true, data: json.schedule || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Tournament — register a team
+  async registerTeamInTournament(tournamentId, teamId, group = 'A') {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/teams`, { method: 'POST', body: { teamId, group } });
+      return { success: true, data: json.entry };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Tournament — add fixture
+  async addTournamentFixture(tournamentId, fixtureData) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/schedule`, { method: 'POST', body: fixtureData });
+      return { success: true, data: json.match };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Looking For posts
+  async getLookingForPosts(filters = {}) {
+    try {
+      const params = new URLSearchParams(filters).toString();
+      const json = await this.request(`/looking-for${params ? `?${params}` : ''}`);
+      return { success: true, data: json.posts || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async createLookingFor(data) {
+    try {
+      const json = await this.request('/looking-for', { method: 'POST', body: data });
+      return { success: true, data: json.post };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async updateLookingFor(postId, status) {
+    try {
+      const json = await this.request(`/looking-for/${postId}`, { method: 'PUT', body: { status } });
+      return { success: true, data: json.post };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async deleteLookingFor(postId) {
+    try {
+      await this.request(`/looking-for/${postId}`, { method: 'DELETE' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Coaching
+  async getCoaches(filters = {}) {
+    try {
+      const params = new URLSearchParams(filters).toString();
+      const json = await this.request(`/coaching${params ? `?${params}` : ''}`);
+      return { success: true, data: json.coaches || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getCoach(coachId) {
+    try {
+      const json = await this.request(`/coaching/${coachId}`);
+      return { success: true, data: json.coach };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async bookCoach(coachId, date, duration = 1, notes) {
+    try {
+      const json = await this.request('/coaching/book', { method: 'POST', body: { coachId, date, duration, notes } });
+      return { success: true, data: json.booking };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getMyCoachBookings() {
+    try {
+      const json = await this.request('/coaching/bookings/mine');
+      return { success: true, data: json.bookings || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Umpires
+  async getUmpires(filters = {}) {
+    try {
+      const params = new URLSearchParams(filters).toString();
+      const json = await this.request(`/umpires${params ? `?${params}` : ''}`);
+      return { success: true, data: json.umpires || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async registerUmpire(data) {
+    try {
+      const json = await this.request('/umpires/register', { method: 'POST', body: data });
+      return { success: true, data: json.umpire };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Scorers
+  async getScorers(filters = {}) {
+    try {
+      const params = new URLSearchParams(filters).toString();
+      const json = await this.request(`/scorers${params ? `?${params}` : ''}`);
+      return { success: true, data: json.scorers || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async bookScorer(scorerId, matchDate, venue) {
+    try {
+      const json = await this.request('/scorers/book', { method: 'POST', body: { scorerId, matchDate, venue } });
+      return { success: true, data: json.booking };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getMyScoreBookings() {
+    try {
+      const json = await this.request('/scorers/bookings/mine');
+      return { success: true, data: json.bookings || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Notification APIs
+  async getNotifications() {
+    try {
+      if (!this.token) return { success: true, data: [] };
+      const json = await this.request('/notifications');
+      return { success: true, data: json.notifications || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async markNotificationAsRead(id) {
+    try {
+      if (!this.token) return { success: false, error: 'Not logged in' };
+      await this.request(`/notifications/${id}/read`, { method: 'POST' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async markAllNotificationsAsRead() {
+    try {
+      if (!this.token) return { success: false, error: 'Not logged in' };
+      await this.request('/notifications/read-all', { method: 'POST' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Search APIs
+  async globalSearch(query) {
+    try {
+      const json = await this.request(`/search?q=${encodeURIComponent(query)}`);
+      return { success: true, data: json.results || {} };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Help & Support APIs
+  async getHelpFAQs() {
+    // Static FAQs — no backend needed
+    return {
+      success: true,
+      data: [
+        { id: '1', question: 'How to create a team?', answer: 'Go to Team Management and tap "Create Team".', category: 'teams' },
+        { id: '2', question: 'How to start scoring?', answer: 'Open a match and tap "Start Scoring".', category: 'scoring' },
+        { id: '3', question: 'How to join a tournament?', answer: 'Go to Tournaments and tap "Join" on any open tournament.', category: 'tournaments' },
+        { id: '4', question: 'How do OTP logins work?', answer: 'Enter your phone number, receive a 4-digit OTP, and verify to log in.', category: 'account' },
+      ],
+    };
+  }
+
+  async submitContactForm(formData) {
+    // Static response — no ticket system yet
+    return { success: true, data: { ticketId: Date.now().toString(), message: 'Your query has been submitted successfully' } };
+  }
+}
+
+// Export singleton instance
+const legendsApi = new LegendsApi();
+export default legendsApi;

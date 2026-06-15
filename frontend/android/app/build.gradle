@@ -1,0 +1,86 @@
+plugins {
+    id "com.android.application"
+    id "org.jetbrains.kotlin.android"
+    id "com.facebook.react"
+}
+
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
+
+react {
+    autolinkLibrariesWithApp()
+}
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    compileSdkVersion rootProject.ext.compileSdkVersion
+
+    namespace "com.local.legends"
+    defaultConfig {
+        applicationId "com.local.legends"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+        release {
+            def keystorePropsFile = file('keystore.properties')
+            if (keystorePropsFile.exists()) {
+                def keystoreProps = new Properties()
+                keystoreProps.load(new FileInputStream(keystorePropsFile))
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            } else {
+                // Fallback to debug signing if release properties are missing
+                storeFile file('debug.keystore')
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            signingConfig signingConfigs.release
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+
+    androidResources {
+        // Ensure the JS bundle is stored uncompressed inside the APK/AAB
+        noCompress 'bundle', 'jsbundle'
+    }
+}
+
+dependencies {
+    // The version of react-native is set by the React Native Gradle Plugin
+    implementation("com.facebook.react:react-android")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.0.0")
+
+    // Enable Hermes JS engine (packages libhermes.so)
+    implementation("com.facebook.react:hermes-android")
+
+}
+
+// React Native plugin handles bundling for release automatically.
+
+

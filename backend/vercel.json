@@ -1,0 +1,18 @@
+{
+  "name": "allin1-api",
+  "version": 2,
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "npx prisma generate",
+  "builds": [
+    {
+      "src": "src/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/index.js"
+    }
+  ]
+}

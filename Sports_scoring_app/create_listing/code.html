@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Create a Listing | Looking Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary": "#abd600",
+              "surface-container-high": "#262a37",
+              "secondary": "#ffb59e",
+              "on-surface": "#dfe2f3",
+              "inverse-surface": "#dfe2f3",
+              "background": "#0f131f",
+              "inverse-on-surface": "#2c303d",
+              "secondary-fixed-dim": "#ffb59e",
+              "on-surface-variant": "#c3c5d9",
+              "on-primary-container": "#dfe3ff",
+              "tertiary-container": "#576e00",
+              "on-secondary-fixed": "#3a0b00",
+              "on-error": "#690005",
+              "surface-variant": "#313442",
+              "surface-tint": "#b7c4ff",
+              "secondary-fixed": "#ffdbd0",
+              "on-error-container": "#ffdad6",
+              "error-container": "#93000a",
+              "surface": "#0f131f",
+              "outline": "#8d90a2",
+              "inverse-primary": "#004ced",
+              "surface-dim": "#0f131f",
+              "on-secondary-container": "#521300",
+              "primary-container": "#0052ff",
+              "on-primary": "#002682",
+              "on-tertiary-fixed": "#161e00",
+              "on-primary-fixed": "#001452",
+              "on-background": "#dfe2f3",
+              "tertiary-fixed-dim": "#abd600",
+              "on-tertiary": "#283500",
+              "on-secondary": "#5e1700",
+              "secondary-container": "#ff571a",
+              "primary-fixed": "#dde1ff",
+              "surface-container-lowest": "#0a0e1a",
+              "on-tertiary-container": "#c5f600",
+              "on-tertiary-fixed-variant": "#3c4d00",
+              "tertiary-fixed": "#c3f400",
+              "surface-container": "#1b1f2c",
+              "on-secondary-fixed-variant": "#852400",
+              "outline-variant": "#434656",
+              "surface-container-highest": "#313442",
+              "primary-fixed-dim": "#b7c4ff",
+              "surface-container-low": "#171b28",
+              "surface-bright": "#353946",
+              "primary": "#b7c4ff",
+              "on-primary-fixed-variant": "#0038b6",
+              "error": "#ffb4ab"
+            },
+            fontFamily: {
+              "headline": ["Lexend"],
+              "body": ["Plus Jakarta Sans"],
+              "label": ["Lexend"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f131f; }
+        ::-webkit-scrollbar-thumb { background: #313442; border-radius: 10px; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body min-h-screen">
+<header class="fixed top-0 w-full z-50 bg-[#0f131f]/60 backdrop-blur-md flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center w-10 h-10 rounded-xl hover:bg-[#353946] transition-colors scale-95 active:duration-150">
+<span class="material-symbols-outlined text-on-surface">arrow_back</span>
+</button>
+<h1 class="font-headline font-bold tracking-tight uppercase text-[#abd600] text-xl">CREATE A LISTING</h1>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Close up portrait of a professional athlete with intense focus, cinematic dramatic lighting with deep shadows and sharp highlights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_epoT1Uji_CtgV6fnwKkHQv0_uT2tovZO_79103IYnQgAxQbBs2JwCNzRHFCSK8JbWkM8zksRL7kqkUHUAMXN9tHjs44HdA-cKVV4bCPDZ5Q3JSlRxrrXZ6NkVZUyxv-ozAD2waRkgh32-U7mFUtcZIls-OBdGMieokXNzp9470Qu5byEQPgvZfUucAI8LquOkpukYUYYIGR4Koz2g3cq603a3fYqZnFZmHPC_kUanKnTxZHniAExZH-ivEdpAnZDUV2FL1VCM0U"/>
+</div>
+</header>
+<main class="pt-24 pb-12 px-6 max-w-2xl mx-auto">
+<form class="space-y-8">
+<div class="space-y-6">
+<div class="space-y-2">
+<label class="font-label text-xs font-bold uppercase tracking-widest text-tertiary">Role Requirements</label>
+<div class="relative group">
+<select class="w-full bg-surface-container-low border-b-2 border-surface-container-highest focus:border-tertiary focus:ring-0 text-on-surface py-4 px-0 transition-all appearance-none cursor-pointer">
+<option disabled="" selected="" value="">What are you looking for?</option>
+<option>Opponent</option>
+<option>Player</option>
+<option>Ground / Venue</option>
+<option>Umpire</option>
+<option>Scorer</option>
+</select>
+<span class="material-symbols-outlined absolute right-0 top-4 pointer-events-none text-outline">expand_more</span>
+</div>
+</div>
+<div class="space-y-4">
+<label class="font-label text-xs font-bold uppercase tracking-widest text-tertiary">Select Sport</label>
+<div class="grid grid-cols-4 gap-3">
+<button class="flex flex-col items-center justify-center p-4 bg-surface-container-high rounded-xl hover:bg-surface-bright transition-all ring-2 ring-transparent active:ring-tertiary group" type="button">
+<span class="material-symbols-outlined text-3xl mb-2 text-on-surface-variant group-hover:text-tertiary">sports_soccer</span>
+<span class="font-label text-[10px] uppercase tracking-tighter">Soccer</span>
+</button>
+<button class="flex flex-col items-center justify-center p-4 bg-surface-container-high rounded-xl hover:bg-surface-bright transition-all ring-2 ring-tertiary active:ring-tertiary group" type="button">
+<span class="material-symbols-outlined text-3xl mb-2 text-tertiary">sports_cricket</span>
+<span class="font-label text-[10px] uppercase tracking-tighter text-tertiary">Cricket</span>
+</button>
+<button class="flex flex-col items-center justify-center p-4 bg-surface-container-high rounded-xl hover:bg-surface-bright transition-all ring-2 ring-transparent active:ring-tertiary group" type="button">
+<span class="material-symbols-outlined text-3xl mb-2 text-on-surface-variant group-hover:text-tertiary">sports_basketball</span>
+<span class="font-label text-[10px] uppercase tracking-tighter">Hoops</span>
+</button>
+<button class="flex flex-col items-center justify-center p-4 bg-surface-container-high rounded-xl hover:bg-surface-bright transition-all ring-2 ring-transparent active:ring-tertiary group" type="button">
+<span class="material-symbols-outlined text-3xl mb-2 text-on-surface-variant group-hover:text-tertiary">sports_tennis</span>
+<span class="font-label text-[10px] uppercase tracking-tighter">Tennis</span>
+</button>
+</div>
+</div>
+<div class="space-y-6">
+<div class="relative">
+<input class="w-full bg-transparent border-b-2 border-surface-container-highest focus:border-tertiary focus:ring-0 text-on-surface py-4 px-0 transition-all font-headline text-xl font-bold placeholder:text-outline/50" placeholder="Headline" type="text"/>
+<p class="text-[10px] text-outline mt-2 uppercase tracking-tight">E.g., Umpire needed for T20 match at Central Park</p>
+</div>
+<div class="relative">
+<textarea class="w-full bg-surface-container-low rounded-xl border-none focus:ring-2 focus:ring-tertiary text-on-surface p-4 transition-all placeholder:text-outline/50 resize-none" placeholder="Tell them more about the game..." rows="3"></textarea>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="font-label text-xs font-bold uppercase tracking-widest text-tertiary">Date</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-3 text-outline">calendar_today</span>
+<input class="w-full bg-surface-container-high rounded-xl border-none focus:ring-2 focus:ring-tertiary text-on-surface py-3 pl-12 pr-4 transition-all" type="date"/>
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-label text-xs font-bold uppercase tracking-widest text-tertiary">Time</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-3 text-outline">schedule</span>
+<input class="w-full bg-surface-container-high rounded-xl border-none focus:ring-2 focus:ring-tertiary text-on-surface py-3 pl-12 pr-4 transition-all" type="time"/>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<label class="font-label text-xs font-bold uppercase tracking-widest text-tertiary">Venue</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-3 text-outline group-focus-within:text-tertiary">location_on</span>
+<input class="w-full bg-surface-container-high rounded-xl border-none focus:ring-2 focus:ring-tertiary text-on-surface py-3 pl-12 pr-4 transition-all" placeholder="Search for a field or court" type="text"/>
+</div>
+<div class="h-40 w-full rounded-2xl overflow-hidden bg-surface-container-low relative">
+<img alt="Map view" class="w-full h-full object-cover opacity-50 grayscale hover:grayscale-0 transition-all duration-500" data-alt="Abstract stylized map interface with dark tones and neon green highlights indicating sports facilities in an urban grid" data-location="London" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDcSdSvGZAlKu5CS4cY-PDt5mPme5qr082Rug8Ufr3Biowq-kjwcvOoBlIOpKp_NC_jM5LJVL-AZx6fiPA8Hgj33uNs6QteUriYsx9ylWK_GsDRaUALbjA41fxPkSa1PS9bDGNeA6UaxpxQPeqH1tltH-HOLbztq6CAWC0S8x5j0GM7D4b0Y5BjuxzZ3z5Ay5pXHZtY0jhcbQIimWVqONck1krB3OcR_fYi-hfV9zbt_Cz4LQeXkHN-_zBHdXWXSK2B0dNuT2u0s2A"/>
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+<div class="w-12 h-12 bg-tertiary rounded-full flex items-center justify-center animate-pulse shadow-[0_0_20px_rgba(171,214,0,0.4)]">
+<span class="material-symbols-outlined text-background">location_on</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between p-6 bg-surface-container-low rounded-2xl">
+<div>
+<h4 class="font-headline font-bold text-on-surface">Visibility</h4>
+<p class="text-xs text-outline">Control who sees your listing</p>
+</div>
+<div class="flex bg-surface-container-highest p-1 rounded-xl">
+<button class="px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-tertiary text-background shadow-lg transition-all" type="button">Public</button>
+<button class="px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-on-surface transition-all" type="button">Invite Only</button>
+</div>
+</div>
+</div>
+<div class="pt-6">
+<button class="w-full bg-gradient-to-br from-tertiary to-[#c3f400] text-background font-label font-bold py-5 rounded-xl uppercase tracking-widest shadow-[0_0_30px_rgba(171,214,0,0.3)] hover:shadow-[0_0_40px_rgba(171,214,0,0.5)] transform active:scale-95 transition-all" type="submit">
+                    POST LISTING
+                </button>
+<p class="text-center text-[10px] text-outline uppercase tracking-tighter mt-4">By posting, you agree to the Stadium Fair Play Guidelines</p>
+</div>
+</form>
+</main>
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center pt-3 pb-6 px-4 bg-[#0f131f]/80 backdrop-blur-xl z-50 rounded-t-3xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-[#dfe2f3]/60 hover:text-[#abd600] transition-all scale-98 duration-200 ease-out" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-lexend font-medium text-[10px] uppercase tracking-widest mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#dfe2f3]/60 hover:text-[#abd600] transition-all scale-98 duration-200 ease-out" href="#">
+<span class="material-symbols-outlined">sports_soccer</span>
+<span class="font-lexend font-medium text-[10px] uppercase tracking-widest mt-1">Matches</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-[#262a37] text-[#abd600] rounded-xl px-4 py-1 shadow-[0_0_15px_rgba(171,214,0,0.2)] scale-98 duration-200 ease-out" href="#">
+<span class="material-symbols-outlined">explore</span>
+<span class="font-lexend font-medium text-[10px] uppercase tracking-widest mt-1">Explore</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#dfe2f3]/60 hover:text-[#abd600] transition-all scale-98 duration-200 ease-out" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-lexend font-medium text-[10px] uppercase tracking-widest mt-1">Teams</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#dfe2f3]/60 hover:text-[#abd600] transition-all scale-98 duration-200 ease-out" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-lexend font-medium text-[10px] uppercase tracking-widest mt-1">Profile</span>
+</a>
+</nav>
+</body></html>

@@ -1,0 +1,6 @@
+buildscript {
+    dependencies {
+        classpath('com.android.tools.build:gradle:YOUR_DESIRED_AGP_VERSION') // Change this
+        // ... other dependencies
+    }
+}

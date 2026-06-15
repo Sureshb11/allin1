@@ -1,0 +1,68 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+ext {
+    buildToolsVersion = "35.0.0"
+    minSdkVersion = 23
+    compileSdkVersion = 35
+    targetSdkVersion = 34
+    ndkVersion = "25.1.8937393"
+    kotlinVersion = "1.9.24"
+
+}
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath('com.android.tools.build:gradle:8.6.0')
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
+    }
+}
+
+allprojects {
+    project.ext {
+        compileSdkVersion = rootProject.ext.compileSdkVersion
+        buildToolsVersion = rootProject.ext.buildToolsVersion
+        minSdkVersion = rootProject.ext.minSdkVersion
+        targetSdkVersion = rootProject.ext.targetSdkVersion
+    }
+
+}
+
+gradle.allprojects { project ->
+    project.afterEvaluate {
+        if (project.hasProperty('android')) {
+            project.android {
+                if (compileSdkVersion == null || compileSdkVersion == -1) {
+                    compileSdkVersion rootProject.ext.compileSdkVersion
+                }
+                if (buildToolsVersion == null) {
+                    buildToolsVersion rootProject.ext.buildToolsVersion
+                }
+            }
+        }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+subprojects {
+    afterEvaluate { project ->
+        if (project.name == "react-native-async-storage_async-storage") {
+            def copyDebugTask = project.tasks.findByName("copyDebugJniLibsProjectAndLocalJars")
+            def stripDebugTask = project.tasks.findByName("stripDebugDebugSymbols")
+            if (copyDebugTask != null && stripDebugTask != null) {
+                copyDebugTask.dependsOn(stripDebugTask)
+            }
+            def copyReleaseTask = project.tasks.findByName("copyReleaseJniLibsProjectAndLocalJars")
+            def stripReleaseTask = project.tasks.findByName("stripReleaseDebugSymbols")
+            if (copyReleaseTask != null && stripReleaseTask != null) {
+                copyReleaseTask.dependsOn(stripReleaseTask)
+            }
+        }
+    }
+}

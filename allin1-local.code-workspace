@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"name": "local-legends",
+			"path": "."
+		}
+	],
+	"settings": {
+		"java.configuration.updateBuildConfiguration": "automatic"
+	}
+}

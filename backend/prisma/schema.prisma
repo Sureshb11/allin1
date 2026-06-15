@@ -1,0 +1,504 @@
+// Prisma schema for AllIn1 Cricket
+// DB: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  email        String   @unique
+  phone        String?  @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  avatarUrl    String?
+  bio          String?
+
+  notifications  Notification[]
+  badges         UserBadge[]
+  products       Product[]
+  chatMessages   ChatMessage[]
+  chatRooms      ChatMember[]
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  title     String
+  message   String
+  type      String
+  read      Boolean  @default(false)
+}
+
+model Team {
+  id             String   @id @default(cuid())
+  name           String
+  city           String?
+  logoUrl        String?
+  state          String?
+  country        String?
+  homeGround     String?
+  colors         String?
+  bio            String?
+  achievements   String?
+  foundedYear    Int?
+  players          Player[]
+  team1Matches     Match[]          @relation("team1")
+  team2Matches     Match[]          @relation("team2")
+  battingInnings   Inning[]         @relation("battingTeam")
+  bowlingInnings   Inning[]         @relation("bowlingTeam")
+  matchPlayers     MatchPlayer[]
+  tournamentTeams  TournamentTeam[]
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  name      String
+  role      String
+  team      Team?    @relation(fields: [teamId], references: [id])
+  teamId    String?
+  stats     Json?
+
+  matchPlayers MatchPlayer[]
+  oversBowled  Over[]
+  ballsFaced   Ball[] @relation("facingBatter")
+  ballsNonStriker Ball[] @relation("nonStriker")
+}
+
+model Match {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  team1           Team     @relation("team1", fields: [team1Id], references: [id])
+  team1Id         String
+  team2           Team     @relation("team2", fields: [team2Id], references: [id])
+  team2Id         String
+  status          String   // scheduled | live | completed
+  score1          String?
+  score2          String?
+  venue           String?
+  matchType       String?  // ODI | T20 | Test
+  startTime       DateTime?
+  result          String?  // e.g. "Team A won by 42 runs"
+
+  tossWinnerId    String?
+  tossDecision    String?  // bat | bowl
+  overs           Int?     // Total overs (e.g., 20)
+  currentInnings  Int      @default(1)
+  sport           String   @default("cricket") // cricket|football|basketball|tennis|volleyball|baseball
+
+  innings         Inning[]
+  squads          MatchPlayer[]
+  sportEvents     SportEvent[]
+}
+
+// Generic sport scoring event
+model SportEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  match     Match    @relation(fields: [matchId], references: [id])
+  matchId   String
+  sport     String   // cricket|football|basketball|tennis|volleyball|baseball
+  teamId    String
+  playerId  String?
+  eventType String   // goal|try|point|2pt|3pt|freethrow|foul|yellow-card|red-card|set-point|run|out|ace|fault|rally|wicket
+  value     Int      @default(1)
+  period    String?  // half|quarter|over|set|inning|game
+  periodNum Int?     // 1,2,3...
+  metadata  Json?    // extra sport-specific data
+}
+
+model MatchPlayer {
+  id        String   @id @default(cuid())
+  match     Match    @relation(fields: [matchId], references: [id])
+  matchId   String
+  team      Team     @relation(fields: [teamId], references: [id])
+  teamId    String
+  player    Player   @relation(fields: [playerId], references: [id])
+  playerId  String
+  isCaptain Boolean  @default(false)
+  isWk      Boolean  @default(false)
+
+  @@unique([matchId, playerId])
+}
+
+model Inning {
+  id              String   @id @default(cuid())
+  match           Match    @relation(fields: [matchId], references: [id])
+  matchId         String
+  targetScore     Int?
+  inningNumber    Int
+  battingTeam     Team     @relation("battingTeam", fields: [battingTeamId], references: [id])
+  battingTeamId   String
+  bowlingTeam     Team     @relation("bowlingTeam", fields: [bowlingTeamId], references: [id])
+  bowlingTeamId   String
+  totalRuns       Int      @default(0)
+  totalWickets    Int      @default(0)
+  totalOvers      Float    @default(0)
+  extras          Json?    // {byes: 0, legByes: 0, wides: 0, noBalls: 0, penalty: 0}
+
+  oversData       Over[]
+
+  @@unique([matchId, inningNumber])
+}
+
+model Over {
+  id              String   @id @default(cuid())
+  inning          Inning   @relation(fields: [inningId], references: [id])
+  inningId        String
+  overNumber      Int      // 1-indexed
+  bowler          Player   @relation(fields: [bowlerId], references: [id])
+  bowlerId        String
+  runs            Int      @default(0)
+  extras          Int      @default(0)
+  wickets         Int      @default(0)
+
+  balls           Ball[]
+
+  @@unique([inningId, overNumber])
+}
+
+model Ball {
+  id              String   @id @default(cuid())
+  over            Over     @relation(fields: [overId], references: [id])
+  overId          String
+  ballNumber      Int      // 1-indexed (can go >6 if wides/no-balls)
+  batter          Player   @relation("facingBatter", fields: [batterId], references: [id])
+  batterId        String
+  nonStriker      Player   @relation("nonStriker", fields: [nonStrikerId], references: [id])
+  nonStrikerId    String
+  runs            Int      @default(0)
+  extras          Int      @default(0)
+  extraType       String?  // wide | noBall | bye | legBye | penalty
+  isWicket        Boolean  @default(false)
+  wicketType      String?  // bowled | caught | lbw | runOut | stumped | hitWicket
+  wicketAssists   String?  // Catching fielder ID(s), run-out assist, etc.
+  dismissedPlayerId String? // Player who got out
+}
+
+model News {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  title     String
+  summary   String
+  body      String
+  author    String?
+  category  String?
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  title       String
+  description String
+  price       Int
+  category    String
+  location    String?
+  seller      User     @relation(fields: [sellerId], references: [id])
+  sellerId    String
+  images      Json?
+}
+
+model Badge {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  icon        String?
+  points      Int      @default(0)
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  badge     Badge    @relation(fields: [badgeId], references: [id])
+  badgeId   String
+  earnedAt  DateTime @default(now())
+}
+
+model Tournament {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  name        String
+  format      String   // T20 | ODI | Test
+  status      String   // upcoming | ongoing | completed
+  startDate   DateTime?
+  endDate     DateTime?
+  venue       String?
+  maxTeams    Int?
+  prizePool   String?
+  description String?
+  organizer   String?
+
+  teams   TournamentTeam[]
+  matches TournamentMatch[]
+}
+
+model Stream {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  matchId     String?
+  channel     String   // own | facebook | youtube
+  isPrivate   Boolean  @default(false)
+  quality     String   // HD | 4K | 720p
+  status      String   @default("upcoming") // upcoming | live | completed
+  createdAt   DateTime @default(now())
+}
+
+model Ground {
+  id         String   @id @default(cuid())
+  name       String
+  location   String
+  price      Int
+  available  Boolean  @default(true)
+  facilities Json?    // ["Floodlights", "Pavilion"]
+  bookings   Booking[]
+}
+
+model Booking {
+  id        String   @id @default(cuid())
+  ground    Ground   @relation(fields: [groundId], references: [id])
+  groundId  String
+  userId    String
+  date      DateTime
+  slot      String   // morning | afternoon | evening
+  createdAt DateTime @default(now())
+}
+
+model Quiz {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  difficulty  String   @default("Medium")
+  duration    Int      @default(300)
+  questions   Json     // [{question, options, correct}]
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  results     QuizResult[]
+}
+
+model QuizResult {
+  id        String   @id @default(cuid())
+  quiz      Quiz     @relation(fields: [quizId], references: [id])
+  quizId    String
+  userId    String
+  score     Int
+  total     Int
+  createdAt DateTime @default(now())
+}
+
+// Club Management
+model Club {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  name          String
+  president     String?
+  secretary     String?
+  foundedYear   Int?
+  address       String?
+  city          String?
+  state         String?
+  country       String?
+  phone         String?
+  email         String?
+  website       String?
+  membershipFee String?
+  facilities    Json?
+  bio           String?
+}
+
+// Chat System (polling-based)
+model ChatRoom {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  name      String
+  type      String   @default("team") // team | direct
+  members   ChatMember[]
+  messages  ChatMessage[]
+}
+
+model ChatMember {
+  id         String   @id @default(cuid())
+  chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id])
+  chatRoomId String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  joinedAt   DateTime @default(now())
+
+  @@unique([chatRoomId, userId])
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id])
+  chatRoomId String
+  sender     User     @relation(fields: [senderId], references: [id])
+  senderId   String
+  text       String
+}
+
+// Video Analysis
+model Video {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  title         String
+  matchId       String?
+  uploadUrl     String?
+  thumbnailUrl  String?
+  duration      String?
+  status        String   @default("uploaded") // uploaded | analyzing | analyzed
+  analysis      VideoAnalysis?
+}
+
+model VideoAnalysis {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  video      Video    @relation(fields: [videoId], references: [id])
+  videoId    String   @unique
+  highlights Int      @default(0)
+  shots      Int      @default(0)
+  insights   Int      @default(0)
+  details    Json?    // detailed analysis data
+}
+
+// ── CricHeroes Feature Models ────────────────────────────────
+
+// "Looking For" social board (player/team/umpire/scorer/coach)
+model LookingFor {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  type        String   // player | team | umpire | scorer | coach
+  title       String
+  description String?
+  location    String?
+  format      String?  // T20 | ODI | Test | All
+  ageGroup    String?
+  contactInfo String?
+  postedById  String?
+  status      String   @default("open") // open | filled | closed
+}
+
+// Coaches
+model Coach {
+  id           String        @id @default(cuid())
+  createdAt    DateTime      @default(now())
+  name         String
+  speciality   String?       // Batting | Bowling | Fielding | All-round
+  experience   Int?
+  location     String?
+  bio          String?
+  rating       Float         @default(0)
+  pricePerHour Int?
+  available    Boolean       @default(true)
+  bookings     CoachBooking[]
+}
+
+model CoachBooking {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  coach     Coach    @relation(fields: [coachId], references: [id])
+  coachId   String
+  userId    String
+  date      DateTime
+  duration  Int      @default(1)
+  notes     String?
+  status    String   @default("pending") // pending | confirmed | cancelled
+}
+
+// Umpires
+model Umpire {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  name           String
+  level          String?  // local | district | state | national
+  experience     Int?
+  location       String?
+  bio            String?
+  available      Boolean  @default(true)
+  contactInfo    String?
+  matchesUmpired Int      @default(0)
+}
+
+// Scorers
+model Scorer {
+  id          String         @id @default(cuid())
+  createdAt   DateTime       @default(now())
+  name        String
+  experience  Int?
+  location    String?
+  available   Boolean        @default(true)
+  contactInfo String?
+  bookings    ScorerBooking[]
+}
+
+model ScorerBooking {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  scorer    Scorer   @relation(fields: [scorerId], references: [id])
+  scorerId  String
+  userId    String
+  matchDate DateTime
+  venue     String?
+  status    String   @default("pending") // pending | confirmed | cancelled
+}
+
+// Tournament team registration + points table
+model TournamentTeam {
+  id           String     @id @default(cuid())
+  createdAt    DateTime   @default(now())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  team         Team       @relation(fields: [teamId], references: [id])
+  teamId       String
+  points       Int        @default(0)
+  played       Int        @default(0)
+  won          Int        @default(0)
+  lost         Int        @default(0)
+  tied         Int        @default(0)
+  nrr          Float      @default(0)
+  group        String     @default("A")
+
+  @@unique([tournamentId, teamId])
+}
+
+// Tournament schedule / fixture
+model TournamentMatch {
+  id           String     @id @default(cuid())
+  createdAt    DateTime   @default(now())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId String
+  matchId      String?
+  team1Id      String
+  team2Id      String
+  scheduledAt  DateTime?
+  venue        String?
+  round        String?    // Group | QF | SF | Final
+  result       String?
+  status       String     @default("scheduled")
+}
+
+// Match MVP / Player of the Match
+model MatchMVP {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  matchId   String
+  playerId  String
+  teamId    String
+  reason    String?
+  votes     Int      @default(0)
+}

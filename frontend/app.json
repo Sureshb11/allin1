@@ -1,0 +1,23 @@
+{
+  "name": "LocalLegends",
+  "displayName": "Local Legends",
+  "expo": {
+    "name": "Local Legends",
+    "slug": "local-legends",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": false,
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0f131f"
+      },
+      "package": "com.local.legends"
+    },
+    "ios": {
+      "bundleIdentifier": "com.local.legends",
+      "supportsTablet": true
+    }
+  }
+}

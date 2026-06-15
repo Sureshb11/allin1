@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(~/Library/Android/sdk/platform-tools/adb devices:*)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('message',{}\\).get\\('stop_reason','still running'\\)\\)\")",
+      "Bash(~/Library/Android/sdk/platform-tools/adb exec-out:*)",
+      "Bash(pkill -f \"react-native start\")",
+      "Bash(./gradlew assembleRelease)",
+      "Bash(adb kill-server:*)",
+      "Bash(adb start-server:*)",
+      "Bash(pkill -f \"qemu-system\")",
+      "Bash(pkill -f \"emulator\")",
+      "Bash(nohup emulator:*)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(adb install:*)",
+      "Bash(adb uninstall:*)",
+      "Bash(xargs ls:*)",
+      "Bash(./gradlew clean:*)",
+      "Read(//Volumes/BSB/**)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}

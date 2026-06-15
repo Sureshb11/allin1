@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700;800;900&amp;family=Plus+Jakarta+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "tertiary-container": "#576e00",
+            "on-error-container": "#ffdad6",
+            "on-error": "#690005",
+            "surface": "#0f131f",
+            "outline-variant": "#434656",
+            "inverse-primary": "#004ced",
+            "surface-container-lowest": "#0a0e1a",
+            "primary-container": "#0052ff",
+            "inverse-on-surface": "#2c303d",
+            "secondary-fixed": "#ffdbd0",
+            "error": "#ffb4ab",
+            "primary": "#b7c4ff",
+            "secondary": "#ffb59e",
+            "on-primary-fixed-variant": "#0038b6",
+            "on-tertiary-fixed": "#161e00",
+            "on-secondary-container": "#521300",
+            "tertiary-fixed": "#c3f400",
+            "on-primary": "#002682",
+            "secondary-fixed-dim": "#ffb59e",
+            "on-secondary-fixed-variant": "#852400",
+            "surface-tint": "#b7c4ff",
+            "on-primary-fixed": "#001452",
+            "surface-container": "#1b1f2c",
+            "on-secondary-fixed": "#3a0b00",
+            "surface-container-high": "#262a37",
+            "outline": "#8d90a2",
+            "on-primary-container": "#dfe3ff",
+            "on-tertiary": "#283500",
+            "on-tertiary-fixed-variant": "#3c4d00",
+            "on-background": "#dfe2f3",
+            "surface-bright": "#353946",
+            "secondary-container": "#ff571a",
+            "on-surface": "#dfe2f3",
+            "inverse-surface": "#dfe2f3",
+            "surface-variant": "#313442",
+            "on-tertiary-container": "#c5f600",
+            "background": "#0f131f",
+            "tertiary-fixed-dim": "#abd600",
+            "surface-container-highest": "#313442",
+            "on-surface-variant": "#c3c5d9",
+            "error-container": "#93000a",
+            "surface-dim": "#0f131f",
+            "primary-fixed": "#dde1ff",
+            "surface-container-low": "#171b28",
+            "on-secondary": "#5e1700",
+            "primary-fixed-dim": "#b7c4ff",
+            "tertiary": "#abd600"
+          },
+          fontFamily: {
+            "headline": ["Lexend"],
+            "body": ["Plus Jakarta Sans"],
+            "label": ["Lexend"]
+          },
+          borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    h1, h2, h3, .font-lexend { font-family: 'Lexend', sans-serif; }
+    .glass-effect { backdrop-filter: blur(20px); }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface selection:bg-tertiary selection:text-on-tertiary">
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 w-full z-50 bg-[#0f131f]/60 backdrop-blur-xl bg-gradient-to-b from-[#171b28] to-transparent shadow-2xl shadow-black/40">
+<div class="flex items-center justify-between px-6 py-4 w-full">
+<div class="flex items-center gap-3">
+<div class="bg-tertiary p-1 rounded-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-on-tertiary text-lg" data-icon="star_four_points">star</span>
+</div>
+<div class="flex items-baseline font-lexend uppercase tracking-tighter">
+<span class="text-xl font-black text-[#dfe2f3]">LOCAL</span>
+<span class="ml-1 px-1.5 py-0.5 bg-tertiary text-on-tertiary text-[10px] font-extrabold rounded-sm">LEGENDS</span>
+</div>
+</div>
+<div class="flex gap-6 items-center">
+<button class="material-symbols-outlined text-[#dfe2f3] hover:bg-[#353946] transition-colors p-2 rounded-full" data-icon="search">search</button>
+<button class="material-symbols-outlined text-[#dfe2f3] hover:bg-[#353946] transition-colors p-2 rounded-full" data-icon="notifications">notifications</button>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-24 px-4 max-w-5xl mx-auto space-y-6">
+<!-- Hero Match Header -->
+<section class="relative overflow-hidden rounded-xl bg-surface-container-low shadow-2xl">
+<div class="absolute inset-0 opacity-20" data-alt="dramatic wide shot of a floodlit cricket stadium at night with emerald green turf and hazy atmospheric lights" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCfcV-31LG1EPhq2KrkX2savRwx8eAhwi2LLWmdunsSFS401Tn-SQv2BwB_652s_MkhwIo6hX9jl4pdYBNOP7cNsUvKhzEKuOIeg9DKr_sckw42syE5VJ1T7IM96ASEOPrAtvmEXPJ5SVnsPQ-SfHKRJVxNJ5siwcPG-yYozyVkflua9p0adY1d7pkySDJEjZ6Y67Lugv9NzCPj13yTgLiYDVDj145WHMPItMzkIXqLfcvvEZ4LtGCQ3Bhwb_3Ul-1gSG298jGGiwE'); background-size: cover; background-position: center;"></div>
+<div class="relative p-6 bg-gradient-to-r from-surface-container-low via-surface-container-low/90 to-transparent">
+<div class="flex justify-between items-start mb-4">
+<div class="flex flex-col">
+<span class="flex items-center gap-2 text-tertiary font-lexend font-bold text-xs tracking-[0.2em]">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span> LIVE • INNINGS 1
+            </span>
+<h1 class="text-4xl font-black font-lexend tracking-tighter mt-1">GULLY TITANS <span class="text-tertiary-fixed-dim">vs</span> STREET KINGS</h1>
+</div>
+<div class="text-right">
+<p class="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Target: 184</p>
+<div class="flex items-baseline gap-2 justify-end">
+<span class="text-4xl font-lexend font-extrabold text-tertiary">142/4</span>
+<span class="text-lg font-lexend text-on-surface-variant">(16.2)</span>
+</div>
+</div>
+</div>
+<!-- Momentum Meter -->
+<div class="mt-8 space-y-2">
+<div class="flex justify-between text-[10px] font-lexend font-bold uppercase tracking-widest text-on-surface-variant opacity-60">
+<span>Titans Win Prob 65%</span>
+<span>Kings Win Prob 35%</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden flex">
+<div class="h-full bg-tertiary" style="width: 65%"></div>
+<div class="h-full bg-secondary" style="width: 35%"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Tab Navigation -->
+<nav class="flex gap-2 p-1 bg-surface-container-low rounded-xl overflow-x-auto no-scrollbar">
+<button class="px-6 py-3 bg-tertiary/10 text-tertiary rounded-lg font-lexend text-sm font-bold uppercase tracking-widest whitespace-nowrap shadow-[0_0_15px_rgba(171,214,0,0.1)]">Scorecard</button>
+<button class="px-6 py-3 text-on-surface-variant hover:bg-surface-bright transition-all rounded-lg font-lexend text-sm font-bold uppercase tracking-widest whitespace-nowrap">Partnerships</button>
+<button class="px-6 py-3 text-on-surface-variant hover:bg-surface-bright transition-all rounded-lg font-lexend text-sm font-bold uppercase tracking-widest whitespace-nowrap">Commentary</button>
+<button class="px-6 py-3 text-on-surface-variant hover:bg-surface-bright transition-all rounded-lg font-lexend text-sm font-bold uppercase tracking-widest whitespace-nowrap">Graphs</button>
+</nav>
+<!-- Batting Scorecard -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden shadow-xl">
+<div class="px-6 py-4 bg-surface-container-high flex justify-between items-center">
+<h2 class="font-lexend font-extrabold text-lg tracking-tight">GULLY TITANS BATTING</h2>
+<span class="text-[10px] font-lexend font-bold text-on-tertiary-container bg-tertiary-container px-2 py-1 rounded">RR: 8.69</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="text-on-surface-variant/60 font-lexend text-[10px] uppercase tracking-[0.2em] bg-surface-container-low">
+<th class="px-6 py-4 font-bold">Batter</th>
+<th class="px-4 py-4 font-bold text-center">R</th>
+<th class="px-4 py-4 font-bold text-center">B</th>
+<th class="px-4 py-4 font-bold text-center">4s</th>
+<th class="px-4 py-4 font-bold text-center">6s</th>
+<th class="px-6 py-4 font-bold text-right">SR</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-highest/20">
+<!-- Active Batsman -->
+<tr class="bg-tertiary/5 border-l-4 border-tertiary">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<span class="font-bold text-on-surface">Rohit Sharma*</span>
+<span class="material-symbols-outlined text-tertiary text-sm" data-icon="sports_cricket">sports_cricket</span>
+</div>
+<span class="text-[10px] text-tertiary font-bold uppercase tracking-wider">not out</span>
+</td>
+<td class="px-4 py-5 text-center font-lexend font-bold text-xl text-tertiary">48</td>
+<td class="px-4 py-5 text-center text-on-surface-variant text-sm">32</td>
+<td class="px-4 py-5 text-center text-on-surface-variant text-sm">4</td>
+<td class="px-4 py-5 text-center text-on-surface-variant text-sm">2</td>
+<td class="px-6 py-5 text-right font-lexend font-bold text-on-surface">150.0</td>
+</tr>
+<tr>
+<td class="px-6 py-5">
+<span class="font-medium text-on-surface">Virat K.</span>
+<span class="block text-[10px] text-on-surface-variant/60 uppercase tracking-widest mt-1">lbw b. Chahal</span>
+</td>
+<td class="px-4 py-5 text-center font-lexend font-bold text-lg text-on-surface">34</td>
+<td class="px-4 py-5 text-center text-on-surface-variant text-sm">21</td>
+<td class="px-4 py-5 text-center text-on-surface-variant text-sm">5</td>
+<td class="px-4 py-5 text-center text-on-surface-variant text-sm">0</td>
+<td class="px-6 py-5 text-right font-lexend font-bold text-on-surface">161.9</td>
+</tr>
+<tr class="bg-tertiary/5 border-l-4 border-tertiary">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<span class="font-bold text-on-surface">Surya Kumar*</span>
+<span class="material-symbols-outlined text-tertiary text-sm" data-icon="sports_cricket">sports_cricket</span>
+</div>
+<span class="text-[10px] text-tertiary font-bold uppercase tracking-wider">not out</span>
+</td>
+<td class="px-4 py-5 text-center font-lexend font-bold text-xl text-tertiary">22</td>
+<td class="px-4 py-5 text-center text-on-surface-variant text-sm">11</td>
+<td class="px-4 py-5 text-center text-on-surface-variant text-sm">1</td>
+<td class="px-4 py-5 text-center text-on-surface-variant text-sm">2</td>
+<td class="px-6 py-5 text-right font-lexend font-bold text-on-surface">200.0</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Extras Section -->
+<div class="px-6 py-4 bg-surface-container-high/50 border-t border-surface-container-highest/20 flex justify-between items-center">
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-[0.2em]">Extras</span>
+<div class="flex gap-4">
+<span class="text-sm font-bold">12 <span class="text-[10px] text-on-surface-variant opacity-60 ml-1">(wd 4, nb 1, lb 5, b 2)</span></span>
+</div>
+</div>
+</div>
+<!-- Bowling Scorecard -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden shadow-xl">
+<div class="px-6 py-4 bg-surface-container-high flex justify-between items-center">
+<h2 class="font-lexend font-extrabold text-lg tracking-tight">STREET KINGS BOWLING</h2>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="text-on-surface-variant/60 font-lexend text-[10px] uppercase tracking-[0.2em] bg-surface-container-low">
+<th class="px-6 py-4 font-bold">Bowler</th>
+<th class="px-4 py-4 font-bold text-center">O</th>
+<th class="px-4 py-4 font-bold text-center">M</th>
+<th class="px-4 py-4 font-bold text-center">R</th>
+<th class="px-4 py-4 font-bold text-center">W</th>
+<th class="px-6 py-4 font-bold text-right">ECO</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-highest/20">
+<tr>
+<td class="px-6 py-5 font-medium text-on-surface">Rashid Khan</td>
+<td class="px-4 py-5 text-center text-on-surface font-lexend">4.0</td>
+<td class="px-4 py-5 text-center text-on-surface-variant text-sm">0</td>
+<td class="px-4 py-5 text-center text-on-surface font-lexend">28</td>
+<td class="px-4 py-5 text-center text-tertiary font-lexend font-bold">2</td>
+<td class="px-6 py-5 text-right font-lexend text-on-surface">7.0</td>
+</tr>
+<tr class="bg-surface-bright/20">
+<td class="px-6 py-5 font-medium text-on-surface flex items-center gap-2">
+                Jasprit B.
+                <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+</td>
+<td class="px-4 py-5 text-center text-on-surface font-lexend">3.2</td>
+<td class="px-4 py-5 text-center text-on-surface-variant text-sm">1</td>
+<td class="px-4 py-5 text-center text-on-surface font-lexend">19</td>
+<td class="px-4 py-5 text-center text-tertiary font-lexend font-bold">1</td>
+<td class="px-6 py-5 text-right font-lexend text-on-surface">5.7</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Fall of Wickets Bento -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="bg-surface-container-low p-6 rounded-xl space-y-4">
+<h3 class="font-lexend font-bold text-sm tracking-widest text-on-surface-variant uppercase">Fall of Wickets</h3>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-sm p-3 bg-surface-container-high rounded-lg">
+<span class="font-medium">1-42 <span class="text-xs text-on-surface-variant ml-2">(S. Gill, 5.2 ov)</span></span>
+<span class="text-tertiary font-bold text-[10px]">4.2 CRR</span>
+</div>
+<div class="flex justify-between items-center text-sm p-3 bg-surface-container-high rounded-lg opacity-80">
+<span class="font-medium">2-89 <span class="text-xs text-on-surface-variant ml-2">(V. Kohli, 10.4 ov)</span></span>
+<span class="text-tertiary font-bold text-[10px]">8.4 CRR</span>
+</div>
+<div class="flex justify-between items-center text-sm p-3 bg-surface-container-high rounded-lg opacity-60">
+<span class="font-medium">3-121 <span class="text-xs text-on-surface-variant ml-2">(KL Rahul, 14.1 ov)</span></span>
+<span class="text-tertiary font-bold text-[10px]">8.6 CRR</span>
+</div>
+</div>
+</div>
+<!-- Key Statistics Card -->
+<div class="bg-surface-container-high p-6 rounded-xl border-l-4 border-secondary flex flex-col justify-between">
+<div>
+<h3 class="font-lexend font-bold text-sm tracking-widest text-secondary uppercase mb-4">Innings Insight</h3>
+<p class="text-on-surface-variant leading-relaxed">Titans scoring at <span class="text-on-surface font-bold">11.4 rpo</span> in the last 5 overs. Rashid Khan has completed his spell with an economy of 7.00.</p>
+</div>
+<div class="mt-6 flex gap-4">
+<div class="flex-1 bg-surface-container-highest p-3 rounded-lg text-center">
+<span class="block text-[10px] uppercase font-bold text-on-surface-variant mb-1">Dot Balls</span>
+<span class="text-2xl font-lexend font-black text-tertiary">38</span>
+</div>
+<div class="flex-1 bg-surface-container-highest p-3 rounded-lg text-center">
+<span class="block text-[10px] uppercase font-bold text-on-surface-variant mb-1">Boundaries</span>
+<span class="text-2xl font-lexend font-black text-secondary">24</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar Shell -->
+<nav class="fixed bottom-0 left-0 w-full h-20 bg-[#0f131f]/80 backdrop-blur-2xl flex justify-around items-center px-4 pb-2 z-50 rounded-t-3xl border-t border-[#353946]/15 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-[#dfe2f3]/60 py-2 px-4 hover:text-[#abd600] transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="home">home</span>
+<span class="font-lexend text-[10px] font-bold uppercase tracking-widest">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#abd600] bg-[#abd600]/10 rounded-xl py-2 px-4 shadow-[0_0_15px_rgba(171,214,0,0.2)] active:scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="sports_cricket" style="font-variation-settings: 'FILL' 1;">sports_cricket</span>
+<span class="font-lexend text-[10px] font-bold uppercase tracking-widest">Matches</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#dfe2f3]/60 py-2 px-4 hover:text-[#abd600] transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="scoreboard">scoreboard</span>
+<span class="font-lexend text-[10px] font-bold uppercase tracking-widest">Scorer</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#dfe2f3]/60 py-2 px-4 hover:text-[#abd600] transition-all active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="person">person</span>
+<span class="font-lexend text-[10px] font-bold uppercase tracking-widest">Profile</span>
+</a>
+</nav>
+</body></html>

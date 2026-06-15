@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Schedule Fix Confirmation | Local Legends</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700;800;900&amp;family=Plus+Jakarta+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "secondary-fixed": "#ffdbd0",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "primary-fixed": "#dde1ff",
+                        "on-tertiary-fixed": "#161e00",
+                        "on-primary-fixed-variant": "#0038b6",
+                        "error": "#ffb4ab",
+                        "on-tertiary-fixed-variant": "#3c4d00",
+                        "surface-dim": "#0f131f",
+                        "on-tertiary-container": "#c5f600",
+                        "on-background": "#dfe2f3",
+                        "surface-container-highest": "#313442",
+                        "surface-tint": "#b7c4ff",
+                        "surface-container-lowest": "#0a0e1a",
+                        "on-surface": "#dfe2f3",
+                        "on-primary-container": "#dfe3ff",
+                        "tertiary-fixed": "#c3f400",
+                        "on-secondary-fixed-variant": "#852400",
+                        "secondary-fixed-dim": "#ffb59e",
+                        "tertiary": "#abd600",
+                        "primary-container": "#0052ff",
+                        "on-secondary": "#5e1700",
+                        "inverse-on-surface": "#2c303d",
+                        "background": "#0f131f",
+                        "secondary": "#ffb59e",
+                        "on-secondary-fixed": "#3a0b00",
+                        "outline": "#8d90a2",
+                        "on-secondary-container": "#521300",
+                        "inverse-primary": "#004ced",
+                        "surface-container-high": "#262a37",
+                        "secondary-container": "#ff571a",
+                        "surface-container": "#1b1f2c",
+                        "on-primary": "#002682",
+                        "error-container": "#93000a",
+                        "tertiary-container": "#576e00",
+                        "on-error": "#690005",
+                        "tertiary-fixed-dim": "#abd600",
+                        "surface": "#0f131f",
+                        "surface-bright": "#353946",
+                        "surface-variant": "#313442",
+                        "inverse-surface": "#dfe2f3",
+                        "on-tertiary": "#283500",
+                        "on-surface-variant": "#c3c5d9",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-low": "#171b28",
+                        "on-primary-fixed": "#001452",
+                        "primary": "#b7c4ff",
+                        "outline-variant": "#434656"
+                    },
+                    fontFamily: {
+                        "headline": ["Lexend"],
+                        "body": ["Plus Jakarta Sans"],
+                        "label": ["Lexend"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .stadium-glow {
+            background: radial-gradient(circle at 50% -20%, rgba(171, 214, 0, 0.15) 0%, rgba(15, 19, 31, 0) 70%);
+        }
+        .action-button-glow:hover {
+            box-shadow: 0 0 15px rgba(171, 214, 0, 0.4);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body selection:bg-tertiary selection:text-on-tertiary">
+<!-- Top Navigation Anchor (Manual Implementation based on JSON) -->
+<header class="fixed top-0 w-full z-50 bg-[#0f131f]/60 backdrop-blur-xl flex items-center px-4 h-16 w-full">
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-[#dfe2f3] hover:bg-[#353946] transition-colors p-2 rounded-full scale-95 duration-200">arrow_back</button>
+<h1 class="font-['Lexend'] font-bold tracking-tight text-[#dfe2f3] text-lg">Match Confirmation</h1>
+</div>
+</header>
+<main class="min-h-screen pt-20 pb-32 stadium-glow px-4 max-w-2xl mx-auto">
+<!-- Hero Confirmation Section -->
+<div class="flex flex-col items-center text-center mt-8 mb-12">
+<div class="relative mb-6">
+<div class="absolute inset-0 bg-tertiary/20 blur-2xl rounded-full"></div>
+<div class="relative bg-surface-container-high p-6 rounded-full border border-tertiary/20">
+<span class="material-symbols-outlined text-tertiary text-6xl" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+</div>
+<h2 class="font-headline text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none italic mb-2">
+                SCHEDULE <span class="text-tertiary">CONFIRMED</span>
+</h2>
+<p class="text-on-surface-variant font-medium tracking-wide uppercase text-sm">Fixture locked into the league</p>
+</div>
+<!-- Match Card (Stadium Aesthetic) -->
+<section class="bg-surface-container-low rounded-xl overflow-hidden relative mb-8">
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-tertiary to-transparent opacity-50"></div>
+<!-- VS Battle Visual -->
+<div class="p-8 flex items-center justify-between relative">
+<!-- Team 1 -->
+<div class="flex flex-col items-center gap-3 flex-1">
+<div class="w-20 h-20 rounded-full bg-surface-container-highest flex items-center justify-center p-1 border-2 border-primary/20">
+<img class="w-full h-full rounded-full object-cover" data-alt="minimalist sports team logo for Gully Titans with aggressive typography and blue lightning bolt motif" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdTxGY0sgCGuGKkw3jsd6BaEmFUUJuEyYX0I3VWrh4knMkSMR6Eo7cD_rPmyGdcKL42FDI6tPEzJY9-7y6wFm4qYQuUtNQESOL-uM0YW0IKDnAkRsH5mvtlHsraakALwS1rcDN9Y_g70o4G5Tvjha3Ujm_oPn7FX5IcDfRgy8LP4UpFk7zi73o4T1C4s_OeOLOCVt3rICLzQBceod3FiU-jzS2Op4PQpwYJDYixR5V53eKXl-MI9uh83h_0-b3WxjAJYoDbjafvJ8"/>
+</div>
+<span class="font-headline font-bold text-lg tracking-tight text-center">Gully Titans</span>
+</div>
+<!-- VS Divider -->
+<div class="flex flex-col items-center mx-4">
+<div class="font-headline font-black text-4xl italic text-on-surface-variant/20 tracking-tighter">VS</div>
+<div class="h-12 w-px bg-gradient-to-b from-transparent via-outline-variant to-transparent my-2"></div>
+</div>
+<!-- Team 2 -->
+<div class="flex flex-col items-center gap-3 flex-1">
+<div class="w-20 h-20 rounded-full bg-surface-container-highest flex items-center justify-center p-1 border-2 border-secondary/20">
+<img class="w-full h-full rounded-full object-cover" data-alt="dynamic sports team logo for Street Kings featuring a stylized crown and urban concrete textures" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOUTMBJv5byO1O5j4BjLgKeiPPSgB0SVVtS7OQmK9FMeX0BGiVe1PjW4CNXNVJk4g-FTiKJjJiDcH287wvG0kThnwbVIQhuNY2_pgcIZDOOh0bsxqUTwPxtBcjdaX27OWOcF3QHGKD3oC3b1W3l0tmmwVqcyoOHfUKxBY4fQlo6utX2F7nDYVIF9Ln8eV-3RtGae91foXftTJ2_tBshP_5DroUchzvxG5ANsOz2S4TwsqzxUzpD-OgkeNNY0oOHUbyiW1w9jXgkAQ"/>
+</div>
+<span class="font-headline font-bold text-lg tracking-tight text-center">Street Kings</span>
+</div>
+</div>
+<!-- Momentum Visualizer (Design System Element) -->
+<div class="px-8 pb-4">
+<div class="flex justify-between text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+<span>Power Rank</span>
+<span>Win Prob.</span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden flex">
+<div class="h-full bg-primary" style="width: 45%"></div>
+<div class="h-full bg-secondary" style="width: 55%"></div>
+</div>
+</div>
+</section>
+<!-- Fixture Details Bento Grid -->
+<div class="grid grid-cols-2 gap-3 mb-10">
+<!-- Format -->
+<div class="bg-surface-container-high p-5 rounded-xl flex flex-col gap-1 border-l-2 border-tertiary">
+<span class="text-[10px] font-black uppercase text-on-surface-variant tracking-widest">Format</span>
+<span class="font-headline font-bold text-xl text-primary-fixed">T20 International</span>
+</div>
+<!-- Date -->
+<div class="bg-surface-container-high p-5 rounded-xl flex flex-col gap-1">
+<span class="text-[10px] font-black uppercase text-on-surface-variant tracking-widest">Date</span>
+<span class="font-headline font-bold text-xl">Oct 24, 2023</span>
+</div>
+<!-- Time -->
+<div class="bg-surface-container-high p-5 rounded-xl flex flex-col gap-1">
+<span class="text-[10px] font-black uppercase text-on-surface-variant tracking-widest">Time</span>
+<span class="font-headline font-bold text-xl">19:30 IST</span>
+</div>
+<!-- Venue -->
+<div class="bg-surface-container-high p-5 rounded-xl flex flex-col gap-1 border-r-2 border-secondary">
+<span class="text-[10px] font-black uppercase text-on-surface-variant tracking-widest">Venue</span>
+<span class="font-headline font-bold text-lg leading-tight">Sector 7 Arena</span>
+</div>
+</div>
+<!-- Venue Map Preview -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden h-32 mb-10 group relative">
+<div class="absolute inset-0 bg-black/40 z-10"></div>
+<div class="absolute bottom-3 left-4 z-20 flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-sm">location_on</span>
+<span class="font-label text-xs font-bold uppercase tracking-widest">View Map</span>
+</div>
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="top-down aerial map view of a sports complex with multiple cricket pitches under bright evening lights" data-location="New Delhi" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAXrxmsbARJHAQxlK7pj5wHZioKrI0R9J9OpXtrNa9fYTrAIAIymVhVmz9R7y4VPC76ga3O3xhyGFSf8waSIRBQyT0s-CTZMZdDrYhuCfC6ezPxgFHlaAiGpSOdElwO0IGl-Zz6NtViynqLk2zV0k8qarNUsAacuiU0adnGAGab7w-rA-dpVpkAaX8jefQ7oUA9hhRUxcf9TozTu1cYztsR-3MDDsyiems3Yk-r7oLX-NeWIo4eHH3cDpCGlFZjLxxEhJpZYsPP-OI"/>
+</div>
+<!-- Action Buttons -->
+<div class="flex flex-col gap-4">
+<button class="w-full bg-gradient-to-br from-tertiary to-tertiary-container text-on-tertiary font-label font-black text-sm uppercase py-5 rounded-lg tracking-widest transition-all active:scale-95 action-button-glow flex items-center justify-center gap-2">
+                VIEW MATCH PREVIEW
+                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+<button class="w-full bg-surface-container-high border border-outline-variant/30 text-on-surface font-label font-bold text-sm uppercase py-4 rounded-lg tracking-widest hover:bg-surface-bright transition-all active:scale-95">
+                EDIT DETAILS
+            </button>
+</div>
+</main>
+<!-- Bottom Navigation Shell (Manual Implementation based on JSON) -->
+<nav class="fixed bottom-0 w-full z-50 bg-[#0f131f]/60 backdrop-blur-xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)] flex justify-around items-center h-20 px-2 pb-safe w-full">
+<!-- Home -->
+<div class="flex flex-col items-center justify-center text-[#dfe2f3] opacity-60 hover:bg-[#262a37] hover:opacity-100 transition-all scale-98 duration-150 active:scale-95 cursor-pointer flex-1 py-1">
+<span class="material-symbols-outlined">home</span>
+<span class="font-['Lexend'] text-[10px] font-bold uppercase tracking-wider">Home</span>
+</div>
+<!-- Schedule (Active) -->
+<div class="flex flex-col items-center justify-center text-[#abd600] bg-[#262a37] rounded-xl px-3 py-1 scale-98 duration-150 active:scale-95 cursor-pointer flex-1">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
+<span class="font-['Lexend'] text-[10px] font-bold uppercase tracking-wider">Schedule</span>
+</div>
+<!-- Scores -->
+<div class="flex flex-col items-center justify-center text-[#dfe2f3] opacity-60 hover:bg-[#262a37] hover:opacity-100 transition-all scale-98 duration-150 active:scale-95 cursor-pointer flex-1 py-1">
+<span class="material-symbols-outlined">scoreboard</span>
+<span class="font-['Lexend'] text-[10px] font-bold uppercase tracking-wider">Scores</span>
+</div>
+<!-- Profile -->
+<div class="flex flex-col items-center justify-center text-[#dfe2f3] opacity-60 hover:bg-[#262a37] hover:opacity-100 transition-all scale-98 duration-150 active:scale-95 cursor-pointer flex-1 py-1">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Lexend'] text-[10px] font-bold uppercase tracking-wider">Profile</span>
+</div>
+</nav>
+</body></html>

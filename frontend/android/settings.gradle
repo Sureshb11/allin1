@@ -1,0 +1,45 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    includeBuild('../node_modules/@react-native/gradle-plugin')
+}
+
+plugins {
+    id("com.facebook.react.settings")
+}
+
+// Global Node configuration
+def nodePath = "/Volumes/BSB/Applications/node/bin/node"
+System.setProperty("NODE_BINARY", nodePath)
+System.setProperty("react.nodeExecutableAndArgs", nodePath)
+
+gradle.beforeProject { project ->
+    project.ext.set("compileSdkVersion", 35)
+    project.ext.set("buildToolsVersion", "35.0.0")
+    project.ext.set("minSdkVersion", 23)
+    project.ext.set("targetSdkVersion", 34)
+    project.ext.set("ndkVersion", "25.1.8937393")
+    project.ext.set("nodeExecutable", nodePath)
+    project.ext.set("NODE_BINARY", nodePath)
+}
+
+rootProject.name = 'LocalLegends'
+
+reactSettings {
+    autolinkLibrariesFromCommand()
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url "${settingsDir}/../node_modules/react-native/android" }
+        maven { url "${settingsDir}/../node_modules/jsc-android/dist" }
+    }
+}
+
+include ':app'

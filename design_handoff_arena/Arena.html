@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Choose Your Arena — Sport Picker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #0a0e18; }
+  body { font-family: 'Archivo', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+
+  .pulse-ring {
+    position: absolute; inset: 0; border-radius: 50%;
+    border: 2px solid rgba(196, 248, 42, 0.5);
+    animation: pulse-ring 2.4s cubic-bezier(.2,.6,.3,1) infinite;
+    pointer-events: none; z-index: 0;
+  }
+  @keyframes pulse-ring {
+    0%   { transform: scale(0.85); opacity: 0.7; }
+    70%  { opacity: 0; }
+    100% { transform: scale(2.1); opacity: 0; }
+  }
+  @keyframes sheetUp { from { transform: translateY(46px); opacity: 0.3; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+  @keyframes flashUp { 0% { opacity: 0; transform: translateY(8px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(-18px); } }
+
+  /* entrance cascade for cells once mounted */
+  .hc-cell { animation: cellIn .5s cubic-bezier(.2,.8,.2,1) backwards; }
+  @keyframes cellIn { from { opacity: 0; } }
+
+  /* lock-pop on the disc that snaps to centre */
+  .disc.is-lock { animation: lockPop .34s cubic-bezier(.3,1.5,.5,1); }
+  @keyframes lockPop { 0% { transform: scale(0.82); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+
+  /* readout content slides in when focus changes (transform-only so it's never left blank) */
+  .readout-swap { animation: readoutIn .3s ease; }
+  @keyframes readoutIn { from { transform: translateY(5px); } to { transform: none; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="app/data.jsx"></script>
+<script type="text/babel" src="app/icons.jsx"></script>
+<script type="text/babel" src="app/honeycomb.jsx"></script>
+<script type="text/babel" src="app/scoring.jsx"></script>
+<script type="text/babel" src="app/phone.jsx"></script>
+<script type="text/babel" src="app/variants.jsx"></script>
+<script type="text/babel" src="app/main.jsx"></script>
+
+<template id="__bundler_thumbnail">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#0d1320" />
+    <g fill="#c4f82a">
+      <circle cx="50" cy="50" r="11" />
+      <circle cx="32" cy="40" r="7" opacity="0.7" />
+      <circle cx="68" cy="40" r="7" opacity="0.7" />
+      <circle cx="32" cy="60" r="7" opacity="0.7" />
+      <circle cx="68" cy="60" r="7" opacity="0.7" />
+      <circle cx="50" cy="29" r="7" opacity="0.5" />
+      <circle cx="50" cy="71" r="7" opacity="0.5" />
+    </g>
+  </svg>
+</template>
+</body>
+</html>

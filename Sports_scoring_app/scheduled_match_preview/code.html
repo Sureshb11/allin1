@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Match Preview | Local Legends</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&amp;family=Plus+Jakarta+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-background": "#dfe2f3",
+                        "on-secondary": "#5e1700",
+                        "on-tertiary-container": "#c5f600",
+                        "surface-dim": "#0f131f",
+                        "on-secondary-fixed": "#3a0b00",
+                        "surface-variant": "#313442",
+                        "surface-container-lowest": "#0a0e1a",
+                        "error-container": "#93000a",
+                        "surface-container-highest": "#313442",
+                        "inverse-on-surface": "#2c303d",
+                        "on-tertiary": "#283500",
+                        "surface-tint": "#b7c4ff",
+                        "on-tertiary-fixed-variant": "#3c4d00",
+                        "surface-container-low": "#171b28",
+                        "secondary": "#ffb59e",
+                        "outline-variant": "#434656",
+                        "outline": "#8d90a2",
+                        "error": "#ffb4ab",
+                        "surface": "#0f131f",
+                        "on-secondary-container": "#521300",
+                        "on-primary-fixed-variant": "#0038b6",
+                        "surface-container": "#1b1f2c",
+                        "tertiary-container": "#576e00",
+                        "on-primary": "#002682",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "inverse-primary": "#004ced",
+                        "on-surface-variant": "#c3c5d9",
+                        "tertiary-fixed": "#c3f400",
+                        "on-surface": "#dfe2f3",
+                        "on-tertiary-fixed": "#161e00",
+                        "on-error-container": "#ffdad6",
+                        "secondary-fixed": "#ffdbd0",
+                        "primary-fixed": "#dde1ff",
+                        "surface-bright": "#353946",
+                        "tertiary-fixed-dim": "#abd600",
+                        "secondary-container": "#ff571a",
+                        "on-primary-fixed": "#001452",
+                        "inverse-surface": "#dfe2f3",
+                        "primary": "#b7c4ff",
+                        "on-secondary-fixed-variant": "#852400",
+                        "on-error": "#690005",
+                        "background": "#0f131f",
+                        "secondary-fixed-dim": "#ffb59e",
+                        "primary-container": "#0052ff",
+                        "on-primary-container": "#dfe3ff",
+                        "tertiary": "#abd600",
+                        "surface-container-high": "#262a37"
+                    },
+                    fontFamily: {
+                        "headline": ["Lexend"],
+                        "body": ["Plus Jakarta Sans"],
+                        "label": ["Lexend"]
+                    },
+                    borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .kinetic-gradient {
+            background: linear-gradient(135deg, #0052ff 0%, #b7c4ff 100%);
+        }
+        .glass-panel {
+            background: rgba(27, 31, 44, 0.6);
+            backdrop-filter: blur(20px);
+        }
+        .momentum-bar {
+            height: 4px;
+            background: linear-gradient(90deg, #abd600 50%, #ffb59e 50%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body selection:bg-tertiary selection:text-on-tertiary">
+<!-- Top Navigation Shell -->
+<header class="bg-[#0f131f]/60 backdrop-blur-md flex items-center justify-between px-4 h-16 w-full z-50 fixed top-0">
+<div class="flex items-center gap-3">
+<button class="text-[#abd600] hover:bg-[#353946] transition-colors p-2 rounded-full scale-95 duration-200">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-lexend font-bold tracking-tight text-[#abd600] text-lg">MATCH #8291</h1>
+</div>
+<div class="flex items-center gap-2">
+<div class="bg-tertiary p-1 rounded-sm">
+<span class="material-symbols-outlined text-on-tertiary text-sm" style="font-variation-settings: 'FILL' 1;">star_rate</span>
+</div>
+<span class="font-headline font-black text-[#dfe2f3] text-lg tracking-tighter">LOCAL <span class="bg-tertiary text-on-tertiary px-1 rounded-sm">LEGENDS</span></span>
+</div>
+</header>
+<main class="pt-20 pb-24 px-4 max-w-5xl mx-auto space-y-6">
+<!-- Hero Section: Countdown & Match Intro -->
+<section class="relative overflow-hidden rounded-xl aspect-[16/9] md:aspect-[21/9] flex flex-col justify-end p-6 md:p-10">
+<img alt="Cricket stadium night" class="absolute inset-0 w-full h-full object-cover" data-alt="Cinematic night view of a professional cricket stadium under bright floodlights with deep shadows and electric blue atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAcVvFIesxqG89REejY4wVGsihQelXP1pSZmmQ8au2F1oG7KRb_nn1cICeuWNsh6cZ4vwlbQDq_2HY4bLFzLP71hNdG9rwIiw4HDRQ5ufcMCLo_7kJ-XRzqZ4yQ97lBCXQwtAyCTaUe7H7ryZh4rEJ5oN8vesYGdBv5FRTviWiZrNgM9pqozM8plFjOJP7vGdQwuhTOe0HuXbZ8Lm2oz5lwDMI5aM6lizrq0BhBAXxWatlmffo9xYrB0ZF4RJ2VeImbuI1vAsIrHbM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
+<div class="relative z-10 space-y-2">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<span class="font-label text-tertiary text-[10px] uppercase tracking-[0.2em] font-bold">Upcoming Battle</span>
+</div>
+<h2 class="font-headline text-4xl md:text-6xl font-black text-on-surface tracking-tighter leading-none italic">READY TO BATTLE</h2>
+<p class="font-headline text-xl md:text-2xl text-on-surface-variant font-medium">Gully Titans vs Street Kings</p>
+</div>
+</section>
+<!-- Countdown Timer: Kinetic Display -->
+<div class="bg-surface-container-high rounded-xl p-6 flex flex-col items-center justify-center border-l-4 border-tertiary shadow-xl">
+<span class="font-label text-on-surface-variant text-[10px] uppercase tracking-widest mb-2">Match Starts In</span>
+<div class="flex gap-4 items-baseline">
+<div class="text-center">
+<span class="font-headline text-5xl md:text-7xl font-black text-tertiary tracking-tighter">00</span>
+<span class="block font-label text-[10px] text-outline">HOURS</span>
+</div>
+<span class="font-headline text-4xl font-light text-outline-variant">:</span>
+<div class="text-center">
+<span class="font-headline text-5xl md:text-7xl font-black text-tertiary tracking-tighter">42</span>
+<span class="block font-label text-[10px] text-outline">MINS</span>
+</div>
+<span class="font-headline text-4xl font-light text-outline-variant">:</span>
+<div class="text-center">
+<span class="font-headline text-5xl md:text-7xl font-black text-tertiary tracking-tighter">15</span>
+<span class="block font-label text-[10px] text-outline">SECS</span>
+</div>
+</div>
+</div>
+<!-- Info Grid: Bento Style -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Match Details Card -->
+<div class="md:col-span-2 bg-surface-container-low rounded-xl p-6 flex flex-col justify-between hover:bg-surface-container transition-colors group">
+<div class="flex justify-between items-start mb-8">
+<div class="space-y-1">
+<span class="font-label text-tertiary text-[10px] uppercase tracking-widest font-bold">Venue &amp; Conditions</span>
+<h3 class="font-headline text-2xl font-bold text-on-surface">Sector 7 Arena</h3>
+</div>
+<div class="bg-surface-container-highest p-3 rounded-lg group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-tertiary text-3xl">wb_sunny</span>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-4">
+<div class="space-y-1">
+<p class="text-[10px] font-label text-outline uppercase">Date</p>
+<p class="font-bold text-on-surface">Oct 24, 2023</p>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] font-label text-outline uppercase">Time</p>
+<p class="font-bold text-on-surface">19:30 IST</p>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] font-label text-outline uppercase">Weather</p>
+<p class="font-bold text-on-surface">Clear, 28°C</p>
+</div>
+</div>
+</div>
+<!-- Match Config Summary -->
+<div class="bg-surface-container-high rounded-xl p-6 flex flex-col space-y-4">
+<span class="font-label text-tertiary text-[10px] uppercase tracking-widest font-bold">Final Config</span>
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">sports_cricket</span>
+<div>
+<p class="text-[10px] font-label text-outline uppercase">Format</p>
+<p class="font-bold text-on-surface">T20 International</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">circle</span>
+<div>
+<p class="text-[10px] font-label text-outline uppercase">Ball Type</p>
+<p class="font-bold text-on-surface">Red Leather</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">timer</span>
+<div>
+<p class="text-[10px] font-label text-outline uppercase">Overs</p>
+<p class="font-bold text-on-surface">20.0 Overs</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Team Rosters Section -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+<!-- Gully Titans -->
+<div class="space-y-4">
+<div class="flex items-center justify-between border-b-2 border-primary/20 pb-2">
+<h4 class="font-headline text-xl font-extrabold text-on-surface tracking-tight uppercase">Gully Titans</h4>
+<span class="font-label text-[10px] text-outline font-bold">11 PLAYERS</span>
+</div>
+<div class="bg-surface-container-low rounded-xl overflow-hidden">
+<div class="p-4 space-y-3">
+<div class="flex items-center justify-between bg-surface-container-highest p-2 rounded-lg">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center font-bold text-on-primary-container text-xs">RK</div>
+<span class="font-medium text-on-surface">Rohit K. (C)</span>
+</div>
+<span class="material-symbols-outlined text-tertiary text-sm" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+<div class="flex items-center gap-3 p-2">
+<div class="w-8 h-8 rounded-full bg-surface-bright flex items-center justify-center font-bold text-outline text-xs">MS</div>
+<span class="font-medium text-on-surface-variant">Mohit Sharma</span>
+</div>
+<div class="flex items-center gap-3 p-2">
+<div class="w-8 h-8 rounded-full bg-surface-bright flex items-center justify-center font-bold text-outline text-xs">VJ</div>
+<span class="font-medium text-on-surface-variant">Vijay J.</span>
+</div>
+<div class="flex items-center gap-3 p-2">
+<div class="w-8 h-8 rounded-full bg-surface-bright flex items-center justify-center font-bold text-outline text-xs">AK</div>
+<span class="font-medium text-on-surface-variant">Arun Kumar</span>
+</div>
+<button class="w-full py-2 text-primary font-label text-xs uppercase tracking-widest hover:bg-primary/10 transition-colors">Show All Players</button>
+</div>
+</div>
+</div>
+<!-- Street Kings -->
+<div class="space-y-4">
+<div class="flex items-center justify-between border-b-2 border-secondary/20 pb-2">
+<h4 class="font-headline text-xl font-extrabold text-on-surface tracking-tight uppercase">Street Kings</h4>
+<span class="font-label text-[10px] text-outline font-bold">11 PLAYERS</span>
+</div>
+<div class="bg-surface-container-low rounded-xl overflow-hidden">
+<div class="p-4 space-y-3">
+<div class="flex items-center justify-between bg-surface-container-highest p-2 rounded-lg">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center font-bold text-on-secondary-container text-xs">AS</div>
+<span class="font-medium text-on-surface">Amit S. (C)</span>
+</div>
+<span class="material-symbols-outlined text-secondary text-sm" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+<div class="flex items-center gap-3 p-2">
+<div class="w-8 h-8 rounded-full bg-surface-bright flex items-center justify-center font-bold text-outline text-xs">PS</div>
+<span class="font-medium text-on-surface-variant">Pritam Singh</span>
+</div>
+<div class="flex items-center gap-3 p-2">
+<div class="w-8 h-8 rounded-full bg-surface-bright flex items-center justify-center font-bold text-outline text-xs">DB</div>
+<span class="font-medium text-on-surface-variant">Deepak B.</span>
+</div>
+<div class="flex items-center gap-3 p-2">
+<div class="w-8 h-8 rounded-full bg-surface-bright flex items-center justify-center font-bold text-outline text-xs">YK</div>
+<span class="font-medium text-on-surface-variant">Yuvraj K.</span>
+</div>
+<button class="w-full py-2 text-secondary font-label text-xs uppercase tracking-widest hover:bg-secondary/10 transition-colors">Show All Players</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Comparison Bar -->
+<div class="space-y-2">
+<div class="flex justify-between font-label text-[10px] uppercase tracking-widest text-outline">
+<span>Gully Titans Form</span>
+<span>Street Kings Form</span>
+</div>
+<div class="w-full h-3 bg-surface-container-highest rounded-full overflow-hidden flex">
+<div class="h-full bg-tertiary w-[60%] border-r border-background/20"></div>
+<div class="h-full bg-secondary w-[40%]"></div>
+</div>
+<div class="flex justify-between font-headline font-black text-on-surface">
+<span class="text-tertiary">W W L W W</span>
+<span class="text-secondary text-right">L W W L W</span>
+</div>
+</div>
+</main>
+<!-- Fixed Action Bar -->
+<div class="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-xl z-40">
+<div class="max-w-5xl mx-auto">
+<button class="w-full kinetic-gradient text-on-primary py-5 rounded-lg font-headline font-black text-xl uppercase tracking-widest flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(0,82,255,0.4)] hover:scale-[1.02] transition-transform active:scale-95 group">
+                START SCORING
+                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">rocket_launch</span>
+</button>
+</div>
+</div>
+<!-- Bottom Navigation Shell (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 flex justify-around items-center h-20 px-6 pb-2 bg-[#0f131f]/80 backdrop-blur-xl rounded-t-xl shadow-[0_-4px_20px_rgba(0,0,0,0.4)] pointer-events-none opacity-0">
+<!-- Hidden as per focus rule for transactional/preview screens -->
+</nav>
+</body></html>
