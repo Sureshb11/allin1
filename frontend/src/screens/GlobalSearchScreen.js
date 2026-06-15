@@ -46,7 +46,7 @@ const buildLookingFor = (sportId) => {
     { id: 'teamtourn', label: 'Teams for tournament', icon: 'account-multiple-plus-outline', screen: 'LookingFor',   params: { initialType: 'teamtourn' } },
     { id: 'tourn2',    label: 'Tournaments',          icon: 'trophy-outline',                screen: 'Tournaments' },
     { id: 'ground',    label: 'Ground',               icon: 'stadium',                       screen: 'GroundBooking' },
-  ];
+  ].map((it) => (it.params ? { ...it, params: { ...it.params, sport: sportId } } : it));
 };
 
 // Bottom action pills.

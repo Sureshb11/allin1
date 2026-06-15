@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport } from '../utils/selectedSport';
 
 const DS = {
   bg: '#0f131f',
@@ -64,12 +65,16 @@ export default function LookingForScreen({ navigation, route }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
 
+  // Scope Explore to the active sport (deep-linked sport, else current selection).
+  const sportFilter = route?.params?.sport || getSelectedSport().sport?.id || null;
+
   const load = useCallback(async (type) => {
     const filters = {};
     if (type && type !== 'all') filters.type = type;
+    if (sportFilter) filters.sport = sportFilter;
     const res = await legendsApi.getLookingForPosts(filters);
     if (res.success) setPosts(res.data);
-  }, []);
+  }, [sportFilter]);
 
   useEffect(() => {
     setLoading(true);
@@ -85,7 +90,7 @@ export default function LookingForScreen({ navigation, route }) {
   const handleCreate = async () => {
     if (!form.title.trim()) return;
     setSubmitting(true);
-    const res = await legendsApi.createLookingFor(form);
+    const res = await legendsApi.createLookingFor({ ...form, sport: sportFilter || 'cricket' });
     setSubmitting(false);
     if (res.success) {
       setShowCreate(false);

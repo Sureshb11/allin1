@@ -8,9 +8,10 @@ const router = Router();
 // GET /looking-for?type=player&location=Mumbai
 router.get('/', async (req, res) => {
   try {
-    const { type, location, format, status = 'open' } = req.query;
+    const { type, location, format, sport, status = 'open' } = req.query;
     const where = { status };
     if (type) where.type = type;
+    if (sport) where.sport = sport;
     if (location) where.location = { contains: location, mode: 'insensitive' };
     if (format) where.format = format;
 
@@ -32,7 +33,8 @@ router.get('/:id', async (req, res) => {
 });
 
 const LookingForSchema = z.object({
-  type:        z.enum(['player', 'team', 'umpire', 'scorer', 'coach']),
+  sport:       z.string().optional(),
+  type:        z.enum(['player', 'team', 'umpire', 'scorer', 'coach', 'opponent', 'commentator']),
   title:       z.string().min(1),
   description: z.string().optional(),
   location:    z.string().optional(),

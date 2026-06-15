@@ -431,7 +431,8 @@ model VideoAnalysis {
 model LookingFor {
   id          String   @id @default(cuid())
   createdAt   DateTime @default(now())
-  type        String   // player | team | umpire | scorer | coach
+  sport       String   @default("cricket")
+  type        String   // player | team | umpire | scorer | coach | opponent | commentator
   title       String
   description String?
   location    String?
@@ -440,6 +441,9 @@ model LookingFor {
   contactInfo String?
   postedById  String?
   status      String   @default("open") // open | filled | closed
+
+  @@index([sport, status])
+  @@index([type])
 }
 
 // Coaches
