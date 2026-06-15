@@ -84,7 +84,12 @@ export default function ProfileScreen({ navigation }) {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Logout', style: 'destructive',
-        onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Auth' }] }),
+        onPress: async () => {
+          await legendsApi.logout();                       // clear persisted JWT
+          // Reset the ROOT navigator back to the auth flow.
+          const root = navigation.getParent('RootStack') || navigation;
+          root.reset({ index: 0, routes: [{ name: 'Auth' }] });
+        },
       },
     ]);
   };
