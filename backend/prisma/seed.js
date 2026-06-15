@@ -48,7 +48,8 @@ async function main() {
 
   for (const p of playersData) {
     const existing = await prisma.player.findFirst({ where: { name: p.name, teamId: p.teamId } });
-    if (!existing) await prisma.player.create({ data: p });
+    // `sport` defaults to 'cricket'; set explicitly so adding other sports later is obvious.
+    if (!existing) await prisma.player.create({ data: { ...p, sport: p.sport || 'cricket' } });
   }
 
   // ── Matches ─────────────────────────────────────────────────────

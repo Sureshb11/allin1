@@ -28,6 +28,23 @@ model User {
   products       Product[]
   chatMessages   ChatMessage[]
   chatRooms      ChatMember[]
+  sports         UserSport[]
+  players        Player[]
+}
+
+// A sport a user is interested in / plays (one row per user+sport).
+model UserSport {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  sport     String   // 'cricket' | 'football' | …
+  isPrimary Boolean  @default(false)
+  role      String?  // their role in that sport (e.g. Batter, Striker)
+  skill     String?  // optional: Beginner | Intermediate | Pro
+
+  @@unique([userId, sport])
+  @@index([sport])
 }
 
 model Notification {
@@ -54,6 +71,7 @@ model Team {
   bio            String?
   achievements   String?
   foundedYear    Int?
+  sport          String   @default("cricket")
   players          Player[]
   team1Matches     Match[]          @relation("team1")
   team2Matches     Match[]          @relation("team2")
@@ -61,20 +79,29 @@ model Team {
   bowlingInnings   Inning[]         @relation("bowlingTeam")
   matchPlayers     MatchPlayer[]
   tournamentTeams  TournamentTeam[]
+
+  @@index([sport])
 }
 
 model Player {
   id        String   @id @default(cuid())
   name      String
   role      String
+  sport     String   @default("cricket")
   team      Team?    @relation(fields: [teamId], references: [id])
   teamId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
   stats     Json?
 
   matchPlayers MatchPlayer[]
   oversBowled  Over[]
   ballsFaced   Ball[] @relation("facingBatter")
   ballsNonStriker Ball[] @relation("nonStriker")
+
+  @@index([sport])
+  @@index([userId])
+  @@index([teamId])
 }
 
 model Match {
@@ -102,6 +129,9 @@ model Match {
   innings         Inning[]
   squads          MatchPlayer[]
   sportEvents     SportEvent[]
+
+  @@index([sport, status])
+  @@index([startTime])
 }
 
 // Generic sport scoring event
@@ -118,6 +148,9 @@ model SportEvent {
   period    String?  // half|quarter|over|set|inning|game
   periodNum Int?     // 1,2,3...
   metadata  Json?    // extra sport-specific data
+
+  @@index([matchId])
+  @@index([sport])
 }
 
 model MatchPlayer {
@@ -132,6 +165,8 @@ model MatchPlayer {
   isWk      Boolean  @default(false)
 
   @@unique([matchId, playerId])
+  @@index([playerId])
+  @@index([teamId])
 }
 
 model Inning {
@@ -168,6 +203,7 @@ model Over {
   balls           Ball[]
 
   @@unique([inningId, overNumber])
+  @@index([bowlerId])
 }
 
 model Ball {
@@ -186,6 +222,10 @@ model Ball {
   wicketType      String?  // bowled | caught | lbw | runOut | stumped | hitWicket
   wicketAssists   String?  // Catching fielder ID(s), run-out assist, etc.
   dismissedPlayerId String? // Player who got out
+
+  @@index([overId])
+  @@index([batterId])
+  @@index([dismissedPlayerId])
 }
 
 model News {
@@ -277,6 +317,9 @@ model Booking {
   date      DateTime
   slot      String   // morning | afternoon | evening
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([groundId])
 }
 
 model Quiz {
