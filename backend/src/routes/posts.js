@@ -45,6 +45,13 @@ router.post('/:id/comments', async (req, res) => {
     const { text, authorName } = CommentSchema.parse(req.body);
     const author = await resolveAuthor(req, authorName || 'You');
     const comment = await prisma.comment.create({ data: { postId: req.params.id, text, ...author } });
+    const post = await prisma.post.findUnique({ where: { id: req.params.id } });
+    if (post?.authorId) {
+      await prisma.notification.create({
+        data: { userId: post.authorId, type: 'comment', title: 'New comment',
+                message: `${author.authorName} commented: "${text.slice(0, 60)}"` },
+      });
+    }
     res.status(201).json({ comment });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -86,6 +93,13 @@ router.post('/', async (req, res) => {
 router.post('/:id/like', async (req, res) => {
   try {
     const post = await prisma.post.update({ where: { id: req.params.id }, data: { likes: { increment: 1 } } });
+    if (post.authorId) {
+      const actor = await resolveAuthor(req, 'Someone');
+      await prisma.notification.create({
+        data: { userId: post.authorId, type: 'like', title: 'New like',
+                message: `${actor.authorName} liked your post` },
+      });
+    }
     res.json({ post });
   } catch (e) {
     res.status(400).json({ error: e.message });
