@@ -1,42 +1,15 @@
-// FindCricketersScreen — browse all cricketers with a search + role filter.
-// Opened from the search screen's "Find cricketers" shortcut.
-// Data is mock for now; wire to legendsApi.getPlayers() when the API is ready.
+// FindCricketersScreen — browse players across sports with search + role filter.
+// Sport tabs (Cricket / Football / Badminton) drive a sport-scoped query to
+// legendsApi.getPlayers({ sport }); role chips + title adapt per sport.
+// Opened from the search screen's "Find cricketers" shortcut (defaults to cricket).
 
 import { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity,
-  StatusBar, ScrollView,
+  StatusBar, ScrollView, ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
-
-// Normalise the backend role string to one of our filter buckets.
-const roleFromDb = (role = '') => {
-  const r = role.toLowerCase();
-  if (r.includes('keep') || r.includes('wicket')) return 'Wicketkeeper';
-  if (r.includes('all')) return 'All-rounder';
-  if (r.includes('bowl')) return 'Bowler';
-  return 'Batter';
-};
-
-const PALETTE = ['#2d7a3a', '#b45309', '#7c3aed', '#b91c1c', '#0d7c8f', '#1a5fa8', '#c2490d', '#0f766e', '#9333ea', '#be185d', '#4d7c0f', '#a16207'];
-
-// Map a backend Player → the shape this screen renders.
-const mapPlayer = (p, i) => {
-  if (!p?.name) return null;
-  const s = p.stats || {};
-  return {
-    id: p.id || String(i),
-    name: p.name,
-    role: roleFromDb(p.role),
-    team: p.team?.name || 'Free agent',
-    city: p.team?.city || '—',
-    style: s.style || p.role || '',
-    matches: s.matches || 0,
-    color: PALETTE[i % PALETTE.length],
-    verified: (s.matches || 0) > 150,
-  };
-};
 
 const DS = {
   bg: '#0f131f', surfaceLow: '#171b28', surfaceHigh: '#262a37', surfaceHighest: '#313442',
@@ -45,32 +18,68 @@ const DS = {
   line: 'rgba(150,170,210,0.10)',
 };
 
-// role → { short label, accent colour }
-const ROLE_META = {
-  'Batter':       { short: 'BAT', color: '#abd600' },
-  'Bowler':       { short: 'BOWL', color: '#b7c4ff' },
-  'All-rounder':  { short: 'ALL', color: '#ffb24a' },
-  'Wicketkeeper': { short: 'WK', color: '#ffb59e' },
+// Sport tabs shown at the top.
+const SPORTS = [
+  { id: 'cricket',   label: 'Cricket' },
+  { id: 'football',  label: 'Football' },
+  { id: 'badminton', label: 'Badminton' },
+];
+
+// Per-sport title + role buckets (used for the filter chips).
+const SPORT_CONFIG = {
+  cricket:   { title: 'Find Cricketers',  roles: ['Batter', 'Bowler', 'All-rounder', 'Wicketkeeper'] },
+  football:  { title: 'Find Footballers', roles: ['Striker', 'Midfielder', 'Defender', 'Goalkeeper'] },
+  badminton: { title: 'Find Players',     roles: ['Singles', 'Doubles'] },
 };
 
-const FILTERS = ['All', 'Batter', 'Bowler', 'All-rounder', 'Wicketkeeper'];
+// role → { short label, accent colour }
+const ROLE_META = {
+  // cricket
+  'Batter':       { short: 'BAT',  color: '#abd600' },
+  'Bowler':       { short: 'BOWL', color: '#b7c4ff' },
+  'All-rounder':  { short: 'ALL',  color: '#ffb24a' },
+  'Wicketkeeper': { short: 'WK',   color: '#ffb59e' },
+  // football
+  'Striker':      { short: 'ST',   color: '#abd600' },
+  'Midfielder':   { short: 'MID',  color: '#b7c4ff' },
+  'Defender':     { short: 'DEF',  color: '#ffb24a' },
+  'Goalkeeper':   { short: 'GK',   color: '#ffb59e' },
+  // badminton
+  'Singles':      { short: 'SGL',  color: '#abd600' },
+  'Doubles':      { short: 'DBL',  color: '#b7c4ff' },
+};
 
-const CRICKETERS = [
-  { id: 'c1',  name: 'Rohan Mehta',     role: 'Batter',       team: 'Sunday Strikers',    city: 'Chennai',   style: 'Right-hand bat',            matches: 142, color: '#2d7a3a', verified: true },
-  { id: 'c2',  name: 'Aman Verma',      role: 'All-rounder',  team: 'Galaxy Gladiators',  city: 'Chennai',   style: 'RH bat · Off break',        matches: 98,  color: '#b45309' },
-  { id: 'c3',  name: 'Priya Nair',      role: 'Bowler',       team: 'Metro Mavericks',    city: 'Bengaluru', style: 'Right-arm fast-medium',     matches: 76,  color: '#7c3aed', verified: true },
-  { id: 'c4',  name: 'Kabir Singh',     role: 'Wicketkeeper', team: 'City Cobras',        city: 'Chennai',   style: 'RH bat · Keeper',           matches: 120, color: '#b91c1c' },
-  { id: 'c5',  name: 'Dev Sharma',      role: 'Bowler',       team: 'North Riders',       city: 'Pune',      style: 'Left-arm orthodox',         matches: 64,  color: '#0d7c8f' },
-  { id: 'c6',  name: 'Isha Patel',      role: 'Batter',       team: 'Park Avenue XI',     city: 'Mumbai',    style: 'Left-hand bat',             matches: 88,  color: '#1a5fa8' },
-  { id: 'c7',  name: 'Vikram Rao',      role: 'All-rounder',  team: 'Royal Challengers',  city: 'Hyderabad', style: 'RH bat · Leg break',        matches: 156, color: '#c2490d', verified: true },
-  { id: 'c8',  name: 'Sana Khan',       role: 'Bowler',       team: 'Sunday Strikers',    city: 'Chennai',   style: 'Right-arm off break',       matches: 52,  color: '#0f766e' },
-  { id: 'c9',  name: 'Arjun NADAR',     role: 'Batter',       team: 'City Cobras',        city: 'Chennai',   style: 'Right-hand bat',            matches: 110, color: '#7f1d1d' },
-  { id: 'c10', name: 'Meera Iyer',      role: 'Wicketkeeper', team: 'Metro Mavericks',    city: 'Bengaluru', style: 'RH bat · Keeper',           matches: 70,  color: '#a16207' },
-  { id: 'c11', name: 'Rahul Dixit',     role: 'All-rounder',  team: 'North Riders',       city: 'Pune',      style: 'LH bat · Medium',           matches: 134, color: '#4d7c0f' },
-  { id: 'c12', name: 'Neha Joshi',      role: 'Batter',       team: 'Galaxy Gladiators',  city: 'Chennai',   style: 'Right-hand bat',            matches: 47,  color: '#9333ea' },
-  { id: 'c13', name: 'Sameer Gupta',    role: 'Bowler',       team: 'Royal Challengers',  city: 'Hyderabad', style: 'Right-arm fast',            matches: 91,  color: '#0e7490' },
-  { id: 'c14', name: 'Tara Menon',      role: 'All-rounder',  team: 'Park Avenue XI',     city: 'Mumbai',    style: 'RH bat · Off break',        matches: 63,  color: '#be185d', verified: true },
-];
+const PALETTE = ['#2d7a3a', '#b45309', '#7c3aed', '#b91c1c', '#0d7c8f', '#1a5fa8', '#c2490d', '#0f766e', '#9333ea', '#be185d', '#4d7c0f', '#a16207'];
+
+// Map a backend role string to one of the sport's filter buckets.
+const roleBucket = (role = '', sport) => {
+  const r = role.toLowerCase();
+  if (sport === 'cricket') {
+    if (r.includes('keep') || r.includes('wicket')) return 'Wicketkeeper';
+    if (r.includes('all')) return 'All-rounder';
+    if (r.includes('bowl')) return 'Bowler';
+    return 'Batter';
+  }
+  const match = (SPORT_CONFIG[sport]?.roles || []).find((x) => x.toLowerCase() === r);
+  return match || role || 'Player';
+};
+
+// Map a backend Player → the shape this screen renders.
+const mapPlayer = (p, i, sport) => {
+  if (!p?.name) return null;
+  const s = p.stats || {};
+  return {
+    id: p.id || String(i),
+    name: p.name,
+    role: roleBucket(p.role, sport),
+    team: p.team?.name || 'Free agent',
+    city: p.team?.city || '—',
+    style: s.style || p.role || '',
+    matches: s.matches || 0,
+    color: PALETTE[i % PALETTE.length],
+    verified: (s.matches || 0) > 120,
+  };
+};
 
 function Avatar({ name, color }) {
   const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
@@ -81,20 +90,28 @@ function Avatar({ name, color }) {
   );
 }
 
-export default function FindCricketersScreen({ navigation }) {
+export default function FindCricketersScreen({ navigation, route }) {
+  const [sport, setSport] = useState(route?.params?.sport || 'cricket');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('All');
-  const [players, setPlayers] = useState(CRICKETERS); // mock fallback until loaded
+  const [players, setPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const cfg = SPORT_CONFIG[sport] || SPORT_CONFIG.cricket;
+  const FILTERS = ['All', ...cfg.roles];
 
   useEffect(() => {
     let alive = true;
-    legendsApi.getPlayers({ sport: 'cricket' }).then((res) => {
+    setLoading(true);
+    setFilter('All');
+    legendsApi.getPlayers({ sport }).then((res) => {
       if (!alive) return;
-      const list = (res?.data || []).map(mapPlayer).filter(Boolean);
-      if (list.length) setPlayers(list);
+      const list = (res?.data || []).map((p, i) => mapPlayer(p, i, sport)).filter(Boolean);
+      setPlayers(list);
+      setLoading(false);
     });
     return () => { alive = false; };
-  }, []);
+  }, [sport]);
 
   const data = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -126,7 +143,7 @@ export default function FindCricketersScreen({ navigation }) {
         </View>
         <View style={s.right}>
           <View style={[s.roleChip, { backgroundColor: rm.color + '22', borderColor: rm.color + '55' }]}>
-            <Text style={[s.roleTxt, { color: rm.color }]}>{rm.short}</Text>
+            <Text style={[s.roleTxt, { color: rm.color }]}>{rm.short || item.role}</Text>
           </View>
           <Text style={s.matches}>{item.matches} <Text style={s.matchesUnit}>mts</Text></Text>
         </View>
@@ -143,7 +160,22 @@ export default function FindCricketersScreen({ navigation }) {
         <TouchableOpacity hitSlop={8} onPress={() => navigation.goBack()} style={s.backBtn}>
           <Icon name="arrow-left" size={24} color={DS.textPrimary} />
         </TouchableOpacity>
-        <Text style={s.title}>Find Cricketers</Text>
+        <Text style={s.title}>{cfg.title}</Text>
+      </View>
+
+      {/* sport tabs */}
+      <View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.sportTabs}>
+          {SPORTS.map((sp) => {
+            const active = sp.id === sport;
+            return (
+              <TouchableOpacity key={sp.id} onPress={() => setSport(sp.id)} activeOpacity={0.85}
+                style={[s.sportTab, active && s.sportTabActive]}>
+                <Text style={[s.sportTabTxt, active && s.sportTabTxtActive]}>{sp.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* search */}
@@ -181,23 +213,27 @@ export default function FindCricketersScreen({ navigation }) {
       </View>
 
       {/* count */}
-      <Text style={s.count}>{data.length} cricketer{data.length === 1 ? '' : 's'}</Text>
+      <Text style={s.count}>{data.length} {sport === 'cricket' ? 'cricketer' : 'player'}{data.length === 1 ? '' : 's'}</Text>
 
       {/* list */}
-      <FlatList
-        data={data}
-        keyExtractor={(it) => it.id}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 24 }}
-        ListEmptyComponent={
-          <View style={s.empty}>
-            <Icon name="account-search-outline" size={56} color={DS.surfaceHighest} />
-            <Text style={s.emptyTitle}>No cricketers found</Text>
-            <Text style={s.emptySub}>Try a different name or filter</Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 40 }} color={DS.lime} />
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={(it) => it.id}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          ListEmptyComponent={
+            <View style={s.empty}>
+              <Icon name="account-search-outline" size={56} color={DS.surfaceHighest} />
+              <Text style={s.emptyTitle}>No players found</Text>
+              <Text style={s.emptySub}>Try a different name or filter</Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }
@@ -209,7 +245,13 @@ const s = StyleSheet.create({
   backBtn: { padding: 4 },
   title: { color: DS.textPrimary, fontSize: 20, fontWeight: '800' },
 
-  searchWrap: { paddingHorizontal: 16, paddingTop: 6 },
+  sportTabs: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 4, gap: 8 },
+  sportTab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 22, backgroundColor: DS.surfaceLow, borderWidth: 1, borderColor: DS.line },
+  sportTabActive: { backgroundColor: DS.surfaceHighest, borderColor: DS.lime },
+  sportTabTxt: { color: DS.textMuted, fontSize: 14, fontWeight: '800' },
+  sportTabTxtActive: { color: DS.lime },
+
+  searchWrap: { paddingHorizontal: 16, paddingTop: 8 },
   searchBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingHorizontal: 14,
