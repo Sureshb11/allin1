@@ -206,6 +206,16 @@ class LegendsApi {
     }
   }
 
+  // Single player (incl. team + stats JSON).
+  async getPlayer(id) {
+    try {
+      const json = await this.request(`/players/${id}`);
+      return { success: true, data: json.player };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   async createPlayer(playerData) {
     try {
       const json = await this.request('/players', { method: 'POST', body: playerData });

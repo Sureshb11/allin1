@@ -48,15 +48,29 @@ const TREND_CONFIG = {
   stable:   { icon: 'trending-neutral', color: DS.coral, label: 'Stable'   },
 };
 
+// Humanised labels for the generic career stats grid.
+const STAT_LABELS = {
+  matches: 'Matches', runs: 'Runs', wickets: 'Wickets', battingAverage: 'Bat Avg',
+  strikeRate: 'Strike Rate', economy: 'Economy', goals: 'Goals', assists: 'Assists',
+  cleanSheets: 'Clean Sheets', saves: 'Saves', points: 'Points', wins: 'Wins',
+  titles: 'Titles', fours: 'Fours', sixes: 'Sixes',
+};
+const STAT_COLORS = [DS.lime, DS.coral, DS.blue, '#c4b5fd', '#7dd3fc', '#fbbf24'];
+
 export default function PlayerInsightsScreen({ route, navigation }) {
-  const { playerId } = route.params || {};
+  const { playerId, player: passed } = route.params || {};
   const [insights, setInsights] = useState({});
+  const [apiPlayer, setApiPlayer] = useState(null);
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    legendsApi.getPlayerInsights(playerId)
-      .then(res => { if (res.success) setInsights(res.data); })
-      .finally(() => setLoading(false));
+    Promise.all([
+      legendsApi.getPlayerInsights(playerId),
+      legendsApi.getPlayer(playerId),
+    ]).then(([ins, pl]) => {
+      if (ins.success) setInsights(ins.data);
+      if (pl.success && pl.data) setApiPlayer(pl.data);
+    }).finally(() => setLoading(false));
   }, [playerId]);
 
   if (loading) {
@@ -71,23 +85,51 @@ export default function PlayerInsightsScreen({ route, navigation }) {
   const perf  = insights.performance || {};
   const trend = TREND_CONFIG[perf.trend] || TREND_CONFIG.stable;
 
+  // Player profile (from the tapped row + the API record).
+  const name = passed?.name || apiPlayer?.name || 'Player';
+  const role = passed?.role || apiPlayer?.role || 'Cricketer';
+  const teamName = passed?.team || apiPlayer?.team?.name || '';
+  const sportId = apiPlayer?.sport || passed?.sport || 'cricket';
+  const career = apiPlayer?.stats || {};
+  const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const careerCells = Object.entries(career)
+    .filter(([k, v]) => k !== 'style' && (typeof v === 'number' || /^\d/.test(String(v))))
+    .slice(0, 6);
+
   return (
     <View style={styles.container}>
-      {/* Hero */}
+      {/* Hero — player profile */}
       <View style={styles.hero}>
         {navigation && (
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Icon name="arrow-left" size={22} color={DS.textPrimary} />
           </TouchableOpacity>
         )}
+        <View style={styles.heroAvatar}><Text style={styles.heroAvatarTxt}>{initials}</Text></View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.heroTitle}>Player Insights</Text>
-          <Text style={styles.heroSub}>Performance analytics</Text>
+          <Text style={styles.heroTitle} numberOfLines={1}>{name}</Text>
+          <Text style={styles.heroSub} numberOfLines={1}>
+            {role}{teamName ? ` · ${teamName}` : ''}{career.style ? ` · ${career.style}` : ''}
+          </Text>
         </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.body}>
+          {/* Career stats (all sports) */}
+          {careerCells.length > 0 && (
+            <Section title="Career" icon="chart-box-outline">
+              <View style={styles.bentoGrid}>
+                {careerCells.map(([k, v], i) => (
+                  <BentoCard key={k} label={STAT_LABELS[k] || k} value={String(v)}
+                    color={STAT_COLORS[i % STAT_COLORS.length]} />
+                ))}
+              </View>
+            </Section>
+          )}
+
+          {/* Cricket-specific analytics (ball-by-ball derived) */}
+          {sportId === 'cricket' && (<>
           {/* Overview strip */}
           <View style={styles.overviewRow}>
             <View style={styles.formChip}>
@@ -180,6 +222,7 @@ export default function PlayerInsightsScreen({ route, navigation }) {
                 </View>
               )}
           </Section>
+          </>)}
         </View>
       </ScrollView>
     </View>
@@ -195,6 +238,8 @@ const styles = StyleSheet.create({
     backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 18, paddingHorizontal: 16,
   },
   backBtn: { padding: 4 },
+  heroAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
+  heroAvatarTxt: { color: DS.bg, fontWeight: '800', fontSize: 16 },
   heroTitle: { fontSize: 20, fontWeight: '800', color: DS.textPrimary },
   heroSub: { fontSize: 12, color: DS.textMuted, marginTop: 2 },
 

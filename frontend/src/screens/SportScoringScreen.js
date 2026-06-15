@@ -677,7 +677,7 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
   return (
     <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* ── Score Display ────────────────────────────── */}
-      <View style={s.genScoreSection}>
+      <View style={[s.genScoreSection, { backgroundColor: cfg.color + '14', borderBottomColor: cfg.color }]}>
         <View style={s.genScoreTeam}>
           <View style={[s.genAvatar, { backgroundColor: cfg.color + '40' }]}>
             <Text style={[s.genAvatarText, { color: cfg.color }]}>
@@ -685,22 +685,22 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
             </Text>
           </View>
           <Text style={s.genTeamName} numberOfLines={1}>{match?.team1 || 'Team 1'}</Text>
-          <Text style={s.genScoreVal}>{score1}</Text>
+          <Text style={[s.genScoreVal, { color: cfg.color }]}>{score1}</Text>
         </View>
 
         <View style={s.genSep}>
           <Text style={s.genVs}>VS</Text>
-          <Text style={s.genPeriodText}>{cfg.periods[period - 1]}</Text>
+          <Text style={[s.genPeriodText, { color: cfg.color }]}>{cfg.periods[period - 1]}</Text>
         </View>
 
         <View style={s.genScoreTeam}>
-          <View style={[s.genAvatar, { backgroundColor: DS.secondary + '30' }]}>
-            <Text style={[s.genAvatarText, { color: DS.secondary }]}>
+          <View style={[s.genAvatar, { backgroundColor: cfg.color + '40' }]}>
+            <Text style={[s.genAvatarText, { color: cfg.color }]}>
               {(match?.team2 || 'T2').charAt(0)}
             </Text>
           </View>
           <Text style={s.genTeamName} numberOfLines={1}>{match?.team2 || 'Team 2'}</Text>
-          <Text style={s.genScoreVal}>{score2}</Text>
+          <Text style={[s.genScoreVal, { color: cfg.color }]}>{score2}</Text>
         </View>
       </View>
 
@@ -1078,6 +1078,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 20,
     marginHorizontal: 14, marginTop: 4, marginBottom: 12,
     backgroundColor: DS.cHigh, borderRadius: 20,
+    borderBottomWidth: 3, borderBottomColor: DS.cHigh,
   },
   genScoreTeam: { flex: 1, alignItems: 'center', gap: 6 },
   genAvatar: {
