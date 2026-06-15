@@ -26,13 +26,46 @@ const K = {
   black:        '#0a0d16',
 };
 
-/* ─── Match formats ──────────────────────────────────────── */
-const FORMATS = [
-  { label: 'T20',    icon: 'lightning-bolt',  overs: 20  },
-  { label: 'ODI',    icon: 'earth',           overs: 50  },
-  { label: 'Test',   icon: 'flag-outline',    overs: 90  },
-  { label: 'Custom', icon: 'tune-variant',    overs: 10  },
-];
+/* ─── Match formats (per sport) ──────────────────────────── */
+const SPORT_FORMATS = {
+  cricket: {
+    unit: 'Overs', durationIcon: 'counter',
+    formats: [
+      { label: 'T20',    icon: 'lightning-bolt', value: 20 },
+      { label: 'ODI',    icon: 'earth',          value: 50 },
+      { label: 'Test',   icon: 'flag-outline',   value: 90 },
+      { label: 'Custom', icon: 'tune-variant',   value: 10 },
+    ],
+  },
+  football: {
+    unit: 'Minutes', durationIcon: 'clock-outline',
+    formats: [
+      { label: 'Full',     icon: 'soccer',         value: 90 },
+      { label: 'Friendly', icon: 'handshake',      value: 90 },
+      { label: '5-a-side', icon: 'account-group',  value: 40 },
+      { label: 'Custom',   icon: 'tune-variant',   value: 60 },
+    ],
+  },
+  badminton: {
+    unit: 'Points', durationIcon: 'numeric',
+    formats: [
+      { label: 'Singles',   icon: 'account',           value: 21 },
+      { label: 'Doubles',   icon: 'account-multiple',  value: 21 },
+      { label: 'Best of 3', icon: 'trophy-outline',    value: 21 },
+      { label: 'Custom',    icon: 'tune-variant',      value: 15 },
+    ],
+  },
+};
+const DEFAULT_FORMAT = {
+  unit: 'Duration', durationIcon: 'clock-outline',
+  formats: [
+    { label: 'Standard',   icon: 'whistle',        value: 60 },
+    { label: 'Friendly',   icon: 'handshake',      value: 60 },
+    { label: 'Tournament', icon: 'trophy-outline', value: 60 },
+    { label: 'Custom',     icon: 'tune-variant',   value: 30 },
+  ],
+};
+const getSportFormat = (sportId) => SPORT_FORMATS[sportId] || DEFAULT_FORMAT;
 
 /* ─── TeamPicker bottom-sheet ────────────────────────────── */
 const TeamPicker = ({ visible, onClose, onSelect, excludeId, title }) => {
@@ -196,8 +229,10 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title }) => {
 /* ─── StartMatchScreen ───────────────────────────────────── */
 const StartMatchScreen = ({ navigation, route }) => {
   const sport = route.params?.sport || { id: 'cricket', name: 'Cricket', icon: 'cricket' };
+  const sportFmt = getSportFormat(sport.id);
+  const FORMATS = sportFmt.formats;
   const [format, setFormat]     = useState(FORMATS[0]);
-  const [overs, setOvers]       = useState('20');
+  const [overs, setOvers]       = useState(String(FORMATS[0].value));
   const [venue, setVenue]       = useState('');
   const [team1, setTeam1]       = useState(null);
   const [team2, setTeam2]       = useState(null);
@@ -212,7 +247,7 @@ const StartMatchScreen = ({ navigation, route }) => {
 
   const handleFormatPress = (f) => {
     setFormat(f);
-    if (f.label !== 'Custom') setOvers(String(f.overs));
+    if (f.label !== 'Custom') setOvers(String(f.value));
   };
 
   const onCreate = async () => {
@@ -220,7 +255,7 @@ const StartMatchScreen = ({ navigation, route }) => {
     if (!team2) return Alert.alert('Select Team 2');
     if (team1.id === team2.id) return Alert.alert('Teams must be different');
     const parsedOvers = parseInt(overs, 10);
-    if (!parsedOvers || parsedOvers < 1) return Alert.alert('Enter valid overs');
+    if (!parsedOvers || parsedOvers < 1) return Alert.alert(`Enter valid ${sportFmt.unit.toLowerCase()}`);
 
     setLoading(true);
     try {
@@ -236,6 +271,22 @@ const StartMatchScreen = ({ navigation, route }) => {
 
       if (!matchRes.success) {
         Alert.alert('Error', matchRes.error || 'Failed to create match');
+        return;
+      }
+
+      // Non-cricket sports use the generic event-based scorer; cricket keeps
+      // its toss → lineup → ball-by-ball flow.
+      if (sport.id !== 'cricket') {
+        navigation.navigate('SportScoring', {
+          match: {
+            id: matchRes.data.id,
+            team1: team1.name, team2: team2.name,
+            team1Id: team1.id, team2Id: team2.id,
+            venue: venue.trim(), matchType: format.label,
+            sport: sport.id,
+          },
+          sport,
+        });
         return;
       }
 
@@ -283,7 +334,7 @@ const StartMatchScreen = ({ navigation, route }) => {
       >
         {/* ── Top label + Headline ────────────────── */}
         <View style={s.topLabel}>
-          <Text style={s.topLabelText}>NEW SESSION</Text>
+          <Text style={s.topLabelText}>{(sport.name || 'New').toUpperCase()} · NEW SESSION</Text>
         </View>
         <Text style={s.headline}>CREATE NEW MATCH</Text>
         <Text style={s.subheadline}>
@@ -407,19 +458,19 @@ const StartMatchScreen = ({ navigation, route }) => {
 
           <View style={s.configDivider} />
 
-          {/* Overs */}
+          {/* Duration / scoring unit (sport-specific) */}
           <View style={s.configRow}>
             <View style={s.configIconWrap}>
-              <Icon name="counter" size={18} color={K.lime} />
+              <Icon name={sportFmt.durationIcon} size={18} color={K.lime} />
             </View>
-            <Text style={s.configLabel}>Overs</Text>
+            <Text style={s.configLabel}>{sportFmt.unit}</Text>
             <TextInput
               style={s.configValueInput}
               value={overs}
               onChangeText={setOvers}
               keyboardType="numeric"
               maxLength={3}
-              placeholder="20"
+              placeholder={String(FORMATS[0].value)}
               placeholderTextColor={K.textMuted}
             />
           </View>
@@ -444,7 +495,7 @@ const StartMatchScreen = ({ navigation, route }) => {
             <ActivityIndicator color={K.black} />
           ) : (
             <>
-              <Icon name="cricket" size={20} color={K.black} />
+              <Icon name={sport.icon || 'whistle'} size={20} color={K.black} />
               <Text style={s.createBtnText}>START SCORING</Text>
             </>
           )}
