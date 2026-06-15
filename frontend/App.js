@@ -13,7 +13,7 @@ const Stack = createStackNavigator();
 // ⚙️ DEV ONLY — bypass the login/OTP screens and start straight on the sport
 // picker so you can develop & test the in-app flows without signing in.
 // Set this back to `false` to re-enable the OTP auth screen before release.
-const DEV_BYPASS_LOGIN = true;
+const DEV_BYPASS_LOGIN = false;
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

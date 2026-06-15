@@ -51,6 +51,29 @@ router.put('/me/sports', authMiddleware, async (req, res) => {
   }
 });
 
+// Choose the user's active/primary sport (e.g. from the Arena picker).
+// Adds the sport if new, marks it primary, and unsets primary on the others.
+const PrimarySportSchema = z.object({ sport: z.string().min(1) });
+
+router.post('/me/primary-sport', authMiddleware, async (req, res) => {
+  try {
+    const { sport } = PrimarySportSchema.parse(req.body);
+    const userId = req.user.sub;
+    await prisma.$transaction([
+      prisma.userSport.updateMany({ where: { userId }, data: { isPrimary: false } }),
+      prisma.userSport.upsert({
+        where:  { userId_sport: { userId, sport } },
+        update: { isPrimary: true },
+        create: { userId, sport, isPrimary: true },
+      }),
+    ]);
+    const sports = await prisma.userSport.findMany({ where: { userId }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] });
+    res.json({ sports });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 const ProfileSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),

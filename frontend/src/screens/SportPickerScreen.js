@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import SportIcon from '../components/SportIcon';
+import legendsApi from '../services/LegendsApi';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -271,6 +272,8 @@ export default function SportPickerScreen({ navigation }) {
 
   const routeSport = useCallback((cell) => {
     const sport = { ...cell, label: cell.name, icon: cell.mci };
+    // Record the chosen sport on the user's profile (no-op if not logged in).
+    legendsApi.selectPrimarySport(cell.id);
     // Cricket skips the "select format" screen and goes straight into the app.
     if (cell.id === 'cricket') {
       navigation.push('MainApp', { sport });

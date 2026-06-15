@@ -545,7 +545,18 @@ class LegendsApi {
     if (!this.token) return { success: false, error: 'Not logged in' };
     try {
       const json = await this.request('/users/me');
-      return { success: true, data: json };  // { user, player }
+      return { success: true, data: json };  // { user, player, sports }
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Record the user's active/primary sport (e.g. from the Arena picker).
+  async selectPrimarySport(sport) {
+    if (!this.token) return { success: false, error: 'Not logged in' };
+    try {
+      const json = await this.request('/users/me/primary-sport', { method: 'POST', body: { sport } });
+      return { success: true, data: json.sports || [] };
     } catch (error) {
       return { success: false, error: error.message };
     }

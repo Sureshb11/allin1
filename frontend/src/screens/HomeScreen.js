@@ -339,6 +339,7 @@ export default function HomeScreen({ navigation }) {
     : 'Set up your profile';
   const meStats = profilePlayer?.stats || {};
   const profileId = profilePlayer?.id;
+  const meSports = me?.sports || [];   // [{ sport, isPrimary, … }]
   const meCells = [
     [String(meStats.matches ?? '—'), 'Matches'],
     [meStats.runs != null ? Number(meStats.runs).toLocaleString() : '—', 'Runs'],
@@ -449,6 +450,19 @@ export default function HomeScreen({ navigation }) {
                   </View>
                 ))}
               </View>
+
+              {meSports.length > 0 && (
+                <View style={styles.mcSportsRow}>
+                  <Text style={styles.mcSportsLbl}>MY SPORTS</Text>
+                  {meSports.map((sp) => (
+                    <View key={sp.sport} style={[styles.mcSportChip, sp.isPrimary && styles.mcSportChipPrimary]}>
+                      <Text style={[styles.mcSportChipTxt, sp.isPrimary && styles.mcSportChipTxtPrimary]}>
+                        {sp.sport.charAt(0).toUpperCase() + sp.sport.slice(1)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           )}
 
@@ -787,6 +801,12 @@ const styles = StyleSheet.create({
   mcProfileBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   mcProfileTxt: { color: DS.lime, fontSize: 13, fontWeight: '700' },
   mcStatsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(150,170,210,0.10)' },
+  mcSportsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 7, marginTop: 13, paddingTop: 13, borderTopWidth: 1, borderTopColor: 'rgba(150,170,210,0.10)' },
+  mcSportsLbl: { color: DS.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 1, marginRight: 2 },
+  mcSportChip: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 14, backgroundColor: DS.surfaceHighest },
+  mcSportChipPrimary: { backgroundColor: DS.lime },
+  mcSportChipTxt: { color: DS.textVariant, fontSize: 12, fontWeight: '700' },
+  mcSportChipTxtPrimary: { color: DS.bg },
   mcStat: { flex: 1, alignItems: 'center' },
   mcStatVal: { color: DS.lime, fontSize: 18, fontWeight: '900' },
   mcStatLbl: { color: DS.textMuted, fontSize: 10.5, fontWeight: '600', marginTop: 2, letterSpacing: 0.3 },
