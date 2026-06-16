@@ -46,7 +46,11 @@ export default function MatchStatsScreen({ navigation, route }) {
   const sc2 = stats?.score?.score2 ?? '—';
   const cards = stats?.cards;
   const corners = stats?.corners;
+  const games = stats?.games;     // badminton / table tennis
+  const points = stats?.points;
+  const aces = stats?.aces;
   const periods = stats?.periodBreakdown || [];
+  const hasStats = cards || corners || games || points || aces;
 
   return (
     <View style={s.root}>
@@ -89,10 +93,11 @@ export default function MatchStatsScreen({ navigation, route }) {
             </View>
           )}
 
-          {/* Football aggregates */}
-          {(cards || corners) && (
+          {/* Sport aggregates */}
+          {hasStats && (
             <View style={s.section}>
               <Text style={s.sectionTitle}>Match Stats</Text>
+              {/* football */}
               {corners && <StatRow label="Corners" a={corners.team1} b={corners.team2} />}
               {cards && (
                 <>
@@ -100,6 +105,10 @@ export default function MatchStatsScreen({ navigation, route }) {
                   <StatRow label="Red cards" a={cards.team1.red} b={cards.team2.red} aColor={A.red} bColor={A.red} />
                 </>
               )}
+              {/* badminton / table tennis */}
+              {games && <StatRow label="Games won" a={games.team1} b={games.team2} aColor={A.lime} bColor={A.lime} />}
+              {points && <StatRow label="Points" a={points.team1} b={points.team2} />}
+              {aces && <StatRow label="Aces" a={aces.team1} b={aces.team2} />}
             </View>
           )}
         </ScrollView>

@@ -22,6 +22,10 @@ export const defineSport = (def) => ({
   tag: def.tag || '',
   color: def.color || '#22c55e',
   accent: def.accent || '#abd600',
+  // individual (1v1) sports: each "team" slot is a single competitor/player.
+  // Shared screens read these to relabel "Team" → "Player", etc.
+  individual: def.individual || false,
+  competitorLabel: def.competitorLabel || 'Team',
   // domains default to null so consumers can fall back to their generic config
   formats: def.formats || null,
   scoring: def.scoring || null,

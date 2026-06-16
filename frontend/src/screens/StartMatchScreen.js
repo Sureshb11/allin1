@@ -8,6 +8,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { Typography, Spacing, Radius } from '../theme';
 import { getStartFormat as getSportFormat } from '../sports/start';
+import { getSport } from '../sports';
 
 /* ─── Kinetic Athlete Design Tokens ─────────────────────── */
 const K = {
@@ -191,6 +192,9 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title }) => {
 /* ─── StartMatchScreen ───────────────────────────────────── */
 const StartMatchScreen = ({ navigation, route }) => {
   const sport = route.params?.sport || { id: 'cricket', name: 'Cricket', icon: 'cricket' };
+  const sportDef = getSport(sport.id);
+  const indiv = !!sportDef?.individual;          // 1v1 sports → "Player" not "Team"
+  const COMP = sportDef?.competitorLabel || 'Team';
   const sportFmt = getSportFormat(sport.id);
   const FORMATS = sportFmt.formats;
   const [format, setFormat]     = useState(FORMATS[0]);
@@ -213,9 +217,9 @@ const StartMatchScreen = ({ navigation, route }) => {
   };
 
   const onCreate = async () => {
-    if (!team1) return Alert.alert('Select Team 1');
-    if (!team2) return Alert.alert('Select Team 2');
-    if (team1.id === team2.id) return Alert.alert('Teams must be different');
+    if (!team1) return Alert.alert(`Select ${COMP} 1`);
+    if (!team2) return Alert.alert(`Select ${COMP} 2`);
+    if (team1.id === team2.id) return Alert.alert(`${COMP}s must be different`);
     const parsedOvers = parseInt(overs, 10);
     if (!parsedOvers || parsedOvers < 1) return Alert.alert(`Enter valid ${sportFmt.unit.toLowerCase()}`);
 
@@ -329,7 +333,7 @@ const StartMatchScreen = ({ navigation, route }) => {
         </View>
 
         {/* ── 02 · Team Selection ─────────────────── */}
-        <SectionHead num="02" label="TEAM DETAILS" />
+        <SectionHead num="02" label={indiv ? 'PLAYER DETAILS' : 'TEAM DETAILS'} />
         <View style={s.teamsRow}>
           {/* Team 1 */}
           <TouchableOpacity
@@ -337,7 +341,7 @@ const StartMatchScreen = ({ navigation, route }) => {
             onPress={() => setPicker('team1')}
             activeOpacity={0.8}
           >
-            <Text style={s.teamRoleTag}>TEAM A (HOME)</Text>
+            <Text style={s.teamRoleTag}>{indiv ? 'PLAYER 1' : 'TEAM A (HOME)'}</Text>
             {team1 ? (
               <>
                 <View style={[s.teamCardAvatar, { backgroundColor: K.lime }]}>
@@ -374,7 +378,7 @@ const StartMatchScreen = ({ navigation, route }) => {
             onPress={() => setPicker('team2')}
             activeOpacity={0.8}
           >
-            <Text style={s.teamRoleTag}>TEAM B (AWAY)</Text>
+            <Text style={s.teamRoleTag}>{indiv ? 'PLAYER 2' : 'TEAM B (AWAY)'}</Text>
             {team2 ? (
               <>
                 <View style={[s.teamCardAvatar, { backgroundColor: K.blue }]}>
@@ -470,7 +474,7 @@ const StartMatchScreen = ({ navigation, route }) => {
         onClose={() => setPicker(null)}
         onSelect={selectTeam}
         excludeId={picker === 'team2' ? team1?.id : team2?.id}
-        title={picker === 'team1' ? 'Select Team 1' : 'Select Team 2'}
+        title={`Select ${COMP} ${picker === 'team1' ? '1' : '2'}`}
       />
     </View>
   );
