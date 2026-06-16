@@ -57,9 +57,6 @@ export default function RummyHomeScreen({ navigation }) {
     <View style={s.root}>
       <StatusBar barStyle="light-content" backgroundColor={A.navy1} />
       <View style={s.header}>
-        <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-          <Icon name="chevron-left" size={24} color={A.ink} />
-        </TouchableOpacity>
         <SportIcon id="rummy" size={22} color={A.lime} />
         <Text style={s.title}>RUMMY</Text>
       </View>

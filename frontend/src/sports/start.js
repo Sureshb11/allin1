@@ -37,6 +37,33 @@ export const START_FORMATS = {
       { label: 'Custom',    icon: 'tune-variant',   value: 3 },
     ],
   },
+  tabletennis: {
+    unit: 'Games', durationIcon: 'table-tennis',
+    formats: [
+      { label: 'Best of 5', icon: 'table-tennis',   value: 5 },
+      { label: 'Best of 7', icon: 'trophy-outline', value: 7 },
+      { label: 'Singles',   icon: 'account',        value: 5 },
+      { label: 'Custom',    icon: 'tune-variant',   value: 5 },
+    ],
+  },
+  squash: {
+    unit: 'Games', durationIcon: 'tennis',
+    formats: [
+      { label: 'Best of 5', icon: 'tennis',         value: 5 },
+      { label: 'Best of 3', icon: 'trophy-outline', value: 3 },
+      { label: 'PSA Rules', icon: 'flash',          value: 5 },
+      { label: 'Custom',    icon: 'tune-variant',   value: 5 },
+    ],
+  },
+  pickleball: {
+    unit: 'Games', durationIcon: 'table-tennis',
+    formats: [
+      { label: 'Best of 3', icon: 'table-tennis',     value: 3 },
+      { label: 'Singles',   icon: 'account',          value: 3 },
+      { label: 'Doubles',   icon: 'account-multiple', value: 3 },
+      { label: 'Custom',    icon: 'tune-variant',     value: 3 },
+    ],
+  },
 };
 
 export const DEFAULT_START_FORMAT = {

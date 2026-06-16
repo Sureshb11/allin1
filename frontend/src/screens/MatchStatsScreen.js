@@ -50,8 +50,9 @@ export default function MatchStatsScreen({ navigation, route }) {
   const points = stats?.points;
   const aces = stats?.aces;
   const doubleFaults = stats?.doubleFaults;   // tennis
+  const strokes = stats?.strokes;             // squash
   const periods = stats?.periodBreakdown || [];
-  const hasStats = cards || corners || games || points || aces || doubleFaults;
+  const hasStats = cards || corners || games || points || aces || doubleFaults || strokes;
 
   return (
     <View style={s.root}>
@@ -111,6 +112,7 @@ export default function MatchStatsScreen({ navigation, route }) {
               {points && <StatRow label="Points" a={points.team1} b={points.team2} />}
               {aces && <StatRow label="Aces" a={aces.team1} b={aces.team2} />}
               {doubleFaults && <StatRow label="Double faults" a={doubleFaults.team1} b={doubleFaults.team2} aColor={A.red} bColor={A.red} />}
+              {strokes && <StatRow label="Strokes" a={strokes.team1} b={strokes.team2} />}
             </View>
           )}
         </ScrollView>
