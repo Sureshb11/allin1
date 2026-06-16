@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { getFind } from '../sports/find';
 
 const DS = {
   bg: '#0f131f', surfaceLow: '#171b28', surfaceHigh: '#262a37', surfaceHighest: '#313442',
@@ -26,11 +27,6 @@ const SPORTS = [
 ];
 
 // Per-sport title + role buckets (used for the filter chips).
-const SPORT_CONFIG = {
-  cricket:   { title: 'Find Cricketers',  roles: ['Batter', 'Bowler', 'All-rounder', 'Wicketkeeper'] },
-  football:  { title: 'Find Footballers', roles: ['Striker', 'Midfielder', 'Defender', 'Goalkeeper'] },
-  badminton: { title: 'Find Players',     roles: ['Singles', 'Doubles'] },
-};
 
 // role → { short label, accent colour }
 const ROLE_META = {
@@ -60,7 +56,7 @@ const roleBucket = (role = '', sport) => {
     if (r.includes('bowl')) return 'Bowler';
     return 'Batter';
   }
-  const match = (SPORT_CONFIG[sport]?.roles || []).find((x) => x.toLowerCase() === r);
+  const match = (getFind(sport)?.roles || []).find((x) => x.toLowerCase() === r);
   return match || role || 'Player';
 };
 
@@ -97,7 +93,7 @@ export default function FindCricketersScreen({ navigation, route }) {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const cfg = SPORT_CONFIG[sport] || SPORT_CONFIG.cricket;
+  const cfg = getFind(sport);
   const FILTERS = ['All', ...cfg.roles];
 
   useEffect(() => {
