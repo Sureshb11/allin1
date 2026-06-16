@@ -18,6 +18,7 @@
     "prisma:seed:team": "node prisma/seedTeam.js",
     "prisma:seed:team2": "node prisma/seedTeam2.js",
     "prisma:seed:combat": "node prisma/seedCombat.js",
+    "prisma:seed:individual": "node prisma/seedIndividual.js",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "lint": "eslint ."
