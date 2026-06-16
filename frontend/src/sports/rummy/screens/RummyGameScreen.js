@@ -9,7 +9,7 @@ import {
   Modal, TextInput, ActivityIndicator, Alert, Share, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import legendsApi from '../services/LegendsApi';
+import legendsApi from '../../../services/LegendsApi';
 
 const A = {
   navy0: '#0a0e18', navy1: '#0d1320', navy2: '#111a2b', cell: '#161f30', cellHi: '#1d2942',

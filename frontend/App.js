@@ -7,9 +7,9 @@ import AuthNavigator from './src/navigation/AuthNavigator';
 import AppNavigator from './src/navigation/AppNavigator';
 import SportPickerScreen from './src/screens/SportPickerScreen';
 import SportSetupScreen from './src/screens/SportSetupScreen';
-import RummyHomeScreen from './src/screens/RummyHomeScreen';
-import RummyNewGameScreen from './src/screens/RummyNewGameScreen';
-import RummyGameScreen from './src/screens/RummyGameScreen';
+import RummyHomeScreen from './src/sports/rummy/screens/RummyHomeScreen';
+import RummyNewGameScreen from './src/sports/rummy/screens/RummyNewGameScreen';
+import RummyGameScreen from './src/sports/rummy/screens/RummyGameScreen';
 import legendsApi from './src/services/LegendsApi';
 
 const Stack = createStackNavigator();
