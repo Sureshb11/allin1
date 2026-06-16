@@ -173,6 +173,17 @@ class LegendsApi {
     }
   }
 
+  // Rich per-sport match stats: score, period breakdown, + sport aggregates
+  // (football: cards/corners; basketball: fouls/timeouts; etc.).
+  async getSportStats(matchId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/sport-stats`);
+      return { success: true, data: json.data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Team Management
   async getTeams() {
     try {
