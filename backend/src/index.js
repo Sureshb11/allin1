@@ -27,7 +27,7 @@ import coachingRoutes from './routes/coaching.js';
 import umpiresRoutes from './routes/umpires.js';
 import scorersRoutes from './routes/scorers.js';
 import postsRoutes from './routes/posts.js';
-import rummyRoutes from './routes/rummy.js';
+import rummyRoutes from './routes/sports/rummy.js';
 
 const app = express();
 
