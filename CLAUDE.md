@@ -38,9 +38,10 @@ frontend/
 ├── index.js                AppRegistry.registerComponent('LocalLegends', …)
 ├── src/
 │   ├── navigation/         AuthNavigator, AppNavigator (HomeStack + tabs)
-│   ├── screens/            All screens (SportPickerScreen, CricketFeedScreen, HomeScreen, …)
+│   ├── screens/            SHARED screens (SportPickerScreen, CricketFeedScreen, HomeScreen, …)
+│   ├── sports/             Per-sport config registry (see "Sports module" below)
 │   ├── components/         Shared UI (SportIcon, Header, SimpleSidebar, Skeleton)
-│   ├── theme/              Colors / Typography / Spacing / Radius / Shadows
+│   ├── theme/              Colors / Typography / Spacing / Radius / Shadows (+ scoringTokens)
 │   ├── services/           LegendsApi (multi-sport API client → backend :4000)
 │   ├── utils/              selectedSport singleton, helpers
 │   └── config/             apiConfig
@@ -59,6 +60,24 @@ frontend/
 - **Design system** — dark "Kinetic Athlete" palette: bg `#0f131f`, surfaces
   `#171b28`/`#262a37`, accent lime `#abd600`, text `#dfe2f3`/`#8d90a2`. The Arena
   picker uses a brighter lime `#c4f82a`.
+
+### Sports module (`src/sports/`) — one app, 22+ sports
+All per-sport config lives under `src/sports/`, so shared screens stay generic and
+adding a sport doesn't mean editing six screens.
+- `index.js` — registry: `getSport(id)`, `listSports()`, `sportMeta(id)`. Each sport is
+  a folder `src/sports/<id>/index.js` calling `defineSport({...})` (meta: name, icon,
+  tag, color, accent; plus a `custom: { homeRoute }` for sports with dedicated screens).
+- Data-table domains are kept in one file each (they share design tokens / helpers, so
+  splitting per-folder added risk with no gain): `scoring.js` (`getScoringConfig`),
+  `formats.js` (`getFormats`), `dashboard.js` (`SPORTS` + `getDashboard`), `find.js`
+  (`getFind`), `start.js` (`getStartFormat`). Consumer screens read these via the getters
+  (e.g. `SportScoringScreen` → `getScoringConfig(sport)`).
+- Sport-specific **screens** live with their sport, e.g. `src/sports/rummy/screens/`.
+
+**Adding a sport:** add `src/sports/<id>/index.js` (+ register it in `sports/index.js` and
+the picker), then add an entry in whichever domain file(s) it needs custom behaviour for
+(otherwise it falls back to the generic/cricket default). Sport-specific API routes go in
+`backend/src/routes/sports/` (e.g. `rummy.js`), mounted in `backend/src/index.js`.
 
 ### Run (from `frontend/`)
 ```bash
