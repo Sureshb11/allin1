@@ -303,6 +303,44 @@ export default function HomeScreen({ navigation }) {
             <Icon name="chevron-right" size={22} color={DS.bg} />
           </TouchableOpacity>
 
+          {/* Live & recent matches rail */}
+          {liveMatches.length > 0 && (
+            <>
+              <View style={styles.sectionHeader}>
+                <Icon name="access-point" size={13} color={DS.live} />
+                <Text style={styles.sectionLabel}>{currentSport.name} Matches</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }} contentContainerStyle={{ gap: 12 }}>
+                {liveMatches.map((m) => {
+                  const isLive = m.status === 'live';
+                  const tName = (t) => (typeof t === 'object' ? (t?.name || 'Team') : String(t || 'Team'));
+                  return (
+                    <TouchableOpacity
+                      key={m.id}
+                      style={styles.liveCard}
+                      activeOpacity={0.85}
+                      onPress={() => navigation.navigate('MatchStats', { matchId: m.id, sportName: currentSport.name })}
+                    >
+                      <View style={styles.liveCardTop}>
+                        <Text style={styles.liveCardTag}>{(m.matchType || currentSport.name).toUpperCase()}</Text>
+                        {isLive
+                          ? <View style={styles.liveBadge}><View style={styles.liveDot} /><Text style={styles.liveBadgeTxt}>LIVE</Text></View>
+                          : <Text style={styles.liveCardWhen}>{m.status === 'completed' ? 'FT' : 'SOON'}</Text>}
+                      </View>
+                      {[[m.team1, m.score1], [m.team2, m.score2]].map(([t, sc], i) => (
+                        <View key={i} style={styles.liveTeamRow}>
+                          <Text style={styles.liveTeamName} numberOfLines={1}>{tName(t)}</Text>
+                          <Text style={styles.liveTeamScore}>{sc ?? '—'}</Text>
+                        </View>
+                      ))}
+                      <Text style={styles.liveCardFoot} numberOfLines={1}>{m.result || m.venue || 'View stats ›'}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </>
+          )}
+
           {/* Quick Access Grid */}
           <View style={styles.quickGrid}>
             {cfg.quickAccess.map(q => (
@@ -641,6 +679,19 @@ const styles = StyleSheet.create({
   quickItem: { flex: 1, alignItems: 'center', gap: 6 },
   quickIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.surfaceHigh },
   quickLabel: { fontSize: 12, color: DS.textVariant, fontWeight: '600', textAlign: 'center' },
+
+  // Live matches rail
+  liveCard: { width: 210, backgroundColor: DS.surfaceLow, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: DS.surfaceHigh },
+  liveCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  liveCardTag: { fontSize: 9, fontWeight: '800', letterSpacing: 0.6, color: DS.lime },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: DS.live },
+  liveBadgeTxt: { color: DS.live, fontSize: 10, fontWeight: '800' },
+  liveCardWhen: { color: DS.textMuted, fontSize: 11, fontWeight: '700' },
+  liveTeamRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 4 },
+  liveTeamName: { flex: 1, color: DS.textVariant, fontSize: 13, fontWeight: '600' },
+  liveTeamScore: { color: DS.textPrimary, fontSize: 16, fontWeight: '800', marginLeft: 8 },
+  liveCardFoot: { color: DS.lime, fontSize: 11, fontWeight: '700', marginTop: 8 },
 
   // Section headers
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
