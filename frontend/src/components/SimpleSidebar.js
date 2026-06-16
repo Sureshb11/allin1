@@ -57,7 +57,7 @@ const MENU_SECTIONS = [
   {
     title: 'Account',
     items: [
-      { id: 'premium',      label: 'Premium Features',      icon: 'star-circle-outline', screen: 'Premium', badge: 'PRO', badgeColor: DS.lime },
+      { id: 'premium',      label: 'Premium Features',      icon: 'star-circle-outline', screen: 'Premium' },
       { id: 'profile',      label: 'My Profile',            icon: 'account-outline', screen: 'Profile' },
     ],
   },
