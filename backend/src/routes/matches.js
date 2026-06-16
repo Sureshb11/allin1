@@ -635,8 +635,9 @@ function computeSportScore(sport, events, team1Id, team2Id) {
     }
 
     case 'khokho': {
-      const o1 = countByTeam(events, team1Id, 'out');
-      const o2 = countByTeam(events, team2Id, 'out');
+      // out (1) + bonus (2) — matches the live scorer (scoring.js khokho.scoreLabel).
+      const o1 = sum(events, team1Id, ['out', 'bonus']);
+      const o2 = sum(events, team2Id, ['out', 'bonus']);
       return { score1: String(o1), score2: String(o2) };
     }
 
@@ -677,8 +678,9 @@ function computeSportScore(sport, events, team1Id, team2Id) {
     }
 
     case 'handball': {
-      const g1 = countByTeam(events, team1Id, 'goal');
-      const g2 = countByTeam(events, team2Id, 'goal');
+      // field goals + 7m-throw goals — matches the live scorer (scoring.js handball).
+      const g1 = countByTeam(events, team1Id, 'goal') + countByTeam(events, team1Id, '7m-throw');
+      const g2 = countByTeam(events, team2Id, 'goal') + countByTeam(events, team2Id, '7m-throw');
       return { score1: String(g1), score2: String(g2) };
     }
 

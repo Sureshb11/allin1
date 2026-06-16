@@ -47,9 +47,9 @@ const SPORTS = [
       { name: 'Omar Z',  role: 'Goalkeeper', teamId: 'seed-hb2' },
     ],
     matches: [
-      { id: 'seed-hbm-live', t1: 'seed-hb1', t2: 'seed-hb2', status: 'live', venue: 'Marina Indoor, Kochi', matchType: 'Full Match', score1: '9', score2: '7',
+      { id: 'seed-hbm-live', t1: 'seed-hb1', t2: 'seed-hb2', status: 'live', venue: 'Marina Indoor, Kochi', matchType: 'Full Match', score1: '10', score2: '9',
         events: [...rep('seed-hb1','goal',1,9), ...rep('seed-hb2','goal',1,7), ...rep('seed-hb1','7m-throw',1,1), ...rep('seed-hb2','7m-throw',2,2), ...rep('seed-hb2','yellow-card',2,1)] },
-      { id: 'seed-hbm-done', t1: 'seed-hb1', t2: 'seed-hb2', status: 'completed', venue: 'Metro Hall, Delhi', matchType: 'Full Match', score1: '11', score2: '9', result: 'Coastal HC won 11–9',
+      { id: 'seed-hbm-done', t1: 'seed-hb1', t2: 'seed-hb2', status: 'completed', venue: 'Metro Hall, Delhi', matchType: 'Full Match', score1: '13', score2: '10', result: 'Coastal HC won 13–10',
         events: [...rep('seed-hb1','goal',1,11), ...rep('seed-hb2','goal',1,9), ...rep('seed-hb1','7m-throw',2,2), ...rep('seed-hb2','7m-throw',2,1), ...rep('seed-hb1','yellow-card',2,1)] },
     ],
     posts: [
@@ -69,10 +69,10 @@ const SPORTS = [
       { name: 'Imran S',  role: 'Defender', teamId: 'seed-kk2' },
     ],
     matches: [
-      { id: 'seed-kkm-live', t1: 'seed-kk1', t2: 'seed-kk2', status: 'live', venue: 'Chase Ground, Pune', matchType: 'Standard', score1: '5', score2: '3',
-        events: [...rep('seed-kk1','out',1,5), ...rep('seed-kk2','out',2,3), ...rep('seed-kk1','bonus',1,1)] },
-      { id: 'seed-kkm-done', t1: 'seed-kk1', t2: 'seed-kk2', status: 'completed', venue: 'Runners Maidan, Hyderabad', matchType: 'Standard', score1: '9', score2: '7', result: 'Maratha Chasers won 9–7',
-        events: [...rep('seed-kk1','out',1,9), ...rep('seed-kk2','out',2,7), ...rep('seed-kk1','bonus',3,1), ...rep('seed-kk2','bonus',4,1)] },
+      { id: 'seed-kkm-live', t1: 'seed-kk1', t2: 'seed-kk2', status: 'live', venue: 'Chase Ground, Pune', matchType: 'Standard', score1: '7', score2: '3',
+        events: [...rep('seed-kk1','out',1,5), ...rep('seed-kk2','out',2,3), ...rep('seed-kk1','bonus',1,1,2)] },
+      { id: 'seed-kkm-done', t1: 'seed-kk1', t2: 'seed-kk2', status: 'completed', venue: 'Runners Maidan, Hyderabad', matchType: 'Standard', score1: '11', score2: '9', result: 'Maratha Chasers won 11–9',
+        events: [...rep('seed-kk1','out',1,9), ...rep('seed-kk2','out',2,7), ...rep('seed-kk1','bonus',3,1,2), ...rep('seed-kk2','bonus',4,1,2)] },
     ],
     posts: [
       { authorName: 'Sachin G', text: 'Quick chains on the chase — 5-3 in front! 🏃', likes: 14 },
