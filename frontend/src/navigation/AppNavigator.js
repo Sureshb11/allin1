@@ -17,6 +17,7 @@ import CricketFeedScreen from '../screens/CricketFeedScreen';
 import SportFeedScreen from '../screens/SportFeedScreen';
 import FootballFeedScreen from '../sports/football/screens/FootballFeedScreen';
 import BadmintonFeedScreen from '../sports/badminton/screens/BadmintonFeedScreen';
+import TennisFeedScreen from '../sports/tennis/screens/TennisFeedScreen';
 import MatchStatsScreen from '../screens/MatchStatsScreen';
 import FindCricketersScreen from '../screens/FindCricketersScreen';
 import MySportsScreen from '../screens/MySportsScreen';
@@ -70,6 +71,7 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
   const feedForSport = sportId === 'cricket' ? 'CricketFeed'
     : sportId === 'football' ? 'FootballFeed'
     : sportId === 'badminton' ? 'BadmintonFeed'
+    : sportId === 'tennis' ? 'TennisFeed'
     : 'SportFeed';
   const initial = initialRouteName || feedForSport;
   return (
@@ -90,6 +92,12 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
     <Stack.Screen
       name="BadmintonFeed"
       component={BadmintonFeedScreen}
+      options={{ headerShown: false }}
+    />
+    {/* Dedicated tennis landing feed (individual sport) */}
+    <Stack.Screen
+      name="TennisFeed"
+      component={TennisFeedScreen}
       options={{ headerShown: false }}
     />
     {/* Generic landing feed for the remaining sports */}

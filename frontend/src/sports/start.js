@@ -28,6 +28,15 @@ export const START_FORMATS = {
       { label: 'Custom',    icon: 'tune-variant',      value: 15 },
     ],
   },
+  tennis: {
+    unit: 'Sets', durationIcon: 'tennis',
+    formats: [
+      { label: 'Best of 3', icon: 'tennis',         value: 3 },
+      { label: 'Best of 5', icon: 'trophy-outline', value: 5 },
+      { label: 'Pro Set',   icon: 'flash',          value: 1 },
+      { label: 'Custom',    icon: 'tune-variant',   value: 3 },
+    ],
+  },
 };
 
 export const DEFAULT_START_FORMAT = {
