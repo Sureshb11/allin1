@@ -55,9 +55,12 @@ export default function MatchStatsScreen({ navigation, route }) {
   const timeouts = stats?.timeouts;           // basketball
   const allOuts = stats?.allOuts;             // kabaddi
   const penaltyCorners = stats?.penaltyCorners; // hockey
+  const blocks = stats?.blocks;               // volleyball
+  const sevenMeters = stats?.sevenMeters;     // handball
+  const bonuses = stats?.bonuses;             // kho-kho
   const periods = stats?.periodBreakdown || [];
   const hasStats = cards || corners || games || points || aces || doubleFaults || strokes
-    || fouls || timeouts || allOuts || penaltyCorners;
+    || fouls || timeouts || allOuts || penaltyCorners || blocks || sevenMeters || bonuses;
 
   return (
     <View style={s.root}>
@@ -117,12 +120,15 @@ export default function MatchStatsScreen({ navigation, route }) {
               {games && <StatRow label="Games won" a={games.team1} b={games.team2} aColor={A.lime} bColor={A.lime} />}
               {points && <StatRow label="Points" a={points.team1} b={points.team2} />}
               {aces && <StatRow label="Aces" a={aces.team1} b={aces.team2} />}
+              {blocks && <StatRow label="Blocks" a={blocks.team1} b={blocks.team2} />}
               {doubleFaults && <StatRow label="Double faults" a={doubleFaults.team1} b={doubleFaults.team2} aColor={A.red} bColor={A.red} />}
               {strokes && <StatRow label="Strokes" a={strokes.team1} b={strokes.team2} />}
               {/* team sports */}
               {fouls && <StatRow label="Fouls" a={fouls.team1} b={fouls.team2} />}
               {timeouts && <StatRow label="Timeouts" a={timeouts.team1} b={timeouts.team2} />}
               {allOuts && <StatRow label="All-outs" a={allOuts.team1} b={allOuts.team2} aColor={A.lime} bColor={A.lime} />}
+              {sevenMeters && <StatRow label="7m goals" a={sevenMeters.team1} b={sevenMeters.team2} />}
+              {bonuses && <StatRow label="Bonus points" a={bonuses.team1} b={bonuses.team2} aColor={A.lime} bColor={A.lime} />}
             </View>
           )}
         </ScrollView>

@@ -11,6 +11,9 @@ export const FIND_CONFIG = {
   basketball:  { title: 'Find Basketball Players', roles: ['Guard', 'Forward', 'Center'] },
   kabaddi:     { title: 'Find Kabaddi Players',    roles: ['Raider', 'Defender', 'All-rounder'] },
   hockey:      { title: 'Find Hockey Players',     roles: ['Forward', 'Midfielder', 'Defender', 'Goalkeeper'] },
+  volleyball:  { title: 'Find Volleyball Players', roles: ['Setter', 'Spiker', 'Libero', 'Blocker'] },
+  handball:    { title: 'Find Handball Players',   roles: ['Goalkeeper', 'Back', 'Wing', 'Pivot'] },
+  khokho:      { title: 'Find Kho-Kho Players',    roles: ['Chaser', 'Runner', 'Defender'] },
 };
 
 export const getFind = (sport) => FIND_CONFIG[sport] || FIND_CONFIG.cricket;

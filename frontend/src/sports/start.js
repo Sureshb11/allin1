@@ -91,6 +91,32 @@ export const START_FORMATS = {
       { label: 'Custom',     icon: 'tune-variant',  value: 60 },
     ],
   },
+  volleyball: {
+    unit: 'Sets', durationIcon: 'volleyball',
+    formats: [
+      { label: 'Best of 5', icon: 'volleyball',     value: 5 },
+      { label: 'Best of 3', icon: 'trophy-outline', value: 3 },
+      { label: 'Beach',     icon: 'beach',          value: 3 },
+      { label: 'Custom',    icon: 'tune-variant',   value: 5 },
+    ],
+  },
+  handball: {
+    unit: 'Minutes', durationIcon: 'clock-outline',
+    formats: [
+      { label: 'Full Match', icon: 'handball',     value: 60 },
+      { label: 'Beach',      icon: 'beach',         value: 20 },
+      { label: 'Mini',       icon: 'handball',      value: 40 },
+      { label: 'Custom',     icon: 'tune-variant',  value: 60 },
+    ],
+  },
+  khokho: {
+    unit: 'Turns', durationIcon: 'run',
+    formats: [
+      { label: 'Standard',     icon: 'run',          value: 4 },
+      { label: 'Super Kho-Kho', icon: 'flash',       value: 2 },
+      { label: 'Custom',       icon: 'tune-variant', value: 4 },
+    ],
+  },
 };
 
 export const DEFAULT_START_FORMAT = {
