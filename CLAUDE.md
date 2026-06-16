@@ -73,11 +73,21 @@ adding a sport doesn't mean editing six screens.
   (`getFind`), `start.js` (`getStartFormat`). Consumer screens read these via the getters
   (e.g. `SportScoringScreen` → `getScoringConfig(sport)`).
 - Sport-specific **screens** live with their sport, e.g. `src/sports/rummy/screens/`.
+- **Landing feed** — every match sport shares ONE themed template,
+  `src/screens/SportFeedScreen.js` (featured live match + results rail + quick actions +
+  community). It renders the *selected* sport, themed from the registry: `feed.accent`
+  (else `getScoringConfig(id).color`), `feed.scoreUnit`, `feed.copy`. So each sport has
+  its own distinct feed via ~10 lines of `feed:{}` config — no per-sport feed file.
+  Cricket keeps its bespoke `src/screens/CricketFeedScreen.js`; rummy uses its custom
+  game flow. Routing: `AppNavigator` sends `cricket → CricketFeed`, everything else →
+  `SportFeed`. Match detail for event sports = shared `MatchStatsScreen`.
 
 **Adding a sport:** add `src/sports/<id>/index.js` (+ register it in `sports/index.js` and
-the picker), then add an entry in whichever domain file(s) it needs custom behaviour for
-(otherwise it falls back to the generic/cricket default). Sport-specific API routes go in
-`backend/src/routes/sports/` (e.g. `rummy.js`), mounted in `backend/src/index.js`.
+the picker). It gets a themed feed automatically; add an optional `feed:{}` block to
+customise colour/copy, and a `scoring.js`/`formats.js`/etc. entry only where it needs
+custom behaviour (otherwise it falls back to the generic/cricket default). Individual
+(1v1) sports set `individual: true` + `competitorLabel: 'Player'`. Sport-specific API
+routes go in `backend/src/routes/sports/` (e.g. `rummy.js`), mounted in `backend/src/index.js`.
 
 ### Run (from `frontend/`)
 ```bash

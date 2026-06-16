@@ -33,4 +33,8 @@ export const defineSport = (def) => ({
   find: def.find || null,
   start: def.start || null,
   custom: def.custom || null,
+  // Optional themed-feed overrides for the shared SportFeed template:
+  //   { accent, scoreUnit, copy: { live, results, community, compose } }
+  // Anything omitted auto-derives (accent ← scoring colour; default copy).
+  feed: def.feed || null,
 });

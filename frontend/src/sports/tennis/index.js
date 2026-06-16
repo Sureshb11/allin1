@@ -8,4 +8,9 @@ export default defineSport({
   accent: '#65a30d',
   individual: true,
   competitorLabel: 'Player',
+  feed: {
+    accent: '#bef264',
+    scoreUnit: 'sets',
+    copy: { live: 'On Court', results: 'Results & Draw', community: 'Baseline Banter', compose: 'Share a tennis moment' },
+  },
 });

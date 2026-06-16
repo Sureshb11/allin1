@@ -8,4 +8,9 @@ export default defineSport({
   accent: '#0d9488',
   individual: true,
   competitorLabel: 'Player',
+  feed: {
+    accent: '#2dd4bf',
+    scoreUnit: 'games',
+    copy: { live: 'On Court', results: 'Results & Fixtures', community: 'Court-side', compose: 'Share a badminton moment' },
+  },
 });

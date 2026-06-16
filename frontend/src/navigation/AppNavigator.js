@@ -15,9 +15,6 @@ const DS = {
 import HomeScreen from '../screens/HomeScreen';
 import CricketFeedScreen from '../screens/CricketFeedScreen';
 import SportFeedScreen from '../screens/SportFeedScreen';
-import FootballFeedScreen from '../sports/football/screens/FootballFeedScreen';
-import BadmintonFeedScreen from '../sports/badminton/screens/BadmintonFeedScreen';
-import TennisFeedScreen from '../sports/tennis/screens/TennisFeedScreen';
 import MatchStatsScreen from '../screens/MatchStatsScreen';
 import FindCricketersScreen from '../screens/FindCricketersScreen';
 import MySportsScreen from '../screens/MySportsScreen';
@@ -68,11 +65,9 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
   // Cricket gets its signature feed; other sports land on the (sport-aware)
   // dashboard, since the feed is cricket-specific.
   const sportId = stackRoute?.params?.initialSport?.id || 'cricket';
-  const feedForSport = sportId === 'cricket' ? 'CricketFeed'
-    : sportId === 'football' ? 'FootballFeed'
-    : sportId === 'badminton' ? 'BadmintonFeed'
-    : sportId === 'tennis' ? 'TennisFeed'
-    : 'SportFeed';
+  // Cricket keeps its bespoke feed; every other match sport uses the shared themed
+  // SportFeed template (themed per the selected sport via the registry).
+  const feedForSport = sportId === 'cricket' ? 'CricketFeed' : 'SportFeed';
   const initial = initialRouteName || feedForSport;
   return (
   <Stack.Navigator initialRouteName={initial}>
@@ -82,25 +77,7 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
       component={CricketFeedScreen}
       options={{ headerShown: false }}
     />
-    {/* Dedicated football landing feed */}
-    <Stack.Screen
-      name="FootballFeed"
-      component={FootballFeedScreen}
-      options={{ headerShown: false }}
-    />
-    {/* Dedicated badminton landing feed (individual sport) */}
-    <Stack.Screen
-      name="BadmintonFeed"
-      component={BadmintonFeedScreen}
-      options={{ headerShown: false }}
-    />
-    {/* Dedicated tennis landing feed (individual sport) */}
-    <Stack.Screen
-      name="TennisFeed"
-      component={TennisFeedScreen}
-      options={{ headerShown: false }}
-    />
-    {/* Generic landing feed for the remaining sports */}
+    {/* Shared themed landing feed for every non-cricket match sport */}
     <Stack.Screen
       name="SportFeed"
       component={SportFeedScreen}
