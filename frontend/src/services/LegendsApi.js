@@ -291,6 +291,25 @@ class LegendsApi {
       return { success: true, data: json.players || [] };
     } catch (e) { return { success: false, error: e.message, data: [] }; }
   }
+  // Managed roster ("Add Players" on the landing screen) → [{ id, name }]
+  async getRummyRosterPlayers() {
+    try {
+      const json = await this.request('/rummy/roster');
+      return { success: true, data: json.players || [] };
+    } catch (e) { return { success: false, error: e.message, data: [] }; }
+  }
+  async addRummyRosterPlayer(name) {
+    try {
+      const json = await this.request('/rummy/roster', { method: 'POST', body: { name } });
+      return { success: true, data: json.player };
+    } catch (e) { return { success: false, error: e.message }; }
+  }
+  async deleteRummyRosterPlayer(id) {
+    try {
+      await this.request(`/rummy/roster/${id}`, { method: 'DELETE' });
+      return { success: true };
+    } catch (e) { return { success: false, error: e.message }; }
+  }
 
   // Single player (incl. team + stats JSON).
   async getPlayer(id) {

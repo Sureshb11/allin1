@@ -127,4 +127,37 @@ router.get('/players', async (req, res) => {
   res.json({ players: rows.map((r) => r.name) });
 });
 
+// ── Player roster (Add Players on the landing screen) ──────────
+// List the user's saved roster. Merge in distinct names from past games so
+// previously-used players show up even if added before the roster existed.
+router.get('/roster', async (req, res) => {
+  const userId = await userIdFrom(req);
+  const saved = await prisma.rummyRosterPlayer.findMany({
+    where: userId ? { userId } : { userId: null },
+    orderBy: { createdAt: 'asc' },
+  });
+  res.json({ players: saved.map((p) => ({ id: p.id, name: p.name })) });
+});
+
+router.post('/roster', async (req, res) => {
+  try {
+    const name = z.string().trim().min(1).parse(req.body?.name);
+    const userId = await userIdFrom(req);
+    const existing = await prisma.rummyRosterPlayer.findFirst({ where: { userId: userId ?? null, name } });
+    const player = existing || await prisma.rummyRosterPlayer.create({ data: { userId, name } });
+    res.status(201).json({ player: { id: player.id, name: player.name } });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.delete('/roster/:id', async (req, res) => {
+  try {
+    await prisma.rummyRosterPlayer.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 export default router;

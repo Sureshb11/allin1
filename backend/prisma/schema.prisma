@@ -616,6 +616,19 @@ model RummyPlayer {
   @@index([gameId])
 }
 
+// Saved player names a user manages up-front (the "Add Players" roster on the
+// Rummy landing screen). Independent of any game so players can be added before
+// the first match and reused across games.
+model RummyRosterPlayer {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  userId    String?
+  name      String
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
 model RummyRound {
   id          String   @id @default(cuid())
   createdAt   DateTime @default(now())

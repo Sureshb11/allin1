@@ -42,36 +42,48 @@ export default function RummyNewGameScreen({ navigation }) {
   const [middleDrop, setMiddleDrop] = useState('50');
   const [fullCount, setFullCount] = useState('80');
   const [adjustReentry, setAdjustReentry] = useState(false);
-  const [players, setPlayers] = useState([]);
+  const [roster, setRoster] = useState([]);       // [{ id, name }] managed on the landing screen
+  const [selected, setSelected] = useState([]);   // names chosen for THIS game
   const [newPlayer, setNewPlayer] = useState('');
   const [starting, setStarting] = useState(false);
 
-  // Pre-include the logged-in user as the first player (like the reference's "*you").
+  // Load the saved roster, and pre-select the logged-in user (like the reference's "*you").
   useEffect(() => {
+    legendsApi.getRummyRosterPlayers().then((res) => setRoster(res?.data || []));
     legendsApi.getMe().then((res) => {
       const u = res?.success && res.data?.user;
       const me = u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : '';
-      if (me) setPlayers((cur) => (cur.length === 0 ? [me] : cur));
+      if (me) {
+        setRoster((cur) => (cur.some((p) => p.name.toLowerCase() === me.toLowerCase()) ? cur : [{ id: `me-${me}`, name: me }, ...cur]));
+        setSelected((cur) => (cur.includes(me) ? cur : [me, ...cur]));
+      }
     });
   }, []);
 
-  const addPlayer = () => {
+  const toggle = (nm) =>
+    setSelected((cur) => (cur.includes(nm) ? cur.filter((x) => x !== nm) : [...cur, nm]));
+
+  // Add a brand-new player: save to the roster and select for this game.
+  const addPlayer = async () => {
     const n = newPlayer.trim();
     if (!n) return;
-    if (players.some((p) => p.toLowerCase() === n.toLowerCase())) return;
-    setPlayers((p) => [...p, n]);
     setNewPlayer('');
+    if (!roster.some((p) => p.name.toLowerCase() === n.toLowerCase())) {
+      const res = await legendsApi.addRummyRosterPlayer(n);
+      const added = res?.data || { id: `tmp-${n}`, name: n };
+      setRoster((cur) => (cur.some((p) => p.name.toLowerCase() === n.toLowerCase()) ? cur : [...cur, added]));
+    }
+    setSelected((cur) => (cur.some((x) => x.toLowerCase() === n.toLowerCase()) ? cur : [...cur, n]));
   };
-  const removePlayer = (n) => setPlayers((p) => p.filter((x) => x !== n));
 
   const start = async () => {
-    if (players.length < 2) return Alert.alert('Add players', 'Add at least 2 players.');
+    if (selected.length < 2) return Alert.alert('Add players', 'Select at least 2 players.');
     setStarting(true);
     const res = await legendsApi.createRummyGame({
       name: autoName ? undefined : name.trim(),
       totalScore: +totalScore || 250, openDrop: +openDrop || 25,
       middleDrop: +middleDrop || 50, fullCount: +fullCount || 80,
-      adjustReentry, players,
+      adjustReentry, players: selected,
     });
     setStarting(false);
     if (res.success) {
@@ -129,36 +141,45 @@ export default function RummyNewGameScreen({ navigation }) {
         {/* Players */}
         <View style={s.card}>
           <Text style={s.cardTitle}>Select Players</Text>
+          <Text style={[s.hint, { marginBottom: 12 }]}>Tap to include players in this game. Add a new name to save it to your roster.</Text>
           <View style={s.addRow}>
             <TextInput
               style={[s.textInput, { flex: 1, marginBottom: 0 }]}
-              placeholder="Player name"
+              placeholder="Add a new player"
               placeholderTextColor={A.inkDim}
               value={newPlayer}
               onChangeText={setNewPlayer}
               onSubmitEditing={addPlayer}
               returnKeyType="done"
+              blurOnSubmit={false}
             />
             <TouchableOpacity style={s.addBtn} onPress={addPlayer}>
               <Icon name="plus" size={22} color={A.navy0} />
             </TouchableOpacity>
           </View>
-          <View style={s.chips}>
-            {players.map((p) => (
-              <TouchableOpacity key={p} style={s.chip} onPress={() => removePlayer(p)}>
-                <Text style={s.chipTxt}>{p}</Text>
-                <Icon name="close" size={14} color={A.inkDim} />
-              </TouchableOpacity>
-            ))}
-          </View>
-          {players.length < 2 && (
-            <Text style={s.hint}>Add {2 - players.length} more player{players.length === 1 ? '' : 's'} to start. Tap a player to remove.</Text>
+          {roster.length === 0 ? (
+            <Text style={[s.hint, { marginTop: 12 }]}>No saved players yet. Type a name above and tap +.</Text>
+          ) : (
+            <View style={s.chips}>
+              {roster.map((p) => {
+                const on = selected.includes(p.name);
+                return (
+                  <TouchableOpacity key={p.id} style={[s.chip, on && s.chipOn]} onPress={() => toggle(p.name)}>
+                    <Icon name={on ? 'check' : 'plus'} size={14} color={on ? A.navy0 : A.inkDim} />
+                    <Text style={[s.chipTxt, on && s.chipTxtOn]}>{p.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+          {selected.length < 2 && (
+            <Text style={[s.hint, { marginTop: 12 }]}>Select {2 - selected.length} more player{selected.length === 1 ? '' : 's'} to start.</Text>
           )}
         </View>
       </ScrollView>
 
       <View style={s.footer}>
-        <TouchableOpacity style={[s.startBtn, (players.length < 2 || starting) && { opacity: 0.5 }]} onPress={start} disabled={players.length < 2 || starting}>
+        <TouchableOpacity style={[s.startBtn, (selected.length < 2 || starting) && { opacity: 0.5 }]} onPress={start} disabled={selected.length < 2 || starting}>
           <Text style={s.startTxt}>{starting ? 'STARTING…' : 'START GAME'}</Text>
         </TouchableOpacity>
       </View>
@@ -187,8 +208,10 @@ const s = StyleSheet.create({
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   addBtn: { width: 46, height: 46, borderRadius: 12, backgroundColor: A.lime, alignItems: 'center', justifyContent: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: A.cellHi, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: A.cellHi, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: 'transparent' },
+  chipOn: { backgroundColor: A.lime, borderColor: A.lime },
   chipTxt: { color: A.ink, fontSize: 13, fontWeight: '700' },
+  chipTxtOn: { color: A.navy0 },
   hint: { color: A.inkDim, fontSize: 13 },
 
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 28, backgroundColor: A.navy1, borderTopWidth: 1, borderTopColor: A.line },
