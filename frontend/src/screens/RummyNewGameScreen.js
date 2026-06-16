@@ -1,6 +1,6 @@
 // RummyNewGameScreen — configure a new Pool-Rummy game (name, scores, players).
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
   TextInput, Alert,
@@ -45,6 +45,15 @@ export default function RummyNewGameScreen({ navigation }) {
   const [players, setPlayers] = useState([]);
   const [newPlayer, setNewPlayer] = useState('');
   const [starting, setStarting] = useState(false);
+
+  // Pre-include the logged-in user as the first player (like the reference's "*you").
+  useEffect(() => {
+    legendsApi.getMe().then((res) => {
+      const u = res?.success && res.data?.user;
+      const me = u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : '';
+      if (me) setPlayers((cur) => (cur.length === 0 ? [me] : cur));
+    });
+  }, []);
 
   const addPlayer = () => {
     const n = newPlayer.trim();
@@ -135,15 +144,16 @@ export default function RummyNewGameScreen({ navigation }) {
             </TouchableOpacity>
           </View>
           <View style={s.chips}>
-            {players.length === 0
-              ? <Text style={s.hint}>Add at least 2 players.</Text>
-              : players.map((p) => (
-                <TouchableOpacity key={p} style={s.chip} onPress={() => removePlayer(p)}>
-                  <Text style={s.chipTxt}>{p}</Text>
-                  <Icon name="close" size={14} color={A.inkDim} />
-                </TouchableOpacity>
-              ))}
+            {players.map((p) => (
+              <TouchableOpacity key={p} style={s.chip} onPress={() => removePlayer(p)}>
+                <Text style={s.chipTxt}>{p}</Text>
+                <Icon name="close" size={14} color={A.inkDim} />
+              </TouchableOpacity>
+            ))}
           </View>
+          {players.length < 2 && (
+            <Text style={s.hint}>Add {2 - players.length} more player{players.length === 1 ? '' : 's'} to start. Tap a player to remove.</Text>
+          )}
         </View>
       </ScrollView>
 
