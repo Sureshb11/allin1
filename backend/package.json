@@ -15,6 +15,7 @@
     "prisma:seed:badminton": "node prisma/seedBadminton.js",
     "prisma:seed:tennis": "node prisma/seedTennis.js",
     "prisma:seed:racquet": "node prisma/seedRacquet.js",
+    "prisma:seed:team": "node prisma/seedTeam.js",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "lint": "eslint ."
