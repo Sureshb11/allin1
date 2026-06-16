@@ -319,7 +319,9 @@ export default function HomeScreen({ navigation }) {
                       key={m.id}
                       style={styles.liveCard}
                       activeOpacity={0.85}
-                      onPress={() => navigation.navigate('MatchStats', { matchId: m.id, sportName: currentSport.name })}
+                      onPress={() => currentSport.id === 'cricket'
+                        ? navigation.navigate('Scorecard', { matchId: m.id })
+                        : navigation.navigate('MatchStats', { matchId: m.id, sportName: currentSport.name })}
                     >
                       <View style={styles.liveCardTop}>
                         <Text style={styles.liveCardTag}>{(m.matchType || currentSport.name).toUpperCase()}</Text>
