@@ -1,0 +1,102 @@
+// RummyHomeScreen — entry for the Pool-Rummy score board.
+// Start a new game or continue/view existing ones (real data via /rummy).
+
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import {
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator,
+} from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import SportIcon from '../components/SportIcon';
+import legendsApi from '../services/LegendsApi';
+
+const A = {
+  navy0: '#0a0e18', navy1: '#0d1320', navy2: '#111a2b', cell: '#161f30', cellHi: '#1d2942',
+  line: 'rgba(150,180,230,0.10)', ink: '#eaf0fb', inkDim: '#8a97b0', lime: '#c4f82a', danger: '#ff7a7a',
+};
+
+export default function RummyHomeScreen({ navigation }) {
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(useCallback(() => {
+    setLoading(true);
+    legendsApi.getRummyGames().then((res) => {
+      setGames(res?.data || []);
+      setLoading(false);
+    });
+  }, []));
+
+  return (
+    <View style={s.root}>
+      <StatusBar barStyle="light-content" backgroundColor={A.navy1} />
+      <View style={s.header}>
+        <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+          <Icon name="chevron-left" size={24} color={A.ink} />
+        </TouchableOpacity>
+        <SportIcon id="rummy" size={22} color={A.lime} />
+        <Text style={s.title}>RUMMY</Text>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+        <TouchableOpacity style={s.cta} activeOpacity={0.9} onPress={() => navigation.navigate('RummyNewGame')}>
+          <View style={s.ctaIcon}><Icon name="plus" size={26} color={A.navy0} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.ctaTitle}>Start New Game</Text>
+            <Text style={s.ctaSub}>Pool rummy · set scores & players</Text>
+          </View>
+          <Icon name="chevron-right" size={24} color={A.navy0} />
+        </TouchableOpacity>
+
+        <Text style={s.sectionTitle}>Your Games</Text>
+        {loading ? (
+          <ActivityIndicator style={{ marginTop: 24 }} color={A.lime} />
+        ) : games.length === 0 ? (
+          <View style={s.empty}>
+            <Icon name="cards-playing-outline" size={44} color={A.cellHi} />
+            <Text style={s.emptyTxt}>No games yet. Start one above.</Text>
+          </View>
+        ) : (
+          games.map((g) => (
+            <TouchableOpacity key={g.id} style={s.gameCard} activeOpacity={0.85}
+              onPress={() => navigation.navigate('RummyGame', { gameId: g.id })}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.gameName} numberOfLines={1}>{g.name}</Text>
+                <Text style={s.gameMeta}>
+                  {g.players.length} players · {g.roundsCompleted} rounds · pool {g.totalScore}
+                </Text>
+              </View>
+              {g.winner
+                ? <View style={s.wonPill}><Icon name="trophy" size={12} color={A.navy0} /><Text style={s.wonTxt}>{g.winner.name}</Text></View>
+                : <View style={s.livePill}><Text style={s.liveTxt}>ACTIVE</Text></View>}
+            </TouchableOpacity>
+          ))
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: A.navy1, paddingTop: 44 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 8, paddingBottom: 10 },
+  backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: A.cell, alignItems: 'center', justifyContent: 'center', marginRight: 2 },
+  title: { fontSize: 20, fontWeight: '900', color: A.ink, letterSpacing: 0.6 },
+
+  cta: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: A.lime, borderRadius: 18, padding: 18 },
+  ctaIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(10,14,24,0.12)', alignItems: 'center', justifyContent: 'center' },
+  ctaTitle: { color: A.navy0, fontSize: 18, fontWeight: '900' },
+  ctaSub: { color: 'rgba(10,14,24,0.7)', fontSize: 12, fontWeight: '600', marginTop: 2 },
+
+  sectionTitle: { color: A.ink, fontSize: 16, fontWeight: '800', marginTop: 22, marginBottom: 10 },
+  empty: { alignItems: 'center', paddingVertical: 30, gap: 8 },
+  emptyTxt: { color: A.inkDim, fontSize: 13 },
+
+  gameCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: A.cell, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: A.line },
+  gameName: { color: A.ink, fontSize: 15, fontWeight: '800' },
+  gameMeta: { color: A.inkDim, fontSize: 12, marginTop: 2 },
+  livePill: { backgroundColor: 'rgba(196,248,42,0.15)', borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
+  liveTxt: { color: A.lime, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  wonPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: A.lime, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
+  wonTxt: { color: A.navy0, fontSize: 10, fontWeight: '900' },
+});

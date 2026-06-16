@@ -253,6 +253,45 @@ class LegendsApi {
     }
   }
 
+  // ── Rummy (Pool) score-board ──────────────────────────────────────
+  async createRummyGame(payload) {
+    try {
+      const json = await this.request('/rummy/games', { method: 'POST', body: payload });
+      return { success: true, data: json.game };
+    } catch (e) { return { success: false, error: e.message }; }
+  }
+  async getRummyGames(status) {
+    try {
+      const qs = status ? `?status=${status}` : '';
+      const json = await this.request(`/rummy/games${qs}`);
+      return { success: true, data: json.games || [] };
+    } catch (e) { return { success: false, error: e.message, data: [] }; }
+  }
+  async getRummyGame(id) {
+    try {
+      const json = await this.request(`/rummy/games/${id}`);
+      return { success: true, data: json.game };
+    } catch (e) { return { success: false, error: e.message }; }
+  }
+  async addRummyRound(id, scores) {
+    try {
+      const json = await this.request(`/rummy/games/${id}/rounds`, { method: 'POST', body: { scores } });
+      return { success: true, data: json.game };
+    } catch (e) { return { success: false, error: e.message }; }
+  }
+  async addRummyPlayer(id, name) {
+    try {
+      const json = await this.request(`/rummy/games/${id}/players`, { method: 'POST', body: { name } });
+      return { success: true, data: json.game };
+    } catch (e) { return { success: false, error: e.message }; }
+  }
+  async getRummyRoster() {
+    try {
+      const json = await this.request('/rummy/players');
+      return { success: true, data: json.players || [] };
+    } catch (e) { return { success: false, error: e.message, data: [] }; }
+  }
+
   // Single player (incl. team + stats JSON).
   async getPlayer(id) {
     try {

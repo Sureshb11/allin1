@@ -7,7 +7,9 @@ import AuthNavigator from './src/navigation/AuthNavigator';
 import AppNavigator from './src/navigation/AppNavigator';
 import SportPickerScreen from './src/screens/SportPickerScreen';
 import SportSetupScreen from './src/screens/SportSetupScreen';
-import RummyScorecardScreen from './src/screens/RummyScorecardScreen';
+import RummyHomeScreen from './src/screens/RummyHomeScreen';
+import RummyNewGameScreen from './src/screens/RummyNewGameScreen';
+import RummyGameScreen from './src/screens/RummyGameScreen';
 import legendsApi from './src/services/LegendsApi';
 
 const Stack = createStackNavigator();
@@ -50,7 +52,9 @@ const App = () => {
           {/* SportPicker shown on every launch after auth */}
           <Stack.Screen name="SportPicker" component={SportPickerScreen} />
           <Stack.Screen name="SportSetup" component={SportSetupScreen} />
-          <Stack.Screen name="RummyScorecard" component={RummyScorecardScreen} />
+          <Stack.Screen name="RummyHome" component={RummyHomeScreen} />
+          <Stack.Screen name="RummyNewGame" component={RummyNewGameScreen} />
+          <Stack.Screen name="RummyGame" component={RummyGameScreen} />
           <Stack.Screen name="MainApp" component={AppNavigator} />
         </Stack.Navigator>
       </NavigationContainer>

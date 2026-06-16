@@ -274,9 +274,9 @@ export default function SportPickerScreen({ navigation }) {
     const sport = { ...cell, label: cell.name, icon: cell.mci };
     // Record the chosen sport on the user's profile (no-op if not logged in).
     legendsApi.selectPrimarySport(cell.id);
-    // Rummy opens its dedicated Pool-Rummy scorecard (per the design handoff).
+    // Rummy opens its dedicated Pool-Rummy score-board flow.
     if (cell.id === 'rummy') {
-      navigation.push('RummyScorecard');
+      navigation.push('RummyHome');
       return;
     }
     // Cricket skips the "select format" screen and goes straight into the app.
