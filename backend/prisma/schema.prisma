@@ -583,3 +583,59 @@ model Comment {
 
   @@index([postId, createdAt])
 }
+
+// ── Rummy (Pool) score-board ───────────────────────────────────────────
+model RummyGame {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  userId        String?
+  name          String
+  totalScore    Int      @default(250)
+  openDrop      Int      @default(25)
+  middleDrop    Int      @default(50)
+  fullCount     Int      @default(80)
+  adjustReentry Boolean  @default(false)
+  status        String   @default("active") // active | completed
+
+  players RummyPlayer[]
+  rounds  RummyRound[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model RummyPlayer {
+  id       String  @id @default(cuid())
+  game     RummyGame @relation(fields: [gameId], references: [id])
+  gameId   String
+  name     String
+  position Int     @default(0)
+
+  scores RummyScore[]
+
+  @@index([gameId])
+}
+
+model RummyRound {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  game        RummyGame @relation(fields: [gameId], references: [id])
+  gameId      String
+  roundNumber Int
+
+  scores RummyScore[]
+
+  @@unique([gameId, roundNumber])
+}
+
+model RummyScore {
+  id       String  @id @default(cuid())
+  round    RummyRound  @relation(fields: [roundId], references: [id])
+  roundId  String
+  player   RummyPlayer @relation(fields: [playerId], references: [id])
+  playerId String
+  value    Int
+
+  @@index([roundId])
+  @@index([playerId])
+}
