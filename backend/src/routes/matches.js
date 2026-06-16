@@ -864,6 +864,23 @@ function computeSportAggregates(sport, events, team1Id, team2Id) {
       const bonuses = { team1: countByTeam(events, team1Id, 'bonus'), team2: countByTeam(events, team2Id, 'bonus') };
       return { bonuses };
     }
+    case 'boxing': {
+      const knockdowns = { team1: countByTeam(events, team1Id, 'knockdown'), team2: countByTeam(events, team2Id, 'knockdown') };
+      const punches    = { team1: countByTeam(events, team1Id, 'punch-landed'), team2: countByTeam(events, team2Id, 'punch-landed') };
+      const roundsWon  = { team1: countByTeam(events, team1Id, 'round-win'), team2: countByTeam(events, team2Id, 'round-win') };
+      return { knockdowns, punches, roundsWon };
+    }
+    case 'wrestling': {
+      const takedowns = { team1: countByTeam(events, team1Id, 'takedown'), team2: countByTeam(events, team2Id, 'takedown') };
+      const pins      = { team1: countByTeam(events, team1Id, 'pin'), team2: countByTeam(events, team2Id, 'pin') };
+      return { takedowns, pins };
+    }
+    case 'judo':
+    case 'karate': {
+      const ippons  = { team1: countByTeam(events, team1Id, 'ippon'), team2: countByTeam(events, team2Id, 'ippon') };
+      const wazaAri = { team1: countByTeam(events, team1Id, 'waza-ari'), team2: countByTeam(events, team2Id, 'waza-ari') };
+      return { ippons, wazaAri };
+    }
     case 'badminton':
     case 'pickleball':
     case 'tabletennis': {
