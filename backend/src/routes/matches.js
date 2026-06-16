@@ -852,6 +852,16 @@ function computeSportAggregates(sport, events, team1Id, team2Id) {
       const pc = { team1: countByTeam(events, team1Id, 'penalty-corner'), team2: countByTeam(events, team2Id, 'penalty-corner') };
       return { cards: { team1: cards1, team2: cards2 }, penaltyCorners: pc };
     }
+    case 'handball': {
+      const cards1 = { yellow: countByTeam(events, team1Id, 'yellow-card'), red: countByTeam(events, team1Id, 'red-card') };
+      const cards2 = { yellow: countByTeam(events, team2Id, 'yellow-card'), red: countByTeam(events, team2Id, 'red-card') };
+      const sevenMeters = { team1: countByTeam(events, team1Id, '7m-throw'), team2: countByTeam(events, team2Id, '7m-throw') };
+      return { cards: { team1: cards1, team2: cards2 }, sevenMeters };
+    }
+    case 'khokho': {
+      const bonuses = { team1: countByTeam(events, team1Id, 'bonus'), team2: countByTeam(events, team2Id, 'bonus') };
+      return { bonuses };
+    }
     case 'badminton':
     case 'pickleball':
     case 'tabletennis': {
