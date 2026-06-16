@@ -14,6 +14,10 @@ export const FIND_CONFIG = {
   volleyball:  { title: 'Find Volleyball Players', roles: ['Setter', 'Spiker', 'Libero', 'Blocker'] },
   handball:    { title: 'Find Handball Players',   roles: ['Goalkeeper', 'Back', 'Wing', 'Pivot'] },
   khokho:      { title: 'Find Kho-Kho Players',    roles: ['Chaser', 'Runner', 'Defender'] },
+  boxing:      { title: 'Find Boxers',    roles: ['Lightweight', 'Welterweight', 'Middleweight', 'Heavyweight'] },
+  wrestling:   { title: 'Find Wrestlers', roles: ['Freestyle', 'Greco-Roman'] },
+  judo:        { title: 'Find Judokas',   roles: ['Lightweight', 'Middleweight', 'Heavyweight'] },
+  karate:      { title: 'Find Karatekas', roles: ['Kumite', 'Kata'] },
 };
 
 export const getFind = (sport) => FIND_CONFIG[sport] || FIND_CONFIG.cricket;

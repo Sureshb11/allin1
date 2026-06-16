@@ -117,6 +117,42 @@ export const START_FORMATS = {
       { label: 'Custom',       icon: 'tune-variant', value: 4 },
     ],
   },
+  boxing: {
+    unit: 'Rounds', durationIcon: 'boxing-glove',
+    formats: [
+      { label: '12 Rounds', icon: 'boxing-glove',  value: 12 },
+      { label: '10 Rounds', icon: 'boxing-glove',  value: 10 },
+      { label: '6 Rounds',  icon: 'boxing-glove',  value: 6 },
+      { label: 'Custom',    icon: 'tune-variant',  value: 12 },
+    ],
+  },
+  wrestling: {
+    unit: 'Periods', durationIcon: 'arm-flex',
+    formats: [
+      { label: 'Freestyle',   icon: 'arm-flex',     value: 2 },
+      { label: 'Greco-Roman', icon: 'arm-flex',     value: 2 },
+      { label: 'Beach',       icon: 'beach',        value: 1 },
+      { label: 'Custom',      icon: 'tune-variant', value: 2 },
+    ],
+  },
+  judo: {
+    unit: 'Minutes', durationIcon: 'karate',
+    formats: [
+      { label: '4 Min Bout',   icon: 'karate',       value: 4 },
+      { label: '5 Min Bout',   icon: 'karate',       value: 5 },
+      { label: 'Golden Score', icon: 'flash',        value: 1 },
+      { label: 'Custom',       icon: 'tune-variant', value: 4 },
+    ],
+  },
+  karate: {
+    unit: 'Minutes', durationIcon: 'karate',
+    formats: [
+      { label: 'Kumite', icon: 'karate',       value: 3 },
+      { label: 'Kata',   icon: 'account',      value: 1 },
+      { label: 'Team',   icon: 'account-group', value: 3 },
+      { label: 'Custom', icon: 'tune-variant', value: 3 },
+    ],
+  },
 };
 
 export const DEFAULT_START_FORMAT = {
