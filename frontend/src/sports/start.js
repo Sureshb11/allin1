@@ -64,6 +64,33 @@ export const START_FORMATS = {
       { label: 'Custom',    icon: 'tune-variant',     value: 3 },
     ],
   },
+  basketball: {
+    unit: 'Minutes', durationIcon: 'clock-outline',
+    formats: [
+      { label: 'Full Game', icon: 'basketball',     value: 40 },
+      { label: 'NBA Rules', icon: 'star',           value: 48 },
+      { label: '3x3',       icon: 'numeric-3-box',  value: 10 },
+      { label: 'Custom',    icon: 'tune-variant',   value: 40 },
+    ],
+  },
+  kabaddi: {
+    unit: 'Minutes', durationIcon: 'clock-outline',
+    formats: [
+      { label: 'Pro Kabaddi', icon: 'run-fast',      value: 40 },
+      { label: 'Amateur',     icon: 'run-fast',      value: 30 },
+      { label: 'Circle',      icon: 'circle-outline', value: 30 },
+      { label: 'Custom',      icon: 'tune-variant',  value: 40 },
+    ],
+  },
+  hockey: {
+    unit: 'Minutes', durationIcon: 'clock-outline',
+    formats: [
+      { label: 'Field (4Q)', icon: 'hockey-sticks', value: 60 },
+      { label: '2 Halves',   icon: 'hockey-sticks', value: 70 },
+      { label: 'Indoor',     icon: 'home',          value: 40 },
+      { label: 'Custom',     icon: 'tune-variant',  value: 60 },
+    ],
+  },
 };
 
 export const DEFAULT_START_FORMAT = {

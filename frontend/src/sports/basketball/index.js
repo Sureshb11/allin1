@@ -5,4 +5,9 @@ export default defineSport({
   name: 'Basketball',
   icon: 'basketball',
   tag: 'Court',
+  accent: '#fb923c',
+  feed: {
+    accent: '#fb923c',
+    copy: { live: 'Tip-Off Live', results: 'Results & Schedule', community: 'Court Talk', compose: 'Share a basketball moment' },
+  },
 });

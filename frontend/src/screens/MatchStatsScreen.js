@@ -51,8 +51,13 @@ export default function MatchStatsScreen({ navigation, route }) {
   const aces = stats?.aces;
   const doubleFaults = stats?.doubleFaults;   // tennis
   const strokes = stats?.strokes;             // squash
+  const fouls = stats?.fouls;                 // basketball
+  const timeouts = stats?.timeouts;           // basketball
+  const allOuts = stats?.allOuts;             // kabaddi
+  const penaltyCorners = stats?.penaltyCorners; // hockey
   const periods = stats?.periodBreakdown || [];
-  const hasStats = cards || corners || games || points || aces || doubleFaults || strokes;
+  const hasStats = cards || corners || games || points || aces || doubleFaults || strokes
+    || fouls || timeouts || allOuts || penaltyCorners;
 
   return (
     <View style={s.root}>
@@ -99,8 +104,9 @@ export default function MatchStatsScreen({ navigation, route }) {
           {hasStats && (
             <View style={s.section}>
               <Text style={s.sectionTitle}>Match Stats</Text>
-              {/* football */}
+              {/* football / hockey */}
               {corners && <StatRow label="Corners" a={corners.team1} b={corners.team2} />}
+              {penaltyCorners && <StatRow label="Penalty corners" a={penaltyCorners.team1} b={penaltyCorners.team2} />}
               {cards && (
                 <>
                   <StatRow label="Yellow cards" a={cards.team1.yellow} b={cards.team2.yellow} aColor={A.yellow} bColor={A.yellow} />
@@ -113,6 +119,10 @@ export default function MatchStatsScreen({ navigation, route }) {
               {aces && <StatRow label="Aces" a={aces.team1} b={aces.team2} />}
               {doubleFaults && <StatRow label="Double faults" a={doubleFaults.team1} b={doubleFaults.team2} aColor={A.red} bColor={A.red} />}
               {strokes && <StatRow label="Strokes" a={strokes.team1} b={strokes.team2} />}
+              {/* team sports */}
+              {fouls && <StatRow label="Fouls" a={fouls.team1} b={fouls.team2} />}
+              {timeouts && <StatRow label="Timeouts" a={timeouts.team1} b={timeouts.team2} />}
+              {allOuts && <StatRow label="All-outs" a={allOuts.team1} b={allOuts.team2} aColor={A.lime} bColor={A.lime} />}
             </View>
           )}
         </ScrollView>

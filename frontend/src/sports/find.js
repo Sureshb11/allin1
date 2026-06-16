@@ -8,6 +8,9 @@ export const FIND_CONFIG = {
   tabletennis: { title: 'Find TT Players',     roles: ['Singles', 'Doubles'] },
   squash:      { title: 'Find Squash Players', roles: ['Singles'] },
   pickleball:  { title: 'Find Pickleball Players', roles: ['Singles', 'Doubles'] },
+  basketball:  { title: 'Find Basketball Players', roles: ['Guard', 'Forward', 'Center'] },
+  kabaddi:     { title: 'Find Kabaddi Players',    roles: ['Raider', 'Defender', 'All-rounder'] },
+  hockey:      { title: 'Find Hockey Players',     roles: ['Forward', 'Midfielder', 'Defender', 'Goalkeeper'] },
 };
 
 export const getFind = (sport) => FIND_CONFIG[sport] || FIND_CONFIG.cricket;
