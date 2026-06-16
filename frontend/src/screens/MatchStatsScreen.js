@@ -65,10 +65,17 @@ export default function MatchStatsScreen({ navigation, route }) {
   const pins = stats?.pins;                   // wrestling
   const ippons = stats?.ippons;               // judo / karate
   const wazaAri = stats?.wazaAri;             // judo / karate
+  const birdies = stats?.birdies;             // golf
+  const holesInOne = stats?.holesInOne;       // golf
+  const tens = stats?.tens;                   // archery
+  const nines = stats?.nines;                 // archery
+  const pots = stats?.pots;                   // bowling
+  const crashes = stats?.crashes;             // snowboard
   const periods = stats?.periodBreakdown || [];
   const hasStats = cards || corners || games || points || aces || doubleFaults || strokes
     || fouls || timeouts || allOuts || penaltyCorners || blocks || sevenMeters || bonuses
-    || knockdowns || punches || roundsWon || takedowns || pins || ippons || wazaAri;
+    || knockdowns || punches || roundsWon || takedowns || pins || ippons || wazaAri
+    || birdies || holesInOne || tens || nines || pots || crashes;
 
   return (
     <View style={s.root}>
@@ -145,6 +152,13 @@ export default function MatchStatsScreen({ navigation, route }) {
               {pins && <StatRow label="Pins" a={pins.team1} b={pins.team2} aColor={A.lime} bColor={A.lime} />}
               {ippons && <StatRow label="Ippon" a={ippons.team1} b={ippons.team2} aColor={A.lime} bColor={A.lime} />}
               {wazaAri && <StatRow label="Waza-ari" a={wazaAri.team1} b={wazaAri.team2} />}
+              {/* individual / precision */}
+              {birdies && <StatRow label="Birdies" a={birdies.team1} b={birdies.team2} aColor={A.lime} bColor={A.lime} />}
+              {holesInOne && <StatRow label="Hole-in-one" a={holesInOne.team1} b={holesInOne.team2} aColor={A.lime} bColor={A.lime} />}
+              {tens && <StatRow label="10s (bullseye)" a={tens.team1} b={tens.team2} aColor={A.lime} bColor={A.lime} />}
+              {nines && <StatRow label="9s" a={nines.team1} b={nines.team2} />}
+              {pots && <StatRow label="Pots" a={pots.team1} b={pots.team2} />}
+              {crashes && <StatRow label="Crashes" a={crashes.team1} b={crashes.team2} aColor={A.red} bColor={A.red} />}
             </View>
           )}
         </ScrollView>
