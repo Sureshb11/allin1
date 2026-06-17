@@ -191,39 +191,6 @@ export default function HomeScreen({ navigation }) {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
           showsVerticalScrollIndicator={false}
         >
-          {/* My Cricket summary */}
-          {currentSport.id === 'cricket' && (
-            <View style={styles.mcCard}>
-              <View style={styles.mcHeadRow}>
-                <View style={styles.mcAvatar}><Text style={styles.mcAvatarTxt}>{meInitials}</Text></View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.mcName}>{profileName}</Text>
-                  <Text style={styles.mcRole}>{meRole}</Text>
-                </View>
-              </View>
-              <View style={styles.mcStatsRow}>
-                {meCells.map(([v, l]) => (
-                  <View key={l} style={styles.mcStat}>
-                    <Text style={styles.mcStatVal}>{v}</Text>
-                    <Text style={styles.mcStatLbl}>{l}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {meSports.length > 0 && (
-                <View style={styles.mcSportsRow}>
-                  <Text style={styles.mcSportsLbl}>MY SPORTS</Text>
-                  {meSports.map((sp) => (
-                    <View key={sp.sport} style={[styles.mcSportChip, sp.isPrimary && styles.mcSportChipPrimary]}>
-                      <Text style={[styles.mcSportChipTxt, sp.isPrimary && styles.mcSportChipTxtPrimary]}>
-                        {sp.sport.charAt(0).toUpperCase() + sp.sport.slice(1)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
 
           {/* Start Match CTA */}
           <TouchableOpacity
