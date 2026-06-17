@@ -31,7 +31,6 @@ function BentoStat({ label, value, accent = false }) {
 }
 
 const MENU_ITEMS = [
-  { id: 'my-sports',      title: 'My Sports',             icon: 'trophy-variant', screen: 'MySports' },
   { id: 'edit-profile',   title: 'Edit Profile',          icon: 'account-edit',   screen: 'EditPlayerProfile' },
   { id: 'edit-team',      title: 'Team Profile',           icon: 'account-group',  screen: 'EditTeamProfile' },
   { id: 'club-profile',   title: 'Club Profile',           icon: 'domain',         screen: 'ClubProfile' },
