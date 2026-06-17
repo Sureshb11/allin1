@@ -107,14 +107,6 @@ const SimpleSidebar = ({ visible, onClose, navigation }) => {
               </View>
               <Text style={styles.progressLabel}>All Features Unlocked</Text>
             </View>
-
-            <TouchableOpacity
-              style={styles.profileBtn}
-              onPress={() => navigate('Profile')}
-            >
-              <Text style={styles.profileBtnText}>View Profile</Text>
-              <Icon name="arrow-right" size={14} color={DS.bg} />
-            </TouchableOpacity>
           </View>
 
           {/* ── Menu Sections ──────────────────────────────── */}
