@@ -54,13 +54,6 @@ const MENU_SECTIONS = [
       { id: 'store',        label: 'Cricket Store',         icon: 'store-outline',  screen: 'MarketPlace' },
     ],
   },
-  {
-    title: 'Account',
-    items: [
-      { id: 'premium',      label: 'Premium Features',      icon: 'star-circle-outline', screen: 'Premium' },
-      { id: 'profile',      label: 'My Profile',            icon: 'account-outline', screen: 'Profile' },
-    ],
-  },
 ];
 
 const SimpleSidebar = ({ visible, onClose, navigation }) => {
@@ -79,20 +72,10 @@ const SimpleSidebar = ({ visible, onClose, navigation }) => {
       <View style={styles.overlay}>
         <View style={styles.sidebar}>
           {/* ── Profile Header ─────────────────────────────── */}
-          <View style={styles.profileSection}>
+          <View style={styles.sidebarHeader}>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
               <Icon name="close" size={20} color={DS.textMuted} />
             </TouchableOpacity>
-
-            <View style={styles.avatarWrap}>
-              <View style={styles.avatar}>
-                <Icon name="cricket" size={28} color={DS.lime} />
-              </View>
-              <View style={styles.premiumBadge}>
-                <Icon name="star" size={10} color={DS.bg} />
-              </View>
-            </View>
-
           </View>
 
           {/* ── Menu Sections ──────────────────────────────── */}
@@ -150,6 +133,10 @@ const styles = StyleSheet.create({
   },
 
   // ── Profile section ─────────────────────────────────────
+  sidebarHeader: {
+    height: 56,
+    backgroundColor: DS.bg,
+  },
   profileSection: {
     backgroundColor: DS.bg,
     paddingHorizontal: 16,

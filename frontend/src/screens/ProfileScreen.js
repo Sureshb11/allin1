@@ -37,6 +37,7 @@ const MENU_ITEMS = [
   { id: 'services',       title: 'Services Profile',       icon: 'cog',            screen: 'ServicesProfile' },
   { id: 'badges',         title: 'Badges & Achievements',  icon: 'trophy',         screen: 'BadgeDetail' },
   { id: 'insights',       title: 'Player Insights',        icon: 'chart-line',     screen: 'PlayerInsights' },
+  { id: 'premium',        title: 'Premium Features',       icon: 'star-circle-outline', screen: 'Premium' },
   { id: 'notifications',  title: 'Notifications',          icon: 'bell',           screen: 'Notification' },
   { id: 'help',           title: 'Help & FAQs',            icon: 'help-circle',    screen: 'HelpFAQs' },
   { id: 'contact',        title: 'Contact Us',             icon: 'phone',          screen: 'ContactUs' },
