@@ -70,7 +70,7 @@ export default function MatchStatsScreen({ navigation, route }) {
   const tens = stats?.tens;                   // archery
   const nines = stats?.nines;                 // archery
   const pots = stats?.pots;                   // bowling
-  const crashes = stats?.crashes;             // snowboard
+  const crashes = stats?.crashes;             // skateboard
   const periods = stats?.periodBreakdown || [];
   const hasStats = cards || corners || games || points || aces || doubleFaults || strokes
     || fouls || timeouts || allOuts || penaltyCorners || blocks || sevenMeters || bonuses

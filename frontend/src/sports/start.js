@@ -180,12 +180,12 @@ export const START_FORMATS = {
       { label: 'Custom',    icon: 'tune-variant', value: 9 },
     ],
   },
-  snowboard: {
-    unit: 'Runs', durationIcon: 'snowboard',
+  skateboard: {
+    unit: 'Runs', durationIcon: 'skateboard',
     formats: [
-      { label: 'Halfpipe',   icon: 'snowboard',    value: 2 },
-      { label: 'Slopestyle', icon: 'snowboard',    value: 2 },
-      { label: 'Big Air',    icon: 'snowboard',    value: 3 },
+      { label: 'Street', icon: 'skateboard', value: 2 },
+      { label: 'Park',   icon: 'skateboard', value: 2 },
+      { label: 'Vert',   icon: 'skateboard', value: 3 },
       { label: 'Custom',     icon: 'tune-variant', value: 2 },
     ],
   },

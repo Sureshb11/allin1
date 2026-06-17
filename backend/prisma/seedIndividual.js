@@ -1,8 +1,8 @@
-// Seed the individual precision sports (golf, archery, bowling, snowboard) to parity.
+// Seed the individual precision sports (golf, archery, bowling, skateboard) to parity.
 // Each competitor is a Team named after the player; matches are competitor-vs-competitor
 // with real sport-events so computeSportScore matches the stored score. Note these have
 // non-versus scoring: golf = fewer strokes wins, archery = points, bowling = frames,
-// snowboard = best run. Stored score = full computed string (e.g. "70 strokes"). Idempotent.
+// skateboard = best run. Stored score = full computed string (e.g. "70 strokes"). Idempotent.
 //   node prisma/seedIndividual.js
 import { PrismaClient } from '@prisma/client';
 
@@ -77,24 +77,24 @@ const SPORTS = [
     ],
   },
   {
-    id: 'snowboard', period: 'run',
+    id: 'skateboard', period: 'run',
     comps: [
-      { id: 'seed-sn1', name: 'Chloe K', city: 'Colorado' },
-      { id: 'seed-sn2', name: 'Yuto T', city: 'Hokkaido' },
+      { id: 'seed-sk1', name: 'Nyjah H', city: 'California' },
+      { id: 'seed-sk2', name: 'Rayssa L', city: 'São Paulo' },
     ],
     players: [
-      { name: 'Chloe K', role: 'Halfpipe', teamId: 'seed-sn1' },
-      { name: 'Yuto T', role: 'Big Air', teamId: 'seed-sn2' },
+      { name: 'Nyjah H', role: 'Street', teamId: 'seed-sk1' },
+      { name: 'Rayssa L', role: 'Park', teamId: 'seed-sk2' },
     ],
     matches: [
-      { id: 'seed-snm-live', t1: 'seed-sn1', t2: 'seed-sn2', status: 'live', venue: 'Aspen Halfpipe', matchType: 'Halfpipe', score1: '90 pts', score2: '80 pts',
-        events: [...rep('seed-sn1','run-score-90',1,1,90), ...rep('seed-sn1','run-score-80',2,1,80), ...rep('seed-sn2','run-score-80',1,1,80), ...rep('seed-sn2','run-score-70',2,1,70)] },
-      { id: 'seed-snm-done', t1: 'seed-sn1', t2: 'seed-sn2', status: 'completed', venue: 'Sapporo Park', matchType: 'Halfpipe', score1: '90 pts', score2: '70 pts', result: 'Chloe K won — best run 90',
-        events: [...rep('seed-sn1','run-score-90',1,1,90), ...rep('seed-sn2','run-score-70',1,1,70), ...rep('seed-sn2','crash',2,1,0)] },
+      { id: 'seed-skm-live', t1: 'seed-sk1', t2: 'seed-sk2', status: 'live', venue: 'Street Plaza, LA', matchType: 'Street', score1: '90 pts', score2: '80 pts',
+        events: [...rep('seed-sk1','run-score-90',1,1,90), ...rep('seed-sk1','run-score-80',2,1,80), ...rep('seed-sk2','run-score-80',1,1,80), ...rep('seed-sk2','run-score-70',2,1,70)] },
+      { id: 'seed-skm-done', t1: 'seed-sk1', t2: 'seed-sk2', status: 'completed', venue: 'Vans Park, SP', matchType: 'Park', score1: '90 pts', score2: '70 pts', result: 'Nyjah H won — best run 90',
+        events: [...rep('seed-sk1','run-score-90',1,1,90), ...rep('seed-sk2','run-score-70',1,1,70), ...rep('seed-sk2','crash',2,1,0)] },
     ],
     posts: [
-      { authorName: 'Chloe K', text: 'Stomped a 90 on the first run! 🏂', likes: 28 },
-      { authorName: 'Chloe K', text: 'Best run of 90 holds up for the win. Stoked! ❄️', likes: 39 },
+      { authorName: 'Nyjah H', text: 'Landed a 90 first run — kickflip back lip on lock! 🛹', likes: 28 },
+      { authorName: 'Rayssa L', text: 'Best run of 90 holds up for the win. Let’s go! 🤘', likes: 39 },
     ],
   },
 ];

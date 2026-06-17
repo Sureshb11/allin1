@@ -23,7 +23,7 @@ const SPORTS = {
   golf:       { roles: ['Golfer'], a: 'Greens Club',   b: 'Fairway Society', sa: '-4', sb: '-1' },
   archery:    { roles: ['Archer'], a: 'Bullseye Club', b: 'Target Range',    sa: '648', sb: '641' },
   bowling:    { roles: ['Bowler'], a: 'Strike Lanes',  b: 'Pin Kings',       sa: '212', sb: '198' },
-  snowboard:  { roles: ['Rider'],  a: 'Powder Crew',   b: 'Alpine Riders',   sa: '92.5', sb: '88.0' },
+  skateboard: { roles: ['Skater'],  a: 'Powder Crew',   b: 'Alpine Riders',   sa: '92.5', sb: '88.0' },
   tabletennis:{ roles: ['Singles', 'Doubles'], a: 'Spin Masters', b: 'Topspin Club', sa: '11-8', sb: '' },
 };
 

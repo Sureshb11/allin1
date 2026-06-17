@@ -21,7 +21,7 @@ export const FIND_CONFIG = {
   golf:        { title: 'Find Golfers',   roles: ['Pro', 'Amateur'] },
   archery:     { title: 'Find Archers',   roles: ['Recurve', 'Compound'] },
   bowling:     { title: 'Find Players',   roles: ['Snooker', 'Pool', '8-Ball'] },
-  snowboard:   { title: 'Find Riders',    roles: ['Halfpipe', 'Slopestyle', 'Big Air'] },
+  skateboard:   { title: 'Find Skaters',    roles: ['Street', 'Park', 'Vert'] },
 };
 
 export const getFind = (sport) => FIND_CONFIG[sport] || FIND_CONFIG.cricket;

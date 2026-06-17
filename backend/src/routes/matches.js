@@ -433,7 +433,7 @@ const SportMetaSchemas = {
     ballsPotted:     z.number().int().optional(),
     isMissed:        z.boolean().optional(),
   }),
-  snowboarding: z.object({
+  skateboard: z.object({
     runNumber:       z.number().int().optional(),
     tricks:          z.array(z.string()).optional(),
     airTime:         z.number().optional(),
@@ -717,8 +717,7 @@ function computeSportScore(sport, events, team1Id, team2Id) {
       return { score1: `${fw1} frames`, score2: `${fw2} frames` };
     }
 
-    case 'snowboard':
-    case 'snowboarding': {
+    case 'skateboard': {
       // Best run wins — highest value among run-score* events (scoring.js: run-score-90/80/70)
       const best = (tid) => {
         const runs = events.filter(e => e.teamId === tid && e.eventType.startsWith('run-score'));
@@ -900,8 +899,7 @@ function computeSportAggregates(sport, events, team1Id, team2Id) {
       const fouls = { team1: countByTeam(events, team1Id, 'foul'), team2: countByTeam(events, team2Id, 'foul') };
       return { pots, fouls };
     }
-    case 'snowboard':
-    case 'snowboarding': {
+    case 'skateboard': {
       const crashes = { team1: countByTeam(events, team1Id, 'crash'), team2: countByTeam(events, team2Id, 'crash') };
       return { crashes };
     }

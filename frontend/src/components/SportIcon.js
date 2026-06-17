@@ -197,7 +197,7 @@ function Glyph({ id }) {
           <Path {...P} strokeWidth="1" d="M15 12.4a0.7 0.7 0 1 0 0.1 0M17.6 12.4a0.7 0.7 0 1 0 0.1 0M16.4 14.6a0.7 0.7 0 1 0 0.1 0" />
         </G>
       );
-    case 'snowboard': // board + bindings
+    case 'skateboard': // board + bindings
       return (
         <G rotation={35} originX={12} originY={12}>
           <Rect x="10.2" y="3.4" width="3.6" height="17.2" rx="1.8" {...P} />

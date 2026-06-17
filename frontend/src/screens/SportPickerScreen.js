@@ -53,7 +53,7 @@ const SPORTS = [
   { id: 'golf',       name: 'Golf',               tag: 'Links',          mci: 'golf' },
   { id: 'archery',    name: 'Archery & Shooting', tag: 'Target',         mci: 'bullseye-arrow' },
   { id: 'bowling',    name: 'Bowling & Billiards',tag: 'Precision',      mci: 'bowling' },
-  { id: 'snowboard',  name: 'Snowboarding',       tag: 'Snow',           mci: 'snowboard' },
+  { id: 'skateboard',  name: 'Skateboarding',       tag: 'Street',           mci: 'skateboard' },
   { id: 'rummy',      name: 'Rummy',              tag: '13 Cards',       scored: true, mci: 'cards-playing-outline' },
 ];
 

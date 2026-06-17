@@ -329,14 +329,14 @@ export const SPORT_CONFIG = {
     scoreLabel: (events, teamId) => `${cnt(events, teamId, 'frame-won')} frames`,
   },
 
-  snowboard: {
-    icon: 'snowboard', color: '#0369a1',
+  skateboard: {
+    icon: 'skateboard', color: '#0369a1',
     periods: ['Run 1', 'Run 2'], maxPeriods: 2,
     actions: [
-      { type: 'run-score-90', label: '90+ Score', icon: 'snowboard',    value: 90, color: '#f59e0b' },
-      { type: 'run-score-80', label: '80+ Score', icon: 'snowboard',    value: 80, color: DS.primary },
-      { type: 'run-score-70', label: '70+ Score', icon: 'snowboard',    value: 70, color: '#0ea5e9' },
-      { type: 'crash',        label: 'Crash/DNF', icon: 'close-circle', value: 0,  color: DS.error },
+      { type: 'run-score-90', label: '90+ Score', icon: 'skateboard',    value: 90, color: '#f59e0b' },
+      { type: 'run-score-80', label: '80+ Score', icon: 'skateboard',    value: 80, color: DS.primary },
+      { type: 'run-score-70', label: '70+ Score', icon: 'skateboard',    value: 70, color: '#0ea5e9' },
+      { type: 'crash',        label: 'Bail'        , icon: 'close-circle', value: 0,  color: DS.error },
     ],
     scoreLabel: (events, teamId) => {
       const runs = events.filter(e => e.teamId === teamId && e.eventType.startsWith('run-score'));

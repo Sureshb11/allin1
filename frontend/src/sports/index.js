@@ -26,13 +26,13 @@ import karate from './karate';
 import golf from './golf';
 import archery from './archery';
 import bowling from './bowling';
-import snowboard from './snowboard';
+import skateboard from './skateboard';
 import rummy from './rummy';
 
 const SPORTS = [
   cricket, football, kabaddi, hockey, badminton, tennis, basketball, volleyball,
   boxing, wrestling, tabletennis, khokho, handball, squash, pickleball, judo,
-  karate, golf, archery, bowling, snowboard, rummy,
+  karate, golf, archery, bowling, skateboard, rummy,
 ];
 
 const BY_ID = Object.fromEntries(SPORTS.map((s) => [s.id, s]));

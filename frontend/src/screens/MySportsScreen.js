@@ -30,7 +30,7 @@ const SPORT_META = {
   tabletennis: { name: 'Table Tennis', icon: 'table-tennis' }, judo: { name: 'Judo', icon: 'karate' },
   karate: { name: 'Karate', icon: 'karate' }, golf: { name: 'Golf', icon: 'golf' },
   archery: { name: 'Archery', icon: 'bullseye-arrow' }, bowling: { name: 'Bowling', icon: 'bowling' },
-  snowboard: { name: 'Snowboarding', icon: 'snowboard' }, rummy: { name: 'Rummy', icon: 'cards-playing-outline' },
+  skateboard: { name: 'Skateboarding', icon: 'skateboard' }, rummy: { name: 'Rummy', icon: 'cards-playing-outline' },
 };
 const meta = (id) => SPORT_META[id] || { name: id ? id[0].toUpperCase() + id.slice(1) : 'Sport', icon: 'trophy' };
 

@@ -23,7 +23,7 @@ export const SPORTS = [
   { id: 'golf',         name: 'Golf',               icon: 'golf',                 color: '#3a6b1a' },
   { id: 'handball',     name: 'Handball',           icon: 'handball',             color: '#b54d9e' },
   { id: 'pickleball',   name: 'Pickleball',         icon: 'tennis',               color: '#0f766e' },
-  { id: 'snowboard',    name: 'Snowboarding',       icon: 'snowboard',            color: '#1e40af' },
+  { id: 'skateboard',    name: 'Skateboarding',       icon: 'skateboard',            color: '#1e40af' },
 ];
 
 // Generate a default config for any sport
@@ -188,12 +188,12 @@ const _buildConfigs = () => {
       { label: 'Frame Stats',   icon: 'chart-timeline', desc: 'Per-frame breakdown' },
       { label: 'Leaderboard',   icon: 'trophy-outline', desc: 'Match standings' },
     ], 'No live billiards games', 'Start a game and track every frame'),
-    snowboard: makeCfg(SPORTS[20], 'EVENTS', 'Track runs, tricks & scores', [
-      { label: 'Run Tracker',   icon: 'snowboard',      desc: 'Score per run' },
+    skateboard: makeCfg(SPORTS[20], 'EVENTS', 'Track runs, tricks & scores', [
+      { label: 'Run Tracker',   icon: 'skateboard',      desc: 'Score per run' },
       { label: 'Trick Log',     icon: 'star-outline',   desc: 'Tricks & grabs' },
       { label: 'Judge Scores',  icon: 'chart-bar',      desc: 'All judge scores' },
       { label: 'Leaderboard',   icon: 'trophy-outline', desc: 'Live rankings' },
-    ], 'No live snowboarding events', 'Start an event and track every run'),
+    ], 'No live skateboard events', 'Start an event and track every run'),
   };
   return custom;
 };

@@ -1,7 +1,7 @@
 // Per-sport match formats (T20/ODI, halves, sets, …) for SportSetupScreen.
 // Add a sport here to give it custom formats; unknown sports use DEFAULT_FORMATS.
-// NB: keys match Arena-picker sport ids. (Historic billiards/snowboarding keys
-// do not match picker ids bowling/snowboard, so those fall through to default —
+// NB: keys match Arena-picker sport ids. (Historic billiards/skateboard keys
+// do not match picker ids bowling/skateboard, so those fall through to default —
 // behaviour preserved verbatim from the original screen.)
 
 export const SPORT_FORMATS = {
@@ -199,14 +199,14 @@ export const SPORT_FORMATS = {
       { id: 'carom',    label: 'Carom',         icon: 'billiards',           desc: 'No pockets'         },
     ],
   },
-  snowboarding: {
+  skateboard: {
     title: 'Select Discipline',
     subtitle: 'Choose event type',
     formats: [
-      { id: 'halfpipe', label: 'Halfpipe',      icon: 'snowboard',           desc: 'Trick & style score'},
-      { id: 'slopestyle',label: 'Slopestyle',   icon: 'snowboard',           desc: 'Rails & jumps'      },
-      { id: 'bigair',   label: 'Big Air',       icon: 'snowboard',           desc: 'One big jump'       },
-      { id: 'parallel', label: 'Parallel GS',   icon: 'snowboard',           desc: 'Side-by-side race'  },
+      { id: 'halfpipe', label: 'Street',        icon: 'skateboard',           desc: 'Ledges, rails, gaps'},
+      { id: 'slopestyle',label: 'Park',          icon: 'skateboard',           desc: 'Bowl & transitions' },
+      { id: 'bigair',   label: 'Vert',          icon: 'skateboard',           desc: 'Halfpipe / vert ramp'},
+      { id: 'parallel', label: 'Game of SKATE', icon: 'skateboard',           desc: 'Trick-for-trick'    },
     ],
   },
 };
