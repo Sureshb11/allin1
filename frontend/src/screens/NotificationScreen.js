@@ -67,8 +67,7 @@ const NotificationScreen = ({navigation}) => {
         style={[styles.notificationCard, !item.read && styles.unreadNotification]}
         onPress={() => {
           if (!item.read) markAsRead(item.id);
-          if (item.type === 'match') navigation.navigate('LiveScores');
-          else if (item.type === 'achievement') navigation.navigate('BadgeDetail');
+          if (item.type === 'achievement') navigation.navigate('BadgeDetail');
         }}>
         <View style={styles.notificationContent}>
           <View style={styles.notificationHeader}>

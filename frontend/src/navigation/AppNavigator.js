@@ -18,7 +18,6 @@ import SportFeedScreen from '../screens/SportFeedScreen';
 import MatchStatsScreen from '../screens/MatchStatsScreen';
 import FindCricketersScreen from '../screens/FindCricketersScreen';
 import MySportsScreen from '../screens/MySportsScreen';
-import LiveScoresScreen from '../screens/LiveScoresScreen';
 import ScoringScreen from '../screens/ScoringScreen';
 import TeamManagementScreen from '../screens/TeamManagementScreen';
 import NewsFeedScreen from '../screens/NewsFeedScreen';
@@ -391,20 +390,6 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
 // "My Cricket" tab — same stack, but opens on the cricket dashboard (Home).
 const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="Home" />;
 
-const ScoresStack = () => (
-  <Stack.Navigator>
-    <Stack.Screen 
-      name="LiveScores" 
-      component={LiveScoresScreen}
-      options={{
-        title: 'Live Scores',
-        headerStyle: {backgroundColor: DS.surfaceLow, elevation: 0, shadowOpacity: 0},
-        headerTitleStyle: {color: DS.textPrimary},
-      }}
-    />
-  </Stack.Navigator>
-);
-
 const AppNavigator = ({ route: appRoute }) => {
   // sport + format passed from SportSetupScreen via navigation.replace('MainApp', { sport, format })
   const initialSport  = appRoute?.params?.sport  || null;
@@ -431,7 +416,6 @@ const AppNavigator = ({ route: appRoute }) => {
           const map = {
             HomeTab: 'home-variant',
             MyCricketTab: sportIcon,
-            ScoresTab: 'scoreboard-outline',
           };
           const name = map[route.name] || 'apps';
           return <Icon name={name} size={22} color={color} />;
@@ -449,11 +433,6 @@ const AppNavigator = ({ route: appRoute }) => {
         component={MyCricketStack}
         options={{ tabBarLabel: `My ${sportName}` }}
         initialParams={{ initialSport, initialFormat }}
-      />
-      <Tab.Screen
-        name="ScoresTab"
-        component={ScoresStack}
-        options={{ tabBarLabel: 'Scores' }}
       />
     </Tab.Navigator>
   );
