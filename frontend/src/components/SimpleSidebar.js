@@ -93,20 +93,6 @@ const SimpleSidebar = ({ visible, onClose, navigation }) => {
               </View>
             </View>
 
-            <Text style={styles.userName}>Bsb</Text>
-            <Text style={styles.userId}>+91 7000319611</Text>
-
-            <View style={styles.premiumTag}>
-              <Icon name="star-circle" size={14} color={DS.lime} />
-              <Text style={styles.premiumTagText}>Premium User</Text>
-            </View>
-
-            <View style={styles.progressRow}>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: '100%' }]} />
-              </View>
-              <Text style={styles.progressLabel}>All Features Unlocked</Text>
-            </View>
           </View>
 
           {/* ── Menu Sections ──────────────────────────────── */}

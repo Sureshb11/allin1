@@ -103,8 +103,10 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
-  const initials = (profile.name || 'U')
+  const displayName = profile.name || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Your Name';
+  const initials = (displayName === 'Your Name' ? 'U' : displayName)
     .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  const isPremium = profile.plan === 'pro';
   const recentForm = stats.recentForm || [];
 
   return (
@@ -125,14 +127,23 @@ export default function ProfileScreen({ navigation }) {
           </View>
 
           <View style={styles.heroInfo}>
-            <Text style={styles.heroName}>{profile.name || 'Your Name'}</Text>
+            <Text style={styles.heroName}>{displayName}</Text>
+            {!!profile.phone && <Text style={styles.heroPhone}>{profile.phone}</Text>}
             <Text style={styles.heroRole}>{profile.role || 'Player'}</Text>
-            {profile.teamName && (
-              <View style={styles.teamPill}>
-                <Icon name="shield" size={10} color={DS.lime} />
-                <Text style={styles.teamPillText}>{profile.teamName}</Text>
+            <View style={styles.heroPills}>
+              <View style={styles.membershipPill}>
+                <Icon name="star-circle" size={11} color={isPremium ? DS.lime : DS.textMuted} />
+                <Text style={[styles.membershipText, isPremium && { color: DS.lime }]}>
+                  {isPremium ? 'Premium User' : 'Free Plan'}
+                </Text>
               </View>
-            )}
+              {profile.teamName && (
+                <View style={styles.teamPill}>
+                  <Icon name="shield" size={10} color={DS.lime} />
+                  <Text style={styles.teamPillText}>{profile.teamName}</Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
 
@@ -278,7 +289,14 @@ const styles = StyleSheet.create({
   },
   heroInfo: { flex: 1, gap: 2 },
   heroName: { fontSize: 22, fontWeight: '800', color: DS.textPrimary },
-  heroRole: { fontSize: 13, color: DS.textMuted },
+  heroPhone: { fontSize: 13, color: DS.textVariant, marginTop: 1 },
+  heroRole: { fontSize: 13, color: DS.textMuted, marginTop: 1 },
+  heroPills: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  membershipPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: DS.surfaceHigh, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+  },
+  membershipText: { fontSize: 11, color: DS.textMuted, fontWeight: '700' },
   teamPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: DS.surfaceHigh,
