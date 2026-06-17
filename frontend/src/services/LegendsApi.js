@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiConfig from '../config/apiConfig';
+import { setEntitlements } from '../utils/entitlements';
 
 const TOKEN_KEY = 'll_auth_token';
 
@@ -702,7 +703,8 @@ class LegendsApi {
     if (!this.token) return { success: false, error: 'Not logged in' };
     try {
       const json = await this.request('/users/me');
-      return { success: true, data: json };  // { user, player, sports }
+      setEntitlements(json.entitlements);  // refresh free/pro feature gates
+      return { success: true, data: json };  // { user, player, sports, entitlements }
     } catch (error) {
       return { success: false, error: error.message };
     }
