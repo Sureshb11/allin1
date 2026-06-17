@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
+import { entitlementsFor } from '../lib/entitlements.js';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     player = await prisma.player.findFirst({ where: { name: fullName }, include: { team: true } });
   }
   const { sports, ...userBase } = user;
-  res.json({ user: userBase, player, sports });
+  res.json({ user: userBase, player, sports, entitlements: entitlementsFor(user) });
 });
 
 // Set / update the sports a user is interested in (multi-sport profile).

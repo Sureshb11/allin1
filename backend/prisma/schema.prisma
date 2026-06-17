@@ -22,6 +22,8 @@ model User {
   lastName     String
   avatarUrl    String?
   bio          String?
+  plan         String   @default("free") // free | pro  (drives entitlements)
+  proUntil     DateTime?                  // optional subscription expiry
 
   notifications  Notification[]
   badges         UserBadge[]
