@@ -253,13 +253,6 @@ export default function HomeScreen({ navigation }) {
                   <Text style={styles.mcName}>{profileName}</Text>
                   <Text style={styles.mcRole}>{meRole}</Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.mcProfileBtn}
-                  onPress={() => navigation.navigate('PlayerInsights', { playerId: profileId })}
-                >
-                  <Text style={styles.mcProfileTxt}>Profile</Text>
-                  <Icon name="chevron-right" size={16} color={DS.lime} />
-                </TouchableOpacity>
               </View>
               <View style={styles.mcStatsRow}>
                 {meCells.map(([v, l]) => (

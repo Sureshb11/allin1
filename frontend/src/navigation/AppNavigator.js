@@ -390,6 +390,10 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
 // "My Cricket" tab — same stack, but opens on the cricket dashboard (Home).
 const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="Home" />;
 
+// "Profile" tab — same stack, opens on the user profile (which links to Player
+// Insights, Badges, Edit Profile, …). Reusing HomeStack keeps all those sub-routes working.
+const ProfileStack = (props) => <HomeStack {...props} initialRouteName="Profile" />;
+
 const AppNavigator = ({ route: appRoute }) => {
   // sport + format passed from SportSetupScreen via navigation.replace('MainApp', { sport, format })
   const initialSport  = appRoute?.params?.sport  || null;
@@ -416,6 +420,7 @@ const AppNavigator = ({ route: appRoute }) => {
           const map = {
             HomeTab: 'home-variant',
             MyCricketTab: sportIcon,
+            ProfileTab: 'account-circle-outline',
           };
           const name = map[route.name] || 'apps';
           return <Icon name={name} size={22} color={color} />;
@@ -432,6 +437,12 @@ const AppNavigator = ({ route: appRoute }) => {
         name="MyCricketTab"
         component={MyCricketStack}
         options={{ tabBarLabel: `My ${sportName}` }}
+        initialParams={{ initialSport, initialFormat }}
+      />
+      <Tab.Screen
+        name="ProfileTab"
+        component={ProfileStack}
+        options={{ tabBarLabel: 'Profile' }}
         initialParams={{ initialSport, initialFormat }}
       />
     </Tab.Navigator>
