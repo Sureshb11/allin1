@@ -22,6 +22,36 @@ router.get('/me', authMiddleware, async (req, res) => {
   res.json({ user: userBase, player, sports, entitlements: entitlementsFor(user) });
 });
 
+// Aggregate stats for the logged-in user, sourced from their linked Player's stored
+// stats (mapped to the shape the Profile / My Performance screens expect) plus a real
+// match count from the DB. Returns zeros if the user isn't linked to a player yet.
+router.get('/me/stats', authMiddleware, async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.user.sub } });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+  let player = await prisma.player.findFirst({ where: { userId: user.id }, include: { team: true } });
+  if (!player && fullName) player = await prisma.player.findFirst({ where: { name: fullName }, include: { team: true } });
+
+  const base = { matches: 0, runs: 0, wickets: 0, average: 0, strikeRate: 0, centuries: 0, halfCenturies: 0 };
+  if (!player) return res.json({ stats: base, sport: null, linked: false });
+
+  const s = player.stats || {};
+  // Real season match count = matches this player's team has played in their sport.
+  const seasonMatches = player.teamId
+    ? await prisma.match.count({ where: { sport: player.sport, OR: [{ team1Id: player.teamId }, { team2Id: player.teamId }] } })
+    : 0;
+
+  const stats = {
+    ...base,
+    ...s,                                   // pass through any sport-specific fields (goals, assists, …)
+    matches: s.matches ?? seasonMatches,
+    average: s.average ?? s.battingAverage ?? 0,
+    seasonMatches,
+  };
+  res.json({ stats, sport: player.sport, role: player.role, team: player.team?.name || null, linked: true });
+});
+
 // Set / update the sports a user is interested in (multi-sport profile).
 const SportsSchema = z.object({
   sports: z.array(z.object({
