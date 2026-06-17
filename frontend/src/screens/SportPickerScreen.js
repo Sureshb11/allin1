@@ -343,8 +343,6 @@ export default function SportPickerScreen({ navigation }) {
 
       {/* ── HONEYCOMB ── */}
       <View style={s.grid} onLayout={onGridLayout} {...panResponder.panHandlers}>
-        {/* centre-stage spotlight glow */}
-        <View pointerEvents="none" style={[s.spotlight, { left: cx - 120, top: cy - 120 }]} />
         {discs.map(({ cell, left, top, scale, opacity }) => (
           <View key={cell.id} pointerEvents="box-none" style={{ position: 'absolute', left, top, zIndex: 1000 + Math.round(scale * 100) }}>
             <Disc
@@ -415,10 +413,6 @@ const s = StyleSheet.create({
   title2: { fontSize: 40, fontWeight: '900', color: A.lime, letterSpacing: 1, fontStyle: 'italic', lineHeight: 44 },
 
   grid: { flex: 1, overflow: 'hidden' },
-  spotlight: {
-    position: 'absolute', width: 240, height: 240, borderRadius: 120,
-    backgroundColor: 'rgba(196,248,42,0.06)',
-  },
 
   readoutWrap: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 28 },
   readout: {
