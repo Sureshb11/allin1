@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import SportSwitcher from '../components/SportSwitcher';
 
 const DS = {
   bg: '#0f131f',
@@ -239,6 +240,11 @@ export default function ProfileScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
+        {/* Sport switcher */}
+        <View style={styles.sportSwitchWrap}>
+          <SportSwitcher navigation={navigation} />
+        </View>
+
         {/* Menu Items */}
         <View style={styles.menuCard}>
           {MENU_ITEMS.map((item, i) => (
@@ -363,6 +369,7 @@ const styles = StyleSheet.create({
   quickBtnText: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
 
   // Menu
+  sportSwitchWrap: { marginHorizontal: 16, marginBottom: 16 },
   menuCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16 },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 16 },
   menuItemDivider: { backgroundColor: DS.surfaceHigh },

@@ -52,7 +52,6 @@ export default function HomeScreen({ navigation }) {
   const [moreVisible, setMoreVisible]         = useState(false);
   const [activeNavTab, setActiveNavTab]       = useState(0);
   const [showGuestQR, setShowGuestQR]         = useState(false);
-  const [showSportPicker, setShowSportPicker] = useState(false);
   const [currentSport, setCurrentSport]       = useState(SPORTS[0]);
   const [currentFormat, setCurrentFormat]     = useState(null);
 
@@ -70,35 +69,6 @@ export default function HomeScreen({ navigation }) {
   const contentAnim                           = useRef(new Animated.Value(1)).current;
 
   const cfg = getDashboard(currentSport.id);
-
-  const selectSport = (sport) => {
-    setShowSportPicker(false);
-    if (sport.id === currentSport.id) return;
-    // Confirm before switching — changing sport reloads the whole app for it.
-    Alert.alert(
-      `Switch to ${sport.name}?`,
-      `Local Legends will reload and show everything for ${sport.name}.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Switch', onPress: () => doSwitchSport(sport) },
-      ],
-    );
-  };
-
-  const doSwitchSport = async (sport) => {
-    setSelectedSport(sport, null);                 // update shared sport context
-    try { await legendsApi.selectPrimarySport(sport.id); } catch {}   // persist (no-op if logged out)
-    // Reload the entire app scoped to the new sport by re-mounting MainApp.
-    const root = navigation.getParent('RootStack');
-    if (root) {
-      root.reset({ index: 0, routes: [{ name: 'MainApp', params: { sport } }] });
-    } else {
-      // Fallback: soft in-place switch.
-      setCurrentSport(sport);
-      setCurrentFormat(null);
-      setActiveNavTab(0);
-    }
-  };
 
   const load = async () => {
     try {
@@ -196,29 +166,6 @@ export default function HomeScreen({ navigation }) {
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Row 2: sport switcher — full-width prominent button */}
-        <Animated.View style={[styles.sportSelectorRow, { transform: [{ scale: sportAnim }] }]}>
-          <TouchableOpacity
-            style={styles.sportSelector}
-            activeOpacity={0.8}
-            onPress={() => setShowSportPicker(true)}
-          >
-            <View style={styles.sportSelectorIconBox}>
-              <Icon name={currentSport.icon} size={18} color={DS.lime} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sportSelectorText} numberOfLines={1}>{currentSport.name}</Text>
-              {currentFormat && (
-                <Text style={styles.sportFormatBadge} numberOfLines={1}>{currentFormat.label}</Text>
-              )}
-            </View>
-            <View style={styles.sportSelectorRight}>
-              <Text style={styles.sportSelectorHint}>Change sport</Text>
-              <Icon name="chevron-down" size={16} color={DS.textMuted} />
-            </View>
-          </TouchableOpacity>
-        </Animated.View>
 
       </View>
 
@@ -474,43 +421,6 @@ export default function HomeScreen({ navigation }) {
 
       <SimpleSidebar visible={sidebarVisible} onClose={() => setSidebarVisible(false)} navigation={navigation} />
 
-      {/* ── Sport Picker Modal ─────────────── */}
-      <Modal visible={showSportPicker} transparent animationType="slide" onRequestClose={() => setShowSportPicker(false)}>
-        {/* flex column: top area (tap to dismiss) + bottom sheet */}
-        <View style={styles.sportPickerContainer}>
-          <TouchableOpacity style={styles.sportPickerDismiss} activeOpacity={1} onPress={() => setShowSportPicker(false)} />
-          <View style={styles.sportPickerSheet}>
-            <View style={styles.sportPickerHandle} />
-            <Text style={styles.sportPickerTitle}>Select Sport</Text>
-            <ScrollView
-              style={{ flex: 1 }}
-              nestedScrollEnabled
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ paddingBottom: 32 }}
-            >
-              {SPORTS.map(sport => {
-                const isActive = currentSport.id === sport.id;
-                return (
-                  <TouchableOpacity
-                    key={sport.id}
-                    style={[styles.sportPickerItem, isActive && styles.sportPickerItemActive]}
-                    onPress={() => selectSport(sport)}
-                  >
-                    <View style={[styles.sportPickerIcon, { backgroundColor: isActive ? DS.lime : DS.surfaceHighest }]}>
-                      <Icon name={sport.icon} size={24} color={isActive ? DS.bg : DS.textMuted} />
-                    </View>
-                    <Text style={[styles.sportPickerLabel, isActive && { color: DS.lime, fontWeight: '700' }]}>
-                      {sport.name}
-                    </Text>
-                    {isActive && <Icon name="check-circle" size={20} color={DS.lime} />}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
