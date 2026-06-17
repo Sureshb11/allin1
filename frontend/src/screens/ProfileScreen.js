@@ -6,6 +6,15 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import SportSwitcher from '../components/SportSwitcher';
+import { getSelectedSport } from '../utils/selectedSport';
+
+// Sport-aware profile stats: which stored-stat fields to surface per sport (first 4
+// present are shown). Anything not listed falls back to DEFAULT_FIELDS.
+const SPORT_STAT_FIELDS = {
+  cricket:  [['matches', 'Matches'], ['runs', 'Runs'], ['wickets', 'Wickets'], ['strikeRate', 'Strike Rate'], ['average', 'Average'], ['momCount', 'MOM']],
+  football: [['matches', 'Matches'], ['goals', 'Goals'], ['assists', 'Assists'], ['cleanSheets', 'Clean Sheets'], ['saves', 'Saves']],
+};
+const DEFAULT_STAT_FIELDS = [['matches', 'Matches'], ['events', 'Events'], ['fights', 'Fights'], ['wins', 'Wins'], ['titles', 'Titles'], ['ko', 'KO'], ['goals', 'Goals']];
 
 const DS = {
   bg: '#0f131f',
@@ -68,15 +77,19 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const shareProfile = async () => {
-    const name = profile.name || 'Player';
-    const runs = stats.runs ?? 0;
-    const wickets = stats.wickets ?? 0;
-    const matches = stats.matches ?? 0;
+    const sp = getSelectedSport().sport || { name: 'Cricket' };
+    const name = profile.name || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Player';
+    const fields = SPORT_STAT_FIELDS[getSelectedSport().sport?.id] || DEFAULT_STAT_FIELDS;
+    const line = fields
+      .filter(([k]) => typeof stats[k] === 'number')
+      .slice(0, 3)
+      .map(([k, label]) => `${stats[k]} ${label.toLowerCase()}`)
+      .join(' | ');
     try {
       await Share.share({
-        message: `🏏 ${name} on AllIn1 Cricket\n` +
-          `📊 ${matches} matches | ${runs} runs | ${wickets} wickets\n` +
-          `Check out cricket stats on AllIn1 Cricket app!`,
+        message: `🏆 ${name} on Local Legends · ${sp.name}\n` +
+          (line ? `📊 ${line}\n` : '') +
+          `Track ${sp.name} on the Local Legends app!`,
       });
     } catch {}
   };
@@ -109,6 +122,14 @@ export default function ProfileScreen({ navigation }) {
     .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   const isPremium = profile.plan === 'pro';
   const recentForm = stats.recentForm || [];
+
+  // Sport-aware stat cards (same layout for every sport, fields adapt to the sport).
+  const sport = getSelectedSport().sport || { id: 'cricket', name: 'Cricket' };
+  const statFields = SPORT_STAT_FIELDS[sport.id] || DEFAULT_STAT_FIELDS;
+  const statCards = statFields
+    .filter(([k]) => typeof stats[k] === 'number')
+    .slice(0, 4)
+    .map(([k, label]) => ({ label, value: stats[k] }));
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -148,35 +169,12 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Bento Stats Grid */}
-        <View style={styles.bentoGrid}>
-          <BentoStat label="Matches"     value={stats.matches} />
-          <BentoStat label="Man of Match" value={stats.momCount} />
-          <BentoStat label="Total Runs"  value={stats.runs}    accent />
-          <BentoStat label="Strike Rate" value={stats.strikeRate != null ? `${stats.strikeRate}` : null} accent />
-        </View>
-
-        {/* Extra batting stats row */}
-        {(stats.wickets != null || stats.average != null) && (
-          <View style={styles.extraStatsRow}>
-            {stats.wickets != null && (
-              <View style={styles.extraStat}>
-                <Text style={styles.extraVal}>{stats.wickets}</Text>
-                <Text style={styles.extraLbl}>Wickets</Text>
-              </View>
-            )}
-            {stats.average != null && (
-              <View style={styles.extraStat}>
-                <Text style={styles.extraVal}>{stats.average}</Text>
-                <Text style={styles.extraLbl}>Average</Text>
-              </View>
-            )}
-            {stats.economy != null && (
-              <View style={styles.extraStat}>
-                <Text style={styles.extraVal}>{stats.economy}</Text>
-                <Text style={styles.extraLbl}>Economy</Text>
-              </View>
-            )}
+        {/* Bento Stats Grid — sport-aware */}
+        {statCards.length > 0 && (
+          <View style={styles.bentoGrid}>
+            {statCards.map((c, i) => (
+              <BentoStat key={c.label} label={c.label} value={c.value} accent={i >= 2} />
+            ))}
           </View>
         )}
       </View>

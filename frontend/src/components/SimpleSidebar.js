@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { getSelectedSport } from '../utils/selectedSport';
 
 const { width } = Dimensions.get('window');
 const SIDEBAR_WIDTH = Math.min(width * 0.82, 320);
@@ -62,6 +63,18 @@ const SimpleSidebar = ({ visible, onClose, navigation }) => {
     navigation.navigate(screen);
   };
 
+  // Sport-aware menu: same sections for every sport, but labels/icons reflect the
+  // active sport (e.g. Start-Match icon, "<Sport> Store").
+  const sport = getSelectedSport().sport || { name: 'Cricket', icon: 'cricket' };
+  const sections = MENU_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.map((item) => {
+      if (item.id === 'start-match') return { ...item, icon: sport.icon || 'whistle' };
+      if (item.id === 'store')       return { ...item, label: `${sport.name} Store` };
+      return item;
+    }),
+  }));
+
   return (
     <Modal
       visible={visible}
@@ -80,7 +93,7 @@ const SimpleSidebar = ({ visible, onClose, navigation }) => {
 
           {/* ── Menu Sections ──────────────────────────────── */}
           <ScrollView style={styles.menuScroll} showsVerticalScrollIndicator={false}>
-            {MENU_SECTIONS.map((section) => (
+            {sections.map((section) => (
               <View key={section.title} style={styles.section}>
                 <Text style={styles.sectionTitle}>{section.title}</Text>
                 {section.items.map((item) => (
