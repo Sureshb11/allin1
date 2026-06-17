@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import SportIcon from '../../../components/SportIcon';
+import SportSwitcher from '../../../components/SportSwitcher';
 import legendsApi from '../../../services/LegendsApi';
 
 const A = {
@@ -62,6 +63,10 @@ export default function RummyHomeScreen({ navigation }) {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+        <View style={{ marginBottom: 16 }}>
+          <SportSwitcher navigation={navigation} current={{ id: 'rummy', name: 'Rummy', icon: 'cards-playing-outline' }} />
+        </View>
+
         <TouchableOpacity style={s.cta} activeOpacity={0.9} onPress={() => navigation.navigate('RummyNewGame')}>
           <View style={s.ctaIcon}><Icon name="plus" size={26} color={A.navy0} /></View>
           <View style={{ flex: 1 }}>

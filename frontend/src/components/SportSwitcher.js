@@ -14,9 +14,9 @@ const C = {
   textPrimary: '#dfe2f3', textMuted: '#8d90a2', line: 'rgba(150,180,230,0.10)',
 };
 
-export default function SportSwitcher({ navigation }) {
+export default function SportSwitcher({ navigation, current: currentOverride }) {
   const [open, setOpen] = useState(false);
-  const current = getSelectedSport().sport || SPORTS[0];
+  const current = currentOverride || getSelectedSport().sport || SPORTS[0];
 
   const switchTo = (sport) => {
     setOpen(false);
@@ -31,8 +31,10 @@ export default function SportSwitcher({ navigation }) {
           onPress: async () => {
             setSelectedSport(sport, null);
             try { await legendsApi.selectPrimarySport(sport.id); } catch {}
-            const root = navigation?.getParent?.('RootStack');
-            if (root) root.reset({ index: 0, routes: [{ name: 'MainApp', params: { sport } }] });
+            // From the tabs, the RootStack is an ancestor; from Rummy, `navigation`
+            // IS the root stack. Either way, reset to MainApp scoped to the new sport.
+            const root = navigation?.getParent?.('RootStack') || navigation;
+            root?.reset?.({ index: 0, routes: [{ name: 'MainApp', params: { sport } }] });
           },
         },
       ],
