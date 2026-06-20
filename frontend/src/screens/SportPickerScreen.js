@@ -12,7 +12,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
-  Dimensions, PanResponder, Animated, Easing,
+  Dimensions, PanResponder, Animated, Easing, Vibration, Platform,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import SportIcon from '../components/SportIcon';
@@ -121,7 +121,7 @@ const clampPan = p => ({
 });
 
 // ── A single disc (memo-free; cheap enough for 22 cells/frame) ──────────────
-function Disc({ cell, scale, opacity, focused, onPress }) {
+function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {
   // Icon renders at a fixed size; the whole disc is scaled via transform.
   const iconSize = cell.featured ? 36 : 31;
   return (
@@ -137,6 +137,15 @@ function Disc({ cell, scale, opacity, focused, onPress }) {
         opacity,
         transform: [{ scale }],
       }}>
+      {focused && (
+        <Animated.View
+          pointerEvents="none"
+          style={[d.pulse, {
+            opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
+            transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.75] }) }],
+          }]}
+        />
+      )}
       <View style={[
         d.disc,
         focused ? d.discFocus : null,
@@ -164,6 +173,9 @@ export default function SportPickerScreen({ navigation }) {
 
   // readout slide-up on focus change
   const readoutAnim = useRef(new Animated.Value(1)).current;
+  // focused-disc glow pulse (loops) + per-disc entrance scale-in
+  const pulseAnim  = useRef(new Animated.Value(0)).current;
+  const enterAnims = useRef(POSITIONS.map(() => new Animated.Value(0))).current;
 
   const stopInertia = () => {
     if (intRef.current) { clearInterval(intRef.current); intRef.current = null; }
@@ -192,6 +204,9 @@ export default function SportPickerScreen({ navigation }) {
     if (best && best.id !== focusRef.current) {
       focusRef.current = best.id;
       setFocusId(best.id);
+      // light haptic "tick" as each disc ratchets into focus (Android only —
+      // iOS Vibration has no short-tick duration and would feel heavy).
+      if (Platform.OS === 'android') Vibration.vibrate(8);
       readoutAnim.setValue(0);
       Animated.timing(readoutAnim, {
         toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true,
@@ -199,22 +214,7 @@ export default function SportPickerScreen({ navigation }) {
     }
   }, [panOff, readoutAnim]);
 
-  // ── inertia with edge clamp ──
-  const startInertia = useCallback(() => {
-    stopInertia();
-    intRef.current = setInterval(() => {
-      velRef.current.x *= 0.92;
-      velRef.current.y *= 0.92;
-      const np = { x: panRef.current.x + velRef.current.x, y: panRef.current.y + velRef.current.y };
-      const cl = clampPan(np);
-      if (cl.x !== np.x) velRef.current.x = 0;
-      if (cl.y !== np.y) velRef.current.y = 0;
-      schedulePan(cl.x, cl.y);
-      if (Math.hypot(velRef.current.x, velRef.current.y) < 0.25) stopInertia();
-    }, 16);
-  }, [schedulePan]);
-
-  // ── eased pan animation (tap-to-centre, spring-back) ──
+  // ── eased pan animation (tap-to-centre, spring-back, magnetic snap) ──
   const animateTo = useCallback((target, dur, cb) => {
     stopInertia();
     stopAnim();
@@ -229,7 +229,45 @@ export default function SportPickerScreen({ navigation }) {
     }, 16);
   }, [schedulePan]);
 
+  // ── magnetic snap: glide whichever disc is nearest centre exactly onto it ──
+  const snapToNearest = useCallback(() => {
+    let best = null, bestD = Infinity;
+    for (const c of POSITIONS) {
+      const d2 = Math.hypot(panRef.current.x + c.x, panRef.current.y + c.y);
+      if (d2 < bestD) { bestD = d2; best = c; }
+    }
+    if (best) animateTo({ x: -best.x, y: -best.y }, 260);
+  }, [animateTo]);
+
+  // ── inertia with edge clamp; snaps to the nearest disc once it settles ──
+  const startInertia = useCallback(() => {
+    stopInertia();
+    intRef.current = setInterval(() => {
+      velRef.current.x *= 0.92;
+      velRef.current.y *= 0.92;
+      const np = { x: panRef.current.x + velRef.current.x, y: panRef.current.y + velRef.current.y };
+      const cl = clampPan(np);
+      if (cl.x !== np.x) velRef.current.x = 0;
+      if (cl.y !== np.y) velRef.current.y = 0;
+      schedulePan(cl.x, cl.y);
+      if (Math.hypot(velRef.current.x, velRef.current.y) < 0.4) { stopInertia(); snapToNearest(); }
+    }, 16);
+  }, [schedulePan, snapToNearest]);
+
   useEffect(() => () => { stopInertia(); stopAnim(); }, []);
+
+  // looping glow pulse on the focused disc + one-shot entrance scale-in
+  useEffect(() => {
+    const pulse = Animated.loop(Animated.sequence([
+      Animated.timing(pulseAnim, { toValue: 1, duration: 1500, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
+    ]));
+    pulse.start();
+    Animated.stagger(26, enterAnims.map(a =>
+      Animated.spring(a, { toValue: 1, friction: 6, tension: 70, useNativeDriver: true }),
+    )).start();
+    return () => pulse.stop();
+  }, [pulseAnim, enterAnims]);
 
   // rubber-band: drift past bounds with resistance (Apple-Watch edge bounce)
   const rb = (v, lo, hi) => (v < lo ? lo + (v - lo) * 0.42 : v > hi ? hi + (v - hi) * 0.42 : v);
@@ -254,7 +292,7 @@ export default function SportPickerScreen({ navigation }) {
     onPanResponderRelease: () => {
       const cl = clampPan(panRef.current);
       if (cl.x !== panRef.current.x || cl.y !== panRef.current.y) {
-        animateTo(cl, 320);          // spring back from overscroll
+        animateTo(cl, 320, snapToNearest);   // spring back from overscroll, then snap
       } else {
         startInertia();
       }
@@ -343,16 +381,25 @@ export default function SportPickerScreen({ navigation }) {
 
       {/* ── HONEYCOMB ── */}
       <View style={s.grid} onLayout={onGridLayout} {...panResponder.panHandlers}>
-        {discs.map(({ cell, left, top, scale, opacity }) => (
-          <View key={cell.id} pointerEvents="box-none" style={{ position: 'absolute', left, top, zIndex: 1000 + Math.round(scale * 100) }}>
+        {discs.map(({ cell, left, top, scale, opacity }, i) => (
+          <Animated.View
+            key={cell.id}
+            pointerEvents="box-none"
+            style={{
+              position: 'absolute', left, top,
+              zIndex: 1000 + Math.round(scale * 100),
+              opacity: enterAnims[i],
+              transform: [{ scale: enterAnims[i] }],
+            }}>
             <Disc
               cell={cell}
               scale={scale}
               opacity={opacity}
               focused={cell.id === focusId}
+              pulseAnim={pulseAnim}
               onPress={() => selectCell(cell)}
             />
-          </View>
+          </Animated.View>
         ))}
       </View>
 
@@ -392,6 +439,10 @@ const d = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   discFocus: { backgroundColor: '#27374f' },
+  pulse: {
+    position: 'absolute', left: 0, top: 0, width: CELL, height: CELL,
+    borderRadius: CELL / 2, borderWidth: 2.5, borderColor: A.lime,
+  },
 });
 
 const s = StyleSheet.create({
