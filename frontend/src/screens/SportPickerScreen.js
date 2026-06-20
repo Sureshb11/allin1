@@ -17,6 +17,7 @@ import {
 import Svg, { Path, Line, Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import SportIcon from '../components/SportIcon';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -379,10 +380,22 @@ export default function SportPickerScreen({ navigation }) {
           style={s.avatar}
           activeOpacity={0.8}
           onPress={() => {
-            // Open the (sport-aware) Profile inside MainApp using the focused sport;
-            // pushed onto RootStack so Back returns here to the Arena.
-            const sport = { ...focus, label: focus.name, icon: focus.mci };
-            navigation.navigate('MainApp', { sport, screen: 'ProfileTab' });
+            // Open the (sport-aware) Profile inside MainApp. Use the user's ACTIVE
+            // sport (selected-sport singleton) so the tab label + Profile's "Current
+            // Sport" always agree; fall back to the focused disc and commit it if
+            // nothing's been chosen yet. RESET (not push) so the Arena leaves the
+            // stack — once in the app you can't Back to the picker; switch via Profile.
+            const sel = getSelectedSport();
+            const sport = sel.sport || { ...focus, label: focus.name, icon: focus.mci };
+            setSelectedSport(sport, sel.format || null);
+            navigation.reset({
+              index: 0,
+              routes: [{
+                name: 'MainApp',
+                params: { sport },
+                state: { index: 0, routes: [{ name: 'ProfileTab', params: { initialSport: sport } }] },
+              }],
+            });
           }}>
           <Svg width={20} height={20} viewBox="0 0 20 20" fill={A.inkDim}>
             <Path d="M10 3.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Z" />

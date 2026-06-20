@@ -115,9 +115,9 @@ export default function MySportsScreen({ navigation }) {
             })
           )}
 
-          <TouchableOpacity style={s.addBtn} activeOpacity={0.85} onPress={() => navigation.navigate('SportPicker')}>
-            <Icon name="plus" size={18} color={DS.lime} />
-            <Text style={s.addTxt}>Add a sport</Text>
+          <TouchableOpacity style={s.addBtn} activeOpacity={0.85} onPress={() => navigation.navigate('Profile')}>
+            <Icon name="swap-horizontal" size={18} color={DS.lime} />
+            <Text style={s.addTxt}>Switch sport in Profile</Text>
           </TouchableOpacity>
         </ScrollView>
       )}
