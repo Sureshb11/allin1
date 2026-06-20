@@ -3,7 +3,7 @@ import { defineSport } from '../_shape';
 export default defineSport({
   id: 'archery',
   name: 'Archery & Shooting',
-  icon: 'bullseye-arrow',
+  icon: 'bow-arrow',
   tag: 'Target',
   accent: '#a3e635',
   individual: true,
