@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, Pressable,
   Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
   StatusBar, ScrollView,
 } from 'react-native';
@@ -8,17 +8,16 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 
 const DS = {
-  bg:       '#0b0f1e',
-  bgMid:    '#111827',
-  surface:  '#1a2035',
-  card:     '#1e2538',
-  border:   '#2a3050',
-  lime:     '#abd600',
-  blue:     '#3b82f6',
-  blueDark: '#1d4ed8',
-  onSurf:   '#e8eaf6',
-  muted:    '#8892a4',
-  dim:      '#374151',
+  bg:      '#0b0f1e',
+  surface: '#141a2c',
+  field:   '#1a2138',
+  border:  '#262d48',
+  borderF: '#3a4570',
+  lime:    '#abd600',
+  blue:    '#3b82f6',
+  ink:     '#eef1fb',
+  sub:     '#aeb6cc',
+  muted:   '#7e879e',
 };
 
 const COUNTRIES = [
@@ -26,16 +25,17 @@ const COUNTRIES = [
   { code: '+1',  name: 'USA',   flag: '🇺🇸' },
   { code: '+44', name: 'UK',    flag: '🇬🇧' },
   { code: '+61', name: 'AUS',   flag: '🇦🇺' },
-  { code: '+965',name: 'KWT',   flag: '🇰🇼' },
+  { code: '+965',name: 'Kuwait',flag: '🇰🇼' },
 ];
 
 export default function LoginScreen({ navigation }) {
-  const [countryCode, setCountryCode]         = useState('+91');
+  const [countryCode, setCountryCode] = useState('+91');
   const [showCountryPicker, setShowCountryPicker] = useState(false);
-  const [phoneNumber, setPhoneNumber]         = useState('');
-  const [otp, setOtp]                         = useState('');
-  const [showOtpStep, setShowOtpStep]         = useState(false);
-  const [loading, setLoading]                 = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [showOtpStep, setShowOtpStep] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const otpRef = useRef(null);
 
   const selectedCountry = COUNTRIES.find(c => c.code === countryCode) || COUNTRIES[0];
 
@@ -83,119 +83,93 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={s.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
 
-      {/* ── Header bar ─────────────────────────────────── */}
-      <View style={s.header}>
-        <View style={s.logoBox}>
-          <Icon name="star-four-points" size={14} color={DS.bg} />
+      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        {/* Brand */}
+        <View style={s.brand}>
+          <View style={s.logoBox}><Icon name="star-four-points" size={16} color={DS.bg} /></View>
+          <Text style={s.brandLocal}>LOCAL</Text>
+          <View style={s.brandBadge}><Text style={s.brandBadgeTxt}>LEGENDS</Text></View>
         </View>
-        <Text style={s.logoLocal}>LOCAL</Text>
-        <View style={s.logoBadge}>
-          <Text style={s.logoBadgeText}>LEGENDS</Text>
-        </View>
-      </View>
 
-      <ScrollView
-        contentContainerStyle={s.scroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Hero copy ───────────────────────────────── */}
+        {/* Hero */}
         <View style={s.hero}>
-          <View style={s.liveRow}>
-            <View style={s.liveLine} />
-            <Text style={s.liveLabel}>LIVE UPDATES</Text>
+          <View style={s.pill}>
+            <View style={s.pillDot} />
+            <Text style={s.pillTxt}>{showOtpStep ? 'VERIFY' : 'LIVE UPDATES'}</Text>
           </View>
-
-          {showOtpStep ? (
-            <Text style={s.heroTitle}>
-              <Text style={s.heroTitleWhite}>ENTER{'\n'}</Text>
-              <Text style={s.heroTitleBlue}>THE CODE</Text>
-            </Text>
-          ) : (
-            <Text style={s.heroTitle}>
-              <Text style={s.heroTitleWhite}>GET INTO{'\n'}THE{'\n'}</Text>
-              <Text style={s.heroTitleBlue}>ACTION</Text>
-            </Text>
-          )}
-
-          <Text style={s.heroSub}>
+          <Text style={s.h1}>
             {showOtpStep
-              ? `Enter the code sent to ${countryCode} ${phoneNumber}`
-              : 'Enter your mobile number to receive a one-time password and join the arena.'}
+              ? <>Enter the{'\n'}<Text style={s.h1Accent}>code</Text></>
+              : <>Get into{'\n'}the <Text style={s.h1Accent}>action</Text></>}
+          </Text>
+          <Text style={s.sub}>
+            {showOtpStep
+              ? `We sent a 4-digit code to ${countryCode} ${phoneNumber}.`
+              : 'Enter your mobile number to get a one-time code and join the arena.'}
           </Text>
         </View>
 
-        {/* ── Form card ───────────────────────────────── */}
-        <View style={s.card}>
+        {/* Form */}
+        <View style={s.form}>
           {showOtpStep ? (
-            /* OTP step */
-            <View>
-              <TouchableOpacity style={s.backRow} onPress={() => { setShowOtpStep(false); setOtp(''); }}>
-                <Icon name="arrow-left" size={18} color={DS.lime} />
-                <Text style={s.backText}>Change Number</Text>
-              </TouchableOpacity>
-
-              <Text style={s.fieldLabel}>VERIFICATION CODE</Text>
+            <>
+              <Text style={s.label}>VERIFICATION CODE</Text>
+              <Pressable style={s.otpRow} onPress={() => otpRef.current?.focus()}>
+                {[0, 1, 2, 3].map(i => (
+                  <View key={i} style={[s.otpCell, otp.length === i && s.otpCellActive, otp[i] && s.otpCellFilled]}>
+                    <Text style={s.otpDigit}>{otp[i] || ''}</Text>
+                  </View>
+                ))}
+              </Pressable>
               <TextInput
-                style={s.otpInput}
-                placeholder="• • • •"
-                placeholderTextColor={DS.muted}
+                ref={otpRef}
+                style={s.hiddenInput}
                 value={otp}
                 onChangeText={v => setOtp(v.replace(/\D/g, '').slice(0, 4))}
-                keyboardType="numeric"
+                keyboardType="number-pad"
                 maxLength={4}
                 autoFocus
+                caretHidden
               />
 
               <TouchableOpacity
-                style={[s.sendBtn, loading && s.btnDisabled]}
+                style={[s.primary, (loading || otp.length < 4) && s.primaryOff]}
                 onPress={handleVerifyOtp}
-                disabled={loading}
-                activeOpacity={0.85}
+                disabled={loading || otp.length < 4}
+                activeOpacity={0.9}
               >
-                {loading
-                  ? <ActivityIndicator color="#fff" />
-                  : <>
-                      <Text style={s.sendBtnText}>VERIFY & JOIN</Text>
-                      <Icon name="lightning-bolt" size={18} color="#fff" />
-                    </>
-                }
+                {loading ? <ActivityIndicator color={DS.bg} />
+                  : <><Text style={s.primaryTxt}>Verify & Join</Text><Icon name="arrow-right" size={20} color={DS.bg} /></>}
               </TouchableOpacity>
 
-              <TouchableOpacity style={s.resendBtn} onPress={handleSendOtp} disabled={loading}>
-                <Text style={s.resendText}>Resend OTP</Text>
-              </TouchableOpacity>
-
-              <Text style={s.testHint}>Test OTP: 1234</Text>
-            </View>
-          ) : (
-            /* Phone step */
-            <View>
-              <Text style={s.fieldLabel}>PHONE NUMBER</Text>
-
-              <View style={s.phoneRow}>
-                <TouchableOpacity
-                  style={s.countryBtn}
-                  onPress={() => setShowCountryPicker(!showCountryPicker)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={s.countryFlag}>{selectedCountry.flag}</Text>
-                  <Text style={s.countryCode}>{countryCode}</Text>
-                  <Icon name={showCountryPicker ? 'chevron-up' : 'chevron-down'} size={14} color={DS.muted} />
+              <View style={s.altRow}>
+                <TouchableOpacity onPress={() => { setShowOtpStep(false); setOtp(''); }}>
+                  <Text style={s.linkMuted}>Change number</Text>
                 </TouchableOpacity>
-
+                <TouchableOpacity onPress={handleSendOtp} disabled={loading}>
+                  <Text style={s.linkLime}>Resend code</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={s.hint}>Test code: 1234</Text>
+            </>
+          ) : (
+            <>
+              <Text style={s.label}>PHONE NUMBER</Text>
+              <View style={s.phoneRow}>
+                <TouchableOpacity style={s.country} onPress={() => setShowCountryPicker(v => !v)} activeOpacity={0.8}>
+                  <Text style={s.flag}>{selectedCountry.flag}</Text>
+                  <Text style={s.code}>{countryCode}</Text>
+                  <Icon name={showCountryPicker ? 'chevron-up' : 'chevron-down'} size={16} color={DS.muted} />
+                </TouchableOpacity>
                 <TextInput
                   style={s.phoneInput}
-                  placeholder="000 000 0000"
+                  placeholder="00000 00000"
                   placeholderTextColor={DS.muted}
                   value={phoneNumber}
-                  onChangeText={setPhoneNumber}
+                  onChangeText={t => setPhoneNumber(t.replace(/\D/g, '').slice(0, 10))}
                   keyboardType="phone-pad"
                   maxLength={10}
                   editable={!loading}
@@ -207,56 +181,43 @@ export default function LoginScreen({ navigation }) {
                   {COUNTRIES.map(c => (
                     <TouchableOpacity
                       key={c.code}
-                      style={[s.dropdownRow, c.code === countryCode && s.dropdownRowActive]}
+                      style={[s.dropRow, c.code === countryCode && s.dropRowActive]}
                       onPress={() => { setCountryCode(c.code); setShowCountryPicker(false); }}
                     >
-                      <Text style={s.countryFlag}>{c.flag}</Text>
-                      <Text style={s.dropdownName}>{c.name}</Text>
-                      <Text style={s.dropdownCode}>{c.code}</Text>
-                      {c.code === countryCode && <Icon name="check" size={14} color={DS.lime} />}
+                      <Text style={s.flag}>{c.flag}</Text>
+                      <Text style={s.dropName}>{c.name}</Text>
+                      <Text style={s.dropCode}>{c.code}</Text>
+                      {c.code === countryCode && <Icon name="check-circle" size={16} color={DS.lime} />}
                     </TouchableOpacity>
                   ))}
                 </View>
               )}
 
               <TouchableOpacity
-                style={[s.sendBtn, loading && s.btnDisabled]}
+                style={[s.primary, (loading || phoneNumber.length < 10) && s.primaryOff]}
                 onPress={handleSendOtp}
-                disabled={loading}
-                activeOpacity={0.85}
+                disabled={loading || phoneNumber.length < 10}
+                activeOpacity={0.9}
               >
-                {loading
-                  ? <ActivityIndicator color="#fff" />
-                  : <>
-                      <Text style={s.sendBtnText}>SEND OTP</Text>
-                      <Icon name="lightning-bolt" size={18} color="#fff" />
-                    </>
-                }
+                {loading ? <ActivityIndicator color={DS.bg} />
+                  : <><Text style={s.primaryTxt}>Send OTP</Text><Icon name="lightning-bolt" size={19} color={DS.bg} /></>}
               </TouchableOpacity>
 
               <View style={s.divider}>
-                <View style={s.dividerLine} />
-                <Text style={s.dividerLabel}>OR</Text>
-                <View style={s.dividerLine} />
+                <View style={s.divLine} /><Text style={s.divTxt}>OR</Text><View style={s.divLine} />
               </View>
 
-              <TouchableOpacity
-                style={s.createBtn}
-                onPress={() => navigation.navigate('SignUp')}
-                activeOpacity={0.85}
-              >
-                <Text style={s.createBtnText}>Create New Account</Text>
+              <TouchableOpacity style={s.secondary} onPress={() => navigation.navigate('SignUp')} activeOpacity={0.9}>
+                <Icon name="account-plus-outline" size={18} color={DS.lime} />
+                <Text style={s.secondaryTxt}>Create New Account</Text>
               </TouchableOpacity>
-            </View>
+            </>
           )}
         </View>
 
-        {/* Footer */}
         <Text style={s.footer}>
-          BY CONTINUING, YOU AGREE TO LOCAL LEGENDS'{'\n'}
-          <Text style={s.footerLink}>TERMS OF SERVICE</Text>
-          {' & '}
-          <Text style={s.footerLink}>PRIVACY POLICY</Text>
+          By continuing you agree to Local Legends'{'\n'}
+          <Text style={s.footerLink}>Terms of Service</Text> & <Text style={s.footerLink}>Privacy Policy</Text>
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -265,118 +226,60 @@ export default function LoginScreen({ navigation }) {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.bg },
-
-  /* Header */
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 20, paddingTop: 52, paddingBottom: 8,
-  },
-  logoBox: {
-    width: 28, height: 28, borderRadius: 7,
-    backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center',
-  },
-  logoLocal: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: 2 },
-  logoBadge: {
-    backgroundColor: DS.lime, borderRadius: 5,
-    paddingHorizontal: 8, paddingVertical: 2,
-  },
-  logoBadgeText: { fontSize: 12, fontWeight: '900', color: DS.bg, letterSpacing: 1.5 },
-
-  /* Scroll */
   scroll: { flexGrow: 1, paddingBottom: 32 },
 
-  /* Hero */
-  hero: { paddingHorizontal: 24, paddingTop: 28, paddingBottom: 32 },
-  liveRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  liveLine: { width: 32, height: 2, backgroundColor: DS.lime },
-  liveLabel: { fontSize: 11, fontWeight: '800', color: DS.lime, letterSpacing: 2.5 },
-  heroTitle: { fontSize: 52, fontWeight: '900', lineHeight: 56, marginBottom: 16, fontStyle: 'italic' },
-  heroTitleWhite: { color: '#fff' },
-  heroTitleBlue: { color: '#60a5fa' },
-  heroSub: { fontSize: 15, color: DS.muted, lineHeight: 22 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 24, paddingTop: 56, paddingBottom: 8 },
+  logoBox: { width: 30, height: 30, borderRadius: 9, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
+  brandLocal: { fontSize: 16, fontWeight: '900', color: DS.ink, letterSpacing: 2 },
+  brandBadge: { backgroundColor: DS.lime, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  brandBadgeTxt: { fontSize: 12, fontWeight: '900', color: DS.bg, letterSpacing: 1.5 },
 
-  /* Card */
-  card: {
-    marginHorizontal: 16, backgroundColor: DS.card,
-    borderRadius: 20, padding: 24,
-    borderWidth: 1, borderColor: DS.border,
-  },
-  backRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 20 },
-  backText: { fontSize: 13, color: DS.lime, fontWeight: '700' },
+  hero: { paddingHorizontal: 24, paddingTop: 30, paddingBottom: 26 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', backgroundColor: 'rgba(171,214,0,0.12)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 18 },
+  pillDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: DS.lime },
+  pillTxt: { fontSize: 11, fontWeight: '800', color: DS.lime, letterSpacing: 1.5 },
+  h1: { fontSize: 44, fontWeight: '900', color: DS.ink, lineHeight: 48, letterSpacing: -0.5 },
+  h1Accent: { color: DS.lime },
+  sub: { fontSize: 15, color: DS.sub, lineHeight: 22, marginTop: 14 },
 
-  /* Field */
-  fieldLabel: {
-    fontSize: 10, fontWeight: '800', color: DS.muted,
-    letterSpacing: 2, marginBottom: 10,
-  },
+  form: { marginHorizontal: 16, backgroundColor: DS.surface, borderRadius: 24, padding: 22, borderWidth: 1, borderColor: DS.border },
+  label: { fontSize: 11, fontWeight: '800', color: DS.muted, letterSpacing: 1.8, marginBottom: 12 },
 
-  /* Phone row */
-  phoneRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  countryBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: DS.surface, borderRadius: 12, borderWidth: 1, borderColor: DS.border,
-    paddingHorizontal: 12, paddingVertical: 14,
-  },
-  countryFlag: { fontSize: 18 },
-  countryCode: { fontSize: 14, fontWeight: '700', color: DS.onSurf },
-  phoneInput: {
-    flex: 1, backgroundColor: DS.surface,
-    borderRadius: 12, borderWidth: 1, borderColor: DS.border,
-    paddingHorizontal: 14, paddingVertical: 14,
-    fontSize: 16, color: DS.onSurf, letterSpacing: 1,
-  },
+  phoneRow: { flexDirection: 'row', gap: 10 },
+  country: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: DS.field, borderRadius: 16, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 14, height: 58 },
+  flag: { fontSize: 20 },
+  code: { fontSize: 15, fontWeight: '800', color: DS.ink },
+  phoneInput: { flex: 1, backgroundColor: DS.field, borderRadius: 16, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 16, height: 58, fontSize: 18, fontWeight: '700', color: DS.ink, letterSpacing: 1 },
 
-  /* Dropdown */
-  dropdown: {
-    backgroundColor: DS.surface, borderRadius: 12,
-    borderWidth: 1, borderColor: DS.border, marginBottom: 16, overflow: 'hidden',
-  },
-  dropdownRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: DS.border,
-  },
-  dropdownRowActive: { backgroundColor: DS.dim + '50' },
-  dropdownName: { flex: 1, fontSize: 14, color: DS.onSurf, fontWeight: '600' },
-  dropdownCode: { fontSize: 13, color: DS.muted },
+  dropdown: { backgroundColor: DS.field, borderRadius: 16, borderWidth: 1, borderColor: DS.border, marginTop: 12, overflow: 'hidden' },
+  dropRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: DS.border },
+  dropRowActive: { backgroundColor: 'rgba(171,214,0,0.08)' },
+  dropName: { flex: 1, fontSize: 15, color: DS.ink, fontWeight: '600' },
+  dropCode: { fontSize: 14, color: DS.muted, fontWeight: '600' },
 
-  /* OTP input */
-  otpInput: {
-    backgroundColor: DS.surface, borderRadius: 12,
-    borderWidth: 1, borderColor: DS.border,
-    paddingVertical: 16, fontSize: 28, fontWeight: '900',
-    textAlign: 'center', letterSpacing: 14, color: DS.onSurf,
-    marginBottom: 20,
-  },
+  otpRow: { flexDirection: 'row', gap: 12 },
+  otpCell: { flex: 1, height: 64, borderRadius: 16, backgroundColor: DS.field, borderWidth: 1.5, borderColor: DS.border, alignItems: 'center', justifyContent: 'center' },
+  otpCellActive: { borderColor: DS.lime },
+  otpCellFilled: { borderColor: DS.borderF },
+  otpDigit: { fontSize: 28, fontWeight: '900', color: DS.ink },
+  hiddenInput: { position: 'absolute', width: 1, height: 1, opacity: 0 },
 
-  /* Buttons */
-  sendBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: DS.blue, borderRadius: 14,
-    paddingVertical: 16, marginBottom: 8,
-  },
-  btnDisabled: { backgroundColor: DS.dim },
-  sendBtnText: { fontSize: 15, fontWeight: '900', color: '#fff', letterSpacing: 1.5 },
-  resendBtn: { paddingVertical: 12, alignItems: 'center' },
-  resendText: { fontSize: 13, color: DS.muted, fontWeight: '600' },
-  testHint: { fontSize: 11, color: DS.muted, textAlign: 'center', marginTop: 4 },
+  primary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.lime, borderRadius: 16, height: 56, marginTop: 22 },
+  primaryOff: { opacity: 0.4 },
+  primaryTxt: { fontSize: 16, fontWeight: '900', color: DS.bg, letterSpacing: 0.3 },
 
-  /* Divider */
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 10 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: DS.border },
-  dividerLabel: { fontSize: 11, color: DS.muted, fontWeight: '700', letterSpacing: 1 },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 18 },
+  divLine: { flex: 1, height: 1, backgroundColor: DS.border },
+  divTxt: { fontSize: 11, color: DS.muted, fontWeight: '800', letterSpacing: 1 },
 
-  /* Create account */
-  createBtn: {
-    borderWidth: 1.5, borderColor: DS.lime, borderRadius: 14,
-    paddingVertical: 15, alignItems: 'center',
-  },
-  createBtnText: { fontSize: 14, fontWeight: '800', color: DS.lime, letterSpacing: 0.5 },
+  secondary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1.5, borderColor: DS.lime, borderRadius: 16, height: 54 },
+  secondaryTxt: { fontSize: 15, fontWeight: '800', color: DS.lime },
 
-  /* Footer */
-  footer: {
-    fontSize: 9, color: DS.muted, textAlign: 'center',
-    letterSpacing: 1, marginTop: 24, paddingHorizontal: 20, lineHeight: 16,
-  },
-  footerLink: { color: DS.onSurf, fontWeight: '700' },
+  altRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18 },
+  linkMuted: { fontSize: 14, color: DS.sub, fontWeight: '700' },
+  linkLime: { fontSize: 14, color: DS.lime, fontWeight: '800' },
+  hint: { fontSize: 12, color: DS.muted, textAlign: 'center', marginTop: 14 },
+
+  footer: { fontSize: 11, color: DS.muted, textAlign: 'center', marginTop: 26, paddingHorizontal: 24, lineHeight: 18 },
+  footerLink: { color: DS.sub, fontWeight: '700' },
 });
