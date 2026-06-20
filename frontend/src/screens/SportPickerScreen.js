@@ -14,7 +14,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
   Dimensions, PanResponder, Animated, Easing, Vibration, Platform,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Line, Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import SportIcon from '../components/SportIcon';
 import legendsApi from '../services/LegendsApi';
 
@@ -105,6 +105,16 @@ function layoutHoney(size) {
 }
 
 const POSITIONS = layoutHoney(SPACING);
+
+// Neighbour pairs (adjacent discs ~SPACING apart) for the constellation mesh.
+const EDGES = (() => {
+  const out = [];
+  for (let i = 0; i < POSITIONS.length; i++)
+    for (let j = i + 1; j < POSITIONS.length; j++)
+      if (Math.hypot(POSITIONS[i].x - POSITIONS[j].x, POSITIONS[i].y - POSITIONS[j].y) < SPACING * 1.15)
+        out.push([i, j]);
+  return out;
+})();
 
 // pan clamp bounds: every disc must be reachable to the centre (+margin).
 const BOUNDS = (() => {
@@ -365,12 +375,20 @@ export default function SportPickerScreen({ navigation }) {
           </Svg>
         </TouchableOpacity>
         <Text style={s.brand}>LOCAL LEGENDS</Text>
-        <View style={s.avatar}>
+        <TouchableOpacity
+          style={s.avatar}
+          activeOpacity={0.8}
+          onPress={() => {
+            // Open the (sport-aware) Profile inside MainApp using the focused sport;
+            // pushed onto RootStack so Back returns here to the Arena.
+            const sport = { ...focus, label: focus.name, icon: focus.mci };
+            navigation.navigate('MainApp', { sport, screen: 'ProfileTab' });
+          }}>
           <Svg width={20} height={20} viewBox="0 0 20 20" fill={A.inkDim}>
             <Path d="M10 3.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Z" />
             <Path d="M3.5 18a6.5 6.5 0 0 1 13 0Z" />
           </Svg>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* ── TITLE ── */}
@@ -381,6 +399,28 @@ export default function SportPickerScreen({ navigation }) {
 
       {/* ── HONEYCOMB ── */}
       <View style={s.grid} onLayout={onGridLayout} {...panResponder.panHandlers}>
+        {/* depth layer: soft radial glow at centre + faint constellation mesh */}
+        <Svg pointerEvents="none" width={dim.w} height={dim.h} style={StyleSheet.absoluteFill}>
+          <Defs>
+            <RadialGradient id="arenaGlow" cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor={A.lime} stopOpacity={0.16} />
+              <Stop offset="1" stopColor={A.lime} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Circle cx={cx} cy={cy} r={175} fill="url(#arenaGlow)" />
+          {EDGES.map(([i, j], k) => {
+            const a = discs[i], b = discs[j];
+            const o = Math.min(a.opacity, b.opacity);
+            if (o < 0.42) return null;        // skip edges fading out near the rim
+            return (
+              <Line
+                key={k}
+                x1={a.left} y1={a.top} x2={b.left} y2={b.top}
+                stroke="#8ea3c8" strokeWidth={1} strokeOpacity={(o - 0.3) * 0.22}
+              />
+            );
+          })}
+        </Svg>
         {discs.map(({ cell, left, top, scale, opacity }, i) => (
           <Animated.View
             key={cell.id}
