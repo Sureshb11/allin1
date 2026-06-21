@@ -14,6 +14,7 @@ import {
   StatusBar, Modal, TextInput, KeyboardAvoidingView, Platform, RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Svg, { Defs, LinearGradient as SvgGrad, RadialGradient, Stop, Rect } from 'react-native-svg';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
@@ -78,9 +79,44 @@ function FeedSkeleton() {
   );
 }
 
+// Soft accent wash anchored to the top of the screen — kills the "all black" feel.
+function TopGlow({ accent }) {
+  return (
+    <Svg pointerEvents="none" style={s.topGlow} width="100%" height={300}>
+      <Defs>
+        <RadialGradient id="tg" cx="50%" cy="2%" r="75%">
+          <Stop offset="0" stopColor={accent} stopOpacity={0.26} />
+          <Stop offset="1" stopColor={accent} stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="300" fill="url(#tg)" />
+    </Svg>
+  );
+}
+
+// Section heading with a short accent bar.
+function SectionTitle({ children, accent, style }) {
+  return (
+    <View style={[s.titleRow, style]}>
+      <View style={[s.titleBar, { backgroundColor: accent }]} />
+      <Text style={s.titleTxt}>{children}</Text>
+    </View>
+  );
+}
+
 function FeaturedMatch({ m, accent, unit, onPress }) {
   return (
-    <TouchableOpacity activeOpacity={0.9} style={[s.feature, { borderColor: accent + '33' }]} onPress={onPress}>
+    <TouchableOpacity activeOpacity={0.9} style={[s.feature, { borderColor: accent + '55', shadowColor: accent }]} onPress={onPress}>
+      <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <Defs>
+          <SvgGrad id="fg" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={accent} stopOpacity={0.28} />
+            <Stop offset="0.55" stopColor={accent} stopOpacity={0.06} />
+            <Stop offset="1" stopColor={accent} stopOpacity={0} />
+          </SvgGrad>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#fg)" />
+      </Svg>
       <View style={s.featTop}>
         <View style={s.liveRow}><View style={s.liveDot} /><Text style={s.liveTxt}>LIVE</Text></View>
         <Text style={s.featComp}>{(m.matchType || 'Match').toUpperCase()}</Text>
@@ -107,8 +143,8 @@ function FeaturedMatch({ m, accent, unit, onPress }) {
 
 function ResultCard({ m, accent, onPress }) {
   return (
-    <TouchableOpacity activeOpacity={0.85} style={s.resCard} onPress={onPress}>
-      <Text style={s.resTag}>{m.status === 'completed' ? 'FINISHED' : 'UPCOMING'}</Text>
+    <TouchableOpacity activeOpacity={0.85} style={[s.resCard, { borderColor: accent + '2a' }]} onPress={onPress}>
+      <Text style={[s.resTag, { color: accent }]}>{m.status === 'completed' ? 'FINISHED' : 'UPCOMING'}</Text>
       {[[m.team1, m.score1], [m.team2, m.score2]].map(([t, sc], i) => (
         <View key={i} style={s.resRow}>
           <View style={s.resBadge}><Text style={s.resBadgeTxt}>{initials(sideName(t))}</Text></View>
@@ -208,6 +244,7 @@ export default function SportFeedScreen({ navigation }) {
   return (
     <View style={s.root}>
       <StatusBar barStyle="light-content" backgroundColor={D.bg} />
+      <TopGlow accent={accent} />
       <View style={s.topBar}>
         <View style={s.brand}>
           <Icon name={sportIcon} size={22} color={accent} />
@@ -248,13 +285,13 @@ export default function SportFeedScreen({ navigation }) {
           <>
             {live.length > 0 && (
               <>
-                <Text style={s.sectionTitle}>{copy.live}</Text>
+                <SectionTitle accent={accent}>{copy.live}</SectionTitle>
                 {live.map((m) => <FeaturedMatch key={m.id} m={m} accent={accent} unit={unit} onPress={() => openMatch(m)} />)}
               </>
             )}
             {others.length > 0 && (
               <>
-                <Text style={[s.sectionTitle, { marginTop: 18 }]}>{copy.results}</Text>
+                <SectionTitle accent={accent} style={{ marginTop: 18 }}>{copy.results}</SectionTitle>
                 <FlatList
                   data={others}
                   keyExtractor={(it) => it.id}
@@ -279,8 +316,11 @@ export default function SportFeedScreen({ navigation }) {
         )}
 
         <View style={s.sectionRow}>
-          <Text style={s.sectionTitle}>{copy.community}</Text>
-          <TouchableOpacity onPress={() => setShowCompose(true)}><Text style={[s.postLink, { color: accent }]}>+ Post</Text></TouchableOpacity>
+          <SectionTitle accent={accent}>{copy.community}</SectionTitle>
+          <TouchableOpacity onPress={() => setShowCompose(true)} style={[s.postBtn, { backgroundColor: accent + '1f', borderColor: accent + '55' }]}>
+            <Icon name="plus" size={14} color={accent} />
+            <Text style={[s.postLink, { color: accent }]}>Post</Text>
+          </TouchableOpacity>
         </View>
         {posts.length === 0 ? (
           <View style={s.empty}>
@@ -289,7 +329,7 @@ export default function SportFeedScreen({ navigation }) {
             <Text style={s.emptySub}>Be the first to share a {sportName.toLowerCase()} moment.</Text>
           </View>
         ) : posts.map((p) => (
-          <View key={p.id} style={s.post}>
+          <View key={p.id} style={[s.post, { borderColor: accent + '1c' }]}>
             <View style={s.postHead}>
               <View style={[s.postAvatar, { backgroundColor: accent }]}><Text style={s.postAvatarTxt}>{initials(p.authorName || 'You')}</Text></View>
               <View style={{ flex: 1 }}>
@@ -396,11 +436,19 @@ const s = StyleSheet.create({
   actionAlt: { backgroundColor: D.surface, borderWidth: 1, borderColor: D.line },
   actionTxt: { color: D.bg, fontSize: 14, fontWeight: '800' },
 
-  sectionTitle: { color: D.ink, fontSize: 18, fontWeight: '800', paddingHorizontal: 16, paddingTop: 18 },
-  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 20 },
+  topGlow: { position: 'absolute', top: 0, left: 0, right: 0 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 16, paddingTop: 18 },
+  titleBar: { width: 4, height: 18, borderRadius: 2 },
+  titleTxt: { color: D.ink, fontSize: 18, fontWeight: '800' },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 16 },
   postLink: { fontSize: 13, fontWeight: '800' },
+  postBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 20, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, marginTop: 16 },
 
-  feature: { backgroundColor: D.surfaceLow, borderRadius: 20, marginHorizontal: 16, marginTop: 12, padding: 16, borderWidth: 1 },
+  feature: {
+    backgroundColor: D.surfaceLow, borderRadius: 20, marginHorizontal: 16, marginTop: 12, padding: 16,
+    borderWidth: 1, overflow: 'hidden',
+    shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14, elevation: 8,
+  },
   featTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: D.live },
