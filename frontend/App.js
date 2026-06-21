@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {StatusBar, View} from 'react-native';
+import {StatusBar} from 'react-native';
 import 'react-native-gesture-handler';
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
@@ -10,6 +10,8 @@ import SportSetupScreen from './src/screens/SportSetupScreen';
 import RummyHomeScreen from './src/sports/rummy/screens/RummyHomeScreen';
 import RummyNewGameScreen from './src/sports/rummy/screens/RummyNewGameScreen';
 import RummyGameScreen from './src/sports/rummy/screens/RummyGameScreen';
+import SplashScreen from './src/components/SplashScreen';
+import { ToastHost } from './src/components/Toast';
 import legendsApi from './src/services/LegendsApi';
 
 const Stack = createStackNavigator();
@@ -32,8 +34,8 @@ const App = () => {
   }, []);
 
   if (!ready) {
-    // brief splash while we read the persisted token
-    return <View style={{ flex: 1, backgroundColor: '#0f131f' }} />;
+    // branded splash while we read the persisted token
+    return <SplashScreen />;
   }
 
   return (
@@ -58,6 +60,7 @@ const App = () => {
           <Stack.Screen name="MainApp" component={AppNavigator} />
         </Stack.Navigator>
       </NavigationContainer>
+      <ToastHost />
     </>
   );
 };

@@ -399,8 +399,11 @@ const AppNavigator = ({ route: appRoute }) => {
   const initialSport  = appRoute?.params?.sport  || null;
   const initialFormat = appRoute?.params?.format || null;
 
-  // "My Cricket" tab adapts to the active sport (label + icon).
-  const sportName = initialSport?.name || 'Cricket';
+  // "My Cricket" tab adapts to the active sport (label + icon). Keep the label
+  // short so it doesn't crowd the 3-tab bar (drop "& Shooting"/"& Billiards", etc.).
+  const SHORT = { 'Archery & Shooting': 'Archery', 'Bowling & Billiards': 'Bowling', 'Skateboarding': 'Skating' };
+  const fullName  = initialSport?.name || 'Cricket';
+  const sportName = SHORT[fullName] || fullName;
   const sportIcon = initialSport?.icon || 'cricket';
 
   return (

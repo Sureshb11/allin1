@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Pressable,
-  Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ActivityIndicator,
   StatusBar, ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { showToast } from '../components/Toast';
 
 const DS = {
   bg:      '#0b0f1e',
@@ -42,7 +43,7 @@ export default function LoginScreen({ navigation }) {
   const handleSendOtp = async () => {
     const cleaned = phoneNumber.replace(/\s/g, '');
     if (cleaned.length < 10) {
-      Alert.alert('Invalid Number', 'Please enter a valid 10-digit phone number.');
+      showToast('Enter a valid 10-digit phone number', 'error');
       return;
     }
     setLoading(true);
@@ -50,12 +51,12 @@ export default function LoginScreen({ navigation }) {
       const result = await legendsApi.sendOtp(cleaned, countryCode);
       if (result.success) {
         setShowOtpStep(true);
-        Alert.alert('OTP Sent', `Code sent to ${countryCode} ${phoneNumber}\n\nTest OTP: 1234`);
+        showToast(`Code sent to ${countryCode} ${phoneNumber} · test 1234`, 'success', 3200);
       } else {
-        Alert.alert('Error', result.error || 'Failed to send OTP. Try again.');
+        showToast(result.error || 'Failed to send OTP. Try again.', 'error');
       }
     } catch {
-      Alert.alert('Connection Error', 'Server unreachable. Ensure backend is running on localhost:4000.');
+      showToast('Server unreachable. Check your connection.', 'error');
     } finally {
       setLoading(false);
     }
@@ -63,7 +64,7 @@ export default function LoginScreen({ navigation }) {
 
   const handleVerifyOtp = async () => {
     if (otp.length < 4) {
-      Alert.alert('Invalid OTP', 'Please enter the 4-digit verification code.');
+      showToast('Enter the 4-digit verification code', 'error');
       return;
     }
     setLoading(true);
@@ -73,10 +74,10 @@ export default function LoginScreen({ navigation }) {
       if (result.success) {
         navigation.replace('SportPicker');
       } else {
-        Alert.alert('Incorrect OTP', result.error || 'The code you entered is invalid.');
+        showToast(result.error || 'The code you entered is invalid.', 'error');
       }
     } catch {
-      Alert.alert('Connection Error', 'Server unreachable.');
+      showToast('Server unreachable. Check your connection.', 'error');
     } finally {
       setLoading(false);
     }

@@ -11,7 +11,7 @@ import { useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList,
-  StatusBar, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform,
+  StatusBar, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -89,6 +89,7 @@ export default function SportFeedScreen({ navigation }) {
   const [matches, setMatches] = useState([]);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [composeText, setComposeText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -96,18 +97,24 @@ export default function SportFeedScreen({ navigation }) {
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
 
+  const fetchFeed = useCallback(() => Promise.all([
+    legendsApi.getLiveScores({ sport: sportId }),
+    legendsApi.getPosts({ sport: sportId }),
+  ]).then(([mr, pr]) => {
+    setMatches(mr?.data || []);
+    setPosts(pr?.data || []);
+  }), [sportId]);
+
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([
-      legendsApi.getLiveScores({ sport: sportId }),
-      legendsApi.getPosts({ sport: sportId }),
-    ]).then(([mr, pr]) => {
-      setMatches(mr?.data || []);
-      setPosts(pr?.data || []);
-      setLoading(false);
-    });
-  }, [sportId]);
+    fetchFeed().finally(() => setLoading(false));
+  }, [fetchFeed]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchFeed().finally(() => setRefreshing(false));
+  }, [fetchFeed]);
 
   const openMatch = (m) => navigation.navigate('MatchStats', { matchId: m.id, sportName });
 
@@ -161,7 +168,13 @@ export default function SportFeedScreen({ navigation }) {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 28 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accent} colors={[accent]} progressBackgroundColor={D.surfaceLow} />
+        }
+      >
         <View style={s.actions}>
           <TouchableOpacity style={[s.action, { backgroundColor: accent }]} onPress={() => navigation.navigate('StartMatch', { sport: sportObj })}>
             <Icon name={sportIcon} size={20} color={D.bg} />
