@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
 
-const Skeleton = ({ width = '100%', height = 16, radius = 8, style }) => {
+const Skeleton = ({ width = '100%', height = 16, radius = 8, style, colors = ['#e5e7eb', '#f3f4f6'] }) => {
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -17,7 +17,7 @@ const Skeleton = ({ width = '100%', height = 16, radius = 8, style }) => {
 
   const background = shimmer.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#e5e7eb', '#f3f4f6'],
+    outputRange: colors,
   });
 
   return (

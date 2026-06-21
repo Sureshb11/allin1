@@ -7,17 +7,18 @@
 // Per-sport identity comes from src/sports/<id>/index.js:
 //   feed.accent (else scoring colour), feed.scoreUnit, feed.copy.{live,results,community,compose}
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList,
-  StatusBar, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, RefreshControl,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, Animated, Share, Vibration,
+  StatusBar, Modal, TextInput, KeyboardAvoidingView, Platform, RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
 import { getScoringConfig } from '../sports/scoring';
+import Skeleton from '../components/Skeleton';
 
 // Neutral dark base shared by every sport; the accent supplies each sport's identity.
 const D = {
@@ -29,6 +30,53 @@ const DEFAULT_COPY = { live: 'Live Now', results: 'Results & Fixtures', communit
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Sport');
 const sideName = (t) => (typeof t === 'object' ? (t?.name || 'Team') : String(t || 'Team'));
 const initials = (n) => n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+
+// "2h ago" relative time from an ISO timestamp.
+const timeAgo = (iso) => {
+  if (!iso) return '';
+  const sec = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  const units = [['y', 31536000], ['mo', 2592000], ['d', 86400], ['h', 3600], ['m', 60]];
+  for (const [label, s] of units) if (sec >= s) return `${Math.floor(sec / s)}${label} ago`;
+  return 'just now';
+};
+
+const SK = ['#1a2029', '#283039'];   // dark shimmer pair for skeletons
+
+// Heart button that pops on tap and fills when liked.
+function LikeButton({ liked, count, onPress }) {
+  const a = useRef(new Animated.Value(1)).current;
+  const press = () => {
+    a.setValue(0.6);
+    Animated.spring(a, { toValue: 1, friction: 3, tension: 150, useNativeDriver: true }).start();
+    onPress();
+  };
+  return (
+    <TouchableOpacity style={s.likeRow} onPress={press} hitSlop={8}>
+      <Animated.View style={{ transform: [{ scale: a }] }}>
+        <Icon name={liked ? 'heart' : 'heart-outline'} size={17} color={liked ? D.live : D.inkDim} />
+      </Animated.View>
+      <Text style={[s.likeTxt, liked && { color: D.live }]}>{count}</Text>
+    </TouchableOpacity>
+  );
+}
+
+// Shimmer placeholder shown while the feed loads.
+function FeedSkeleton() {
+  return (
+    <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
+      <Skeleton colors={SK} width={110} height={18} radius={6} />
+      <Skeleton colors={SK} height={156} radius={20} style={{ marginTop: 14 }} />
+      <Skeleton colors={SK} width={150} height={18} radius={6} style={{ marginTop: 24 }} />
+      <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
+        <Skeleton colors={SK} width={200} height={110} radius={16} />
+        <Skeleton colors={SK} width={120} height={110} radius={16} />
+      </View>
+      <Skeleton colors={SK} width={140} height={18} radius={6} style={{ marginTop: 24 }} />
+      <Skeleton colors={SK} height={92} radius={16} style={{ marginTop: 14 }} />
+      <Skeleton colors={SK} height={92} radius={16} style={{ marginTop: 12 }} />
+    </View>
+  );
+}
 
 function FeaturedMatch({ m, accent, unit, onPress }) {
   return (
@@ -96,6 +144,7 @@ export default function SportFeedScreen({ navigation }) {
   const [activeComments, setActiveComments] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
+  const [likedIds, setLikedIds] = useState({});   // per-session liked posts (backend has no per-user state)
 
   const fetchFeed = useCallback(() => Promise.all([
     legendsApi.getLiveScores({ sport: sportId }),
@@ -126,10 +175,17 @@ export default function SportFeedScreen({ navigation }) {
     setSubmitting(false);
     if (res.success) { setComposeText(''); setShowCompose(false); setPosts((prev) => [res.data, ...prev]); }
   };
-  const onLike = async (id) => {
-    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, likes: (p.likes || 0) + 1 } : p)));
-    legendsApi.likePost(id);
+  const onLike = (id) => {
+    const liked = !!likedIds[id];
+    setLikedIds((prev) => ({ ...prev, [id]: !liked }));
+    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, likes: Math.max(0, (p.likes || 0) + (liked ? -1 : 1)) } : p)));
+    if (!liked) {
+      legendsApi.likePost(id);                       // backend only increments; unlike is local
+      if (Platform.OS === 'android') Vibration.vibrate(8);
+    }
   };
+
+  const onShare = (p) => Share.share({ message: `${p.authorName} on Local Legends:\n\n"${p.text}"` }).catch(() => {});
   const openComments = async (post) => {
     setActiveComments(post); setComments([]);
     const res = await legendsApi.getComments(post.id);
@@ -187,7 +243,7 @@ export default function SportFeedScreen({ navigation }) {
         </View>
 
         {loading ? (
-          <ActivityIndicator style={{ marginVertical: 28 }} color={accent} />
+          <FeedSkeleton />
         ) : (
           <>
             {live.length > 0 && (
@@ -244,14 +300,15 @@ export default function SportFeedScreen({ navigation }) {
             </View>
             <Text style={s.postText}>{p.text}</Text>
             <View style={s.postActions}>
-              <TouchableOpacity style={s.likeRow} onPress={() => onLike(p.id)} hitSlop={8}>
-                <Icon name="heart-outline" size={17} color={D.inkDim} />
-                <Text style={s.likeTxt}>{p.likes || 0}</Text>
-              </TouchableOpacity>
+              <LikeButton liked={!!likedIds[p.id]} count={p.likes || 0} onPress={() => onLike(p.id)} />
               <TouchableOpacity style={s.likeRow} onPress={() => openComments(p)} hitSlop={8}>
                 <Icon name="comment-outline" size={16} color={D.inkDim} />
                 <Text style={s.likeTxt}>{p.commentCount || 0}</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={s.likeRow} onPress={() => onShare(p)} hitSlop={8}>
+                <Icon name="share-variant" size={15} color={D.inkDim} />
+              </TouchableOpacity>
+              {!!timeAgo(p.createdAt) && <Text style={s.postTime}>{timeAgo(p.createdAt)}</Text>}
             </View>
           </View>
         ))}
@@ -387,6 +444,7 @@ const s = StyleSheet.create({
   postActions: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 10 },
   likeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   likeTxt: { color: D.inkDim, fontSize: 13, fontWeight: '700' },
+  postTime: { color: D.inkDim, fontSize: 11, fontWeight: '600', marginLeft: 'auto' },
 
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
   sheet: { backgroundColor: D.surfaceLow, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, paddingBottom: 28 },
