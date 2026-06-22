@@ -51,6 +51,8 @@ export default function RummyHomeScreen({ navigation }) {
 
   const removePlayer = async (id) => {
     setRoster((cur) => cur.filter((p) => p.id !== id));
+    // Synthetic `game:<name>` ids come from past-game history (no roster row to delete).
+    if (typeof id === 'string' && id.startsWith('game:')) return;
     await legendsApi.deleteRummyRosterPlayer(id);
   };
 

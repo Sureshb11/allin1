@@ -136,7 +136,26 @@ router.get('/roster', async (req, res) => {
     where: userId ? { userId } : { userId: null },
     orderBy: { createdAt: 'asc' },
   });
-  res.json({ players: saved.map((p) => ({ id: p.id, name: p.name })) });
+  const players = saved.map((p) => ({ id: p.id, name: p.name }));
+
+  // Merge in distinct names from past games so previously-used players show up
+  // even if they were added before the roster existed (or only ever in a game).
+  const seen = new Set(players.map((p) => p.name.toLowerCase()));
+  const fromGames = await prisma.rummyPlayer.findMany({
+    where: userId ? { game: { userId } } : {},
+    select: { name: true },
+    distinct: ['name'],
+    orderBy: { name: 'asc' },
+    take: 100,
+  });
+  for (const r of fromGames) {
+    if (!seen.has(r.name.toLowerCase())) {
+      seen.add(r.name.toLowerCase());
+      players.push({ id: `game:${r.name}`, name: r.name });
+    }
+  }
+
+  res.json({ players });
 });
 
 router.post('/roster', async (req, res) => {
