@@ -153,33 +153,6 @@ export const START_FORMATS = {
       { label: 'Custom', icon: 'tune-variant', value: 3 },
     ],
   },
-  golf: {
-    unit: 'Holes', durationIcon: 'golf',
-    formats: [
-      { label: '18 Holes',   icon: 'golf',          value: 18 },
-      { label: '9 Holes',    icon: 'golf',          value: 9 },
-      { label: 'Match Play', icon: 'trophy-outline', value: 18 },
-      { label: 'Custom',     icon: 'tune-variant',  value: 18 },
-    ],
-  },
-  archery: {
-    unit: 'Ends', durationIcon: 'bullseye-arrow',
-    formats: [
-      { label: '6 Ends',    icon: 'bullseye-arrow', value: 6 },
-      { label: '3 Ends',    icon: 'bullseye-arrow', value: 3 },
-      { label: '18m Indoor', icon: 'home',          value: 10 },
-      { label: 'Custom',    icon: 'tune-variant',   value: 6 },
-    ],
-  },
-  bowling: {
-    unit: 'Frames', durationIcon: 'bowling',
-    formats: [
-      { label: 'Snooker',   icon: 'billiards',    value: 9 },
-      { label: '8-Ball',    icon: 'billiards',    value: 5 },
-      { label: '9-Ball',    icon: 'billiards',    value: 9 },
-      { label: 'Custom',    icon: 'tune-variant', value: 9 },
-    ],
-  },
   skateboard: {
     unit: 'Runs', durationIcon: 'skateboard',
     formats: [

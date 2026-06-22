@@ -27,11 +27,8 @@ const SPORTS = [
   { key: 'judo',        label: 'Judo',        icon: 'weight-lifter' },
   { key: 'wrestling',   label: 'Wrestling',   icon: 'kabaddi' },
   { key: 'handball',    label: 'Handball',    icon: 'handball' },
-  { key: 'golf',        label: 'Golf',        icon: 'golf' },
-  { key: 'archery',     label: 'Archery',     icon: 'archery' },
   { key: 'squash',      label: 'Squash',      icon: 'tennis-ball' },
   { key: 'pickleball',  label: 'Pickleball',  icon: 'tennis' },
-  { key: 'billiards',   label: 'Billiards',   icon: 'billiards' },
 ];
 
 // Split flat list into alternating rows of 3 and 4

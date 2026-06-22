@@ -259,32 +259,6 @@ export const SPORT_CONFIG = {
     scoreLabel: (events, teamId) => String(cnt(events, teamId, 'goal') + cnt(events, teamId, '7m-throw')),
   },
 
-  golf: {
-    icon: 'golf', color: '#16a34a',
-    periods: ['Front 9', 'Back 9'], maxPeriods: 2,
-    actions: [
-      { type: 'stroke',      label: 'Stroke',    icon: 'golf',  value: 1, color: DS.primary },
-      { type: 'birdie',      label: 'Birdie',    icon: 'bird',  value: 0, color: '#22c55e' },
-      { type: 'hole-in-one', label: 'Hole In 1', icon: 'star',  value: 0, color: '#f59e0b' },
-      { type: 'bogey',       label: 'Bogey',     icon: 'plus',  value: 0, color: DS.error },
-    ],
-    scoreLabel: (events, teamId) => `${pts(events, teamId, ['stroke'])} strokes`,
-  },
-
-  archery: {
-    icon: 'bow-arrow', color: '#15803d',
-    periods: ['End 1', 'End 2', 'End 3', 'End 4', 'End 5', 'End 6'], maxPeriods: 6,
-    actions: [
-      { type: 'arrow-10', label: '10 (X)', icon: 'bow-arrow',    value: 10, color: '#f59e0b' },
-      { type: 'arrow-9',  label: '9',      icon: 'bow-arrow',    value: 9,  color: DS.primary },
-      { type: 'arrow-8',  label: '8',      icon: 'bow-arrow',    value: 8,  color: '#0ea5e9' },
-      { type: 'arrow-7',  label: '7',      icon: 'bow-arrow',    value: 7,  color: '#22c55e' },
-      { type: 'arrow-0',  label: 'Miss',   icon: 'close-circle', value: 0,  color: DS.error },
-    ],
-    scoreLabel: (events, teamId) =>
-      String(pts(events, teamId, ['arrow-10','arrow-9','arrow-8','arrow-7','arrow-0'])),
-  },
-
   squash: {
     icon: 'racquetball', color: '#9333ea',
     periods: ['Game 1', 'Game 2', 'Game 3', 'Game 4', 'Game 5'], maxPeriods: 5,
@@ -315,18 +289,6 @@ export const SPORT_CONFIG = {
       const p  = pts(events, teamId, ['point', 'ace']);
       return `${gw}G ${p}pts`;
     },
-  },
-
-  bowling: {
-    icon: 'bowling', color: '#166534',
-    periods: ['Frame 1','Frame 2','Frame 3','Frame 4','Frame 5','Frame 6','Frame 7','Frame 8','Frame 9'],
-    maxPeriods: 9,
-    actions: [
-      { type: 'frame-won', label: 'Frame Won', icon: 'billiards',    value: 1, color: '#22c55e' },
-      { type: 'pot',       label: 'Pot Ball',  icon: 'circle',       value: 1, color: DS.primary },
-      { type: 'foul',      label: 'Foul',      icon: 'close-circle', value: 0, color: DS.error },
-    ],
-    scoreLabel: (events, teamId) => `${cnt(events, teamId, 'frame-won')} frames`,
   },
 
   skateboard: {

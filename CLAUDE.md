@@ -61,7 +61,7 @@ frontend/
   `#171b28`/`#262a37`, accent lime `#abd600`, text `#dfe2f3`/`#8d90a2`. The Arena
   picker uses a brighter lime `#c4f82a`.
 
-### Sports module (`src/sports/`) — one app, 22+ sports
+### Sports module (`src/sports/`) — one app, 19 sports
 All per-sport config lives under `src/sports/`, so shared screens stay generic and
 adding a sport doesn't mean editing six screens.
 - `index.js` — registry: `getSport(id)`, `listSports()`, `sportMeta(id)`. Each sport is

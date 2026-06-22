@@ -51,9 +51,6 @@ const SPORTS = [
   { id: 'pickleball', name: 'Pickleball',         tag: 'Paddle',         mci: 'table-tennis' },
   { id: 'judo',       name: 'Judo',               tag: 'Combat',         mci: 'karate' },
   { id: 'karate',     name: 'Karate',             tag: 'Combat',         mci: 'karate' },
-  { id: 'golf',       name: 'Golf',               tag: 'Links',          mci: 'golf' },
-  { id: 'archery',    name: 'Archery & Shooting', tag: 'Target',         mci: 'bow-arrow' },
-  { id: 'bowling',    name: 'Bowling & Billiards',tag: 'Precision',      mci: 'bowling' },
   { id: 'skateboard',  name: 'Skateboarding',       tag: 'Street',           mci: 'skateboard' },
   { id: 'rummy',      name: 'Rummy',              tag: '13 Cards',       scored: true, mci: 'cards-playing-outline' },
 ];

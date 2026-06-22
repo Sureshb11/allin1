@@ -19,8 +19,7 @@ const MCI = {
   badminton: 'badminton', tennis: 'tennis', basketball: 'basketball', volleyball: 'volleyball',
   boxing: 'boxing-glove', wrestling: 'arm-flex', tabletennis: 'table-tennis', khokho: 'run',
   handball: 'handball', squash: 'racquetball', pickleball: 'table-tennis', judo: 'karate',
-  karate: 'karate', golf: 'golf', archery: 'bow-arrow', bowling: 'bowling',
-  skateboard: 'skateboard', rummy: 'cards-playing-outline',
+  karate: 'karate', skateboard: 'skateboard', rummy: 'cards-playing-outline',
 };
 
 export default function SportIcon({ id, size = 34, color = '#c4f82a', style }) {

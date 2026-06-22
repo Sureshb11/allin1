@@ -1,8 +1,7 @@
 // Per-sport match formats (T20/ODI, halves, sets, …) for SportSetupScreen.
 // Add a sport here to give it custom formats; unknown sports use DEFAULT_FORMATS.
-// NB: keys match Arena-picker sport ids. (Historic billiards/skateboard keys
-// do not match picker ids bowling/skateboard, so those fall through to default —
-// behaviour preserved verbatim from the original screen.)
+// NB: keys match Arena-picker sport ids. Sports without an entry (e.g. skateboard)
+// fall through to DEFAULT_FORMATS.
 
 export const SPORT_FORMATS = {
   cricket: {
@@ -147,27 +146,6 @@ export const SPORT_FORMATS = {
       { id: 'full',     label: 'Full Match',    icon: 'handball',            desc: '2 × 30 min halves'  },
       { id: 'beach',    label: 'Beach Handball',icon: 'beach',               desc: 'Beach 2v2 format'   },
       { id: 'mini',     label: 'Mini Handball', icon: 'handball',            desc: 'Youth / friendly'   },
-    ],
-  },
-  golf: {
-    title: 'Select Format',
-    subtitle: 'Choose round type',
-    formats: [
-      { id: '18',       label: '18 Holes',      icon: 'golf',                desc: 'Full stroke round'  },
-      { id: '9',        label: '9 Holes',       icon: 'golf',                desc: 'Half round'         },
-      { id: 'match',    label: 'Match Play',    icon: 'trophy-outline',      desc: 'Hole-by-hole win'   },
-      { id: 'stroke',   label: 'Stroke Play',   icon: 'format-list-numbered',desc: 'Lowest total score' },
-    ],
-  },
-  archery: {
-    title: 'Select Discipline',
-    subtitle: 'Choose archery type',
-    formats: [
-      { id: '70m',      label: '70m Recurve',   icon: 'bow-arrow',           desc: 'Olympic distance'   },
-      { id: '50m',      label: '50m Field',     icon: 'bow-arrow',           desc: 'Standard distance'  },
-      { id: '18m',      label: '18m Indoor',    icon: 'home',                desc: 'Indoor target'      },
-      { id: 'compound', label: 'Compound',      icon: 'bow-arrow',           desc: 'Compound bow'       },
-      { id: '3d',       label: '3D Archery',    icon: 'forest',              desc: 'Field course'       },
     ],
   },
   squash: {

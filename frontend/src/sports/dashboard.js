@@ -15,12 +15,9 @@ export const SPORTS = [
   { id: 'basketball',   name: 'Basketball',         icon: 'basketball',           color: '#c2490d' },
   { id: 'volleyball',   name: 'Volleyball',         icon: 'volleyball',           color: '#7c3aed' },
   { id: 'khokho',       name: 'Kho-Kho',            icon: 'run',                  color: '#a16207' },
-  { id: 'archery',      name: 'Archery & Shooting', icon: 'bow-arrow',            color: '#6b3a2a' },
   { id: 'judo',         name: 'Judo',               icon: 'karate',               color: '#3b2f6e' },
   { id: 'karate',       name: 'Karate',             icon: 'karate',               color: '#7c1d1d' },
   { id: 'squash',       name: 'Squash',             icon: 'racquetball',          color: '#92400e' },
-  { id: 'bowling',      name: 'Bowling & Billiards', icon: 'bowling',             color: '#1e4d2b' },
-  { id: 'golf',         name: 'Golf',               icon: 'golf',                 color: '#3a6b1a' },
   { id: 'handball',     name: 'Handball',           icon: 'handball',             color: '#b54d9e' },
   { id: 'pickleball',   name: 'Pickleball',         icon: 'table-tennis',         color: '#0f766e' },
   { id: 'skateboard',    name: 'Skateboarding',       icon: 'skateboard',            color: '#1e40af' },
@@ -47,7 +44,9 @@ const makeCfg = (sport, matchLabel, ctaSubtitle, features, emptyTitle, emptySub)
   emptySub,
 });
 
-// Build sport configs lazily from the SPORTS array so every sport has a config
+// Build sport configs lazily from the SPORTS array so every sport has a config.
+// Look up by id (order-independent) so reordering/removing sports can't shift configs.
+const byId = (id) => SPORTS.find((s) => s.id === id) || SPORTS[0];
 const _buildConfigs = () => {
   const custom = {
     cricket: {
@@ -74,121 +73,103 @@ const _buildConfigs = () => {
       emptyTitle: 'No live cricket matches',
       emptySub: 'Start a match and score ball-by-ball',
     },
-    football: makeCfg(SPORTS[1], 'MATCHES', 'Track goals, cards & assists live', [
+    football: makeCfg(byId('football'), 'MATCHES', 'Track goals, cards & assists live', [
       { label: 'Goal Tracker',   icon: 'soccer',       desc: 'Goals, assists & cards' },
       { label: 'Formations',     icon: 'dots-grid',    desc: 'Tactical lineup view' },
       { label: 'Half Time',      icon: 'clock-outline', desc: 'Period breakdown' },
       { label: 'Player Ratings', icon: 'star-outline', desc: 'Rate your players' },
     ], 'No live football matches', 'Start a match and track goals live'),
-    basketball: makeCfg(SPORTS[2], 'GAMES', 'Track points, fouls & rebounds', [
+    basketball: makeCfg(byId('basketball'), 'GAMES', 'Track points, fouls & rebounds', [
       { label: 'Point Tracker', icon: 'basketball',      desc: '2-pt, 3-pt, free throws' },
       { label: 'Foul Counter',  icon: 'hand-back-left',  desc: 'Personal & technical fouls' },
       { label: 'Quarter Stats', icon: 'chart-timeline',  desc: 'Quarter-by-quarter scores' },
       { label: 'Box Score',     icon: 'table',           desc: 'Full player stats table' },
     ], 'No live basketball games', 'Start a game and track every basket'),
-    tennis: makeCfg(SPORTS[3], 'MATCHES', 'Track sets, games & points', [
+    tennis: makeCfg(byId('tennis'), 'MATCHES', 'Track sets, games & points', [
       { label: 'Set Tracker', icon: 'tennis',           desc: 'Games & points per set' },
       { label: 'Serve Stats', icon: 'arrow-right-bold', desc: 'Aces, faults & %' },
       { label: 'Tiebreak',    icon: 'timer-outline',    desc: 'Auto tiebreak rules' },
       { label: 'Match Stats', icon: 'chart-bar',        desc: 'Winners & unforced errors' },
     ], 'No live tennis matches', 'Start a match and track every point'),
-    volleyball: makeCfg(SPORTS[4], 'MATCHES', 'Track sets, rallies & rotations', [
+    volleyball: makeCfg(byId('volleyball'), 'MATCHES', 'Track sets, rallies & rotations', [
       { label: 'Set Tracker',    icon: 'volleyball',    desc: 'Points per set (best of 5)' },
       { label: 'Serve Rotation', icon: 'rotate-right',  desc: 'Auto rotation tracking' },
       { label: 'Libero Track',   icon: 'account-outline', desc: 'Libero substitution rules' },
       { label: 'Rally Stats',    icon: 'chart-bar',     desc: 'Kills, blocks & errors' },
     ], 'No live volleyball matches', 'Start a match and track every rally'),
-    badminton: makeCfg(SPORTS[5], 'MATCHES', 'Track games, sets & rallies', [
+    badminton: makeCfg(byId('badminton'), 'MATCHES', 'Track games, sets & rallies', [
       { label: 'Game Tracker', icon: 'badminton',       desc: 'Points per game' },
       { label: 'Serve Track',  icon: 'arrow-right-bold', desc: 'Service faults & aces' },
       { label: 'Set Winner',   icon: 'trophy-outline',  desc: 'Best of 3 or 5 sets' },
       { label: 'Rally Stats',  icon: 'chart-bar',       desc: 'Rally length & winners' },
     ], 'No live badminton matches', 'Start a match and track every rally'),
-    tabletennis: makeCfg(SPORTS[6], 'MATCHES', 'Track games & points live', [
+    tabletennis: makeCfg(byId('tabletennis'), 'MATCHES', 'Track games & points live', [
       { label: 'Point Tracker', icon: 'table-tennis',   desc: 'Points per game' },
       { label: 'Serve Order',   icon: 'swap-horizontal', desc: 'Alternate serve tracking' },
       { label: 'Game Winner',   icon: 'trophy-outline', desc: 'Best of 5 or 7 games' },
       { label: 'Match Stats',   icon: 'chart-bar',      desc: 'Winners & errors' },
     ], 'No live table tennis matches', 'Start a match and track every point'),
-    hockey: makeCfg(SPORTS[7], 'MATCHES', 'Track goals, cards & penalty corners', [
+    hockey: makeCfg(byId('hockey'), 'MATCHES', 'Track goals, cards & penalty corners', [
       { label: 'Goal Tracker',  icon: 'hockey-sticks',  desc: 'Goals & assists' },
       { label: 'Card Tracker',  icon: 'card-outline',   desc: 'Yellow & red cards' },
       { label: 'Quarter Stats', icon: 'chart-timeline', desc: 'Quarter-by-quarter' },
       { label: 'Penalty Corner', icon: 'flag-outline',  desc: 'PC attempts & goals' },
     ], 'No live hockey matches', 'Start a match and score every goal'),
-    kabaddi: makeCfg(SPORTS[8], 'MATCHES', 'Track raids, tackles & points', [
+    kabaddi: makeCfg(byId('kabaddi'), 'MATCHES', 'Track raids, tackles & points', [
       { label: 'Raid Tracker',  icon: 'run-fast',       desc: 'Raid points per player' },
       { label: 'Tackle Stats',  icon: 'hand-back-left', desc: 'Tackle points' },
       { label: 'Half Stats',    icon: 'chart-timeline', desc: 'First & second half' },
       { label: 'Team Points',   icon: 'chart-bar',      desc: 'Live score board' },
     ], 'No live kabaddi matches', 'Start a match and track every raid'),
-    khokho: makeCfg(SPORTS[9], 'MATCHES', 'Track turns, chasing & points', [
+    khokho: makeCfg(byId('khokho'), 'MATCHES', 'Track turns, chasing & points', [
       { label: 'Turn Tracker',  icon: 'run',            desc: 'Chase & defence turns' },
       { label: 'Point Log',     icon: 'chart-bar',      desc: 'Points per turn' },
       { label: 'Time Tracker',  icon: 'timer-outline',  desc: 'Each turn duration' },
       { label: 'Team Stats',    icon: 'account-group-outline', desc: 'Player contributions' },
     ], 'No live Kho-Kho matches', 'Start a match and track every turn'),
-    boxing: makeCfg(SPORTS[10], 'BOUTS', 'Track rounds, punches & knockdowns', [
+    boxing: makeCfg(byId('boxing'), 'BOUTS', 'Track rounds, punches & knockdowns', [
       { label: 'Round Tracker', icon: 'boxing-glove',   desc: 'Score per round' },
       { label: 'Punch Stats',   icon: 'chart-bar',      desc: 'Connect rate & combos' },
       { label: 'Knockdowns',    icon: 'arrow-down-bold', desc: 'KD count per round' },
       { label: 'Judge Cards',   icon: 'card-account-details-outline', desc: 'All 3 judge scores' },
     ], 'No live boxing bouts', 'Start a bout and score every round'),
-    karate: makeCfg(SPORTS[11], 'BOUTS', 'Track ippon, waza-ari & penalties', [
+    karate: makeCfg(byId('karate'), 'BOUTS', 'Track ippon, waza-ari & penalties', [
       { label: 'Score Tracker', icon: 'karate',         desc: 'Ippon & waza-ari' },
       { label: 'Penalty Log',   icon: 'flag-outline',   desc: 'Hansoku & jogai' },
       { label: 'Round Stats',   icon: 'chart-timeline', desc: 'Per-round breakdown' },
       { label: 'Match Result',  icon: 'trophy-outline', desc: 'Final outcome' },
     ], 'No live karate bouts', 'Start a bout and track every point'),
-    judo: makeCfg(SPORTS[12], 'BOUTS', 'Track ippon, waza-ari & shidos', [
+    judo: makeCfg(byId('judo'), 'BOUTS', 'Track ippon, waza-ari & shidos', [
       { label: 'Score Tracker', icon: 'human-handsup',  desc: 'Ippon & waza-ari' },
       { label: 'Shido Log',     icon: 'flag-outline',   desc: 'Penalties per bout' },
       { label: 'Golden Score',  icon: 'timer-outline',  desc: 'Overtime tracking' },
       { label: 'Result',        icon: 'trophy-outline', desc: 'Win by ippon or decision' },
     ], 'No live judo bouts', 'Start a bout and track every throw'),
-    wrestling: makeCfg(SPORTS[13], 'BOUTS', 'Track takedowns, escapes & points', [
+    wrestling: makeCfg(byId('wrestling'), 'BOUTS', 'Track takedowns, escapes & points', [
       { label: 'Point Tracker', icon: 'arm-flex-outline', desc: 'Takedowns & reversals' },
       { label: 'Period Stats',  icon: 'chart-timeline',   desc: 'Per-period breakdown' },
       { label: 'Penalty Log',   icon: 'flag-outline',     desc: 'Cautions & warnings' },
       { label: 'Result',        icon: 'trophy-outline',   desc: 'Pin, points or default' },
     ], 'No live wrestling bouts', 'Start a bout and track every move'),
-    handball: makeCfg(SPORTS[14], 'MATCHES', 'Track goals, assists & saves', [
+    handball: makeCfg(byId('handball'), 'MATCHES', 'Track goals, assists & saves', [
       { label: 'Goal Tracker',  icon: 'handball',       desc: 'Goals & assists' },
       { label: 'Save Stats',    icon: 'shield-outline', desc: 'Goalkeeper saves' },
       { label: 'Half Stats',    icon: 'chart-timeline', desc: 'First & second half' },
       { label: 'Card Tracker',  icon: 'card-outline',   desc: 'Yellow & red cards' },
     ], 'No live handball matches', 'Start a match and track every goal'),
-    golf: makeCfg(SPORTS[15], 'ROUNDS', 'Track strokes, putts & scores', [
-      { label: 'Stroke Tracker', icon: 'golf',          desc: 'Hole-by-hole strokes' },
-      { label: 'Putt Counter',   icon: 'circle-outline', desc: 'Putts per hole' },
-      { label: 'Score vs Par',   icon: 'chart-bar',     desc: 'Eagle, birdie, bogey' },
-      { label: 'Leaderboard',    icon: 'format-list-numbered', desc: 'Live rankings' },
-    ], 'No live golf rounds', 'Start a round and track every stroke'),
-    archery: makeCfg(SPORTS[16], 'EVENTS', 'Track arrows, scores & rounds', [
-      { label: 'Arrow Tracker',  icon: 'bow-arrow',     desc: 'Score per arrow' },
-      { label: 'End Score',      icon: 'chart-bar',     desc: 'Total per end' },
-      { label: 'Round Stats',    icon: 'chart-timeline', desc: 'Distance breakdown' },
-      { label: 'Leaderboard',    icon: 'trophy-outline', desc: 'Competitor rankings' },
-    ], 'No live archery events', 'Start an event and track every arrow'),
-    squash: makeCfg(SPORTS[17], 'MATCHES', 'Track games, rallies & points', [
+    squash: makeCfg(byId('squash'), 'MATCHES', 'Track games, rallies & points', [
       { label: 'Game Tracker',  icon: 'racquetball',    desc: 'Points per game' },
       { label: 'Serve Stats',   icon: 'arrow-right-bold', desc: 'Service winners' },
       { label: 'Set Winner',    icon: 'trophy-outline', desc: 'Best of 5 games' },
       { label: 'Match Stats',   icon: 'chart-bar',      desc: 'Winners & errors' },
     ], 'No live squash matches', 'Start a match and track every point'),
-    pickleball: makeCfg(SPORTS[18], 'MATCHES', 'Track rallies, dinks & smashes', [
+    pickleball: makeCfg(byId('pickleball'), 'MATCHES', 'Track rallies, dinks & smashes', [
       { label: 'Point Tracker', icon: 'tennis',         desc: 'Points per game' },
       { label: 'Serve Tracker', icon: 'arrow-right-bold', desc: 'Service faults' },
       { label: 'Game Winner',   icon: 'trophy-outline', desc: 'Best of 3 games' },
       { label: 'Match Stats',   icon: 'chart-bar',      desc: 'Winners & faults' },
     ], 'No live pickleball matches', 'Start a match and track every rally'),
-    bowling: makeCfg(SPORTS[19], 'GAMES', 'Track frames, breaks & clearances', [
-      { label: 'Frame Tracker', icon: 'bowling',        desc: 'Points per frame' },
-      { label: 'Break Log',     icon: 'chart-bar',      desc: 'Century & max breaks' },
-      { label: 'Frame Stats',   icon: 'chart-timeline', desc: 'Per-frame breakdown' },
-      { label: 'Leaderboard',   icon: 'trophy-outline', desc: 'Match standings' },
-    ], 'No live billiards games', 'Start a game and track every frame'),
-    skateboard: makeCfg(SPORTS[20], 'EVENTS', 'Track runs, tricks & scores', [
+    skateboard: makeCfg(byId('skateboard'), 'EVENTS', 'Track runs, tricks & scores', [
       { label: 'Run Tracker',   icon: 'skateboard',      desc: 'Score per run' },
       { label: 'Trick Log',     icon: 'star-outline',   desc: 'Tricks & grabs' },
       { label: 'Judge Scores',  icon: 'chart-bar',      desc: 'All judge scores' },
