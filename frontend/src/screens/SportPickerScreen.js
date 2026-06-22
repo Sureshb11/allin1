@@ -226,12 +226,12 @@ export default function SportPickerScreen({ navigation }) {
   }, [panOff, readoutAnim]);
 
   // ── eased pan animation (tap-to-centre, spring-back, magnetic snap) ──
-  const animateTo = useCallback((target, dur, cb) => {
+  const animateTo = useCallback((target, dur, cb, easeFn) => {
     stopInertia();
     stopAnim();
     const from = { ...panRef.current };
     const t0 = Date.now();
-    const ease = x => 1 - Math.pow(1 - x, 3);
+    const ease = easeFn || ((x) => 1 - Math.pow(1 - x, 3));
     animRef.current = setInterval(() => {
       const k = clamp((Date.now() - t0) / dur, 0, 1);
       const e = ease(k);
@@ -316,7 +316,13 @@ export default function SportPickerScreen({ navigation }) {
   // Entering the sport happens via the START button.
   const selectCell = useCallback((cell) => {
     if (movedRef.current) return;
-    animateTo({ x: -cell.x, y: -cell.y }, 300);
+    const target = { x: -cell.x, y: -cell.y };
+    // Scale duration with travel distance so a nearby disc settles quickly while a
+    // far one glides in smoothly & slowly. Ease-in-out gives a gentle start + landing.
+    const dist = Math.hypot(target.x - panRef.current.x, target.y - panRef.current.y);
+    const dur = clamp(dist * 3.4, 300, 1150);
+    const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+    animateTo(target, dur, undefined, easeInOut);
   }, [animateTo]);
 
   const routeSport = useCallback((cell) => {
