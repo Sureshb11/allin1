@@ -1,7 +1,7 @@
 // RummyHomeScreen — entry for the Pool-Rummy score board.
 // Start a new game or continue/view existing ones (real data via /rummy).
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator, TextInput,
@@ -10,13 +10,13 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import SportIcon from '../../../components/SportIcon';
 import SportSwitcher from '../../../components/SportSwitcher';
 import legendsApi from '../../../services/LegendsApi';
-
-const A = {
-  navy0: '#0a0e18', navy1: '#0d1320', navy2: '#111a2b', cell: '#161f30', cellHi: '#1d2942',
-  line: 'rgba(150,180,230,0.10)', ink: '#eaf0fb', inkDim: '#8a97b0', lime: '#c4f82a', danger: '#ff7a7a',
-};
+import { useTheme } from '../../../theme/ThemeContext';
 
 export default function RummyHomeScreen({ navigation }) {
+  const C = useTheme().colors;
+  // Rummy/Arena screens use the brighter lime accent (per the design system).
+  const A = useMemo(() => ({ ...C, lime: C.limeBright }), [C]);
+  const s = useMemo(() => makeStyles(A), [A]);
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roster, setRoster] = useState([]);
@@ -137,7 +137,7 @@ export default function RummyHomeScreen({ navigation }) {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (A) => StyleSheet.create({
   root: { flex: 1, backgroundColor: A.navy1, paddingTop: 44 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 8, paddingBottom: 10 },
   backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: A.cell, alignItems: 'center', justifyContent: 'center', marginRight: 2 },

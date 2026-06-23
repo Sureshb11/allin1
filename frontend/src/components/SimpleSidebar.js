@@ -9,23 +9,10 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getSelectedSport } from '../utils/selectedSport';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const SIDEBAR_WIDTH = Math.min(width * 0.82, 320);
-
-// ── Kinetic Athlete DS ──────────────────────────────────────────
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  coral: '#ffb59e',
-  blue: '#b7c4ff',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-};
 
 const MENU_SECTIONS = [
   {
@@ -58,6 +45,8 @@ const MENU_SECTIONS = [
 ];
 
 const SimpleSidebar = ({ visible, onClose, navigation }) => {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
   const navigate = (screen) => {
     onClose();
     navigation.navigate(screen);
@@ -128,7 +117,7 @@ const SimpleSidebar = ({ visible, onClose, navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   overlay: {
     flex: 1,
     flexDirection: 'row',

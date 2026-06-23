@@ -2,15 +2,7 @@ import React from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createStackNavigator} from '@react-navigation/stack';
-// Dark "Kinetic Athlete" design system
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  lime: '#abd600',
-  textPrimary: '#dfe2f3',
-  textMuted: '#8d90a2',
-};
+import { useTheme } from '../theme/ThemeContext';
 
 import HomeScreen from '../screens/HomeScreen';
 import CricketFeedScreen from '../screens/CricketFeedScreen';
@@ -61,6 +53,7 @@ const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 const HomeStack = ({ route: stackRoute, initialRouteName }) => {
+  const DS = useTheme().colors;
   // Cricket gets its signature feed; other sports land on the (sport-aware)
   // dashboard, since the feed is cricket-specific.
   const sportId = stackRoute?.params?.initialSport?.id || 'cricket';
@@ -395,6 +388,7 @@ const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="Home" 
 const ProfileStack = (props) => <HomeStack {...props} initialRouteName="Profile" />;
 
 const AppNavigator = ({ route: appRoute }) => {
+  const DS = useTheme().colors;
   // sport + format passed from SportSetupScreen via navigation.replace('MainApp', { sport, format })
   const initialSport  = appRoute?.params?.sport  || null;
   const initialFormat = appRoute?.params?.format || null;

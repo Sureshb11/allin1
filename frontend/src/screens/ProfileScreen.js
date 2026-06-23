@@ -7,6 +7,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import SportSwitcher from '../components/SportSwitcher';
 import { getSelectedSport } from '../utils/selectedSport';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 // Sport-aware profile stats: which stored-stat fields to surface per sport (first 4
 // present are shown). Anything not listed falls back to DEFAULT_FIELDS.
@@ -15,29 +16,6 @@ const SPORT_STAT_FIELDS = {
   football: [['matches', 'Matches'], ['goals', 'Goals'], ['assists', 'Assists'], ['cleanSheets', 'Clean Sheets'], ['saves', 'Saves']],
 };
 const DEFAULT_STAT_FIELDS = [['matches', 'Matches'], ['events', 'Events'], ['fights', 'Fights'], ['wins', 'Wins'], ['titles', 'Titles'], ['ko', 'KO'], ['goals', 'Goals']];
-
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  coral: '#ffb59e',
-  blue: '#b7c4ff',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-  live: '#ef4444',
-};
-
-function BentoStat({ label, value, accent = false }) {
-  return (
-    <View style={[styles.bentoCard, accent && styles.bentoCardAccent]}>
-      <Text style={[styles.bentoValue, accent && styles.bentoValueAccent]}>{value ?? '—'}</Text>
-      <Text style={[styles.bentoLabel, accent && styles.bentoLabelAccent]}>{label}</Text>
-    </View>
-  );
-}
 
 const MENU_ITEMS = [
   { id: 'edit-profile',   title: 'Edit Profile',          icon: 'account-edit',   screen: 'EditPlayerProfile' },
@@ -53,9 +31,18 @@ const MENU_ITEMS = [
 ];
 
 export default function ProfileScreen({ navigation }) {
+  const { colors: DS, mode, setMode } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [profile, setProfile] = useState({});
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
+
+  const BentoStat = ({ label, value, accent = false }) => (
+    <View style={[styles.bentoCard, accent && styles.bentoCardAccent]}>
+      <Text style={[styles.bentoValue, accent && styles.bentoValueAccent]}>{value ?? '—'}</Text>
+      <Text style={[styles.bentoLabel, accent && styles.bentoLabelAccent]}>{label}</Text>
+    </View>
+  );
 
   useEffect(() => {
     loadProfile();
@@ -242,6 +229,33 @@ export default function ProfileScreen({ navigation }) {
           <SportSwitcher navigation={navigation} />
         </View>
 
+        {/* Appearance */}
+        <View style={styles.appearanceCard}>
+          <View style={styles.appearanceHead}>
+            <Icon name="theme-light-dark" size={18} color={DS.lime} />
+            <Text style={styles.appearanceTitle}>Appearance</Text>
+          </View>
+          <View style={styles.segment}>
+            {[
+              { key: 'light', label: 'Light', icon: 'white-balance-sunny' },
+              { key: 'dark',  label: 'Dark',  icon: 'weather-night' },
+            ].map((opt) => {
+              const active = mode === opt.key;
+              return (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[styles.segmentBtn, active && styles.segmentBtnActive]}
+                  activeOpacity={0.85}
+                  onPress={() => setMode(opt.key)}
+                >
+                  <Icon name={opt.icon} size={16} color={active ? DS.bg : DS.textMuted} />
+                  <Text style={[styles.segmentTxt, active && styles.segmentTxtActive]}>{opt.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         {/* Menu Items */}
         <View style={styles.menuCard}>
           {MENU_ITEMS.map((item, i) => (
@@ -271,7 +285,7 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
 
@@ -364,6 +378,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   quickBtnText: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
+
+  // Appearance
+  appearanceCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16, gap: 12 },
+  appearanceHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  appearanceTitle: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
+  segment: { flexDirection: 'row', backgroundColor: DS.surfaceLow, borderRadius: 12, padding: 4, gap: 4 },
+  segmentBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 9, borderRadius: 9,
+  },
+  segmentBtnActive: { backgroundColor: DS.lime },
+  segmentTxt: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
+  segmentTxtActive: { color: DS.bg },
 
   // Menu
   sportSwitchWrap: { marginHorizontal: 16, marginBottom: 16 },

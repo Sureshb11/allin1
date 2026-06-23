@@ -12,6 +12,7 @@ import RummyNewGameScreen from './src/sports/rummy/screens/RummyNewGameScreen';
 import RummyGameScreen from './src/sports/rummy/screens/RummyGameScreen';
 import SplashScreen from './src/components/SplashScreen';
 import { ToastHost } from './src/components/Toast';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import legendsApi from './src/services/LegendsApi';
 
 const Stack = createStackNavigator();
@@ -21,7 +22,8 @@ const Stack = createStackNavigator();
 // Set this back to `false` to re-enable the OTP auth screen before release.
 const DEV_BYPASS_LOGIN = false;
 
-const App = () => {
+const Root = () => {
+  const { colors, isDark } = useTheme();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -41,13 +43,13 @@ const App = () => {
   return (
     <>
       <StatusBar
-        barStyle="light-content"
-        backgroundColor="#000"
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.bg}
       />
       <NavigationContainer>
         <Stack.Navigator
           id="RootStack"
-          screenOptions={{ headerShown: false, animationEnabled: false, cardStyle: { backgroundColor: '#0f131f' } }}
+          screenOptions={{ headerShown: false, animationEnabled: false, cardStyle: { backgroundColor: colors.bg } }}
           initialRouteName={(DEV_BYPASS_LOGIN || isAuthenticated) ? 'SportPicker' : 'Auth'}
         >
           <Stack.Screen name="Auth" component={AuthNavigator} />
@@ -64,5 +66,11 @@ const App = () => {
     </>
   );
 };
+
+const App = () => (
+  <ThemeProvider>
+    <Root />
+  </ThemeProvider>
+);
 
 export default App;

@@ -1,14 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-
-const DS = {
-  bg: '#0f131f', surfaceLow: '#171b28', surfaceHigh: '#262a37', surfaceHighest: '#313442',
-  lime: '#abd600', textPrimary: '#dfe2f3', textVariant: '#c3c5d9', textMuted: '#8d90a2',
-};
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const TILES = [
-  { icon: 'cricket',       label: 'My Matches',   sub: 'View all matches',        screen: 'MyMatches',      color: DS.lime    },
+  { icon: 'cricket',       label: 'My Matches',   sub: 'View all matches',        screen: 'MyMatches',      color: 'lime'     },
   { icon: 'trophy',        label: 'Tournaments',   sub: 'Join & track',            screen: 'Tournaments',    color: '#f59e0b'  },
   { icon: 'account-group', label: 'My Teams',      sub: 'Manage squads',           screen: 'TeamManagement', color: '#3b82f6'  },
   { icon: 'chart-bar',     label: 'Statistics',    sub: 'Player & team stats',     screen: 'Statistics',     color: '#a855f7'  },
@@ -19,9 +15,11 @@ const TILES = [
 ];
 
 export default function MyCricketScreen({ navigation }) {
+  const { colors: DS, isDark } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
       <View style={styles.hero}>
         <Icon name="cricket" size={20} color={DS.textMuted} />
         <Text style={styles.heroTitle}>My Cricket</Text>
@@ -29,15 +27,17 @@ export default function MyCricketScreen({ navigation }) {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.grid}>
-          {TILES.map(t => (
+          {TILES.map(t => {
+            const color = t.color === 'lime' ? DS.lime : t.color;
+            return (
             <TouchableOpacity
               key={t.screen}
               style={styles.tile}
               onPress={() => navigation.navigate(t.screen)}
               activeOpacity={0.82}
             >
-              <View style={[styles.tileIconWrap, { backgroundColor: t.color + '22' }]}>
-                <Icon name={t.icon} size={26} color={t.color} />
+              <View style={[styles.tileIconWrap, { backgroundColor: color + '22' }]}>
+                <Icon name={t.icon} size={26} color={color} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.tileLabel}>{t.label}</Text>
@@ -45,14 +45,15 @@ export default function MyCricketScreen({ navigation }) {
               </View>
               <Icon name="chevron-right" size={14} color={DS.surfaceHighest} />
             </TouchableOpacity>
-          ))}
+            );
+          })}
         </View>
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

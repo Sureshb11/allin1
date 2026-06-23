@@ -8,13 +8,11 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { SPORTS } from '../sports/dashboard';
-
-const C = {
-  bg: '#0f131f', surfaceHigh: '#262a37', surfaceHighest: '#313442', lime: '#abd600',
-  textPrimary: '#dfe2f3', textMuted: '#8d90a2', line: 'rgba(150,180,230,0.10)',
-};
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 export default function SportSwitcher({ navigation, current: currentOverride }) {
+  const C = useTheme().colors;
+  const s = useThemedStyles(makeStyles);
   const [open, setOpen] = useState(false);
   const current = currentOverride || getSelectedSport().sport || SPORTS[0];
 
@@ -80,7 +78,7 @@ export default function SportSwitcher({ navigation, current: currentOverride }) 
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (C) => StyleSheet.create({
   label: { color: C.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 8 },
   selector: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.surfaceHigh, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12 },
   iconBox: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceHighest },
