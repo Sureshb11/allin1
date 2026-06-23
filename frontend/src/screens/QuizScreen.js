@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ActivityIndicator,
-} from 'react-native';
+  View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ActivityIndicator } from
+'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 
-const DS = {
-  bg: '#0f131f', surfaceLow: '#171b28', surfaceHigh: '#262a37', surfaceHighest: '#313442',
-  lime: '#abd600', coral: '#ffb59e', blue: '#b7c4ff',
-  textPrimary: '#dfe2f3', textVariant: '#c3c5d9', textMuted: '#8d90a2',
-  live: '#ef4444',
-};
+
+
+
+
+
+
 
 const DIFF_COLORS = { Easy: '#22c55e', Medium: '#d97706', Hard: '#ef4444' };
 
@@ -20,7 +20,7 @@ const formatTime = (seconds) => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
-const QuizScreen = ({ navigation }) => {
+const QuizScreen = ({ navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [quiz, setQuiz] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -28,12 +28,12 @@ const QuizScreen = ({ navigation }) => {
   const [quizStarted, setQuizStarted] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadQuiz(); }, []);
+  useEffect(() => {loadQuiz();}, []);
 
   useEffect(() => {
     let timer;
     if (quizStarted && timeLeft > 0) {
-      timer = setTimeout(() => setTimeLeft(t => t - 1), 1000);
+      timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
     } else if (timeLeft === 0 && quizStarted) {
       handleSubmitQuiz();
     }
@@ -44,8 +44,8 @@ const QuizScreen = ({ navigation }) => {
     try {
       const res = await legendsApi.getDailyQuiz();
       if (res.success) setQuiz(res.data);
-    } catch { Alert.alert('Error', 'Failed to load quiz'); }
-    finally { setLoading(false); }
+    } catch {Alert.alert('Error', 'Failed to load quiz');} finally
+    {setLoading(false);}
   };
 
   const handleStartQuiz = () => {
@@ -53,28 +53,28 @@ const QuizScreen = ({ navigation }) => {
     setTimeLeft(quiz.duration || 300);
   };
 
-  const handleAnswerSelect = (qIdx, aIdx) => setAnswers(prev => ({ ...prev, [qIdx]: aIdx }));
+  const handleAnswerSelect = (qIdx, aIdx) => setAnswers((prev) => ({ ...prev, [qIdx]: aIdx }));
 
   const handleNext = () => {
-    if (currentQuestion < quiz.questions.length - 1) setCurrentQuestion(q => q + 1);
-    else handleSubmitQuiz();
+    if (currentQuestion < quiz.questions.length - 1) setCurrentQuestion((q) => q + 1);else
+    handleSubmitQuiz();
   };
 
-  const handlePrev = () => { if (currentQuestion > 0) setCurrentQuestion(q => q - 1); };
+  const handlePrev = () => {if (currentQuestion > 0) setCurrentQuestion((q) => q - 1);};
 
   const handleSubmitQuiz = async () => {
     try {
       const res = await legendsApi.submitQuiz(quiz.id, answers);
       if (res.success) navigation.navigate('QuizResult', { quizId: quiz.id, answers, result: res.data });
-    } catch { Alert.alert('Error', 'Failed to submit quiz'); }
+    } catch {Alert.alert('Error', 'Failed to submit quiz');}
   };
 
   if (loading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={DS.lime} />
-      </View>
-    );
+      </View>);
+
   }
 
   if (!quiz) {
@@ -85,8 +85,8 @@ const QuizScreen = ({ navigation }) => {
         <TouchableOpacity style={styles.refreshBtn} onPress={loadQuiz}>
           <Text style={styles.refreshBtnText}>Refresh</Text>
         </TouchableOpacity>
-      </View>
-    );
+      </View>);
+
   }
 
   if (!quizStarted) {
@@ -135,12 +135,12 @@ const QuizScreen = ({ navigation }) => {
             <Text style={styles.startBtnText}>Start Quiz</Text>
           </TouchableOpacity>
         </View>
-      </View>
-    );
+      </View>);
+
   }
 
   const question = quiz.questions[currentQuestion];
-  const progress = ((currentQuestion + 1) / quiz.questions.length) * 100;
+  const progress = (currentQuestion + 1) / quiz.questions.length * 100;
   const isLast = currentQuestion === quiz.questions.length - 1;
   const timerColor = timeLeft < 60 ? DS.live : DS.textPrimary;
 
@@ -173,8 +173,8 @@ const QuizScreen = ({ navigation }) => {
             <TouchableOpacity
               style={[styles.option, selected && styles.optionSelected]}
               onPress={() => handleAnswerSelect(currentQuestion, index)}
-              activeOpacity={0.8}
-            >
+              activeOpacity={0.8}>
+              
               <View style={[styles.optionLetter, selected && styles.optionLetterSelected]}>
                 <Text style={[styles.optionLetterText, selected && { color: DS.bg }]}>
                   {String.fromCharCode(65 + index)}
@@ -182,17 +182,17 @@ const QuizScreen = ({ navigation }) => {
               </View>
               <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{item}</Text>
               {selected && <Icon name="check-circle" size={18} color={DS.lime} />}
-            </TouchableOpacity>
-          );
-        }}
-      />
+            </TouchableOpacity>);
+
+        }} />
+      
 
       <View style={styles.navRow}>
         <TouchableOpacity
           style={[styles.navBtn, currentQuestion === 0 && styles.navBtnDisabled]}
           onPress={handlePrev}
-          disabled={currentQuestion === 0}
-        >
+          disabled={currentQuestion === 0}>
+          
           <Icon name="arrow-left" size={18} color={currentQuestion === 0 ? DS.textMuted : DS.textPrimary} />
           <Text style={[styles.navBtnText, currentQuestion === 0 && { color: DS.textMuted }]}>Previous</Text>
         </TouchableOpacity>
@@ -201,17 +201,17 @@ const QuizScreen = ({ navigation }) => {
           <Icon name={isLast ? 'check' : 'arrow-right'} size={18} color={DS.bg} />
         </TouchableOpacity>
       </View>
-    </View>
-  );
+    </View>);
+
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg, gap: 12 },
 
   hero: {
     backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 16, paddingHorizontal: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 8
   },
   heroTitle: { fontSize: 20, fontWeight: '800', color: DS.textPrimary },
 
@@ -221,19 +221,19 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', gap: 10 },
   detailBox: {
     flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 16,
-    padding: 14, alignItems: 'center', gap: 4,
+    padding: 14, alignItems: 'center', gap: 4
   },
   detailVal: { fontSize: 16, fontWeight: '900', color: DS.textPrimary },
   detailLbl: { fontSize: 11, color: DS.textMuted, fontWeight: '600' },
   rewardsCard: {
-    backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16, gap: 6,
+    backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16, gap: 6
   },
   rewardsHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
   rewardsTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary },
   rewardLine: { fontSize: 13, color: DS.textVariant, lineHeight: 20 },
   startBtn: {
     backgroundColor: DS.lime, borderRadius: 12, paddingVertical: 15,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8
   },
   startBtnText: { fontSize: 16, fontWeight: '800', color: DS.bg },
 
@@ -243,23 +243,23 @@ const styles = StyleSheet.create({
   heroCount: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
   timerPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4,
+    backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4
   },
   timerText: { fontSize: 13, fontWeight: '800' },
 
   questionCard: {
-    backgroundColor: DS.surfaceHigh, margin: 16, borderRadius: 16, padding: 16,
+    backgroundColor: DS.surfaceHigh, margin: 16, borderRadius: 16, padding: 16
   },
   questionText: { fontSize: 17, fontWeight: '700', color: DS.textPrimary, lineHeight: 26 },
   optionsList: { paddingHorizontal: 16, gap: 10 },
   option: {
     backgroundColor: DS.surfaceHigh, borderRadius: 12, padding: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 12
   },
   optionSelected: { backgroundColor: 'rgba(171,214,0,0.1)' },
   optionLetter: {
     width: 30, height: 30, borderRadius: 15, backgroundColor: DS.surfaceHighest,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center'
   },
   optionLetterSelected: { backgroundColor: DS.lime },
   optionLetterText: { fontSize: 13, fontWeight: '900', color: DS.textPrimary },
@@ -267,23 +267,23 @@ const styles = StyleSheet.create({
   optionTextSelected: { color: DS.lime, fontWeight: '700' },
 
   navRow: {
-    flexDirection: 'row', gap: 10, padding: 16, backgroundColor: DS.surfaceLow,
+    flexDirection: 'row', gap: 10, padding: 16, backgroundColor: DS.surfaceLow
   },
   navBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingVertical: 12,
+    backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingVertical: 12
   },
   navBtnDisabled: { opacity: 0.4 },
   navBtnText: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
   nextBtn: {
     flex: 1, backgroundColor: DS.lime, borderRadius: 12, paddingVertical: 12,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6
   },
   nextBtnText: { fontSize: 14, fontWeight: '800', color: DS.bg },
 
   emptyTitle: { fontSize: 18, fontWeight: '700', color: DS.textVariant },
   refreshBtn: { backgroundColor: DS.lime, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 10 },
-  refreshBtnText: { fontSize: 15, fontWeight: '700', color: DS.bg },
+  refreshBtnText: { fontSize: 15, fontWeight: '700', color: DS.bg }
 });
 
 export default QuizScreen;

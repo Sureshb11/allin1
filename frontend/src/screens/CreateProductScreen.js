@@ -1,19 +1,19 @@
-import React, {useState} from 'react';
-import {View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, StatusBar} from 'react-native';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, StatusBar } from 'react-native';
 import legendsApi from '../services/LegendsApi';
 
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-};
 
-const CreateProductScreen = ({navigation}) => {
+
+
+
+
+
+
+
+
+
+
+const CreateProductScreen = ({ navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -22,11 +22,11 @@ const CreateProductScreen = ({navigation}) => {
   const [loading, setLoading] = useState(false);
 
   const categories = [
-    {id: 'equipment', name: 'Equipment'},
-    {id: 'services', name: 'Services'},
-    {id: 'apparel', name: 'Apparel'},
-    {id: 'accessories', name: 'Accessories'},
-  ];
+  { id: 'equipment', name: 'Equipment' },
+  { id: 'services', name: 'Services' },
+  { id: 'apparel', name: 'Apparel' },
+  { id: 'accessories', name: 'Accessories' }];
+
 
   const handleCreate = async () => {
     if (!title.trim()) return Alert.alert('Error', 'Title is required');
@@ -40,13 +40,13 @@ const CreateProductScreen = ({navigation}) => {
         description: description.trim(),
         price: parseInt(price, 10),
         category,
-        location: location.trim() || undefined,
+        location: location.trim() || undefined
       });
 
       if (res.success) {
         Alert.alert('Success', 'Product listed successfully!', [
-          {text: 'OK', onPress: () => navigation.goBack()},
-        ]);
+        { text: 'OK', onPress: () => navigation.goBack() }]
+        );
       } else {
         Alert.alert('Error', res.error || 'Failed to create listing');
       }
@@ -78,23 +78,23 @@ const CreateProductScreen = ({navigation}) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>SELECT CATEGORY</Text>
           <View style={styles.categoriesRow}>
-            {categories.map(c => (
-              <TouchableOpacity
-                key={c.id}
-                style={[
-                  styles.categoryChip,
-                  category === c.id && styles.categoryChipActive,
-                ]}
-                onPress={() => setCategory(c.id)}>
+            {categories.map((c) =>
+            <TouchableOpacity
+              key={c.id}
+              style={[
+              styles.categoryChip,
+              category === c.id && styles.categoryChipActive]
+              }
+              onPress={() => setCategory(c.id)}>
                 <Text
-                  style={[
-                    styles.categoryChipText,
-                    category === c.id && styles.categoryChipTextActive,
-                  ]}>
+                style={[
+                styles.categoryChipText,
+                category === c.id && styles.categoryChipTextActive]
+                }>
                   {c.name}
                 </Text>
               </TouchableOpacity>
-            ))}
+            )}
           </View>
         </View>
 
@@ -106,8 +106,8 @@ const CreateProductScreen = ({navigation}) => {
             value={title}
             onChangeText={setTitle}
             placeholder="e.g. English Willow Bat"
-            placeholderTextColor={DS.textMuted}
-          />
+            placeholderTextColor={DS.textMuted} />
+          
 
           <Text style={styles.label}>Description</Text>
           <TextInput
@@ -117,8 +117,8 @@ const CreateProductScreen = ({navigation}) => {
             placeholder="Describe your item..."
             placeholderTextColor={DS.textMuted}
             multiline
-            numberOfLines={4}
-          />
+            numberOfLines={4} />
+          
 
           <Text style={styles.label}>Price (INR)</Text>
           <TextInput
@@ -127,8 +127,8 @@ const CreateProductScreen = ({navigation}) => {
             onChangeText={setPrice}
             placeholder="e.g. 5000"
             placeholderTextColor={DS.textMuted}
-            keyboardType="numeric"
-          />
+            keyboardType="numeric" />
+          
 
           <Text style={styles.label}>Venue</Text>
           <TextInput
@@ -136,8 +136,8 @@ const CreateProductScreen = ({navigation}) => {
             value={location}
             onChangeText={setLocation}
             placeholder="Search for a venue..."
-            placeholderTextColor={DS.textMuted}
-          />
+            placeholderTextColor={DS.textMuted} />
+          
         </View>
 
         {/* Submit Button */}
@@ -146,23 +146,23 @@ const CreateProductScreen = ({navigation}) => {
           onPress={handleCreate}
           disabled={loading}
           activeOpacity={0.8}>
-          {loading ? (
-            <ActivityIndicator color={DS.bg} />
-          ) : (
-            <Text style={styles.submitButtonText}>POST LISTING</Text>
-          )}
+          {loading ?
+          <ActivityIndicator color={DS.bg} /> :
+
+          <Text style={styles.submitButtonText}>POST LISTING</Text>
+          }
         </TouchableOpacity>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
-    </View>
-  );
+    </View>);
+
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: DS.bg,
+    backgroundColor: DS.bg
   },
   header: {
     flexDirection: 'row',
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 14,
-    backgroundColor: DS.bg,
+    backgroundColor: DS.bg
   },
   headerBackBtn: {
     width: 36,
@@ -179,18 +179,18 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: DS.surfaceHigh,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   headerBackArrow: {
     color: DS.textPrimary,
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   headerTitle: {
     color: DS.textPrimary,
     fontSize: 16,
     fontWeight: '700',
-    letterSpacing: 1.2,
+    letterSpacing: 1.2
   },
   headerProfileIcon: {
     width: 36,
@@ -198,55 +198,55 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: DS.surfaceHighest,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   headerProfileText: {
     color: DS.textVariant,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   container: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 16
   },
   section: {
     marginTop: 8,
-    marginBottom: 20,
+    marginBottom: 20
   },
   sectionTitle: {
     color: DS.textMuted,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.4,
-    marginBottom: 14,
+    marginBottom: 14
   },
   categoriesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 10
   },
   categoryChip: {
     backgroundColor: DS.surfaceHigh,
     borderRadius: 24,
     paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingVertical: 10
   },
   categoryChipActive: {
-    backgroundColor: DS.lime,
+    backgroundColor: DS.lime
   },
   categoryChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: DS.textMuted,
+    color: DS.textMuted
   },
   categoryChipTextActive: {
-    color: DS.bg,
+    color: DS.bg
   },
   formCard: {
     backgroundColor: DS.surfaceHigh,
     borderRadius: 16,
     padding: 18,
-    marginBottom: 24,
+    marginBottom: 24
   },
   label: {
     fontSize: 12,
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginBottom: 8,
     marginTop: 16,
-    textTransform: 'uppercase',
+    textTransform: 'uppercase'
   },
   input: {
     backgroundColor: DS.surfaceLow,
@@ -264,32 +264,32 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     fontSize: 15,
     color: DS.textPrimary,
-    borderWidth: 0,
+    borderWidth: 0
   },
   textArea: {
     height: 110,
     textAlignVertical: 'top',
-    paddingTop: 13,
+    paddingTop: 13
   },
   submitButton: {
     backgroundColor: DS.lime,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   submitButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.6
   },
   submitButtonText: {
     color: DS.bg,
     fontSize: 15,
     fontWeight: '800',
-    letterSpacing: 1.2,
+    letterSpacing: 1.2
   },
   bottomSpacer: {
-    height: 40,
-  },
+    height: 40
+  }
 });
 
 export default CreateProductScreen;

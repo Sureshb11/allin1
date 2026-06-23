@@ -1,64 +1,64 @@
-import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, SectionList, TouchableOpacity,
-  ScrollView, Alert, StatusBar,
-} from 'react-native';
+  ScrollView, Alert, StatusBar } from
+'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 
-const DS = {
-  bg: '#0f131f', surfaceLow: '#171b28', surfaceHigh: '#262a37', surfaceHighest: '#313442',
-  lime: '#abd600', blue: '#b7c4ff', coral: '#ffb59e', danger: '#ff5a5a',
-  textPrimary: '#dfe2f3', textVariant: '#c3c5d9', textMuted: '#8d90a2',
-  line: 'rgba(150,170,210,0.10)',
-};
+
+
+
+
+
+
 
 // Noun used for the "Find …" shortcut per sport.
 const SPORT_NOUN = { cricket: 'Cricketers', football: 'Footballers', badminton: 'Players' };
 
 // "Go to" shortcuts — sport-aware (the "Find" row scopes to the active sport).
 const buildGoTo = (sportId) => [
-  { id: 'stream', label: 'Live streaming matches', icon: 'video-outline',            badge: 'NEW', screen: 'StreamingLanding' },
-  { id: 'near',   label: 'Matches near me',         icon: 'map-marker-radius-outline',              screen: 'MyMatches' },
-  { id: 'tourn',  label: 'Tournaments near me',     icon: 'trophy-outline',                         screen: 'Tournaments' },
-  { id: 'find',   label: `Find ${SPORT_NOUN[sportId] || 'Players'}`, icon: 'account-search-outline', screen: 'FindCricketers', params: { sport: sportId } },
-];
+{ id: 'stream', label: 'Live streaming matches', icon: 'video-outline', badge: 'NEW', screen: 'StreamingLanding' },
+{ id: 'near', label: 'Matches near me', icon: 'map-marker-radius-outline', screen: 'MyMatches' },
+{ id: 'tourn', label: 'Tournaments near me', icon: 'trophy-outline', screen: 'Tournaments' },
+{ id: 'find', label: `Find ${SPORT_NOUN[sportId] || 'Players'}`, icon: 'account-search-outline', screen: 'FindCricketers', params: { sport: sportId } }];
+
 
 // "Looking for" shortcuts — sport-aware. Officials terminology differs per sport
 // (cricket: umpire/scorer/commentator; football: referee; else: official).
 const buildLookingFor = (sportId) => {
-  const officials = sportId === 'cricket'
-    ? [
-        { id: 'umpire', label: 'Umpire',      icon: 'whistle',            screen: 'LookingFor', params: { initialType: 'umpire' } },
-        { id: 'scorer', label: 'Scorer',      icon: 'scoreboard-outline', screen: 'LookingFor', params: { initialType: 'scorer' } },
-        { id: 'comm',   label: 'Commentator', icon: 'account-voice',      screen: 'LookingFor', params: { initialType: 'commentator' } },
-      ]
-    : sportId === 'football'
-      ? [{ id: 'umpire', label: 'Referee',  icon: 'whistle', screen: 'LookingFor', params: { initialType: 'umpire' } }]
-      : [{ id: 'umpire', label: 'Official', icon: 'whistle', screen: 'LookingFor', params: { initialType: 'umpire' } }];
+  const officials = sportId === 'cricket' ?
+  [
+  { id: 'umpire', label: 'Umpire', icon: 'whistle', screen: 'LookingFor', params: { initialType: 'umpire' } },
+  { id: 'scorer', label: 'Scorer', icon: 'scoreboard-outline', screen: 'LookingFor', params: { initialType: 'scorer' } },
+  { id: 'comm', label: 'Commentator', icon: 'account-voice', screen: 'LookingFor', params: { initialType: 'commentator' } }] :
+
+  sportId === 'football' ?
+  [{ id: 'umpire', label: 'Referee', icon: 'whistle', screen: 'LookingFor', params: { initialType: 'umpire' } }] :
+  [{ id: 'umpire', label: 'Official', icon: 'whistle', screen: 'LookingFor', params: { initialType: 'umpire' } }];
   return [
-    { id: 'player',    label: 'Player',               icon: 'account-outline',               screen: 'LookingFor',   params: { initialType: 'player' } },
-    { id: 'team',      label: 'Team',                 icon: 'account-group',                 screen: 'LookingFor',   params: { initialType: 'team' } },
-    ...officials,
-    { id: 'coach',     label: 'Coach',                icon: 'school-outline',                screen: 'LookingFor',   params: { initialType: 'coach' } },
-    { id: 'opponent',  label: 'Opponent',             icon: 'sword-cross',                   screen: 'LookingFor',   params: { initialType: 'opponent' } },
-    { id: 'teamtourn', label: 'Teams for tournament', icon: 'account-multiple-plus-outline', screen: 'LookingFor',   params: { initialType: 'teamtourn' } },
-    { id: 'tourn2',    label: 'Tournaments',          icon: 'trophy-outline',                screen: 'Tournaments' },
-    { id: 'ground',    label: 'Ground',               icon: 'stadium',                       screen: 'GroundBooking' },
-  ].map((it) => (it.params ? { ...it, params: { ...it.params, sport: sportId } } : it));
+  { id: 'player', label: 'Player', icon: 'account-outline', screen: 'LookingFor', params: { initialType: 'player' } },
+  { id: 'team', label: 'Team', icon: 'account-group', screen: 'LookingFor', params: { initialType: 'team' } },
+  ...officials,
+  { id: 'coach', label: 'Coach', icon: 'school-outline', screen: 'LookingFor', params: { initialType: 'coach' } },
+  { id: 'opponent', label: 'Opponent', icon: 'sword-cross', screen: 'LookingFor', params: { initialType: 'opponent' } },
+  { id: 'teamtourn', label: 'Teams for tournament', icon: 'account-multiple-plus-outline', screen: 'LookingFor', params: { initialType: 'teamtourn' } },
+  { id: 'tourn2', label: 'Tournaments', icon: 'trophy-outline', screen: 'Tournaments' },
+  { id: 'ground', label: 'Ground', icon: 'stadium', screen: 'GroundBooking' }].
+  map((it) => it.params ? { ...it, params: { ...it.params, sport: sportId } } : it);
 };
 
 // Bottom action pills.
 const PILLS = [
-  { label: 'Start a match',          screen: 'StartMatch' },
-  { label: 'Add a tournament/series', screen: 'Tournaments' },
-  { label: 'Go live',                screen: 'CreateStream' },
-];
+{ label: 'Start a match', screen: 'StartMatch' },
+{ label: 'Add a tournament/series', screen: 'Tournaments' },
+{ label: 'Go live', screen: 'CreateStream' }];
+
 
 const TYPE_ICONS = { player: 'account', team: 'cricket', match: 'scoreboard-outline' };
 
-const GlobalSearchScreen = ({ navigation }) => {
+const GlobalSearchScreen = ({ navigation }) => {const DS = useTheme().colors;const st = useThemedStyles(makeSt);
   // Sport-aware shortcuts based on the active sport.
   const sportId = getSelectedSport().sport?.id || 'cricket';
   const goTo = buildGoTo(sportId);
@@ -95,18 +95,18 @@ const GlobalSearchScreen = ({ navigation }) => {
 
   const go = (screen, params) => screen && navigation.navigate(screen, params);
 
-  const renderRow = (it) => (
-    <TouchableOpacity key={it.id} style={st.row} activeOpacity={0.7} onPress={() => go(it.screen, it.params)}>
+  const renderRow = (it) =>
+  <TouchableOpacity key={it.id} style={st.row} activeOpacity={0.7} onPress={() => go(it.screen, it.params)}>
       <View style={st.rowIconWrap}>
         <Icon name={it.icon} size={22} color={DS.textPrimary} />
       </View>
       <Text style={st.rowLabel}>{it.label}</Text>
-      {it.badge && (
-        <View style={st.badge}><Text style={st.badgeTxt}>{it.badge}</Text></View>
-      )}
+      {it.badge &&
+    <View style={st.badge}><Text style={st.badgeTxt}>{it.badge}</Text></View>
+    }
       <Icon name="chevron-right" size={22} color={DS.textMuted} />
-    </TouchableOpacity>
-  );
+    </TouchableOpacity>;
+
 
   const onResultPress = (item) => {
     const map = { player: ['PlayerProfile', { playerId: item.id }], team: ['TeamDetail', { teamId: item.id }], match: ['MatchDetail', { matchId: item.id }] };
@@ -118,13 +118,13 @@ const GlobalSearchScreen = ({ navigation }) => {
   const sections = (() => {
     const s = [];
     if (searchResults.players?.length) s.push({ title: 'Players', data: searchResults.players });
-    if (searchResults.teams?.length)   s.push({ title: 'Teams',   data: searchResults.teams });
+    if (searchResults.teams?.length) s.push({ title: 'Teams', data: searchResults.teams });
     if (searchResults.matches?.length) s.push({ title: 'Matches', data: searchResults.matches });
     return s;
   })();
 
-  const renderResult = ({ item }) => (
-    <TouchableOpacity style={st.resultItem} onPress={() => onResultPress(item)}>
+  const renderResult = ({ item }) =>
+  <TouchableOpacity style={st.resultItem} onPress={() => onResultPress(item)}>
       <View style={st.resultIconWrap}>
         <Icon name={TYPE_ICONS[item.type] || 'file-outline'} size={18} color={DS.lime} />
       </View>
@@ -133,8 +133,8 @@ const GlobalSearchScreen = ({ navigation }) => {
         <Text style={st.resultSub}>{item.team || item.location || item.date}</Text>
       </View>
       <Icon name="chevron-right" size={20} color={DS.textMuted} />
-    </TouchableOpacity>
-  );
+    </TouchableOpacity>;
+
 
   return (
     <View style={st.container}>
@@ -151,14 +151,14 @@ const GlobalSearchScreen = ({ navigation }) => {
             placeholder="Search players, teams, umpires…"
             placeholderTextColor={DS.textMuted}
             value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 ? (
-            <TouchableOpacity hitSlop={8} onPress={() => setSearchQuery('')}>
+            onChangeText={setSearchQuery} />
+          
+          {searchQuery.length > 0 ?
+          <TouchableOpacity hitSlop={8} onPress={() => setSearchQuery('')}>
               <Icon name="close-circle" size={18} color={DS.textMuted} />
-            </TouchableOpacity>
-          ) : (
-            <View style={st.searchIcons}>
+            </TouchableOpacity> :
+
+          <View style={st.searchIcons}>
               <TouchableOpacity hitSlop={6} onPress={() => Alert.alert('Scan', 'QR scanner coming soon')}>
                 <Icon name="qrcode-scan" size={20} color={DS.textVariant} />
               </TouchableOpacity>
@@ -166,63 +166,63 @@ const GlobalSearchScreen = ({ navigation }) => {
                 <Icon name="microphone" size={20} color={DS.textVariant} />
               </TouchableOpacity>
             </View>
-          )}
+          }
         </View>
       </View>
 
       {/* ── body ── */}
-      {showResults ? (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item, i) => (item.id ?? i).toString()}
-          renderItem={renderResult}
-          renderSectionHeader={({ section }) => (
-            <Text style={st.sectionHead}>{section.title.toUpperCase()}</Text>
-          )}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 16 }}
-          ListEmptyComponent={
-            <View style={st.empty}>
+      {showResults ?
+      <SectionList
+        sections={sections}
+        keyExtractor={(item, i) => (item.id ?? i).toString()}
+        renderItem={renderResult}
+        renderSectionHeader={({ section }) =>
+        <Text style={st.sectionHead}>{section.title.toUpperCase()}</Text>
+        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 16 }}
+        ListEmptyComponent={
+        <View style={st.empty}>
               <Icon name="magnify" size={56} color={DS.surfaceHighest} />
               <Text style={st.emptyTitle}>No results found</Text>
               <Text style={st.emptySub}>Try a different keyword</Text>
             </View>
-          }
-        />
-      ) : (
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 12 }}>
+        } /> :
+
+
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 12 }}>
           <Text style={st.goToLabel}>Go to</Text>
           <View>{goTo.map(renderRow)}</View>
 
           <Text style={st.sectionLabel}>Looking for</Text>
           <View>{lookingFor.map(renderRow)}</View>
         </ScrollView>
-      )}
+      }
 
       {/* ── bottom action pills ── */}
       <View style={st.pills}>
-        {PILLS.map((p) => (
-          <TouchableOpacity key={p.label} style={st.pill} activeOpacity={0.8} onPress={() => go(p.screen)}>
+        {PILLS.map((p) =>
+        <TouchableOpacity key={p.label} style={st.pill} activeOpacity={0.8} onPress={() => go(p.screen)}>
             <Text style={st.pillTxt} numberOfLines={1}>{p.label}</Text>
           </TouchableOpacity>
-        ))}
+        )}
       </View>
-    </View>
-  );
+    </View>);
+
 };
 
-const st = StyleSheet.create({
+const makeSt = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
 
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingTop: 52, paddingBottom: 12, paddingHorizontal: 12,
-    borderBottomWidth: 1, borderBottomColor: DS.line,
+    borderBottomWidth: 1, borderBottomColor: DS.line
   },
   backBtn: { padding: 4 },
   searchBox: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
-    backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingHorizontal: 14, gap: 10,
+    backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingHorizontal: 14, gap: 10
   },
   searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: DS.textPrimary },
   searchIcons: { flexDirection: 'row', alignItems: 'center', gap: 16 },
@@ -233,7 +233,7 @@ const st = StyleSheet.create({
   row: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 16, paddingHorizontal: 18, gap: 14,
-    borderBottomWidth: 1, borderBottomColor: DS.line,
+    borderBottomWidth: 1, borderBottomColor: DS.line
   },
   rowIconWrap: { width: 30, alignItems: 'center' },
   rowLabel: { flex: 1, color: DS.textPrimary, fontSize: 16, fontWeight: '500' },
@@ -253,10 +253,10 @@ const st = StyleSheet.create({
   pills: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 10,
     paddingHorizontal: 12, paddingTop: 12, paddingBottom: 28,
-    borderTopWidth: 1, borderTopColor: DS.line,
+    borderTopWidth: 1, borderTopColor: DS.line
   },
   pill: { borderWidth: 1.5, borderColor: DS.lime, borderRadius: 24, paddingVertical: 9, paddingHorizontal: 16 },
-  pillTxt: { color: DS.lime, fontSize: 13, fontWeight: '700' },
+  pillTxt: { color: DS.lime, fontSize: 13, fontWeight: '700' }
 });
 
 export default GlobalSearchScreen;

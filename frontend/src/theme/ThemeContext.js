@@ -148,3 +148,15 @@ export function useThemedStyles(factory) {
   const { colors } = useContext(ThemeContext);
   return useMemo(() => factory(colors), [factory, colors]);
 }
+
+/** Arena/Rummy palette — same theme but with the brighter lime accent. */
+export function useArenaColors() {
+  const { colors } = useContext(ThemeContext);
+  return useMemo(() => ({ ...colors, lime: colors.limeBright }), [colors]);
+}
+
+/** Build a StyleSheet from the Arena (bright-lime) palette. */
+export function useArenaStyles(factory) {
+  const colors = useArenaColors();
+  return useMemo(() => factory(colors), [factory, colors]);
+}

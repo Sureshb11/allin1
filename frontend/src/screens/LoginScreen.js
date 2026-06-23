@@ -1,35 +1,35 @@
-import React, { useState, useRef } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Pressable,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  StatusBar, ScrollView,
-} from 'react-native';
+  StatusBar, ScrollView } from
+'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { showToast } from '../components/Toast';
 
-const DS = {
-  bg:      '#0b0f1e',
-  surface: '#141a2c',
-  field:   '#1a2138',
-  border:  '#262d48',
-  borderF: '#3a4570',
-  lime:    '#abd600',
-  blue:    '#3b82f6',
-  ink:     '#eef1fb',
-  sub:     '#aeb6cc',
-  muted:   '#7e879e',
-};
+
+
+
+
+
+
+
+
+
+
+
+
 
 const COUNTRIES = [
-  { code: '+91', name: 'India', flag: '🇮🇳' },
-  { code: '+1',  name: 'USA',   flag: '🇺🇸' },
-  { code: '+44', name: 'UK',    flag: '🇬🇧' },
-  { code: '+61', name: 'AUS',   flag: '🇦🇺' },
-  { code: '+965',name: 'Kuwait',flag: '🇰🇼' },
-];
+{ code: '+91', name: 'India', flag: '🇮🇳' },
+{ code: '+1', name: 'USA', flag: '🇺🇸' },
+{ code: '+44', name: 'UK', flag: '🇬🇧' },
+{ code: '+61', name: 'AUS', flag: '🇦🇺' },
+{ code: '+965', name: 'Kuwait', flag: '🇰🇼' }];
 
-export default function LoginScreen({ navigation }) {
+
+export default function LoginScreen({ navigation }) {const DS = useTheme().colors;const s = useThemedStyles(makeS);
   const [countryCode, setCountryCode] = useState('+91');
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -38,7 +38,7 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const otpRef = useRef(null);
 
-  const selectedCountry = COUNTRIES.find(c => c.code === countryCode) || COUNTRIES[0];
+  const selectedCountry = COUNTRIES.find((c) => c.code === countryCode) || COUNTRIES[0];
 
   const handleSendOtp = async () => {
     const cleaned = phoneNumber.replace(/\s/g, '');
@@ -102,52 +102,52 @@ export default function LoginScreen({ navigation }) {
             <Text style={s.pillTxt}>{showOtpStep ? 'VERIFY' : 'LIVE UPDATES'}</Text>
           </View>
           <Text style={s.h1}>
-            {showOtpStep
-              ? <>Enter the{'\n'}<Text style={s.h1Accent}>code</Text></>
-              : <>Get into{'\n'}the <Text style={s.h1Accent}>action</Text></>}
+            {showOtpStep ?
+            <>Enter the{'\n'}<Text style={s.h1Accent}>code</Text></> :
+            <>Get into{'\n'}the <Text style={s.h1Accent}>action</Text></>}
           </Text>
           <Text style={s.sub}>
-            {showOtpStep
-              ? `We sent a 4-digit code to ${countryCode} ${phoneNumber}.`
-              : 'Enter your mobile number to get a one-time code and join the arena.'}
+            {showOtpStep ?
+            `We sent a 4-digit code to ${countryCode} ${phoneNumber}.` :
+            'Enter your mobile number to get a one-time code and join the arena.'}
           </Text>
         </View>
 
         {/* Form */}
         <View style={s.form}>
-          {showOtpStep ? (
-            <>
+          {showOtpStep ?
+          <>
               <Text style={s.label}>VERIFICATION CODE</Text>
               <Pressable style={s.otpRow} onPress={() => otpRef.current?.focus()}>
-                {[0, 1, 2, 3].map(i => (
-                  <View key={i} style={[s.otpCell, otp.length === i && s.otpCellActive, otp[i] && s.otpCellFilled]}>
+                {[0, 1, 2, 3].map((i) =>
+              <View key={i} style={[s.otpCell, otp.length === i && s.otpCellActive, otp[i] && s.otpCellFilled]}>
                     <Text style={s.otpDigit}>{otp[i] || ''}</Text>
                   </View>
-                ))}
+              )}
               </Pressable>
               <TextInput
-                ref={otpRef}
-                style={s.hiddenInput}
-                value={otp}
-                onChangeText={v => setOtp(v.replace(/\D/g, '').slice(0, 4))}
-                keyboardType="number-pad"
-                maxLength={4}
-                autoFocus
-                caretHidden
-              />
+              ref={otpRef}
+              style={s.hiddenInput}
+              value={otp}
+              onChangeText={(v) => setOtp(v.replace(/\D/g, '').slice(0, 4))}
+              keyboardType="number-pad"
+              maxLength={4}
+              autoFocus
+              caretHidden />
+            
 
               <TouchableOpacity
-                style={[s.primary, (loading || otp.length < 4) && s.primaryOff]}
-                onPress={handleVerifyOtp}
-                disabled={loading || otp.length < 4}
-                activeOpacity={0.9}
-              >
-                {loading ? <ActivityIndicator color={DS.bg} />
-                  : <><Text style={s.primaryTxt}>Verify & Join</Text><Icon name="arrow-right" size={20} color={DS.bg} /></>}
+              style={[s.primary, (loading || otp.length < 4) && s.primaryOff]}
+              onPress={handleVerifyOtp}
+              disabled={loading || otp.length < 4}
+              activeOpacity={0.9}>
+              
+                {loading ? <ActivityIndicator color={DS.bg} /> :
+              <><Text style={s.primaryTxt}>Verify & Join</Text><Icon name="arrow-right" size={20} color={DS.bg} /></>}
               </TouchableOpacity>
 
               <View style={s.altRow}>
-                <TouchableOpacity onPress={() => { setShowOtpStep(false); setOtp(''); }}>
+                <TouchableOpacity onPress={() => {setShowOtpStep(false);setOtp('');}}>
                   <Text style={s.linkMuted}>Change number</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleSendOtp} disabled={loading}>
@@ -155,53 +155,53 @@ export default function LoginScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
               <Text style={s.hint}>Test code: 1234</Text>
-            </>
-          ) : (
-            <>
+            </> :
+
+          <>
               <Text style={s.label}>PHONE NUMBER</Text>
               <View style={s.phoneRow}>
-                <TouchableOpacity style={s.country} onPress={() => setShowCountryPicker(v => !v)} activeOpacity={0.8}>
+                <TouchableOpacity style={s.country} onPress={() => setShowCountryPicker((v) => !v)} activeOpacity={0.8}>
                   <Text style={s.flag}>{selectedCountry.flag}</Text>
                   <Text style={s.code}>{countryCode}</Text>
                   <Icon name={showCountryPicker ? 'chevron-up' : 'chevron-down'} size={16} color={DS.muted} />
                 </TouchableOpacity>
                 <TextInput
-                  style={s.phoneInput}
-                  placeholder="00000 00000"
-                  placeholderTextColor={DS.muted}
-                  value={phoneNumber}
-                  onChangeText={t => setPhoneNumber(t.replace(/\D/g, '').slice(0, 10))}
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  editable={!loading}
-                />
+                style={s.phoneInput}
+                placeholder="00000 00000"
+                placeholderTextColor={DS.muted}
+                value={phoneNumber}
+                onChangeText={(t) => setPhoneNumber(t.replace(/\D/g, '').slice(0, 10))}
+                keyboardType="phone-pad"
+                maxLength={10}
+                editable={!loading} />
+              
               </View>
 
-              {showCountryPicker && (
-                <View style={s.dropdown}>
-                  {COUNTRIES.map(c => (
-                    <TouchableOpacity
-                      key={c.code}
-                      style={[s.dropRow, c.code === countryCode && s.dropRowActive]}
-                      onPress={() => { setCountryCode(c.code); setShowCountryPicker(false); }}
-                    >
+              {showCountryPicker &&
+            <View style={s.dropdown}>
+                  {COUNTRIES.map((c) =>
+              <TouchableOpacity
+                key={c.code}
+                style={[s.dropRow, c.code === countryCode && s.dropRowActive]}
+                onPress={() => {setCountryCode(c.code);setShowCountryPicker(false);}}>
+                
                       <Text style={s.flag}>{c.flag}</Text>
                       <Text style={s.dropName}>{c.name}</Text>
                       <Text style={s.dropCode}>{c.code}</Text>
                       {c.code === countryCode && <Icon name="check-circle" size={16} color={DS.lime} />}
                     </TouchableOpacity>
-                  ))}
-                </View>
               )}
+                </View>
+            }
 
               <TouchableOpacity
-                style={[s.primary, (loading || phoneNumber.length < 10) && s.primaryOff]}
-                onPress={handleSendOtp}
-                disabled={loading || phoneNumber.length < 10}
-                activeOpacity={0.9}
-              >
-                {loading ? <ActivityIndicator color={DS.bg} />
-                  : <><Text style={s.primaryTxt}>Send OTP</Text><Icon name="lightning-bolt" size={19} color={DS.bg} /></>}
+              style={[s.primary, (loading || phoneNumber.length < 10) && s.primaryOff]}
+              onPress={handleSendOtp}
+              disabled={loading || phoneNumber.length < 10}
+              activeOpacity={0.9}>
+              
+                {loading ? <ActivityIndicator color={DS.bg} /> :
+              <><Text style={s.primaryTxt}>Send OTP</Text><Icon name="lightning-bolt" size={19} color={DS.bg} /></>}
               </TouchableOpacity>
 
               <View style={s.divider}>
@@ -213,7 +213,7 @@ export default function LoginScreen({ navigation }) {
                 <Text style={s.secondaryTxt}>Create New Account</Text>
               </TouchableOpacity>
             </>
-          )}
+          }
         </View>
 
         <Text style={s.footer}>
@@ -221,11 +221,11 @@ export default function LoginScreen({ navigation }) {
           <Text style={s.footerLink}>Terms of Service</Text> & <Text style={s.footerLink}>Privacy Policy</Text>
         </Text>
       </ScrollView>
-    </KeyboardAvoidingView>
-  );
+    </KeyboardAvoidingView>);
+
 }
 
-const s = StyleSheet.create({
+const makeS = (DS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.bg },
   scroll: { flexGrow: 1, paddingBottom: 32 },
 
@@ -282,5 +282,5 @@ const s = StyleSheet.create({
   hint: { fontSize: 12, color: DS.muted, textAlign: 'center', marginTop: 14 },
 
   footer: { fontSize: 11, color: DS.muted, textAlign: 'center', marginTop: 26, paddingHorizontal: 24, lineHeight: 18 },
-  footerLink: { color: DS.sub, fontWeight: '700' },
+  footerLink: { color: DS.sub, fontWeight: '700' }
 });

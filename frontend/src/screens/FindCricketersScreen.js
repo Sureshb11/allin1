@@ -1,4 +1,4 @@
-// FindCricketersScreen — browse players across sports with search + role filter.
+import { useTheme, useThemedStyles } from "../theme/ThemeContext"; // FindCricketersScreen — browse players across sports with search + role filter.
 // Sport tabs (Cricket / Football / Badminton) drive a sport-scoped query to
 // legendsApi.getPlayers({ sport }); role chips + title adapt per sport.
 // Opened from the search screen's "Find cricketers" shortcut (defaults to cricket).
@@ -6,43 +6,43 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity,
-  StatusBar, ScrollView, ActivityIndicator,
-} from 'react-native';
+  StatusBar, ScrollView, ActivityIndicator } from
+'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getFind, FIND_CONFIG } from '../sports/find';
 
-const DS = {
-  bg: '#0f131f', surfaceLow: '#171b28', surfaceHigh: '#262a37', surfaceHighest: '#313442',
-  lime: '#abd600', blue: '#b7c4ff', coral: '#ffb59e', amber: '#ffb24a',
-  textPrimary: '#dfe2f3', textVariant: '#c3c5d9', textMuted: '#8d90a2',
-  line: 'rgba(150,170,210,0.10)',
-};
+
+
+
+
+
+
 
 // Sport tabs shown at the top.
 const SPORTS = [
-  { id: 'cricket',   label: 'Cricket' },
-  { id: 'football',  label: 'Football' },
-  { id: 'badminton', label: 'Badminton' },
-];
+{ id: 'cricket', label: 'Cricket' },
+{ id: 'football', label: 'Football' },
+{ id: 'badminton', label: 'Badminton' }];
+
 
 // Per-sport title + role buckets (used for the filter chips).
 
 // role → { short label, accent colour }
 const ROLE_META = {
   // cricket
-  'Batter':       { short: 'BAT',  color: '#abd600' },
-  'Bowler':       { short: 'BOWL', color: '#b7c4ff' },
-  'All-rounder':  { short: 'ALL',  color: '#ffb24a' },
-  'Wicketkeeper': { short: 'WK',   color: '#ffb59e' },
+  'Batter': { short: 'BAT', color: '#abd600' },
+  'Bowler': { short: 'BOWL', color: '#b7c4ff' },
+  'All-rounder': { short: 'ALL', color: '#ffb24a' },
+  'Wicketkeeper': { short: 'WK', color: '#ffb59e' },
   // football
-  'Striker':      { short: 'ST',   color: '#abd600' },
-  'Midfielder':   { short: 'MID',  color: '#b7c4ff' },
-  'Defender':     { short: 'DEF',  color: '#ffb24a' },
-  'Goalkeeper':   { short: 'GK',   color: '#ffb59e' },
+  'Striker': { short: 'ST', color: '#abd600' },
+  'Midfielder': { short: 'MID', color: '#b7c4ff' },
+  'Defender': { short: 'DEF', color: '#ffb24a' },
+  'Goalkeeper': { short: 'GK', color: '#ffb59e' },
   // badminton
-  'Singles':      { short: 'SGL',  color: '#abd600' },
-  'Doubles':      { short: 'DBL',  color: '#b7c4ff' },
+  'Singles': { short: 'SGL', color: '#abd600' },
+  'Doubles': { short: 'DBL', color: '#b7c4ff' }
 };
 
 const PALETTE = ['#2d7a3a', '#b45309', '#7c3aed', '#b91c1c', '#0d7c8f', '#1a5fa8', '#c2490d', '#0f766e', '#9333ea', '#be185d', '#4d7c0f', '#a16207'];
@@ -73,20 +73,20 @@ const mapPlayer = (p, i, sport) => {
     style: s.style || p.role || '',
     matches: s.matches || 0,
     color: PALETTE[i % PALETTE.length],
-    verified: (s.matches || 0) > 120,
+    verified: (s.matches || 0) > 120
   };
 };
 
-function Avatar({ name, color }) {
-  const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+function Avatar({ name, color }) {const s = useThemedStyles(makeS);
+  const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   return (
     <View style={[s.avatar, { backgroundColor: color }]}>
       <Text style={s.avatarTxt}>{initials}</Text>
-    </View>
-  );
+    </View>);
+
 }
 
-export default function FindCricketersScreen({ navigation, route }) {
+export default function FindCricketersScreen({ navigation, route }) {const DS = useTheme().colors;const s = useThemedStyles(makeS);
   const [sport, setSport] = useState(route?.params?.sport || 'cricket');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('All');
@@ -106,7 +106,7 @@ export default function FindCricketersScreen({ navigation, route }) {
       setPlayers(list);
       setLoading(false);
     });
-    return () => { alive = false; };
+    return () => {alive = false;};
   }, [sport]);
 
   const data = useMemo(() => {
@@ -114,9 +114,9 @@ export default function FindCricketersScreen({ navigation, route }) {
     return players.filter((c) => {
       const roleOk = filter === 'All' || c.role === filter;
       const textOk = !q ||
-        c.name.toLowerCase().includes(q) ||
-        c.team.toLowerCase().includes(q) ||
-        c.city.toLowerCase().includes(q);
+      c.name.toLowerCase().includes(q) ||
+      c.team.toLowerCase().includes(q) ||
+      c.city.toLowerCase().includes(q);
       return roleOk && textOk;
     });
   }, [players, query, filter]);
@@ -143,8 +143,8 @@ export default function FindCricketersScreen({ navigation, route }) {
           </View>
           <Text style={s.matches}>{item.matches} <Text style={s.matchesUnit}>mts</Text></Text>
         </View>
-      </TouchableOpacity>
-    );
+      </TouchableOpacity>);
+
   };
 
   return (
@@ -166,10 +166,10 @@ export default function FindCricketersScreen({ navigation, route }) {
             const active = sp.id === sport;
             return (
               <TouchableOpacity key={sp.id} onPress={() => setSport(sp.id)} activeOpacity={0.85}
-                style={[s.sportTab, active && s.sportTabActive]}>
+              style={[s.sportTab, active && s.sportTabActive]}>
                 <Text style={[s.sportTabTxt, active && s.sportTabTxtActive]}>{sp.label}</Text>
-              </TouchableOpacity>
-            );
+              </TouchableOpacity>);
+
           })}
         </ScrollView>
       </View>
@@ -183,13 +183,13 @@ export default function FindCricketersScreen({ navigation, route }) {
             placeholder="Search by name, team or city…"
             placeholderTextColor={DS.textMuted}
             value={query}
-            onChangeText={setQuery}
-          />
-          {query.length > 0 && (
-            <TouchableOpacity hitSlop={8} onPress={() => setQuery('')}>
+            onChangeText={setQuery} />
+          
+          {query.length > 0 &&
+          <TouchableOpacity hitSlop={8} onPress={() => setQuery('')}>
               <Icon name="close-circle" size={18} color={DS.textMuted} />
             </TouchableOpacity>
-          )}
+          }
         </View>
       </View>
 
@@ -200,10 +200,10 @@ export default function FindCricketersScreen({ navigation, route }) {
             const active = f === filter;
             return (
               <TouchableOpacity key={f} onPress={() => setFilter(f)} activeOpacity={0.8}
-                style={[s.chip, active && s.chipActive]}>
+              style={[s.chip, active && s.chipActive]}>
                 <Text style={[s.chipTxt, active && s.chipTxtActive]}>{f}</Text>
-              </TouchableOpacity>
-            );
+              </TouchableOpacity>);
+
           })}
         </ScrollView>
       </View>
@@ -212,29 +212,29 @@ export default function FindCricketersScreen({ navigation, route }) {
       <Text style={s.count}>{data.length} {sport === 'cricket' ? 'cricketer' : 'player'}{data.length === 1 ? '' : 's'}</Text>
 
       {/* list */}
-      {loading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color={DS.lime} />
-      ) : (
-        <FlatList
-          data={data}
-          keyExtractor={(it) => it.id}
-          renderItem={renderItem}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 24 }}
-          ListEmptyComponent={
-            <View style={s.empty}>
+      {loading ?
+      <ActivityIndicator style={{ marginTop: 40 }} color={DS.lime} /> :
+
+      <FlatList
+        data={data}
+        keyExtractor={(it) => it.id}
+        renderItem={renderItem}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        ListEmptyComponent={
+        <View style={s.empty}>
               <Icon name="account-search-outline" size={56} color={DS.surfaceHighest} />
               <Text style={s.emptyTitle}>No players found</Text>
               <Text style={s.emptySub}>Try a different name or filter</Text>
             </View>
-          }
-        />
-      )}
-    </View>
-  );
+        } />
+
+      }
+    </View>);
+
 }
 
-const s = StyleSheet.create({
+const makeS = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
 
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 52, paddingBottom: 8, paddingHorizontal: 14 },
@@ -250,7 +250,7 @@ const s = StyleSheet.create({
   searchWrap: { paddingHorizontal: 16, paddingTop: 8 },
   searchBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingHorizontal: 14,
+    backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingHorizontal: 14
   },
   searchInput: { flex: 1, paddingVertical: 11, fontSize: 15, color: DS.textPrimary },
 
@@ -277,5 +277,5 @@ const s = StyleSheet.create({
 
   empty: { alignItems: 'center', paddingTop: 70, gap: 6 },
   emptyTitle: { color: DS.textVariant, fontSize: 16, fontWeight: '700' },
-  emptySub: { color: DS.textMuted, fontSize: 13 },
+  emptySub: { color: DS.textMuted, fontSize: 13 }
 });

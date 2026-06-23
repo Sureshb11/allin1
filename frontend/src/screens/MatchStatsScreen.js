@@ -1,4 +1,4 @@
-// MatchStatsScreen — match view for event-based sports (football, basketball, …).
+import { useTheme, useThemedStyles, useArenaColors } from "../theme/ThemeContext"; // MatchStatsScreen — match view for event-based sports (football, basketball, …).
 // Shows the live/final score, per-period breakdown, and sport aggregates
 // (football: cards & corners) from GET /matches/:id/sport-stats.
 import { useState, useCallback } from 'react';
@@ -7,24 +7,24 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Activi
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 
-const A = {
-  bg: '#0f131f', surfaceLow: '#171b28', surface: '#1b1f2c', surfaceHigh: '#262a37',
-  line: 'rgba(150,170,210,0.10)', ink: '#dfe2f3', inkDim: '#8d90a2', lime: '#abd600',
-  yellow: '#eab308', red: '#ef4444',
-};
+
+
+
+
+
 
 const teamName = (t) => (typeof t === 'string' ? t : t?.name) || 'Team';
 
 // team1 vs team2 comparison row
-const StatRow = ({ label, a, b, aColor = A.ink, bColor = A.ink }) => (
-  <View style={s.statRow}>
+const StatRow = ({ label, a, b, aColor = A.ink, bColor = A.ink }) => {const s = useThemedStyles(makeS);return (
+    <View style={s.statRow}>
     <Text style={[s.statVal, { color: aColor, textAlign: 'left' }]}>{a}</Text>
     <Text style={s.statLabel}>{label}</Text>
     <Text style={[s.statVal, { color: bColor, textAlign: 'right' }]}>{b}</Text>
-  </View>
-);
+  </View>);};
 
-export default function MatchStatsScreen({ navigation, route }) {
+
+export default function MatchStatsScreen({ navigation, route }) {const A = useArenaColors();const s = useThemedStyles(makeS);
   const { matchId, sportName = 'Match' } = route.params || {};
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,7 +37,7 @@ export default function MatchStatsScreen({ navigation, route }) {
       setStats(res?.success ? res.data : null);
       setLoading(false);
     });
-    return () => { alive = false; };
+    return () => {alive = false;};
   }, [matchId]));
 
   const t1 = teamName(stats?.team1);
@@ -46,36 +46,36 @@ export default function MatchStatsScreen({ navigation, route }) {
   const sc2 = stats?.score?.score2 ?? '—';
   const cards = stats?.cards;
   const corners = stats?.corners;
-  const games = stats?.games;     // badminton / table tennis
+  const games = stats?.games; // badminton / table tennis
   const points = stats?.points;
   const aces = stats?.aces;
-  const doubleFaults = stats?.doubleFaults;   // tennis
-  const strokes = stats?.strokes;             // squash
-  const fouls = stats?.fouls;                 // basketball
-  const timeouts = stats?.timeouts;           // basketball
-  const allOuts = stats?.allOuts;             // kabaddi
+  const doubleFaults = stats?.doubleFaults; // tennis
+  const strokes = stats?.strokes; // squash
+  const fouls = stats?.fouls; // basketball
+  const timeouts = stats?.timeouts; // basketball
+  const allOuts = stats?.allOuts; // kabaddi
   const penaltyCorners = stats?.penaltyCorners; // hockey
-  const blocks = stats?.blocks;               // volleyball
-  const sevenMeters = stats?.sevenMeters;     // handball
-  const bonuses = stats?.bonuses;             // kho-kho
-  const knockdowns = stats?.knockdowns;       // boxing
-  const punches = stats?.punches;             // boxing
-  const roundsWon = stats?.roundsWon;         // boxing
-  const takedowns = stats?.takedowns;         // wrestling
-  const pins = stats?.pins;                   // wrestling
-  const ippons = stats?.ippons;               // judo / karate
-  const wazaAri = stats?.wazaAri;             // judo / karate
-  const birdies = stats?.birdies;             // golf
-  const holesInOne = stats?.holesInOne;       // golf
-  const tens = stats?.tens;                   // archery
-  const nines = stats?.nines;                 // archery
-  const pots = stats?.pots;                   // bowling
-  const crashes = stats?.crashes;             // skateboard
+  const blocks = stats?.blocks; // volleyball
+  const sevenMeters = stats?.sevenMeters; // handball
+  const bonuses = stats?.bonuses; // kho-kho
+  const knockdowns = stats?.knockdowns; // boxing
+  const punches = stats?.punches; // boxing
+  const roundsWon = stats?.roundsWon; // boxing
+  const takedowns = stats?.takedowns; // wrestling
+  const pins = stats?.pins; // wrestling
+  const ippons = stats?.ippons; // judo / karate
+  const wazaAri = stats?.wazaAri; // judo / karate
+  const birdies = stats?.birdies; // golf
+  const holesInOne = stats?.holesInOne; // golf
+  const tens = stats?.tens; // archery
+  const nines = stats?.nines; // archery
+  const pots = stats?.pots; // bowling
+  const crashes = stats?.crashes; // skateboard
   const periods = stats?.periodBreakdown || [];
-  const hasStats = cards || corners || games || points || aces || doubleFaults || strokes
-    || fouls || timeouts || allOuts || penaltyCorners || blocks || sevenMeters || bonuses
-    || knockdowns || punches || roundsWon || takedowns || pins || ippons || wazaAri
-    || birdies || holesInOne || tens || nines || pots || crashes;
+  const hasStats = cards || corners || games || points || aces || doubleFaults || strokes ||
+  fouls || timeouts || allOuts || penaltyCorners || blocks || sevenMeters || bonuses ||
+  knockdowns || punches || roundsWon || takedowns || pins || ippons || wazaAri ||
+  birdies || holesInOne || tens || nines || pots || crashes;
 
   return (
     <View style={s.root}>
@@ -87,12 +87,12 @@ export default function MatchStatsScreen({ navigation, route }) {
         <Text style={s.headerTitle}>{sportName} · Match Stats</Text>
       </View>
 
-      {loading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color={A.lime} />
-      ) : !stats ? (
-        <Text style={s.empty}>Couldn’t load match stats.</Text>
-      ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      {loading ?
+      <ActivityIndicator style={{ marginTop: 40 }} color={A.lime} /> :
+      !stats ?
+      <Text style={s.empty}>Couldn’t load match stats.</Text> :
+
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
           {/* Scoreboard */}
           <View style={s.scoreCard}>
             <View style={s.teamCol}>
@@ -109,28 +109,28 @@ export default function MatchStatsScreen({ navigation, route }) {
           </View>
 
           {/* Period breakdown */}
-          {periods.length > 0 && (
-            <View style={s.section}>
+          {periods.length > 0 &&
+        <View style={s.section}>
               <Text style={s.sectionTitle}>By Period</Text>
-              {periods.map((p) => (
-                <StatRow key={p.period} label={`Period ${p.period}`} a={p.score1} b={p.score2} />
-              ))}
-            </View>
+              {periods.map((p) =>
+          <StatRow key={p.period} label={`Period ${p.period}`} a={p.score1} b={p.score2} />
           )}
+            </View>
+        }
 
           {/* Sport aggregates */}
-          {hasStats && (
-            <View style={s.section}>
+          {hasStats &&
+        <View style={s.section}>
               <Text style={s.sectionTitle}>Match Stats</Text>
               {/* football / hockey */}
               {corners && <StatRow label="Corners" a={corners.team1} b={corners.team2} />}
               {penaltyCorners && <StatRow label="Penalty corners" a={penaltyCorners.team1} b={penaltyCorners.team2} />}
-              {cards && (
-                <>
+              {cards &&
+          <>
                   <StatRow label="Yellow cards" a={cards.team1.yellow} b={cards.team2.yellow} aColor={A.yellow} bColor={A.yellow} />
                   <StatRow label="Red cards" a={cards.team1.red} b={cards.team2.red} aColor={A.red} bColor={A.red} />
                 </>
-              )}
+          }
               {/* badminton / table tennis */}
               {games && <StatRow label="Games won" a={games.team1} b={games.team2} aColor={A.lime} bColor={A.lime} />}
               {points && <StatRow label="Points" a={points.team1} b={points.team2} />}
@@ -160,14 +160,14 @@ export default function MatchStatsScreen({ navigation, route }) {
               {pots && <StatRow label="Pots" a={pots.team1} b={pots.team2} />}
               {crashes && <StatRow label="Crashes" a={crashes.team1} b={crashes.team2} aColor={A.red} bColor={A.red} />}
             </View>
-          )}
+        }
         </ScrollView>
-      )}
-    </View>
-  );
+      }
+    </View>);
+
 }
 
-const s = StyleSheet.create({
+const makeS = (A) => StyleSheet.create({
   root: { flex: 1, backgroundColor: A.bg, paddingTop: 44 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
   backBtn: { padding: 2 },
@@ -187,5 +187,5 @@ const s = StyleSheet.create({
   sectionTitle: { color: A.ink, fontSize: 14, fontWeight: '800', marginBottom: 8 },
   statRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: A.line },
   statVal: { flex: 1, color: A.ink, fontSize: 16, fontWeight: '800' },
-  statLabel: { flex: 2, color: A.inkDim, fontSize: 12.5, textAlign: 'center', fontWeight: '600' },
+  statLabel: { flex: 2, color: A.inkDim, fontSize: 12.5, textAlign: 'center', fontWeight: '600' }
 });

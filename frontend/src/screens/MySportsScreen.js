@@ -1,4 +1,4 @@
-// MySportsScreen — view & manage the sports the user follows (UserSport).
+import { useTheme, useThemedStyles } from "../theme/ThemeContext"; // MySportsScreen — view & manage the sports the user follows (UserSport).
 // Shows the user's sports (primary highlighted), lets them switch primary
 // (reloads the app for that sport), and add more via the Arena picker.
 
@@ -6,17 +6,17 @@ import { useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
-  ActivityIndicator, Alert,
-} from 'react-native';
+  ActivityIndicator, Alert } from
+'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { setSelectedSport } from '../utils/selectedSport';
 
-const DS = {
-  bg: '#0f131f', surfaceLow: '#171b28', surfaceHigh: '#262a37', surfaceHighest: '#313442',
-  lime: '#abd600', textPrimary: '#dfe2f3', textVariant: '#c3c5d9', textMuted: '#8d90a2',
-  line: 'rgba(150,170,210,0.10)',
-};
+
+
+
+
+
 
 // id → { name, icon } for the picker sports.
 const SPORT_META = {
@@ -29,11 +29,11 @@ const SPORT_META = {
   squash: { name: 'Squash', icon: 'tennis' }, pickleball: { name: 'Pickleball', icon: 'table-tennis' },
   tabletennis: { name: 'Table Tennis', icon: 'table-tennis' }, judo: { name: 'Judo', icon: 'karate' },
   karate: { name: 'Karate', icon: 'karate' },
-  skateboard: { name: 'Skateboarding', icon: 'skateboard' }, rummy: { name: 'Rummy', icon: 'cards-playing-outline' },
+  skateboard: { name: 'Skateboarding', icon: 'skateboard' }, rummy: { name: 'Rummy', icon: 'cards-playing-outline' }
 };
 const meta = (id) => SPORT_META[id] || { name: id ? id[0].toUpperCase() + id.slice(1) : 'Sport', icon: 'trophy' };
 
-export default function MySportsScreen({ navigation }) {
+export default function MySportsScreen({ navigation }) {const DS = useTheme().colors;const s = useThemedStyles(makeS);
   const [sports, setSports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
@@ -41,29 +41,29 @@ export default function MySportsScreen({ navigation }) {
   const load = useCallback(() => {
     setLoading(true);
     legendsApi.getMe().then((res) => {
-      setSports(res?.success ? (res.data.sports || []) : []);
+      setSports(res?.success ? res.data.sports || [] : []);
       setLoading(false);
     });
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {load();}, [load]));
 
   const switchTo = (sportId) => {
     const m = meta(sportId);
     Alert.alert(`Switch to ${m.name}?`, `Local Legends will reload for ${m.name}.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Switch',
-        onPress: async () => {
-          setSwitching(true);
-          const sport = { id: sportId, name: m.name, icon: m.icon };
-          setSelectedSport(sport, null);
-          try { await legendsApi.selectPrimarySport(sportId); } catch {}
-          const root = navigation.getParent('RootStack');
-          if (root) root.reset({ index: 0, routes: [{ name: 'MainApp', params: { sport } }] });
-        },
-      },
-    ]);
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Switch',
+      onPress: async () => {
+        setSwitching(true);
+        const sport = { id: sportId, name: m.name, icon: m.icon };
+        setSelectedSport(sport, null);
+        try {await legendsApi.selectPrimarySport(sportId);} catch {}
+        const root = navigation.getParent('RootStack');
+        if (root) root.reset({ index: 0, routes: [{ name: 'MainApp', params: { sport } }] });
+      }
+    }]
+    );
   };
 
   return (
@@ -76,29 +76,29 @@ export default function MySportsScreen({ navigation }) {
         <Text style={s.title}>My Sports</Text>
       </View>
 
-      {loading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color={DS.lime} />
-      ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+      {loading ?
+      <ActivityIndicator style={{ marginTop: 40 }} color={DS.lime} /> :
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
           <Text style={s.sub}>Sports you follow · tap to make it your active sport</Text>
 
-          {sports.length === 0 ? (
-            <View style={s.empty}>
+          {sports.length === 0 ?
+        <View style={s.empty}>
               <Icon name="trophy-outline" size={44} color={DS.surfaceHighest} />
               <Text style={s.emptyTitle}>No sports yet</Text>
               <Text style={s.emptySub}>Pick a sport from the Arena to get started.</Text>
-            </View>
-          ) : (
-            sports.map((us) => {
-              const m = meta(us.sport);
-              return (
-                <TouchableOpacity
-                  key={us.sport}
-                  style={[s.card, us.isPrimary && s.cardPrimary]}
-                  activeOpacity={0.85}
-                  disabled={us.isPrimary || switching}
-                  onPress={() => switchTo(us.sport)}
-                >
+            </View> :
+
+        sports.map((us) => {
+          const m = meta(us.sport);
+          return (
+            <TouchableOpacity
+              key={us.sport}
+              style={[s.card, us.isPrimary && s.cardPrimary]}
+              activeOpacity={0.85}
+              disabled={us.isPrimary || switching}
+              onPress={() => switchTo(us.sport)}>
+              
                   <View style={[s.iconWrap, us.isPrimary && { backgroundColor: DS.lime }]}>
                     <Icon name={m.icon} size={24} color={us.isPrimary ? DS.bg : DS.lime} />
                   </View>
@@ -106,25 +106,25 @@ export default function MySportsScreen({ navigation }) {
                     <Text style={s.name}>{m.name}</Text>
                     {!!us.role && <Text style={s.role}>{us.role}</Text>}
                   </View>
-                  {us.isPrimary
-                    ? <View style={s.badge}><Text style={s.badgeTxt}>ACTIVE</Text></View>
-                    : <Icon name="swap-horizontal" size={20} color={DS.textMuted} />}
-                </TouchableOpacity>
-              );
-            })
-          )}
+                  {us.isPrimary ?
+              <View style={s.badge}><Text style={s.badgeTxt}>ACTIVE</Text></View> :
+              <Icon name="swap-horizontal" size={20} color={DS.textMuted} />}
+                </TouchableOpacity>);
+
+        })
+        }
 
           <TouchableOpacity style={s.addBtn} activeOpacity={0.85} onPress={() => navigation.navigate('Profile')}>
             <Icon name="swap-horizontal" size={18} color={DS.lime} />
             <Text style={s.addTxt}>Switch sport in Profile</Text>
           </TouchableOpacity>
         </ScrollView>
-      )}
-    </View>
-  );
+      }
+    </View>);
+
 }
 
-const s = StyleSheet.create({
+const makeS = (DS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 52, paddingBottom: 8, paddingHorizontal: 14 },
   backBtn: { padding: 4 },
@@ -144,5 +144,5 @@ const s = StyleSheet.create({
 
   empty: { alignItems: 'center', paddingVertical: 40, gap: 6 },
   emptyTitle: { color: DS.textVariant, fontSize: 16, fontWeight: '700' },
-  emptySub: { color: DS.textMuted, fontSize: 13, textAlign: 'center' },
+  emptySub: { color: DS.textMuted, fontSize: 13, textAlign: 'center' }
 });

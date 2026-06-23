@@ -1,26 +1,26 @@
-import React from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React from 'react';
 import { View, Text, StyleSheet, ScrollView, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const DS = {
-  bg: '#0f131f', surfaceLow: '#171b28', surfaceHigh: '#262a37', surfaceHighest: '#313442',
-  lime: '#abd600', textPrimary: '#dfe2f3', textVariant: '#c3c5d9', textMuted: '#8d90a2',
-  success: '#22c55e',
-};
+
+
+
+
+
 
 const FEATURES = [
-  { icon: 'chart-line',     title: 'Advanced Analytics',       desc: 'Detailed match insights, player performance analytics, and tactical reports' },
-  { icon: 'broadcast',      title: 'Live Streaming',            desc: 'Stream your matches live to followers and fans worldwide' },
-  { icon: 'trophy',         title: 'Tournament Management',     desc: 'Create and manage professional tournaments with advanced features' },
-  { icon: 'database',       title: 'Unlimited Storage',         desc: 'Store unlimited match videos, photos, and scorecards' },
-  { icon: 'video',          title: 'Video Analysis',            desc: 'AI-powered video analysis for technique improvement' },
-  { icon: 'headset',        title: 'Priority Support',          desc: '24/7 premium customer support and faster response times' },
-  { icon: 'stadium',        title: 'Ground Directory',          desc: 'Access to premium cricket grounds and booking discounts' },
-  { icon: 'chart-box',      title: 'Team Insights',             desc: 'Advanced team performance metrics and comparison tools' },
-];
+{ icon: 'chart-line', title: 'Advanced Analytics', desc: 'Detailed match insights, player performance analytics, and tactical reports' },
+{ icon: 'broadcast', title: 'Live Streaming', desc: 'Stream your matches live to followers and fans worldwide' },
+{ icon: 'trophy', title: 'Tournament Management', desc: 'Create and manage professional tournaments with advanced features' },
+{ icon: 'database', title: 'Unlimited Storage', desc: 'Store unlimited match videos, photos, and scorecards' },
+{ icon: 'video', title: 'Video Analysis', desc: 'AI-powered video analysis for technique improvement' },
+{ icon: 'headset', title: 'Priority Support', desc: '24/7 premium customer support and faster response times' },
+{ icon: 'stadium', title: 'Ground Directory', desc: 'Access to premium cricket grounds and booking discounts' },
+{ icon: 'chart-box', title: 'Team Insights', desc: 'Advanced team performance metrics and comparison tools' }];
 
-const PremiumScreen = () => (
-  <View style={styles.container}>
+
+const PremiumScreen = () => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);return (
+    <View style={styles.container}>
     <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
     <View style={styles.hero}>
       <Icon name="crown" size={32} color="#ffd700" />
@@ -43,7 +43,7 @@ const PremiumScreen = () => (
         <Text style={styles.sectionTitle}>AVAILABLE FEATURES</Text>
       </View>
 
-      {FEATURES.map((f, i) => (
+      {FEATURES.map((f, i) =>
         <View key={i} style={styles.featureCard}>
           <View style={styles.featureIcon}>
             <Icon name={f.icon} size={22} color={DS.lime} />
@@ -57,7 +57,7 @@ const PremiumScreen = () => (
             </View>
           </View>
         </View>
-      ))}
+        )}
 
       <View style={styles.thankCard}>
         <Icon name="heart" size={28} color="#ef4444" />
@@ -67,47 +67,47 @@ const PremiumScreen = () => (
         </Text>
       </View>
     </ScrollView>
-  </View>
-);
+  </View>);};
 
-const styles = StyleSheet.create({
+
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 18, paddingHorizontal: 16,
+    backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 18, paddingHorizontal: 16
   },
   heroTitle: { fontSize: 20, fontWeight: '800', color: DS.textPrimary },
   heroSub: { fontSize: 12, color: DS.textMuted, marginTop: 2 },
   body: { padding: 16, gap: 12, paddingBottom: 32 },
   freeBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: 'rgba(34,197,94,0.1)', borderRadius: 16, padding: 16,
+    backgroundColor: 'rgba(34,197,94,0.1)', borderRadius: 16, padding: 16
   },
   freeText: { flex: 1, fontSize: 14, fontWeight: '600', color: DS.success },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionTitle: { fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 1.5 },
   featureCard: {
     backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16,
-    flexDirection: 'row', alignItems: 'flex-start', gap: 14,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 14
   },
   featureIcon: {
     width: 44, height: 44, borderRadius: 12, backgroundColor: DS.surfaceHighest,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center'
   },
   featureTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginBottom: 4 },
   featureDesc: { fontSize: 13, color: DS.textVariant, lineHeight: 19, marginBottom: 8 },
   freePill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(34,197,94,0.1)', borderRadius: 999,
-    paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start',
+    paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start'
   },
   freePillText: { fontSize: 11, fontWeight: '700', color: DS.success },
   thankCard: {
     backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16,
-    alignItems: 'center', gap: 8,
+    alignItems: 'center', gap: 8
   },
   thankTitle: { fontSize: 18, fontWeight: '900', color: DS.textPrimary },
-  thankText: { fontSize: 13, color: DS.textVariant, textAlign: 'center', lineHeight: 20 },
+  thankText: { fontSize: 13, color: DS.textVariant, textAlign: 'center', lineHeight: 20 }
 });
 
 export default PremiumScreen;

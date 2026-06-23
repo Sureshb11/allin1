@@ -1,35 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Share,
-} from 'react-native';
+  ActivityIndicator, Share } from
+'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  coral: '#ffb59e',
-  blue: '#b7c4ff',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-};
+
+
+
+
+
+
+
+
+
+
+
+
 
 function computeBatting(innings) {
   const map = {};
-  (innings.oversData || []).forEach(over => {
-    (over.balls || []).forEach(ball => {
+  (innings.oversData || []).forEach((over) => {
+    (over.balls || []).forEach((ball) => {
       const id = ball.batterId;
       if (!map[id]) map[id] = { name: ball.batter?.name || 'Unknown', runs: 0, balls: 0, fours: 0, sixes: 0, out: false, howOut: '' };
       map[id].runs += ball.runs;
       if (ball.extraType !== 'wide') map[id].balls += 1;
       if (ball.runs === 4) map[id].fours += 1;
       if (ball.runs === 6) map[id].sixes += 1;
-      if (ball.isWicket && ball.dismissedPlayerId === id) { map[id].out = true; map[id].howOut = ball.wicketType || 'out'; }
+      if (ball.isWicket && ball.dismissedPlayerId === id) {map[id].out = true;map[id].howOut = ball.wicketType || 'out';}
     });
   });
   return Object.values(map);
@@ -37,31 +37,31 @@ function computeBatting(innings) {
 
 function computeBowling(innings) {
   const map = {};
-  (innings.oversData || []).forEach(over => {
+  (innings.oversData || []).forEach((over) => {
     const id = over.bowlerId;
     if (!map[id]) map[id] = { name: over.bowler?.name || 'Unknown', overs: 0, runs: 0, wickets: 0, extras: 0 };
-    map[id].overs   += 1;
-    map[id].runs    += over.runs;
+    map[id].overs += 1;
+    map[id].runs += over.runs;
     map[id].wickets += over.wickets;
-    map[id].extras  += over.extras;
+    map[id].extras += over.extras;
   });
-  return Object.values(map).map(b => ({ ...b, economy: b.overs > 0 ? ((b.runs + b.extras) / b.overs).toFixed(1) : '0.0' }));
+  return Object.values(map).map((b) => ({ ...b, economy: b.overs > 0 ? ((b.runs + b.extras) / b.overs).toFixed(1) : '0.0' }));
 }
 
-function TableHeader({ cols }) {
+function TableHeader({ cols }) {const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.tableHeader}>
-      {cols.map((c, i) => (
-        <Text key={i} style={[styles.cell, i === 0 ? styles.nameCol : styles.numCol, styles.headerCell]}>{c}</Text>
-      ))}
-    </View>
-  );
+      {cols.map((c, i) =>
+      <Text key={i} style={[styles.cell, i === 0 ? styles.nameCol : styles.numCol, styles.headerCell]}>{c}</Text>
+      )}
+    </View>);
+
 }
 
-function InningsBlock({ innings, index }) {
+function InningsBlock({ innings, index }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const batters = computeBatting(innings);
   const bowlers = computeBowling(innings);
-  const label   = index === 0 ? '1st' : '2nd';
+  const label = index === 0 ? '1st' : '2nd';
 
   return (
     <View style={styles.inningsCard}>
@@ -82,8 +82,8 @@ function InningsBlock({ innings, index }) {
       </View>
 
       <TableHeader cols={['BATTER', 'R', 'B', '4s', '6s', 'SR']} />
-      {batters.map((b, i) => (
-        <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
+      {batters.map((b, i) =>
+      <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
           <View style={[styles.cell, styles.nameCol]}>
             <Text style={styles.batterName}>{b.name}</Text>
             <Text style={b.out ? styles.howOut : styles.notOut}>{b.out ? b.howOut : 'not out'}</Text>
@@ -93,10 +93,10 @@ function InningsBlock({ innings, index }) {
           <Text style={[styles.cell, styles.numCol]}>{b.fours}</Text>
           <Text style={[styles.cell, styles.numCol]}>{b.sixes}</Text>
           <Text style={[styles.cell, styles.numCol]}>
-            {b.balls > 0 ? ((b.runs / b.balls) * 100).toFixed(0) : '0'}
+            {b.balls > 0 ? (b.runs / b.balls * 100).toFixed(0) : '0'}
           </Text>
         </View>
-      ))}
+      )}
 
       {/* Bowling section */}
       <View style={[styles.sectionHeaderRow, { marginTop: 20 }]}>
@@ -109,28 +109,28 @@ function InningsBlock({ innings, index }) {
       </View>
 
       <TableHeader cols={['BOWLER', 'O', 'R', 'W', 'ECON']} />
-      {bowlers.map((b, i) => (
-        <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
+      {bowlers.map((b, i) =>
+      <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
           <Text style={[styles.cell, styles.nameCol, styles.bowlerName]}>{b.name}</Text>
           <Text style={[styles.cell, styles.numCol]}>{b.overs}</Text>
           <Text style={[styles.cell, styles.numCol]}>{b.runs + b.extras}</Text>
           <Text style={[styles.cell, styles.numCol, b.wickets >= 3 && styles.highlight]}>{b.wickets}</Text>
           <Text style={[styles.cell, styles.numCol]}>{b.economy}</Text>
         </View>
-      ))}
-    </View>
-  );
+      )}
+    </View>);
+
 }
 
-export default function ScorecardScreen({ route, navigation }) {
+export default function ScorecardScreen({ route, navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const { matchId } = route.params || {};
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    legendsApi.getScorecard(matchId)
-      .then(res => { if (res.success) setMatch(res.data); })
-      .finally(() => setLoading(false));
+    legendsApi.getScorecard(matchId).
+    then((res) => {if (res.success) setMatch(res.data);}).
+    finally(() => setLoading(false));
   }, [matchId]);
 
   const shareScorecard = async () => {
@@ -139,7 +139,7 @@ export default function ScorecardScreen({ route, navigation }) {
     const t2 = match.team2?.name || 'Team 2';
     try {
       await Share.share({
-        message: `🏏 Scorecard: ${t1} vs ${t2}\n${match.score1 || '—'} | ${match.score2 || '—'}\n${match.result || ''}\nShared via AllIn1 Cricket`,
+        message: `🏏 Scorecard: ${t1} vs ${t2}\n${match.score1 || '—'} | ${match.score2 || '—'}\n${match.result || ''}\nShared via AllIn1 Cricket`
       });
     } catch {}
   };
@@ -148,8 +148,8 @@ export default function ScorecardScreen({ route, navigation }) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={DS.lime} />
-      </View>
-    );
+      </View>);
+
   }
 
   if (!match) {
@@ -157,8 +157,8 @@ export default function ScorecardScreen({ route, navigation }) {
       <View style={styles.centered}>
         <Icon name="alert-circle-outline" size={48} color={DS.coral} />
         <Text style={styles.errorText}>Scorecard not available</Text>
-      </View>
-    );
+      </View>);
+
   }
 
   const t1 = match.team1?.name || 'Team 1';
@@ -168,11 +168,11 @@ export default function ScorecardScreen({ route, navigation }) {
     <View style={styles.container}>
       {/* Brand bar */}
       <View style={styles.brandBar}>
-        {navigation && (
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        {navigation &&
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Icon name="arrow-left" size={22} color={DS.textPrimary} />
           </TouchableOpacity>
-        )}
+        }
         <Text style={styles.brandText}>LOCAL LEGENDS</Text>
         <View style={{ width: 26 }} />
       </View>
@@ -214,12 +214,12 @@ export default function ScorecardScreen({ route, navigation }) {
         </View>
 
         {/* Result */}
-        {match.result && (
-          <View style={styles.resultBanner}>
+        {match.result &&
+        <View style={styles.resultBanner}>
             <Icon name="trophy" size={16} color={DS.lime} />
             <Text style={styles.resultBannerText}>{match.result}</Text>
           </View>
-        )}
+        }
 
         {/* Tab switcher */}
         <View style={styles.tabRow}>
@@ -233,9 +233,9 @@ export default function ScorecardScreen({ route, navigation }) {
 
         {/* Innings */}
         <View style={styles.body}>
-          {(match.innings || []).map((inn, i) => (
-            <InningsBlock key={inn.id || i} innings={inn} index={i} />
-          ))}
+          {(match.innings || []).map((inn, i) =>
+          <InningsBlock key={inn.id || i} innings={inn} index={i} />
+          )}
         </View>
 
         {/* WhatsApp Share */}
@@ -246,11 +246,11 @@ export default function ScorecardScreen({ route, navigation }) {
 
         <View style={{ height: 32 }} />
       </ScrollView>
-    </View>
-  );
+    </View>);
+
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
   errorText: { fontSize: 16, color: DS.textMuted, marginTop: 12, fontWeight: '600' },
@@ -258,17 +258,17 @@ const styles = StyleSheet.create({
   // Brand bar
   brandBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16,
+    backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16
   },
   brandText: {
-    fontSize: 13, fontWeight: '900', color: DS.lime, letterSpacing: 2,
+    fontSize: 13, fontWeight: '900', color: DS.lime, letterSpacing: 2
   },
   backBtn: { padding: 4 },
 
   // Hero
   hero: {
     alignItems: 'center', paddingVertical: 24, paddingHorizontal: 16,
-    backgroundColor: DS.bg,
+    backgroundColor: DS.bg
   },
   heroScore: { fontSize: 48, fontWeight: '900', color: '#fff', letterSpacing: 1 },
   heroOvers: { fontSize: 14, color: DS.textMuted, marginTop: 2 },
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   scoreSummary: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: DS.surfaceHigh, marginHorizontal: 16,
-    borderRadius: 14, padding: 16,
+    borderRadius: 14, padding: 16
   },
   scoreTeam: { flex: 1, alignItems: 'flex-start', gap: 4 },
   scoreAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
@@ -294,23 +294,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: 'rgba(171,214,0,0.08)', marginHorizontal: 16, marginTop: 12,
     borderRadius: 10, paddingVertical: 10,
-    borderLeftWidth: 4, borderLeftColor: DS.lime,
+    borderLeftWidth: 4, borderLeftColor: DS.lime
   },
   resultBannerText: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
 
   // Tab switcher
   tabRow: {
     flexDirection: 'row', marginHorizontal: 16, marginTop: 16, marginBottom: 4,
-    gap: 0,
+    gap: 0
   },
   tabActive: {
     paddingVertical: 10, paddingHorizontal: 20,
-    borderBottomWidth: 2, borderBottomColor: DS.lime,
+    borderBottomWidth: 2, borderBottomColor: DS.lime
   },
   tabActiveText: { fontSize: 12, fontWeight: '800', color: DS.lime, letterSpacing: 1 },
   tabInactive: {
     paddingVertical: 10, paddingHorizontal: 20,
-    borderBottomWidth: 2, borderBottomColor: 'transparent',
+    borderBottomWidth: 2, borderBottomColor: 'transparent'
   },
   tabInactiveText: { fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 1 },
 
@@ -319,25 +319,25 @@ const styles = StyleSheet.create({
   // Innings card
   inningsCard: {
     backgroundColor: DS.surfaceHigh, borderRadius: 14, overflow: 'hidden',
-    paddingBottom: 8,
+    paddingBottom: 8
   },
 
   sectionHeaderRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 14, paddingVertical: 12,
-    backgroundColor: DS.surfaceHighest,
+    backgroundColor: DS.surfaceHighest
   },
   sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   inningsIndicator: {
-    width: 4, height: 18, borderRadius: 2, backgroundColor: DS.lime,
+    width: 4, height: 18, borderRadius: 2, backgroundColor: DS.lime
   },
   sectionHeaderText: {
-    fontSize: 12, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.8,
+    fontSize: 12, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.8
   },
   inningsLabel: { fontSize: 11, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
   inningsScoreBanner: {
     flexDirection: 'row', alignItems: 'baseline', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8,
+    paddingHorizontal: 14, paddingVertical: 8
   },
   inningsScore: { fontSize: 26, fontWeight: '900', color: '#fff' },
   inningsOvers: { fontSize: 12, color: DS.textMuted },
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: DS.surfaceHighest,
-    paddingVertical: 8, paddingHorizontal: 12,
+    paddingVertical: 8, paddingHorizontal: 12
   },
   tableRow: { flexDirection: 'row', paddingVertical: 9, paddingHorizontal: 12 },
   tableRowAlt: { backgroundColor: 'rgba(255,255,255,0.02)' },
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   shareBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: '#25D366', borderRadius: 14,
-    paddingVertical: 14, marginHorizontal: 16, marginTop: 16,
+    paddingVertical: 14, marginHorizontal: 16, marginTop: 16
   },
-  shareBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  shareBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' }
 });

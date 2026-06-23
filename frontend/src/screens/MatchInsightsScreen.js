@@ -1,39 +1,39 @@
-import { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
-} from 'react-native';
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from
+'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  coral: '#ffb59e',
-  blue: '#b7c4ff',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-};
+
+
+
+
+
+
+
+
+
+
+
+
 
 const TABS = ['Batting', 'Bowling', 'Run Rate', 'Extras'];
 
-function ProgressBar({ value, max, color = DS.lime }) {
-  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+function ProgressBar({ value, max, color = DS.lime }) {const pbStyles = useThemedStyles(makePbStyles);
+  const pct = max > 0 ? Math.min(value / max * 100, 100) : 0;
   return (
     <View style={pbStyles.track}>
       <View style={[pbStyles.fill, { width: `${pct}%`, backgroundColor: color }]} />
-    </View>
-  );
+    </View>);
+
 }
-const pbStyles = StyleSheet.create({
+const makePbStyles = (DS) => StyleSheet.create({
   track: { height: 6, backgroundColor: DS.surfaceHighest, borderRadius: 3, overflow: 'hidden', flex: 1 },
-  fill: { height: '100%', borderRadius: 3 },
+  fill: { height: '100%', borderRadius: 3 }
 });
 
-export default function MatchInsightsScreen({ route, navigation }) {
+export default function MatchInsightsScreen({ route, navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const { matchId } = route.params || {};
   const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +41,7 @@ export default function MatchInsightsScreen({ route, navigation }) {
   const [activeInning, setActiveInning] = useState(0);
 
   useEffect(() => {
-    legendsApi.getMatchInsights(matchId).then(res => {
+    legendsApi.getMatchInsights(matchId).then((res) => {
       if (res.success) setInsights(res.data);
       setLoading(false);
     });
@@ -51,8 +51,8 @@ export default function MatchInsightsScreen({ route, navigation }) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={DS.lime} />
-      </View>
-    );
+      </View>);
+
   }
 
   if (!insights || !insights.innings?.length) {
@@ -65,18 +65,18 @@ export default function MatchInsightsScreen({ route, navigation }) {
           <Icon name="arrow-left" size={18} color={DS.bg} />
           <Text style={styles.backFabText}>Go Back</Text>
         </TouchableOpacity>
-      </View>
-    );
+      </View>);
+
   }
 
   const inning = insights.innings[activeInning];
-  const maxRuns = Math.max(...(inning.batting || []).map(b => b.runs), 1);
-  const maxWkts = Math.max(...(inning.bowling || []).map(b => b.wickets), 1);
+  const maxRuns = Math.max(...(inning.batting || []).map((b) => b.runs), 1);
+  const maxWkts = Math.max(...(inning.bowling || []).map((b) => b.wickets), 1);
 
-  const renderBatting = () => (
-    <View style={styles.section}>
-      {(inning.batting || []).map((b, i) => (
-        <View key={i} style={styles.statRow}>
+  const renderBatting = () =>
+  <View style={styles.section}>
+      {(inning.batting || []).map((b, i) =>
+    <View key={i} style={styles.statRow}>
           <View style={styles.playerCol}>
             <View style={[styles.rankBadge, i < 3 && { backgroundColor: ['#FFD700', '#C0C0C0', '#CD7F32'][i] }]}>
               <Icon name="cricket" size={10} color={DS.bg} />
@@ -96,14 +96,14 @@ export default function MatchInsightsScreen({ route, navigation }) {
             {b.sixes > 0 && <Text style={[styles.extraStatText, { color: DS.lime }]}>{b.sixes}×6</Text>}
           </View>
         </View>
-      ))}
-    </View>
-  );
+    )}
+    </View>;
 
-  const renderBowling = () => (
-    <View style={styles.section}>
-      {(inning.bowling || []).map((b, i) => (
-        <View key={i} style={styles.statRow}>
+
+  const renderBowling = () =>
+  <View style={styles.section}>
+      {(inning.bowling || []).map((b, i) =>
+    <View key={i} style={styles.statRow}>
           <View style={styles.playerCol}>
             <View style={[styles.rankBadge, { backgroundColor: DS.blue }]}>
               <Icon name="weather-windy" size={10} color={DS.bg} />
@@ -122,14 +122,14 @@ export default function MatchInsightsScreen({ route, navigation }) {
             {b.noBalls > 0 && <Text style={[styles.extraStatText, { color: DS.coral }]}>{b.noBalls}nb</Text>}
           </View>
         </View>
-      ))}
-    </View>
-  );
+    )}
+    </View>;
 
-  const renderRunRate = () => (
-    <View style={styles.section}>
-      {(inning.runRate || []).map((o, i) => (
-        <View key={i} style={styles.rrRow}>
+
+  const renderRunRate = () =>
+  <View style={styles.section}>
+      {(inning.runRate || []).map((o, i) =>
+    <View key={i} style={styles.rrRow}>
           <Text style={styles.rrOver}>Ov {o.over}</Text>
           <View style={{ flex: 1, marginHorizontal: 8 }}>
             <ProgressBar value={o.runs} max={24} color={o.wickets > 0 ? DS.coral : '#6ee76e'} />
@@ -137,30 +137,30 @@ export default function MatchInsightsScreen({ route, navigation }) {
           <Text style={styles.rrRuns}>{o.runs}</Text>
           {o.wickets > 0 && <Icon name="close-circle" size={14} color={DS.coral} />}
         </View>
-      ))}
-      {(inning.runRate || []).length === 0 && (
-        <View style={styles.empty}>
+    )}
+      {(inning.runRate || []).length === 0 &&
+    <View style={styles.empty}>
           <Icon name="chart-bar" size={36} color={DS.textMuted} />
           <Text style={styles.emptyText}>No over data yet</Text>
         </View>
-      )}
-    </View>
-  );
+    }
+    </View>;
+
 
   const renderExtras = () => {
     const ex = inning.extras || {};
     const total = (ex.wides || 0) + (ex.noBalls || 0) + (ex.byes || 0) + (ex.legByes || 0);
     const items = [
-      { label: 'Wides', value: ex.wides || 0, icon: 'arrow-expand-horizontal', color: DS.coral },
-      { label: 'No Balls', value: ex.noBalls || 0, icon: 'close-circle-outline', color: '#ff4d4d' },
-      { label: 'Byes', value: ex.byes || 0, icon: 'skip-next-circle-outline', color: DS.blue },
-      { label: 'Leg Byes', value: ex.legByes || 0, icon: 'human-male', color: DS.lime },
-    ];
+    { label: 'Wides', value: ex.wides || 0, icon: 'arrow-expand-horizontal', color: DS.coral },
+    { label: 'No Balls', value: ex.noBalls || 0, icon: 'close-circle-outline', color: '#ff4d4d' },
+    { label: 'Byes', value: ex.byes || 0, icon: 'skip-next-circle-outline', color: DS.blue },
+    { label: 'Leg Byes', value: ex.legByes || 0, icon: 'human-male', color: DS.lime }];
+
     return (
       <View style={styles.section}>
         <Text style={styles.extrasTotal}>Total Extras: {total}</Text>
-        {items.map(({ label, value, icon, color }) => (
-          <View key={label} style={styles.extrasRow}>
+        {items.map(({ label, value, icon, color }) =>
+        <View key={label} style={styles.extrasRow}>
             <View style={styles.extrasLabel}>
               <Icon name={icon} size={16} color={color} />
               <Text style={styles.extrasLabelText}>{label}</Text>
@@ -168,9 +168,9 @@ export default function MatchInsightsScreen({ route, navigation }) {
             <ProgressBar value={value} max={Math.max(total, 1)} color={color} />
             <Text style={[styles.extrasValue, { color }]}>{value}</Text>
           </View>
-        ))}
-      </View>
-    );
+        )}
+      </View>);
+
   };
 
   return (
@@ -187,14 +187,14 @@ export default function MatchInsightsScreen({ route, navigation }) {
       </View>
 
       {/* Inning Selector */}
-      {insights.innings.length > 1 && (
-        <View style={styles.inningSelector}>
-          {insights.innings.map((inn, i) => (
-            <TouchableOpacity
-              key={i}
-              style={[styles.inningBtn, activeInning === i && styles.inningBtnActive]}
-              onPress={() => setActiveInning(i)}
-            >
+      {insights.innings.length > 1 &&
+      <View style={styles.inningSelector}>
+          {insights.innings.map((inn, i) =>
+        <TouchableOpacity
+          key={i}
+          style={[styles.inningBtn, activeInning === i && styles.inningBtnActive]}
+          onPress={() => setActiveInning(i)}>
+          
               <Text style={[styles.inningBtnText, activeInning === i && styles.inningBtnTextActive]}>
                 {inn.battingTeam?.name || `Inning ${i + 1}`}
               </Text>
@@ -202,17 +202,17 @@ export default function MatchInsightsScreen({ route, navigation }) {
                 {inn.totalRuns}/{inn.totalWickets}
               </Text>
             </TouchableOpacity>
-          ))}
+        )}
         </View>
-      )}
+      }
 
       {/* Tab Bar */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
-        {TABS.map(t => (
-          <TouchableOpacity key={t} style={[styles.tab, activeTab === t && styles.tabActive]} onPress={() => setActiveTab(t)}>
+        {TABS.map((t) =>
+        <TouchableOpacity key={t} style={[styles.tab, activeTab === t && styles.tabActive]} onPress={() => setActiveTab(t)}>
             <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>{t}</Text>
           </TouchableOpacity>
-        ))}
+        )}
       </ScrollView>
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -228,11 +228,11 @@ export default function MatchInsightsScreen({ route, navigation }) {
         {activeTab === 'Run Rate' && renderRunRate()}
         {activeTab === 'Extras' && renderExtras()}
       </ScrollView>
-    </View>
-  );
+    </View>);
+
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: DS.bg },
   header: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceLow, paddingTop: 48, paddingBottom: 14, paddingHorizontal: 16, gap: 8 },
@@ -278,5 +278,5 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 18, fontWeight: '700', color: DS.textMuted, marginTop: 10 },
   emptySubText: { fontSize: 12, color: DS.textMuted, marginTop: 4 },
   backFab: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 20, backgroundColor: DS.lime, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
-  backFabText: { fontSize: 14, fontWeight: '600', color: DS.bg },
+  backFabText: { fontSize: 14, fontWeight: '600', color: DS.bg }
 });

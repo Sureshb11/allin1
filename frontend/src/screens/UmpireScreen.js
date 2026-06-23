@@ -1,29 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl,
-} from 'react-native';
+  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl } from
+'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  coral: '#ffb59e',
-  blue: '#b7c4ff',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-};
+
+
+
+
+
+
+
+
+
+
+
+
 
 const LEVELS = ['All', 'Club', 'District', 'State', 'National'];
 
 const INITIAL_FORM = { name: '', level: 'Club', experience: '', location: '', bio: '', contactInfo: '' };
 
-export default function UmpireScreen({ navigation }) {
+export default function UmpireScreen({ navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [umpires, setUmpires] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,7 +55,7 @@ export default function UmpireScreen({ navigation }) {
     setSubmitting(true);
     await legendsApi.registerUmpire({
       ...form,
-      experience: form.experience ? parseInt(form.experience, 10) : undefined,
+      experience: form.experience ? parseInt(form.experience, 10) : undefined
     });
     setSubmitting(false);
     setShowRegister(false);
@@ -65,8 +65,8 @@ export default function UmpireScreen({ navigation }) {
 
   const LEVEL_COLORS = { Club: DS.blue, District: DS.lime, State: DS.coral, National: '#e8b4f8' };
 
-  const renderUmpire = ({ item }) => (
-    <View style={styles.card}>
+  const renderUmpire = ({ item }) =>
+  <View style={styles.card}>
       <View style={styles.avatarWrap}>
         <View style={[styles.avatar, { backgroundColor: LEVEL_COLORS[item.level] || DS.surfaceHighest }]}>
           <Text style={styles.avatarText}>{item.name?.charAt(0).toUpperCase()}</Text>
@@ -76,46 +76,46 @@ export default function UmpireScreen({ navigation }) {
       <View style={styles.cardInfo}>
         <View style={styles.nameRow}>
           <Text style={styles.umpireName}>{item.name}</Text>
-          {!!item.level && (
-            <View style={[styles.levelBadge, { backgroundColor: LEVEL_COLORS[item.level] || DS.surfaceHighest }]}>
+          {!!item.level &&
+        <View style={[styles.levelBadge, { backgroundColor: LEVEL_COLORS[item.level] || DS.surfaceHighest }]}>
               <Text style={styles.levelText}>{item.level}</Text>
             </View>
-          )}
+        }
         </View>
         <View style={styles.metaRow}>
-          {!!item.experience && (
-            <View style={styles.metaItem}>
+          {!!item.experience &&
+        <View style={styles.metaItem}>
               <Icon name="calendar-check" size={12} color={DS.textMuted} />
               <Text style={styles.metaText}>{item.experience}yr exp</Text>
             </View>
-          )}
-          {!!item.location && (
-            <View style={styles.metaItem}>
+        }
+          {!!item.location &&
+        <View style={styles.metaItem}>
               <Icon name="map-marker-outline" size={12} color={DS.textMuted} />
               <Text style={styles.metaText}>{item.location}</Text>
             </View>
-          )}
-          {!!item.matchesUmpired && (
-            <View style={styles.metaItem}>
+        }
+          {!!item.matchesUmpired &&
+        <View style={styles.metaItem}>
               <Icon name="whistle" size={12} color={DS.textMuted} />
               <Text style={styles.metaText}>{item.matchesUmpired} matches</Text>
             </View>
-          )}
+        }
         </View>
-        {!!item.contactInfo && (
-          <View style={styles.contactRow}>
+        {!!item.contactInfo &&
+      <View style={styles.contactRow}>
             <Icon name="phone-outline" size={12} color={DS.lime} />
             <Text style={styles.contactText}>{item.contactInfo}</Text>
           </View>
-        )}
+      }
       </View>
       <View style={[styles.availBadge, { backgroundColor: item.available ? 'rgba(171,214,0,0.15)' : 'rgba(255,181,158,0.15)' }]}>
         <Text style={[styles.availText, { color: item.available ? DS.lime : DS.coral }]}>
           {item.available ? 'Available' : 'Busy'}
         </Text>
       </View>
-    </View>
-  );
+    </View>;
+
 
   return (
     <View style={styles.container}>
@@ -130,35 +130,35 @@ export default function UmpireScreen({ navigation }) {
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
-        {LEVELS.map(l => (
-          <TouchableOpacity
-            key={l}
-            style={[styles.tab, activeLevel === l && styles.tabActive]}
-            onPress={() => setActiveLevel(l)}
-          >
+        {LEVELS.map((l) =>
+        <TouchableOpacity
+          key={l}
+          style={[styles.tab, activeLevel === l && styles.tabActive]}
+          onPress={() => setActiveLevel(l)}>
+          
             <Text style={[styles.tabText, activeLevel === l && styles.tabTextActive]}>{l}</Text>
           </TouchableOpacity>
-        ))}
+        )}
       </ScrollView>
 
-      {loading ? (
-        <ActivityIndicator style={{ flex: 1 }} color={DS.lime} />
-      ) : (
-        <FlatList
-          data={umpires}
-          keyExtractor={i => i.id}
-          renderItem={renderUmpire}
-          contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
-          ListEmptyComponent={
-            <View style={styles.empty}>
+      {loading ?
+      <ActivityIndicator style={{ flex: 1 }} color={DS.lime} /> :
+
+      <FlatList
+        data={umpires}
+        keyExtractor={(i) => i.id}
+        renderItem={renderUmpire}
+        contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
+        ListEmptyComponent={
+        <View style={styles.empty}>
               <Icon name="whistle" size={48} color={DS.textMuted} />
               <Text style={styles.emptyText}>No umpires found</Text>
               <Text style={styles.emptySubText}>Register as an umpire to get listed</Text>
             </View>
-          }
-        />
-      )}
+        } />
+
+      }
 
       {/* Register Modal */}
       <Modal visible={showRegister} animationType="slide" transparent>
@@ -166,43 +166,43 @@ export default function UmpireScreen({ navigation }) {
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Register as Umpire</Text>
-              <TouchableOpacity onPress={() => { setShowRegister(false); setForm(INITIAL_FORM); }}>
+              <TouchableOpacity onPress={() => {setShowRegister(false);setForm(INITIAL_FORM);}}>
                 <Icon name="close" size={22} color={DS.textPrimary} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
               <Text style={styles.fieldLabel}>Full Name *</Text>
-              <TextInput style={styles.input} placeholder="Your name" placeholderTextColor={DS.textMuted} value={form.name} onChangeText={v => setForm(f => ({ ...f, name: v }))} />
+              <TextInput style={styles.input} placeholder="Your name" placeholderTextColor={DS.textMuted} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} />
 
               <Text style={styles.fieldLabel}>Level</Text>
               <View style={styles.levelRow}>
-                {LEVELS.filter(l => l !== 'All').map(l => (
-                  <TouchableOpacity
-                    key={l}
-                    style={[styles.levelChip, form.level === l && { backgroundColor: LEVEL_COLORS[l] }]}
-                    onPress={() => setForm(f => ({ ...f, level: l }))}
-                  >
+                {LEVELS.filter((l) => l !== 'All').map((l) =>
+                <TouchableOpacity
+                  key={l}
+                  style={[styles.levelChip, form.level === l && { backgroundColor: LEVEL_COLORS[l] }]}
+                  onPress={() => setForm((f) => ({ ...f, level: l }))}>
+                  
                     <Text style={[styles.levelChipText, form.level === l && { color: DS.bg }]}>{l}</Text>
                   </TouchableOpacity>
-                ))}
+                )}
               </View>
 
               <View style={styles.row}>
                 <View style={{ flex: 1, marginRight: 6 }}>
                   <Text style={styles.fieldLabel}>Experience (years)</Text>
-                  <TextInput style={styles.input} placeholder="e.g. 5" placeholderTextColor={DS.textMuted} keyboardType="number-pad" value={form.experience} onChangeText={v => setForm(f => ({ ...f, experience: v }))} />
+                  <TextInput style={styles.input} placeholder="e.g. 5" placeholderTextColor={DS.textMuted} keyboardType="number-pad" value={form.experience} onChangeText={(v) => setForm((f) => ({ ...f, experience: v }))} />
                 </View>
                 <View style={{ flex: 1, marginLeft: 6 }}>
                   <Text style={styles.fieldLabel}>Location</Text>
-                  <TextInput style={styles.input} placeholder="City" placeholderTextColor={DS.textMuted} value={form.location} onChangeText={v => setForm(f => ({ ...f, location: v }))} />
+                  <TextInput style={styles.input} placeholder="City" placeholderTextColor={DS.textMuted} value={form.location} onChangeText={(v) => setForm((f) => ({ ...f, location: v }))} />
                 </View>
               </View>
 
               <Text style={styles.fieldLabel}>Bio</Text>
-              <TextInput style={[styles.input, styles.textarea]} placeholder="Brief introduction" placeholderTextColor={DS.textMuted} multiline value={form.bio} onChangeText={v => setForm(f => ({ ...f, bio: v }))} />
+              <TextInput style={[styles.input, styles.textarea]} placeholder="Brief introduction" placeholderTextColor={DS.textMuted} multiline value={form.bio} onChangeText={(v) => setForm((f) => ({ ...f, bio: v }))} />
 
               <Text style={styles.fieldLabel}>Contact Info</Text>
-              <TextInput style={styles.input} placeholder="Phone / Email" placeholderTextColor={DS.textMuted} value={form.contactInfo} onChangeText={v => setForm(f => ({ ...f, contactInfo: v }))} />
+              <TextInput style={styles.input} placeholder="Phone / Email" placeholderTextColor={DS.textMuted} value={form.contactInfo} onChangeText={(v) => setForm((f) => ({ ...f, contactInfo: v }))} />
             </ScrollView>
             <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={handleRegister} disabled={submitting}>
               {submitting ? <ActivityIndicator color={DS.bg} /> : <Text style={styles.submitText}>Register</Text>}
@@ -210,11 +210,11 @@ export default function UmpireScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-    </View>
-  );
+    </View>);
+
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   header: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceLow, paddingTop: 48, paddingBottom: 14, paddingHorizontal: 16 },
   backBtn: { padding: 4, marginRight: 8 },
@@ -260,5 +260,5 @@ const styles = StyleSheet.create({
   levelChipText: { fontSize: 12, color: DS.textMuted, fontWeight: '700' },
   row: { flexDirection: 'row' },
   submitBtn: { margin: 16, backgroundColor: DS.lime, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  submitText: { fontSize: 15, fontWeight: '700', color: DS.bg },
+  submitText: { fontSize: 15, fontWeight: '700', color: DS.bg }
 });

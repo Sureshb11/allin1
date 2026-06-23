@@ -1,4 +1,4 @@
-// SportPickerScreen — "Choose Your Arena" honeycomb picker.
+import { useTheme, useThemedStyles, useArenaColors } from "../theme/ThemeContext"; // SportPickerScreen — "Choose Your Arena" honeycomb picker.
 // Ported from the design handoff (design_handoff_arena), V2 "Spotlight":
 // an Apple-Watch-style honeycomb of sport discs the user drags to pan, with a
 // fisheye falloff (centre disc largest, edges shrink & fade). The centred disc
@@ -12,8 +12,8 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
-  Dimensions, PanResponder, Animated, Easing, Vibration, Platform,
-} from 'react-native';
+  Dimensions, PanResponder, Animated, Easing, Vibration, Platform } from
+'react-native';
 import Svg, { Path, Line, Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import SportIcon from '../components/SportIcon';
 import legendsApi from '../services/LegendsApi';
@@ -22,47 +22,47 @@ import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 const { width: SW } = Dimensions.get('window');
 
 // ── ARENA palette (from design_handoff_arena/app/data.jsx) ──────────────────
-const A = {
-  navy0: '#0a0e18', navy1: '#0d1320', navy2: '#111a2b',
-  cell: '#161f30', cellHi: '#1d2942',
-  line: 'rgba(150,180,230,0.10)',
-  ink: '#eaf0fb', inkDim: '#8a97b0',
-  lime: '#c4f82a', lime2: '#a6e814',
-};
+
+
+
+
+
+
+
 
 // Sports — index 0 is the focal point (Cricket), then rings outward.
 // `mci` = a MaterialCommunityIcons fallback name so the downstream
 // SportSetupScreen (which renders sport.icon) keeps working.
 const SPORTS = [
-  { id: 'cricket',    name: 'Cricket',            tag: 'Bat & Ball',     featured: true, mci: 'cricket' },
-  { id: 'football',   name: 'Football',           tag: '11-a-side',      mci: 'soccer' },
-  { id: 'kabaddi',    name: 'Kabaddi',            tag: 'Raid & Tackle',  mci: 'run-fast' },
-  { id: 'hockey',     name: 'Hockey',             tag: 'Field',          mci: 'hockey-sticks' },
-  { id: 'badminton',  name: 'Badminton',          tag: 'Racquet',        mci: 'badminton' },
-  { id: 'tennis',     name: 'Tennis',             tag: 'Racquet',        mci: 'tennis' },
-  { id: 'basketball', name: 'Basketball',         tag: 'Court',          mci: 'basketball' },
-  { id: 'volleyball', name: 'Volleyball',         tag: 'Court',          mci: 'volleyball' },
-  { id: 'boxing',     name: 'Boxing',             tag: 'Combat',         mci: 'boxing-glove' },
-  { id: 'wrestling',  name: 'Wrestling',          tag: 'Combat',         mci: 'arm-flex' },
-  { id: 'tabletennis',name: 'Table Tennis',       tag: 'Paddle',         mci: 'table-tennis' },
-  { id: 'khokho',     name: 'Kho-Kho',            tag: 'Chase',          mci: 'run' },
-  { id: 'handball',   name: 'Handball',           tag: 'Court',          mci: 'handball' },
-  { id: 'squash',     name: 'Squash',             tag: 'Racquet',        mci: 'racquetball' },
-  { id: 'pickleball', name: 'Pickleball',         tag: 'Paddle',         mci: 'table-tennis' },
-  { id: 'judo',       name: 'Judo',               tag: 'Combat',         mci: 'karate' },
-  { id: 'karate',     name: 'Karate',             tag: 'Combat',         mci: 'karate' },
-  { id: 'skateboard',  name: 'Skateboarding',       tag: 'Street',           mci: 'skateboard' },
-  { id: 'rummy',      name: 'Rummy',              tag: '13 Cards',       scored: true, mci: 'cards-playing-outline' },
-];
+{ id: 'cricket', name: 'Cricket', tag: 'Bat & Ball', featured: true, mci: 'cricket' },
+{ id: 'football', name: 'Football', tag: '11-a-side', mci: 'soccer' },
+{ id: 'kabaddi', name: 'Kabaddi', tag: 'Raid & Tackle', mci: 'run-fast' },
+{ id: 'hockey', name: 'Hockey', tag: 'Field', mci: 'hockey-sticks' },
+{ id: 'badminton', name: 'Badminton', tag: 'Racquet', mci: 'badminton' },
+{ id: 'tennis', name: 'Tennis', tag: 'Racquet', mci: 'tennis' },
+{ id: 'basketball', name: 'Basketball', tag: 'Court', mci: 'basketball' },
+{ id: 'volleyball', name: 'Volleyball', tag: 'Court', mci: 'volleyball' },
+{ id: 'boxing', name: 'Boxing', tag: 'Combat', mci: 'boxing-glove' },
+{ id: 'wrestling', name: 'Wrestling', tag: 'Combat', mci: 'arm-flex' },
+{ id: 'tabletennis', name: 'Table Tennis', tag: 'Paddle', mci: 'table-tennis' },
+{ id: 'khokho', name: 'Kho-Kho', tag: 'Chase', mci: 'run' },
+{ id: 'handball', name: 'Handball', tag: 'Court', mci: 'handball' },
+{ id: 'squash', name: 'Squash', tag: 'Racquet', mci: 'racquetball' },
+{ id: 'pickleball', name: 'Pickleball', tag: 'Paddle', mci: 'table-tennis' },
+{ id: 'judo', name: 'Judo', tag: 'Combat', mci: 'karate' },
+{ id: 'karate', name: 'Karate', tag: 'Combat', mci: 'karate' },
+{ id: 'skateboard', name: 'Skateboarding', tag: 'Street', mci: 'skateboard' },
+{ id: 'rummy', name: 'Rummy', tag: '13 Cards', scored: true, mci: 'cards-playing-outline' }];
+
 
 // ── Honeycomb params (V2 Spotlight) ─────────────────────────────────────────
-const SPACING   = 78;   // neighbour distance
-const CELL      = 62;   // disc design size
-const FALLOFF   = 120;
+const SPACING = 78; // neighbour distance
+const CELL = 62; // disc design size
+const FALLOFF = 120;
 const MIN_SCALE = 0.36;
 const MAX_SCALE = 1;
 
-const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 
 // ── Hex layout (axial coords) — fill whole rings from the centre, then spread
 // any remainder evenly so the cluster stays one balanced blob (no stragglers).
@@ -70,11 +70,11 @@ function hexRing(radius) {
   if (radius === 0) return [{ q: 0, r: 0 }];
   const dirs = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];
   const out = [];
-  let q = dirs[4][0] * radius, r = dirs[4][1] * radius;
+  let q = dirs[4][0] * radius,r = dirs[4][1] * radius;
   for (let i = 0; i < 6; i++) {
     for (let j = 0; j < radius; j++) {
       out.push({ q, r });
-      q += dirs[i][0]; r += dirs[i][1];
+      q += dirs[i][0];r += dirs[i][1];
     }
   }
   return out;
@@ -97,7 +97,7 @@ function layoutHoney(size) {
     return {
       ...s,
       x: size * (q + r / 2),
-      y: size * (Math.sqrt(3) / 2) * r,
+      y: size * (Math.sqrt(3) / 2) * r
     };
   });
 }
@@ -108,28 +108,28 @@ const POSITIONS = layoutHoney(SPACING);
 const EDGES = (() => {
   const out = [];
   for (let i = 0; i < POSITIONS.length; i++)
-    for (let j = i + 1; j < POSITIONS.length; j++)
-      if (Math.hypot(POSITIONS[i].x - POSITIONS[j].x, POSITIONS[i].y - POSITIONS[j].y) < SPACING * 1.15)
-        out.push([i, j]);
+  for (let j = i + 1; j < POSITIONS.length; j++)
+  if (Math.hypot(POSITIONS[i].x - POSITIONS[j].x, POSITIONS[i].y - POSITIONS[j].y) < SPACING * 1.15)
+  out.push([i, j]);
   return out;
 })();
 
 // pan clamp bounds: every disc must be reachable to the centre (+margin).
 const BOUNDS = (() => {
-  const xs = POSITIONS.map(c => c.x), ys = POSITIONS.map(c => c.y);
+  const xs = POSITIONS.map((c) => c.x),ys = POSITIONS.map((c) => c.y);
   const m = SPACING * 0.55;
   return {
     x: [-Math.max(...xs) - m, -Math.min(...xs) + m],
-    y: [-Math.max(...ys) - m, -Math.min(...ys) + m],
+    y: [-Math.max(...ys) - m, -Math.min(...ys) + m]
   };
 })();
-const clampPan = p => ({
+const clampPan = (p) => ({
   x: clamp(p.x, BOUNDS.x[0], BOUNDS.x[1]),
-  y: clamp(p.y, BOUNDS.y[0], BOUNDS.y[1]),
+  y: clamp(p.y, BOUNDS.y[0], BOUNDS.y[1])
 });
 
 // ── A single disc (memo-free; cheap enough for 22 cells/frame) ──────────────
-function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {
+function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {const A = useArenaColors();const d = useThemedStyles(makeD);
   // Icon renders at a fixed size; the whole disc is scaled via transform.
   const iconSize = cell.featured ? 36 : 31;
   return (
@@ -143,53 +143,53 @@ function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {
         width: CELL,
         height: CELL,
         opacity,
-        transform: [{ scale }],
+        transform: [{ scale }]
       }}>
-      {focused && (
-        <Animated.View
-          pointerEvents="none"
-          style={[d.pulse, {
-            opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
-            transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.75] }) }],
-          }]}
-        />
-      )}
+      {focused &&
+      <Animated.View
+        pointerEvents="none"
+        style={[d.pulse, {
+          opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
+          transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.75] }) }]
+        }]} />
+
+      }
       <View style={[
-        d.disc,
-        focused ? d.discFocus : null,
-        { borderColor: focused ? A.lime : 'transparent' },
-      ]}>
+      d.disc,
+      focused ? d.discFocus : null,
+      { borderColor: focused ? A.lime : 'transparent' }]
+      }>
         <SportIcon id={cell.id} size={iconSize} color={focused ? A.lime : 'rgba(196,248,42,0.9)'} />
       </View>
-    </TouchableOpacity>
-  );
+    </TouchableOpacity>);
+
 }
 
-export default function SportPickerScreen({ navigation }) {
+export default function SportPickerScreen({ navigation }) {const A = useArenaColors();const s = useThemedStyles(makeS);
   const [panOff, setPanOff] = useState({ x: 0, y: 0 });
   const [dim, setDim] = useState({ w: SW, h: 560 });
   const [focusId, setFocusId] = useState('cricket');
 
-  const panRef   = useRef({ x: 0, y: 0 });
-  const velRef   = useRef({ x: 0, y: 0 });
+  const panRef = useRef({ x: 0, y: 0 });
+  const velRef = useRef({ x: 0, y: 0 });
   const startRef = useRef({ mx: 0, my: 0, px: 0, py: 0 });
   const movedRef = useRef(false);
   const focusRef = useRef('cricket');
-  const rafRef   = useRef(null);
-  const intRef   = useRef(null);
-  const animRef  = useRef(null);
+  const rafRef = useRef(null);
+  const intRef = useRef(null);
+  const animRef = useRef(null);
 
   // readout slide-up on focus change
   const readoutAnim = useRef(new Animated.Value(1)).current;
   // focused-disc glow pulse (loops) + per-disc entrance scale-in
-  const pulseAnim  = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(0)).current;
   const enterAnims = useRef(POSITIONS.map(() => new Animated.Value(0))).current;
 
   const stopInertia = () => {
-    if (intRef.current) { cancelAnimationFrame(intRef.current); intRef.current = null; }
+    if (intRef.current) {cancelAnimationFrame(intRef.current);intRef.current = null;}
   };
   const stopAnim = () => {
-    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
+    if (animRef.current) {cancelAnimationFrame(animRef.current);animRef.current = null;}
   };
 
   // During a drag we coalesce moves to one state commit per frame (rAF throttle).
@@ -211,10 +211,10 @@ export default function SportPickerScreen({ navigation }) {
 
   // ── focus = nearest disc to centre; updates readout ──
   useEffect(() => {
-    let best = null, bestD = Infinity;
+    let best = null,bestD = Infinity;
     for (const c of POSITIONS) {
       const d2 = Math.hypot(panOff.x + c.x, panOff.y + c.y);
-      if (d2 < bestD) { bestD = d2; best = c; }
+      if (d2 < bestD) {bestD = d2;best = c;}
     }
     if (best && best.id !== focusRef.current) {
       focusRef.current = best.id;
@@ -224,7 +224,7 @@ export default function SportPickerScreen({ navigation }) {
       if (Platform.OS === 'android') Vibration.vibrate(8);
       readoutAnim.setValue(0);
       Animated.timing(readoutAnim, {
-        toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+        toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true
       }).start();
     }
   }, [panOff, readoutAnim]);
@@ -243,18 +243,18 @@ export default function SportPickerScreen({ navigation }) {
       const k = clamp((now - t0) / dur, 0, 1);
       const e = ease(k);
       commitPan(from.x + (target.x - from.x) * e, from.y + (target.y - from.y) * e);
-      if (k < 1) { animRef.current = requestAnimationFrame(tick); }
-      else { animRef.current = null; cb && cb(); }
+      if (k < 1) {animRef.current = requestAnimationFrame(tick);} else
+      {animRef.current = null;cb && cb();}
     };
     animRef.current = requestAnimationFrame(tick);
   }, [commitPan]);
 
   // ── magnetic snap: glide whichever disc is nearest centre exactly onto it ──
   const snapToNearest = useCallback(() => {
-    let best = null, bestD = Infinity;
+    let best = null,bestD = Infinity;
     for (const c of POSITIONS) {
       const d2 = Math.hypot(panRef.current.x + c.x, panRef.current.y + c.y);
-      if (d2 < bestD) { bestD = d2; best = c; }
+      if (d2 < bestD) {bestD = d2;best = c;}
     }
     if (best) animateTo({ x: -best.x, y: -best.y }, 260);
   }, [animateTo]);
@@ -267,43 +267,43 @@ export default function SportPickerScreen({ navigation }) {
     let last = null;
     const tick = (now) => {
       if (last == null) last = now;
-      const dt = Math.min(now - last, 48) || 16;   // clamp dt (e.g. after a stall)
+      const dt = Math.min(now - last, 48) || 16; // clamp dt (e.g. after a stall)
       last = now;
-      const k = dt / 16;                            // 1 == a nominal 60Hz frame
-      const f = Math.pow(0.92, k);                  // per-frame friction, time-scaled
+      const k = dt / 16; // 1 == a nominal 60Hz frame
+      const f = Math.pow(0.92, k); // per-frame friction, time-scaled
       velRef.current.x *= f;
       velRef.current.y *= f;
       const np = {
         x: panRef.current.x + velRef.current.x * k,
-        y: panRef.current.y + velRef.current.y * k,
+        y: panRef.current.y + velRef.current.y * k
       };
       const cl = clampPan(np);
       if (cl.x !== np.x) velRef.current.x = 0;
       if (cl.y !== np.y) velRef.current.y = 0;
       commitPan(cl.x, cl.y);
-      if (Math.hypot(velRef.current.x, velRef.current.y) < 0.4) { intRef.current = null; snapToNearest(); }
-      else { intRef.current = requestAnimationFrame(tick); }
+      if (Math.hypot(velRef.current.x, velRef.current.y) < 0.4) {intRef.current = null;snapToNearest();} else
+      {intRef.current = requestAnimationFrame(tick);}
     };
     intRef.current = requestAnimationFrame(tick);
   }, [commitPan, snapToNearest]);
 
-  useEffect(() => () => { stopInertia(); stopAnim(); }, []);
+  useEffect(() => () => {stopInertia();stopAnim();}, []);
 
   // looping glow pulse on the focused disc + one-shot entrance scale-in
   useEffect(() => {
     const pulse = Animated.loop(Animated.sequence([
-      Animated.timing(pulseAnim, { toValue: 1, duration: 1500, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.timing(pulseAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
-    ]));
+    Animated.timing(pulseAnim, { toValue: 1, duration: 1500, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+    Animated.timing(pulseAnim, { toValue: 0, duration: 0, useNativeDriver: true })]
+    ));
     pulse.start();
-    Animated.stagger(26, enterAnims.map(a =>
-      Animated.spring(a, { toValue: 1, friction: 6, tension: 70, useNativeDriver: true }),
+    Animated.stagger(26, enterAnims.map((a) =>
+    Animated.spring(a, { toValue: 1, friction: 6, tension: 70, useNativeDriver: true })
     )).start();
     return () => pulse.stop();
   }, [pulseAnim, enterAnims]);
 
   // rubber-band: drift past bounds with resistance (Apple-Watch edge bounce)
-  const rb = (v, lo, hi) => (v < lo ? lo + (v - lo) * 0.42 : v > hi ? hi + (v - hi) * 0.42 : v);
+  const rb = (v, lo, hi) => v < lo ? lo + (v - lo) * 0.42 : v > hi ? hi + (v - hi) * 0.42 : v;
 
   const panResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
@@ -325,13 +325,13 @@ export default function SportPickerScreen({ navigation }) {
     onPanResponderRelease: () => {
       const cl = clampPan(panRef.current);
       if (cl.x !== panRef.current.x || cl.y !== panRef.current.y) {
-        animateTo(cl, 320, snapToNearest);   // spring back from overscroll, then snap
+        animateTo(cl, 320, snapToNearest); // spring back from overscroll, then snap
       } else {
         startInertia();
       }
-      setTimeout(() => { movedRef.current = false; }, 0);
+      setTimeout(() => {movedRef.current = false;}, 0);
     },
-    onPanResponderTerminate: () => { startInertia(); movedRef.current = false; },
+    onPanResponderTerminate: () => {startInertia();movedRef.current = false;}
   })).current;
 
   // Tapping a disc only centres/selects it (updates focus + readout).
@@ -343,7 +343,7 @@ export default function SportPickerScreen({ navigation }) {
     // far one glides in smoothly & slowly. Ease-in-out gives a gentle start + landing.
     const dist = Math.hypot(target.x - panRef.current.x, target.y - panRef.current.y);
     const dur = clamp(dist * 3.4, 300, 1150);
-    const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+    const easeInOut = (x) => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
     animateTo(target, dur, undefined, easeInOut);
   }, [animateTo]);
 
@@ -371,14 +371,14 @@ export default function SportPickerScreen({ navigation }) {
     setDim({ w: width, h: height });
   }, []);
 
-  const cx = dim.w / 2, cy = dim.h / 2;
-  const focus = useMemo(() => SPORTS.find(s => s.id === focusId) || SPORTS[0], [focusId]);
-  const focusIdx = SPORTS.findIndex(s => s.id === focusId);
+  const cx = dim.w / 2,cy = dim.h / 2;
+  const focus = useMemo(() => SPORTS.find((s) => s.id === focusId) || SPORTS[0], [focusId]);
+  const focusIdx = SPORTS.findIndex((s) => s.id === focusId);
   const nameSize = focus.name.length > 13 ? 19 : focus.name.length > 9 ? 23 : 27;
 
   // per-frame fisheye for each disc, computed from current pan offset
   const discs = POSITIONS.map((c) => {
-    const sx = panOff.x + c.x, sy = panOff.y + c.y;
+    const sx = panOff.x + c.x,sy = panOff.y + c.y;
     const t = Math.hypot(sx, sy) / FALLOFF;
     let s = MIN_SCALE + (MAX_SCALE - MIN_SCALE) / (1 + t * t * 1.35);
     if (c.featured) s = Math.min(MAX_SCALE * 1.16, s * 1.14);
@@ -389,7 +389,7 @@ export default function SportPickerScreen({ navigation }) {
 
   const readoutStyle = {
     opacity: readoutAnim,
-    transform: [{ translateY: readoutAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+    transform: [{ translateY: readoutAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }]
   };
 
   return (
@@ -421,8 +421,8 @@ export default function SportPickerScreen({ navigation }) {
               routes: [{
                 name: 'MainApp',
                 params: { sport },
-                state: { index: 0, routes: [{ name: 'ProfileTab', params: { initialSport: sport } }] },
-              }],
+                state: { index: 0, routes: [{ name: 'ProfileTab', params: { initialSport: sport } }] }
+              }]
             });
           }}>
           <Svg width={20} height={20} viewBox="0 0 20 20" fill={A.inkDim}>
@@ -450,38 +450,38 @@ export default function SportPickerScreen({ navigation }) {
           </Defs>
           <Circle cx={cx} cy={cy} r={175} fill="url(#arenaGlow)" />
           {EDGES.map(([i, j], k) => {
-            const a = discs[i], b = discs[j];
+            const a = discs[i],b = discs[j];
             const o = Math.min(a.opacity, b.opacity);
-            if (o < 0.42) return null;        // skip edges fading out near the rim
+            if (o < 0.42) return null; // skip edges fading out near the rim
             return (
               <Line
                 key={k}
                 x1={a.left} y1={a.top} x2={b.left} y2={b.top}
-                stroke="#8ea3c8" strokeWidth={1} strokeOpacity={(o - 0.3) * 0.22}
-              />
-            );
+                stroke="#8ea3c8" strokeWidth={1} strokeOpacity={(o - 0.3) * 0.22} />);
+
+
           })}
         </Svg>
-        {discs.map(({ cell, left, top, scale, opacity }, i) => (
-          <Animated.View
-            key={cell.id}
-            pointerEvents="box-none"
-            style={{
-              position: 'absolute', left, top,
-              zIndex: 1000 + Math.round(scale * 100),
-              opacity: enterAnims[i],
-              transform: [{ scale: enterAnims[i] }],
-            }}>
+        {discs.map(({ cell, left, top, scale, opacity }, i) =>
+        <Animated.View
+          key={cell.id}
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute', left, top,
+            zIndex: 1000 + Math.round(scale * 100),
+            opacity: enterAnims[i],
+            transform: [{ scale: enterAnims[i] }]
+          }}>
             <Disc
-              cell={cell}
-              scale={scale}
-              opacity={opacity}
-              focused={cell.id === focusId}
-              pulseAnim={pulseAnim}
-              onPress={() => selectCell(cell)}
-            />
+            cell={cell}
+            scale={scale}
+            opacity={opacity}
+            focused={cell.id === focusId}
+            pulseAnim={pulseAnim}
+            onPress={() => selectCell(cell)} />
+          
           </Animated.View>
-        ))}
+        )}
       </View>
 
       {/* ── READOUT CARD ── */}
@@ -509,35 +509,35 @@ export default function SportPickerScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </View>
-    </View>
-  );
+    </View>);
+
 }
 
-const d = StyleSheet.create({
+const makeD = (A) => StyleSheet.create({
   disc: {
     width: CELL, height: CELL, borderRadius: CELL / 2,
     borderWidth: 2.5, backgroundColor: '#16203a',
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center'
   },
   discFocus: { backgroundColor: '#27374f' },
   pulse: {
     position: 'absolute', left: 0, top: 0, width: CELL, height: CELL,
-    borderRadius: CELL / 2, borderWidth: 2.5, borderColor: A.lime,
-  },
+    borderRadius: CELL / 2, borderWidth: 2.5, borderColor: A.lime
+  }
 });
 
-const s = StyleSheet.create({
+const makeS = (A) => StyleSheet.create({
   root: { flex: 1, backgroundColor: A.navy0 },
 
   topBar: {
     flexDirection: 'row', alignItems: 'center',
-    paddingTop: 52, paddingHorizontal: 18, paddingBottom: 2,
+    paddingTop: 52, paddingHorizontal: 18, paddingBottom: 2
   },
   backBtn: { padding: 6, marginLeft: -6 },
   brand: { flex: 1, marginLeft: 8, fontSize: 16, fontWeight: '900', color: A.ink, letterSpacing: 1 },
   avatar: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: A.cellHi, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: A.cellHi, alignItems: 'center', justifyContent: 'center'
   },
 
   titleBlock: { alignItems: 'center', paddingTop: 8, paddingBottom: 6 },
@@ -552,13 +552,13 @@ const s = StyleSheet.create({
     backgroundColor: A.cellHi, borderRadius: 22, padding: 12,
     borderWidth: 1, borderColor: A.line,
     shadowColor: '#000', shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4, shadowRadius: 16, elevation: 10,
+    shadowOpacity: 0.4, shadowRadius: 16, elevation: 10
   },
   readoutIcon: {
     width: 50, height: 50, borderRadius: 15,
     backgroundColor: 'rgba(196,248,42,0.12)',
     borderWidth: 1, borderColor: 'rgba(196,248,42,0.2)',
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center'
   },
   readoutTagRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   readoutTag: { fontSize: 10, color: A.lime, letterSpacing: 1.4, fontWeight: '800' },
@@ -567,7 +567,7 @@ const s = StyleSheet.create({
 
   startBtn: {
     height: 50, paddingHorizontal: 17, borderRadius: 15,
-    backgroundColor: A.lime, flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: A.lime, flexDirection: 'row', alignItems: 'center', gap: 7
   },
-  startTxt: { fontSize: 15, fontWeight: '900', color: A.navy0, letterSpacing: 0.5 },
+  startTxt: { fontSize: 15, fontWeight: '900', color: A.navy0, letterSpacing: 0.5 }
 });

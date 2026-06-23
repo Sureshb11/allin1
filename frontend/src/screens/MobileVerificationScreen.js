@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,23 +7,23 @@ import {
   TextInput,
   Alert,
   ScrollView,
-  ActivityIndicator,
-} from 'react-native';
+  ActivityIndicator } from
+'react-native';
 
-const DS = {
-  bg: '#0b0f1e',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  blue: '#3b82f6',
-  purple: '#818cf8',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-};
 
-const MobileVerificationScreen = ({route, navigation}) => {
+
+
+
+
+
+
+
+
+
+
+
+
+const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [otp, setOtp] = useState(['', '', '', '']);
   const [timer, setTimer] = useState(120); // 2 minutes
   const [canResend, setCanResend] = useState(false);
@@ -32,11 +32,11 @@ const MobileVerificationScreen = ({route, navigation}) => {
 
   const inputRefs = useRef([]);
 
-  const {phoneNumber, countryCode, newUser = false} = route.params || {};
+  const { phoneNumber, countryCode, newUser = false } = route.params || {};
 
   useEffect(() => {
     const countdown = setInterval(() => {
-      setTimer(prev => {
+      setTimer((prev) => {
         if (prev <= 1) {
           setCanResend(true);
           clearInterval(countdown);
@@ -49,12 +49,12 @@ const MobileVerificationScreen = ({route, navigation}) => {
     return () => clearInterval(countdown);
   }, []);
 
-  const formatTime = seconds => {
+  const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs
-      .toString()
-      .padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, '0')}:${secs.
+    toString().
+    padStart(2, '0')}`;
   };
 
   const handleOtpChange = (value, index) => {
@@ -98,25 +98,25 @@ const MobileVerificationScreen = ({route, navigation}) => {
             'Verification Successful!',
             'Your account has been created and verified.',
             [
-              {text: 'OK', onPress: () => navigation.navigate('ProfileSetup')},
-            ],
+            { text: 'OK', onPress: () => navigation.navigate('ProfileSetup') }]
+
           );
         } else {
           Alert.alert(
             'Login Successful!',
             'Welcome back to AllIn1 Cricket!',
             [
-              {
-                text: 'OK',
-                onPress: () => navigation.replace('SportPicker'),
-              },
-            ],
+            {
+              text: 'OK',
+              onPress: () => navigation.replace('SportPicker')
+            }]
+
           );
         }
       } else {
         Alert.alert(
           'Invalid OTP',
-          'Please check and enter the correct verification code',
+          'Please check and enter the correct verification code'
         );
       }
     }, 1500);
@@ -131,7 +131,7 @@ const MobileVerificationScreen = ({route, navigation}) => {
 
     // Restart timer
     const countdown = setInterval(() => {
-      setTimer(prev => {
+      setTimer((prev) => {
         if (prev <= 1) {
           setCanResend(true);
           clearInterval(countdown);
@@ -146,7 +146,7 @@ const MobileVerificationScreen = ({route, navigation}) => {
       setLoading(false);
       Alert.alert(
         'OTP Resent',
-        'A new verification code has been sent to your phone',
+        'A new verification code has been sent to your phone'
       );
     }, 1000);
   };
@@ -156,23 +156,23 @@ const MobileVerificationScreen = ({route, navigation}) => {
       'Call Verification',
       'You will receive a call with your verification code within 2 minutes.',
       [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Request Call',
-          onPress: () => {
-            Alert.alert(
-              'Call Requested',
-              'You will receive a verification call shortly',
-            );
-          },
-        },
-      ],
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Request Call',
+        onPress: () => {
+          Alert.alert(
+            'Call Requested',
+            'You will receive a verification call shortly'
+          );
+        }
+      }]
+
     );
   };
 
-  const displayPhone = phoneNumber
-    ? `${countryCode || ''} ${phoneNumber}`
-    : '+1 234 567 890';
+  const displayPhone = phoneNumber ?
+  `${countryCode || ''} ${phoneNumber}` :
+  '+1 234 567 890';
 
   return (
     <ScrollView
@@ -204,34 +204,34 @@ const MobileVerificationScreen = ({route, navigation}) => {
 
         {/* OTP boxes */}
         <View style={styles.otpRow}>
-          {otp.map((digit, index) => (
-            <TextInput
-              key={index}
-              ref={ref => (inputRefs.current[index] = ref)}
-              style={[
-                styles.otpBox,
-                activeIndex === index && styles.otpBoxActive,
-                digit !== '' && styles.otpBoxFilled,
-              ]}
-              value={digit}
-              onChangeText={value => handleOtpChange(value, index)}
-              onKeyPress={e => handleKeyPress(e, index)}
-              onFocus={() => setActiveIndex(index)}
-              keyboardType="numeric"
-              maxLength={1}
-              textAlign="center"
-              selectionColor={DS.lime}
-            />
-          ))}
+          {otp.map((digit, index) =>
+          <TextInput
+            key={index}
+            ref={(ref) => inputRefs.current[index] = ref}
+            style={[
+            styles.otpBox,
+            activeIndex === index && styles.otpBoxActive,
+            digit !== '' && styles.otpBoxFilled]
+            }
+            value={digit}
+            onChangeText={(value) => handleOtpChange(value, index)}
+            onKeyPress={(e) => handleKeyPress(e, index)}
+            onFocus={() => setActiveIndex(index)}
+            keyboardType="numeric"
+            maxLength={1}
+            textAlign="center"
+            selectionColor={DS.lime} />
+
+          )}
         </View>
 
         {/* Timer */}
-        {timer > 0 && (
-          <Text style={styles.timerText}>
+        {timer > 0 &&
+        <Text style={styles.timerText}>
             Resend code in{' '}
             <Text style={styles.timerHighlight}>{formatTime(timer)}</Text>
           </Text>
-        )}
+        }
 
         {/* Verify button */}
         <TouchableOpacity
@@ -239,11 +239,11 @@ const MobileVerificationScreen = ({route, navigation}) => {
           onPress={handleVerifyOtp}
           disabled={loading}
           activeOpacity={0.8}>
-          {loading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.verifyButtonText}>VERIFY</Text>
-          )}
+          {loading ?
+          <ActivityIndicator color="#fff" size="small" /> :
+
+          <Text style={styles.verifyButtonText}>VERIFY</Text>
+          }
         </TouchableOpacity>
 
         {/* Resend section */}
@@ -256,9 +256,9 @@ const MobileVerificationScreen = ({route, navigation}) => {
             disabled={!canResend || loading}>
             <Text
               style={[
-                styles.resendCodeText,
-                (!canResend || loading) && styles.resendCodeDisabled,
-              ]}>
+              styles.resendCodeText,
+              (!canResend || loading) && styles.resendCodeDisabled]
+              }>
               RESEND CODE
             </Text>
           </TouchableOpacity>
@@ -277,25 +277,25 @@ const MobileVerificationScreen = ({route, navigation}) => {
           </TouchableOpacity>
         </View>
       </View>
-    </ScrollView>
-  );
+    </ScrollView>);
+
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: DS.bg,
+    backgroundColor: DS.bg
   },
   contentContainer: {
     flexGrow: 1,
-    paddingBottom: 40,
+    paddingBottom: 40
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: 60,
     paddingHorizontal: 24,
-    paddingBottom: 12,
+    paddingBottom: 12
   },
   backButton: {
     width: 40,
@@ -304,16 +304,16 @@ const styles = StyleSheet.create({
     backgroundColor: DS.surfaceLow,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 14
   },
   backArrow: {
     color: DS.textPrimary,
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   brandRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   starBadge: {
     width: 28,
@@ -322,47 +322,47 @@ const styles = StyleSheet.create({
     backgroundColor: DS.lime,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 8
   },
   starIcon: {
     color: DS.bg,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '700'
   },
   brandText: {
     color: DS.textPrimary,
     fontSize: 16,
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 2
   },
   mainContent: {
     paddingHorizontal: 28,
     paddingTop: 40,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   title: {
     fontSize: 30,
     fontWeight: '800',
     color: '#ffffff',
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   subtitle: {
     fontSize: 15,
     color: DS.textMuted,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 40,
+    marginBottom: 40
   },
   phoneHighlight: {
     color: DS.textVariant,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   otpRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 14,
-    marginBottom: 28,
+    marginBottom: 28
   },
   otpBox: {
     width: 64,
@@ -375,25 +375,25 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#ffffff',
-    textAlign: 'center',
+    textAlign: 'center'
   },
   otpBoxActive: {
     borderColor: DS.lime,
     borderStyle: 'solid',
-    borderWidth: 2,
+    borderWidth: 2
   },
   otpBoxFilled: {
     borderStyle: 'solid',
-    borderColor: DS.surfaceHighest,
+    borderColor: DS.surfaceHighest
   },
   timerText: {
     fontSize: 14,
     color: DS.textMuted,
-    marginBottom: 32,
+    marginBottom: 32
   },
   timerHighlight: {
     color: DS.textVariant,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   verifyButton: {
     width: '100%',
@@ -402,48 +402,48 @@ const styles = StyleSheet.create({
     backgroundColor: DS.blue,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
+    marginBottom: 32
   },
   verifyButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.5
   },
   verifyButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 2
   },
   resendSection: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 32
   },
   didntReceiveText: {
     fontSize: 14,
     color: DS.textMuted,
-    marginBottom: 8,
+    marginBottom: 8
   },
   resendCodeText: {
     fontSize: 14,
     fontWeight: '700',
     color: DS.lime,
-    letterSpacing: 2,
+    letterSpacing: 2
   },
   resendCodeDisabled: {
-    opacity: 0.4,
+    opacity: 0.4
   },
   alternativeOptions: {
     alignItems: 'center',
-    gap: 16,
+    gap: 16
   },
   callText: {
     fontSize: 14,
-    color: DS.textMuted,
+    color: DS.textMuted
   },
   changeNumberText: {
     fontSize: 14,
     color: DS.blue,
-    fontWeight: '600',
-  },
+    fontWeight: '600'
+  }
 });
 
 export default MobileVerificationScreen;
