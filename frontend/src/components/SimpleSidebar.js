@@ -101,7 +101,7 @@ const SimpleSidebar = ({ visible, onClose, navigation }) => {
                         <Text style={styles.badgeText}>{item.badge}</Text>
                       </View>
                     )}
-                    <Icon name="chevron-right" size={16} color={DS.surfaceHighest} />
+                    <Icon name="chevron-right" size={16} color={DS.faint} />
                   </TouchableOpacity>
                 ))}
               </View>

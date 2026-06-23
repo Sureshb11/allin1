@@ -2,7 +2,7 @@
 // Settings header, per-player totals, round-by-round table, ENTER SCORE modal
 // (with drop/full quick-fills), add-player & share. Winner derived server-side.
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
@@ -10,14 +10,13 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../../../services/LegendsApi';
-
-const A = {
-  navy0: '#0a0e18', navy1: '#0d1320', navy2: '#111a2b', cell: '#161f30', cellHi: '#1d2942',
-  line: 'rgba(150,180,230,0.10)', ink: '#eaf0fb', inkDim: '#8a97b0', lime: '#c4f82a',
-  warn: '#ffb24a', danger: '#ff5a5a', dangerTxt: '#ff7a7a',
-};
+import { useTheme } from '../../../theme/ThemeContext';
 
 export default function RummyGameScreen({ navigation, route }) {
+  const C = useTheme().colors;
+  // Rummy/Arena screens use the brighter lime accent (per the design system).
+  const A = useMemo(() => ({ ...C, lime: C.limeBright }), [C]);
+  const s = useMemo(() => makeStyles(A), [A]);
   const { gameId } = route.params || {};
   const [game, setGame] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -73,7 +72,7 @@ export default function RummyGameScreen({ navigation, route }) {
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor={A.navy1} />
+      <StatusBar barStyle={C.mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={A.navy1} />
 
       {/* header */}
       <View style={s.header}>
@@ -106,7 +105,7 @@ export default function RummyGameScreen({ navigation, route }) {
       {/* rounds table */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 16 }}>
         {game.rounds.length === 0 ? (
-          <View style={s.empty}><Icon name="cards-outline" size={40} color={A.cellHi} /><Text style={s.emptyTxt}>No rounds yet. Tap ENTER SCORE.</Text></View>
+          <View style={s.empty}><Icon name="cards-outline" size={40} color={A.faint} /><Text style={s.emptyTxt}>No rounds yet. Tap ENTER SCORE.</Text></View>
         ) : (
           game.rounds.map((r) => (
             <View key={r.id} style={s.roundRow}>
@@ -178,7 +177,7 @@ export default function RummyGameScreen({ navigation, route }) {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (A) => StyleSheet.create({
   root: { flex: 1, backgroundColor: A.navy1, paddingTop: 44 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingTop: 6, paddingBottom: 8 },
   iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },

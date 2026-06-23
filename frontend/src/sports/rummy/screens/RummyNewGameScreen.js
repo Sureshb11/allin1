@@ -1,20 +1,21 @@
 // RummyNewGameScreen — configure a new Pool-Rummy game (name, scores, players).
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
   TextInput, Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../../../services/LegendsApi';
+import { useTheme } from '../../../theme/ThemeContext';
 
-const A = {
-  navy0: '#0a0e18', navy1: '#0d1320', navy2: '#111a2b', cell: '#161f30', cellHi: '#1d2942',
-  line: 'rgba(150,180,230,0.10)', ink: '#eaf0fb', inkDim: '#8a97b0', lime: '#c4f82a', danger: '#ff5a5a',
-};
+export default function RummyNewGameScreen({ navigation }) {
+  const C = useTheme().colors;
+  // Rummy/Arena screens use the brighter lime accent (per the design system).
+  const A = useMemo(() => ({ ...C, lime: C.limeBright }), [C]);
+  const s = useMemo(() => makeStyles(A), [A]);
 
-function NumField({ label, value, onChange }) {
-  return (
+  const NumField = ({ label, value, onChange }) => (
     <View style={s.numField}>
       <Text style={s.numLabel}>{label}</Text>
       <TextInput
@@ -26,15 +27,13 @@ function NumField({ label, value, onChange }) {
       />
     </View>
   );
-}
 
-const Check = ({ on }) => (
-  <View style={[s.check, on && { backgroundColor: A.lime, borderColor: A.lime }]}>
-    {on && <Icon name="check" size={14} color={A.navy0} />}
-  </View>
-);
+  const Check = ({ on }) => (
+    <View style={[s.check, on && { backgroundColor: A.lime, borderColor: A.lime }]}>
+      {on && <Icon name="check" size={14} color={A.navy0} />}
+    </View>
+  );
 
-export default function RummyNewGameScreen({ navigation }) {
   const [autoName, setAutoName] = useState(true);
   const [name, setName] = useState('');
   const [totalScore, setTotalScore] = useState('250');
@@ -95,7 +94,7 @@ export default function RummyNewGameScreen({ navigation }) {
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor={A.navy1} />
+      <StatusBar barStyle={C.mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={A.navy1} />
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
           <Icon name="arrow-left" size={22} color={A.ink} />
@@ -187,7 +186,7 @@ export default function RummyNewGameScreen({ navigation }) {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (A) => StyleSheet.create({
   root: { flex: 1, backgroundColor: A.navy1, paddingTop: 44 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10 },
   backBtn: { padding: 4 },

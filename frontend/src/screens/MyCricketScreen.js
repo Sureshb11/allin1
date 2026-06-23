@@ -43,7 +43,7 @@ export default function MyCricketScreen({ navigation }) {
                 <Text style={styles.tileLabel}>{t.label}</Text>
                 <Text style={styles.tileSub}>{t.sub}</Text>
               </View>
-              <Icon name="chevron-right" size={14} color={DS.surfaceHighest} />
+              <Icon name="chevron-right" size={14} color={DS.faint} />
             </TouchableOpacity>
             );
           })}

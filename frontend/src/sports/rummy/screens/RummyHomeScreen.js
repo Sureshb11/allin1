@@ -113,7 +113,7 @@ export default function RummyHomeScreen({ navigation }) {
           <ActivityIndicator style={{ marginTop: 24 }} color={A.lime} />
         ) : games.length === 0 ? (
           <View style={s.empty}>
-            <Icon name="cards-playing-outline" size={44} color={A.cellHi} />
+            <Icon name="cards-playing-outline" size={44} color={A.faint} />
             <Text style={s.emptyTxt}>No games yet. Start one above.</Text>
           </View>
         ) : (

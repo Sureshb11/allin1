@@ -20,12 +20,8 @@ import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
 import { getScoringConfig } from '../sports/scoring';
 import Skeleton from '../components/Skeleton';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-// Neutral dark base shared by every sport; the accent supplies each sport's identity.
-const D = {
-  bg: '#0e1116', surfaceLow: '#171b22', surface: '#1c222b', surfaceHigh: '#272f3a',
-  ink: '#eaf0f4', inkDim: '#8d98a6', line: 'rgba(160,180,210,0.10)', live: '#ef4444', white: '#f8fafc',
-};
 const DEFAULT_COPY = { live: 'Live Now', results: 'Results & Fixtures', community: 'From the Community', compose: 'Share a moment' };
 
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Sport');
@@ -45,6 +41,8 @@ const SK = ['#1a2029', '#283039'];   // dark shimmer pair for skeletons
 
 // Heart button that pops on tap and fills when liked.
 function LikeButton({ liked, count, onPress }) {
+  const D = useTheme().colors;
+  const s = useThemedStyles(makeStyles);
   const a = useRef(new Animated.Value(1)).current;
   const press = () => {
     a.setValue(0.6);
@@ -81,6 +79,7 @@ function FeedSkeleton() {
 
 // Soft accent wash anchored to the top of the screen — kills the "all black" feel.
 function TopGlow({ accent }) {
+  const s = useThemedStyles(makeStyles);
   return (
     <Svg pointerEvents="none" style={s.topGlow} width="100%" height={300}>
       <Defs>
@@ -96,6 +95,7 @@ function TopGlow({ accent }) {
 
 // Section heading with a short accent bar.
 function SectionTitle({ children, accent, style }) {
+  const s = useThemedStyles(makeStyles);
   return (
     <View style={[s.titleRow, style]}>
       <View style={[s.titleBar, { backgroundColor: accent }]} />
@@ -105,6 +105,8 @@ function SectionTitle({ children, accent, style }) {
 }
 
 function FeaturedMatch({ m, accent, unit, onPress }) {
+  const D = useTheme().colors;
+  const s = useThemedStyles(makeStyles);
   return (
     <TouchableOpacity activeOpacity={0.9} style={[s.feature, { borderColor: accent + '55', shadowColor: accent }]} onPress={onPress}>
       <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -142,6 +144,7 @@ function FeaturedMatch({ m, accent, unit, onPress }) {
 }
 
 function ResultCard({ m, accent, onPress }) {
+  const s = useThemedStyles(makeStyles);
   return (
     <TouchableOpacity activeOpacity={0.85} style={[s.resCard, { borderColor: accent + '2a' }]} onPress={onPress}>
       <Text style={[s.resTag, { color: accent }]}>{m.status === 'completed' ? 'FINISHED' : 'UPCOMING'}</Text>
@@ -158,6 +161,8 @@ function ResultCard({ m, accent, onPress }) {
 }
 
 export default function SportFeedScreen({ navigation }) {
+  const { colors: D, isDark } = useTheme();
+  const s = useThemedStyles(makeStyles);
   const selected = getSelectedSport().sport;
   const sportId = selected?.id || 'cricket';
   const def = getSport(sportId);
@@ -243,7 +248,7 @@ export default function SportFeedScreen({ navigation }) {
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor={D.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={D.bg} />
       <TopGlow accent={accent} />
       <View style={s.topBar}>
         <View style={s.brand}>
@@ -304,7 +309,7 @@ export default function SportFeedScreen({ navigation }) {
             )}
             {matches.length === 0 && (
               <View style={s.empty}>
-                <Icon name={sportIcon} size={40} color={D.surfaceHigh} />
+                <Icon name={sportIcon} size={40} color={D.faint} />
                 <Text style={s.emptyTitle}>No {sportName.toLowerCase()} matches yet</Text>
                 <TouchableOpacity style={[s.startBtn, { backgroundColor: accent }]} onPress={() => navigation.navigate('StartMatch', { sport: sportObj })}>
                   <Icon name={sportIcon} size={16} color={D.bg} />
@@ -324,7 +329,7 @@ export default function SportFeedScreen({ navigation }) {
         </View>
         {posts.length === 0 ? (
           <View style={s.empty}>
-            <Icon name="account-group-outline" size={40} color={D.surfaceHigh} />
+            <Icon name="account-group-outline" size={40} color={D.faint} />
             <Text style={s.emptyTitle}>No posts yet</Text>
             <Text style={s.emptySub}>Be the first to share a {sportName.toLowerCase()} moment.</Text>
           </View>
@@ -422,7 +427,7 @@ export default function SportFeedScreen({ navigation }) {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (D) => StyleSheet.create({
   root: { flex: 1, backgroundColor: D.bg },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 52, paddingBottom: 10, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: D.line },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
