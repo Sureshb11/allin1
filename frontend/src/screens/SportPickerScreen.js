@@ -186,12 +186,13 @@ export default function SportPickerScreen({ navigation }) {
   const enterAnims = useRef(POSITIONS.map(() => new Animated.Value(0))).current;
 
   const stopInertia = () => {
-    if (intRef.current) { clearInterval(intRef.current); intRef.current = null; }
+    if (intRef.current) { cancelAnimationFrame(intRef.current); intRef.current = null; }
   };
   const stopAnim = () => {
-    if (animRef.current) { clearInterval(animRef.current); animRef.current = null; }
+    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
   };
 
+  // During a drag we coalesce moves to one state commit per frame (rAF throttle).
   const schedulePan = useCallback((x, y) => {
     panRef.current = { x, y };
     if (!rafRef.current) {
@@ -200,6 +201,12 @@ export default function SportPickerScreen({ navigation }) {
         setPanOff({ ...panRef.current });
       });
     }
+  }, []);
+
+  // Animation loops already run on a frame, so they commit directly (no nested rAF).
+  const commitPan = useCallback((x, y) => {
+    panRef.current = { x, y };
+    setPanOff({ x, y });
   }, []);
 
   // ── focus = nearest disc to centre; updates readout ──
@@ -223,19 +230,24 @@ export default function SportPickerScreen({ navigation }) {
   }, [panOff, readoutAnim]);
 
   // ── eased pan animation (tap-to-centre, spring-back, magnetic snap) ──
+  // rAF-driven and vsync-aligned; progress is measured from the real frame
+  // timestamp so the easing curve stays smooth on any refresh rate.
   const animateTo = useCallback((target, dur, cb, easeFn) => {
     stopInertia();
     stopAnim();
     const from = { ...panRef.current };
-    const t0 = Date.now();
     const ease = easeFn || ((x) => 1 - Math.pow(1 - x, 3));
-    animRef.current = setInterval(() => {
-      const k = clamp((Date.now() - t0) / dur, 0, 1);
+    let t0 = null;
+    const tick = (now) => {
+      if (t0 == null) t0 = now;
+      const k = clamp((now - t0) / dur, 0, 1);
       const e = ease(k);
-      schedulePan(from.x + (target.x - from.x) * e, from.y + (target.y - from.y) * e);
-      if (k >= 1) { stopAnim(); cb && cb(); }
-    }, 16);
-  }, [schedulePan]);
+      commitPan(from.x + (target.x - from.x) * e, from.y + (target.y - from.y) * e);
+      if (k < 1) { animRef.current = requestAnimationFrame(tick); }
+      else { animRef.current = null; cb && cb(); }
+    };
+    animRef.current = requestAnimationFrame(tick);
+  }, [commitPan]);
 
   // ── magnetic snap: glide whichever disc is nearest centre exactly onto it ──
   const snapToNearest = useCallback(() => {
@@ -248,19 +260,32 @@ export default function SportPickerScreen({ navigation }) {
   }, [animateTo]);
 
   // ── inertia with edge clamp; snaps to the nearest disc once it settles ──
+  // Frame-rate-independent: decay and travel scale by real elapsed time (dt),
+  // so the glide feels identical at 60Hz and 120Hz and never jumps after a stall.
   const startInertia = useCallback(() => {
     stopInertia();
-    intRef.current = setInterval(() => {
-      velRef.current.x *= 0.92;
-      velRef.current.y *= 0.92;
-      const np = { x: panRef.current.x + velRef.current.x, y: panRef.current.y + velRef.current.y };
+    let last = null;
+    const tick = (now) => {
+      if (last == null) last = now;
+      const dt = Math.min(now - last, 48) || 16;   // clamp dt (e.g. after a stall)
+      last = now;
+      const k = dt / 16;                            // 1 == a nominal 60Hz frame
+      const f = Math.pow(0.92, k);                  // per-frame friction, time-scaled
+      velRef.current.x *= f;
+      velRef.current.y *= f;
+      const np = {
+        x: panRef.current.x + velRef.current.x * k,
+        y: panRef.current.y + velRef.current.y * k,
+      };
       const cl = clampPan(np);
       if (cl.x !== np.x) velRef.current.x = 0;
       if (cl.y !== np.y) velRef.current.y = 0;
-      schedulePan(cl.x, cl.y);
-      if (Math.hypot(velRef.current.x, velRef.current.y) < 0.4) { stopInertia(); snapToNearest(); }
-    }, 16);
-  }, [schedulePan, snapToNearest]);
+      commitPan(cl.x, cl.y);
+      if (Math.hypot(velRef.current.x, velRef.current.y) < 0.4) { intRef.current = null; snapToNearest(); }
+      else { intRef.current = requestAnimationFrame(tick); }
+    };
+    intRef.current = requestAnimationFrame(tick);
+  }, [commitPan, snapToNearest]);
 
   useEffect(() => () => { stopInertia(); stopAnim(); }, []);
 
