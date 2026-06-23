@@ -154,14 +154,14 @@ function PostMedia({ kind, media }) {const DS = useTheme().colors;const c = useT
     return (
       <View style={[m.wrap, { backgroundColor: '#13351f' }]}>
         <View style={m.glow} />
-        <Text style={m.smallLabel}>{media.sub}</Text>
+        <Text style={[m.smallLabel, { color: DS.onDarkDim }]}>{media.sub}</Text>
         <View style={m.bigRow}>
-          <Text style={m.bigNum}>{media.value}</Text>
+          <Text style={[m.bigNum, { color: DS.onDark }]}>{media.value}</Text>
           <Text style={m.bigBalls}>({media.balls})</Text>
         </View>
         <View style={m.metaRow}>
           <Icon name={media.icon} size={14} color={DS.lime} />
-          <Text style={m.metaTxt}>{media.meta}</Text>
+          <Text style={[m.metaTxt, { color: DS.onDarkDim }]}>{media.meta}</Text>
         </View>
       </View>);
 

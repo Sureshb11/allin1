@@ -41,6 +41,8 @@ const dark = {
   textSecondary: '#c3c5d9',
   textMuted: '#8d90a2',
   faint: '#313442',          // very subtle fg (chevrons, empty-state icons)
+  onDark: '#eaf0fb',         // text on a fixed-dark card/banner (light in BOTH modes)
+  onDarkDim: '#9aa3b8',      // muted text on a fixed-dark card/banner
   limeDark: '#8ab000',
   live: '#ef4444',
   danger: '#ff5a5a',
@@ -79,6 +81,8 @@ const light = {
   textSecondary: '#33394a',
   textMuted: '#525a68',
   faint: '#aab2c0',          // very subtle fg (chevrons, empty-state icons)
+  onDark: '#eaf0fb',         // text on a fixed-dark card/banner (light in BOTH modes)
+  onDarkDim: '#9aa3b8',      // muted text on a fixed-dark card/banner
   limeDark: '#4f7300',
   live: '#dc2626',
   danger: '#dc2626',
