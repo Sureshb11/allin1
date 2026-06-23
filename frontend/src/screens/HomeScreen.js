@@ -9,24 +9,9 @@ import legendsApi from '../services/LegendsApi';
 import SimpleSidebar from '../components/SimpleSidebar';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { SPORTS, getDashboard } from '../sports/dashboard';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const { width } = Dimensions.get('window');
-
-// ── Design System Constants ──────────────────────────────────────
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  coral: '#ffb59e',
-  blue: '#b7c4ff',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-  live: '#ef4444',
-};
-
 
 const MORE_ITEMS = [
   { label: 'Go Live',        icon: 'broadcast',                  screen: 'StreamingLanding', color: '#EF4444' },
@@ -36,13 +21,15 @@ const MORE_ITEMS = [
   { label: 'Team Chat',      icon: 'message-outline',            screen: 'Chat',             color: '#8B5CF6' },
   { label: 'Daily Quiz',     icon: 'head-question-outline',      screen: 'Quiz',             color: '#EC4899' },
   { label: 'Video Analysis', icon: 'video-outline',              screen: 'VideoAnalysis',    color: '#06B6D4' },
-  { label: 'Premium',        icon: 'star-circle-outline',        screen: 'Premium',          color: DS.lime },
+  { label: 'Premium',        icon: 'star-circle-outline',        screen: 'Premium',          color: 'lime' },
   { label: 'Looking For',    icon: 'telescope',                  screen: 'LookingFor',       color: '#6366F1' },
   { label: 'Coaching',       icon: 'school',                     screen: 'Coaching',         color: '#0EA5E9' },
   { label: 'Umpires',        icon: 'whistle',                    screen: 'Umpires',          color: '#14B8A6' },
 ];
 
 export default function HomeScreen({ navigation }) {
+  const { colors: DS, isDark } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [liveMatches, setLiveMatches] = useState([]);
   const [players, setPlayers]         = useState([]);
   const [me, setMe]                   = useState(null);   // { user, player } when logged in
@@ -138,7 +125,7 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
 
       {/* ── HEADER ────────────────────────── */}
       <View style={styles.header}>
@@ -345,18 +332,21 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>More Features</Text>
           <View style={styles.moreGrid}>
-            {MORE_ITEMS.map(item => (
+            {MORE_ITEMS.map(item => {
+              const color = item.color === 'lime' ? DS.lime : item.color;
+              return (
               <TouchableOpacity
                 key={item.label}
                 style={styles.moreItem}
                 onPress={() => { setMoreVisible(false); navigation.navigate(item.screen); }}
               >
-                <View style={[styles.moreIcon, { backgroundColor: item.color + '22' }]}>
-                  <Icon name={item.icon} size={22} color={item.color} />
+                <View style={[styles.moreIcon, { backgroundColor: color + '22' }]}>
+                  <Icon name={item.icon} size={22} color={color} />
                 </View>
                 <Text style={styles.moreLabel}>{item.label}</Text>
               </TouchableOpacity>
-            ))}
+              );
+            })}
           </View>
         </View>
       </Modal>
@@ -394,6 +384,8 @@ export default function HomeScreen({ navigation }) {
 
 // ── Live Match Card ────────────────────────────────────────────────
 function LiveMatchCard({ match, sport, navigation, onShare }) {
+  const DS = useTheme().colors;
+  const lcStyles = useThemedStyles(makeLcStyles);
   const isLive = match.status === 'live';
   return (
     <View style={lcStyles.card}>
@@ -461,7 +453,7 @@ function LiveMatchCard({ match, sport, navigation, onShare }) {
   );
 }
 
-const lcStyles = StyleSheet.create({
+const makeLcStyles = (DS) => StyleSheet.create({
   card: { backgroundColor: DS.surfaceHigh, borderRadius: 20, marginBottom: 16 },
   cardHeader: { paddingHorizontal: 18, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: DS.surfaceHighest, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -487,7 +479,7 @@ const lcStyles = StyleSheet.create({
   actionBtnTextWhatsApp: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.bg },
 
   // Header

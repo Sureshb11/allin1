@@ -13,26 +13,15 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { setSelectedSport } from '../utils/selectedSport';
 import { getFormats } from '../sports/formats';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const { width: W } = Dimensions.get('window');
 const CARD_W = (W - 48) / 2;
 
-// ── Design System ───────────────────────────────────────────────────────────
-const DS = {
-  bg:              '#0f131f',
-  surfaceLow:      '#171b28',
-  surfaceHigh:     '#262a37',
-  surfaceHighest:  '#313442',
-  lime:            '#abd600',
-  limeDark:        '#8ab000',
-  textPrimary:     '#dfe2f3',
-  textSecondary:   '#c3c5d9',
-  textMuted:       '#8d90a2',
-};
-
-
 // ── Format card ───────────────────────────────────────────────────────────────
 function FormatCard({ format, selected, color, onPress, delay }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(anim, {
@@ -93,6 +82,8 @@ function FormatCard({ format, selected, color, onPress, delay }) {
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function SportSetupScreen({ route, navigation }) {
+  const { colors: DS, isDark } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { sport } = route.params || {};
   const color     = sport?.c1 || '#22c55e';
   const cfg       = getFormats(sport?.id);
@@ -123,7 +114,7 @@ export default function SportSetupScreen({ route, navigation }) {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
 
       {/* Header area with logo + sport info */}
       <Animated.View style={[
@@ -198,7 +189,7 @@ export default function SportSetupScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: DS.bg,
