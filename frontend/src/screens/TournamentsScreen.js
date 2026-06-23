@@ -7,30 +7,21 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 
 /* ── Design System ── */
-const DS = {
-  bg:             '#0f131f',
-  surfaceLow:     '#171b28',
-  surfaceHigh:    '#262a37',
-  surfaceHighest: '#313442',
-  lime:           '#abd600',
-  blue:           '#b7c4ff',
-  textPrimary:    '#dfe2f3',
-  textVariant:    '#c3c5d9',
-  textMuted:      '#8d90a2',
-};
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const FILTERS = ['All', 'Open', 'Ongoing', 'Completed'];
 
-const STATUS_COLORS = {
+const makeStatusColors = (DS) => ({
   Open:      DS.lime,
   Ongoing:   DS.lime,
   Active:    DS.lime,
   Upcoming:  DS.blue,
   Completed: DS.textMuted,
-};
+});
 
 /* ── Stats Pill ── */
 function StatPill({ value, label }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.statPill}>
       <Text style={styles.statValue}>{value}</Text>
@@ -41,6 +32,9 @@ function StatPill({ value, label }) {
 
 /* ── Tournament Card ── */
 function TournamentCard({ item, onJoin, onPress }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  const STATUS_COLORS = makeStatusColors(DS);
   const statusColor = STATUS_COLORS[item.status] || DS.textMuted;
   const teamsLeft = (item.maxTeams || 16) - (item.teams || 0);
   const progress = (item.teams || 0) / (item.maxTeams || 16);
@@ -126,6 +120,8 @@ function TournamentCard({ item, onJoin, onPress }) {
 
 /* ── Main Screen ── */
 const TournamentsScreen = ({ navigation }) => {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -261,7 +257,7 @@ const TournamentsScreen = ({ navigation }) => {
 };
 
 /* ── Styles ── */
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
 

@@ -6,28 +6,20 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  coral: '#ffb59e',
-  blue: '#b7c4ff',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-};
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const TABS = ['Overview', 'Points Table', 'Schedule'];
 
-const STATUS_COLORS = {
+const makeStatusColors = (DS) => ({
   upcoming: { bg: DS.surfaceHighest, text: DS.coral },
   ongoing: { bg: '#1a2e1a', text: '#6ee76e' },
   completed: { bg: DS.surfaceHigh, text: DS.textMuted },
-};
+});
 
 export default function TournamentDetailScreen({ route, navigation }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  const STATUS_COLORS = makeStatusColors(DS);
   const { tournamentId } = route.params || {};
   const [tournament, setTournament] = useState(null);
   const [pointsTable, setPointsTable] = useState([]);
@@ -240,7 +232,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
   errorText: { fontSize: 18, fontWeight: '700', color: DS.coral, marginTop: 12 },

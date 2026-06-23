@@ -4,40 +4,41 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-const DS = {
-  bg: '#0f131f', surfaceLow: '#171b28', surfaceHigh: '#262a37', surfaceHighest: '#313442',
-  lime: '#abd600', coral: '#ffb59e', blue: '#b7c4ff',
-  textPrimary: '#dfe2f3', textVariant: '#c3c5d9', textMuted: '#8d90a2',
-  live: '#ef4444', success: '#22c55e',
-};
-
-function StatCard({ icon, label, value, color = DS.lime }) {
+function StatCard({ icon, label, value, color }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.statCard}>
-      <Icon name={icon} size={24} color={color} />
+      <Icon name={icon} size={24} color={color || DS.lime} />
       <Text style={styles.statValue}>{value ?? '—'}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
-function ProgressBar({ value, max, color = DS.lime }) {
+function ProgressBar({ value, max, color }) {
+  const DS = useTheme().colors;
+  const pbStyles = useThemedStyles(makePbStyles);
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return (
     <View style={pbStyles.track}>
-      <View style={[pbStyles.fill, { width: `${pct}%`, backgroundColor: color }]} />
+      <View style={[pbStyles.fill, { width: `${pct}%`, backgroundColor: color || DS.lime }]} />
     </View>
   );
 }
-const pbStyles = StyleSheet.create({
+const makePbStyles = (DS) => StyleSheet.create({
   track: { height: 6, backgroundColor: DS.surfaceHighest, borderRadius: 3, flex: 1, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 3 },
 });
 
-const FORM_COLORS = { W: DS.success, L: DS.live, T: '#f59e0b' };
+const makeFormColors = (DS) => ({ W: DS.success, L: DS.live, T: '#f59e0b' });
 
 export default function TeamInsightsScreen({ route, navigation }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  const FORM_COLORS = makeFormColors(DS);
   const { teamId } = route.params || {};
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -195,7 +196,7 @@ export default function TeamInsightsScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
   header: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceLow, paddingTop: 48, paddingBottom: 14, paddingHorizontal: 16, gap: 8 },

@@ -6,24 +6,15 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  coral: '#ffb59e',
-  blue: '#b7c4ff',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-  live: '#ef4444',
-};
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-function BentoCard({ label, value, color = DS.lime, icon }) {
+function BentoCard({ label, value, color, icon }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  const c = color || DS.lime;
   return (
-    <View style={[styles.bentoCard, { borderTopColor: color }]}>
-      {icon && <Icon name={icon} size={16} color={color} style={{ marginBottom: 4 }} />}
+    <View style={[styles.bentoCard, { borderTopColor: c }]}>
+      {icon && <Icon name={icon} size={16} color={c} style={{ marginBottom: 4 }} />}
       <Text style={styles.bentoVal}>{value ?? '—'}</Text>
       <Text style={styles.bentoLbl}>{label}</Text>
     </View>
@@ -31,6 +22,8 @@ function BentoCard({ label, value, color = DS.lime, icon }) {
 }
 
 function Section({ title, icon, children }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
@@ -42,11 +35,11 @@ function Section({ title, icon, children }) {
   );
 }
 
-const TREND_CONFIG = {
+const makeTrendConfig = (DS) => ({
   upward:   { icon: 'trending-up',    color: DS.lime,  label: 'Improving'  },
   downward: { icon: 'trending-down',  color: DS.live,  label: 'Declining'  },
   stable:   { icon: 'trending-neutral', color: DS.coral, label: 'Stable'   },
-};
+});
 
 // Humanised labels for the generic career stats grid.
 const STAT_LABELS = {
@@ -55,9 +48,13 @@ const STAT_LABELS = {
   cleanSheets: 'Clean Sheets', saves: 'Saves', points: 'Points', wins: 'Wins',
   titles: 'Titles', fours: 'Fours', sixes: 'Sixes',
 };
-const STAT_COLORS = [DS.lime, DS.coral, DS.blue, '#c4b5fd', '#7dd3fc', '#fbbf24'];
+const makeStatColors = (DS) => [DS.lime, DS.coral, DS.blue, '#c4b5fd', '#7dd3fc', '#fbbf24'];
 
 export default function PlayerInsightsScreen({ route, navigation }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  const TREND_CONFIG = makeTrendConfig(DS);
+  const STAT_COLORS = makeStatColors(DS);
   const { playerId, player: passed } = route.params || {};
   const [insights, setInsights] = useState({});
   const [apiPlayer, setApiPlayer] = useState(null);
@@ -229,7 +226,7 @@ export default function PlayerInsightsScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
 

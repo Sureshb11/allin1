@@ -7,17 +7,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  blue: '#b7c4ff',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-};
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 // Real post types used by the create-post form.
 const TYPES = ['all', 'player', 'team', 'umpire', 'scorer', 'coach'];
@@ -44,17 +34,20 @@ const TYPE_ICONS = {
   commentator: 'account-voice',
 };
 
-const TYPE_CHIP_COLORS = {
+const makeTypeChipColors = (DS) => ({
   player: DS.lime,
   team: DS.blue,
   umpire: DS.lime,
   scorer: DS.blue,
   coach: DS.lime,
-};
+});
 
 const INITIAL_FORM = { type: 'player', title: '', description: '', location: '', format: '', ageGroup: '', contactInfo: '' };
 
 export default function LookingForScreen({ navigation, route }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  const TYPE_CHIP_COLORS = makeTypeChipColors(DS);
   // Optional deep-link category (e.g. from the search screen's "Looking for" list).
   const initialType = FILTER_TYPES.includes(route?.params?.initialType) ? route.params.initialType : 'all';
   const [posts, setPosts] = useState([]);
@@ -296,7 +289,7 @@ export default function LookingForScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
 
   /* Brand bar */

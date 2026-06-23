@@ -4,28 +4,15 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  coral: '#ffb59e',
-  blue: '#b7c4ff',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-  live: '#ef4444',
-};
-
-const CATEGORY_COLORS = {
+const makeCategoryColors = (DS) => ({
   General:     DS.blue,
   Match:       DS.lime,
   Tournament:  '#c4b5fd',
   Team:        '#7dd3fc',
   Player:      DS.coral,
-};
+});
 
 function formatTime(dateStr) {
   if (!dateStr) return '';
@@ -43,6 +30,9 @@ function estimateReadTime(text) {
 }
 
 function NewsCard({ item }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  const CATEGORY_COLORS = makeCategoryColors(DS);
   const catColor = CATEGORY_COLORS[item.category] || DS.blue;
   return (
     <View style={styles.card}>
@@ -83,6 +73,8 @@ function NewsCard({ item }) {
 }
 
 export default function NewsFeedScreen() {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
   const [news, setNews]           = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -145,7 +137,7 @@ export default function NewsFeedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
 

@@ -5,32 +5,21 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
-
-/* ─── Kinetic Athlete Design System ─── */
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  coral: '#ffb59e',
-  blue: '#b7c4ff',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-  live: '#ef4444',
-};
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const TEAM_COLORS = ['#6366f1', '#f97316', '#06b6d4', '#ec4899', '#8b5cf6', '#14b8a6'];
 const getTeamColor = (name, idx) => TEAM_COLORS[(name || '').charCodeAt(0) % TEAM_COLORS.length] || TEAM_COLORS[idx % TEAM_COLORS.length];
 
-const STATUS_META = {
+const makeStatusMeta = (DS) => ({
   live:      { color: DS.live,      bg: 'rgba(239,68,68,0.15)',  label: 'LIVE'      },
   completed: { color: DS.lime,      bg: 'rgba(171,214,0,0.12)',  label: 'FINAL'     },
   scheduled: { color: DS.blue,      bg: 'rgba(183,196,255,0.12)', label: 'UPCOMING'  },
-};
+});
 
 function MatchCard({ m, onPress }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  const STATUS_META = makeStatusMeta(DS);
   const meta = STATUS_META[m.status] || STATUS_META.scheduled;
   const t1Init = (m.team1 || 'T')[0].toUpperCase();
   const t2Init = (m.team2 || 'T')[0].toUpperCase();
@@ -118,6 +107,8 @@ const FILTERS = ['all', 'live', 'upcoming', 'completed'];
 const FILTER_STATUS_MAP = { all: 'all', live: 'live', upcoming: 'scheduled', completed: 'completed' };
 
 export default function MyMatchesScreen({ navigation }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
   const [query, setQuery]       = useState('');
   const [status, setStatus]     = useState('all');
   const [matches, setMatches]   = useState([]);
@@ -262,7 +253,7 @@ export default function MyMatchesScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
 

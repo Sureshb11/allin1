@@ -5,28 +5,18 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-const DS = {
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  lime: '#abd600',
-  coral: '#ffb59e',
-  blue: '#b7c4ff',
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textMuted: '#8d90a2',
-  live: '#ef4444',
-};
-
-const STATUS_CONFIG = {
+const makeStatusConfig = (DS) => ({
   analyzed:  { label: 'Analysed',    color: DS.lime,       bg: 'rgba(171,214,0,0.15)' },
   analyzing: { label: 'Processing...', color: DS.coral,    bg: 'rgba(255,181,158,0.15)' },
   uploaded:  { label: 'Uploaded',    color: DS.textMuted,  bg: DS.surfaceHighest },
-};
+});
 
 function VideoCard({ item, onAnalyze }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  const STATUS_CONFIG = makeStatusConfig(DS);
   const st = STATUS_CONFIG[item.status] || STATUS_CONFIG.uploaded;
   return (
     <View style={styles.videoCard}>
@@ -54,6 +44,8 @@ function VideoCard({ item, onAnalyze }) {
 }
 
 function AnalysisCard({ item }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.analysisCard}>
       <Text style={styles.analysisTitle} numberOfLines={1}>{item.video?.title || 'Video Analysis'}</Text>
@@ -76,6 +68,8 @@ function AnalysisCard({ item }) {
 }
 
 const VideoAnalysisScreen = ({ navigation }) => {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
   const [videos, setVideos] = useState([]);
   const [analysisResults, setAnalysisResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -225,7 +219,7 @@ const VideoAnalysisScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
 
