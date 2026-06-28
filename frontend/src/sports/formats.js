@@ -167,16 +167,6 @@ export const SPORT_FORMATS = {
       { id: 'singles',  label: 'Singles',       icon: 'account',             desc: '1v1 format'         },
     ],
   },
-  billiards: {
-    title: 'Select Game',
-    subtitle: 'Choose billiards type',
-    formats: [
-      { id: 'snooker',  label: 'Snooker',       icon: 'billiards',           desc: '22 balls on table'  },
-      { id: '8ball',    label: '8-Ball Pool',   icon: 'billiards',           desc: '15 balls, sink 8 last'},
-      { id: '9ball',    label: '9-Ball Pool',   icon: 'billiards',           desc: 'Lowest numbered ball'},
-      { id: 'carom',    label: 'Carom',         icon: 'billiards',           desc: 'No pockets'         },
-    ],
-  },
   skateboard: {
     title: 'Select Discipline',
     subtitle: 'Choose event type',
