@@ -168,10 +168,11 @@ export const SPORT_CONFIG = {
     icon: 'run', color: '#ef4444',
     periods: ['Turn 1', 'Turn 2', 'Turn 3', 'Turn 4'], maxPeriods: 4,
     actions: [
-      { type: 'out',   label: 'Out',   icon: 'run',         value: 1, color: DS.primary },
-      { type: 'bonus', label: 'Bonus', icon: 'plus-circle', value: 2, color: '#f59e0b' },
+      { type: 'out',       label: 'Out',       icon: 'run',             value: 1, color: DS.primary },
+      { type: 'pole-dive', label: 'Pole Dive', icon: 'arrow-down-bold', value: 1, color: '#8b5cf6' },
+      { type: 'bonus',     label: 'Dream Run', icon: 'star',            value: 2, color: '#f59e0b' },
     ],
-    scoreLabel: (events, teamId) => String(pts(events, teamId, ['out', 'bonus'])),
+    scoreLabel: (events, teamId) => String(pts(events, teamId, ['out', 'pole-dive', 'bonus'])),
   },
 
   boxing: {
@@ -203,15 +204,18 @@ export const SPORT_CONFIG = {
   },
 
   judo: {
+    // Modern judo (post-2017): only waza-ari & ippon. Two waza-ari = ippon = win.
     icon: 'human-handsup', color: '#1d4ed8',
     periods: ['Bout'], maxPeriods: 1,
     actions: [
-      { type: 'yuko',     label: 'Yuko (5)',     icon: 'human-handsup', value: 5,  color: '#0ea5e9' },
-      { type: 'waza-ari', label: 'Waza-ari (7)', icon: 'human-handsup', value: 7,  color: '#f59e0b' },
-      { type: 'ippon',    label: 'Ippon (10)',   icon: 'lightning-bolt', value: 10, color: '#22c55e' },
-      { type: 'penalty',  label: 'Shido',         icon: 'close-circle',  value: 0,  color: DS.error },
+      { type: 'ippon',    label: 'Ippon',    icon: 'lightning-bolt', value: 1, color: '#22c55e' },
+      { type: 'waza-ari', label: 'Waza-ari', icon: 'human-handsup',  value: 1, color: '#f59e0b' },
+      { type: 'penalty',  label: 'Shido',    icon: 'close-circle',   value: 0, color: DS.error },
     ],
-    scoreLabel: (events, teamId) => String(pts(events, teamId, ['yuko', 'waza-ari', 'ippon'])),
+    scoreLabel: (events, teamId) => {
+      if (cnt(events, teamId, 'ippon') > 0 || cnt(events, teamId, 'waza-ari') >= 2) return 'Ippon';
+      return `${cnt(events, teamId, 'waza-ari')} wa`;
+    },
   },
 
   wrestling: {

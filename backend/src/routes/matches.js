@@ -644,9 +644,9 @@ function computeSportScore(sport, events, team1Id, team2Id) {
     }
 
     case 'khokho': {
-      // out (1) + bonus (2) — matches the live scorer (scoring.js khokho.scoreLabel).
-      const o1 = sum(events, team1Id, ['out', 'bonus']);
-      const o2 = sum(events, team2Id, ['out', 'bonus']);
+      // out/pole-dive (1) + dream-run bonus (2) — matches scoring.js khokho.scoreLabel.
+      const o1 = sum(events, team1Id, ['out', 'pole-dive', 'bonus']);
+      const o2 = sum(events, team2Id, ['out', 'pole-dive', 'bonus']);
       return { score1: String(o1), score2: String(o2) };
     }
 
@@ -669,10 +669,13 @@ function computeSportScore(sport, events, team1Id, team2Id) {
     }
 
     case 'judo': {
-      // ippon=10, waza-ari=7, yuko=5
-      const pts1 = sum(events, team1Id, ['ippon', 'waza-ari', 'yuko']);
-      const pts2 = sum(events, team2Id, ['ippon', 'waza-ari', 'yuko']);
-      return { score1: String(pts1), score2: String(pts2) };
+      // Modern judo: waza-ari & ippon only; ippon (or 2 waza-ari) wins the bout.
+      const win = (tid) => countByTeam(events, tid, 'ippon') > 0 || countByTeam(events, tid, 'waza-ari') >= 2;
+      if (win(team1Id)) return { score1: 'Ippon', score2: '-' };
+      if (win(team2Id)) return { score1: '-', score2: 'Ippon' };
+      const w1 = countByTeam(events, team1Id, 'waza-ari');
+      const w2 = countByTeam(events, team2Id, 'waza-ari');
+      return { score1: `${w1} wa`, score2: `${w2} wa` };
     }
 
     case 'wrestling': {
@@ -827,7 +830,7 @@ function computePlayerStats(sport, events) {
       };
     case 'khokho':
       return {
-        outs:        events.filter(e => e.eventType === 'out').length,
+        outs:        events.filter(e => ['out','pole-dive'].includes(e.eventType)).length,
         bonusPoints: events.filter(e => e.eventType === 'bonus').reduce((s,e) => s + e.value, 0),
       };
     case 'wrestling':
@@ -907,8 +910,9 @@ function computeSportAggregates(sport, events, team1Id, team2Id) {
       return { cards: { team1: cards1, team2: cards2 }, sevenMeters };
     }
     case 'khokho': {
-      const outs    = { team1: countByTeam(events, team1Id, 'out'),   team2: countByTeam(events, team2Id, 'out') };
-      const bonuses = { team1: countByTeam(events, team1Id, 'bonus'), team2: countByTeam(events, team2Id, 'bonus') };
+      const outCount = (tid) => countByTeam(events, tid, 'out') + countByTeam(events, tid, 'pole-dive');
+      const outs    = { team1: outCount(team1Id),                       team2: outCount(team2Id) };
+      const bonuses = { team1: countByTeam(events, team1Id, 'bonus'),   team2: countByTeam(events, team2Id, 'bonus') };
       return { outs, bonuses };
     }
     case 'boxing': {
