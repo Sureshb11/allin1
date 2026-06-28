@@ -20,11 +20,13 @@ import legendsApi from '../services/LegendsApi';
 
 const TABS = ['Batting', 'Bowling', 'Run Rate', 'Extras'];
 
-function ProgressBar({ value, max, color = DS.lime }) {const pbStyles = useThemedStyles(makePbStyles);
+function ProgressBar({ value, max, color }) {
+  const DS = useTheme().colors;
+  const pbStyles = useThemedStyles(makePbStyles);
   const pct = max > 0 ? Math.min(value / max * 100, 100) : 0;
   return (
     <View style={pbStyles.track}>
-      <View style={[pbStyles.fill, { width: `${pct}%`, backgroundColor: color }]} />
+      <View style={[pbStyles.fill, { width: `${pct}%`, backgroundColor: color || DS.lime }]} />
     </View>);
 
 }

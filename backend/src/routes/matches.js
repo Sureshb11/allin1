@@ -542,6 +542,21 @@ router.get('/:id/sport-stats', async (req, res) => {
     const score = computeSportScore(match.sport, events, match.team1Id, match.team2Id);
     const stats = computeDetailedStats(match.sport, events, match.team1Id, match.team2Id);
 
+    // Enrich per-player stats with player names + which side they're on, so the
+    // app can render a per-player scorecard grouped by team.
+    if (stats.playerStats?.length) {
+      const ids = [...new Set(stats.playerStats.map(p => p.playerId).filter(Boolean))];
+      const players = ids.length
+        ? await prisma.player.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } })
+        : [];
+      const nameById = Object.fromEntries(players.map(p => [p.id, p.name]));
+      stats.playerStats = stats.playerStats.map(p => ({
+        ...p,
+        name: nameById[p.playerId] || 'Player',
+        side: p.teamId === match.team1Id ? 'team1' : 'team2',
+      }));
+    }
+
     res.json({
       success: true,
       data: {

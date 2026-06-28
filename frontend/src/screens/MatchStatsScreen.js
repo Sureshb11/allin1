@@ -16,13 +16,33 @@ import legendsApi from '../services/LegendsApi';
 const teamName = (t) => (typeof t === 'string' ? t : t?.name) || 'Team';
 
 // team1 vs team2 comparison row
-const StatRow = ({ label, a, b, aColor = A.ink, bColor = A.ink }) => {const s = useThemedStyles(makeS);return (
+const StatRow = ({ label, a, b, aColor, bColor }) => {
+  const A = useArenaColors();
+  const s = useThemedStyles(makeS);
+  return (
     <View style={s.statRow}>
-    <Text style={[s.statVal, { color: aColor, textAlign: 'left' }]}>{a}</Text>
+    <Text style={[s.statVal, { color: aColor || A.ink, textAlign: 'left' }]}>{a}</Text>
     <Text style={s.statLabel}>{label}</Text>
-    <Text style={[s.statVal, { color: bColor, textAlign: 'right' }]}>{b}</Text>
-  </View>);};
+    <Text style={[s.statVal, { color: bColor || A.ink, textAlign: 'right' }]}>{b}</Text>
+  </View>);
+};
 
+
+// Humanised labels for the per-player stat fields the backend returns.
+const PLAYER_STAT_LABELS = {
+  goals: 'goals', assists: 'assists', yellowCards: 'YC', redCards: 'RC',
+  points: 'pts', twoPointers: '2pt', threePointers: '3pt', freeThrows: 'FT', fouls: 'fouls',
+  penaltyCorners: 'PC', touchPoints: 'touch', tacklePoints: 'tackle', bonusPoints: 'bonus',
+  allOuts: 'all-out', punchesLanded: 'punches', knockdowns: 'KD', roundsWon: 'rounds',
+  totalPoints: 'pts',
+};
+const SKIP_PLAYER_KEYS = new Set(['playerId', 'teamId', 'side', 'name', 'totalEvents']);
+// Build a compact "2 goals · 1 YC" summary from a player's numeric stat fields.
+const summarizePlayer = (p) =>
+  Object.entries(p)
+    .filter(([k, v]) => !SKIP_PLAYER_KEYS.has(k) && typeof v === 'number' && v > 0)
+    .map(([k, v]) => `${v} ${PLAYER_STAT_LABELS[k] || k}`)
+    .join(' · ');
 
 export default function MatchStatsScreen({ navigation, route }) {const A = useArenaColors();const s = useThemedStyles(makeS);
   const { matchId, sportName = 'Match' } = route.params || {};
@@ -72,6 +92,7 @@ export default function MatchStatsScreen({ navigation, route }) {const A = useAr
   const runsLanded = stats?.runsLanded; // skateboard
   const crashes = stats?.crashes; // skateboard
   const periods = stats?.periodBreakdown || [];
+  const playerStats = (stats?.playerStats || []).filter((p) => summarizePlayer(p));
   const hasStats = cards || corners || games || points || aces || doubleFaults || strokes ||
   fouls || timeouts || touchPoints || tacklePoints || bonusPoints || allOuts ||
   penaltyCorners || blocks || sevenMeters || outs || bonuses ||
@@ -163,6 +184,28 @@ export default function MatchStatsScreen({ navigation, route }) {const A = useAr
               {crashes && <StatRow label="Crashes" a={crashes.team1} b={crashes.team2} aColor={A.red} bColor={A.red} />}
             </View>
         }
+
+          {/* Per-player scorecard — grouped by team */}
+          {playerStats.length > 0 &&
+        <View style={s.section}>
+              <Text style={s.sectionTitle}>Player Scorecard</Text>
+              {[['team1', t1], ['team2', t2]].map(([side, tname]) => {
+                const ps = playerStats.filter((p) => p.side === side);
+                if (!ps.length) return null;
+                return (
+                  <View key={side} style={s.playerGroup}>
+                    <Text style={s.playerGroupTitle}>{tname}</Text>
+                    {ps.map((p) => (
+                      <View key={p.playerId} style={s.playerRow}>
+                        <Text style={s.playerName} numberOfLines={1}>{p.name}</Text>
+                        <Text style={s.playerLine} numberOfLines={1}>{summarizePlayer(p)}</Text>
+                      </View>
+                    ))}
+                  </View>);
+
+              })}
+            </View>
+        }
         </ScrollView>
       }
     </View>);
@@ -189,5 +232,11 @@ const makeS = (A) => StyleSheet.create({
   sectionTitle: { color: A.ink, fontSize: 14, fontWeight: '800', marginBottom: 8 },
   statRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: A.line },
   statVal: { flex: 1, color: A.ink, fontSize: 16, fontWeight: '800' },
-  statLabel: { flex: 2, color: A.inkDim, fontSize: 12.5, textAlign: 'center', fontWeight: '600' }
+  statLabel: { flex: 2, color: A.inkDim, fontSize: 12.5, textAlign: 'center', fontWeight: '600' },
+
+  playerGroup: { marginTop: 6 },
+  playerGroupTitle: { color: A.lime, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, marginTop: 8, marginBottom: 2 },
+  playerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingVertical: 7, borderTopWidth: 1, borderTopColor: A.line },
+  playerName: { flex: 1, color: A.ink, fontSize: 13.5, fontWeight: '700' },
+  playerLine: { flexShrink: 0, color: A.inkDim, fontSize: 12, fontWeight: '600' }
 });

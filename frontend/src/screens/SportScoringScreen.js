@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Alert, StatusBar, Animated, Dimensions,
+  Alert, StatusBar, Animated, Dimensions, TextInput, Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Colors, Spacing, Radius } from '../theme';
@@ -285,10 +285,66 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
   const score2 = cfg.scoreLabel(events, match?.team2Id);
   const periodEvents = events.filter(e => e.periodNum === period);
 
+  // Per-team rosters + the currently-selected scorer — events get attributed to them.
+  const [rosters, setRosters]   = useState({ team1: [], team2: [] });
+  const [activeId, setActiveId] = useState({});   // { [teamId]: playerId }
+  const [addFor, setAddFor]     = useState(null);  // teamId we're adding a player to
+  const [newName, setNewName]   = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    const load = async (teamId, slot) => {
+      if (!teamId) return;
+      const res = await legendsApi.getPlayers({ teamId });
+      if (alive && res.success) setRosters(r => ({ ...r, [slot]: res.data || [] }));
+    };
+    load(match?.team1Id, 'team1');
+    load(match?.team2Id, 'team2');
+    return () => { alive = false; };
+  }, [match?.team1Id, match?.team2Id]);
+
+  const addPlayer = async () => {
+    const name = newName.trim();
+    if (!name || !addFor) return;
+    const res = await legendsApi.createPlayer({ name, role: 'Player', teamId: addFor });
+    if (res.success && res.data) {
+      const slot = addFor === match?.team1Id ? 'team1' : 'team2';
+      setRosters(r => ({ ...r, [slot]: [...(r[slot] || []), res.data] }));
+      setActiveId(a => ({ ...a, [addFor]: res.data.id }));
+    }
+    setNewName(''); setAddFor(null);
+  };
+
+  const nameFor = (teamId) => {
+    const slot = teamId === match?.team1Id ? 'team1' : 'team2';
+    return (rosters[slot] || []).find(p => p.id === activeId[teamId])?.name;
+  };
+
+  const PlayerStrip = ({ teamId, slot }) => (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.genPlayerStrip}>
+      {(rosters[slot] || []).map(p => {
+        const on = activeId[teamId] === p.id;
+        return (
+          <TouchableOpacity
+            key={p.id}
+            style={[s.genPlayerChip, on && { backgroundColor: cfg.color, borderColor: cfg.color }]}
+            onPress={() => setActiveId(a => ({ ...a, [teamId]: on ? undefined : p.id }))}
+          >
+            <Text style={[s.genPlayerChipTxt, on && { color: '#fff' }]} numberOfLines={1}>{p.name}</Text>
+          </TouchableOpacity>
+        );
+      })}
+      <TouchableOpacity style={s.genPlayerAdd} onPress={() => setAddFor(teamId)}>
+        <Icon name="plus" size={13} color={DS.tertiary} />
+        <Text style={s.genPlayerAddTxt}>Player</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
   const ActionButton = ({ action, teamId }) => (
     <TouchableOpacity
       style={s.genActionBtn}
-      onPress={() => onAdd(teamId, action)}
+      onPress={() => onAdd(teamId, action, activeId[teamId])}
       disabled={saving || matchOver}
       activeOpacity={0.7}
     >
@@ -303,6 +359,24 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
       )}
     </TouchableOpacity>
   );
+
+  const TeamSection = ({ teamId, slot, name }) => {
+    const who = nameFor(teamId);
+    return (
+      <View style={s.genTeamSection}>
+        <View style={s.genTeamHead}>
+          <Text style={s.genSectionTitle}>{name}</Text>
+          <Text style={s.genScorerHint}>{who ? `scoring: ${who}` : 'tap a player to attribute'}</Text>
+        </View>
+        <PlayerStrip teamId={teamId} slot={slot} />
+        <View style={s.genActionGrid}>
+          {cfg.actions.map(action => (
+            <ActionButton key={action.type} action={action} teamId={teamId} />
+          ))}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -334,25 +408,35 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
         </View>
       </View>
 
-      {/* ── Team 1 Actions ───────────────────────────── */}
-      <View style={s.genTeamSection}>
-        <Text style={s.genSectionTitle}>{match?.team1 || 'Team 1'}</Text>
-        <View style={s.genActionGrid}>
-          {cfg.actions.map(action => (
-            <ActionButton key={action.type} action={action} teamId={match?.team1Id} />
-          ))}
-        </View>
-      </View>
+      <TeamSection teamId={match?.team1Id} slot="team1" name={match?.team1 || 'Team 1'} />
+      <TeamSection teamId={match?.team2Id} slot="team2" name={match?.team2 || 'Team 2'} />
 
-      {/* ── Team 2 Actions ───────────────────────────── */}
-      <View style={s.genTeamSection}>
-        <Text style={s.genSectionTitle}>{match?.team2 || 'Team 2'}</Text>
-        <View style={s.genActionGrid}>
-          {cfg.actions.map(action => (
-            <ActionButton key={action.type} action={action} teamId={match?.team2Id} />
-          ))}
+      {/* add-player modal */}
+      <Modal visible={!!addFor} transparent animationType="fade" onRequestClose={() => setAddFor(null)}>
+        <View style={s.genModalBackdrop}>
+          <View style={s.genModalCard}>
+            <Text style={s.genModalTitle}>Add player</Text>
+            <TextInput
+              style={s.genModalInput}
+              placeholder="Player name"
+              placeholderTextColor={DS.muted}
+              value={newName}
+              onChangeText={setNewName}
+              autoFocus
+              onSubmitEditing={addPlayer}
+              returnKeyType="done"
+            />
+            <View style={s.genModalBtns}>
+              <TouchableOpacity onPress={() => { setNewName(''); setAddFor(null); }} style={s.genModalCancel}>
+                <Text style={s.genModalCancelTxt}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={addPlayer} style={[s.genModalAdd, !newName.trim() && { opacity: 0.5 }]} disabled={!newName.trim()}>
+                <Text style={s.genModalAddTxt}>Add</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </View>
+      </Modal>
 
       {/* ── Period Event Log ─────────────────────────── */}
       {periodEvents.length > 0 && (
@@ -414,11 +498,12 @@ export default function SportScoringScreen({ route, navigation }) {
   const score1 = cfg.scoreLabel(events, match?.team1Id);
   const score2 = cfg.scoreLabel(events, match?.team2Id);
 
-  const addEvent = useCallback(async (teamId, action) => {
+  const addEvent = useCallback(async (teamId, action, playerId) => {
     if (matchOver) return;
     setSaving(true);
     const eventData = {
       sport, teamId,
+      ...(playerId ? { playerId } : {}),
       eventType: action.type,
       value:     action.value,
       period:    cfg.periods[period - 1],
@@ -724,10 +809,38 @@ const s = StyleSheet.create({
 
   /* ── Team Sections ────────────────────────────────── */
   genTeamSection: { paddingHorizontal: 14, marginBottom: 14 },
+  genTeamHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   genSectionTitle: {
     fontSize: 10, fontWeight: '800', color: DS.onVariant,
-    letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10,
+    letterSpacing: 2, textTransform: 'uppercase',
   },
+  genScorerHint: { fontSize: 10, fontWeight: '700', color: DS.tertiary },
+
+  // player picker
+  genPlayerStrip: { gap: 8, paddingBottom: 10 },
+  genPlayerChip: {
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
+    backgroundColor: DS.cHigh, borderWidth: 1, borderColor: DS.cHigh, maxWidth: 140,
+  },
+  genPlayerChipTxt: { fontSize: 12, fontWeight: '700', color: DS.onSurface },
+  genPlayerAdd: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
+    borderWidth: 1, borderColor: DS.tertiary, borderStyle: 'dashed',
+  },
+  genPlayerAddTxt: { fontSize: 12, fontWeight: '800', color: DS.tertiary },
+
+  // add-player modal
+  genModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 28 },
+  genModalCard: { width: '100%', backgroundColor: DS.cHigh, borderRadius: 18, padding: 18 },
+  genModalTitle: { fontSize: 15, fontWeight: '800', color: DS.onSurface, marginBottom: 12 },
+  genModalInput: { backgroundColor: DS.cLow, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: DS.onSurface, fontSize: 15 },
+  genModalBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 14 },
+  genModalCancel: { paddingHorizontal: 16, paddingVertical: 10 },
+  genModalCancelTxt: { color: DS.muted, fontSize: 14, fontWeight: '700' },
+  genModalAdd: { backgroundColor: DS.tertiary, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 },
+  genModalAddTxt: { color: DS.bg, fontSize: 14, fontWeight: '900' },
+
   genActionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   genActionBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
