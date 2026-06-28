@@ -46,7 +46,7 @@ export const SPORT_CONFIG = {
 
   football: {
     icon: 'soccer', color: '#16a34a',
-    periods: ['1st Half', '2nd Half', 'Extra Time'], maxPeriods: 2,
+    periods: ['1st Half', '2nd Half', 'Extra Time'], maxPeriods: 3,
     actions: [
       { type: 'goal',        label: 'Goal',     icon: 'soccer',        value: 1, color: '#22c55e' },
       { type: 'corner',      label: 'Corner',   icon: 'flag-triangle', value: 0, color: '#0ea5e9' },
@@ -59,7 +59,7 @@ export const SPORT_CONFIG = {
 
   basketball: {
     icon: 'basketball', color: '#ea580c',
-    periods: ['Q1', 'Q2', 'Q3', 'Q4', 'OT'], maxPeriods: 4,
+    periods: ['Q1', 'Q2', 'Q3', 'Q4', 'OT'], maxPeriods: 5,
     actions: [
       { type: '2pt',       label: '2 Pts',      icon: 'basketball',      value: 2, color: DS.primary },
       { type: '3pt',       label: '3 Pts',      icon: 'basketball',      value: 3, color: '#8b5cf6' },
@@ -72,7 +72,7 @@ export const SPORT_CONFIG = {
 
   tennis: {
     icon: 'tennis', color: '#65a30d',
-    periods: ['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5'], maxPeriods: 3,
+    periods: ['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5'], maxPeriods: 5,
     actions: [
       { type: 'point',        label: 'Point',     icon: 'tennis',         value: 1, color: DS.primary },
       { type: 'ace',          label: 'Ace',        icon: 'lightning-bolt', value: 1, color: '#f59e0b' },
@@ -232,7 +232,7 @@ export const SPORT_CONFIG = {
 
   handball: {
     icon: 'handball', color: '#d97706',
-    periods: ['1st Half', '2nd Half', 'Extra Time'], maxPeriods: 2,
+    periods: ['1st Half', '2nd Half', 'Extra Time'], maxPeriods: 3,
     actions: [
       { type: 'goal',        label: 'Goal',     icon: 'handball',   value: 1, color: '#22c55e' },
       { type: '7m-throw',    label: '7m Goal',  icon: 'handball',   value: 1, color: '#0ea5e9' },
