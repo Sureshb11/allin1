@@ -17,6 +17,7 @@
 // both resolve from the same theme.
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'theme:mode';
@@ -105,6 +106,7 @@ export const PALETTES = { dark, light };
 
 const ThemeContext = createContext({
   mode: 'dark',
+  pref: 'system',
   colors: dark,
   isDark: true,
   setMode: () => {},
@@ -112,23 +114,35 @@ const ThemeContext = createContext({
 });
 
 export function ThemeProvider({ children }) {
-  const [mode, setModeState] = useState('dark');
+  // `pref` is the user's choice: 'system' | 'light' | 'dark'. On a fresh install
+  // (nothing saved) we follow the device's system theme.
+  const [pref, setPref] = useState('system');
+  const [sysScheme, setSysScheme] = useState(() => Appearance.getColorScheme() || 'dark');
 
-  // Restore the persisted choice on launch (dark is the default until it loads).
+  // Restore the persisted preference on launch.
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((saved) => {
-      if (saved === 'light' || saved === 'dark') setModeState(saved);
+      if (saved === 'light' || saved === 'dark' || saved === 'system') setPref(saved);
     }).catch(() => {});
   }, []);
 
+  // Track the OS theme so 'system' updates live when the device switches.
+  useEffect(() => {
+    const sub = Appearance.addChangeListener(({ colorScheme }) => setSysScheme(colorScheme || 'dark'));
+    return () => sub?.remove?.();
+  }, []);
+
+  const mode = pref === 'system' ? sysScheme : pref;
+
   const setMode = useCallback((next) => {
-    setModeState(next);
+    setPref(next);
     AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
   }, []);
 
   const toggle = useCallback(() => {
-    setModeState((cur) => {
-      const next = cur === 'dark' ? 'light' : 'dark';
+    setPref((cur) => {
+      const resolved = cur === 'system' ? (Appearance.getColorScheme() || 'dark') : cur;
+      const next = resolved === 'dark' ? 'light' : 'dark';
       AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
       return next;
     });
@@ -136,11 +150,12 @@ export function ThemeProvider({ children }) {
 
   const value = useMemo(() => ({
     mode,
+    pref,
     colors: PALETTES[mode],
     isDark: mode === 'dark',
     setMode,
     toggle,
-  }), [mode, setMode, toggle]);
+  }), [mode, pref, setMode, toggle]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

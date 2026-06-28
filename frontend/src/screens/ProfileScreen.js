@@ -31,7 +31,7 @@ const MENU_ITEMS = [
 ];
 
 export default function ProfileScreen({ navigation }) {
-  const { colors: DS, mode, setMode } = useTheme();
+  const { colors: DS, pref, setMode } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [profile, setProfile] = useState({});
   const [stats, setStats] = useState({});
@@ -237,10 +237,11 @@ export default function ProfileScreen({ navigation }) {
           </View>
           <View style={styles.segment}>
             {[
-              { key: 'light', label: 'Light', icon: 'white-balance-sunny' },
-              { key: 'dark',  label: 'Dark',  icon: 'weather-night' },
+              { key: 'system', label: 'System', icon: 'cellphone' },
+              { key: 'light',  label: 'Light',  icon: 'white-balance-sunny' },
+              { key: 'dark',   label: 'Dark',   icon: 'weather-night' },
             ].map((opt) => {
-              const active = mode === opt.key;
+              const active = pref === opt.key;
               return (
                 <TouchableOpacity
                   key={opt.key}
