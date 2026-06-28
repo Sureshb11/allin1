@@ -103,23 +103,6 @@ export const SPORT_CONFIG = {
     },
   },
 
-  baseball: {
-    icon: 'baseball', color: '#dc2626',
-    periods: ['Inn.1','Inn.2','Inn.3','Inn.4','Inn.5','Inn.6','Inn.7','Inn.8','Inn.9'],
-    maxPeriods: 9,
-    actions: [
-      { type: 'run',    label: 'Run',    icon: 'run',            value: 1, color: DS.primary },
-      { type: 'out',    label: 'Out',    icon: 'close-circle',   value: 0, color: DS.error },
-      { type: 'hit',    label: 'Hit',    icon: 'baseball-bat',   value: 0, color: '#f59e0b' },
-      { type: 'strike', label: 'Strike', icon: 'lightning-bolt', value: 0, color: '#8b5cf6' },
-    ],
-    scoreLabel: (events, teamId) => {
-      const runs = cnt(events, teamId, 'run');
-      const outs = cnt(events, teamId, 'out');
-      return `${runs}R ${outs}O`;
-    },
-  },
-
   badminton: {
     icon: 'badminton', color: '#0d9488',
     periods: ['Game 1', 'Game 2', 'Game 3'], maxPeriods: 3,

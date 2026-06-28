@@ -53,10 +53,14 @@ export default function MatchStatsScreen({ navigation, route }) {const A = useAr
   const strokes = stats?.strokes; // squash
   const fouls = stats?.fouls; // basketball
   const timeouts = stats?.timeouts; // basketball
+  const touchPoints = stats?.touchPoints; // kabaddi
+  const tacklePoints = stats?.tacklePoints; // kabaddi
+  const bonusPoints = stats?.bonusPoints; // kabaddi
   const allOuts = stats?.allOuts; // kabaddi
   const penaltyCorners = stats?.penaltyCorners; // hockey
   const blocks = stats?.blocks; // volleyball
   const sevenMeters = stats?.sevenMeters; // handball
+  const outs = stats?.outs; // kho-kho
   const bonuses = stats?.bonuses; // kho-kho
   const knockdowns = stats?.knockdowns; // boxing
   const punches = stats?.punches; // boxing
@@ -65,17 +69,14 @@ export default function MatchStatsScreen({ navigation, route }) {const A = useAr
   const pins = stats?.pins; // wrestling
   const ippons = stats?.ippons; // judo / karate
   const wazaAri = stats?.wazaAri; // judo / karate
-  const birdies = stats?.birdies; // golf
-  const holesInOne = stats?.holesInOne; // golf
-  const tens = stats?.tens; // archery
-  const nines = stats?.nines; // archery
-  const pots = stats?.pots; // bowling
+  const runsLanded = stats?.runsLanded; // skateboard
   const crashes = stats?.crashes; // skateboard
   const periods = stats?.periodBreakdown || [];
   const hasStats = cards || corners || games || points || aces || doubleFaults || strokes ||
-  fouls || timeouts || allOuts || penaltyCorners || blocks || sevenMeters || bonuses ||
+  fouls || timeouts || touchPoints || tacklePoints || bonusPoints || allOuts ||
+  penaltyCorners || blocks || sevenMeters || outs || bonuses ||
   knockdowns || punches || roundsWon || takedowns || pins || ippons || wazaAri ||
-  birdies || holesInOne || tens || nines || pots || crashes;
+  runsLanded || crashes;
 
   return (
     <View style={s.root}>
@@ -141,8 +142,13 @@ export default function MatchStatsScreen({ navigation, route }) {const A = useAr
               {/* team sports */}
               {fouls && <StatRow label="Fouls" a={fouls.team1} b={fouls.team2} />}
               {timeouts && <StatRow label="Timeouts" a={timeouts.team1} b={timeouts.team2} />}
+              {touchPoints && <StatRow label="Touch points" a={touchPoints.team1} b={touchPoints.team2} />}
+              {tacklePoints && <StatRow label="Tackle points" a={tacklePoints.team1} b={tacklePoints.team2} />}
+              {bonusPoints && <StatRow label="Bonus points" a={bonusPoints.team1} b={bonusPoints.team2} aColor={A.lime} bColor={A.lime} />}
               {allOuts && <StatRow label="All-outs" a={allOuts.team1} b={allOuts.team2} aColor={A.lime} bColor={A.lime} />}
               {sevenMeters && <StatRow label="7m goals" a={sevenMeters.team1} b={sevenMeters.team2} />}
+              {/* kho-kho */}
+              {outs && <StatRow label="Outs" a={outs.team1} b={outs.team2} />}
               {bonuses && <StatRow label="Bonus points" a={bonuses.team1} b={bonuses.team2} aColor={A.lime} bColor={A.lime} />}
               {/* combat — special moves */}
               {roundsWon && <StatRow label="Rounds won" a={roundsWon.team1} b={roundsWon.team2} />}
@@ -152,12 +158,8 @@ export default function MatchStatsScreen({ navigation, route }) {const A = useAr
               {pins && <StatRow label="Pins" a={pins.team1} b={pins.team2} aColor={A.lime} bColor={A.lime} />}
               {ippons && <StatRow label="Ippon" a={ippons.team1} b={ippons.team2} aColor={A.lime} bColor={A.lime} />}
               {wazaAri && <StatRow label="Waza-ari" a={wazaAri.team1} b={wazaAri.team2} />}
-              {/* individual / precision */}
-              {birdies && <StatRow label="Birdies" a={birdies.team1} b={birdies.team2} aColor={A.lime} bColor={A.lime} />}
-              {holesInOne && <StatRow label="Hole-in-one" a={holesInOne.team1} b={holesInOne.team2} aColor={A.lime} bColor={A.lime} />}
-              {tens && <StatRow label="10s (bullseye)" a={tens.team1} b={tens.team2} aColor={A.lime} bColor={A.lime} />}
-              {nines && <StatRow label="9s" a={nines.team1} b={nines.team2} />}
-              {pots && <StatRow label="Pots" a={pots.team1} b={pots.team2} />}
+              {/* skateboard */}
+              {runsLanded && <StatRow label="Runs landed" a={runsLanded.team1} b={runsLanded.team2} />}
               {crashes && <StatRow label="Crashes" a={crashes.team1} b={crashes.team2} aColor={A.red} bColor={A.red} />}
             </View>
         }

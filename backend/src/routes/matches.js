@@ -601,12 +601,6 @@ function computeSportScore(sport, events, team1Id, team2Id) {
       return { score1: `${s1} sets`, score2: `${s2} sets` };
     }
 
-    case 'baseball': {
-      const r1 = countByTeam(events, team1Id, 'run');
-      const r2 = countByTeam(events, team2Id, 'run');
-      return { score1: String(r1), score2: String(r2) };
-    }
-
     case 'badminton': {
       const gw1 = countByTeam(events, team1Id, 'game-win');
       const gw2 = countByTeam(events, team2Id, 'game-win');
@@ -684,20 +678,6 @@ function computeSportScore(sport, events, team1Id, team2Id) {
       return { score1: String(g1), score2: String(g2) };
     }
 
-    case 'golf': {
-      // Individual strokes — lower is better; sum stroke events per team
-      const s1 = sum(events, team1Id, ['stroke']);
-      const s2 = sum(events, team2Id, ['stroke']);
-      return { score1: `${s1} strokes`, score2: `${s2} strokes` };
-    }
-
-    case 'archery': {
-      const arrowTypes = ['arrow-10', 'arrow-9', 'arrow-8', 'arrow-7', 'arrow-0'];
-      const pts1 = sum(events, team1Id, arrowTypes);
-      const pts2 = sum(events, team2Id, arrowTypes);
-      return { score1: String(pts1), score2: String(pts2) };
-    }
-
     case 'squash': {
       const gw1 = countByTeam(events, team1Id, 'game-win');
       const gw2 = countByTeam(events, team2Id, 'game-win');
@@ -708,13 +688,6 @@ function computeSportScore(sport, events, team1Id, team2Id) {
       const gw1 = countByTeam(events, team1Id, 'game-win');
       const gw2 = countByTeam(events, team2Id, 'game-win');
       return { score1: `${gw1} games`, score2: `${gw2} games` };
-    }
-
-    case 'bowling':
-    case 'billiards': {
-      const fw1 = countByTeam(events, team1Id, 'frame-won');
-      const fw2 = countByTeam(events, team2Id, 'frame-won');
-      return { score1: `${fw1} frames`, score2: `${fw2} frames` };
     }
 
     case 'skateboard': {
@@ -800,14 +773,6 @@ function computePlayerStats(sport, events) {
         knockdowns:    events.filter(e => e.eventType === 'knockdown').length,
         roundsWon:     events.filter(e => e.eventType === 'round-win').length,
       };
-    case 'archery': {
-      const arrowTypes = ['arrow-10','arrow-9','arrow-8','arrow-7','arrow-0'];
-      return {
-        arrowsFired: events.filter(e => arrowTypes.includes(e.eventType)).length,
-        totalScore:  events.filter(e => arrowTypes.includes(e.eventType)).reduce((s,e) => s + e.value, 0),
-        bullseyes:   events.filter(e => e.eventType === 'arrow-10').length,
-      };
-    }
     default:
       return {
         totalPoints: events.reduce((s,e) => s + e.value, 0),
@@ -846,9 +811,11 @@ function computeSportAggregates(sport, events, team1Id, team2Id) {
       return { aces: { team1: aces1, team2: aces2 }, blocks: { team1: blocks1, team2: blocks2 } };
     }
     case 'kabaddi': {
-      const allOuts1 = countByTeam(events, team1Id, 'all-out');
-      const allOuts2 = countByTeam(events, team2Id, 'all-out');
-      return { allOuts: { team1: allOuts1, team2: allOuts2 } };
+      const tp = { team1: sum(events, team1Id, ['touch-point']),  team2: sum(events, team2Id, ['touch-point']) };
+      const tk = { team1: sum(events, team1Id, ['tackle-point']), team2: sum(events, team2Id, ['tackle-point']) };
+      const bn = { team1: sum(events, team1Id, ['bonus-point']),  team2: sum(events, team2Id, ['bonus-point']) };
+      const ao = { team1: countByTeam(events, team1Id, 'all-out'), team2: countByTeam(events, team2Id, 'all-out') };
+      return { touchPoints: tp, tacklePoints: tk, bonusPoints: bn, allOuts: ao };
     }
     case 'hockey': {
       const cards1 = { yellow: countByTeam(events, team1Id, 'yellow-card'), red: countByTeam(events, team1Id, 'red-card') };
@@ -863,8 +830,9 @@ function computeSportAggregates(sport, events, team1Id, team2Id) {
       return { cards: { team1: cards1, team2: cards2 }, sevenMeters };
     }
     case 'khokho': {
+      const outs    = { team1: countByTeam(events, team1Id, 'out'),   team2: countByTeam(events, team2Id, 'out') };
       const bonuses = { team1: countByTeam(events, team1Id, 'bonus'), team2: countByTeam(events, team2Id, 'bonus') };
-      return { bonuses };
+      return { outs, bonuses };
     }
     case 'boxing': {
       const knockdowns = { team1: countByTeam(events, team1Id, 'knockdown'), team2: countByTeam(events, team2Id, 'knockdown') };
@@ -883,25 +851,13 @@ function computeSportAggregates(sport, events, team1Id, team2Id) {
       const wazaAri = { team1: countByTeam(events, team1Id, 'waza-ari'), team2: countByTeam(events, team2Id, 'waza-ari') };
       return { ippons, wazaAri };
     }
-    case 'golf': {
-      const birdies     = { team1: countByTeam(events, team1Id, 'birdie'), team2: countByTeam(events, team2Id, 'birdie') };
-      const holesInOne  = { team1: countByTeam(events, team1Id, 'hole-in-one'), team2: countByTeam(events, team2Id, 'hole-in-one') };
-      return { birdies, holesInOne };
-    }
-    case 'archery': {
-      const tens  = { team1: countByTeam(events, team1Id, 'arrow-10'), team2: countByTeam(events, team2Id, 'arrow-10') };
-      const nines = { team1: countByTeam(events, team1Id, 'arrow-9'), team2: countByTeam(events, team2Id, 'arrow-9') };
-      return { tens, nines };
-    }
-    case 'bowling':
-    case 'billiards': {
-      const pots  = { team1: countByTeam(events, team1Id, 'pot'), team2: countByTeam(events, team2Id, 'pot') };
-      const fouls = { team1: countByTeam(events, team1Id, 'foul'), team2: countByTeam(events, team2Id, 'foul') };
-      return { pots, fouls };
-    }
     case 'skateboard': {
+      const runsLanded = {
+        team1: events.filter(e => e.teamId === team1Id && e.eventType.startsWith('run-score')).length,
+        team2: events.filter(e => e.teamId === team2Id && e.eventType.startsWith('run-score')).length,
+      };
       const crashes = { team1: countByTeam(events, team1Id, 'crash'), team2: countByTeam(events, team2Id, 'crash') };
-      return { crashes };
+      return { runsLanded, crashes };
     }
     case 'badminton':
     case 'pickleball':
