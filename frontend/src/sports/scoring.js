@@ -10,6 +10,127 @@ export const pts = (events, teamId, types) =>
   events.filter(e => e.teamId === teamId && types.includes(e.eventType))
         .reduce((s, e) => s + e.value, 0);
 
+// ── Auto game/set engine ────────────────────────────────────────────────────
+// Replays point events in order so the score auto-advances point→game/set per
+// the sport's rules — no manual "Game Won"/"Set Won" tapping. Shared verbatim
+// with the backend (matches.js) so the live + match-detail scores agree.
+export const RALLY_RULES = {
+  volleyball:  { unitPts: 25, unitsToWin: 3, maxUnits: 5, finalUnitPts: 15 },
+  badminton:   { unitPts: 21, unitsToWin: 2, maxUnits: 3, cap: 30 },
+  tabletennis: { unitPts: 11, unitsToWin: 4, maxUnits: 7 },
+  squash:      { unitPts: 11, unitsToWin: 3, maxUnits: 5 },
+  pickleball:  { unitPts: 11, unitsToWin: 2, maxUnits: 3 },
+};
+// Rally-winning event types that advance a game/set by one point.
+const POINT_TYPES = new Set(['point', 'rally', 'ace', 'stroke', 'block']);
+const isPoint = (e) => POINT_TYPES.has(e.eventType);
+
+// → { team1:{units,points}, team2:{units,points} } for first-arg = team1.
+export function deriveRally(events, t1, t2, rules) {
+  const u = { [t1]: 0, [t2]: 0 }, p = { [t1]: 0, [t2]: 0 };
+  for (const e of events) {
+    if (!isPoint(e) || (e.teamId !== t1 && e.teamId !== t2)) continue;
+    const tid = e.teamId, opp = tid === t1 ? t2 : t1;
+    if (u[tid] >= rules.unitsToWin || u[opp] >= rules.unitsToWin) continue;
+    p[tid] += 1;
+    const played = u[t1] + u[t2];
+    const target = (rules.finalUnitPts && played === rules.maxUnits - 1) ? rules.finalUnitPts : rules.unitPts;
+    const win = (p[tid] >= target && p[tid] - p[opp] >= 2) || (rules.cap && p[tid] >= rules.cap);
+    if (win) { u[tid] += 1; p[t1] = 0; p[t2] = 0; }
+  }
+  return { team1: { units: u[t1], points: p[t1] }, team2: { units: u[t2], points: p[t2] } };
+}
+
+const TENNIS = { setsToWin: 2 };
+const PT_LABEL = ['0', '15', '30', '40'];
+// Tennis: points 0/15/30/40/deuce/ad → games (to 6, win by 2; tiebreak at 6-6) → sets.
+export function deriveTennis(events, t1, t2) {
+  const sets = { [t1]: 0, [t2]: 0 }, games = { [t1]: 0, [t2]: 0 }, pts2 = { [t1]: 0, [t2]: 0 };
+  const disp = { [t1]: '0', [t2]: '0' };
+  for (const e of events) {
+    if (!isPoint(e) || (e.teamId !== t1 && e.teamId !== t2)) continue;
+    const tid = e.teamId, opp = tid === t1 ? t2 : t1;
+    if (sets[tid] >= TENNIS.setsToWin || sets[opp] >= TENNIS.setsToWin) continue;
+    const tiebreak = games[t1] === 6 && games[t2] === 6;
+    pts2[tid] += 1;
+    let gameWon = false;
+    if (tiebreak) {
+      gameWon = pts2[tid] >= 7 && pts2[tid] - pts2[opp] >= 2;
+      disp[tid] = String(pts2[tid]); disp[opp] = String(pts2[opp]);
+    } else if (pts2[tid] >= 4 && pts2[tid] - pts2[opp] >= 2) {
+      gameWon = true;
+    } else if (pts2[tid] >= 3 && pts2[opp] >= 3) {
+      if (pts2[tid] === pts2[opp]) { disp[tid] = '40'; disp[opp] = '40'; }
+      else if (pts2[tid] > pts2[opp]) { disp[tid] = 'Ad'; disp[opp] = '40'; }
+      else { disp[tid] = '40'; disp[opp] = 'Ad'; }
+    } else {
+      disp[tid] = PT_LABEL[Math.min(pts2[tid], 3)]; disp[opp] = PT_LABEL[Math.min(pts2[opp], 3)];
+    }
+    if (gameWon) {
+      games[tid] += 1; pts2[t1] = 0; pts2[t2] = 0; disp[t1] = '0'; disp[t2] = '0';
+      const setWon = (games[tid] >= 6 && games[tid] - games[opp] >= 2) || games[tid] === 7;
+      if (setWon) { sets[tid] += 1; games[t1] = 0; games[t2] = 0; }
+    }
+  }
+  return {
+    team1: { sets: sets[t1], games: games[t1], points: disp[t1] },
+    team2: { sets: sets[t2], games: games[t2], points: disp[t2] },
+  };
+}
+
+// Display helpers used by the per-team scoreLabel (teamId = "my" side).
+const rallyLabel = (sport) => (events, teamId, oppId) => {
+  const d = deriveRally(events, teamId, oppId || '∅', RALLY_RULES[sport]);
+  return `${d.team1.units} (${d.team1.points})`;
+};
+const tennisLabel = (events, teamId, oppId) => {
+  const d = deriveTennis(events, teamId, oppId || '∅');
+  return `${d.team1.sets}-${d.team1.games} ${d.team1.points}`;
+};
+
+// ── Winner detection ────────────────────────────────────────────────────────
+// Instant finishes (the event ends the match) + a numeric rank fallback.
+const INSTANT = {
+  boxing:    (ev, t) => cnt(ev, t, 'ko') > 0 && 'KO',
+  wrestling: (ev, t) => cnt(ev, t, 'pin') > 0 && 'Pin',
+  judo:      (ev, t) => (cnt(ev, t, 'ippon') > 0 || cnt(ev, t, 'waza-ari') >= 2) && 'Ippon',
+};
+const setUnits = (sport, ev, t, o) =>
+  sport === 'tennis' ? deriveTennis(ev, t, o).team1.sets : deriveRally(ev, t, o, RALLY_RULES[sport]).team1.units;
+const RANK = {
+  football:   (ev, t) => cnt(ev, t, 'goal'),
+  hockey:     (ev, t) => cnt(ev, t, 'goal'),
+  handball:   (ev, t) => cnt(ev, t, 'goal') + cnt(ev, t, '7m-throw'),
+  basketball: (ev, t) => pts(ev, t, ['2pt', '3pt', 'freethrow']),
+  kabaddi:    (ev, t) => pts(ev, t, ['touch-point', 'bonus-point', 'tackle-point']) + cnt(ev, t, 'all-out') * 2,
+  khokho:     (ev, t) => pts(ev, t, ['out', 'pole-dive', 'bonus']),
+  karate:     (ev, t) => pts(ev, t, ['yuko', 'waza-ari', 'ippon']),
+  boxing:     (ev, t) => cnt(ev, t, 'round-win'),
+  wrestling:  (ev, t) => pts(ev, t, ['takedown', 'escape', 'reversal', 'nearfall']),
+  judo:       (ev, t) => cnt(ev, t, 'waza-ari'),
+};
+
+/** Decide a winner: { side:'team1'|'team2'|null, reason, instant }. */
+export function decideWinner(sport, events, t1, t2) {
+  const inst = INSTANT[sport];
+  if (inst) {
+    if (inst(events, t1)) return { side: 'team1', reason: inst(events, t1), instant: true };
+    if (inst(events, t2)) return { side: 'team2', reason: inst(events, t2), instant: true };
+  }
+  let r1, r2;
+  if (RALLY_RULES[sport] || sport === 'tennis') {
+    r1 = setUnits(sport, events, t1, t2); r2 = setUnits(sport, events, t2, t1);
+    const need = sport === 'tennis' ? TENNIS.setsToWin : RALLY_RULES[sport].unitsToWin;
+    if (r1 >= need) return { side: 'team1', reason: null, instant: true };
+    if (r2 >= need) return { side: 'team2', reason: null, instant: true };
+  } else {
+    const rank = RANK[sport] || ((ev, t) => pts(ev, t, [...new Set(ev.map(e => e.eventType))]));
+    r1 = rank(events, t1); r2 = rank(events, t2);
+  }
+  if (r1 === r2) return { side: null, reason: 'Draw', instant: false };
+  return { side: r1 > r2 ? 'team1' : 'team2', reason: null, instant: false };
+}
+
 export const SPORT_CONFIG = {
   cricket: {
     icon: 'cricket', color: '#22c55e', accent: DS.tertiary,
@@ -76,31 +197,20 @@ export const SPORT_CONFIG = {
     actions: [
       { type: 'point',        label: 'Point',     icon: 'tennis',         value: 1, color: DS.primary },
       { type: 'ace',          label: 'Ace',        icon: 'lightning-bolt', value: 1, color: '#f59e0b' },
-      { type: 'game-win',     label: 'Game Won',   icon: 'trophy-outline', value: 1, color: '#22c55e' },
-      { type: 'set-win',      label: 'Set Won',    icon: 'star',          value: 1, color: '#f97316' },
       { type: 'double-fault', label: 'Dbl Fault',  icon: 'close-circle',  value: 0, color: DS.error },
     ],
-    scoreLabel: (events, teamId) => {
-      const sets  = cnt(events, teamId, 'set-win');
-      const games = cnt(events, teamId, 'game-win');
-      return `${sets}S ${games}G`;
-    },
+    scoreLabel: tennisLabel,   // auto sets-games points (deuce/tiebreak handled)
   },
 
   volleyball: {
     icon: 'volleyball', color: '#2563eb',
     periods: ['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5'], maxPeriods: 5,
     actions: [
-      { type: 'rally',   label: 'Point',    icon: 'volleyball',      value: 1, color: DS.primary },
+      { type: 'point',   label: 'Point',    icon: 'volleyball',      value: 1, color: DS.primary },
       { type: 'ace',     label: 'Ace',      icon: 'lightning-bolt',  value: 1, color: '#f59e0b' },
       { type: 'block',   label: 'Block',    icon: 'hand-back-right', value: 1, color: '#8b5cf6' },
-      { type: 'set-win', label: 'Set Won',  icon: 'star',            value: 1, color: '#22c55e' },
     ],
-    scoreLabel: (events, teamId) => {
-      const sets = cnt(events, teamId, 'set-win');
-      const p   = pts(events, teamId, ['rally', 'ace', 'block']);
-      return `${sets}S ${p}pts`;
-    },
+    scoreLabel: rallyLabel('volleyball'),   // auto sets (to 25, final to 15)
   },
 
   badminton: {
@@ -109,14 +219,9 @@ export const SPORT_CONFIG = {
     actions: [
       { type: 'point',    label: 'Point',    icon: 'badminton',       value: 1, color: DS.primary },
       { type: 'ace',      label: 'Ace',      icon: 'lightning-bolt',  value: 1, color: '#f59e0b' },
-      { type: 'game-win', label: 'Game Won', icon: 'trophy-outline',  value: 1, color: '#22c55e' },
       { type: 'fault',    label: 'Fault',    icon: 'close-circle',    value: 0, color: DS.error },
     ],
-    scoreLabel: (events, teamId) => {
-      const gw = cnt(events, teamId, 'game-win');
-      const p  = pts(events, teamId, ['point', 'ace']);
-      return `${gw}G ${p}pts`;
-    },
+    scoreLabel: rallyLabel('badminton'),   // auto games (to 21, cap 30)
   },
 
   tabletennis: {
@@ -126,14 +231,9 @@ export const SPORT_CONFIG = {
     actions: [
       { type: 'point',    label: 'Point',    icon: 'table-tennis',   value: 1, color: DS.primary },
       { type: 'ace',      label: 'Ace',      icon: 'lightning-bolt', value: 1, color: '#f59e0b' },
-      { type: 'game-win', label: 'Game Won', icon: 'trophy-outline', value: 1, color: '#22c55e' },
       { type: 'fault',    label: 'Fault',    icon: 'close-circle',   value: 0, color: DS.error },
     ],
-    scoreLabel: (events, teamId) => {
-      const gw = cnt(events, teamId, 'game-win');
-      const p  = pts(events, teamId, ['point', 'ace']);
-      return `${gw}G ${p}pts`;
-    },
+    scoreLabel: rallyLabel('tabletennis'),   // auto games (to 11, best of 7)
   },
 
   hockey: {
@@ -251,15 +351,10 @@ export const SPORT_CONFIG = {
     periods: ['Game 1', 'Game 2', 'Game 3', 'Game 4', 'Game 5'], maxPeriods: 5,
     actions: [
       { type: 'point',    label: 'Point',    icon: 'racquetball',    value: 1, color: DS.primary },
-      { type: 'game-win', label: 'Game Won', icon: 'trophy-outline', value: 1, color: '#22c55e' },
-      { type: 'let',      label: 'Let',      icon: 'refresh',        value: 0, color: DS.muted },
       { type: 'stroke',   label: 'Stroke',   icon: 'lightning-bolt', value: 1, color: '#f59e0b' },
+      { type: 'let',      label: 'Let',      icon: 'refresh',        value: 0, color: DS.muted },
     ],
-    scoreLabel: (events, teamId) => {
-      const gw = cnt(events, teamId, 'game-win');
-      const p  = pts(events, teamId, ['point', 'stroke']);
-      return `${gw}G ${p}pts`;
-    },
+    scoreLabel: rallyLabel('squash'),   // auto games (to 11, best of 5)
   },
 
   pickleball: {
@@ -268,14 +363,9 @@ export const SPORT_CONFIG = {
     actions: [
       { type: 'point',    label: 'Point',    icon: 'tennis',         value: 1, color: DS.primary },
       { type: 'ace',      label: 'Ace',      icon: 'lightning-bolt', value: 1, color: '#f59e0b' },
-      { type: 'game-win', label: 'Game Won', icon: 'trophy-outline', value: 1, color: '#22c55e' },
       { type: 'fault',    label: 'Fault',    icon: 'close-circle',   value: 0, color: DS.error },
     ],
-    scoreLabel: (events, teamId) => {
-      const gw = cnt(events, teamId, 'game-win');
-      const p  = pts(events, teamId, ['point', 'ace']);
-      return `${gw}G ${p}pts`;
-    },
+    scoreLabel: rallyLabel('pickleball'),   // auto games (to 11, best of 3)
   },
 
   skateboard: {

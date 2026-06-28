@@ -7,7 +7,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Colors, Spacing, Radius } from '../theme';
 import legendsApi from '../services/LegendsApi';
 import { DS } from '../theme/scoringTokens';
-import { getScoringConfig, cnt, pts } from '../sports/scoring';
+import { getScoringConfig, cnt, pts, decideWinner } from '../sports/scoring';
 
 const { width: W } = Dimensions.get('window');
 
@@ -280,9 +280,9 @@ function CricketScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
    GENERIC SCORER — For all non-cricket sports
    Dark design, action grid with team sections
    ═══════════════════════════════════════════════════════════════ */
-function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matchOver }) {
-  const score1 = cfg.scoreLabel(events, match?.team1Id);
-  const score2 = cfg.scoreLabel(events, match?.team2Id);
+function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matchOver, winnerName, winnerReason }) {
+  const score1 = cfg.scoreLabel(events, match?.team1Id, match?.team2Id);
+  const score2 = cfg.scoreLabel(events, match?.team2Id, match?.team1Id);
   const periodEvents = events.filter(e => e.periodNum === period);
 
   // Per-team rosters + the currently-selected scorer — events get attributed to them.
@@ -381,6 +381,12 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
   return (
     <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* ── Score Display ────────────────────────────── */}
+      {matchOver && winnerName &&
+        <View style={[s.genWinnerBanner, { backgroundColor: cfg.color }]}>
+          <Icon name="trophy" size={18} color={DS.bg} />
+          <Text style={s.genWinnerTxt}>{winnerName} win{winnerReason ? ` · ${winnerReason}` : ''}</Text>
+        </View>
+      }
       <View style={[s.genScoreSection, { backgroundColor: cfg.color + '14', borderBottomColor: cfg.color }]}>
         <View style={s.genScoreTeam}>
           <View style={[s.genAvatar, { backgroundColor: cfg.color + '40' }]}>
@@ -465,8 +471,8 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
         <Text style={s.genSectionTitle}>SCORE BY PERIOD</Text>
         {cfg.periods.slice(0, cfg.maxPeriods).map((p, i) => {
           const pEvents = events.filter(e => e.periodNum === i + 1);
-          const t1 = cfg.scoreLabel(pEvents, match?.team1Id);
-          const t2 = cfg.scoreLabel(pEvents, match?.team2Id);
+          const t1 = cfg.scoreLabel(pEvents, match?.team1Id, match?.team2Id);
+          const t2 = cfg.scoreLabel(pEvents, match?.team2Id, match?.team1Id);
           return (
             <View key={p} style={s.genTotalsRow}>
               <Text style={s.genTotalsLabel}>{p}</Text>
@@ -495,8 +501,37 @@ export default function SportScoringScreen({ route, navigation }) {
   const [saving, setSaving]     = useState(false);
   const [matchOver, setMatchOver] = useState(false);
 
-  const score1 = cfg.scoreLabel(events, match?.team1Id);
-  const score2 = cfg.scoreLabel(events, match?.team2Id);
+  const score1 = cfg.scoreLabel(events, match?.team1Id, match?.team2Id);
+  const score2 = cfg.scoreLabel(events, match?.team2Id, match?.team1Id);
+
+  // Winner detection — instant finishes (KO/pin/ippon, completed set-match) or score.
+  const winner = useMemo(
+    () => decideWinner(sport, events, match?.team1Id, match?.team2Id),
+    [sport, events, match],
+  );
+  const winnerName = winner.side === 'team1' ? match?.team1 : winner.side === 'team2' ? match?.team2 : null;
+
+  const finishMatch = useCallback(async (silent) => {
+    if (match?.id) {
+      await legendsApi.updateMatch(match.id, {
+        status: 'completed', score1, score2,
+        result: winnerName ? `${winnerName} won${winner.reason ? ' by ' + winner.reason : ''}` : `${score1} - ${score2}`,
+      });
+    }
+    setMatchOver(true);
+    if (!silent) {
+      Alert.alert(
+        'Match Complete',
+        winnerName ? `${winnerName} win${winner.reason ? ` (${winner.reason})` : ''}!` : `Final: ${match?.team1} ${score1} — ${match?.team2} ${score2}`,
+        [{ text: 'OK', onPress: () => navigation.navigate('Home') }],
+      );
+    }
+  }, [match, score1, score2, winnerName, winner, navigation]);
+
+  // Auto-end the moment the match is decided (combat finish / completed set-match).
+  useEffect(() => {
+    if (winner.instant && winner.side && !matchOver) finishMatch(false);
+  }, [winner, matchOver, finishMatch]);
 
   const addEvent = useCallback(async (teamId, action, playerId) => {
     if (matchOver) return;
@@ -534,23 +569,9 @@ export default function SportScoringScreen({ route, navigation }) {
   const endMatch = useCallback(() => {
     Alert.alert('End Match', 'Are you sure you want to end this match?', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'End Match', style: 'destructive',
-        onPress: async () => {
-          if (match?.id) {
-            await legendsApi.updateMatch(match.id, {
-              status: 'completed', score1, score2,
-              result: `${score1} - ${score2}`,
-            });
-          }
-          setMatchOver(true);
-          Alert.alert('Match Complete', `Final: ${match?.team1} ${score1} — ${match?.team2} ${score2}`, [
-            { text: 'OK', onPress: () => navigation.navigate('Home') },
-          ]);
-        },
-      },
+      { text: 'End Match', style: 'destructive', onPress: () => finishMatch(false) },
     ]);
-  }, [match, score1, score2, navigation]);
+  }, [finishMatch]);
 
   return (
     <View style={s.root}>
@@ -622,6 +643,7 @@ export default function SportScoringScreen({ route, navigation }) {
           match={match} cfg={cfg} events={events}
           period={period} onAdd={addEvent} onUndo={undoLast}
           saving={saving} matchOver={matchOver}
+          winnerName={winnerName} winnerReason={winner.reason}
         />
       )}
     </View>
@@ -788,6 +810,12 @@ const s = StyleSheet.create({
   /* ══ GENERIC STYLES ══════════════════════════════════ */
 
   /* ── Score Section ────────────────────────────────── */
+  genWinnerBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 12, marginHorizontal: 14, marginTop: 4, borderRadius: 14,
+  },
+  genWinnerTxt: { color: DS.bg, fontSize: 15, fontWeight: '900', letterSpacing: 0.3 },
+
   genScoreSection: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 20,

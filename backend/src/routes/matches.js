@@ -589,6 +589,53 @@ function setWins(events, teamId) {
   return events.filter(e => e.teamId === teamId && e.eventType === 'set-win').length;
 }
 
+// ── Auto game/set engine (shared verbatim with frontend src/sports/scoring.js) ──
+const RALLY_RULES = {
+  volleyball:  { unitPts: 25, unitsToWin: 3, maxUnits: 5, finalUnitPts: 15 },
+  badminton:   { unitPts: 21, unitsToWin: 2, maxUnits: 3, cap: 30 },
+  tabletennis: { unitPts: 11, unitsToWin: 4, maxUnits: 7 },
+  squash:      { unitPts: 11, unitsToWin: 3, maxUnits: 5 },
+  pickleball:  { unitPts: 11, unitsToWin: 2, maxUnits: 3 },
+};
+const POINT_TYPES = new Set(['point', 'rally', 'ace', 'stroke', 'block']);
+const isPoint = (e) => POINT_TYPES.has(e.eventType);
+
+function deriveRally(events, t1, t2, rules) {
+  const u = { [t1]: 0, [t2]: 0 }, p = { [t1]: 0, [t2]: 0 };
+  for (const e of events) {
+    if (!isPoint(e) || (e.teamId !== t1 && e.teamId !== t2)) continue;
+    const tid = e.teamId, opp = tid === t1 ? t2 : t1;
+    if (u[tid] >= rules.unitsToWin || u[opp] >= rules.unitsToWin) continue;
+    p[tid] += 1;
+    const played = u[t1] + u[t2];
+    const target = (rules.finalUnitPts && played === rules.maxUnits - 1) ? rules.finalUnitPts : rules.unitPts;
+    const win = (p[tid] >= target && p[tid] - p[opp] >= 2) || (rules.cap && p[tid] >= rules.cap);
+    if (win) { u[tid] += 1; p[t1] = 0; p[t2] = 0; }
+  }
+  return { team1: { units: u[t1], points: p[t1] }, team2: { units: u[t2], points: p[t2] } };
+}
+
+function deriveTennis(events, t1, t2) {
+  const setsToWin = 2;
+  const sets = { [t1]: 0, [t2]: 0 }, games = { [t1]: 0, [t2]: 0 }, pts2 = { [t1]: 0, [t2]: 0 };
+  for (const e of events) {
+    if (!isPoint(e) || (e.teamId !== t1 && e.teamId !== t2)) continue;
+    const tid = e.teamId, opp = tid === t1 ? t2 : t1;
+    if (sets[tid] >= setsToWin || sets[opp] >= setsToWin) continue;
+    const tiebreak = games[t1] === 6 && games[t2] === 6;
+    pts2[tid] += 1;
+    let gameWon = false;
+    if (tiebreak) gameWon = pts2[tid] >= 7 && pts2[tid] - pts2[opp] >= 2;
+    else if (pts2[tid] >= 4 && pts2[tid] - pts2[opp] >= 2) gameWon = true;
+    if (gameWon) {
+      games[tid] += 1; pts2[t1] = 0; pts2[t2] = 0;
+      const setWon = (games[tid] >= 6 && games[tid] - games[opp] >= 2) || games[tid] === 7;
+      if (setWon) { sets[tid] += 1; games[t1] = 0; games[t2] = 0; }
+    }
+  }
+  return { team1: { sets: sets[t1], games: games[t1] }, team2: { sets: sets[t2], games: games[t2] } };
+}
+
 function computeSportScore(sport, events, team1Id, team2Id) {
   switch (sport) {
 
@@ -605,27 +652,23 @@ function computeSportScore(sport, events, team1Id, team2Id) {
     }
 
     case 'tennis': {
-      const s1 = setWins(events, team1Id);
-      const s2 = setWins(events, team2Id);
-      return { score1: `${s1} sets`, score2: `${s2} sets` };
+      const d = deriveTennis(events, team1Id, team2Id);
+      return { score1: `${d.team1.sets} sets`, score2: `${d.team2.sets} sets` };
     }
 
     case 'volleyball': {
-      const s1 = setWins(events, team1Id);
-      const s2 = setWins(events, team2Id);
-      return { score1: `${s1} sets`, score2: `${s2} sets` };
+      const d = deriveRally(events, team1Id, team2Id, RALLY_RULES.volleyball);
+      return { score1: `${d.team1.units} sets`, score2: `${d.team2.units} sets` };
     }
 
     case 'badminton': {
-      const gw1 = countByTeam(events, team1Id, 'game-win');
-      const gw2 = countByTeam(events, team2Id, 'game-win');
-      return { score1: `${gw1} games`, score2: `${gw2} games` };
+      const d = deriveRally(events, team1Id, team2Id, RALLY_RULES.badminton);
+      return { score1: `${d.team1.units} games`, score2: `${d.team2.units} games` };
     }
 
     case 'tabletennis': {
-      const gw1 = countByTeam(events, team1Id, 'game-win');
-      const gw2 = countByTeam(events, team2Id, 'game-win');
-      return { score1: `${gw1} games`, score2: `${gw2} games` };
+      const d = deriveRally(events, team1Id, team2Id, RALLY_RULES.tabletennis);
+      return { score1: `${d.team1.units} games`, score2: `${d.team2.units} games` };
     }
 
     case 'hockey': {
@@ -697,15 +740,13 @@ function computeSportScore(sport, events, team1Id, team2Id) {
     }
 
     case 'squash': {
-      const gw1 = countByTeam(events, team1Id, 'game-win');
-      const gw2 = countByTeam(events, team2Id, 'game-win');
-      return { score1: `${gw1} games`, score2: `${gw2} games` };
+      const d = deriveRally(events, team1Id, team2Id, RALLY_RULES.squash);
+      return { score1: `${d.team1.units} games`, score2: `${d.team2.units} games` };
     }
 
     case 'pickleball': {
-      const gw1 = countByTeam(events, team1Id, 'game-win');
-      const gw2 = countByTeam(events, team2Id, 'game-win');
-      return { score1: `${gw1} games`, score2: `${gw2} games` };
+      const d = deriveRally(events, team1Id, team2Id, RALLY_RULES.pickleball);
+      return { score1: `${d.team1.units} games`, score2: `${d.team2.units} games` };
     }
 
     case 'skateboard': {
@@ -795,31 +836,26 @@ function computePlayerStats(sport, events) {
       return {
         points:       events.filter(e => ['point','ace'].includes(e.eventType)).length,
         aces:         events.filter(e => e.eventType === 'ace').length,
-        gamesWon:     events.filter(e => e.eventType === 'game-win').length,
-        setsWon:      events.filter(e => e.eventType === 'set-win').length,
         doubleFaults: events.filter(e => e.eventType === 'double-fault').length,
       };
     case 'volleyball':
       return {
-        points:  events.filter(e => ['rally','ace','block'].includes(e.eventType)).length,
-        aces:    events.filter(e => e.eventType === 'ace').length,
-        blocks:  events.filter(e => e.eventType === 'block').length,
-        setsWon: events.filter(e => e.eventType === 'set-win').length,
+        points: events.filter(e => ['point','rally','ace','block'].includes(e.eventType)).length,
+        aces:   events.filter(e => e.eventType === 'ace').length,
+        blocks: events.filter(e => e.eventType === 'block').length,
       };
     case 'badminton':
     case 'tabletennis':
     case 'pickleball':
       return {
-        points:   events.filter(e => ['point','ace'].includes(e.eventType)).length,
-        aces:     events.filter(e => e.eventType === 'ace').length,
-        gamesWon: events.filter(e => e.eventType === 'game-win').length,
-        faults:   events.filter(e => e.eventType === 'fault').length,
+        points: events.filter(e => ['point','ace'].includes(e.eventType)).length,
+        aces:   events.filter(e => e.eventType === 'ace').length,
+        faults: events.filter(e => e.eventType === 'fault').length,
       };
     case 'squash':
       return {
-        points:   events.filter(e => ['point','stroke'].includes(e.eventType)).reduce((s,e) => s + e.value, 0),
-        gamesWon: events.filter(e => e.eventType === 'game-win').length,
-        strokes:  events.filter(e => e.eventType === 'stroke').length,
+        points:  events.filter(e => ['point','stroke'].includes(e.eventType)).length,
+        strokes: events.filter(e => e.eventType === 'stroke').length,
       };
     case 'handball':
       return {
@@ -943,15 +979,19 @@ function computeSportAggregates(sport, events, team1Id, team2Id) {
     case 'badminton':
     case 'pickleball':
     case 'tabletennis': {
-      const games  = { team1: countByTeam(events, team1Id, 'game-win'), team2: countByTeam(events, team2Id, 'game-win') };
-      const points = { team1: countByTeam(events, team1Id, 'point'),    team2: countByTeam(events, team2Id, 'point') };
-      const aces   = { team1: countByTeam(events, team1Id, 'ace'),      team2: countByTeam(events, team2Id, 'ace') };
+      const d = deriveRally(events, team1Id, team2Id, RALLY_RULES[sport]);
+      const games  = { team1: d.team1.units, team2: d.team2.units };
+      const points = { team1: countByTeam(events, team1Id, 'point') + countByTeam(events, team1Id, 'ace'),
+                       team2: countByTeam(events, team2Id, 'point') + countByTeam(events, team2Id, 'ace') };
+      const aces   = { team1: countByTeam(events, team1Id, 'ace'), team2: countByTeam(events, team2Id, 'ace') };
       return { games, points, aces };
     }
     case 'squash': {
-      const games   = { team1: countByTeam(events, team1Id, 'game-win'), team2: countByTeam(events, team2Id, 'game-win') };
-      const points  = { team1: countByTeam(events, team1Id, 'point'),    team2: countByTeam(events, team2Id, 'point') };
-      const strokes = { team1: countByTeam(events, team1Id, 'stroke'),   team2: countByTeam(events, team2Id, 'stroke') };
+      const d = deriveRally(events, team1Id, team2Id, RALLY_RULES.squash);
+      const games   = { team1: d.team1.units, team2: d.team2.units };
+      const points  = { team1: countByTeam(events, team1Id, 'point') + countByTeam(events, team1Id, 'stroke'),
+                        team2: countByTeam(events, team2Id, 'point') + countByTeam(events, team2Id, 'stroke') };
+      const strokes = { team1: countByTeam(events, team1Id, 'stroke'), team2: countByTeam(events, team2Id, 'stroke') };
       return { games, points, strokes };
     }
     default:
