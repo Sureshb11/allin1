@@ -788,6 +788,68 @@ function computePlayerStats(sport, events) {
         knockdowns:    events.filter(e => e.eventType === 'knockdown').length,
         roundsWon:     events.filter(e => e.eventType === 'round-win').length,
       };
+    case 'tennis':
+      return {
+        points:       events.filter(e => ['point','ace'].includes(e.eventType)).length,
+        aces:         events.filter(e => e.eventType === 'ace').length,
+        gamesWon:     events.filter(e => e.eventType === 'game-win').length,
+        setsWon:      events.filter(e => e.eventType === 'set-win').length,
+        doubleFaults: events.filter(e => e.eventType === 'double-fault').length,
+      };
+    case 'volleyball':
+      return {
+        points:  events.filter(e => ['rally','ace','block'].includes(e.eventType)).length,
+        aces:    events.filter(e => e.eventType === 'ace').length,
+        blocks:  events.filter(e => e.eventType === 'block').length,
+        setsWon: events.filter(e => e.eventType === 'set-win').length,
+      };
+    case 'badminton':
+    case 'tabletennis':
+    case 'pickleball':
+      return {
+        points:   events.filter(e => ['point','ace'].includes(e.eventType)).length,
+        aces:     events.filter(e => e.eventType === 'ace').length,
+        gamesWon: events.filter(e => e.eventType === 'game-win').length,
+        faults:   events.filter(e => e.eventType === 'fault').length,
+      };
+    case 'squash':
+      return {
+        points:   events.filter(e => ['point','stroke'].includes(e.eventType)).reduce((s,e) => s + e.value, 0),
+        gamesWon: events.filter(e => e.eventType === 'game-win').length,
+        strokes:  events.filter(e => e.eventType === 'stroke').length,
+      };
+    case 'handball':
+      return {
+        goals:       events.filter(e => e.eventType === 'goal').length,
+        sevenMeters: events.filter(e => e.eventType === '7m-throw').length,
+        yellowCards: events.filter(e => e.eventType === 'yellow-card').length,
+        redCards:    events.filter(e => e.eventType === 'red-card').length,
+      };
+    case 'khokho':
+      return {
+        outs:        events.filter(e => e.eventType === 'out').length,
+        bonusPoints: events.filter(e => e.eventType === 'bonus').reduce((s,e) => s + e.value, 0),
+      };
+    case 'wrestling':
+      return {
+        points:    events.filter(e => ['takedown','escape','reversal','nearfall'].includes(e.eventType)).reduce((s,e) => s + e.value, 0),
+        takedowns: events.filter(e => e.eventType === 'takedown').length,
+        pins:      events.filter(e => e.eventType === 'pin').length,
+      };
+    case 'judo':
+    case 'karate':
+      return {
+        points:    events.filter(e => ['yuko','waza-ari','ippon'].includes(e.eventType)).reduce((s,e) => s + e.value, 0),
+        ippons:    events.filter(e => e.eventType === 'ippon').length,
+        wazaAri:   events.filter(e => e.eventType === 'waza-ari').length,
+        penalties: events.filter(e => e.eventType === 'penalty').length,
+      };
+    case 'skateboard':
+      return {
+        bestRun:    events.filter(e => e.eventType.startsWith('run-score')).reduce((m,e) => Math.max(m, e.value), 0),
+        runsLanded: events.filter(e => e.eventType.startsWith('run-score')).length,
+        crashes:    events.filter(e => e.eventType === 'crash').length,
+      };
     default:
       return {
         totalPoints: events.reduce((s,e) => s + e.value, 0),

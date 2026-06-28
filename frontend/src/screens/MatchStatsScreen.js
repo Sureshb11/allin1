@@ -34,6 +34,10 @@ const PLAYER_STAT_LABELS = {
   points: 'pts', twoPointers: '2pt', threePointers: '3pt', freeThrows: 'FT', fouls: 'fouls',
   penaltyCorners: 'PC', touchPoints: 'touch', tacklePoints: 'tackle', bonusPoints: 'bonus',
   allOuts: 'all-out', punchesLanded: 'punches', knockdowns: 'KD', roundsWon: 'rounds',
+  aces: 'aces', gamesWon: 'games', setsWon: 'sets', doubleFaults: 'DF', blocks: 'blocks',
+  faults: 'faults', strokes: 'strokes', sevenMeters: '7m', outs: 'outs',
+  takedowns: 'TD', pins: 'pins', ippons: 'ippon', wazaAri: 'waza', penalties: 'pen',
+  bestRun: 'best run', runsLanded: 'runs', crashes: 'crashes',
   totalPoints: 'pts',
 };
 const SKIP_PLAYER_KEYS = new Set(['playerId', 'teamId', 'side', 'name', 'totalEvents']);
