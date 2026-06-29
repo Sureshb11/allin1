@@ -514,7 +514,7 @@ const makeS = (K) => StyleSheet.create({
   headline: {
     fontSize: 26,
     fontWeight: '900',
-    color: K.white,
+    color: K.text,
     letterSpacing: 0.5,
     marginBottom: 6,
   },
