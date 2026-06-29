@@ -8,8 +8,11 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { can } from '../utils/entitlements';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 export default function Gate({ feature, children, fallback, navigation }) {
+  const DS = useTheme().colors;
+  const s = useThemedStyles(makeS);
   if (can(feature)) return children;
   if (fallback !== undefined) return fallback;
   return (
@@ -18,15 +21,15 @@ export default function Gate({ feature, children, fallback, navigation }) {
       activeOpacity={0.85}
       onPress={() => navigation?.navigate?.('Premium')}
     >
-      <Icon name="lock-outline" size={22} color="#abd600" />
+      <Icon name="lock-outline" size={22} color={DS.lime} />
       <Text style={s.title}>Premium feature</Text>
       <Text style={s.sub}>Upgrade to unlock this.</Text>
     </TouchableOpacity>
   );
 }
 
-const s = StyleSheet.create({
-  card: { alignItems: 'center', gap: 4, padding: 20, margin: 16, borderRadius: 16, backgroundColor: '#171b28', borderWidth: 1, borderColor: 'rgba(150,180,230,0.12)' },
-  title: { color: '#dfe2f3', fontSize: 15, fontWeight: '800', marginTop: 4 },
-  sub: { color: '#8d90a2', fontSize: 13 },
+const makeS = (DS) => StyleSheet.create({
+  card: { alignItems: 'center', gap: 4, padding: 20, margin: 16, borderRadius: 16, backgroundColor: DS.surfaceLow, borderWidth: 1, borderColor: DS.border },
+  title: { color: DS.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 4 },
+  sub: { color: DS.textMuted, fontSize: 13 },
 });

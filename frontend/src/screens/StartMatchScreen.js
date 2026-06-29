@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Alert, ActivityIndicator, Modal, TextInput, FlatList,
@@ -7,31 +7,38 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { Typography, Spacing, Radius } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
 import { getStartFormat as getSportFormat } from '../sports/start';
 import { getSport } from '../sports';
 
 /* ─── Kinetic Athlete Design Tokens ─────────────────────── */
-const K = {
-  bg:           '#0f131f',
-  surfaceLow:   '#171b28',
-  surfaceHigh:  '#262a37',
-  surfaceTop:   '#313442',
-  lime:         '#abd600',
-  limeDim:      '#abd60030',
+// Themed palette factory (faithful in dark; adapts to light). `black` is the
+// on-accent text colour (dark text on bright lime / light text on olive lime),
+// so it maps to bg, which flips correctly with the theme.
+const makeK = (c) => ({
+  bg:           c.bg,
+  surfaceLow:   c.surfaceLow,
+  surfaceHigh:  c.surfaceHigh,
+  surfaceTop:   c.surfaceHighest,
+  lime:         c.lime,
+  limeDim:      c.lime + '30',
   blue:         '#3b82f6',
   blueDim:      '#3b82f620',
-  text:         '#dfe2f3',
-  textVariant:  '#c3c5d9',
-  textMuted:    '#8d90a2',
-  overlay:      'rgba(0,0,0,0.65)',
+  text:         c.textPrimary,
+  textVariant:  c.textVariant,
+  textMuted:    c.textMuted,
+  overlay:      c.overlay,
   white:        '#ffffff',
-  black:        '#0a0d16',
-};
+  black:        c.bg,
+});
 
 /* ─── Match formats (per sport) ──────────────────────────── */
 
 /* ─── TeamPicker bottom-sheet ────────────────────────────── */
 const TeamPicker = ({ visible, onClose, onSelect, excludeId, title }) => {
+  const c = useTheme().colors;
+  const K = useMemo(() => makeK(c), [c]);
+  const s = useMemo(() => makeS(K), [K]);
   const [teams, setTeams]       = useState([]);
   const [loading, setLoading]   = useState(true);
   const [query, setQuery]       = useState('');
@@ -191,6 +198,9 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title }) => {
 
 /* ─── StartMatchScreen ───────────────────────────────────── */
 const StartMatchScreen = ({ navigation, route }) => {
+  const { colors: c, isDark } = useTheme();
+  const K = useMemo(() => makeK(c), [c]);
+  const s = useMemo(() => makeS(K), [K]);
   const sport = route.params?.sport || { id: 'cricket', name: 'Cricket', icon: 'cricket' };
   const sportDef = getSport(sport.id);
   const indiv = !!sportDef?.individual;          // 1v1 sports → "Player" not "Team"
@@ -292,7 +302,7 @@ const StartMatchScreen = ({ navigation, route }) => {
   /* ── Render ─────────────────────────────────────────────── */
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor={K.bg} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={K.bg} />
       <ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
@@ -481,7 +491,7 @@ const StartMatchScreen = ({ navigation, route }) => {
 };
 
 /* ─── Styles ─────────────────────────────────────────────── */
-const s = StyleSheet.create({
+const makeS = (K) => StyleSheet.create({
   root: { flex: 1, backgroundColor: K.bg },
   scroll: { padding: 20, paddingBottom: 48 },
 

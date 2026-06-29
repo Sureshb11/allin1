@@ -1,33 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   Alert, ScrollView, ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Spacing, Radius } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
 import legendsApi from '../services/LegendsApi';
 
 /* ─── Kinetic Athlete Design Tokens ───────────────────────── */
-const K = {
-  bg:           '#0f131f',
-  surfaceLow:   '#171b28',
-  surfaceHigh:  '#262a37',
-  surfaceTop:   '#313442',
-  lime:         '#abd600',
-  limeDark:     '#8aad00',
-  textPrimary:  '#dfe2f3',
-  textVariant:  '#c3c5d9',
-  textMuted:    '#8d90a2',
-  red:          '#ef4444',
-  border:       '#2a2e3d',
-  borderLight:  '#1f2333',
-};
+const makeK = (c) => ({
+  bg:           c.bg,
+  surfaceLow:   c.surfaceLow,
+  surfaceHigh:  c.surfaceHigh,
+  surfaceTop:   c.surfaceHighest,
+  lime:         c.lime,
+  limeDark:     c.limeDark,
+  textPrimary:  c.textPrimary,
+  textVariant:  c.textVariant,
+  textMuted:    c.textMuted,
+  red:          c.live,
+  border:       c.surfaceHighest,
+  borderLight:  c.border,
+});
 
 /* ─── PlayerList ─────────────────────────────────────────────
    Shows players for one team. Green tick = available today.
    XI box = selected in playing eleven.
 ────────────────────────────────────────────────────────────── */
 function PlayerList({ teamId, color, xi, setXI, available, setAvailable }) {
+  const c = useTheme().colors;
+  const K = useMemo(() => makeK(c), [c]);
+  const s = useMemo(() => makeS(K), [K]);
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -142,6 +146,9 @@ function PlayerList({ teamId, color, xi, setXI, available, setAvailable }) {
 
 /* ─── TossLineupScreen ─────────────────────────────────────── */
 export default function TossLineupScreen({ route, navigation }) {
+  const c = useTheme().colors;
+  const K = useMemo(() => makeK(c), [c]);
+  const s = useMemo(() => makeS(K), [K]);
   const { team1, team2, overs, venue, matchType, matchId, team1Id, team2Id, firstInningId, sport } = route.params || {};
   const sportId = sport?.id || 'cricket';
 
@@ -404,7 +411,7 @@ export default function TossLineupScreen({ route, navigation }) {
 }
 
 /* ─── Styles ───────────────────────────────────────────────── */
-const s = StyleSheet.create({
+const makeS = (K) => StyleSheet.create({
   root: { flex: 1, backgroundColor: K.bg },
 
   /* Header */

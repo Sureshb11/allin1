@@ -6,7 +6,8 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Colors, Spacing, Radius } from '../theme';
 import legendsApi from '../services/LegendsApi';
-import { DS } from '../theme/scoringTokens';
+import { useScoringColors, useScoringStyles } from '../theme/scoringTokens';
+import { useTheme } from '../theme/ThemeContext';
 import { getScoringConfig, cnt, pts, decideWinner } from '../sports/scoring';
 
 const { width: W } = Dimensions.get('window');
@@ -16,6 +17,7 @@ const { width: W } = Dimensions.get('window');
    Animated event ball (current over / period log)
    ═══════════════════════════════════════════════════════════════ */
 function EventBall({ label, color, size = 32 }) {
+  const s = useScoringStyles(makeS);
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.spring(anim, { toValue: 1, friction: 4, useNativeDriver: true }).start();
@@ -36,6 +38,8 @@ function EventBall({ label, color, size = 32 }) {
    Matches the "Advanced Cricket Scorer" screenshot
    ═══════════════════════════════════════════════════════════════ */
 function CricketScorer({ match, cfg, events, period, onAdd, onUndo, saving, matchOver }) {
+  const DS = useScoringColors();
+  const s = useScoringStyles(makeS);
   const battingTeamId = period === 1 ? match?.team1Id : match?.team2Id;
   const bowlingTeamId = period === 1 ? match?.team2Id : match?.team1Id;
   const battingTeam   = period === 1 ? match?.team1 : match?.team2;
@@ -281,6 +285,8 @@ function CricketScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
    Dark design, action grid with team sections
    ═══════════════════════════════════════════════════════════════ */
 function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matchOver, winnerName, winnerReason }) {
+  const DS = useScoringColors();
+  const s = useScoringStyles(makeS);
   const score1 = cfg.scoreLabel(events, match?.team1Id, match?.team2Id);
   const score2 = cfg.scoreLabel(events, match?.team2Id, match?.team1Id);
   const periodEvents = events.filter(e => e.periodNum === period);
@@ -491,6 +497,9 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
    MAIN SCREEN
    ═══════════════════════════════════════════════════════════════ */
 export default function SportScoringScreen({ route, navigation }) {
+  const DS = useScoringColors();
+  const s = useScoringStyles(makeS);
+  const { isDark } = useTheme();
   const { match }  = route.params || {};
   const sport      = match?.sport || 'football';
   const cfg        = getScoringConfig(sport);
@@ -575,7 +584,7 @@ export default function SportScoringScreen({ route, navigation }) {
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
 
       {/* ── Top App Bar ─────────────────────────────── */}
       <View style={s.topBar}>
@@ -653,7 +662,7 @@ export default function SportScoringScreen({ route, navigation }) {
 /* ═══════════════════════════════════════════════════════════════
    STYLES — "Kinetic Athlete" Dark Design
    ═══════════════════════════════════════════════════════════════ */
-const s = StyleSheet.create({
+const makeS = (DS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.bg },
 
   /* ── Top Bar ──────────────────────────────────────── */
