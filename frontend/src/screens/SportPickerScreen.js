@@ -15,6 +15,7 @@ import {
   Dimensions, PanResponder, Animated, Easing, Vibration, Platform } from
 'react-native';
 import Svg, { Path, Line, Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import SportIcon from '../components/SportIcon';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
@@ -157,15 +158,16 @@ function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {const A = 
       <View style={[
       d.disc,
       focused ? d.discFocus : null,
-      { borderColor: focused ? A.lime : 'transparent' }]
+      { borderColor: focused ? A.lime : A.border }]
       }>
-        <SportIcon id={cell.id} size={iconSize} color={focused ? A.lime : 'rgba(196,248,42,0.9)'} />
+        <SportIcon id={cell.id} size={iconSize} color={focused ? A.lime : A.lime + 'B3'} />
       </View>
     </TouchableOpacity>);
 
 }
 
 export default function SportPickerScreen({ navigation }) {const A = useArenaColors();const s = useThemedStyles(makeS);
+  const { toggle, isDark } = useTheme();
   const [panOff, setPanOff] = useState({ x: 0, y: 0 });
   const [dim, setDim] = useState({ w: SW, h: 560 });
   const [focusId, setFocusId] = useState('cricket');
@@ -405,6 +407,13 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         </TouchableOpacity>
         <Text style={s.brand}>LOCAL LEGENDS</Text>
         <TouchableOpacity
+          style={[s.avatar, { marginRight: 8 }]}
+          activeOpacity={0.8}
+          onPress={toggle}
+        >
+          <Icon name={isDark ? 'white-balance-sunny' : 'weather-night'} size={18} color={A.ink} />
+        </TouchableOpacity>
+        <TouchableOpacity
           style={s.avatar}
           activeOpacity={0.8}
           onPress={() => {
@@ -516,10 +525,10 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 const makeD = (A) => StyleSheet.create({
   disc: {
     width: CELL, height: CELL, borderRadius: CELL / 2,
-    borderWidth: 2.5, backgroundColor: '#16203a',
+    borderWidth: 2.5, backgroundColor: A.cell,
     alignItems: 'center', justifyContent: 'center'
   },
-  discFocus: { backgroundColor: '#27374f' },
+  discFocus: { backgroundColor: A.cellHi },
   pulse: {
     position: 'absolute', left: 0, top: 0, width: CELL, height: CELL,
     borderRadius: CELL / 2, borderWidth: 2.5, borderColor: A.lime
