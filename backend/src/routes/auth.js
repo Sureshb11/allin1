@@ -85,18 +85,21 @@ router.post('/verify-otp', async (req, res) => {
 
     const fullPhone = `${countryCode}${phone}`;
 
-    // Find or create user by phone
+    // Find or create user by phone. The account is created only AFTER the OTP is
+    // verified; a brand-new user gets a neutral placeholder name that the app
+    // immediately replaces via the "What's your name?" step (PUT /users/me).
     let user = await prisma.user.findUnique({ where: { phone: fullPhone } });
+    let isNewUser = false;
 
     if (!user) {
-      // Auto-register on first OTP login
+      isNewUser = true;
       const dummyHash = await bcrypt.hash('otp-user-no-password', 10);
       user = await prisma.user.create({
         data: {
           phone: fullPhone,
           email: `${phone}@otp.local`, // placeholder email
-          firstName: 'User',
-          lastName: phone.slice(-4),
+          firstName: 'New',
+          lastName: 'Player',
           passwordHash: dummyHash,
         },
       });
@@ -113,7 +116,7 @@ router.post('/verify-otp', async (req, res) => {
         phone: user.phone,
         email: user.email,
       },
-      isNewUser: !user.bio, // hint for frontend to show onboarding
+      isNewUser, // true only when the account was just created → show name step
     });
   } catch (e) {
     res.status(400).json({ error: e.message });

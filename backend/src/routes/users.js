@@ -125,7 +125,7 @@ router.post('/me/primary-sport', authMiddleware, async (req, res) => {
 
 const ProfileSchema = z.object({
   firstName: z.string().min(1),
-  lastName: z.string().min(1),
+  lastName: z.string().default(''), // allow single-name users (e.g. "Sachin")
   avatarUrl: z.string().url().optional().nullable(),
   bio: z.string().max(500).optional().nullable()
 });
