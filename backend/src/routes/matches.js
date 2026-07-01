@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { authMiddleware } from '../lib/auth.js';
 
 const router = Router();
 
@@ -17,6 +18,46 @@ router.get('/', async (req, res) => {
     take: 50,
   });
   res.json({ matches });
+});
+
+// "From Your Circle" — matches involving the logged-in user's own world:
+// teams they own or play for, plus teams they follow. Without this scope the
+// feed would show every match in the database to every user.
+router.get('/circle', authMiddleware, async (req, res) => {
+  try {
+    const uid = req.user.sub;
+    const { sport } = req.query;
+
+    const [ownedOrPlaying, follows] = await Promise.all([
+      prisma.team.findMany({
+        where: { OR: [{ ownerId: uid }, { players: { some: { userId: uid } } }] },
+        select: { id: true },
+      }),
+      prisma.teamFollow.findMany({ where: { userId: uid }, select: { teamId: true } }),
+    ]);
+
+    const teamIds = [...new Set([
+      ...ownedOrPlaying.map((t) => t.id),
+      ...follows.map((f) => f.teamId),
+    ])];
+
+    if (!teamIds.length) return res.json({ matches: [] });
+
+    const where = {
+      OR: [{ team1Id: { in: teamIds } }, { team2Id: { in: teamIds } }],
+    };
+    if (sport) where.sport = String(sport);
+
+    const matches = await prisma.match.findMany({
+      where,
+      include: { team1: true, team2: true },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    res.json({ matches });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 const MatchSchema = z.object({

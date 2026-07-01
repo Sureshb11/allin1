@@ -93,6 +93,21 @@ class LegendsApi {
     }
   }
 
+  // "From Your Circle" — matches involving the logged-in user's teams
+  // (owned / played-for / followed). Empty for users with no teams yet.
+  async getCircleMatches(params = {}) {
+    try {
+      const qs = Object.entries(params)
+        .filter(([, v]) => v != null && v !== '')
+        .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+        .join('&');
+      const json = await this.request('/matches/circle' + (qs ? `?${qs}` : ''));
+      return { success: true, data: json.matches || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
   // Match Management
   async createMatch(matchData) {
     try {

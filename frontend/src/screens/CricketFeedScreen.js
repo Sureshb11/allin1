@@ -315,7 +315,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   }), []);
 
   const fetchFeed = useCallback(() => Promise.all([
-    legendsApi.getLiveScores({ sport: 'cricket' }),
+    legendsApi.getCircleMatches({ sport: 'cricket' }),
     legendsApi.getPosts({ sport: 'cricket' }),
   ]).then(([mr, pr]) => {
     setMatches((mr?.data || []).map(mapMatch));
