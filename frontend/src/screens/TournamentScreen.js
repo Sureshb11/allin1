@@ -15,10 +15,11 @@ import legendsApi from '../services/LegendsApi';
 
 
 
-const TournamentScreen = ({ navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  // Opened via the "Create Tournament" route → start with the form open.
+  const [showCreateForm, setShowCreateForm] = useState(route?.params?.openCreate ?? true);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: '', format: 'T20', venue: '', prizePool: '', maxTeams: '' });
 

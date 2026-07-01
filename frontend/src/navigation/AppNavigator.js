@@ -167,8 +167,8 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
         headerTitleStyle: {color: DS.textPrimary},
       }}
     />
-    <Stack.Screen 
-      name="Tournaments" 
+    <Stack.Screen
+      name="Tournaments"
       component={TournamentsScreen}
       options={{
         title: 'Tournaments',
@@ -177,8 +177,18 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
         headerTintColor: DS.textPrimary,
       }}
     />
-    <Stack.Screen 
-      name="GroundBooking" 
+    <Stack.Screen
+      name="CreateTournament"
+      component={TournamentScreen}
+      options={{
+        title: 'Create Tournament',
+        headerStyle: {backgroundColor: DS.surfaceLow},
+        headerTitleStyle: {color: DS.textPrimary},
+        headerTintColor: DS.textPrimary,
+      }}
+    />
+    <Stack.Screen
+      name="GroundBooking"
       component={GroundBookingScreen}
       options={{
         title: 'Ground Booking',
