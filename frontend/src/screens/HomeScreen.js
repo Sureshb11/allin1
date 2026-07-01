@@ -62,7 +62,7 @@ export default function HomeScreen({ navigation }) {
       const { sport: selSport } = getSelectedSport();
       const sportId = selSport?.id || 'cricket';
       const [lm, pl] = await Promise.all([
-        legendsApi.getLiveScores({ sport: sportId }),
+        legendsApi.getCircleMatches({ sport: sportId }),
         legendsApi.getPlayers({ sport: sportId }),
       ]);
       if (lm?.success) {

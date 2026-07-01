@@ -1,5 +1,6 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert, ActivityIndicator } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 
 
@@ -21,7 +22,15 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
   // Opened via the "Create Tournament" route → start with the form open.
   const [showCreateForm, setShowCreateForm] = useState(route?.params?.openCreate ?? true);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: '', format: 'T20', venue: '', prizePool: '', maxTeams: '' });
+  const [form, setForm] = useState({ name: '', format: 'T20', overs: '20', ballType: 'Leather', venue: '', prizePool: '', maxTeams: '' });
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Tournaments',
+    });
+  }, [navigation]);
 
   useEffect(() => {loadTournaments();}, []);
 
@@ -39,6 +48,8 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
       const res = await legendsApi.createTournament({
         name: form.name.trim(),
         format: form.format,
+        overs: form.overs ? parseInt(form.overs, 10) : undefined,
+        ballType: form.ballType,
         venue: form.venue.trim() || undefined,
         prizePool: form.prizePool.trim() || undefined,
         maxTeams: form.maxTeams ? parseInt(form.maxTeams, 10) : undefined,
@@ -47,7 +58,7 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
       if (res.success) {
         Alert.alert('Success', 'Tournament created!');
         setShowCreateForm(false);
-        setForm({ name: '', format: 'T20', venue: '', prizePool: '', maxTeams: '' });
+        setForm({ name: '', format: 'T20', overs: '20', ballType: 'Leather', venue: '', prizePool: '', maxTeams: '' });
         loadTournaments();
       } else Alert.alert('Error', res.error || 'Failed to create');
     } catch (e) {Alert.alert('Error', 'Something went wrong');} finally {setCreating(false);}
@@ -65,13 +76,22 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
   const renderTournament = ({ item }) =>
   <TouchableOpacity style={styles.tournamentCard}>
       <View style={styles.tournamentHeader}>
-        <Text style={styles.tournamentName}>{item.name}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{(item.status || '').toUpperCase()}</Text>
+        <View>
+          <Text style={styles.tournamentName}>{item.name}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.statusText}>{(item.status || '').toUpperCase()}</Text>
+          </View>
         </View>
+        {item.status === 'upcoming' && (
+          <TouchableOpacity style={styles.startButton}>
+            <Icon name="play-circle-outline" size={20} color={DS.bg} />
+            <Text style={styles.startButtonText}>Start</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <View style={styles.tournamentDetails}>
-        <View style={styles.detailRow}><Text style={styles.detailLabel}>Format:</Text><Text style={styles.detailValue}>{item.format}</Text></View>
+        <View style={styles.detailRow}><Text style={styles.detailLabel}>Format:</Text><Text style={styles.detailValue}>{item.format}{item.overs ? ` · ${item.overs} ov` : ''}</Text></View>
+        {item.ballType && <View style={styles.detailRow}><Text style={styles.detailLabel}>Ball:</Text><Text style={styles.detailValue}>{item.ballType}</Text></View>}
         {item.venue && <View style={styles.detailRow}><Text style={styles.detailLabel}>Venue:</Text><Text style={styles.detailValue}>{item.venue}</Text></View>}
         {item.prizePool && <View style={styles.detailRow}><Text style={styles.detailLabel}>Prize Pool:</Text><Text style={styles.detailValue}>{item.prizePool}</Text></View>}
         {item.maxTeams && <View style={styles.detailRow}><Text style={styles.detailLabel}>Max Teams:</Text><Text style={styles.detailValue}>{item.maxTeams}</Text></View>}
@@ -95,12 +115,38 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
           <TextInput style={styles.formInput} placeholder="Tournament Name" placeholderTextColor={DS.textMuted} value={form.name} onChangeText={(t) => setForm({ ...form, name: t })} />
           <Text style={styles.formLabel}>Format</Text>
           <View style={styles.formatRow}>
-            {['T20', 'ODI', 'Test'].map((f) =>
-          <TouchableOpacity key={f} style={[styles.formatChip, form.format === f && styles.formatChipActive]} onPress={() => setForm({ ...form, format: f })}>
-                <Text style={[styles.formatChipText, form.format === f && styles.formatChipTextActive]}>{f}</Text>
+            {['T20', 'ODI', 'Test', 'Custom'].map((f) => {
+              const OVERS = { T20: '20', ODI: '50', Test: '90' };
+              return (
+                <TouchableOpacity
+                  key={f}
+                  style={[styles.formatChip, form.format === f && styles.formatChipActive]}
+                  onPress={() => setForm({ ...form, format: f, overs: OVERS[f] ?? form.overs })}>
+                  <Text style={[styles.formatChipText, form.format === f && styles.formatChipTextActive]}>{f}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={styles.formLabel}>Overs per side</Text>
+          <TextInput
+            style={styles.formInput}
+            placeholder="Overs (e.g. 20)"
+            placeholderTextColor={DS.textMuted}
+            value={form.overs}
+            onChangeText={(t) => setForm({ ...form, overs: t.replace(/\D/g, '').slice(0, 3) })}
+            keyboardType="numeric"
+            editable={form.format === 'Custom'} />
+
+          <Text style={styles.formLabel}>Ball</Text>
+          <View style={styles.formatRow}>
+            {['Leather', 'Tennis', 'Rubber'].map((b) =>
+          <TouchableOpacity key={b} style={[styles.formatChip, form.ballType === b && styles.formatChipActive]} onPress={() => setForm({ ...form, ballType: b })}>
+                <Text style={[styles.formatChipText, form.ballType === b && styles.formatChipTextActive]}>{b}</Text>
               </TouchableOpacity>
           )}
           </View>
+
           <TextInput style={styles.formInput} placeholder="Venue" placeholderTextColor={DS.textMuted} value={form.venue} onChangeText={(t) => setForm({ ...form, venue: t })} />
           <TextInput style={styles.formInput} placeholder="Prize Pool (e.g. ₹5,00,000)" placeholderTextColor={DS.textMuted} value={form.prizePool} onChangeText={(t) => setForm({ ...form, prizePool: t })} />
           <TextInput style={styles.formInput} placeholder="Max Teams" placeholderTextColor={DS.textMuted} value={form.maxTeams} onChangeText={(t) => setForm({ ...form, maxTeams: t })} keyboardType="numeric" />
@@ -145,6 +191,8 @@ const makeStyles = (DS) => StyleSheet.create({
   tournamentName: { fontSize: 18, fontWeight: '600', color: DS.textPrimary, flex: 1, marginRight: 10 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   statusText: { fontSize: 10, color: DS.bg, fontWeight: '700' },
+  startButton: { flexDirection: 'row', backgroundColor: DS.lime, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', gap: 6 },
+  startButtonText: { color: DS.bg, fontSize: 12, fontWeight: '700' },
   tournamentDetails: { marginBottom: 5 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   detailLabel: { fontSize: 14, color: DS.textMuted, flex: 1 },

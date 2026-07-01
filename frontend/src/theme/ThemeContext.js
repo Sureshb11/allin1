@@ -37,6 +37,11 @@ const dark = {
   lime2: '#a6e814',
   coral: '#ffb59e',
   blue: '#b7c4ff',
+  // Signature "stadium under lights" electric blue — the primary CTA gradient
+  // (primary_container → primary) from the Kinetic Athlete design system.
+  blueDeep: '#0052ff',   // primary_container
+  blueSoft: '#b7c4ff',   // primary
+  onBlue: '#ffffff',     // text on the blue gradient
   textPrimary: '#dfe2f3',
   textVariant: '#c3c5d9',
   textSecondary: '#c3c5d9',
@@ -77,6 +82,11 @@ const light = {
   lime2: '#6f9e00',
   coral: '#c2533a',
   blue: '#3b5bdb',
+  // Same electric-blue CTA gradient — self-contained coloured button, so it
+  // reads well in light mode too (with white on-blue text).
+  blueDeep: '#0052ff',   // primary_container
+  blueSoft: '#4d7bff',   // primary (slightly deeper in light for contrast)
+  onBlue: '#ffffff',     // text on the blue gradient
   textPrimary: '#12151c',
   textVariant: '#33394a',
   textSecondary: '#33394a',

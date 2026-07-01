@@ -107,14 +107,6 @@ const FILTERS = ['all', 'live', 'upcoming', 'completed'];
 const FILTER_STATUS_MAP = { all: 'all', live: 'live', upcoming: 'scheduled', completed: 'completed' };
 
 export default function MyMatchesScreen({ navigation }) {
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'My Matches',
-    });
-  }, [navigation]);
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const [query, setQuery]       = useState('');
@@ -123,9 +115,15 @@ export default function MyMatchesScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading]   = useState(true);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: true, headerBackVisible: true, headerTitle: 'My Matches' });
+  }, [navigation]);
+
   const loadMatches = async () => {
     try {
-      const res = await legendsApi.getLiveScores();
+      // "My Matches" = matches involving the user's own teams (owned / played / followed),
+      // across every sport — not every match in the database.
+      const res = await legendsApi.getCircleMatches();
       if (res.success) setMatches(res.data || []);
     } catch {}
     finally { setLoading(false); }

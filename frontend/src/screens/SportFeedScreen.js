@@ -20,6 +20,7 @@ import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
 import { getScoringConfig } from '../sports/scoring';
 import Skeleton from '../components/Skeleton';
+import GradientButton from '../components/GradientButton';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const DEFAULT_COPY = { live: 'Live Now', results: 'Results & Fixtures', community: 'From the Community', compose: 'Share a moment' };
@@ -188,7 +189,7 @@ export default function SportFeedScreen({ navigation }) {
   const [likedIds, setLikedIds] = useState({});   // per-session liked posts (backend has no per-user state)
 
   const fetchFeed = useCallback(() => Promise.all([
-    legendsApi.getLiveScores({ sport: sportId }),
+    legendsApi.getCircleMatches({ sport: sportId }),
     legendsApi.getPosts({ sport: sportId }),
   ]).then(([mr, pr]) => {
     setMatches(mr?.data || []);
@@ -274,10 +275,14 @@ export default function SportFeedScreen({ navigation }) {
         }
       >
         <View style={s.actions}>
-          <TouchableOpacity style={[s.action, { backgroundColor: accent }]} onPress={() => navigation.navigate('StartMatch', { sport: sportObj })}>
-            <Icon name={sportIcon} size={20} color={D.bg} />
-            <Text style={s.actionTxt}>Start Match</Text>
-          </TouchableOpacity>
+          <GradientButton
+            label="Start Match"
+            icon={sportIcon}
+            onPress={() => navigation.navigate('StartMatch', { sport: sportObj })}
+            height={48}
+            style={{ flex: 1, borderRadius: 14 }}
+            textStyle={{ fontSize: 14 }}
+          />
           <TouchableOpacity style={[s.action, s.actionAlt]} onPress={() => navigation.navigate('FindCricketers', { sport: sportId })}>
             <Icon name="account-search" size={20} color={accent} />
             <Text style={[s.actionTxt, { color: accent }]}>Find Players</Text>

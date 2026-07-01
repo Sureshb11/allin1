@@ -10,6 +10,7 @@ import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
 import { getStartFormat as getSportFormat } from '../sports/start';
 import { getSport } from '../sports';
+import GradientButton from '../components/GradientButton';
 
 /* ─── Kinetic Athlete Design Tokens ─────────────────────── */
 // Themed palette factory (faithful in dark; adapts to light). `black` is the
@@ -33,6 +34,11 @@ const makeK = (c) => ({
 });
 
 /* ─── Match formats (per sport) ──────────────────────────── */
+const BALL_TYPES = [
+  { label: 'Leather', icon: 'cricket' },
+  { label: 'Tennis',  icon: 'tennis-ball' },
+  { label: 'Rubber',  icon: 'circle-outline' },
+];
 
 /* ─── TeamPicker bottom-sheet ────────────────────────────── */
 const TeamPicker = ({ visible, onClose, onSelect, excludeId, title }) => {
@@ -207,18 +213,17 @@ const StartMatchScreen = ({ navigation, route }) => {
   const COMP = sportDef?.competitorLabel || 'Team';
   const sportFmt = getSportFormat(sport.id);
   const FORMATS = sportFmt.formats;
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Start Match',
-    });
-  }, [navigation]);
+  const isCricket = sport.id === 'cricket';
   const [format, setFormat]     = useState(FORMATS[0]);
   const [overs, setOvers]       = useState(String(FORMATS[0].value));
+  const [ballType, setBallType] = useState('Leather');
   const [venue, setVenue]       = useState('');
   const [team1, setTeam1]       = useState(null);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: true, headerBackVisible: true, headerTitle: 'Start Match' });
+  }, [navigation]);
+
   const [team2, setTeam2]       = useState(null);
   const [loading, setLoading]   = useState(false);
   const [picker, setPicker]     = useState(null); // 'team1' | 'team2' | null
@@ -253,6 +258,7 @@ const StartMatchScreen = ({ navigation, route }) => {
         overs: parsedOvers,
         venue: venue.trim(),
         matchType: format.label,
+        ...(isCricket ? { ballType } : {}),
         status: 'scheduled',
         sport: sport.id,
       });
@@ -288,6 +294,7 @@ const StartMatchScreen = ({ navigation, route }) => {
         overs: String(parsedOvers),
         venue: venue.trim(),
         matchType: format.label,
+        ballType,
         matchId: matchRes.data.id,
         team1Id: team1.id,
         team2Id: team2.id,
@@ -467,6 +474,34 @@ const StartMatchScreen = ({ navigation, route }) => {
               placeholderTextColor={K.textMuted}
             />
           </View>
+
+          {/* Ball type — cricket only */}
+          {isCricket && (
+            <>
+              <View style={s.configDivider} />
+              <View style={s.configRow}>
+                <View style={s.configIconWrap}>
+                  <Icon name="circle-slice-8" size={18} color={K.lime} />
+                </View>
+                <Text style={s.configLabel}>Ball</Text>
+                <View style={s.ballRow}>
+                  {BALL_TYPES.map(b => {
+                    const active = b.label === ballType;
+                    return (
+                      <TouchableOpacity
+                        key={b.label}
+                        style={[s.ballChip, active && s.ballChipActive]}
+                        onPress={() => setBallType(b.label)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[s.ballChipText, active && s.ballChipTextActive]}>{b.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Info banner */}
@@ -495,22 +530,17 @@ const StartMatchScreen = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* ── Start Scoring button ────────────────── */}
-        <TouchableOpacity
-          style={[s.createBtn, (!team1 || !team2 || emptyTeams.length > 0) && s.createBtnDisabled]}
+        {/* ── Start Scoring button (signature blue-gradient CTA) ── */}
+        <GradientButton
+          label="START SCORING"
+          icon={sport.icon || 'whistle'}
           onPress={onCreate}
-          disabled={loading || !team1 || !team2 || emptyTeams.length > 0}
-          activeOpacity={0.85}
-        >
-          {loading ? (
-            <ActivityIndicator color={K.black} />
-          ) : (
-            <>
-              <Icon name={sport.icon || 'whistle'} size={20} color={K.black} />
-              <Text style={s.createBtnText}>START SCORING</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          loading={loading}
+          disabled={!team1 || !team2 || emptyTeams.length > 0}
+          height={56}
+          style={s.createBtn}
+          textStyle={{ fontSize: 16, letterSpacing: 1 }}
+        />
       </ScrollView>
 
       {/* Team Picker modal */}
@@ -747,6 +777,27 @@ const makeS = (K) => StyleSheet.create({
     minWidth: 50,
     paddingVertical: 0,
   },
+  ballRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  ballChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 9,
+    backgroundColor: K.surfaceHigh,
+  },
+  ballChipActive: {
+    backgroundColor: K.lime,
+  },
+  ballChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: K.textMuted,
+  },
+  ballChipTextActive: {
+    color: K.black,
+  },
   configDivider: {
     height: 1,
     backgroundColor: K.surfaceHigh,
@@ -788,25 +839,10 @@ const makeS = (K) => StyleSheet.create({
   },
   squadWarnBtnText: { color: K.lime, fontSize: 12.5, fontWeight: '800' },
 
-  /* ── Create / Start button ─────────────────── */
+  /* ── Create / Start button (gradient CTA provides its own fill) ── */
   createBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: K.lime,
-    paddingVertical: 18,
     borderRadius: 16,
     marginTop: 28,
-  },
-  createBtnDisabled: {
-    opacity: 0.35,
-  },
-  createBtnText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: K.black,
-    letterSpacing: 0.8,
   },
 
   /* ── Team Picker (modal) ───────────────────── */
