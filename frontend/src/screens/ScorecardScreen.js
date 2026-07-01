@@ -139,7 +139,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     const t2 = match.team2?.name || 'Team 2';
     try {
       await Share.share({
-        message: `🏏 Scorecard: ${t1} vs ${t2}\n${match.score1 || '—'} | ${match.score2 || '—'}\n${match.result || ''}\nShared via AllIn1 Cricket`
+        message: `🏏 Scorecard: ${t1} vs ${t2}\n${match.score1 || '—'} | ${match.score2 || '—'}\n${match.result || ''}\nShared via Local Legends`
       });
     } catch {}
   };

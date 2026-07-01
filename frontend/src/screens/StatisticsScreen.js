@@ -1,6 +1,7 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import legendsApi from '../services/LegendsApi';
 
 
 
@@ -17,18 +18,6 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 
 const MEDAL = ['#FFD700', '#C0C0C0', '#CD7F32'];
-
-const SAMPLE_PLAYERS = [
-{ id: '1', name: 'Virat Kohli', matches: 254, runs: 12169, average: 59.07, strikeRate: 92.42, centuries: 43, wickets: 4 },
-{ id: '2', name: 'Rohit Sharma', matches: 230, runs: 9205, average: 48.96, strikeRate: 88.90, centuries: 29, wickets: 8 },
-{ id: '3', name: 'Jasprit Bumrah', matches: 72, runs: 89, average: 8.09, strikeRate: 87.25, centuries: 0, wickets: 121 }];
-
-
-const SAMPLE_TEAMS = [
-{ id: '1', name: 'Mumbai Indians', matches: 213, wins: 120, losses: 92, winRate: 56.3, totalRuns: 32450, totalWickets: 1876 },
-{ id: '2', name: 'Chennai Super Kings', matches: 195, wins: 115, losses: 79, winRate: 59.0, totalRuns: 28900, totalWickets: 1654 },
-{ id: '3', name: 'Royal Challengers', matches: 183, wins: 94, losses: 87, winRate: 51.9, totalRuns: 26100, totalWickets: 1432 }];
-
 
 const TABS = [
 { id: 'Players', label: 'Players', icon: 'account' },
@@ -127,8 +116,13 @@ export default function StatisticsScreen() {const DS = useTheme().colors;const s
   const [teams, setTeams] = useState([]);
 
   useEffect(() => {
-    setPlayers(SAMPLE_PLAYERS);
-    setTeams(SAMPLE_TEAMS);
+    let alive = true;
+    Promise.all([legendsApi.getPlayers(), legendsApi.getTeams()]).then(([pr, tr]) => {
+      if (!alive) return;
+      setPlayers((pr?.data || []).map((p) => ({ id: p.id, name: p.name, ...(p.stats || {}) })));
+      setTeams((tr?.data || []).map((t) => ({ id: t.id, name: t.name, ...(t.stats || {}) })));
+    });
+    return () => { alive = false; };
   }, []);
 
   const data = tab === 'Players' ? players : teams;
@@ -160,8 +154,13 @@ export default function StatisticsScreen() {const DS = useTheme().colors;const s
         renderItem={renderCard}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          <View style={{ alignItems: 'center', paddingVertical: 48, gap: 8 }}>
+            <Icon name="chart-bar" size={44} color={DS.surfaceHighest} />
+            <Text style={{ color: DS.textMuted, fontSize: 14 }}>No {tab.toLowerCase()} ranked yet</Text>
+          </View>}
         showsVerticalScrollIndicator={false} />
-      
+
     </View>);
 
 }

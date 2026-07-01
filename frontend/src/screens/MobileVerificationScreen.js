@@ -9,6 +9,7 @@ import {
   ScrollView,
   ActivityIndicator } from
 'react-native';
+import legendsApi from '../services/LegendsApi';
 
 
 
@@ -85,41 +86,24 @@ const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme
       return;
     }
 
+    if (!phoneNumber) {
+      Alert.alert('Error', 'Missing phone number. Please start over.');
+      return;
+    }
     setLoading(true);
-
-    // Simulate OTP verification
-    setTimeout(() => {
-      setLoading(false);
-
-      if (otpString === '1234') {
-        // Mock OTP for demo
-        if (newUser) {
-          Alert.alert(
-            'Verification Successful!',
-            'Your account has been created and verified.',
-            [
-            { text: 'OK', onPress: () => navigation.navigate('ProfileSetup') }]
-
-          );
-        } else {
-          Alert.alert(
-            'Login Successful!',
-            'Welcome back to AllIn1 Cricket!',
-            [
-            {
-              text: 'OK',
-              onPress: () => navigation.replace('SportPicker')
-            }]
-
-          );
-        }
+    try {
+      const cleaned = String(phoneNumber).replace(/\s/g, '');
+      const res = await legendsApi.verifyOtp(cleaned, otpString, countryCode);
+      if (res.success) {
+        navigation.replace('SportPicker');
       } else {
-        Alert.alert(
-          'Invalid OTP',
-          'Please check and enter the correct verification code'
-        );
+        Alert.alert('Invalid OTP', res.error || 'Please check and enter the correct verification code');
       }
-    }, 1500);
+    } catch {
+      Alert.alert('Error', 'Server unreachable. Check your connection.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResendOtp = async () => {
@@ -141,14 +125,11 @@ const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme
       });
     }, 1000);
 
-    // Simulate resend API call
-    setTimeout(() => {
-      setLoading(false);
-      Alert.alert(
-        'OTP Resent',
-        'A new verification code has been sent to your phone'
-      );
-    }, 1000);
+    const cleaned = String(phoneNumber || '').replace(/\s/g, '');
+    const res = await legendsApi.sendOtp(cleaned, countryCode);
+    setLoading(false);
+    Alert.alert(res.success ? 'OTP Resent' : 'Error',
+      res.success ? 'A new verification code has been sent to your phone' : (res.error || 'Could not resend the code'));
   };
 
   const handleCallVerification = () => {

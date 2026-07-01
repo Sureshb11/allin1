@@ -11,49 +11,6 @@ class LegendsApi {
       ? global.API_BASE_URL 
       : apiConfig.BASE_URL;
     this.token = null; // in-memory JWT (persisted to AsyncStorage)
-
-    // Mock data for development/fallbacks where API isn’t implemented
-    this.mockData = {
-      liveMatches: [
-        {
-          id: '1',
-          team1: 'India',
-          team2: 'Australia', 
-          score1: '287/6 (50)',
-          score2: '245/10 (47.3)',
-          status: 'India won by 42 runs',
-          matchType: 'ODI',
-          venue: 'Melbourne Cricket Ground'
-        }
-      ],
-      players: [
-        {
-          id: '1',
-          name: 'Virat Kohli',
-          role: 'Batsman',
-          team: 'RCB',
-          stats: {
-            matches: 254,
-            runs: 12169,
-            average: 59.07,
-            strikeRate: 92.42
-          }
-        }
-      ],
-      teams: [
-        {
-          id: '1',
-          name: 'Mumbai Indians',
-          captain: 'Rohit Sharma',
-          players: 25,
-          stats: {
-            matches: 213,
-            wins: 120,
-            winRate: 56.3
-          }
-        }
-      ]
-    };
   }
 
   // ── Auth token persistence ──────────────────────────────────────────
@@ -191,7 +148,7 @@ class LegendsApi {
       const json = await this.request('/teams');
       return { success: true, data: json.teams || json.data || [] };
     } catch (error) {
-      return { success: true, data: this.mockData.teams };
+      return { success: true, data: [] };
     }
   }
 
@@ -214,7 +171,7 @@ class LegendsApi {
       const json = await this.request('/players' + (qs ? `?${qs}` : ''));
       return { success: true, data: json.players || [] };
     } catch (error) {
-      return { success: true, data: this.mockData.players };
+      return { success: true, data: [] };
     }
   }
 
@@ -692,6 +649,16 @@ class LegendsApi {
     try {
       if (!this.token) return { success: true, data: {} };
       const json = await this.request('/users/me');
+      return { success: true, data: json.user };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Update the logged-in user's profile (firstName / lastName / bio / avatarUrl).
+  async updateUserProfile(data) {
+    try {
+      const json = await this.request('/users/me', { method: 'PUT', body: data });
       return { success: true, data: json.user };
     } catch (error) {
       return { success: false, error: error.message };

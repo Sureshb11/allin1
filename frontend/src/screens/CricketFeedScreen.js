@@ -7,15 +7,29 @@ import { useTheme, useThemedStyles } from "../theme/ThemeContext"; // CricketFee
 // Data is mock — wire posts/matches to real sources when available.
 
 import { useState, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList,
-  StatusBar, Dimensions, Animated, Modal, TextInput, Share,
+  StatusBar, Dimensions, Animated, Modal, TextInput, Share, RefreshControl,
   KeyboardAvoidingView, Platform } from
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import legendsApi from '../services/LegendsApi';
 
 const { width: SW } = Dimensions.get('window');
 
+// ── helpers (map real API data → the feed's render shapes) ──────────────────
+const sideName = (t) => (typeof t === 'object' ? (t?.name || 'Team') : String(t || 'Team'));
+const initials = (n) => n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+const AV_COLORS = ['#2d7a3a', '#1a5fa8', '#7c3aed', '#b45309', '#b91c1c', '#0d7c8f', '#c2490d'];
+const colorFor = (s) => AV_COLORS[((s || '?').charCodeAt(0) || 0) % AV_COLORS.length];
+const timeAgo = (iso) => {
+  if (!iso) return '';
+  const sec = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  for (const [label, s] of [['y', 31536000], ['mo', 2592000], ['d', 86400], ['h', 3600], ['m', 60]])
+    if (sec >= s) return `${Math.floor(sec / s)}${label} ago`;
+  return 'just now';
+};
 
 
 
@@ -30,76 +44,6 @@ const { width: SW } = Dimensions.get('window');
 
 
 
-
-// ── Mock data ───────────────────────────────────────────────────────────────
-const CIRCLE_MATCHES = [
-{
-  id: 'm1', tag: 'You played', live: true, when: 'Live · 14.2 ov',
-  a: { name: 'Sunday Strikers', short: 'SS', color: '#2d7a3a', score: '128/4', overs: '14.2' },
-  b: { name: 'Park Avenue XI', short: 'PA', color: '#1a5fa8', score: '—', overs: '' },
-  result: 'Strikers batting · need 47 off 34'
-},
-{
-  id: 'm2', tag: "Aman's team", when: '2h ago',
-  a: { name: 'Galaxy Gladiators', short: 'GG', color: '#7c3aed', score: '156/7', overs: '20' },
-  b: { name: 'North Riders', short: 'NR', color: '#b45309', score: '149/9', overs: '20' },
-  result: 'Gladiators won by 7 runs'
-},
-{
-  id: 'm3', tag: 'You played', when: 'Yesterday',
-  a: { name: 'Sunday Strikers', short: 'SS', color: '#2d7a3a', score: '174/5', overs: '20' },
-  b: { name: 'City Cobras', short: 'CC', color: '#b91c1c', score: '170/8', overs: '20' },
-  result: 'Strikers won by 4 runs'
-},
-{
-  id: 'm4', tag: "Priya's team", when: '2d ago',
-  a: { name: 'Royal Challengers', short: 'RC', color: '#c2490d', score: '98', overs: '17.3' },
-  b: { name: 'Metro Mavericks', short: 'MM', color: '#0d7c8f', score: '99/2', overs: '12.1' },
-  result: 'Mavericks won by 8 wkts'
-}];
-
-
-const INITIAL_POSTS = [
-{
-  id: 'p1',
-  author: { name: 'Rohan Mehta', handle: '@rohan_mm', team: 'Sunday Strikers', color: '#2d7a3a', initial: 'R', verified: true },
-  time: '2 HOURS AGO',
-  kind: 'milestone',
-  media: { value: '78', balls: '42', sub: 'PLAYER OF THE MATCH', meta: 'vs City Cobras · SR 185.7', icon: 'cricket' },
-  caption: 'Chased it down with 2 overs to spare 🔥 What a night under lights with the boys!',
-  likedBy: 'kabir_07', likes: 243, liked: false, shares: 12,
-  comments: [
-  { id: 'c1', user: 'kabir_07', text: 'Captain knock! 👏', color: '#1a5fa8' },
-  { id: 'c2', user: 'the_priya', text: 'Those cover drives though 😍', color: '#7c3aed' }]
-
-},
-{
-  id: 'p2',
-  author: { name: 'Galaxy Gladiators', handle: '@galaxy_gg', team: 'Club · 312 members', color: '#7c3aed', initial: 'G', verified: true },
-  time: '5 HOURS AGO',
-  kind: 'result',
-  media: {
-    title: 'MATCH WON · 7 RUNS',
-    a: { short: 'GG', name: 'Gladiators', score: '156/7', color: '#7c3aed' },
-    b: { short: 'NR', name: 'Riders', score: '149/9', color: '#b45309' },
-    meta: 'Sunday League · Group B'
-  },
-  caption: 'Defended 156 like champions. Bowlers stood up when it mattered. Onto the semis! 🏆',
-  likedBy: 'aman.fielding', likes: 489, liked: true, shares: 34,
-  comments: [
-  { id: 'c1', user: 'north_riders', text: 'Well played, rematch soon 🤝', color: '#b45309' }]
-
-},
-{
-  id: 'p3',
-  author: { name: 'Aman Verma', handle: '@aman.fielding', team: 'Galaxy Gladiators', color: '#b45309', initial: 'A' },
-  time: 'YESTERDAY',
-  kind: 'photo',
-  media: { icon: 'trophy-variant', label: 'TEAM OF THE WEEK', sub: 'Selected by Local Legends', tint: '#b45309' },
-  caption: 'Grateful to make the Team of the Week 🙏 Couldn’t have done it without my teammates.',
-  likedBy: 'rohan_mm', likes: 156, liked: false, shares: 5,
-  comments: []
-}];
 
 
 // ── Small building blocks ───────────────────────────────────────────────────
@@ -150,6 +94,7 @@ function CircleMatchCard({ match, onPress }) {const DS = useTheme().colors;const
 }
 
 function PostMedia({ kind, media }) {const DS = useTheme().colors;const c = useThemedStyles(makeC);const m = useThemedStyles(makeM);
+  if (!media) return null;   // real text posts carry no rich media
   if (kind === 'milestone') {
     return (
       <View style={[m.wrap, { backgroundColor: '#13351f' }]}>
@@ -249,10 +194,13 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
       </View>
 
       {/* likes */}
-      <Text style={p.likes}>
-        Liked by <Text style={p.bold}>{post.likedBy}</Text> and{' '}
-        <Text style={p.bold}>{post.likes.toLocaleString()} others</Text>
-      </Text>
+      {post.likes > 0 &&
+        <Text style={p.likes}>
+          {post.likedBy
+            ? <>Liked by <Text style={p.bold}>{post.likedBy}</Text> and <Text style={p.bold}>{(post.likes - 1).toLocaleString()} others</Text></>
+            : <Text style={p.bold}>{post.likes.toLocaleString()} {post.likes === 1 ? 'like' : 'likes'}</Text>}
+        </Text>
+      }
 
       {/* caption */}
       <Text style={p.caption}>
@@ -261,9 +209,9 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
       </Text>
 
       {/* comments preview */}
-      {post.comments.length > 0 &&
+      {(post.commentCount || post.comments.length) > 0 &&
       <TouchableOpacity onPress={() => onComment(post)} activeOpacity={0.7}>
-          <Text style={p.viewComments}>View all {post.comments.length} comments</Text>
+          <Text style={p.viewComments}>View all {post.commentCount || post.comments.length} comments</Text>
         </TouchableOpacity>
       }
 
@@ -328,23 +276,85 @@ function CommentsSheet({ post, onClose, onAdd }) {const DS = useTheme().colors;c
 }
 
 // ── Screen ──────────────────────────────────────────────────────────────────
-export default function CricketFeedScreen({ navigation }) {const DS = useTheme().colors;const s = useThemedStyles(makeS);
-  const [posts, setPosts] = useState(INITIAL_POSTS);
+export default function CricketFeedScreen({ navigation }) {const { colors: DS, isDark } = useTheme();const s = useThemedStyles(makeS);
+  const [posts, setPosts] = useState([]);
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activePost, setActivePost] = useState(null);
+  const likedRef = useRef({});   // one like per session per post
+
+  const mapPost = useCallback((po) => ({
+    id: po.id,
+    author: {
+      name: po.authorName || 'Player',
+      handle: '@' + (po.authorName || 'player').toLowerCase().replace(/\s+/g, '_'),
+      team: po.team || '',
+      color: colorFor(po.authorName),
+      initial: (po.authorName || 'P').charAt(0).toUpperCase(),
+      verified: false,
+    },
+    time: timeAgo(po.createdAt),
+    kind: 'text', media: null,
+    caption: po.text || '',
+    likedBy: null,
+    likes: po.likes || 0,
+    liked: false,
+    comments: [],
+    commentCount: po.commentCount || 0,
+  }), []);
+
+  const mapMatch = useCallback((m) => ({
+    id: m.id,
+    tag: m.status === 'live' ? 'Live' : 'Match',
+    live: m.status === 'live',
+    when: m.status === 'live' ? '' : timeAgo(m.createdAt),
+    a: { name: sideName(m.team1), short: initials(sideName(m.team1)), color: colorFor(sideName(m.team1)), score: m.score1 ?? '—', overs: '' },
+    b: { name: sideName(m.team2), short: initials(sideName(m.team2)), color: colorFor(sideName(m.team2) + 'x'), score: m.score2 ?? '—', overs: '' },
+    result: m.result || (m.status === 'completed' ? 'Completed' : m.status === 'live' ? 'In progress' : 'Scheduled'),
+  }), []);
+
+  const fetchFeed = useCallback(() => Promise.all([
+    legendsApi.getLiveScores({ sport: 'cricket' }),
+    legendsApi.getPosts({ sport: 'cricket' }),
+  ]).then(([mr, pr]) => {
+    setMatches((mr?.data || []).map(mapMatch));
+    setPosts((pr?.data || []).map(mapPost));
+  }), [mapMatch, mapPost]);
+
+  useFocusEffect(useCallback(() => {
+    setLoading(true);
+    fetchFeed().finally(() => setLoading(false));
+  }, [fetchFeed]));
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchFeed().finally(() => setRefreshing(false));
+  }, [fetchFeed]);
 
   const toggleLike = useCallback((id) => {
     setPosts((prev) => prev.map((po) =>
-    po.id === id ? { ...po, liked: !po.liked, likes: po.likes + (po.liked ? -1 : 1) } : po
-    ));
+      po.id === id ? { ...po, liked: !po.liked, likes: Math.max(0, po.likes + (po.liked ? -1 : 1)) } : po));
+    if (!likedRef.current[id]) { likedRef.current[id] = true; legendsApi.likePost(id); }
   }, []);
 
-  const addComment = useCallback((id, text) => {
-    setPosts((prev) => prev.map((po) =>
-    po.id === id ?
-    { ...po, comments: [...po.comments, { id: 'c' + Date.now(), user: 'you', text, color: DS.lime }] } :
-    po
-    ));
+  const openComments = useCallback(async (post) => {
+    setActivePost(post);
+    const res = await legendsApi.getComments(post.id);
+    if (res.success) {
+      const mapped = (res.data || []).map((c) => ({ id: c.id, user: c.authorName || 'Player', text: c.text, color: colorFor(c.authorName) }));
+      setPosts((prev) => prev.map((po) => (po.id === post.id ? { ...po, comments: mapped, commentCount: mapped.length } : po)));
+    }
   }, []);
+
+  const addComment = useCallback(async (id, text) => {
+    const res = await legendsApi.addComment(id, text);
+    if (res.success) {
+      setPosts((prev) => prev.map((po) => (po.id === id
+        ? { ...po, comments: [...po.comments, { id: res.data?.id || 'c' + Date.now(), user: 'You', text, color: DS.lime }], commentCount: (po.commentCount || 0) + 1 }
+        : po)));
+    }
+  }, [DS.lime]);
 
   const sharePost = useCallback(async (post) => {
     try {
@@ -368,9 +378,9 @@ export default function CricketFeedScreen({ navigation }) {const DS = useTheme()
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={s.railContent}>
       
-        {CIRCLE_MATCHES.map((mt) =>
-      <CircleMatchCard key={mt.id} match={mt} onPress={() => {}} />
-      )}
+        {matches.length > 0
+        ? matches.map((mt) => <CircleMatchCard key={mt.id} match={mt} onPress={() => {}} />)
+        : <View style={s.railEmpty}><Text style={s.railEmptyTxt}>No recent matches yet</Text></View>}
       </ScrollView>
 
       {/* Feed title */}
@@ -382,7 +392,7 @@ export default function CricketFeedScreen({ navigation }) {const DS = useTheme()
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
 
       {/* top bar */}
       <View style={s.topBar}>
@@ -405,11 +415,18 @@ export default function CricketFeedScreen({ navigation }) {const DS = useTheme()
         keyExtractor={(it) => it.id}
         ListHeaderComponent={renderHeader}
         renderItem={({ item }) =>
-        <PostCard post={item} onLike={toggleLike} onShare={sharePost} onComment={setActivePost} />
+        <PostCard post={item} onLike={toggleLike} onShare={sharePost} onComment={openComments} />
         }
+        ListEmptyComponent={!loading &&
+          <View style={s.feedEmpty}>
+            <Icon name="cricket" size={40} color={DS.surfaceHighest} />
+            <Text style={s.feedEmptyTxt}>No posts yet</Text>
+            <Text style={s.feedEmptySub}>Be the first to share a cricket moment.</Text>
+          </View>}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 24 }} />
-      
+
 
       <CommentsSheet post={sheetPost} onClose={() => setActivePost(null)} onAdd={addComment} />
     </View>);
@@ -437,7 +454,13 @@ const makeS = (DS) => StyleSheet.create({
   seeAll: { color: DS.lime, fontSize: 13, fontWeight: '700' },
   sectionSub: { color: DS.textMuted, fontSize: 12, paddingHorizontal: 16, marginTop: 2 },
 
-  railContent: { paddingHorizontal: 16, paddingTop: 12, gap: 12 }
+  railContent: { paddingHorizontal: 16, paddingTop: 12, gap: 12 },
+
+  railEmpty: { width: SW - 32, paddingVertical: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.surfaceLow, borderRadius: 16, borderWidth: 1, borderColor: DS.line },
+  railEmptyTxt: { color: DS.textMuted, fontSize: 13 },
+  feedEmpty: { alignItems: 'center', paddingVertical: 40, gap: 6 },
+  feedEmptyTxt: { color: DS.textPrimary, fontSize: 15, fontWeight: '700', marginTop: 4 },
+  feedEmptySub: { color: DS.textMuted, fontSize: 13 }
 });
 
 const makeC = (DS) => StyleSheet.create({

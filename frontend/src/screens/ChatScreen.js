@@ -66,14 +66,7 @@ const ChatScreen = ({ route, navigation }) => {const DS = useTheme().colors;cons
   }, []);
 
   const loadMessages = async () => {
-    if (!chatId) {
-      setMessages([
-      { id: '1', text: 'Great match today! Well played everyone.', sender: { firstName: 'Rohit', lastName: 'S' }, createdAt: new Date().toISOString(), isMine: false },
-      { id: '2', text: 'Thanks! Ready for the next one.', sender: { firstName: 'You', lastName: '' }, createdAt: new Date().toISOString(), isMine: true },
-      { id: '3', text: 'Practice tomorrow 6 AM at the ground.', sender: { firstName: 'Virat', lastName: 'K' }, createdAt: new Date().toISOString(), isMine: false }]
-      );
-      return;
-    }
+    if (!chatId) { setMessages([]); return; }
     const res = await legendsApi.getChatMessages(chatId);
     if (res.success && res.data.length > 0) {
       const mapped = res.data.map((m) => ({ ...m, isMine: false }));

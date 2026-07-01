@@ -89,7 +89,7 @@ export default function NewsFeedScreen() {
           summary:  item.summary || (item.body || '').substring(0, 140) + '…',
           category: item.category || 'General',
           time:     formatTime(item.createdAt),
-          author:   item.author || 'AllIn1 Cricket',
+          author:   item.author || 'Local Legends',
           readTime: estimateReadTime(item.body || ''),
         })));
       }

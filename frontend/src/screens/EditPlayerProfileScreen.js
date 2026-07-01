@@ -1,5 +1,6 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
+import legendsApi from '../services/LegendsApi';
 
 
 
@@ -16,23 +17,33 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert 
 
 const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [profile, setProfile] = useState({
-    name: 'John Doe',
-    email: 'john@example.com',
-    phone: '+1234567890',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    country: 'India',
-    battingStyle: 'Right Handed',
-    bowlingStyle: 'Right Arm Medium',
-    dateOfBirth: '1990-01-01',
-    height: '5\'10"',
-    weight: '70 kg',
-    bio: 'Passionate cricket player with 10+ years of experience.'
+    name: '', email: '', phone: '', city: '', state: '', country: '',
+    battingStyle: '', bowlingStyle: '', dateOfBirth: '', height: '', weight: '', bio: '',
   });
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    Alert.alert('Success', 'Profile updated successfully!');
-    navigation.goBack();
+  // Load the real profile (no mock defaults).
+  useEffect(() => {
+    legendsApi.getUserProfile().then((res) => {
+      const u = res?.success ? (res.data || {}) : {};
+      const name = u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim();
+      setProfile((prev) => ({ ...prev, name, phone: u.phone || '', bio: u.bio || '' }));
+    });
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const parts = (profile.name || '').trim().split(/\s+/);
+    const firstName = parts.shift() || 'Player';
+    const lastName = parts.join(' ') || '-';
+    const res = await legendsApi.updateUserProfile({ firstName, lastName, bio: profile.bio || null });
+    setSaving(false);
+    if (res.success) {
+      Alert.alert('Success', 'Profile updated.');
+      navigation.goBack();
+    } else {
+      Alert.alert('Error', res.error || 'Could not update profile.');
+    }
   };
 
   return (
