@@ -2,6 +2,7 @@ import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, 
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import GradientButton from '../components/GradientButton';
 
 
 
@@ -150,9 +151,14 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
           <TextInput style={styles.formInput} placeholder="Venue" placeholderTextColor={DS.textMuted} value={form.venue} onChangeText={(t) => setForm({ ...form, venue: t })} />
           <TextInput style={styles.formInput} placeholder="Prize Pool (e.g. ₹5,00,000)" placeholderTextColor={DS.textMuted} value={form.prizePool} onChangeText={(t) => setForm({ ...form, prizePool: t })} />
           <TextInput style={styles.formInput} placeholder="Max Teams" placeholderTextColor={DS.textMuted} value={form.maxTeams} onChangeText={(t) => setForm({ ...form, maxTeams: t })} keyboardType="numeric" />
-          <TouchableOpacity style={styles.createFormButton} onPress={createTournament} disabled={creating}>
-            {creating ? <ActivityIndicator color={DS.bg} /> : <Text style={styles.createFormButtonText}>Create Tournament</Text>}
-          </TouchableOpacity>
+          <GradientButton
+            label="Create Tournament"
+            icon="trophy-outline"
+            onPress={createTournament}
+            loading={creating}
+            height={48}
+            style={{ marginTop: 5 }}
+          />
         </View>
       }
 

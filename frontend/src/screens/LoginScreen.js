@@ -7,6 +7,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { showToast } from '../components/Toast';
+import GradientButton from '../components/GradientButton';
 
 
 
@@ -166,15 +167,16 @@ export default function LoginScreen({ navigation }) {const DS = useTheme().color
               returnKeyType="done"
               onSubmitEditing={handleSaveName} />
 
-              <TouchableOpacity
-              style={[s.primary, (loading || fullName.trim().length < 2) && s.primaryOff]}
+              <GradientButton
+              label="Enter the Arena"
+              icon="arrow-right"
+              iconRight
               onPress={handleSaveName}
-              disabled={loading || fullName.trim().length < 2}
-              activeOpacity={0.9}>
-
-                {loading ? <ActivityIndicator color={DS.bg} /> :
-              <><Text style={s.primaryTxt}>Enter the Arena</Text><Icon name="arrow-right" size={20} color={DS.bg} /></>}
-              </TouchableOpacity>
+              loading={loading}
+              disabled={fullName.trim().length < 2}
+              height={56}
+              style={s.primary}
+              textStyle={{ fontSize: 16 }} />
             </> :
 
           showOtpStep ?
@@ -198,15 +200,16 @@ export default function LoginScreen({ navigation }) {const DS = useTheme().color
               caretHidden />
             
 
-              <TouchableOpacity
-              style={[s.primary, (loading || otp.length < 4) && s.primaryOff]}
+              <GradientButton
+              label="Verify & Join"
+              icon="arrow-right"
+              iconRight
               onPress={handleVerifyOtp}
-              disabled={loading || otp.length < 4}
-              activeOpacity={0.9}>
-              
-                {loading ? <ActivityIndicator color={DS.bg} /> :
-              <><Text style={s.primaryTxt}>Verify & Join</Text><Icon name="arrow-right" size={20} color={DS.bg} /></>}
-              </TouchableOpacity>
+              loading={loading}
+              disabled={otp.length < 4}
+              height={56}
+              style={s.primary}
+              textStyle={{ fontSize: 16 }} />
 
               <View style={s.altRow}>
                 <TouchableOpacity onPress={() => {setShowOtpStep(false);setOtp('');}}>
@@ -256,15 +259,16 @@ export default function LoginScreen({ navigation }) {const DS = useTheme().color
                 </View>
             }
 
-              <TouchableOpacity
-              style={[s.primary, (loading || phoneNumber.length < 10) && s.primaryOff]}
+              <GradientButton
+              label="Send OTP"
+              icon="lightning-bolt"
+              iconRight
               onPress={handleSendOtp}
-              disabled={loading || phoneNumber.length < 10}
-              activeOpacity={0.9}>
-              
-                {loading ? <ActivityIndicator color={DS.bg} /> :
-              <><Text style={s.primaryTxt}>Send OTP</Text><Icon name="lightning-bolt" size={19} color={DS.bg} /></>}
-              </TouchableOpacity>
+              loading={loading}
+              disabled={phoneNumber.length < 10}
+              height={56}
+              style={s.primary}
+              textStyle={{ fontSize: 16 }} />
 
               <View style={s.divider}>
                 <View style={s.divLine} /><Text style={s.divTxt}>OR</Text><View style={s.divLine} />
