@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert, A
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import GradientButton from '../components/GradientButton';
+import { showToast } from '../components/Toast';
 
 
 
@@ -43,7 +44,7 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
   };
 
   const createTournament = async () => {
-    if (!form.name.trim()) return Alert.alert('Error', 'Tournament name is required');
+    if (!form.name.trim()) return showToast('Tournament name is required', 'error');
     setCreating(true);
     try {
       const res = await legendsApi.createTournament({
@@ -57,12 +58,12 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
         status: 'upcoming'
       });
       if (res.success) {
-        Alert.alert('Success', 'Tournament created!');
+        showToast('Tournament created!', 'success');
         setShowCreateForm(false);
         setForm({ name: '', format: 'T20', overs: '20', ballType: 'Leather', venue: '', prizePool: '', maxTeams: '' });
         loadTournaments();
-      } else Alert.alert('Error', res.error || 'Failed to create');
-    } catch (e) {Alert.alert('Error', 'Something went wrong');} finally {setCreating(false);}
+      } else showToast(res.error || 'Failed to create', 'error');
+    } catch (e) {showToast('Something went wrong', 'error');} finally {setCreating(false);}
   };
 
   const getStatusColor = (status) => {

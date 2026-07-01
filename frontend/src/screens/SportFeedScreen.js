@@ -21,6 +21,7 @@ import { getSport } from '../sports';
 import { getScoringConfig } from '../sports/scoring';
 import Skeleton from '../components/Skeleton';
 import GradientButton from '../components/GradientButton';
+import MomentumMeter from '../components/MomentumMeter';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const DEFAULT_COPY = { live: 'Live Now', results: 'Results & Fixtures', community: 'From the Community', compose: 'Share a moment' };
@@ -134,6 +135,14 @@ function FeaturedMatch({ m, accent, unit, onPress }) {
           </View>
         ))}
         <Text style={s.featVs}>vs</Text>
+      </View>
+      <View style={{ paddingHorizontal: 16, marginTop: 4, marginBottom: 12 }}>
+        <MomentumMeter
+          a={Number(String(m.score1).replace(/[^\d.]/g, '')) || 0}
+          b={Number(String(m.score2).replace(/[^\d.]/g, '')) || 0}
+          leftLabel={initials(sideName(m.team1))}
+          rightLabel={initials(sideName(m.team2))}
+        />
       </View>
       <View style={s.featFoot}>
         <Icon name="stadium-variant" size={13} color={D.inkDim} />

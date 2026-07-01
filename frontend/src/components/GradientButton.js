@@ -15,6 +15,7 @@ import { TouchableOpacity, Text, View, ActivityIndicator, StyleSheet } from 'rea
 import Svg, { Defs, LinearGradient as SvgGrad, Stop, Rect } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/ThemeContext';
+import { haptic } from '../utils/haptics';
 
 export default function GradientButton({
   label,
@@ -36,10 +37,12 @@ export default function GradientButton({
 
   const IconEl = icon ? <Icon name={icon} size={20} color={ink} /> : null;
 
+  const press = () => { haptic.impact(); onPress?.(); };
+
   return (
     <TouchableOpacity
       activeOpacity={0.9}
-      onPress={onPress}
+      onPress={press}
       disabled={disabled || loading}
       onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
       style={[styles.btn, { height, opacity: disabled ? 0.5 : 1 }, style]}

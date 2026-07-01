@@ -5,6 +5,7 @@ import {
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { haptic } from '../utils/haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -106,6 +107,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   };
 
   const endMatch = async (result, finalScore) => {
+    haptic.success();   // celebratory buzz on the winning moment
     setMatchComplete(true);
     setMatchResult(result);
     const scoreStr = `${finalScore.runs}/${finalScore.wickets} (${finalScore.overs}.${finalScore.balls})`;
@@ -115,6 +117,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
   const handleScore = async (value) => {
     if (matchComplete) return;
+    // Tactile feedback: a firm buzz on a wicket, a light tick on every other ball.
+    if (value === 'out') haptic.warn(); else haptic.tick();
     let newScore = { ...currentScore };
     let newOver = [...currentOver];
 

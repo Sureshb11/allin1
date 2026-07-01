@@ -11,6 +11,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { getStartFormat as getSportFormat } from '../sports/start';
 import { getSport } from '../sports';
 import GradientButton from '../components/GradientButton';
+import { showToast } from '../components/Toast';
 
 /* ─── Kinetic Athlete Design Tokens ─────────────────────── */
 // Themed palette factory (faithful in dark; adapts to light). `black` is the
@@ -78,7 +79,7 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title }) => {
     if (res.success && res.data) {
       onSelect(res.data);
     } else {
-      Alert.alert('Error', 'Could not create team. Try again.');
+      showToast('Could not create team. Try again.', 'error');
     }
   };
 
@@ -240,15 +241,15 @@ const StartMatchScreen = ({ navigation, route }) => {
   };
 
   const onCreate = async () => {
-    if (!team1) return Alert.alert(`Select ${COMP} 1`);
-    if (!team2) return Alert.alert(`Select ${COMP} 2`);
-    if (team1.id === team2.id) return Alert.alert(`${COMP}s must be different`);
+    if (!team1) return showToast(`Select ${COMP} 1`, 'error');
+    if (!team2) return showToast(`Select ${COMP} 2`, 'error');
+    if (team1.id === team2.id) return showToast(`${COMP}s must be different`, 'error');
     // A match needs a squad — the inline "Squad needed" card + disabled button
     // already communicate this, so just guard here (no raw alert).
     const pc = (t) => Array.isArray(t.players) ? t.players.length : (typeof t.players === 'number' ? t.players : null);
     if (pc(team1) === 0 || pc(team2) === 0) return;
     const parsedOvers = parseInt(overs, 10);
-    if (!parsedOvers || parsedOvers < 1) return Alert.alert(`Enter valid ${sportFmt.unit.toLowerCase()}`);
+    if (!parsedOvers || parsedOvers < 1) return showToast(`Enter valid ${sportFmt.unit.toLowerCase()}`, 'error');
 
     setLoading(true);
     try {
@@ -264,7 +265,7 @@ const StartMatchScreen = ({ navigation, route }) => {
       });
 
       if (!matchRes.success) {
-        Alert.alert('Error', matchRes.error || 'Failed to create match');
+        showToast(matchRes.error || 'Failed to create match', 'error');
         return;
       }
 
@@ -302,7 +303,7 @@ const StartMatchScreen = ({ navigation, route }) => {
         sport,
       });
     } catch {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      showToast('Something went wrong. Please try again.', 'error');
     } finally {
       setLoading(false);
     }

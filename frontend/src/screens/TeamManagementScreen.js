@@ -13,6 +13,7 @@ import {
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { showToast } from '../components/Toast';
 
 
 
@@ -226,13 +227,13 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
   // Look up an existing Local Legends user by their mobile number.
   const searchUser = async () => {
     const phone = searchPhone.replace(/\D/g, '');
-    if (phone.length < 8) return Alert.alert('Enter number', 'Please enter a valid mobile number.');
+    if (phone.length < 8) return showToast('Please enter a valid mobile number.', 'error');
     setSearching(true);
     setFoundUser(null);
     const res = await legendsApi.searchUserByPhone(phone);
     setSearching(false);
     if (res.success && res.data) setFoundUser(res.data);
-    else Alert.alert('Not found', res.error || 'No Local Legends user with that number.');
+    else showToast(res.error || 'No Local Legends user with that number.', 'error');
   };
 
   // Add the found app user to the selected team as a player.
@@ -245,9 +246,9 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
     if (result.success) {
       await loadData();
       closeAddPlayer();
-      Alert.alert('Success', `${name} added to the team.`);
+      showToast(`${name} added to the team.`, 'success');
     } else {
-      Alert.alert('Error', result.error || 'Failed to add player');
+      showToast(result.error || 'Failed to add player', 'error');
     }
   };
 
@@ -258,9 +259,9 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
         setNewTeamName('');
         setShowCreateTeamModal(false);
         await loadData();
-        Alert.alert('Success', 'Team created!');
+        showToast('Team created!', 'success');
       } else {
-        Alert.alert('Error', result.error || 'Failed to create team');
+        showToast(result.error || 'Failed to create team', 'error');
       }
     }
   };

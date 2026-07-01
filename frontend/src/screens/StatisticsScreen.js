@@ -2,6 +2,9 @@ import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useSt
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import Skeleton from '../components/Skeleton';
+
+const SK = ['#1a2029', '#283039'];   // dark shimmer pair
 
 
 
@@ -114,6 +117,7 @@ export default function StatisticsScreen({ navigation }) {const DS = useTheme().
   const [tab, setTab] = useState('Players');
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
     navigation?.setOptions({
@@ -125,10 +129,12 @@ export default function StatisticsScreen({ navigation }) {const DS = useTheme().
 
   useEffect(() => {
     let alive = true;
+    setLoading(true);
     Promise.all([legendsApi.getPlayers(), legendsApi.getTeams()]).then(([pr, tr]) => {
       if (!alive) return;
       setPlayers((pr?.data || []).map((p) => ({ id: p.id, name: p.name, ...(p.stats || {}) })));
       setTeams((tr?.data || []).map((t) => ({ id: t.id, name: t.name, ...(t.stats || {}) })));
+      setLoading(false);
     });
     return () => { alive = false; };
   }, []);
@@ -157,17 +163,34 @@ export default function StatisticsScreen({ navigation }) {const DS = useTheme().
         )}
       </View>
 
-      <FlatList
-        data={data}
-        renderItem={renderCard}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={{ alignItems: 'center', paddingVertical: 48, gap: 8 }}>
-            <Icon name="chart-bar" size={44} color={DS.surfaceHighest} />
-            <Text style={{ color: DS.textMuted, fontSize: 14 }}>No {tab.toLowerCase()} ranked yet</Text>
-          </View>}
-        showsVerticalScrollIndicator={false} />
+      {loading ? (
+        <View style={styles.list}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <View key={i} style={[styles.card, { padding: 16, marginBottom: 12 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Skeleton width={40} height={40} radius={20} colors={SK} />
+                <View style={{ flex: 1, gap: 8 }}>
+                  <Skeleton width={'55%'} height={14} colors={SK} />
+                  <Skeleton width={'32%'} height={11} colors={SK} />
+                </View>
+              </View>
+              <Skeleton width={'100%'} height={40} radius={10} colors={SK} style={{ marginTop: 14 }} />
+            </View>
+          ))}
+        </View>
+      ) : (
+        <FlatList
+          data={data}
+          renderItem={renderCard}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', paddingVertical: 48, gap: 8 }}>
+              <Icon name="chart-bar" size={44} color={DS.surfaceHighest} />
+              <Text style={{ color: DS.textMuted, fontSize: 14 }}>No {tab.toLowerCase()} ranked yet</Text>
+            </View>}
+          showsVerticalScrollIndicator={false} />
+      )}
 
     </View>);
 

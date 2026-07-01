@@ -15,6 +15,8 @@ import {
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import MomentumMeter from '../components/MomentumMeter';
+import { haptic } from '../utils/haptics';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -84,6 +86,19 @@ function CircleMatchCard({ match, onPress }) {const DS = useTheme().colors;const
           </View>
           <Text style={c.teamName} numberOfLines={1}>{t.name}</Text>
           <Text style={c.teamScore}>{t.score}{t.overs ? `  (${t.overs})` : ''}</Text>
+        </View>
+      )}
+
+      {match.live && (
+        <View style={{ marginTop: 10 }}>
+          <MomentumMeter
+            a={Number(String(match.a.score).replace(/[^\d.]/g, '')) || 0}
+            b={Number(String(match.b.score).replace(/[^\d.]/g, '')) || 0}
+            leftLabel={match.a.short}
+            rightLabel={match.b.short}
+            height={6}
+            showLabels={false}
+          />
         </View>
       )}
 
@@ -336,6 +351,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   }, [fetchFeed]);
 
   const toggleLike = useCallback((id) => {
+    haptic.tick();
     setPosts((prev) => prev.map((po) =>
       po.id === id ? { ...po, liked: !po.liked, likes: Math.max(0, po.likes + (po.liked ? -1 : 1)) } : po));
     if (!likedRef.current[id]) { likedRef.current[id] = true; legendsApi.likePost(id); }
