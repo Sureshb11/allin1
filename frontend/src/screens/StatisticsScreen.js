@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -110,10 +110,18 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
 
 }
 
-export default function StatisticsScreen() {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+export default function StatisticsScreen({ navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [tab, setTab] = useState('Players');
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
+
+  useLayoutEffect(() => {
+    navigation?.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Statistics',
+    });
+  }, [navigation]);
 
   useEffect(() => {
     let alive = true;

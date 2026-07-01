@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -39,6 +39,14 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
   const [searching, setSearching] = useState(false);
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Teams',
+    });
+  }, [navigation]);
 
   useEffect(() => {
     loadData();

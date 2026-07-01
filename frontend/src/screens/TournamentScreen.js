@@ -1,5 +1,6 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert, ActivityIndicator } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 
 
@@ -22,6 +23,14 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
   const [showCreateForm, setShowCreateForm] = useState(route?.params?.openCreate ?? true);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: '', format: 'T20', overs: '20', ballType: 'Leather', venue: '', prizePool: '', maxTeams: '' });
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Tournaments',
+    });
+  }, [navigation]);
 
   useEffect(() => {loadTournaments();}, []);
 
@@ -67,10 +76,18 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
   const renderTournament = ({ item }) =>
   <TouchableOpacity style={styles.tournamentCard}>
       <View style={styles.tournamentHeader}>
-        <Text style={styles.tournamentName}>{item.name}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{(item.status || '').toUpperCase()}</Text>
+        <View>
+          <Text style={styles.tournamentName}>{item.name}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.statusText}>{(item.status || '').toUpperCase()}</Text>
+          </View>
         </View>
+        {item.status === 'upcoming' && (
+          <TouchableOpacity style={styles.startButton}>
+            <Icon name="play-circle-outline" size={20} color={DS.bg} />
+            <Text style={styles.startButtonText}>Start</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <View style={styles.tournamentDetails}>
         <View style={styles.detailRow}><Text style={styles.detailLabel}>Format:</Text><Text style={styles.detailValue}>{item.format}{item.overs ? ` · ${item.overs} ov` : ''}</Text></View>
@@ -174,6 +191,8 @@ const makeStyles = (DS) => StyleSheet.create({
   tournamentName: { fontSize: 18, fontWeight: '600', color: DS.textPrimary, flex: 1, marginRight: 10 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   statusText: { fontSize: 10, color: DS.bg, fontWeight: '700' },
+  startButton: { flexDirection: 'row', backgroundColor: DS.lime, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', gap: 6 },
+  startButtonText: { color: DS.bg, fontSize: 12, fontWeight: '700' },
   tournamentDetails: { marginBottom: 5 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   detailLabel: { fontSize: 14, color: DS.textMuted, flex: 1 },
