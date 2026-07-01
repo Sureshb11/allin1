@@ -230,13 +230,10 @@ const StartMatchScreen = ({ navigation, route }) => {
     if (!team1) return Alert.alert(`Select ${COMP} 1`);
     if (!team2) return Alert.alert(`Select ${COMP} 2`);
     if (team1.id === team2.id) return Alert.alert(`${COMP}s must be different`);
-    // A match needs a squad: each side must have at least one player.
-    const playerCount = (t) => Array.isArray(t.players) ? t.players.length : (typeof t.players === 'number' ? t.players : null);
-    const c1 = playerCount(team1), c2 = playerCount(team2);
-    const empty = [c1 === 0 && team1.name, c2 === 0 && team2.name].filter(Boolean);
-    if (empty.length) {
-      return Alert.alert('Add players first', `${empty.join(' and ')} ${empty.length > 1 ? 'have' : 'has'} no players. Each ${COMP.toLowerCase()} needs at least one player before a match can start.`);
-    }
+    // A match needs a squad — the inline "Squad needed" card + disabled button
+    // already communicate this, so just guard here (no raw alert).
+    const pc = (t) => Array.isArray(t.players) ? t.players.length : (typeof t.players === 'number' ? t.players : null);
+    if (pc(team1) === 0 || pc(team2) === 0) return;
     const parsedOvers = parseInt(overs, 10);
     if (!parsedOvers || parsedOvers < 1) return Alert.alert(`Enter valid ${sportFmt.unit.toLowerCase()}`);
 
@@ -307,6 +304,11 @@ const StartMatchScreen = ({ navigation, route }) => {
   );
 
   /* ── Render ─────────────────────────────────────────────── */
+  // Selected teams that have no players yet (a squad is required to start).
+  const teamPlayerCount = (t) => (t && Array.isArray(t.players)) ? t.players.length
+    : (t && typeof t.players === 'number' ? t.players : null);
+  const emptyTeams = [team1, team2].filter((t) => teamPlayerCount(t) === 0);
+
   return (
     <View style={s.root}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={K.bg} />
@@ -467,11 +469,29 @@ const StartMatchScreen = ({ navigation, route }) => {
           </Text>
         </View>
 
+        {/* ── Squad-required warning ──────────────── */}
+        {emptyTeams.length > 0 && (
+          <View style={[s.squadWarn, { borderColor: c.warn, backgroundColor: c.warn + '18' }]}>
+            <Icon name="account-alert-outline" size={20} color={c.warn} style={{ marginTop: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={[s.squadWarnTitle, { color: c.warn }]}>Squad needed to start</Text>
+              <Text style={s.squadWarnText}>
+                {emptyTeams.map((t) => t.name).join(' and ')} {emptyTeams.length > 1 ? 'have' : 'has'} no players.
+                Add at least one player to each {COMP.toLowerCase()} before you can start.
+              </Text>
+              <TouchableOpacity style={s.squadWarnBtn} onPress={() => navigation.navigate('TeamManagement')} activeOpacity={0.8}>
+                <Icon name="account-plus" size={14} color={K.lime} />
+                <Text style={s.squadWarnBtnText}>Add players</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* ── Start Scoring button ────────────────── */}
         <TouchableOpacity
-          style={[s.createBtn, (!team1 || !team2) && s.createBtnDisabled]}
+          style={[s.createBtn, (!team1 || !team2 || emptyTeams.length > 0) && s.createBtnDisabled]}
           onPress={onCreate}
-          disabled={loading || !team1 || !team2}
+          disabled={loading || !team1 || !team2 || emptyTeams.length > 0}
           activeOpacity={0.85}
         >
           {loading ? (
@@ -740,6 +760,25 @@ const makeS = (K) => StyleSheet.create({
     color: K.textMuted,
     lineHeight: 18,
   },
+
+  /* ── Squad-required warning ────────────────── */
+  squadWarn: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  squadWarnTitle: { fontSize: 13.5, fontWeight: '800', marginBottom: 3 },
+  squadWarnText: { fontSize: 12.5, color: K.textVariant, lineHeight: 18 },
+  squadWarnBtn: {
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5,
+    marginTop: 10, paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 20, backgroundColor: K.limeDim, borderWidth: 1, borderColor: K.lime,
+  },
+  squadWarnBtnText: { color: K.lime, fontSize: 12.5, fontWeight: '800' },
 
   /* ── Create / Start button ─────────────────── */
   createBtn: {
