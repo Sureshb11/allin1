@@ -117,7 +117,9 @@ export default function MyMatchesScreen({ navigation }) {
 
   const loadMatches = async () => {
     try {
-      const res = await legendsApi.getLiveScores();
+      // "My Matches" = matches involving the user's own teams (owned / played / followed),
+      // across every sport — not every match in the database.
+      const res = await legendsApi.getCircleMatches();
       if (res.success) setMatches(res.data || []);
     } catch {}
     finally { setLoading(false); }

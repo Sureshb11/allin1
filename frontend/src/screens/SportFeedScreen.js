@@ -188,7 +188,7 @@ export default function SportFeedScreen({ navigation }) {
   const [likedIds, setLikedIds] = useState({});   // per-session liked posts (backend has no per-user state)
 
   const fetchFeed = useCallback(() => Promise.all([
-    legendsApi.getLiveScores({ sport: sportId }),
+    legendsApi.getCircleMatches({ sport: sportId }),
     legendsApi.getPosts({ sport: sportId }),
   ]).then(([mr, pr]) => {
     setMatches(mr?.data || []);
