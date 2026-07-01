@@ -33,6 +33,16 @@ const MatchSchema = z.object({
 router.post('/', async (req, res) => {
   try {
     const data = MatchSchema.parse(req.body);
+
+    // A match needs a squad: both teams must have at least one player.
+    const [c1, c2] = await Promise.all([
+      prisma.player.count({ where: { teamId: data.team1Id } }),
+      prisma.player.count({ where: { teamId: data.team2Id } }),
+    ]);
+    if (c1 < 1 || c2 < 1) {
+      return res.status(400).json({ error: 'Both teams need at least one player before a match can be created.' });
+    }
+
     const match = await prisma.match.create({
       data: { ...data, currentInnings: 1 }
     });

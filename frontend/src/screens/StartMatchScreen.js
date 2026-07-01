@@ -230,6 +230,13 @@ const StartMatchScreen = ({ navigation, route }) => {
     if (!team1) return Alert.alert(`Select ${COMP} 1`);
     if (!team2) return Alert.alert(`Select ${COMP} 2`);
     if (team1.id === team2.id) return Alert.alert(`${COMP}s must be different`);
+    // A match needs a squad: each side must have at least one player.
+    const playerCount = (t) => Array.isArray(t.players) ? t.players.length : (typeof t.players === 'number' ? t.players : null);
+    const c1 = playerCount(team1), c2 = playerCount(team2);
+    const empty = [c1 === 0 && team1.name, c2 === 0 && team2.name].filter(Boolean);
+    if (empty.length) {
+      return Alert.alert('Add players first', `${empty.join(' and ')} ${empty.length > 1 ? 'have' : 'has'} no players. Each ${COMP.toLowerCase()} needs at least one player before a match can start.`);
+    }
     const parsedOvers = parseInt(overs, 10);
     if (!parsedOvers || parsedOvers < 1) return Alert.alert(`Enter valid ${sportFmt.unit.toLowerCase()}`);
 
