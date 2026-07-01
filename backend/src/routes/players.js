@@ -25,6 +25,8 @@ const PlayerSchema = z.object({
   name: z.string().min(1),
   role: z.string().min(1),
   teamId: z.string().optional(),
+  userId: z.string().optional(),   // link to an existing Local Legends user
+  sport: z.string().optional(),
   stats: z.any().optional(),
 });
 

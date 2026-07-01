@@ -8,6 +8,7 @@ import {
   FlatList,
   TextInput,
   Alert,
+  ActivityIndicator,
   Modal } from
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -31,7 +32,9 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
   const [players, setPlayers] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [showAddPlayer, setShowAddPlayer] = useState(false);
-  const [newPlayerName, setNewPlayerName] = useState('');
+  const [searchPhone, setSearchPhone] = useState('');
+  const [foundUser, setFoundUser] = useState(null);
+  const [searching, setSearching] = useState(false);
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
 
@@ -175,21 +178,37 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
     </View>;
 
 
-  const addPlayer = async () => {
-    if (newPlayerName.trim()) {
-      const result = await legendsApi.createPlayer({
-        name: newPlayerName,
-        role: 'Batsman',
-        teamId: selectedTeam?.id
-      });
-      if (result.success) {
-        await loadData();
-        setNewPlayerName('');
-        setShowAddPlayer(false);
-        Alert.alert('Success', 'Player added successfully!');
-      } else {
-        Alert.alert('Error', result.error || 'Failed to add player');
-      }
+  const closeAddPlayer = () => {
+    setShowAddPlayer(false);
+    setSearchPhone('');
+    setFoundUser(null);
+  };
+
+  // Look up an existing Local Legends user by their mobile number.
+  const searchUser = async () => {
+    const phone = searchPhone.replace(/\D/g, '');
+    if (phone.length < 8) return Alert.alert('Enter number', 'Please enter a valid mobile number.');
+    setSearching(true);
+    setFoundUser(null);
+    const res = await legendsApi.searchUserByPhone(phone);
+    setSearching(false);
+    if (res.success && res.data) setFoundUser(res.data);
+    else Alert.alert('Not found', res.error || 'No Local Legends user with that number.');
+  };
+
+  // Add the found app user to the selected team as a player.
+  const addFoundPlayer = async () => {
+    if (!foundUser) return;
+    const name = `${foundUser.firstName || ''} ${foundUser.lastName || ''}`.trim() || 'Player';
+    const result = await legendsApi.createPlayer({
+      name, role: 'Player', teamId: selectedTeam?.id, userId: foundUser.id,
+    });
+    if (result.success) {
+      await loadData();
+      closeAddPlayer();
+      Alert.alert('Success', `${name} added to the team.`);
+    } else {
+      Alert.alert('Error', result.error || 'Failed to add player');
     }
   };
 
@@ -255,26 +274,42 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
 
             {showAddPlayer &&
             <View style={styles.addPlayerForm}>
-                <TextInput
-                style={styles.playerInput}
-                placeholder="Enter player name"
-                placeholderTextColor={DS.textMuted}
-                value={newPlayerName}
-                onChangeText={setNewPlayerName} />
-              
-                <View style={styles.addPlayerButtons}>
-                  <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => {
-                    setShowAddPlayer(false);
-                    setNewPlayerName('');
-                  }}>
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.saveButton} onPress={addPlayer}>
-                    <Text style={styles.saveButtonText}>Add</Text>
+                <Text style={styles.addPlayerHint}>Add an existing Local Legends user by their mobile number.</Text>
+                <View style={styles.searchRow}>
+                  <TextInput
+                    style={[styles.playerInput, { flex: 1, marginBottom: 0 }]}
+                    placeholder="Player's mobile number"
+                    placeholderTextColor={DS.textMuted}
+                    value={searchPhone}
+                    onChangeText={(t) => { setSearchPhone(t); setFoundUser(null); }}
+                    keyboardType="phone-pad"
+                    returnKeyType="search"
+                    onSubmitEditing={searchUser} />
+                  <TouchableOpacity style={styles.saveButton} onPress={searchUser} disabled={searching}>
+                    {searching
+                      ? <ActivityIndicator color={DS.bg} size="small" />
+                      : <Text style={styles.saveButtonText}>Search</Text>}
                   </TouchableOpacity>
                 </View>
+
+                {foundUser &&
+                <View style={styles.foundCard}>
+                    <View style={styles.foundAvatar}>
+                      <Text style={styles.foundInitial}>{(foundUser.firstName || '?')[0].toUpperCase()}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.foundName}>{`${foundUser.firstName || ''} ${foundUser.lastName || ''}`.trim() || 'Player'}</Text>
+                      <Text style={styles.foundPhone}>{foundUser.phone}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.saveButton} onPress={addFoundPlayer}>
+                      <Text style={styles.saveButtonText}>Add</Text>
+                    </TouchableOpacity>
+                  </View>
+                }
+
+                <TouchableOpacity style={[styles.cancelButton, { marginTop: 10 }]} onPress={closeAddPlayer}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
               </View>
             }
 
@@ -714,6 +749,20 @@ const makeStyles = (DS) => StyleSheet.create({
     borderRadius: 12,
     marginBottom: 16
   },
+  addPlayerHint: { color: DS.textMuted, fontSize: 12.5, marginBottom: 10 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  foundCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12,
+    backgroundColor: DS.surfaceHigh, borderRadius: 10, padding: 10,
+    borderWidth: 1, borderColor: DS.lime,
+  },
+  foundAvatar: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: DS.surfaceHighest,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  foundInitial: { color: DS.lime, fontWeight: '900', fontSize: 16 },
+  foundName: { color: DS.textPrimary, fontSize: 15, fontWeight: '700' },
+  foundPhone: { color: DS.textMuted, fontSize: 12, marginTop: 1 },
   playerInput: {
     backgroundColor: DS.surfaceHighest,
     borderRadius: 8,

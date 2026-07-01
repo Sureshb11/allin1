@@ -6,6 +6,24 @@ import { entitlementsFor } from '../lib/entitlements.js';
 
 const router = Router();
 
+// Find an existing Local Legends user by mobile number (for "Add player" to a team).
+// Matches on the last 10 digits so it works regardless of country-code formatting.
+router.get('/search', authMiddleware, async (req, res) => {
+  try {
+    const digits = String(req.query.phone || '').replace(/\D/g, '');
+    if (digits.length < 8) return res.status(400).json({ error: 'Enter a valid mobile number' });
+    const last10 = digits.slice(-10);
+    const user = await prisma.user.findFirst({
+      where: { phone: { endsWith: last10 } },
+      select: { id: true, firstName: true, lastName: true, phone: true, avatarUrl: true },
+    });
+    if (!user) return res.status(404).json({ error: 'No Local Legends user with that number' });
+    res.json({ user });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.get('/me', authMiddleware, async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user.sub },

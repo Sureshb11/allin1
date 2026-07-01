@@ -299,6 +299,16 @@ class LegendsApi {
     }
   }
 
+  // Find an existing app user by mobile number (to add them to a team).
+  async searchUserByPhone(phone) {
+    try {
+      const json = await this.request('/users/search?phone=' + encodeURIComponent(phone));
+      return { success: true, data: json.user };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Scoring System - detailed ball-by-ball
   async updateScore(matchId, scoreData) {
     try {
