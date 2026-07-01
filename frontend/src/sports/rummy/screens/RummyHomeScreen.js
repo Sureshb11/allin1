@@ -1,7 +1,7 @@
 // RummyHomeScreen — entry for the Pool-Rummy score board.
 // Start a new game or continue/view existing ones (real data via /rummy).
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator, TextInput,
@@ -22,6 +22,14 @@ export default function RummyHomeScreen({ navigation }) {
   const [roster, setRoster] = useState([]);
   const [newPlayer, setNewPlayer] = useState('');
   const [adding, setAdding] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Rummy',
+    });
+  }, [navigation]);
 
   const loadRoster = useCallback(() => {
     legendsApi.getRummyRosterPlayers().then((res) => setRoster(res?.data || []));

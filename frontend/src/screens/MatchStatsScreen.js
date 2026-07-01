@@ -1,7 +1,7 @@
 import { useTheme, useThemedStyles, useArenaColors } from "../theme/ThemeContext"; // MatchStatsScreen — match view for event-based sports (football, basketball, …).
 // Shows the live/final score, per-period breakdown, and sport aggregates
 // (football: cards & corners) from GET /matches/:id/sport-stats.
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useLayoutEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -52,6 +52,14 @@ export default function MatchStatsScreen({ navigation, route }) {const A = useAr
   const { matchId, sportName = 'Match' } = route.params || {};
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Match Stats',
+    });
+  }, [navigation]);
 
   useFocusEffect(useCallback(() => {
     let alive = true;
