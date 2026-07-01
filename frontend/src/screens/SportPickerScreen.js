@@ -14,9 +14,10 @@ import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
   Dimensions, PanResponder, Animated, Easing, Vibration, Platform } from
 'react-native';
-import Svg, { Path, Line, Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Line, Circle, Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import SportIcon from '../components/SportIcon';
+import GradientButton from '../components/GradientButton';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 
@@ -158,9 +159,10 @@ function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {const A = 
       <View style={[
       d.disc,
       focused ? d.discFocus : null,
-      { borderColor: focused ? A.lime : A.border }]
+      // Visible edge even in direct sun — the old 10%-opacity border vanished outdoors.
+      { borderColor: focused ? A.lime : A.inkDim + '66' }]
       }>
-        <SportIcon id={cell.id} size={iconSize} color={focused ? A.lime : A.lime + 'B3'} />
+        <SportIcon id={cell.id} size={iconSize} color={focused ? A.lime : A.lime + 'CC'} />
       </View>
     </TouchableOpacity>);
 
@@ -396,7 +398,19 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor={A.navy0} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={A.navy0} />
+
+      {/* Electric-blue floodlight wash behind the header ("Stadium Under Lights").
+          Dimmer in light mode so the title never loses contrast in sunlight. */}
+      <Svg pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0 }} width="100%" height={320}>
+        <Defs>
+          <RadialGradient id="floodlight" cx="50%" cy="0%" r="75%">
+            <Stop offset="0" stopColor={A.blueDeep} stopOpacity={isDark ? 0.26 : 0.1} />
+            <Stop offset="1" stopColor={A.blueDeep} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="320" fill="url(#floodlight)" />
+      </Svg>
 
       {/* ── TOP BAR ── */}
       <View style={s.topBar}>
@@ -510,12 +524,14 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
               {focus.name.toUpperCase()}
             </Text>
           </Animated.View>
-          <TouchableOpacity style={s.startBtn} activeOpacity={0.85} onPress={() => routeSport(focus)}>
-            <Text style={s.startTxt}>START</Text>
-            <Svg width={15} height={15} viewBox="0 0 18 18" fill={A.navy0}>
-              <Path d="M5 3.5v11l9-5.5z" />
-            </Svg>
-          </TouchableOpacity>
+          <GradientButton
+            label="START"
+            icon="play"
+            iconRight
+            onPress={() => routeSport(focus)}
+            height={50}
+            style={s.startBtn}
+            textStyle={{ fontSize: 15, letterSpacing: 0.8 }} />
         </View>
       </View>
     </View>);
@@ -551,7 +567,7 @@ const makeS = (A) => StyleSheet.create({
 
   titleBlock: { alignItems: 'center', paddingTop: 8, paddingBottom: 6 },
   title1: { fontSize: 30, fontWeight: '900', color: A.ink, letterSpacing: 0.5 },
-  title2: { fontSize: 40, fontWeight: '900', color: A.lime, letterSpacing: 1, fontStyle: 'italic', lineHeight: 44 },
+  title2: { fontSize: 40, fontWeight: '900', color: A.blueSoft, letterSpacing: 1, fontStyle: 'italic', lineHeight: 44 },
 
   grid: { flex: 1, overflow: 'hidden' },
 
@@ -570,13 +586,10 @@ const makeS = (A) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center'
   },
   readoutTagRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  readoutTag: { fontSize: 10, color: A.lime, letterSpacing: 1.4, fontWeight: '800' },
-  readoutIdx: { fontSize: 10, color: A.inkDim, letterSpacing: 0.8, fontWeight: '700' },
+  readoutTag: { fontSize: 11, color: A.lime, letterSpacing: 1.4, fontWeight: '800' },
+  readoutIdx: { fontSize: 11, color: A.textVariant, letterSpacing: 0.8, fontWeight: '700' },
   readoutName: { fontWeight: '900', color: A.ink, letterSpacing: 0.4, marginTop: 3 },
 
-  startBtn: {
-    height: 50, paddingHorizontal: 17, borderRadius: 15,
-    backgroundColor: A.lime, flexDirection: 'row', alignItems: 'center', gap: 7
-  },
-  startTxt: { fontSize: 15, fontWeight: '900', color: A.navy0, letterSpacing: 0.5 }
+  // Blue-gradient CTA fills itself; just shape + spacing here.
+  startBtn: { borderRadius: 15, paddingHorizontal: 18 }
 });

@@ -25,7 +25,7 @@ const COUNTRIES = [
 // Kept subtle (dimmer in light mode) so it never washes out text in sunlight.
 function TopGlow({ color, dim }) {
   return (
-    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height={380}>
+    <Svg pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0 }} width="100%" height={380}>
       <Defs>
         <RadialGradient id="lg" cx="30%" cy="0%" r="80%">
           <Stop offset="0" stopColor={color} stopOpacity={dim ? 0.12 : 0.28} />
