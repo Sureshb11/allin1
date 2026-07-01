@@ -28,7 +28,9 @@ import legendsApi from '../services/LegendsApi';
 const AVATAR_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#e91e63'];
 
 const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
-  const [teams, setTeams] = useState([]);
+  const [tab, setTab] = useState('mine');   // mine | opponents | followed
+  const [categorized, setCategorized] = useState({ mine: [], opponents: [], followed: [] });
+  const [followedIds, setFollowedIds] = useState(new Set());
   const [players, setPlayers] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [showAddPlayer, setShowAddPlayer] = useState(false);
@@ -42,21 +44,29 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
     loadData();
   }, []);
 
+  const mapTeam = (t) => ({
+    id: t.id,
+    name: t.name,
+    city: t.city || '',
+    captain: t.players && t.players[0]?.name || 'TBD',
+    players: t.players ? t.players.length : 0,
+    playersList: t.players || [],
+    ownerId: t.ownerId,
+    matches: 0,
+    wins: 0,
+  });
+
   const loadData = async () => {
     try {
-      const teamsRes = await legendsApi.getTeams();
-      if (teamsRes.success) {
-        const mapped = (teamsRes.data || []).map((t) => ({
-          id: t.id,
-          name: t.name,
-          city: t.city || '',
-          captain: t.players && t.players[0]?.name || 'TBD',
-          players: t.players ? t.players.length : 0,
-          playersList: t.players || [],
-          matches: 0,
-          wins: 0
-        }));
-        setTeams(mapped);
+      const catRes = await legendsApi.getTeamsCategorized();
+      if (catRes.success) {
+        const c = catRes.data;
+        setCategorized({
+          mine: (c.mine || []).map(mapTeam),
+          opponents: (c.opponents || []).map(mapTeam),
+          followed: (c.followed || []).map(mapTeam),
+        });
+        setFollowedIds(new Set((c.followed || []).map((t) => t.id)));
       }
       const playersRes = await legendsApi.getPlayers();
       if (playersRes.success) {
@@ -103,13 +113,27 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
     }
   };
 
+  const toggleFollow = async (team) => {
+    const isFollowed = followedIds.has(team.id);
+    setFollowedIds((prev) => {
+      const n = new Set(prev);
+      isFollowed ? n.delete(team.id) : n.add(team.id);
+      return n;
+    });
+    const res = isFollowed ? await legendsApi.unfollowTeam(team.id) : await legendsApi.followTeam(team.id);
+    if (res.success) loadData();
+  };
+
   const renderTeam = ({ item }) => {
     const losses = item.matches - item.wins;
     const draws = 0;
+    const isFollowed = followedIds.has(item.id);
+    const mineTab = tab === 'mine';
     return (
       <TouchableOpacity
         style={styles.teamCard}
-        onPress={() => setSelectedTeam(item)}>
+        activeOpacity={0.85}
+        onPress={() => mineTab ? setSelectedTeam(item) : navigation.navigate('TeamInsights', { teamId: item.id })}>
         <View style={styles.teamCardTop}>
           <View style={[styles.teamAvatar, { backgroundColor: getAvatarColor(item.name) }]}>
             <Text style={styles.teamAvatarText}>{getInitials(item.name)}</Text>
@@ -139,12 +163,19 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
           </View>
         </View>
         <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.actionChip}
-            onPress={() => setSelectedTeam(item)}>
-            <Icon name="account-group" size={14} color={DS.textVariant} />
-            <Text style={styles.actionChipText}>SQUAD</Text>
-          </TouchableOpacity>
+          {mineTab ? (
+            <TouchableOpacity style={styles.actionChip} onPress={() => setSelectedTeam(item)}>
+              <Icon name="account-group" size={14} color={DS.textVariant} />
+              <Text style={styles.actionChipText}>SQUAD</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.actionChip, isFollowed && styles.actionChipActive]}
+              onPress={() => toggleFollow(item)}>
+              <Icon name={isFollowed ? 'heart' : 'heart-outline'} size={14} color={isFollowed ? DS.bg : DS.textVariant} />
+              <Text style={[styles.actionChipText, isFollowed && { color: DS.bg }]}>{isFollowed ? 'FOLLOWING' : 'FOLLOW'}</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.actionChip}
             onPress={() => navigation.navigate('TeamInsights', { teamId: item.id })}>
@@ -337,41 +368,59 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
         </TouchableOpacity>
       </View>
 
+      {/* ── Category tabs ── */}
+      <View style={styles.tabBar}>
+        {[['mine', 'My Teams'], ['opponents', 'Opponents'], ['followed', 'Followed']].map(([key, label]) => (
+          <TouchableOpacity key={key} style={[styles.tabBtn, tab === key && styles.tabBtnActive]} onPress={() => setTab(key)} activeOpacity={0.8}>
+            <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
+            {categorized[key].length > 0 &&
+              <View style={[styles.tabCount, tab === key && styles.tabCountActive]}>
+                <Text style={[styles.tabCountText, tab === key && { color: DS.bg }]}>{categorized[key].length}</Text>
+              </View>}
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FlatList
-        data={teams}
+        data={categorized[tab]}
         renderItem={renderTeam}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.teamsList}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-        <View>
-            <Text style={styles.pageTitle}>MY TEAMS</Text>
-            {/* CTA Card */}
+          tab === 'mine' ? (
             <View style={styles.ctaCard}>
               <View style={styles.ctaAccent} />
               <View style={styles.ctaContent}>
                 <Text style={styles.ctaTitle}>Start a New Legend</Text>
                 <Text style={styles.ctaSubtitle}>Create your team and dominate the field</Text>
-                <TouchableOpacity
-                style={styles.ctaButton}
-                onPress={() => setShowCreateTeamModal(true)}>
+                <TouchableOpacity style={styles.ctaButton} onPress={() => setShowCreateTeamModal(true)}>
                   <Icon name="plus" size={16} color={DS.bg} />
                   <Text style={styles.ctaButtonText}>CREATE NEW TEAM</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
+          ) : (
+            <Text style={styles.tabHint}>
+              {tab === 'opponents'
+                ? 'Teams you’ve faced in matches. Follow them to keep track.'
+                : 'Teams you follow.'}
+            </Text>
+          )
         }
-        ListFooterComponent={
-        <View style={styles.footerSection}>
-            <Text style={styles.footerQuestion}>Looking for more action?</Text>
-            <TouchableOpacity style={styles.exploreButton}>
-              <Icon name="compass-outline" size={18} color={DS.bg} />
-              <Text style={styles.exploreButtonText}>EXPLORE LEAGUES</Text>
-            </TouchableOpacity>
+        ListEmptyComponent={
+          <View style={styles.emptyBox}>
+            <Icon name="account-group-outline" size={44} color={DS.surfaceHighest} />
+            <Text style={styles.emptyText}>
+              {tab === 'mine'
+                ? 'No teams yet. Create one above.'
+                : tab === 'opponents'
+                ? 'No opponents yet — play a match to see teams here.'
+                : 'You’re not following any teams yet.'}
+            </Text>
           </View>
         } />
-      
+
 
       <Modal
         visible={showCreateTeamModal}
@@ -602,6 +651,30 @@ const makeStyles = (DS) => StyleSheet.create({
     color: DS.textVariant,
     letterSpacing: 0.8
   },
+  actionChipActive: { backgroundColor: DS.lime },
+
+  // Category tabs
+  tabBar: {
+    flexDirection: 'row', gap: 8,
+    paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10,
+  },
+  tabBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, borderRadius: 12, backgroundColor: DS.surfaceHigh,
+  },
+  tabBtnActive: { backgroundColor: DS.lime },
+  tabText: { fontSize: 13, fontWeight: '800', color: DS.textMuted },
+  tabTextActive: { color: DS.bg },
+  tabCount: {
+    minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5,
+    backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center',
+  },
+  tabCountActive: { backgroundColor: 'rgba(0,0,0,0.18)' },
+  tabCountText: { fontSize: 10, fontWeight: '900', color: DS.textMuted },
+  tabHint: { color: DS.textMuted, fontSize: 12.5, marginBottom: 12, lineHeight: 18 },
+  emptyBox: { alignItems: 'center', paddingVertical: 48, gap: 10 },
+  emptyText: { color: DS.textMuted, fontSize: 13.5, textAlign: 'center', paddingHorizontal: 30 },
+
   // Footer
   footerSection: {
     alignItems: 'center',

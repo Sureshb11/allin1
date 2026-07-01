@@ -161,6 +161,34 @@ class LegendsApi {
     }
   }
 
+  // Teams grouped for the current user: { mine, opponents, followed }.
+  async getTeamsCategorized() {
+    try {
+      const json = await this.request('/teams/categorized');
+      return { success: true, data: { mine: json.mine || [], opponents: json.opponents || [], followed: json.followed || [] } };
+    } catch (error) {
+      return { success: false, error: error.message, data: { mine: [], opponents: [], followed: [] } };
+    }
+  }
+
+  async followTeam(teamId) {
+    try {
+      await this.request(`/teams/${teamId}/follow`, { method: 'POST' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async unfollowTeam(teamId) {
+    try {
+      await this.request(`/teams/${teamId}/follow`, { method: 'DELETE' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Player Management. Optional filters: { sport, teamId, userId }.
   async getPlayers(params = {}) {
     try {

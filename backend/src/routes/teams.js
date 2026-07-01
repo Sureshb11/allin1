@@ -1,12 +1,59 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { authMiddleware } from '../lib/auth.js';
 
 const router = Router();
 
 router.get('/', async (req, res) => {
   const teams = await prisma.team.findMany({ include: { players: true } });
   res.json({ teams });
+});
+
+// Teams grouped for the logged-in user: My Teams / Opponents / Followed.
+//  - mine:      teams they created (ownerId) OR are a player in
+//  - opponents: teams that have faced their teams in a match (the other side)
+//  - followed:  teams they've explicitly followed (TeamFollow)
+router.get('/categorized', authMiddleware, async (req, res) => {
+  try {
+    const uid = req.user.sub;
+    const mine = await prisma.team.findMany({
+      where: { OR: [{ ownerId: uid }, { players: { some: { userId: uid } } }] },
+      include: { players: true },
+      orderBy: { name: 'asc' },
+    });
+    const mineIds = mine.map((t) => t.id);
+
+    let opponents = [];
+    if (mineIds.length) {
+      const matches = await prisma.match.findMany({
+        where: { OR: [{ team1Id: { in: mineIds } }, { team2Id: { in: mineIds } }] },
+        select: { team1Id: true, team2Id: true },
+      });
+      const oppIds = new Set();
+      const mineSet = new Set(mineIds);
+      for (const m of matches) {
+        if (mineSet.has(m.team1Id) && !mineSet.has(m.team2Id)) oppIds.add(m.team2Id);
+        if (mineSet.has(m.team2Id) && !mineSet.has(m.team1Id)) oppIds.add(m.team1Id);
+      }
+      if (oppIds.size) {
+        opponents = await prisma.team.findMany({
+          where: { id: { in: [...oppIds] } }, include: { players: true }, orderBy: { name: 'asc' },
+        });
+      }
+    }
+
+    const follows = await prisma.teamFollow.findMany({
+      where: { userId: uid },
+      include: { team: { include: { players: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    const followed = follows.map((f) => f.team);
+
+    res.json({ mine, opponents, followed });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 router.get('/:id', async (req, res) => {
@@ -17,6 +64,7 @@ router.get('/:id', async (req, res) => {
 
 const TeamSchema = z.object({
   name: z.string().min(1),
+  sport: z.string().optional(),
   city: z.string().optional(),
   logoUrl: z.string().url().optional(),
   state: z.string().optional(),
@@ -28,11 +76,35 @@ const TeamSchema = z.object({
   foundedYear: z.number().int().optional(),
 });
 
-router.post('/', async (req, res) => {
+// Creating a team makes it one of "my teams" — stamp the owner.
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const data = TeamSchema.parse(req.body);
-    const team = await prisma.team.create({ data });
+    const team = await prisma.team.create({ data: { ...data, ownerId: req.user.sub } });
     res.status(201).json({ team });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Follow / unfollow a team (the "Followed" category).
+router.post('/:id/follow', authMiddleware, async (req, res) => {
+  try {
+    const follow = await prisma.teamFollow.upsert({
+      where: { userId_teamId: { userId: req.user.sub, teamId: req.params.id } },
+      create: { userId: req.user.sub, teamId: req.params.id },
+      update: {},
+    });
+    res.status(201).json({ follow });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.delete('/:id/follow', authMiddleware, async (req, res) => {
+  try {
+    await prisma.teamFollow.deleteMany({ where: { userId: req.user.sub, teamId: req.params.id } });
+    res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

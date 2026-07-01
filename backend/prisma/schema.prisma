@@ -32,6 +32,8 @@ model User {
   chatRooms      ChatMember[]
   sports         UserSport[]
   players        Player[]
+  ownedTeams     Team[]         @relation("ownedTeams")
+  teamFollows    TeamFollow[]
 }
 
 // A sport a user is interested in / plays (one row per user+sport).
@@ -74,6 +76,8 @@ model Team {
   achievements   String?
   foundedYear    Int?
   sport          String   @default("cricket")
+  ownerId        String?                    // the user who created/owns this team
+  owner            User?          @relation("ownedTeams", fields: [ownerId], references: [id])
   players          Player[]
   team1Matches     Match[]          @relation("team1")
   team2Matches     Match[]          @relation("team2")
@@ -81,8 +85,24 @@ model Team {
   bowlingInnings   Inning[]         @relation("bowlingTeam")
   matchPlayers     MatchPlayer[]
   tournamentTeams  TournamentTeam[]
+  followers        TeamFollow[]
 
   @@index([sport])
+  @@index([ownerId])
+}
+
+// A user following a team (the "Followed" category in Teams).
+model TeamFollow {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  team      Team     @relation(fields: [teamId], references: [id])
+  teamId    String
+
+  @@unique([userId, teamId])
+  @@index([userId])
+  @@index([teamId])
 }
 
 model Player {
