@@ -22,12 +22,13 @@ const COUNTRIES = [
 { code: '+965', name: 'Kuwait', flag: '🇰🇼' }];
 
 // Electric-blue wash anchored to the top — the "stadium floodlight" feel.
-function TopGlow({ color }) {
+// Kept subtle (dimmer in light mode) so it never washes out text in sunlight.
+function TopGlow({ color, dim }) {
   return (
     <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height={380}>
       <Defs>
         <RadialGradient id="lg" cx="30%" cy="0%" r="80%">
-          <Stop offset="0" stopColor={color} stopOpacity={0.32} />
+          <Stop offset="0" stopColor={color} stopOpacity={dim ? 0.12 : 0.28} />
           <Stop offset="1" stopColor={color} stopOpacity={0} />
         </RadialGradient>
       </Defs>
@@ -125,7 +126,7 @@ export default function LoginScreen({ navigation }) {const { colors: DS, isDark 
   return (
     <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
-      <TopGlow color={DS.blueDeep} />
+      <TopGlow color={DS.blueDeep} dim={!isDark} />
 
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {/* Brand */}
@@ -319,20 +320,20 @@ const makeS = (DS) => StyleSheet.create({
   pillBlue: { backgroundColor: DS.blueDeep + '2b' },
   pillDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: DS.lime },
   pillTxt: { fontSize: 11, fontWeight: '800', color: DS.lime, letterSpacing: 1.5 },
-  h1: { fontSize: 44, fontWeight: '900', color: DS.textPrimary, lineHeight: 48, letterSpacing: -0.5 },
+  h1: { fontSize: 46, fontWeight: '900', color: DS.textPrimary, lineHeight: 50, letterSpacing: -0.5 },
   h1Accent: { color: DS.blueSoft },
-  sub: { fontSize: 15, color: DS.textSecondary, lineHeight: 22, marginTop: 14 },
+  sub: { fontSize: 16, fontWeight: '600', color: DS.textVariant, lineHeight: 23, marginTop: 14 },
 
   // Section layer card — depth by tier stepping, no outline (the "No-Line" rule).
   form: { marginHorizontal: 16, backgroundColor: DS.surfaceLow, borderRadius: 24, padding: 22 },
-  label: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 1.8, marginBottom: 12 },
+  label: { fontSize: 12, fontWeight: '800', color: DS.textSecondary, letterSpacing: 1.8, marginBottom: 12 },
 
   phoneRow: { flexDirection: 'row', gap: 10 },
-  country: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: DS.surfaceHigh, borderRadius: 16, paddingHorizontal: 14, height: 58, borderBottomWidth: 2, borderBottomColor: DS.surfaceHighest },
+  country: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: DS.surfaceHigh, borderRadius: 16, paddingHorizontal: 14, height: 60, borderBottomWidth: 2.5, borderBottomColor: DS.textMuted },
   flag: { fontSize: 20 },
-  code: { fontSize: 15, fontWeight: '800', color: DS.textPrimary },
-  phoneInput: { flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 16, paddingHorizontal: 16, height: 58, fontSize: 18, fontWeight: '700', color: DS.textPrimary, letterSpacing: 1, borderBottomWidth: 2, borderBottomColor: DS.surfaceHighest },
-  nameInput: { backgroundColor: DS.surfaceHigh, borderRadius: 16, paddingHorizontal: 16, height: 58, fontSize: 18, fontWeight: '700', color: DS.textPrimary, marginBottom: 16, borderBottomWidth: 2, borderBottomColor: DS.surfaceHighest },
+  code: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
+  phoneInput: { flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 16, paddingHorizontal: 16, height: 60, fontSize: 20, fontWeight: '800', color: DS.textPrimary, letterSpacing: 1.2, borderBottomWidth: 2.5, borderBottomColor: DS.textMuted },
+  nameInput: { backgroundColor: DS.surfaceHigh, borderRadius: 16, paddingHorizontal: 16, height: 60, fontSize: 20, fontWeight: '800', color: DS.textPrimary, marginBottom: 16, borderBottomWidth: 2.5, borderBottomColor: DS.textMuted },
 
   dropdown: { backgroundColor: DS.surfaceHigh, borderRadius: 16, marginTop: 12, overflow: 'hidden' },
   dropRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
@@ -341,10 +342,10 @@ const makeS = (DS) => StyleSheet.create({
   dropCode: { fontSize: 14, color: DS.textMuted, fontWeight: '600' },
 
   otpRow: { flexDirection: 'row', gap: 12 },
-  otpCell: { flex: 1, height: 64, borderRadius: 16, backgroundColor: DS.surfaceHigh, borderBottomWidth: 2.5, borderBottomColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
+  otpCell: { flex: 1, height: 66, borderRadius: 16, backgroundColor: DS.surfaceHigh, borderBottomWidth: 3, borderBottomColor: DS.textMuted, alignItems: 'center', justifyContent: 'center' },
   otpCellActive: { borderBottomColor: DS.lime },          // "Active System" — lime focus per the design doc
   otpCellFilled: { borderBottomColor: DS.blueSoft },
-  otpDigit: { fontSize: 28, fontWeight: '900', color: DS.textPrimary },
+  otpDigit: { fontSize: 30, fontWeight: '900', color: DS.textPrimary },
   hiddenInput: { position: 'absolute', width: 1, height: 1, opacity: 0 },
 
   primary: { borderRadius: 16, marginTop: 22 },
@@ -357,11 +358,11 @@ const makeS = (DS) => StyleSheet.create({
   secondary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.surfaceHigh, borderRadius: 16, height: 54 },
   secondaryTxt: { fontSize: 15, fontWeight: '800', color: DS.blueSoft },
 
-  altRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18 },
-  linkMuted: { fontSize: 14, color: DS.textSecondary, fontWeight: '700' },
-  linkAccent: { fontSize: 14, color: DS.blueSoft, fontWeight: '800' },
-  hint: { fontSize: 12, color: DS.textMuted, textAlign: 'center', marginTop: 14 },
+  altRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
+  linkMuted: { fontSize: 15, color: DS.textVariant, fontWeight: '700', paddingVertical: 8 },
+  linkAccent: { fontSize: 15, color: DS.blueSoft, fontWeight: '800', paddingVertical: 8 },
+  hint: { fontSize: 13, color: DS.textSecondary, textAlign: 'center', marginTop: 10 },
 
-  footer: { fontSize: 11, color: DS.textMuted, textAlign: 'center', marginTop: 26, paddingHorizontal: 24, lineHeight: 18 },
-  footerLink: { color: DS.textSecondary, fontWeight: '700' }
+  footer: { fontSize: 12, color: DS.textSecondary, textAlign: 'center', marginTop: 26, paddingHorizontal: 24, lineHeight: 19 },
+  footerLink: { color: DS.textVariant, fontWeight: '800' }
 });
