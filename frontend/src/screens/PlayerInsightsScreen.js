@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator,
@@ -59,6 +59,14 @@ export default function PlayerInsightsScreen({ route, navigation }) {
   const [insights, setInsights] = useState({});
   const [apiPlayer, setApiPlayer] = useState(null);
   const [loading, setLoading]   = useState(true);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Player Insights',
+    });
+  }, [navigation]);
 
   useEffect(() => {
     Promise.all([

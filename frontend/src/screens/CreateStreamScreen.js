@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useLayoutEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ScrollView, Alert, ActivityIndicator, StatusBar } from
@@ -32,6 +32,14 @@ const CreateStreamScreen = ({ navigation }) => {const DS = useTheme().colors;con
     title: '', description: '', matchId: '', channel: 'own', isPrivate: false, quality: 'HD'
   });
   const [loading, setLoading] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Create Stream',
+    });
+  }, [navigation]);
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 

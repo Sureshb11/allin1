@@ -2,7 +2,7 @@ import { useTheme, useThemedStyles } from "../theme/ThemeContext"; // MySportsSc
 // Shows the user's sports (primary highlighted), lets them switch primary
 // (reloads the app for that sport), and add more via the Arena picker.
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useLayoutEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
@@ -37,6 +37,14 @@ export default function MySportsScreen({ navigation }) {const DS = useTheme().co
   const [sports, setSports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'My Sports',
+    });
+  }, [navigation]);
 
   const load = useCallback(() => {
     setLoading(true);

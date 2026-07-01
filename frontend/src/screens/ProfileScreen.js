@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, Share, ActivityIndicator,
@@ -36,6 +36,14 @@ export default function ProfileScreen({ navigation }) {
   const [profile, setProfile] = useState({});
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Profile',
+    });
+  }, [navigation]);
 
   const BentoStat = ({ label, value, accent = false }) => (
     <View style={[styles.bentoCard, accent && styles.bentoCardAccent]}>

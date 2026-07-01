@@ -3,7 +3,7 @@ import { useTheme, useThemedStyles } from "../theme/ThemeContext"; // FindCricke
 // legendsApi.getPlayers({ sport }); role chips + title adapt per sport.
 // Opened from the search screen's "Find cricketers" shortcut (defaults to cricket).
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity,
   StatusBar, ScrollView, ActivityIndicator } from
@@ -87,6 +87,14 @@ function Avatar({ name, color }) {const s = useThemedStyles(makeS);
 }
 
 export default function FindCricketersScreen({ navigation, route }) {const DS = useTheme().colors;const s = useThemedStyles(makeS);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Find Cricketers',
+    });
+  }, [navigation]);
   const [sport, setSport] = useState(route?.params?.sport || 'cricket');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('All');

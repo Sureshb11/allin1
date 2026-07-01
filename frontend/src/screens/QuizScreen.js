@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, ActivityIndicator } from
 'react-native';
@@ -27,6 +27,14 @@ const QuizScreen = ({ navigation }) => {const DS = useTheme().colors;const style
   const [timeLeft, setTimeLeft] = useState(300);
   const [quizStarted, setQuizStarted] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Quiz',
+    });
+  }, [navigation]);
 
   useEffect(() => {loadQuiz();}, []);
 

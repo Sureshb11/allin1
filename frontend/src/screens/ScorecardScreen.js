@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Share } from
@@ -126,6 +126,14 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const { matchId } = route.params || {};
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Scorecard',
+    });
+  }, [navigation]);
 
   useEffect(() => {
     legendsApi.getScorecard(matchId).

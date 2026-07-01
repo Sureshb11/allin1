@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from
 'react-native';
@@ -41,6 +41,14 @@ export default function MatchInsightsScreen({ route, navigation }) {const DS = u
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Batting');
   const [activeInning, setActiveInning] = useState(0);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Match Insights',
+    });
+  }, [navigation]);
 
   useEffect(() => {
     legendsApi.getMatchInsights(matchId).then((res) => {

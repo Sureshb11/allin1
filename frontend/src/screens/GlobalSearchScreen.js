@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, SectionList, TouchableOpacity,
   ScrollView, Alert, StatusBar } from
@@ -67,6 +67,14 @@ const GlobalSearchScreen = ({ navigation }) => {const DS = useTheme().colors;con
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState({});
   const [loading, setLoading] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Search',
+    });
+  }, [navigation]);
   const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {

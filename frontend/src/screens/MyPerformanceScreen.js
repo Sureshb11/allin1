@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useEffect, useState } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useEffect, useState, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -73,10 +73,18 @@ const BOWLING_STATS = (s) => [
 { label: '5-wkt Hauls', value: s.fiveWickets ?? 0, color: '#d97706' }];
 
 
-export default function MyPerformanceScreen() {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+export default function MyPerformanceScreen({ navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [stats, setStats] = useState(null);
   const [tab, setTab] = useState('batting');
   const [loading, setLoading] = useState(true);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'My Performance',
+    });
+  }, [navigation]);
 
   useEffect(() => {
     legendsApi.getUserStats().then((res) => {

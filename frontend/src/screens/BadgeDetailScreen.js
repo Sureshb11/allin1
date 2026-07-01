@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,14 @@ const BadgeDetailScreen = ({ navigation }) => {const DS = useTheme().colors;cons
   const [availableBadges, setAvailableBadges] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [activeTab, setActiveTab] = useState('earned');
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Badges',
+    });
+  }, [navigation]);
 
   useEffect(() => {
     loadBadgeData();

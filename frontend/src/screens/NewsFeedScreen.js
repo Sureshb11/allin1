@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator,
 } from 'react-native';
@@ -72,12 +72,20 @@ function NewsCard({ item }) {
   );
 }
 
-export default function NewsFeedScreen() {
+export default function NewsFeedScreen({ navigation }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const [news, setNews]           = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading]     = useState(true);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'News Feed',
+    });
+  }, [navigation]);
 
   const loadNews = async () => {
     try {

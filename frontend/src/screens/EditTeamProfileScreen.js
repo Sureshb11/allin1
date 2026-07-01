@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import legendsApi from '../services/LegendsApi';
 
@@ -23,6 +23,14 @@ const EditTeamProfileScreen = ({ navigation, route }) => {const DS = useTheme().
     teamName: '', city: '', state: '', country: '', homeGround: '',
     teamColors: '', bio: '', achievements: '', foundedYear: ''
   });
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Edit Team',
+    });
+  }, [navigation]);
 
   useEffect(() => {
     if (teamId) loadTeam();

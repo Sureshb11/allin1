@@ -5,7 +5,7 @@
  *
  * Visual: "Kinetic Athlete" / "Stadium Under Lights" dark design system.
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   StatusBar, Animated, Dimensions,
@@ -92,6 +92,14 @@ export default function SportSetupScreen({ route, navigation }) {
 
   const headerAnim = useRef(new Animated.Value(0)).current;
   const btnAnim    = useRef(new Animated.Value(0)).current;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Setup',
+    });
+  }, [navigation]);
 
   useEffect(() => {
     Animated.parallel([

@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import legendsApi from '../services/LegendsApi';
 
@@ -24,6 +24,14 @@ const ClubProfileScreen = ({ navigation, route }) => {const DS = useTheme().colo
     city: '', state: '', country: '', phone: '', email: '', website: '',
     membershipFee: '', facilities: '', bio: ''
   });
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Club Profile',
+    });
+  }, [navigation]);
 
   useEffect(() => {if (clubId) loadClub();}, []);
 

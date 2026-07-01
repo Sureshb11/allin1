@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useRef } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
   TextInput, KeyboardAvoidingView, Platform, StatusBar } from
@@ -58,6 +58,14 @@ const ChatScreen = ({ route, navigation }) => {const DS = useTheme().colors;cons
   const pollingRef = useRef(null);
   const lastTimestampRef = useRef(null);
   const listRef = useRef(null);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: chatName || 'Chat',
+    });
+  }, [navigation, chatName]);
 
   useEffect(() => {
     loadMessages();

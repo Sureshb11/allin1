@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import legendsApi from '../services/LegendsApi';
 
@@ -20,6 +20,14 @@ const ProductDetailScreen = ({ route, navigation }) => {const DS = useTheme().co
   const { productId } = route.params || {};
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Product Details',
+    });
+  }, [navigation]);
 
   useEffect(() => {
     loadProduct();

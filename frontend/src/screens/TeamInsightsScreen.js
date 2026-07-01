@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, StatusBar,
 } from 'react-native';
@@ -42,14 +42,6 @@ export default function TeamInsightsScreen({ route, navigation }) {
   const { teamId } = route.params || {};
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Team Insights',
-    });
-  }, [navigation]);
 
   useEffect(() => {
     legendsApi.getTeamInsights(teamId).then(res => {

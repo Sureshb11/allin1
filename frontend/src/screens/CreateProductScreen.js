@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, StatusBar } from 'react-native';
 import legendsApi from '../services/LegendsApi';
 
@@ -20,6 +20,14 @@ const CreateProductScreen = ({ navigation }) => {const DS = useTheme().colors;co
   const [category, setCategory] = useState('equipment');
   const [location, setLocation] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Create Product',
+    });
+  }, [navigation]);
 
   const categories = [
   { id: 'equipment', name: 'Equipment' },

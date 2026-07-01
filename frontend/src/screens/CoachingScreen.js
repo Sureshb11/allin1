@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl } from
@@ -28,6 +28,14 @@ const SPEC_ICONS = {
 export default function CoachingScreen({ navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [coaches, setCoaches] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Coaching',
+    });
+  }, [navigation]);
   const [refreshing, setRefreshing] = useState(false);
   const [activeSpec, setActiveSpec] = useState('All');
   const [selectedCoach, setSelectedCoach] = useState(null);

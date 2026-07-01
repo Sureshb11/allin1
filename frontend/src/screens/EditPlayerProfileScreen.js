@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
 import legendsApi from '../services/LegendsApi';
 
@@ -21,6 +21,14 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
     battingStyle: '', bowlingStyle: '', dateOfBirth: '', height: '', weight: '', bio: '',
   });
   const [saving, setSaving] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Edit Profile',
+    });
+  }, [navigation]);
 
   // Load the real profile (no mock defaults).
   useEffect(() => {

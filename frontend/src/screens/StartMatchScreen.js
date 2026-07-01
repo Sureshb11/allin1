@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Alert, ActivityIndicator, Modal, TextInput, FlatList,
@@ -33,11 +33,6 @@ const makeK = (c) => ({
 });
 
 /* ─── Match formats (per sport) ──────────────────────────── */
-const BALL_TYPES = [
-  { label: 'Leather', icon: 'cricket' },
-  { label: 'Tennis',  icon: 'tennis-ball' },
-  { label: 'Rubber',  icon: 'circle-outline' },
-];
 
 /* ─── TeamPicker bottom-sheet ────────────────────────────── */
 const TeamPicker = ({ visible, onClose, onSelect, excludeId, title }) => {
@@ -212,10 +207,16 @@ const StartMatchScreen = ({ navigation, route }) => {
   const COMP = sportDef?.competitorLabel || 'Team';
   const sportFmt = getSportFormat(sport.id);
   const FORMATS = sportFmt.formats;
-  const isCricket = sport.id === 'cricket';
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Start Match',
+    });
+  }, [navigation]);
   const [format, setFormat]     = useState(FORMATS[0]);
   const [overs, setOvers]       = useState(String(FORMATS[0].value));
-  const [ballType, setBallType] = useState('Leather');
   const [venue, setVenue]       = useState('');
   const [team1, setTeam1]       = useState(null);
   const [team2, setTeam2]       = useState(null);
@@ -252,7 +253,6 @@ const StartMatchScreen = ({ navigation, route }) => {
         overs: parsedOvers,
         venue: venue.trim(),
         matchType: format.label,
-        ...(isCricket ? { ballType } : {}),
         status: 'scheduled',
         sport: sport.id,
       });
@@ -288,7 +288,6 @@ const StartMatchScreen = ({ navigation, route }) => {
         overs: String(parsedOvers),
         venue: venue.trim(),
         matchType: format.label,
-        ballType,
         matchId: matchRes.data.id,
         team1Id: team1.id,
         team2Id: team2.id,
@@ -468,34 +467,6 @@ const StartMatchScreen = ({ navigation, route }) => {
               placeholderTextColor={K.textMuted}
             />
           </View>
-
-          {/* Ball type — cricket only */}
-          {isCricket && (
-            <>
-              <View style={s.configDivider} />
-              <View style={s.configRow}>
-                <View style={s.configIconWrap}>
-                  <Icon name="circle-slice-8" size={18} color={K.lime} />
-                </View>
-                <Text style={s.configLabel}>Ball</Text>
-                <View style={s.ballRow}>
-                  {BALL_TYPES.map(b => {
-                    const active = b.label === ballType;
-                    return (
-                      <TouchableOpacity
-                        key={b.label}
-                        style={[s.ballChip, active && s.ballChipActive]}
-                        onPress={() => setBallType(b.label)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[s.ballChipText, active && s.ballChipTextActive]}>{b.label}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            </>
-          )}
         </View>
 
         {/* Info banner */}
@@ -775,27 +746,6 @@ const makeS = (K) => StyleSheet.create({
     textAlign: 'right',
     minWidth: 50,
     paddingVertical: 0,
-  },
-  ballRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  ballChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 9,
-    backgroundColor: K.surfaceHigh,
-  },
-  ballChipActive: {
-    backgroundColor: K.lime,
-  },
-  ballChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: K.textMuted,
-  },
-  ballChipTextActive: {
-    color: K.black,
   },
   configDivider: {
     height: 1,

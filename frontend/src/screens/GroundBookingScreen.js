@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   FlatList, Alert, ActivityIndicator } from
@@ -82,10 +82,18 @@ function GroundCard({ item, onBook }) {const DS = useTheme().colors;const styles
 
 }
 
-export default function GroundBookingScreen() {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+export default function GroundBookingScreen({ navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [grounds, setGrounds] = useState([]);
   const [loading, setLoading] = useState(true);
   const today = new Date().toISOString().split('T')[0];
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Ground Booking',
+    });
+  }, [navigation]);
 
   useEffect(() => {
     legendsApi.getAvailableGrounds().then((res) => {

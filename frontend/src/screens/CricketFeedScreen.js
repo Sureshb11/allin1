@@ -11,7 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList,
   StatusBar, Dimensions, Animated, Modal, TextInput, Share, RefreshControl,
-  KeyboardAvoidingView, Platform, ActivityIndicator } from
+  KeyboardAvoidingView, Platform } from
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -282,9 +282,6 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activePost, setActivePost] = useState(null);
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [composeText, setComposeText] = useState('');
-  const [posting, setPosting] = useState(false);
   const likedRef = useRef({});   // one like per session per post
 
   const mapPost = useCallback((po) => ({
@@ -318,7 +315,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   }), []);
 
   const fetchFeed = useCallback(() => Promise.all([
-    legendsApi.getCircleMatches({ sport: 'cricket' }),
+    legendsApi.getLiveScores({ sport: 'cricket' }),
     legendsApi.getPosts({ sport: 'cricket' }),
   ]).then(([mr, pr]) => {
     setMatches((mr?.data || []).map(mapMatch));
@@ -365,22 +362,6 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     } catch (e) {/* user dismissed */}
   }, []);
 
-  const submitPost = useCallback(async () => {
-    const text = composeText.trim();
-    if (!text) return;
-    setPosting(true);
-    try {
-      const res = await legendsApi.createPost({ sport: 'cricket', text });
-      if (res.success) {
-        setPosts((prev) => [mapPost(res.data), ...prev]);
-        setComposeText('');
-        setComposeOpen(false);
-      }
-    } finally {
-      setPosting(false);
-    }
-  }, [composeText, mapPost]);
-
   // keep the open sheet in sync with the latest comments
   const sheetPost = activePost ? posts.find((po) => po.id === activePost.id) : null;
 
@@ -420,9 +401,6 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
           <Text style={s.brandTxt}>LOCAL LEGENDS</Text>
         </View>
         <View style={s.topActions}>
-          <TouchableOpacity hitSlop={8} onPress={() => setComposeOpen(true)}>
-            <Icon name="plus-box-outline" size={24} color={DS.textPrimary} />
-          </TouchableOpacity>
           <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('GlobalSearch')}>
             <Icon name="magnify" size={23} color={DS.textPrimary} />
           </TouchableOpacity>
@@ -451,46 +429,6 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
 
 
       <CommentsSheet post={sheetPost} onClose={() => setActivePost(null)} onAdd={addComment} />
-
-      {/* Create-post FAB */}
-      <TouchableOpacity style={s.fab} activeOpacity={0.9} onPress={() => setComposeOpen(true)}>
-        <Icon name="plus" size={28} color={DS.bg} />
-      </TouchableOpacity>
-
-      {/* Compose sheet */}
-      <Modal visible={composeOpen} animationType="slide" transparent onRequestClose={() => setComposeOpen(false)}>
-        <View style={s.composeBackdrop}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <View style={s.composeSheet}>
-              <View style={s.composeHead}>
-                <TouchableOpacity onPress={() => setComposeOpen(false)} hitSlop={8}>
-                  <Text style={s.composeCancel}>Cancel</Text>
-                </TouchableOpacity>
-                <Text style={s.composeTitle}>New Post</Text>
-                <TouchableOpacity
-                  onPress={submitPost}
-                  disabled={posting || !composeText.trim()}
-                  hitSlop={8}>
-                  {posting
-                    ? <ActivityIndicator color={DS.lime} />
-                    : <Text style={[s.composePost, !composeText.trim() && s.composePostOff]}>Post</Text>}
-                </TouchableOpacity>
-              </View>
-              <TextInput
-                style={s.composeInput}
-                placeholder="Share a cricket moment…"
-                placeholderTextColor={DS.textMuted}
-                value={composeText}
-                onChangeText={setComposeText}
-                multiline
-                autoFocus
-                maxLength={500}
-                editable={!posting} />
-              <Text style={s.composeCount}>{composeText.length}/500</Text>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
     </View>);
 
 }
@@ -522,22 +460,7 @@ const makeS = (DS) => StyleSheet.create({
   railEmptyTxt: { color: DS.textMuted, fontSize: 13 },
   feedEmpty: { alignItems: 'center', paddingVertical: 40, gap: 6 },
   feedEmptyTxt: { color: DS.textPrimary, fontSize: 15, fontWeight: '700', marginTop: 4 },
-  feedEmptySub: { color: DS.textMuted, fontSize: 13 },
-
-  fab: {
-    position: 'absolute', right: 18, bottom: 24, width: 56, height: 56, borderRadius: 28,
-    backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6,
-  },
-  composeBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  composeSheet: { backgroundColor: DS.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 28 },
-  composeHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  composeTitle: { color: DS.textPrimary, fontSize: 16, fontWeight: '800' },
-  composeCancel: { color: DS.textMuted, fontSize: 15, fontWeight: '600' },
-  composePost: { color: DS.lime, fontSize: 15, fontWeight: '800' },
-  composePostOff: { opacity: 0.4 },
-  composeInput: { color: DS.textPrimary, fontSize: 16, lineHeight: 22, minHeight: 120, maxHeight: 240, textAlignVertical: 'top', backgroundColor: DS.surfaceLow, borderRadius: 14, borderWidth: 1, borderColor: DS.line, padding: 14 },
-  composeCount: { color: DS.textMuted, fontSize: 12, alignSelf: 'flex-end', marginTop: 8 }
+  feedEmptySub: { color: DS.textMuted, fontSize: 13 }
 });
 
 const makeC = (DS) => StyleSheet.create({

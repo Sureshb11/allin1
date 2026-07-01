@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -19,7 +19,17 @@ const FEATURES = [
 { icon: 'chart-box', title: 'Team Insights', desc: 'Advanced team performance metrics and comparison tools' }];
 
 
-const PremiumScreen = () => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);return (
+const PremiumScreen = ({ navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Premium',
+    });
+  }, [navigation]);
+
+  return (
     <View style={styles.container}>
     <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
     <View style={styles.hero}>

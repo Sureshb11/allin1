@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Alert, TextInput, Modal, ActivityIndicator, StatusBar,
@@ -72,6 +72,14 @@ const VideoAnalysisScreen = ({ navigation }) => {
   const styles = useThemedStyles(makeStyles);
   const [videos, setVideos] = useState([]);
   const [analysisResults, setAnalysisResults] = useState([]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Video Analysis',
+    });
+  }, [navigation]);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [uploading, setUploading] = useState(false);

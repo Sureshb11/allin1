@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, FlatList,
@@ -18,6 +18,14 @@ const makeStatusColors = (DS) => ({
 
 export default function TournamentDetailScreen({ route, navigation }) {
   const DS = useTheme().colors;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Tournament',
+    });
+  }, [navigation]);
   const styles = useThemedStyles(makeStyles);
   const STATUS_COLORS = makeStatusColors(DS);
   const { tournamentId } = route.params || {};

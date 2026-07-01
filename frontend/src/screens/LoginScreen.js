@@ -35,8 +35,6 @@ export default function LoginScreen({ navigation }) {const DS = useTheme().color
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [showOtpStep, setShowOtpStep] = useState(false);
-  const [showNameStep, setShowNameStep] = useState(false);
-  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const otpRef = useRef(null);
 
@@ -74,39 +72,9 @@ export default function LoginScreen({ navigation }) {const DS = useTheme().color
       const cleaned = phoneNumber.replace(/\s/g, '');
       const result = await legendsApi.verifyOtp(cleaned, otp, countryCode);
       if (result.success) {
-        // Registered number → straight in. Brand-new number → ask their name first.
-        if (result.isNewUser) {
-          setShowNameStep(true);
-        } else {
-          navigation.replace('SportPicker');
-        }
-      } else {
-        showToast(result.error || 'The code you entered is invalid.', 'error');
-      }
-    } catch {
-      showToast('Server unreachable. Check your connection.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveName = async () => {
-    const name = fullName.trim().replace(/\s+/g, ' ');
-    if (name.length < 2) {
-      showToast('Enter your name to continue', 'error');
-      return;
-    }
-    const parts = name.split(' ');
-    const firstName = parts[0];
-    const lastName = parts.slice(1).join(' ') || '';
-    setLoading(true);
-    try {
-      const result = await legendsApi.updateUserProfile({ firstName, lastName });
-      if (result.success) {
-        showToast(`Welcome to the arena, ${firstName}!`, 'success');
         navigation.replace('SportPicker');
       } else {
-        showToast(result.error || 'Could not save your name. Try again.', 'error');
+        showToast(result.error || 'The code you entered is invalid.', 'error');
       }
     } catch {
       showToast('Server unreachable. Check your connection.', 'error');
@@ -131,19 +99,15 @@ export default function LoginScreen({ navigation }) {const DS = useTheme().color
         <View style={s.hero}>
           <View style={s.pill}>
             <View style={s.pillDot} />
-            <Text style={s.pillTxt}>{showNameStep ? 'ALMOST THERE' : showOtpStep ? 'VERIFY' : 'LIVE UPDATES'}</Text>
+            <Text style={s.pillTxt}>{showOtpStep ? 'VERIFY' : 'LIVE UPDATES'}</Text>
           </View>
           <Text style={s.h1}>
-            {showNameStep ?
-            <>What's your{'\n'}<Text style={s.h1Accent}>name?</Text></> :
-            showOtpStep ?
+            {showOtpStep ?
             <>Enter the{'\n'}<Text style={s.h1Accent}>code</Text></> :
             <>Get into{'\n'}the <Text style={s.h1Accent}>action</Text></>}
           </Text>
           <Text style={s.sub}>
-            {showNameStep ?
-            'This is how you\'ll show up on leaderboards and in your circle.' :
-            showOtpStep ?
+            {showOtpStep ?
             `We sent a 4-digit code to ${countryCode} ${phoneNumber}.` :
             'Enter your mobile number to get a one-time code and join the arena.'}
           </Text>
@@ -151,33 +115,7 @@ export default function LoginScreen({ navigation }) {const DS = useTheme().color
 
         {/* Form */}
         <View style={s.form}>
-          {showNameStep ?
-          <>
-              <Text style={s.label}>YOUR NAME</Text>
-              <TextInput
-              style={s.nameInput}
-              placeholder="e.g. Virat Kohli"
-              placeholderTextColor={DS.muted}
-              value={fullName}
-              onChangeText={setFullName}
-              autoCapitalize="words"
-              autoFocus
-              editable={!loading}
-              returnKeyType="done"
-              onSubmitEditing={handleSaveName} />
-
-              <TouchableOpacity
-              style={[s.primary, (loading || fullName.trim().length < 2) && s.primaryOff]}
-              onPress={handleSaveName}
-              disabled={loading || fullName.trim().length < 2}
-              activeOpacity={0.9}>
-
-                {loading ? <ActivityIndicator color={DS.bg} /> :
-              <><Text style={s.primaryTxt}>Enter the Arena</Text><Icon name="arrow-right" size={20} color={DS.bg} /></>}
-              </TouchableOpacity>
-            </> :
-
-          showOtpStep ?
+          {showOtpStep ?
           <>
               <Text style={s.label}>VERIFICATION CODE</Text>
               <Pressable style={s.otpRow} onPress={() => otpRef.current?.focus()}>
@@ -313,7 +251,6 @@ const makeS = (DS) => StyleSheet.create({
   flag: { fontSize: 20 },
   code: { fontSize: 15, fontWeight: '800', color: DS.ink },
   phoneInput: { flex: 1, backgroundColor: DS.field, borderRadius: 16, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 16, height: 58, fontSize: 18, fontWeight: '700', color: DS.ink, letterSpacing: 1 },
-  nameInput: { backgroundColor: DS.field, borderRadius: 16, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 16, height: 58, fontSize: 18, fontWeight: '700', color: DS.ink, marginBottom: 16 },
 
   dropdown: { backgroundColor: DS.field, borderRadius: 16, borderWidth: 1, borderColor: DS.border, marginTop: 12, overflow: 'hidden' },
   dropRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: DS.border },

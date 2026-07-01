@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl,
@@ -60,6 +60,14 @@ export default function LookingForScreen({ navigation, route }) {
 
   // Scope Explore to the active sport (deep-linked sport, else current selection).
   const sportFilter = route?.params?.sport || getSelectedSport().sport?.id || null;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Looking For',
+    });
+  }, [navigation]);
 
   const load = useCallback(async (type) => {
     const filters = {};

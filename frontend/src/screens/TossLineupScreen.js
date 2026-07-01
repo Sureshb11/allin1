@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   Alert, ScrollView, ActivityIndicator,
@@ -150,6 +150,14 @@ export default function TossLineupScreen({ route, navigation }) {
   const K = useMemo(() => makeK(c), [c]);
   const s = useMemo(() => makeS(K), [K]);
   const { team1, team2, overs, venue, matchType, matchId, team1Id, team2Id, firstInningId, sport } = route.params || {};
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerBackVisible: true,
+      headerTitle: 'Toss & Lineup',
+    });
+  }, [navigation]);
   const sportId = sport?.id || 'cricket';
 
   const [tossWinner, setTossWinner] = useState(team1);
