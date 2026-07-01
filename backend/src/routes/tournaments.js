@@ -118,6 +118,8 @@ router.put('/:id/points-table/:teamId', authMiddleware, async (req, res) => {
 const TournamentSchema = z.object({
   name:        z.string().min(1),
   format:      z.string().min(1),
+  overs:       z.number().int().optional(),
+  ballType:    z.string().optional(),
   status:      z.string().min(1),
   startDate:   z.string().datetime().optional(),
   endDate:     z.string().datetime().optional(),

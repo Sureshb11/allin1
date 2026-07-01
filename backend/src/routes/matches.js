@@ -68,6 +68,7 @@ const MatchSchema = z.object({
   matchType: z.string().optional(),
   startTime: z.string().datetime().optional(),
   overs: z.number().int().optional(),
+  ballType: z.string().optional(),
   sport: z.string().default('cricket'),
 });
 

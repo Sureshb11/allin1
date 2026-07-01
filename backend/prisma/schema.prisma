@@ -145,6 +145,7 @@ model Match {
   tossWinnerId    String?
   tossDecision    String?  // bat | bowl
   overs           Int?     // Total overs (e.g., 20)
+  ballType        String?  // Leather | Tennis | Rubber (cricket)
   currentInnings  Int      @default(1)
   sport           String   @default("cricket") // cricket|football|basketball|tennis|volleyball|baseball
 
@@ -295,7 +296,9 @@ model Tournament {
   id          String   @id @default(cuid())
   createdAt   DateTime @default(now())
   name        String
-  format      String   // T20 | ODI | Test
+  format      String   // T20 | ODI | Test | Custom
+  overs       Int?     // overs per side (esp. for Custom)
+  ballType    String?  // Leather | Tennis | Rubber (cricket)
   status      String   // upcoming | ongoing | completed
   startDate   DateTime?
   endDate     DateTime?
