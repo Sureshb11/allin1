@@ -33,11 +33,12 @@ const makeCfg = (sport, matchLabel, ctaSubtitle, features, emptyTitle, emptySub)
     { label: 'STATS',    icon: 'chart-bar',                        screen: 'Statistics' },
     { label: 'MORE',     icon: 'dots-horizontal-circle-outline',   screen: 'more' },
   ],
+  // Every entry navigates somewhere real — no dead (screen: null) tiles.
+  // `primary` renders as the solid electric-blue Action-Taker tile.
   quickAccess: [
-    { label: 'My Stats',   icon: 'chart-line',           screen: 'MyPerformance' },
-    { label: 'My Matches', icon: sport.icon,             screen: 'MyMatches' },
-    { label: 'Live',       icon: 'access-point',         screen: null },
-    { label: 'Standings',  icon: 'format-list-numbered', screen: 'Statistics' },
+    { label: 'Start a Match',  icon: 'play-circle',  screen: 'StartMatch', primary: true },
+    { label: 'My Performance', icon: 'chart-line',   screen: 'MyPerformance' },
+    { label: 'My Matches',     icon: sport.icon,     screen: 'MyMatches' },
   ],
   features,
   emptyTitle,
@@ -58,11 +59,12 @@ const _buildConfigs = () => {
         { label: 'STATS',       icon: 'chart-bar',                        screen: 'Statistics' },
         { label: 'MORE',        icon: 'dots-horizontal-circle-outline',   screen: 'more' },
       ],
+      // Live Scores (dead) + Insights (duplicate of STATS) removed — every tile
+      // navigates to a working screen. Start-a-Match is the blue primary tile.
       quickAccess: [
-        { label: 'My Performance', icon: 'chart-line',   screen: 'MyPerformance' },
-        { label: 'My Matches',     icon: 'cricket',      screen: 'MyMatches' },
-        { label: 'Live Scores',    icon: 'access-point', screen: null },
-        { label: 'Insights',       icon: 'lightbulb-on', screen: 'Statistics' },
+        { label: 'Start a Cricket Match', icon: 'play-circle', screen: 'StartMatch', primary: true },
+        { label: 'My Performance',        icon: 'chart-line',  screen: 'MyPerformance' },
+        { label: 'My Matches',            icon: 'cricket',     screen: 'MyMatches' },
       ],
       features: [
         { label: 'Toss & Lineup', icon: 'format-list-checks', desc: 'Set playing XI & toss' },

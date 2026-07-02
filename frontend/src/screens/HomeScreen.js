@@ -164,7 +164,7 @@ export default function HomeScreen({ navigation }) {
             style={[styles.navTab, activeNavTab === i && styles.navTabActive]}
             onPress={() => handleNavTab(i)}
           >
-            <Icon name={tab.icon} size={18} color={activeNavTab === i ? DS.lime : DS.textMuted} />
+            <Icon name={tab.icon} size={18} color={activeNavTab === i ? DS.onBlue : DS.textMuted} />
             <Text style={[styles.navTabText, activeNavTab === i && styles.navTabTextActive]}>{tab.label}</Text>
           </TouchableOpacity>
         ))}
@@ -237,7 +237,7 @@ export default function HomeScreen({ navigation }) {
             </>
           )}
 
-          {/* Quick Access Grid */}
+          {/* Quick Access Grid — `primary` = solid electric-blue Action-Taker tile */}
           <View style={styles.quickGrid}>
             {cfg.quickAccess.map(q => (
               <TouchableOpacity
@@ -245,10 +245,10 @@ export default function HomeScreen({ navigation }) {
                 style={styles.quickItem}
                 onPress={() => q.screen && navigation.navigate(q.screen)}
               >
-                <View style={styles.quickIcon}>
-                  <Icon name={q.icon} size={20} color={DS.lime} />
+                <View style={[styles.quickIcon, q.primary && styles.quickIconPrimary]}>
+                  <Icon name={q.icon} size={q.primary ? 24 : 20} color={q.primary ? DS.onBlue : DS.lime} />
                 </View>
-                <Text style={styles.quickLabel}>{q.label}</Text>
+                <Text style={[styles.quickLabel, q.primary && styles.quickLabelPrimary]}>{q.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -501,11 +501,15 @@ const makeStyles = (DS) => StyleSheet.create({
   sportSelectorHint: { fontSize: 11, color: DS.textMuted, fontWeight: '500' },
 
   // Nav tabs
-  navTabs: { flexDirection: 'row', paddingBottom: 8, backgroundColor: DS.surfaceLow },
-  navTab: { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 2 },
-  navTabActive: { backgroundColor: DS.surfaceHigh, borderRadius: 0 },
+  navTabs: { flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: DS.surfaceLow },
+  navTab: { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 2, borderRadius: 14 },
+  // Active tab = electric-blue pill with a scoreboard glow (design reference).
+  navTabActive: {
+    backgroundColor: DS.blueDeep,
+    shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6,
+  },
   navTabText: { fontSize: 9, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
-  navTabTextActive: { color: DS.lime },
+  navTabTextActive: { color: DS.onBlue },
 
   // Feed
   feed: { flex: 1 },
@@ -542,7 +546,13 @@ const makeStyles = (DS) => StyleSheet.create({
   quickGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   quickItem: { flex: 1, alignItems: 'center', gap: 6 },
   quickIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.surfaceHigh },
+  // Solid electric-blue Action-Taker tile (Start a Match) with the blue glow.
+  quickIconPrimary: {
+    backgroundColor: DS.blueDeep,
+    shadowColor: DS.blueDeep, shadowOpacity: 0.45, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 7,
+  },
   quickLabel: { fontSize: 12, color: DS.textVariant, fontWeight: '600', textAlign: 'center' },
+  quickLabelPrimary: { color: DS.textPrimary, fontWeight: '800' },
 
   // Live matches rail
   liveCard: { width: 210, backgroundColor: DS.surfaceLow, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: DS.surfaceHigh },
