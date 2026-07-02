@@ -376,7 +376,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
             onPress={() => canStart && setScoringReady(true)}
             disabled={!canStart}>
             
-            <Icon name="play-circle" size={22} color={canStart ? DS.bg : DS.textMuted} />
+            <Icon name="play-circle" size={22} color={canStart ? DS.onBlue : DS.textMuted} />
             <Text style={[setup.startBtnText, !canStart && { color: DS.textMuted }]}>
               START SCORING
             </Text>
@@ -609,11 +609,11 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         {matchComplete &&
         <View style={styles.completeActions}>
             <TouchableOpacity
-            style={[styles.completeBtn, { backgroundColor: DS.lime }]}
+            style={[styles.completeBtn, { backgroundColor: DS.blueDeep }]}
             onPress={() => navigation.navigate('Scorecard', { matchId: matchData.id })}>
-            
-              <Icon name="clipboard-list-outline" size={18} color={DS.bg} />
-              <Text style={[styles.completeBtnText, { color: DS.bg }]}>VIEW SCORECARD</Text>
+
+              <Icon name="clipboard-list-outline" size={18} color={DS.onBlue} />
+              <Text style={[styles.completeBtnText, { color: DS.onBlue }]}>VIEW SCORECARD</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.completeBtn, { backgroundColor: '#25D366' }]} onPress={shareScore}>
               <Icon name="whatsapp" size={18} color="#fff" />
@@ -892,12 +892,13 @@ const makeSetup = (DS) => StyleSheet.create({
     backgroundColor: DS.surfaceLow, padding: 16, paddingBottom: 32,
     alignItems: 'center', gap: 8
   },
+  // Primary "Action-Taker" CTA — solid electric blue per the design system.
   startBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 10, backgroundColor: DS.lime, borderRadius: 16,
+    gap: 10, backgroundColor: DS.blueDeep, borderRadius: 16,
     paddingVertical: 16, width: '100%'
   },
   startBtnDisabled: { backgroundColor: DS.surfaceHighest },
-  startBtnText: { fontSize: 16, fontWeight: '900', color: DS.bg, letterSpacing: 1 },
+  startBtnText: { fontSize: 16, fontWeight: '900', color: DS.onBlue, letterSpacing: 1 },
   hintText: { fontSize: 12, color: DS.textMuted, textAlign: 'center' }
 });

@@ -470,7 +470,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
 
       {/* Create-post FAB */}
       <TouchableOpacity style={s.fab} activeOpacity={0.9} onPress={() => setComposeOpen(true)}>
-        <Icon name="plus" size={28} color={DS.bg} />
+        <Icon name="plus" size={28} color={DS.onBlue} />
       </TouchableOpacity>
 
       {/* Compose sheet */}
@@ -540,17 +540,19 @@ const makeS = (DS) => StyleSheet.create({
   feedEmptyTxt: { color: DS.textPrimary, fontSize: 15, fontWeight: '700', marginTop: 4 },
   feedEmptySub: { color: DS.textMuted, fontSize: 13 },
 
+  // Solid electric blue — the theme's primary action identity ("Stadium Under
+  // Lights" #0052ff), with an illuminated-scoreboard glow instead of plain black.
   fab: {
     position: 'absolute', right: 18, bottom: 24, width: 56, height: 56, borderRadius: 28,
-    backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6,
+    backgroundColor: DS.blueDeep, alignItems: 'center', justifyContent: 'center',
+    shadowColor: DS.blueDeep, shadowOpacity: 0.45, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8,
   },
   composeBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   composeSheet: { backgroundColor: DS.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 28 },
   composeHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   composeTitle: { color: DS.textPrimary, fontSize: 16, fontWeight: '800' },
   composeCancel: { color: DS.textMuted, fontSize: 15, fontWeight: '600' },
-  composePost: { color: DS.lime, fontSize: 15, fontWeight: '800' },
+  composePost: { color: DS.blueSoft, fontSize: 15, fontWeight: '800' },
   composePostOff: { opacity: 0.4 },
   composeInput: { color: DS.textPrimary, fontSize: 16, lineHeight: 22, minHeight: 120, maxHeight: 240, textAlignVertical: 'top', backgroundColor: DS.surfaceLow, borderRadius: 14, borderWidth: 1, borderColor: DS.line, padding: 14 },
   composeCount: { color: DS.textMuted, fontSize: 12, alignSelf: 'flex-end', marginTop: 8 }
@@ -632,5 +634,5 @@ const makeCm = (DS) => StyleSheet.create({
     borderTopWidth: 1, borderTopColor: DS.line, paddingTop: 12
   },
   input: { flex: 1, color: DS.textPrimary, fontSize: 14, paddingVertical: 6 },
-  post: { color: DS.lime, fontSize: 14, fontWeight: '800' }
+  post: { color: DS.blueSoft, fontSize: 14, fontWeight: '800' }
 });

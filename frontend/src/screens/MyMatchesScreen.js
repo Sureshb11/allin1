@@ -241,7 +241,7 @@ export default function MyMatchesScreen({ navigation }) {
             </View>
             <View style={styles.promoCta}>
               <Text style={styles.promoCtaText}>Get Started</Text>
-              <Icon name="arrow-right" size={14} color={DS.bg} />
+              <Icon name="arrow-right" size={14} color={DS.onBlue} />
             </View>
           </TouchableOpacity>
         }
@@ -399,12 +399,13 @@ const makeStyles = (DS) => StyleSheet.create({
     letterSpacing: 0.8, marginBottom: 3,
   },
   promoSub: { fontSize: 12, color: DS.textMuted },
+  // Primary "Action-Taker" CTA — solid electric blue per the design system.
   promoCta: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: DS.lime, marginHorizontal: 16, marginBottom: 16,
+    backgroundColor: DS.blueDeep, marginHorizontal: 16, marginBottom: 16,
     borderRadius: 10, paddingVertical: 10,
   },
-  promoCtaText: { fontSize: 13, fontWeight: '800', color: DS.bg },
+  promoCtaText: { fontSize: 13, fontWeight: '800', color: DS.onBlue },
 
   /* Empty */
   empty: { alignItems: 'center', paddingTop: 80, gap: 10 },

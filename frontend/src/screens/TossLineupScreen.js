@@ -16,6 +16,8 @@ const makeK = (c) => ({
   surfaceTop:   c.surfaceHighest,
   lime:         c.lime,
   limeDark:     c.limeDark,
+  blue:         c.blueDeep,
+  onBlue:       c.onBlue,
   textPrimary:  c.textPrimary,
   textVariant:  c.textVariant,
   textMuted:    c.textMuted,
@@ -404,9 +406,9 @@ export default function TossLineupScreen({ route, navigation }) {
           disabled={loading || !canProceed}
           activeOpacity={0.8}
         >
-          {loading ? <ActivityIndicator color={K.bg} /> : (
+          {loading ? <ActivityIndicator color={K.onBlue} /> : (
             <>
-              <Icon name="play-circle" size={18} color={K.bg} />
+              <Icon name="play-circle" size={18} color={K.onBlue} />
               <Text style={s.proceedBtnText}>
                 {canProceed ? 'PROCEED TO SCORING' : `SELECT XI (${team1XI.length}+${team2XI.length})`}
               </Text>
@@ -617,14 +619,15 @@ const makeS = (K) => StyleSheet.create({
   },
   selectionNumbers: { fontSize: 18, fontWeight: '900' },
 
+  // Primary "Action-Taker" CTA — solid electric blue per the design system.
   proceedBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: K.lime, borderRadius: Radius.md,
+    backgroundColor: K.blue, borderRadius: Radius.md,
     paddingVertical: 14,
   },
   proceedBtnDisabled: { opacity: 0.35 },
   proceedBtnText: {
-    fontSize: 13, fontWeight: '800', color: K.bg,
+    fontSize: 13, fontWeight: '800', color: K.onBlue,
     letterSpacing: 0.5,
   },
 });
