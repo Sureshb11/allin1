@@ -12,7 +12,43 @@ router.get('/', async (req, res) => {
   if (teamId) where.teamId = String(teamId);
   if (userId) where.userId = String(userId);
   const players = await prisma.player.findMany({ where, include: { team: true }, take: 100 });
-  res.json({ players });
+
+  // Attach REAL cricket numbers computed from the scoring data, so the
+  // Statistics leaderboard reflects actual matches instead of the static
+  // stats JSON (which nothing updates). Cheap: batting from one Ball groupBy,
+  // bowling from the per-over aggregates the scorer already maintains.
+  const [batAgg, disAgg, bowlAgg, mpAgg] = await Promise.all([
+    prisma.ball.groupBy({ by: ['batterId'], _sum: { runs: true }, _count: { _all: true } }),
+    prisma.ball.groupBy({ by: ['dismissedPlayerId'], _count: { _all: true }, where: { dismissedPlayerId: { not: null } } }),
+    prisma.over.groupBy({ by: ['bowlerId'], _sum: { runs: true, extras: true, wickets: true }, _count: { _all: true } }),
+    prisma.matchPlayer.groupBy({ by: ['playerId'], _count: { _all: true } }),
+  ]);
+  const bat  = Object.fromEntries(batAgg.map((a) => [a.batterId, a]));
+  const dis  = Object.fromEntries(disAgg.map((a) => [a.dismissedPlayerId, a._count._all]));
+  const bowl = Object.fromEntries(bowlAgg.map((a) => [a.bowlerId, a]));
+  const mp   = Object.fromEntries(mpAgg.map((a) => [a.playerId, a._count._all]));
+
+  const enriched = players.map((p) => {
+    const b = bat[p.id], w = bowl[p.id];
+    const computed = {};
+    if (b) {
+      const runs = b._sum.runs || 0, faced = b._count._all;
+      const outs = dis[p.id] || 0;
+      computed.runs = runs;
+      computed.strikeRate = faced ? +(runs / faced * 100).toFixed(1) : 0;
+      computed.average = outs ? +(runs / outs).toFixed(1) : runs;
+    }
+    if (w) {
+      const conceded = (w._sum.runs || 0) + (w._sum.extras || 0);
+      const overs = w._count._all;
+      computed.wickets = w._sum.wickets || 0;
+      computed.economy = overs ? +(conceded / overs).toFixed(2) : 0;
+    }
+    if (mp[p.id]) computed.matches = mp[p.id];
+    return { ...p, stats: { ...(p.stats || {}), ...computed } };
+  });
+
+  res.json({ players: enriched });
 });
 
 router.get('/:id', async (req, res) => {
