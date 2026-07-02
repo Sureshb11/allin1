@@ -19,9 +19,17 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import SportIcon from '../components/SportIcon';
 import GradientButton from '../components/GradientButton';
 import legendsApi from '../services/LegendsApi';
+import { getSport } from '../sports';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 
 const { width: SW } = Dimensions.get('window');
+
+// Darken a hex colour (light mode needs deeper accents to stay readable in sun).
+const shade = (hex, f) => {
+  const n = parseInt(hex.slice(1, 7), 16);
+  const r = Math.round(((n >> 16) & 255) * f), g = Math.round(((n >> 8) & 255) * f), b = Math.round((n & 255) * f);
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+};
 
 // ── ARENA palette (from design_handoff_arena/app/data.jsx) ──────────────────
 
@@ -55,6 +63,12 @@ const SPORTS = [
 { id: 'karate', name: 'Karate', tag: 'Combat', mci: 'karate' },
 { id: 'skateboard', name: 'Skateboarding', tag: 'Street', mci: 'skateboard' },
 { id: 'rummy', name: 'Rummy', tag: '13 Cards', scored: true, mci: 'cards-playing-outline' }];
+
+// Per-sport accent from the sports registry — one source of truth with the
+// rest of the app (feeds, scoring). Fallback: the Arena's bright lime.
+const SPORT_ACCENT = Object.fromEntries(
+  SPORTS.map((sp) => [sp.id, getSport(sp.id)?.accent || '#c4f82a'])
+);
 
 
 // ── Honeycomb params (V2 Spotlight) ─────────────────────────────────────────
@@ -131,7 +145,9 @@ const clampPan = (p) => ({
 });
 
 // ── A single disc (memo-free; cheap enough for 22 cells/frame) ──────────────
-function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {const A = useArenaColors();const d = useThemedStyles(makeD);
+// Apple-Watch feel: each sport keeps its own accent colour — coloured glyph,
+// coloured rim, and an accent-tinted fill + pulse when it's the focused disc.
+function Disc({ cell, accent, scale, opacity, focused, pulseAnim, onPress }) {const A = useArenaColors();const d = useThemedStyles(makeD);
   // Icon renders at a fixed size; the whole disc is scaled via transform.
   const iconSize = cell.featured ? 36 : 31;
   return (
@@ -150,7 +166,7 @@ function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {const A = 
       {focused &&
       <Animated.View
         pointerEvents="none"
-        style={[d.pulse, {
+        style={[d.pulse, { borderColor: accent,
           opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
           transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.75] }) }]
         }]} />
@@ -158,11 +174,12 @@ function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {const A = 
       }
       <View style={[
       d.disc,
-      focused ? d.discFocus : null,
       // Visible edge even in direct sun — the old 10%-opacity border vanished outdoors.
-      { borderColor: focused ? A.lime : A.inkDim + '66' }]
+      focused ?
+      { borderColor: accent, backgroundColor: accent + '26' } :
+      { borderColor: accent + '59', backgroundColor: A.cell }]
       }>
-        <SportIcon id={cell.id} size={iconSize} color={focused ? A.lime : A.lime + 'CC'} />
+        <SportIcon id={cell.id} size={iconSize} color={focused ? accent : accent + 'E6'} />
       </View>
     </TouchableOpacity>);
 
@@ -379,6 +396,9 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
   const focus = useMemo(() => SPORTS.find((s) => s.id === focusId) || SPORTS[0], [focusId]);
   const focusIdx = SPORTS.findIndex((s) => s.id === focusId);
   const nameSize = focus.name.length > 13 ? 19 : focus.name.length > 9 ? 23 : 27;
+  // Per-sport accents, darkened in light mode so they hold up in sunlight.
+  const accentOf = useCallback((id) => isDark ? SPORT_ACCENT[id] : shade(SPORT_ACCENT[id], 0.62), [isDark]);
+  const focusAccent = accentOf(focus.id);
 
   // per-frame fisheye for each disc, computed from current pan offset
   const discs = POSITIONS.map((c) => {
@@ -455,10 +475,18 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         </TouchableOpacity>
       </View>
 
-      {/* ── TITLE ── */}
+      {/* ── TITLE — the arena line follows the focused sport ── */}
       <View style={s.titleBlock}>
         <Text style={s.title1}>CHOOSE YOUR</Text>
-        <Text style={s.title2}>ARENA</Text>
+        <Animated.View style={[readoutStyle, { alignSelf: 'stretch', alignItems: 'center' }]}>
+          <Text
+            style={[s.title2, { color: focusAccent }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}>
+            {focus.name.toUpperCase()}
+          </Text>
+        </Animated.View>
       </View>
 
       {/* ── HONEYCOMB ── */}
@@ -467,8 +495,8 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         <Svg pointerEvents="none" width={dim.w} height={dim.h} style={StyleSheet.absoluteFill}>
           <Defs>
             <RadialGradient id="arenaGlow" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor={A.lime} stopOpacity={0.16} />
-              <Stop offset="1" stopColor={A.lime} stopOpacity={0} />
+              <Stop offset="0" stopColor={focusAccent} stopOpacity={0.18} />
+              <Stop offset="1" stopColor={focusAccent} stopOpacity={0} />
             </RadialGradient>
           </Defs>
           <Circle cx={cx} cy={cy} r={175} fill="url(#arenaGlow)" />
@@ -497,6 +525,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
           }}>
             <Disc
             cell={cell}
+            accent={accentOf(cell.id)}
             scale={scale}
             opacity={opacity}
             focused={cell.id === focusId}
@@ -510,12 +539,12 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
       {/* ── READOUT CARD ── */}
       <View style={s.readoutWrap}>
         <View style={s.readout}>
-          <Animated.View style={[s.readoutIcon, readoutStyle]}>
-            <SportIcon id={focus.id} size={28} color={A.lime} />
+          <Animated.View style={[s.readoutIcon, { backgroundColor: focusAccent + '1f', borderColor: focusAccent + '40' }, readoutStyle]}>
+            <SportIcon id={focus.id} size={28} color={focusAccent} />
           </Animated.View>
           <Animated.View style={[{ flex: 1, minWidth: 0 }, readoutStyle]}>
             <View style={s.readoutTagRow}>
-              <Text style={s.readoutTag} numberOfLines={1}>{focus.tag.toUpperCase()}</Text>
+              <Text style={[s.readoutTag, { color: focusAccent }]} numberOfLines={1}>{focus.tag.toUpperCase()}</Text>
               <Text style={s.readoutIdx}>
                 {String(focusIdx + 1).padStart(2, '0')} / {SPORTS.length}
               </Text>
@@ -544,7 +573,6 @@ const makeD = (A) => StyleSheet.create({
     borderWidth: 2.5, backgroundColor: A.cell,
     alignItems: 'center', justifyContent: 'center'
   },
-  discFocus: { backgroundColor: A.cellHi },
   pulse: {
     position: 'absolute', left: 0, top: 0, width: CELL, height: CELL,
     borderRadius: CELL / 2, borderWidth: 2.5, borderColor: A.lime
