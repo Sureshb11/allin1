@@ -2,7 +2,7 @@ import { useTheme, useThemedStyles, useArenaColors } from "../theme/ThemeContext
 // Ported from the design handoff (design_handoff_arena), V2 "Spotlight":
 // an Apple-Watch-style honeycomb of sport discs the user drags to pan, with a
 // fisheye falloff (centre disc largest, edges shrink & fade). The centred disc
-// is the current selection; a docked readout card + START button reflect it.
+// is the current selection; the headline + a solid-blue START button reflect it.
 //
 // Note: the design calls for the Anton/Archivo fonts, which aren't bundled in
 // this app — we match the existing screens' approach (heavy system weight +
@@ -17,7 +17,7 @@ import {
 import Svg, { Path, Line, Circle, Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import SportIcon from '../components/SportIcon';
-import GradientButton from '../components/GradientButton';
+import { haptic } from '../utils/haptics';
 import legendsApi from '../services/LegendsApi';
 import { getSport } from '../sports';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
@@ -145,11 +145,20 @@ const clampPan = (p) => ({
 });
 
 // ── A single disc (memo-free; cheap enough for 22 cells/frame) ──────────────
-// Apple-Watch feel: each sport keeps its own accent colour — coloured glyph,
-// coloured rim, and an accent-tinted fill + pulse when it's the focused disc.
+// Apple-Watch feel: every sport is a full-colour token — accent-tinted fill and
+// coloured glyph at rest; the focused disc goes SOLID accent (dark glyph on it)
+// with a springy "pop" and a matching pulse ring.
 function Disc({ cell, accent, scale, opacity, focused, pulseAnim, onPress }) {const A = useArenaColors();const d = useThemedStyles(makeD);
   // Icon renders at a fixed size; the whole disc is scaled via transform.
   const iconSize = cell.featured ? 36 : 31;
+  // Springy pop each time this disc ratchets into focus.
+  const pop = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (focused) {
+      pop.setValue(0.78);
+      Animated.spring(pop, { toValue: 1, friction: 4, tension: 160, useNativeDriver: true }).start();
+    }
+  }, [focused, pop]);
   return (
     <TouchableOpacity
       activeOpacity={0.9}
@@ -172,15 +181,16 @@ function Disc({ cell, accent, scale, opacity, focused, pulseAnim, onPress }) {co
         }]} />
 
       }
-      <View style={[
+      <Animated.View style={[
       d.disc,
-      // Visible edge even in direct sun — the old 10%-opacity border vanished outdoors.
+      // Full-colour tokens read clearly even in direct sun.
       focused ?
-      { borderColor: accent, backgroundColor: accent + '26' } :
-      { borderColor: accent + '59', backgroundColor: A.cell }]
+      { borderColor: accent, backgroundColor: accent } :
+      { borderColor: accent + '66', backgroundColor: accent + '1C' },
+      { transform: [{ scale: pop }] }]
       }>
-        <SportIcon id={cell.id} size={iconSize} color={focused ? accent : accent + 'E6'} />
-      </View>
+        <SportIcon id={cell.id} size={iconSize} color={focused ? A.navy0 : accent} />
+      </Animated.View>
     </TouchableOpacity>);
 
 }
@@ -395,7 +405,6 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
   const cx = dim.w / 2,cy = dim.h / 2;
   const focus = useMemo(() => SPORTS.find((s) => s.id === focusId) || SPORTS[0], [focusId]);
   const focusIdx = SPORTS.findIndex((s) => s.id === focusId);
-  const nameSize = focus.name.length > 13 ? 19 : focus.name.length > 9 ? 23 : 27;
   // Per-sport accents, darkened in light mode so they hold up in sunlight.
   const accentOf = useCallback((id) => isDark ? SPORT_ACCENT[id] : shade(SPORT_ACCENT[id], 0.62), [isDark]);
   const focusAccent = accentOf(focus.id);
@@ -486,6 +495,10 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
             minimumFontScale={0.6}>
             {focus.name.toUpperCase()}
           </Text>
+          <View style={s.titleMetaRow}>
+            <Text style={[s.titleTag, { color: focusAccent }]}>{focus.tag.toUpperCase()}</Text>
+            <Text style={s.titleIdx}>{String(focusIdx + 1).padStart(2, '0')} / {SPORTS.length}</Text>
+          </View>
         </Animated.View>
       </View>
 
@@ -536,32 +549,15 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         )}
       </View>
 
-      {/* ── READOUT CARD ── */}
-      <View style={s.readoutWrap}>
-        <View style={s.readout}>
-          <Animated.View style={[s.readoutIcon, { backgroundColor: focusAccent + '1f', borderColor: focusAccent + '40' }, readoutStyle]}>
-            <SportIcon id={focus.id} size={28} color={focusAccent} />
-          </Animated.View>
-          <Animated.View style={[{ flex: 1, minWidth: 0 }, readoutStyle]}>
-            <View style={s.readoutTagRow}>
-              <Text style={[s.readoutTag, { color: focusAccent }]} numberOfLines={1}>{focus.tag.toUpperCase()}</Text>
-              <Text style={s.readoutIdx}>
-                {String(focusIdx + 1).padStart(2, '0')} / {SPORTS.length}
-              </Text>
-            </View>
-            <Text style={[s.readoutName, { fontSize: nameSize }]} numberOfLines={1}>
-              {focus.name.toUpperCase()}
-            </Text>
-          </Animated.View>
-          <GradientButton
-            label="START"
-            icon="play"
-            iconRight
-            onPress={() => routeSport(focus)}
-            height={50}
-            style={s.startBtn}
-            textStyle={{ fontSize: 15, letterSpacing: 0.8 }} />
-        </View>
+      {/* ── START — solid electric-blue, full width ── */}
+      <View style={s.startDock}>
+        <TouchableOpacity
+          style={s.startSolid}
+          activeOpacity={0.88}
+          onPress={() => { haptic.impact(); routeSport(focus); }}>
+          <Text style={s.startSolidTxt}>START</Text>
+          <Icon name="play" size={20} color="#ffffff" />
+        </TouchableOpacity>
       </View>
     </View>);
 
@@ -593,31 +589,22 @@ const makeS = (A) => StyleSheet.create({
     backgroundColor: A.cellHi, alignItems: 'center', justifyContent: 'center'
   },
 
-  titleBlock: { alignItems: 'center', paddingTop: 8, paddingBottom: 6 },
+  titleBlock: { alignItems: 'center', paddingTop: 8, paddingBottom: 6, paddingHorizontal: 24 },
   title1: { fontSize: 30, fontWeight: '900', color: A.ink, letterSpacing: 0.5 },
   title2: { fontSize: 40, fontWeight: '900', color: A.blueSoft, letterSpacing: 1, fontStyle: 'italic', lineHeight: 44 },
+  titleMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
+  titleTag: { fontSize: 12, letterSpacing: 1.6, fontWeight: '800' },
+  titleIdx: { fontSize: 12, color: A.textVariant, letterSpacing: 0.8, fontWeight: '700' },
 
   grid: { flex: 1, overflow: 'hidden' },
 
-  readoutWrap: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 28 },
-  readout: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: A.cellHi, borderRadius: 22, padding: 12,
-    borderWidth: 1, borderColor: A.line,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4, shadowRadius: 16, elevation: 10
+  // Solid electric-blue START — one unmissable action, sunlight-proof.
+  startDock: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 28 },
+  startSolid: {
+    height: 58, borderRadius: 17, backgroundColor: A.blueDeep,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    shadowColor: A.blueDeep, shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45, shadowRadius: 16, elevation: 10
   },
-  readoutIcon: {
-    width: 50, height: 50, borderRadius: 15,
-    backgroundColor: 'rgba(196,248,42,0.12)',
-    borderWidth: 1, borderColor: 'rgba(196,248,42,0.2)',
-    alignItems: 'center', justifyContent: 'center'
-  },
-  readoutTagRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  readoutTag: { fontSize: 11, color: A.lime, letterSpacing: 1.4, fontWeight: '800' },
-  readoutIdx: { fontSize: 11, color: A.textVariant, letterSpacing: 0.8, fontWeight: '700' },
-  readoutName: { fontWeight: '900', color: A.ink, letterSpacing: 0.4, marginTop: 3 },
-
-  // Blue-gradient CTA fills itself; just shape + spacing here.
-  startBtn: { borderRadius: 15, paddingHorizontal: 18 }
+  startSolidTxt: { fontSize: 17, fontWeight: '900', color: '#ffffff', letterSpacing: 2 }
 });
