@@ -140,4 +140,26 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Update a tournament (whitelisted fields) — powers the "Start" button
+// (upcoming → ongoing) and completing/rescheduling from the app.
+router.put('/:id', async (req, res) => {
+  try {
+    const { status, startDate, endDate, venue, prizePool, maxTeams } = req.body;
+    const t = await prisma.tournament.update({
+      where: { id: req.params.id },
+      data: {
+        ...(status && { status }),
+        ...(startDate && { startDate: new Date(startDate) }),
+        ...(endDate && { endDate: new Date(endDate) }),
+        ...(venue !== undefined && { venue }),
+        ...(prizePool !== undefined && { prizePool }),
+        ...(maxTeams !== undefined && { maxTeams }),
+      },
+    });
+    res.json({ tournament: t });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 export default router;

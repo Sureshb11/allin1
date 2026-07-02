@@ -66,6 +66,15 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
     } catch (e) {showToast('Something went wrong', 'error');} finally {setCreating(false);}
   };
 
+  // Start button was previously dead (no handler) — kicks the tournament live.
+  const startTournament = async (t) => {
+    const res = await legendsApi.updateTournament(t.id, { status: 'ongoing' });
+    if (res.success) {
+      showToast(`${t.name} is live!`, 'success');
+      loadTournaments();
+    } else showToast(res.error || 'Could not start tournament', 'error');
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'ongoing':return '#ff4d4d';
@@ -85,8 +94,8 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
           </View>
         </View>
         {item.status === 'upcoming' && (
-          <TouchableOpacity style={styles.startButton}>
-            <Icon name="play-circle-outline" size={20} color={DS.bg} />
+          <TouchableOpacity style={styles.startButton} onPress={() => startTournament(item)}>
+            <Icon name="play-circle-outline" size={20} color={DS.onBlue} />
             <Text style={styles.startButtonText}>Start</Text>
           </TouchableOpacity>
         )}
@@ -198,8 +207,9 @@ const makeStyles = (DS) => StyleSheet.create({
   tournamentName: { fontSize: 18, fontWeight: '600', color: DS.textPrimary, flex: 1, marginRight: 10 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   statusText: { fontSize: 10, color: DS.bg, fontWeight: '700' },
-  startButton: { flexDirection: 'row', backgroundColor: DS.lime, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', gap: 6 },
-  startButtonText: { color: DS.bg, fontSize: 12, fontWeight: '700' },
+  // Solid electric-blue Action-Taker per the design system.
+  startButton: { flexDirection: 'row', backgroundColor: DS.blueDeep, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', gap: 6 },
+  startButtonText: { color: DS.onBlue, fontSize: 12, fontWeight: '700' },
   tournamentDetails: { marginBottom: 5 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   detailLabel: { fontSize: 14, color: DS.textMuted, flex: 1 },

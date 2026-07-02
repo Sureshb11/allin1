@@ -229,6 +229,58 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// ── Toss + playing XI (one transactional call from the Toss & Lineup screen) ──
+// Fixes the whole pre-match state: records the toss, corrects inning 1's
+// batting/bowling teams (created at match time as "team1 bats"), and persists
+// both playing XIs to MatchPlayer (previously never written — squads were
+// always empty on the scorecard).
+const TossSchema = z.object({
+  tossWinnerId:  z.string(),
+  tossDecision:  z.enum(['bat', 'bowl']),
+  battingTeamId: z.string(),
+  bowlingTeamId: z.string(),
+  squads: z.array(z.object({
+    teamId:    z.string(),
+    playerIds: z.array(z.string()).min(1),
+  })).optional(),
+});
+
+router.post('/:id/toss', async (req, res) => {
+  try {
+    const data = TossSchema.parse(req.body);
+    const matchId = req.params.id;
+
+    const match = await prisma.$transaction(async (tx) => {
+      const m = await tx.match.update({
+        where: { id: matchId },
+        data: {
+          tossWinnerId: data.tossWinnerId,
+          tossDecision: data.tossDecision,
+          status: 'live',
+        },
+      });
+      await tx.inning.updateMany({
+        where: { matchId, inningNumber: 1 },
+        data: { battingTeamId: data.battingTeamId, bowlingTeamId: data.bowlingTeamId },
+      });
+      if (data.squads?.length) {
+        await tx.matchPlayer.deleteMany({ where: { matchId } });
+        await tx.matchPlayer.createMany({
+          data: data.squads.flatMap((sq) =>
+            sq.playerIds.map((playerId) => ({ matchId, teamId: sq.teamId, playerId }))
+          ),
+          skipDuplicates: true,
+        });
+      }
+      return m;
+    });
+
+    res.json({ match });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.post('/:id/innings', async (req, res) => {
   try {
     const { battingTeamId, bowlingTeamId, targetScore } = req.body;

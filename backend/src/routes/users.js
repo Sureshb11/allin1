@@ -60,11 +60,71 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
     ? await prisma.match.count({ where: { sport: player.sport, OR: [{ team1Id: player.teamId }, { team2Id: player.teamId }] } })
     : 0;
 
+  // ── Real cricket career numbers, computed from the ball-by-ball data ──────
+  // Batting: every ball this player faced. Bowling: every ball in overs they
+  // bowled. Overrides the static stats JSON whenever real deliveries exist.
+  const [batBalls, dismissals, bowlBalls, xiMatches] = await Promise.all([
+    prisma.ball.findMany({
+      where: { batterId: player.id },
+      select: { runs: true, extraType: true, over: { select: { inningId: true } } },
+    }),
+    prisma.ball.count({ where: { dismissedPlayerId: player.id } }),
+    prisma.ball.findMany({
+      where: { over: { bowlerId: player.id } },
+      select: { runs: true, extras: true, extraType: true, isWicket: true, wicketType: true, over: { select: { inningId: true } } },
+    }),
+    prisma.matchPlayer.count({ where: { playerId: player.id } }),
+  ]);
+
+  const computed = {};
+  if (batBalls.length) {
+    const runs = batBalls.reduce((t, b) => t + b.runs, 0);
+    const faced = batBalls.filter((b) => b.extraType !== 'wide').length;
+    // Per-innings totals → high score, 50s, 100s.
+    const perInning = {};
+    for (const b of batBalls) perInning[b.over.inningId] = (perInning[b.over.inningId] || 0) + b.runs;
+    const innScores = Object.values(perInning);
+    computed.runs          = runs;
+    computed.ballsFaced    = faced;
+    computed.strikeRate    = faced ? +(runs / faced * 100).toFixed(1) : 0;
+    computed.average       = dismissals ? +(runs / dismissals).toFixed(1) : runs;
+    computed.highestScore  = Math.max(0, ...innScores);
+    computed.centuries     = innScores.filter((r) => r >= 100).length;
+    computed.halfCenturies = innScores.filter((r) => r >= 50 && r < 100).length;
+    computed.fours         = batBalls.filter((b) => b.runs === 4).length;
+    computed.sixes         = batBalls.filter((b) => b.runs === 6).length;
+    computed.notOuts       = Math.max(0, innScores.length - dismissals);
+  }
+  if (bowlBalls.length) {
+    const legal = bowlBalls.filter((b) => b.extraType !== 'wide' && b.extraType !== 'noBall').length;
+    const conceded = bowlBalls.reduce((t, b) => t + b.runs + b.extras, 0);
+    const wickets = bowlBalls.filter((b) => b.isWicket && b.wicketType !== 'runOut').length;
+    // Per-innings figures → best bowling ("3/12") + five-wicket hauls.
+    const fig = {};
+    for (const b of bowlBalls) {
+      const k = b.over.inningId;
+      fig[k] = fig[k] || { w: 0, r: 0 };
+      fig[k].r += b.runs + b.extras;
+      if (b.isWicket && b.wicketType !== 'runOut') fig[k].w += 1;
+    }
+    const best = Object.values(fig).sort((a, b) => b.w - a.w || a.r - b.r)[0];
+    computed.wickets        = wickets;
+    computed.ballsBowled    = legal;
+    computed.oversBowled    = `${Math.floor(legal / 6)}.${legal % 6}`;
+    computed.runsConceded   = conceded;
+    computed.economy        = legal ? +(conceded / (legal / 6)).toFixed(2) : 0;
+    computed.bowlingAverage = wickets ? +(conceded / wickets).toFixed(1) : null;
+    computed.bestBowling    = best ? `${best.w}/${best.r}` : null;
+    computed.fiveWickets    = Object.values(fig).filter((f) => f.w >= 5).length;
+  }
+  if (xiMatches) computed.matches = xiMatches;
+
   const stats = {
     ...base,
     ...s,                                   // pass through any sport-specific fields (goals, assists, …)
     matches: s.matches ?? seasonMatches,
     average: s.average ?? s.battingAverage ?? 0,
+    ...computed,                            // real ball-derived numbers win
     seasonMatches,
   };
   res.json({ stats, sport: player.sport, role: player.role, team: player.team?.name || null, linked: true });

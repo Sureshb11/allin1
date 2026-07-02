@@ -193,10 +193,18 @@ export default function TossLineupScreen({ route, navigation }) {
         : (tossWinner === team1 ? team2Id : team1Id);
       const bowlingTeamId = battingTeamId === team1Id ? team2Id : team1Id;
 
-      await legendsApi.updateMatch(matchId, {
-        status: 'live',
+      // One transactional call: toss + inning-1 team fix + persist both XIs
+      // (the old updateMatch was silently dropping the toss fields, and the
+      // playing XI never reached the MatchPlayer table).
+      await legendsApi.submitToss(matchId, {
         tossWinnerId: tossWinner === team1 ? team1Id : team2Id,
         tossDecision: decision.toLowerCase(),
+        battingTeamId,
+        bowlingTeamId,
+        squads: [
+          { teamId: team1Id, playerIds: team1XI.map((p) => p.id) },
+          { teamId: team2Id, playerIds: team2XI.map((p) => p.id) },
+        ],
       });
 
       const battingXI = battingTeamId === team1Id ? team1XI : team2XI;

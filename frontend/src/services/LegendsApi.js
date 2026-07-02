@@ -506,6 +506,27 @@ class LegendsApi {
     }
   }
 
+  // One transactional call from Toss & Lineup: records the toss, fixes
+  // inning 1's batting/bowling teams, and persists both playing XIs.
+  async submitToss(matchId, data) {
+    try {
+      const json = await this.request(`/matches/${matchId}/toss`, { method: 'POST', body: data });
+      return { success: true, data: json.match };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Update a tournament (e.g. Start: upcoming → ongoing)
+  async updateTournament(id, data) {
+    try {
+      const json = await this.request(`/tournaments/${id}`, { method: 'PUT', body: data });
+      return { success: true, data: json.tournament };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Get innings for a match
   async getMatchInnings(matchId) {
     try {
