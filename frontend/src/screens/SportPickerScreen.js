@@ -17,7 +17,6 @@ import {
 import Svg, { Path, Line, Circle, Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import SportIcon from '../components/SportIcon';
-import CricketPitchIcon from '../components/CricketPitchIcon';
 import { haptic } from '../utils/haptics';
 import legendsApi from '../services/LegendsApi';
 import { getSport } from '../sports';
@@ -190,12 +189,7 @@ function Disc({ cell, accent, scale, opacity, focused, pulseAnim, onPress }) {co
       { borderColor: accent + '66', backgroundColor: accent + '1C' },
       { transform: [{ scale: pop }] }]
       }>
-        {cell.id === 'cricket' ?
-        <CricketPitchIcon
-          size={iconSize + 10}
-          color={focused ? A.navy0 : accent}
-          active={focused} /> :
-        <SportIcon id={cell.id} size={iconSize} color={focused ? A.navy0 : accent} />}
+        <SportIcon id={cell.id} size={iconSize} color={focused ? A.navy0 : accent} />
       </Animated.View>
     </TouchableOpacity>);
 
