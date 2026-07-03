@@ -96,12 +96,15 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
     computed.notOuts       = Math.max(0, innScores.length - dismissals);
   }
   if (bowlBalls.length) {
-    const legal = bowlBalls.filter((b) => b.extraType !== 'wide' && b.extraType !== 'noBall').length;
-    const conceded = bowlBalls.reduce((t, b) => t + b.runs + b.extras, 0);
-    const wickets = bowlBalls.filter((b) => b.isWicket && b.wicketType !== 'runOut').length;
+    // Penalty runs are a team award, not the bowler's fault — exclude them from
+    // legal-ball count and runs conceded.
+    const bowled = bowlBalls.filter((b) => b.extraType !== 'penalty');
+    const legal = bowled.filter((b) => b.extraType !== 'wide' && b.extraType !== 'noBall').length;
+    const conceded = bowled.reduce((t, b) => t + b.runs + b.extras, 0);
+    const wickets = bowled.filter((b) => b.isWicket && b.wicketType !== 'runOut').length;
     // Per-innings figures → best bowling ("3/12") + five-wicket hauls.
     const fig = {};
-    for (const b of bowlBalls) {
+    for (const b of bowled) {
       const k = b.over.inningId;
       fig[k] = fig[k] || { w: 0, r: 0 };
       fig[k].r += b.runs + b.extras;

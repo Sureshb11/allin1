@@ -81,11 +81,13 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const need = isInnings2 ? Math.max(0, target - currentScore.runs) : 0;
   const ballsLeft = isInnings2 ? Math.max(1, totalOvers * 6 - (currentScore.overs * 6 + currentScore.balls)) : 1;
 
-  const persistBall = async (runs, extras, extraType, isWicket, wicketType) => {
+  // countsAsBall=false for penalty runs — they're a team award, not a delivery,
+  // so the over/ball count must not advance.
+  const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true) => {
     if (!currentInningId || !striker || !nonStriker || !currentBowler) return;
     const overNumber = currentScore.overs + 1;
-    const newBallCount = ballCount + 1;
-    setBallCount(newBallCount);
+    const newBallCount = countsAsBall ? ballCount + 1 : ballCount;
+    if (countsAsBall) setBallCount(newBallCount);
     await legendsApi.updateScore(matchData.id, {
       inningId: currentInningId, overNumber, ballNumber: newBallCount,
       bowlerId: currentBowler.id, batterId: striker.id, nonStrikerId: nonStriker.id,
@@ -191,18 +193,25 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       newOver.push('W');
       await persistBall(0, 0, null, true, 'bowled');
       if (newScore.wickets < 10) setShowPlayerModal(true);
+    } else if (value === 'penalty') {
+      // Penalty runs (5) — a team award, not a delivery: no ball faced, no
+      // strike change, doesn't advance the over.
+      newScore.runs += 5;
+      newOver.push('P5');
+      await persistBall(0, 5, 'penalty', false, null, false);
     }
 
     if (newScore.balls >= 6) {
       // Build over summary before reset
       const overRuns = newOver.reduce((acc, b) => {
         if (b === 'WD' || b === 'NB' || b === 'B' || b === 'LB') return acc + 1;
+        if (b === 'P5') return acc + 5;
         if (b === '·') return acc;
         if (!isNaN(parseInt(b))) return acc + parseInt(b);
         return acc;
       }, 0);
       const overWickets = newOver.filter((b) => b === 'W').length;
-      const overExtras = newOver.filter((b) => ['WD', 'NB', 'B', 'LB'].includes(b)).length;
+      const overExtras = newOver.filter((b) => ['WD', 'NB', 'B', 'LB', 'P5'].includes(b)).length;
       setOverSummary({
         overNum: newScore.overs + 1,
         runs: overRuns,
@@ -523,15 +532,15 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               <Icon name="undo" size={14} color={DS.textMuted} />
               <Text style={styles.extraBtnText}>UNDO</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} onPress={() => Alert.alert('Redo', 'Redo not supported')}>
-              <Icon name="redo" size={14} color={DS.textMuted} />
-              <Text style={styles.extraBtnText}>REDO</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.extraBtn} onPress={() => handleScore('bye')}>
               <Text style={styles.extraBtnText}>BYE</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.extraBtn} onPress={() => handleScore('legbye')}>
               <Text style={styles.extraBtnText}>LEG{'\n'}BYE</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.extraBtn} onPress={() => handleScore('penalty')}>
+              <Icon name="alert-octagon-outline" size={14} color={DS.textMuted} />
+              <Text style={styles.extraBtnText}>PEN 5</Text>
             </TouchableOpacity>
           </View>
         }
