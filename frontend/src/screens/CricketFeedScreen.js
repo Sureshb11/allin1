@@ -110,6 +110,39 @@ function CircleMatchCard({ match, onPress }) {const DS = useTheme().colors;const
 
 }
 
+// Highlight card — renders an ActivityFeed item (milestone or match result)
+// from its JSONB payload, with the idempotent like toggle.
+function HighlightCard({ item, onLike, onOpen }) {const DS = useTheme().colors;const h = useThemedStyles(makeH);
+  const pl = item.payload || {};
+  const isMilestone = item.type === 'milestone';
+  return (
+    <TouchableOpacity activeOpacity={0.85} style={h.card} onPress={onOpen}>
+      <View style={[h.badge, { backgroundColor: (isMilestone ? DS.lime : DS.blue) + '22' }]}>
+        <Icon name={isMilestone ? 'trophy-variant' : 'scoreboard-outline'} size={16} color={isMilestone ? DS.lime : DS.blue} />
+        <Text style={[h.badgeTxt, { color: isMilestone ? DS.lime : DS.blue }]}>
+          {isMilestone ? 'MILESTONE' : 'RESULT'}
+        </Text>
+      </View>
+      {isMilestone ? (
+        <>
+          <Text style={h.title} numberOfLines={2}>{pl.title}</Text>
+          <Text style={h.sub} numberOfLines={1}>{pl.player?.name} · {pl.stat}</Text>
+        </>
+      ) : (
+        <>
+          <Text style={h.title} numberOfLines={1}>{(pl.teams || []).join('  v  ')}</Text>
+          <Text style={h.score} numberOfLines={1}>{pl.score1} — {pl.score2}</Text>
+          <Text style={h.sub} numberOfLines={1}>{pl.result}</Text>
+        </>
+      )}
+      <TouchableOpacity style={h.likeRow} hitSlop={8} onPress={() => onLike(item.id)} activeOpacity={0.7}>
+        <Icon name={item.liked ? 'heart' : 'heart-outline'} size={16} color={item.liked ? DS.live : DS.textMuted} />
+        <Text style={h.likeTxt}>{item.likes || 0}</Text>
+      </TouchableOpacity>
+    </TouchableOpacity>);
+
+}
+
 function PostMedia({ kind, media }) {const DS = useTheme().colors;const c = useThemedStyles(makeC);const m = useThemedStyles(makeM);
   if (!media) return null;   // real text posts carry no rich media
   if (kind === 'milestone') {
@@ -312,6 +345,7 @@ function CommentsSheet({ post, onClose, onAdd }) {const DS = useTheme().colors;c
 export default function CricketFeedScreen({ navigation }) {const { colors: DS, isDark } = useTheme();const s = useThemedStyles(makeS);
   const [posts, setPosts] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [activity, setActivity] = useState([]);   // ActivityFeed highlight cards
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activePost, setActivePost] = useState(null);
@@ -353,8 +387,10 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   const fetchFeed = useCallback(() => Promise.all([
     legendsApi.getCircleMatches({ sport: 'cricket' }),
     legendsApi.getPosts({ sport: 'cricket' }),
-  ]).then(([mr, pr]) => {
+    legendsApi.getFeed({ sport: 'cricket', limit: 12 }),
+  ]).then(([mr, pr, fr]) => {
     setMatches((mr?.data || []).map(mapMatch));
+    setActivity(fr?.data || []);
     // Merge, not replace: refresh like/comment counts + surface new posts, but
     // keep already-loaded comment threads and the optimistic like highlight —
     // so a background poll makes likes/comments populate live without flicker.
@@ -393,6 +429,18 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     if (res.success) {
       const mapped = (res.data || []).map((c) => ({ id: c.id, user: c.authorName || 'Player', text: c.text, color: colorFor(c.authorName) }));
       setPosts((prev) => prev.map((po) => (po.id === postId ? { ...po, comments: mapped, commentCount: mapped.length } : po)));
+    }
+  }, []);
+
+  // Idempotent like on a highlight card — optimistic, then reconcile with the
+  // server's authoritative { liked, likes }.
+  const toggleHighlightLike = useCallback(async (id) => {
+    haptic.tick();
+    setActivity((prev) => prev.map((c) =>
+      c.id === id ? { ...c, liked: !c.liked, likes: Math.max(0, (c.likes || 0) + (c.liked ? -1 : 1)) } : c));
+    const res = await legendsApi.toggleFeedLike(id);
+    if (res.success) {
+      setActivity((prev) => prev.map((c) => (c.id === id ? { ...c, liked: res.data.liked, likes: res.data.likes } : c)));
     }
   }, []);
 
@@ -462,6 +510,25 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
         ? matches.map((mt) => <CircleMatchCard key={mt.id} match={mt} onPress={() => navigation.navigate('Scorecard', { matchId: mt.id })} />)
         : <View style={s.railEmpty}><Text style={s.railEmptyTxt}>No recent matches yet</Text></View>}
       </ScrollView>
+
+      {/* Highlights rail — milestone + match-result cards from the activity feed */}
+      {activity.length > 0 && (
+        <>
+          <View style={[s.sectionHead, { marginTop: 18 }]}>
+            <Text style={s.sectionTitle}>Highlights</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.railContent}>
+            {activity.map((it) => (
+              <HighlightCard
+                key={it.id}
+                item={it}
+                onLike={toggleHighlightLike}
+                onOpen={() => it.payload?.matchId && navigation.navigate('Scorecard', { matchId: it.payload.matchId })}
+              />
+            ))}
+          </ScrollView>
+        </>
+      )}
 
       {/* Feed title */}
       <View style={[s.sectionHead, { marginTop: 18 }]}>
@@ -601,6 +668,17 @@ const makeS = (DS) => StyleSheet.create({
   composePostOff: { opacity: 0.4 },
   composeInput: { color: DS.textPrimary, fontSize: 16, lineHeight: 22, minHeight: 120, maxHeight: 240, textAlignVertical: 'top', backgroundColor: DS.surfaceLow, borderRadius: 14, borderWidth: 1, borderColor: DS.line, padding: 14 },
   composeCount: { color: DS.textMuted, fontSize: 12, alignSelf: 'flex-end', marginTop: 8 }
+});
+
+const makeH = (DS) => StyleSheet.create({
+  card: { width: 190, backgroundColor: DS.surfaceLow, borderRadius: 18, padding: 14, gap: 6 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  badgeTxt: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  title: { color: DS.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 2 },
+  score: { color: DS.textPrimary, fontSize: 18, fontWeight: '900', letterSpacing: 0.4 },
+  sub: { color: DS.textMuted, fontSize: 12, fontWeight: '600' },
+  likeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
+  likeTxt: { color: DS.textMuted, fontSize: 12, fontWeight: '700' },
 });
 
 const makeC = (DS) => StyleSheet.create({
