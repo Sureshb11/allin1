@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
 import { validateSquad, applySubstitution } from '../lib/roster.js';
+import { checkMatchMilestones } from '../lib/milestones.js';
 
 const router = Router();
 
@@ -302,6 +303,10 @@ router.put('/:id', async (req, res) => {
         ...(currentInnings && { currentInnings }),
       },
     });
+    // On completion, detect career milestones → notifications. Run inline
+    // (awaited) because serverless suspends background work after the response;
+    // it's once per match and guarded so it never fails the completion.
+    if (status === 'completed') await checkMatchMilestones(match.id);
     res.json({ match });
   } catch (e) {
     res.status(400).json({ error: e.message });

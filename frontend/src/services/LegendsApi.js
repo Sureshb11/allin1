@@ -157,6 +157,16 @@ class LegendsApi {
     }
   }
 
+  // Claim a guest player → merge its match history into your career.
+  async claimPlayer(guestPlayerId) {
+    try {
+      const json = await this.request('/users/me/claim-player', { method: 'POST', body: { guestPlayerId } });
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Polymorphic sport rules (SportConfiguration) — all sports in one call.
   async getSportConfigs() {
     try {

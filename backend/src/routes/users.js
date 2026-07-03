@@ -203,4 +203,54 @@ router.put('/me', authMiddleware, async (req, res) => {
   }
 });
 
+// ── Module 6: claim a guest player → merge its history into the user's ───────
+// A scorer creates guest Player rows (userId = null). When the real person
+// registers, this transactionally links or MERGES that guest into the user's
+// canonical player for the sport, re-pointing every historical record (balls
+// bowled/faced, dismissals, generic events, squad rows) so guest matches count
+// toward their career. Idempotent + guarded (can't claim someone else's).
+router.post('/me/claim-player', authMiddleware, async (req, res) => {
+  try {
+    const { guestPlayerId } = req.body;
+    if (!guestPlayerId) return res.status(400).json({ error: 'guestPlayerId required' });
+    const me = req.user.sub;
+
+    const guest = await prisma.player.findUnique({ where: { id: guestPlayerId } });
+    if (!guest) return res.status(404).json({ error: 'Player not found' });
+    if (guest.userId === me) return res.json({ success: true, merged: false, playerId: guest.id }); // idempotent
+    if (guest.userId) return res.status(409).json({ error: 'That player is already claimed.' });
+
+    const canonical = await prisma.player.findFirst({ where: { userId: me, sport: guest.sport } });
+
+    const result = await prisma.$transaction(async (tx) => {
+      // No existing player for this user+sport → just link the guest row.
+      if (!canonical || canonical.id === guest.id) {
+        await tx.player.update({ where: { id: guest.id }, data: { userId: me } });
+        return { merged: false, playerId: guest.id };
+      }
+      // Otherwise re-point ALL historical references guest → canonical, then drop guest.
+      const to = canonical.id, from = guest.id;
+      await tx.over.updateMany({ where: { bowlerId: from }, data: { bowlerId: to } });
+      await tx.ball.updateMany({ where: { batterId: from }, data: { batterId: to } });
+      await tx.ball.updateMany({ where: { nonStrikerId: from }, data: { nonStrikerId: to } });
+      await tx.ball.updateMany({ where: { dismissedPlayerId: from }, data: { dismissedPlayerId: to } });
+      await tx.sportEvent.updateMany({ where: { playerId: from }, data: { playerId: to } });
+      // MatchPlayer has @@unique(matchId, playerId): skip matches where the
+      // canonical player is already in the squad to avoid a collision.
+      const dupes = await tx.matchPlayer.findMany({
+        where: { playerId: to }, select: { matchId: true },
+      });
+      const dupeMatchIds = dupes.map((d) => d.matchId);
+      await tx.matchPlayer.deleteMany({ where: { playerId: from, matchId: { in: dupeMatchIds } } });
+      await tx.matchPlayer.updateMany({ where: { playerId: from }, data: { playerId: to } });
+      await tx.player.delete({ where: { id: from } });
+      return { merged: true, playerId: to };
+    });
+
+    res.json({ success: true, ...result });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 export default router;
