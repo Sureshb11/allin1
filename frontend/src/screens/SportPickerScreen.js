@@ -204,6 +204,16 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
   // focused-disc glow pulse (loops) + per-disc entrance scale-in
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const enterAnims = useRef(POSITIONS.map(() => new Animated.Value(0))).current;
+  // centre stage-light breathing (slow 0.72↔1 opacity loop)
+  const glowAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const breath = Animated.loop(Animated.sequence([
+      Animated.timing(glowAnim, { toValue: 0.72, duration: 2600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(glowAnim, { toValue: 1, duration: 2600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    breath.start();
+    return () => breath.stop();
+  }, [glowAnim]);
 
   const stopInertia = () => {
     if (intRef.current) {cancelAnimationFrame(intRef.current);intRef.current = null;}
@@ -409,13 +419,13 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
     <View style={s.root}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={A.navy0} />
 
-      {/* Electric-blue floodlight wash behind the header ("Stadium Under Lights").
-          Dimmer in light mode so the title never loses contrast in sunlight. */}
+      {/* Lime room-light wash behind the header — the Arena is the app's
+          lime-branded space. Dimmer in light mode to protect title contrast. */}
       <Svg pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0 }} width="100%" height={320}>
         <Defs>
           <RadialGradient id="floodlight" cx="50%" cy="0%" r="75%">
-            <Stop offset="0" stopColor={A.blueDeep} stopOpacity={isDark ? 0.16 : 0.07} />
-            <Stop offset="1" stopColor={A.blueDeep} stopOpacity={0} />
+            <Stop offset="0" stopColor={A.lime} stopOpacity={isDark ? 0.1 : 0.06} />
+            <Stop offset="1" stopColor={A.lime} stopOpacity={0} />
           </RadialGradient>
         </Defs>
         <Rect x="0" y="0" width="100%" height="320" fill="url(#floodlight)" />
@@ -472,15 +482,21 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 
       {/* ── HONEYCOMB ── */}
       <View style={s.grid} onLayout={onGridLayout} {...panResponder.panHandlers}>
-        {/* depth layer: soft radial glow at centre + faint constellation mesh */}
+        {/* Lime stage light at the centre — breathes slowly, like a stadium
+            lamp warming, so the arena feels alive even before you pan. */}
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: glowAnim }]}>
+          <Svg width={dim.w} height={dim.h}>
+            <Defs>
+              <RadialGradient id="arenaGlow" cx="50%" cy="50%" r="50%">
+                <Stop offset="0" stopColor={A.lime} stopOpacity={0.16} />
+                <Stop offset="1" stopColor={A.lime} stopOpacity={0} />
+              </RadialGradient>
+            </Defs>
+            <Circle cx={cx} cy={cy} r={185} fill="url(#arenaGlow)" />
+          </Svg>
+        </Animated.View>
+        {/* faint constellation mesh between neighbouring discs */}
         <Svg pointerEvents="none" width={dim.w} height={dim.h} style={StyleSheet.absoluteFill}>
-          <Defs>
-            <RadialGradient id="arenaGlow" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor={A.ink} stopOpacity={0.05} />
-              <Stop offset="1" stopColor={A.ink} stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Circle cx={cx} cy={cy} r={175} fill="url(#arenaGlow)" />
           {EDGES.map(([i, j], k) => {
             const a = discs[i],b = discs[j];
             const o = Math.min(a.opacity, b.opacity);
@@ -489,7 +505,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
               <Line
                 key={k}
                 x1={a.left} y1={a.top} x2={b.left} y2={b.top}
-                stroke="#8ea3c8" strokeWidth={1} strokeOpacity={(o - 0.3) * 0.1} />);
+                stroke={A.lime} strokeWidth={1} strokeOpacity={(o - 0.3) * 0.09} />);
 
 
           })}
@@ -541,10 +557,11 @@ const makeD = (A) => StyleSheet.create({
     overflow: 'hidden',   // clip the square animation frame to the disc circle
   },
   // Lit, not painted: same dark material, a fine lime ring + soft glow.
+  // Lit by the lime stage light: lime-tinted glass, fine lime ring, lime glow.
   discFocused: {
-    borderWidth: 1.5, borderColor: A.lime, backgroundColor: A.ink + '14',
-    shadowColor: A.lime, shadowOpacity: 0.35, shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 }, elevation: 8,
+    borderWidth: 1.5, borderColor: A.lime, backgroundColor: A.lime + '1A',
+    shadowColor: A.lime, shadowOpacity: 0.45, shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 }, elevation: 9,
   },
   pulse: {
     position: 'absolute', left: 0, top: 0, width: CELL, height: CELL,
@@ -570,7 +587,9 @@ const makeS = (A) => StyleSheet.create({
   // Editorial type: a quiet tracked kicker over a big clean white headline —
   // scale contrast does the work, not colour or italics.
   title1: { fontSize: 11, fontWeight: '700', color: A.textMuted, letterSpacing: 4.5, marginBottom: 6 },
-  title2: { fontSize: 42, fontWeight: '800', color: A.ink, letterSpacing: -0.5, lineHeight: 46 },
+  // Lime Signature (approved mock, option 4): the Arena is the app's
+  // lime-branded room — italic lime headline over a muted tracked kicker.
+  title2: { fontSize: 42, fontWeight: '900', color: A.lime, letterSpacing: 1, fontStyle: 'italic', lineHeight: 46 },
 
   grid: { flex: 1, overflow: 'hidden' },
 
