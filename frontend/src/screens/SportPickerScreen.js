@@ -393,7 +393,6 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 
   const cx = dim.w / 2,cy = dim.h / 2;
   const focus = useMemo(() => SPORTS.find((s) => s.id === focusId) || SPORTS[0], [focusId]);
-  const focusIdx = SPORTS.findIndex((s) => s.id === focusId);
 
   // per-frame fisheye for each disc, computed from current pan offset
   const discs = POSITIONS.map((c) => {
@@ -405,11 +404,6 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
     const opacity = clamp((s - MIN_SCALE) / (MAX_SCALE - MIN_SCALE) * 1.1 + 0.32, 0.32, 1);
     return { cell: c, left: cx + c.x + panOff.x, top: cy + c.y + panOff.y, scale: s, opacity };
   });
-
-  const readoutStyle = {
-    opacity: readoutAnim,
-    transform: [{ translateY: readoutAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }]
-  };
 
   return (
     <View style={s.root}>
@@ -470,22 +464,10 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         </TouchableOpacity>
       </View>
 
-      {/* ── TITLE — the arena line follows the focused sport ── */}
+      {/* ── TITLE — static; the lit disc alone says what's selected ── */}
       <View style={s.titleBlock}>
         <Text style={s.title1}>CHOOSE YOUR</Text>
-        <Animated.View style={[readoutStyle, { alignSelf: 'stretch', alignItems: 'center' }]}>
-          <Text
-            style={s.title2}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.6}>
-            {focus.name.toUpperCase()}
-          </Text>
-          <View style={s.titleMetaRow}>
-            <Text style={s.titleTag}>{focus.tag.toUpperCase()}</Text>
-            <Text style={s.titleIdx}>{String(focusIdx + 1).padStart(2, '0')} / {SPORTS.length}</Text>
-          </View>
-        </Animated.View>
+        <Text style={s.title2}>ARENA</Text>
       </View>
 
       {/* ── HONEYCOMB ── */}
@@ -589,9 +571,6 @@ const makeS = (A) => StyleSheet.create({
   // scale contrast does the work, not colour or italics.
   title1: { fontSize: 11, fontWeight: '700', color: A.textMuted, letterSpacing: 4.5, marginBottom: 6 },
   title2: { fontSize: 42, fontWeight: '800', color: A.ink, letterSpacing: -0.5, lineHeight: 46 },
-  titleMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
-  titleTag: { fontSize: 11, color: A.lime, letterSpacing: 2.4, fontWeight: '700' },
-  titleIdx: { fontSize: 11, color: A.textMuted, letterSpacing: 1, fontWeight: '600' },
 
   grid: { flex: 1, overflow: 'hidden' },
 
