@@ -231,6 +231,7 @@ model Over {
 
 model Ball {
   id              String   @id @default(cuid())
+  clientEventId   String?  @unique  // offline idempotency key — retries never double-count
   over            Over     @relation(fields: [overId], references: [id])
   overId          String
   ballNumber      Int      // 1-indexed (can go >6 if wides/no-balls)

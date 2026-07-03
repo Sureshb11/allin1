@@ -153,11 +153,19 @@ const ScoreUpdateSchema = z.object({
   isWicket: z.boolean().default(false),
   wicketType: z.string().optional().nullable(),
   dismissedPlayerId: z.string().optional().nullable(),
+  clientEventId: z.string().optional().nullable(),   // offline idempotency key
 });
 
 router.put('/:id/score', async (req, res) => {
   try {
     const data = ScoreUpdateSchema.parse(req.body);
+
+    // Idempotency: if this exact delivery was already recorded (e.g. a retry
+    // after a flaky offline flush), return it without re-incrementing tallies.
+    if (data.clientEventId) {
+      const dupe = await prisma.ball.findUnique({ where: { clientEventId: data.clientEventId } });
+      if (dupe) return res.json({ success: true, ball: dupe, idempotent: true });
+    }
 
     let over = await prisma.over.findUnique({
       where: { inningId_overNumber: { inningId: data.inningId, overNumber: data.overNumber } }
@@ -172,6 +180,7 @@ router.put('/:id/score', async (req, res) => {
     const ball = await prisma.ball.create({
       data: {
         overId: over.id,
+        clientEventId: data.clientEventId || undefined,
         ballNumber: data.ballNumber,
         batterId: data.batterId,
         nonStrikerId: data.nonStrikerId,
@@ -252,6 +261,66 @@ router.delete('/:id/score/last', async (req, res) => {
     res.json({ success: true, undone: result.ball });
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+// ── Module 7: resume-state projection (crash recovery + device handoff) ──────
+// Rebuilds the exact live scoring state from the ball log so a new device (dead
+// battery) or a reopened app can continue a cricket match seamlessly — striker,
+// non-striker, current bowler, over.ball, score, target — no local state needed.
+router.get('/:id/live-state', async (req, res) => {
+  try {
+    const match = await prisma.match.findUnique({ where: { id: req.params.id } });
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+
+    if (match.sport !== 'cricket') {
+      // Non-cricket: the derived score + events are enough to resume.
+      const events = await prisma.sportEvent.findMany({ where: { matchId: match.id }, orderBy: { createdAt: 'asc' } });
+      return res.json({ sport: match.sport, status: match.status, score1: match.score1, score2: match.score2, eventCount: events.length });
+    }
+
+    const innings = await prisma.inning.findMany({
+      where: { matchId: match.id }, orderBy: { inningNumber: 'asc' },
+      include: {
+        battingTeam: true, bowlingTeam: true,
+        oversData: {
+          orderBy: { overNumber: 'desc' }, take: 1,
+          include: { bowler: true, balls: { orderBy: { ballNumber: 'desc' }, include: { batter: true, nonStriker: true } } },
+        },
+      },
+    });
+    const inning = innings[innings.length - 1];
+    if (!inning) return res.json({ sport: 'cricket', status: match.status, resumable: false });
+
+    const curOver = inning.oversData[0];               // latest over of the current inning
+    const lastBall = curOver?.balls[0];                // most recent delivery
+    const legalThisOver = (curOver?.balls || []).filter((b) => !['wide', 'no-ball'].includes(b.extraType)).length;
+    const completedOvers = legalThisOver >= 6 ? curOver.overNumber : (curOver ? curOver.overNumber - 1 : 0);
+    const ballInOver = legalThisOver >= 6 ? 0 : legalThisOver;
+
+    res.json({
+      sport: 'cricket',
+      status: match.status,
+      resumable: true,
+      inningId: inning.id,
+      inningNumber: inning.inningNumber,
+      battingTeam: inning.battingTeam?.name,
+      bowlingTeam: inning.bowlingTeam?.name,
+      score: `${inning.totalRuns}/${inning.totalWickets}`,
+      totalRuns: inning.totalRuns,
+      wickets: inning.totalWickets,
+      overs: `${completedOvers}.${ballInOver}`,
+      target: inning.targetScore || null,
+      // The pair currently at the crease + the bowler mid-over, so the new
+      // device rehydrates the scoring UI exactly where the last one left off.
+      striker:    lastBall ? { id: lastBall.batter.id, name: lastBall.batter.name } : null,
+      nonStriker: lastBall ? { id: lastBall.nonStriker.id, name: lastBall.nonStriker.name } : null,
+      bowler:     curOver?.bowler ? { id: curOver.bowler.id, name: curOver.bowler.name } : null,
+      needsNewBatter: !!lastBall?.isWicket,             // last ball was a wicket → pick incoming batter
+      lastBall: lastBall ? { runs: lastBall.runs, extras: lastBall.extras, extraType: lastBall.extraType, isWicket: lastBall.isWicket } : null,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

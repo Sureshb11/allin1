@@ -93,7 +93,10 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       bowlerId: currentBowler.id, batterId: striker.id, nonStrikerId: nonStriker.id,
       runs, extras, extraType: extraType || null,
       isWicket, wicketType: wicketType || null,
-      dismissedPlayerId: isWicket ? striker.id : null
+      dismissedPlayerId: isWicket ? striker.id : null,
+      // Idempotency key — if the auto-retry re-sends a ball that actually
+      // landed, the server dedupes instead of double-counting.
+      clientEventId: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     });
   };
 

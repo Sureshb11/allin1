@@ -382,6 +382,17 @@ class LegendsApi {
     }
   }
 
+  // Resume-state projection — rebuilds live scoring state (striker/bowler/over)
+  // from the server so a new device or reopened app can continue a match.
+  async getLiveState(matchId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/live-state`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Get deep scorecard for a Match
   async getScorecard(matchId) {
     try {
