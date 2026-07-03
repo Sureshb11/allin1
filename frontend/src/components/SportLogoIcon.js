@@ -13,7 +13,7 @@
 //   <SportLogoIcon id="tennis" size={54} color={accent} active={focused} />
 
 import { useEffect, useRef, useState } from 'react';
-import { View, Image, StyleSheet } from 'react-native';
+import { View, Image } from 'react-native';
 import FRAMES from './arenaAnimFrames';
 
 const FRAME_MS = 80;   // ~12fps playback
@@ -59,13 +59,17 @@ export default function SportLogoIcon({ id, size = 54, color = '#c4f82a', active
     return <Image source={frames[last]} style={dim} tintColor={color} resizeMode="contain" fadeDuration={0} />;
   }
 
+  // Stack every frame with the SAME explicit sizing as the static <Image>
+  // above (absolutely positioned so they overlap), and reveal one via opacity.
+  // Using absoluteFill here instead mis-sized the contained image — the active
+  // disc rendered the art tiny (~30%) while the static disc was correct.
   return (
     <View style={dim}>
       {frames.map((src, i) => (
         <Image
           key={i}
           source={src}
-          style={[StyleSheet.absoluteFill, { opacity: i === frame ? 1 : 0 }]}
+          style={[dim, { position: 'absolute', opacity: i === frame ? 1 : 0 }]}
           tintColor={color}
           resizeMode="contain"
           fadeDuration={0}
