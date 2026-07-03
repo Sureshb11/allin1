@@ -2,8 +2,39 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
+import { validateSquad, applySubstitution } from '../lib/roster.js';
 
 const router = Router();
+
+// ── Module 2: substitution, enforced per the sport's roster rules ────────────
+// fixed → rejected (cricket), limited → capped (football 3–5), rolling →
+// unlimited (basketball). Records to MatchSubstitution when allowed.
+const SubSchema = z.object({
+  sport:       z.string().default('cricket'),
+  teamId:      z.string(),
+  playerOutId: z.string(),
+  playerInId:  z.string(),
+  period:      z.string().optional(),
+});
+router.post('/:id/substitution', authMiddleware, async (req, res) => {
+  try {
+    const d = SubSchema.parse(req.body);
+    const result = await applySubstitution({ matchId: req.params.id, ...d });
+    if (!result.ok) return res.status(409).json(result);
+    res.status(201).json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.get('/:id/substitutions', async (req, res) => {
+  try {
+    const subs = await prisma.matchSubstitution.findMany({
+      where: { matchId: req.params.id }, orderBy: { createdAt: 'asc' },
+    });
+    res.json({ substitutions: subs });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 router.get('/', async (req, res) => {
   // Optional filters: ?sport=cricket  ?status=live

@@ -549,6 +549,7 @@ model TournamentTeam {
   lost         Int        @default(0)
   tied         Int        @default(0)
   nrr          Float      @default(0)
+  stats        Json?      // {nrr} | {goalDifference, goalsFor} | {pointDifference}
   group        String     @default("A")
 
   @@unique([tournamentId, teamId])
@@ -568,6 +569,13 @@ model TournamentMatch {
   round        String?    // Group | QF | SF | Final
   result       String?
   status       String     @default("scheduled")
+  phaseId      String?
+  phase        TournamentPhase? @relation(fields: [phaseId], references: [id])
+  seriesId     String?    // best-of-N legs share this
+  leg          Int?
+  winnerTeamId String?
+  resultKind   String?    // win | draw | tie | noResult
+  resultStats  Json?      // { [teamId]: {scored, conceded, oversFaced?, oversBowled?} }
 }
 
 // Match MVP / Player of the Match
@@ -695,4 +703,35 @@ model SportConfiguration {
   rules     Json                          // { periods, maxPeriods, actions, extras, scoreModel, individual, competitorLabel }
   version   Int      @default(1)
   updatedAt DateTime @updatedAt
+}
+
+// ── Module 2: Tournament phases, generic standings stats, substitutions ──────
+
+// A tournament is an ordered list of phases (League → Knockout → Series…),
+// each sport-agnostic. `config` holds phase params: {groups,advancePerGroup}
+// for league, {seeds} for knockout, {bestOf} for a series.
+model TournamentPhase {
+  id           String   @id @default(cuid())
+  tournamentId String
+  order        Int      @default(0)
+  type         String   // league | knockout | series
+  name         String
+  config       Json?
+  matches      TournamentMatch[]
+
+  @@index([tournamentId])
+}
+
+// MatchSubstitution — the audit log the roster enforcer counts against, so a
+// sport's sub limit (fixed / limited / rolling) is enforced per the config.
+model MatchSubstitution {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  matchId     String
+  teamId      String
+  playerOutId String
+  playerInId  String
+  period      String?
+
+  @@index([matchId, teamId])
 }

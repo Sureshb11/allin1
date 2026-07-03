@@ -257,8 +257,52 @@ const CONFIG = [
     } },
 ];
 
+// ── Module 2: per-sport standings + roster rules (merged into rules JSONB) ───
+// Points/tiebreakers for the standings engine, and squad/substitution limits
+// for the roster enforcer. Editable later via PUT /sports/:id/config.
+const GOAL_STANDINGS = { win: 3, draw: 1, loss: 0, tiebreakers: ['points', 'goalDifference', 'goalsFor', 'headToHead'] };
+const PT_STANDINGS   = { win: 2, draw: 1, loss: 0, tiebreakers: ['points', 'pointDifference', 'pointsFor', 'headToHead'] };
+const SET_STANDINGS  = { win: 2, loss: 0, tiebreakers: ['points', 'setDifference', 'wins', 'headToHead'] };
+const STANDINGS = {
+  cricket:    { win: 2, tie: 1, loss: 0, noResult: 1, tiebreakers: ['points', 'nrr', 'wins', 'headToHead'] },
+  football: GOAL_STANDINGS, hockey: GOAL_STANDINGS, handball: GOAL_STANDINGS,
+  basketball: PT_STANDINGS, kabaddi: PT_STANDINGS, khokho: PT_STANDINGS,
+  volleyball: SET_STANDINGS, badminton: SET_STANDINGS, tabletennis: SET_STANDINGS,
+  squash: SET_STANDINGS, pickleball: SET_STANDINGS, tennis: SET_STANDINGS,
+  boxing:    { win: 1, loss: 0, tiebreakers: ['points', 'wins', 'headToHead'] },
+  karate:    { win: 1, loss: 0, tiebreakers: ['points', 'pointDifference', 'wins', 'headToHead'] },
+  judo:      { win: 1, loss: 0, tiebreakers: ['points', 'wins', 'headToHead'] },
+  wrestling: { win: 1, loss: 0, tiebreakers: ['points', 'pointDifference', 'wins', 'headToHead'] },
+  skateboard:{ win: 1, loss: 0, tiebreakers: ['points', 'bestScore', 'headToHead'] },
+};
+const ROSTER = {
+  cricket:    { squadMax: 15, playingSize: 11, subs: { model: 'fixed',   max: 0 }, flags: ['captain', 'wk'] },
+  football:   { squadMax: 23, playingSize: 11, subs: { model: 'limited', max: 5, windows: 3 } },
+  hockey:     { squadMax: 18, playingSize: 11, subs: { model: 'rolling', max: null } },
+  handball:   { squadMax: 16, playingSize: 7,  subs: { model: 'rolling', max: null } },
+  basketball: { squadMax: 12, playingSize: 5,  subs: { model: 'rolling', max: null } },
+  volleyball: { squadMax: 14, playingSize: 6,  subs: { model: 'limited', max: 6 } },
+  kabaddi:    { squadMax: 12, playingSize: 7,  subs: { model: 'limited', max: 5 } },
+  khokho:     { squadMax: 12, playingSize: 9,  subs: { model: 'limited', max: 3 } },
+  // individual sports: one competitor, no subs
+  tennis:     { squadMax: 1, playingSize: 1, subs: { model: 'fixed', max: 0 } },
+  badminton:  { squadMax: 1, playingSize: 1, subs: { model: 'fixed', max: 0 } },
+  tabletennis:{ squadMax: 1, playingSize: 1, subs: { model: 'fixed', max: 0 } },
+  squash:     { squadMax: 1, playingSize: 1, subs: { model: 'fixed', max: 0 } },
+  pickleball: { squadMax: 1, playingSize: 1, subs: { model: 'fixed', max: 0 } },
+  boxing:     { squadMax: 1, playingSize: 1, subs: { model: 'fixed', max: 0 } },
+  karate:     { squadMax: 1, playingSize: 1, subs: { model: 'fixed', max: 0 } },
+  judo:       { squadMax: 1, playingSize: 1, subs: { model: 'fixed', max: 0 } },
+  wrestling:  { squadMax: 1, playingSize: 1, subs: { model: 'fixed', max: 0 } },
+  skateboard: { squadMax: 1, playingSize: 1, subs: { model: 'fixed', max: 0 } },
+  rummy:      { squadMax: 6, playingSize: 6, subs: { model: 'fixed', max: 0 } },
+};
+
 async function main() {
   for (const c of CONFIG) {
+    // attach Module 2 rule blocks (fall back to a sensible generic default)
+    c.rules.standings = STANDINGS[c.id] || { win: 3, draw: 1, loss: 0, tiebreakers: ['points', 'headToHead'] };
+    c.rules.roster    = ROSTER[c.id]    || { squadMax: 15, playingSize: 11, subs: { model: 'limited', max: 5 } };
     await prisma.sportConfiguration.upsert({
       where: { id: c.id },
       create: { id: c.id, name: c.name, icon: c.icon, color: c.color, accent: c.accent, rules: c.rules },
