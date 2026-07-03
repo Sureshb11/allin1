@@ -24,15 +24,17 @@ const HOLD_TICKS = 6;  // beat on the finished logo before the loop restarts
 // Loop each sport from the frame where its figure is fully drawn, so the
 // focused disc always shows a complete athlete, never a partial reveal.
 // (measured: first frame reaching 70% of the final alpha coverage.)
-// pickleball & volleyball draw a moving swing-arc "swoosh" mid-animation
-// (frames ~16–23) that reads as a stray ring; their tail frames are clean, so
-// they loop only the settled tail to avoid it.
 const START_FRAME = {
   badminton: 2, basketball: 0, boxing: 0, cricket: 10, football: 2,
-  handball: 0, hockey: 4, judo: 0, karate: 0, khokho: 1, pickleball: 24,
+  handball: 0, hockey: 4, judo: 0, karate: 0, khokho: 1, pickleball: 2,
   rummy: 1, skateboard: 0, squash: 0, tabletennis: 0, tennis: 0,
-  volleyball: 24, wrestling: 0,
+  volleyball: 2, wrestling: 0,
 };
+
+// pickleball & volleyball draw a moving swing-arc "swoosh" from the mid frames
+// on (a stray ring that can't be cleaned like the static rings). Their EARLY
+// frames animate cleanly, so cap their loop before the swoosh appears.
+const END_FRAME = { pickleball: 12, volleyball: 15 };
 
 export const hasSportAnim = (id) => Boolean(FRAMES[id]);
 
@@ -40,19 +42,21 @@ export default function SportLogoIcon({ id, size = 54, color = '#c4f82a', active
   const frames = FRAMES[id];
   const last = frames.length - 1;
   const start = START_FRAME[id] ?? 0;         // loop from where the figure is fully drawn
-  const [frame, setFrame] = useState(last);   // rest on the finished logo
+  const end = END_FRAME[id] ?? last;          // …to here (caps sports with a late swoosh)
+  const rest = END_FRAME[id] ?? last;         // rest on a clean frame (end for capped sports)
+  const [frame, setFrame] = useState(rest);
   const tick = useRef(start);
 
   useEffect(() => {
-    if (!active) { setFrame(last); return; }
+    if (!active) { setFrame(rest); return; }
     tick.current = start;
     const timer = setInterval(() => {
       const t = tick.current;
-      setFrame(t <= last ? t : last);
-      tick.current = t >= last + HOLD_TICKS ? start : t + 1;
+      setFrame(t <= end ? t : end);
+      tick.current = t >= end + HOLD_TICKS ? start : t + 1;
     }, FRAME_MS);
     return () => clearInterval(timer);
-  }, [active, id, last, start]);
+  }, [active, id, end, start, rest]);
 
   const dim = { width: size, height: size };
 
