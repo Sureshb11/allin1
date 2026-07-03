@@ -191,7 +191,7 @@ function Disc({ cell, accent, scale, opacity, focused, pulseAnim, onPress }) {co
       { transform: [{ scale: pop }] }]
       }>
         {hasSportAnim(cell.id) ?
-        <SportLogoIcon id={cell.id} size={CELL - 8} color={focused ? A.navy0 : accent} active={focused} /> :
+        <SportLogoIcon id={cell.id} size={CELL - 12} color={focused ? A.navy0 : accent} active={focused} /> :
         <SportIcon id={cell.id} size={iconSize} color={focused ? A.navy0 : accent} />}
       </Animated.View>
     </TouchableOpacity>);
@@ -570,7 +570,8 @@ const makeD = (A) => StyleSheet.create({
   disc: {
     width: CELL, height: CELL, borderRadius: CELL / 2,
     borderWidth: 2.5, backgroundColor: A.cell,
-    alignItems: 'center', justifyContent: 'center'
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',   // clip the square animation frame to the disc circle
   },
   pulse: {
     position: 'absolute', left: 0, top: 0, width: CELL, height: CELL,
