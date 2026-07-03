@@ -191,7 +191,7 @@ function Disc({ cell, accent, scale, opacity, focused, pulseAnim, onPress }) {co
       { transform: [{ scale: pop }] }]
       }>
         {hasSportAnim(cell.id) ?
-        <SportLogoIcon id={cell.id} size={CELL - 6} color={focused ? A.navy0 : accent} active={focused} /> :
+        <SportLogoIcon id={cell.id} size={CELL + 6} color={focused ? A.navy0 : accent} active={focused} /> :
         <SportIcon id={cell.id} size={iconSize} color={focused ? A.navy0 : accent} />}
       </Animated.View>
     </TouchableOpacity>);
