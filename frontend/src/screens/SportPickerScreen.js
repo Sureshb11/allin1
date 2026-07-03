@@ -133,15 +133,14 @@ const clampPan = (p) => ({
 });
 
 // ── A single disc (memo-free; cheap enough for 22 cells/frame) ──────────────
-// "Stadium Under Lights" — one material, one spotlight. Every disc is the same
-// glassy navy bubble with a soft periwinkle glyph (a single tonal cluster, like
-// the Watch's dark honeycomb), and ONLY the centred disc lights up lime: solid
-// fill, dark glyph, lime pulse + glow. Two accents on the whole screen —
-// lime = selected, blue = START — instead of the old 19-colour rainbow.
+// Quiet luxury: the whole cluster is near-monochrome — barely-there bubbles
+// with hairline rims and dim grey glyphs. The centred disc isn't painted, it's
+// LIT: same dark material, a fine lime ring, a soft glow, and the glyph turns
+// full-bright. Selection reads as light hitting the disc, not a colour fill.
 function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {const A = useArenaColors();const d = useThemedStyles(makeD);
   // Icon renders at a fixed size; the whole disc is scaled via transform.
   const iconSize = cell.featured ? 36 : 31;
-  const glyph = focused ? A.navy0 : A.blueSoft;
+  const glyph = focused ? A.ink : A.inkDim;
   // Springy pop each time this disc ratchets into focus.
   const pop = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -167,8 +166,8 @@ function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {const A = 
       <Animated.View
         pointerEvents="none"
         style={[d.pulse, {
-          opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
-          transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.75] }) }]
+          opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0] }),
+          transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }) }]
         }]} />
 
       }
@@ -421,7 +420,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
       <Svg pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0 }} width="100%" height={320}>
         <Defs>
           <RadialGradient id="floodlight" cx="50%" cy="0%" r="75%">
-            <Stop offset="0" stopColor={A.blueDeep} stopOpacity={isDark ? 0.26 : 0.1} />
+            <Stop offset="0" stopColor={A.blueDeep} stopOpacity={isDark ? 0.16 : 0.07} />
             <Stop offset="1" stopColor={A.blueDeep} stopOpacity={0} />
           </RadialGradient>
         </Defs>
@@ -495,8 +494,8 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         <Svg pointerEvents="none" width={dim.w} height={dim.h} style={StyleSheet.absoluteFill}>
           <Defs>
             <RadialGradient id="arenaGlow" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor={A.lime} stopOpacity={0.15} />
-              <Stop offset="1" stopColor={A.lime} stopOpacity={0} />
+              <Stop offset="0" stopColor={A.ink} stopOpacity={0.05} />
+              <Stop offset="1" stopColor={A.ink} stopOpacity={0} />
             </RadialGradient>
           </Defs>
           <Circle cx={cx} cy={cy} r={175} fill="url(#arenaGlow)" />
@@ -508,7 +507,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
               <Line
                 key={k}
                 x1={a.left} y1={a.top} x2={b.left} y2={b.top}
-                stroke="#8ea3c8" strokeWidth={1} strokeOpacity={(o - 0.3) * 0.22} />);
+                stroke="#8ea3c8" strokeWidth={1} strokeOpacity={(o - 0.3) * 0.1} />);
 
 
           })}
@@ -550,23 +549,24 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 }
 
 const makeD = (A) => StyleSheet.create({
-  // Glass bubble — the one material every unfocused disc shares.
+  // Barely-there bubble: 5% fill, hairline rim. The cluster reads as one
+  // quiet, precise object — no colour until the light lands on a disc.
   disc: {
     width: CELL, height: CELL, borderRadius: CELL / 2,
-    borderWidth: 1.5, borderColor: A.blueSoft + '30',
-    backgroundColor: A.blueSoft + '14',
+    borderWidth: 1, borderColor: A.ink + '1A',
+    backgroundColor: A.ink + '0D',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',   // clip the square animation frame to the disc circle
   },
-  // The spotlight: solid lime, thicker rim, lime glow.
+  // Lit, not painted: same dark material, a fine lime ring + soft glow.
   discFocused: {
-    borderWidth: 2.5, borderColor: A.lime, backgroundColor: A.lime,
-    shadowColor: A.lime, shadowOpacity: 0.55, shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 }, elevation: 10,
+    borderWidth: 1.5, borderColor: A.lime, backgroundColor: A.ink + '14',
+    shadowColor: A.lime, shadowOpacity: 0.35, shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 }, elevation: 8,
   },
   pulse: {
     position: 'absolute', left: 0, top: 0, width: CELL, height: CELL,
-    borderRadius: CELL / 2, borderWidth: 2.5, borderColor: A.lime
+    borderRadius: CELL / 2, borderWidth: 1, borderColor: A.lime
   }
 });
 
@@ -585,23 +585,24 @@ const makeS = (A) => StyleSheet.create({
   },
 
   titleBlock: { alignItems: 'center', paddingTop: 8, paddingBottom: 6, paddingHorizontal: 24 },
-  title1: { fontSize: 30, fontWeight: '900', color: A.ink, letterSpacing: 0.5 },
-  // Lime headline — echoes the spotlight disc; the screen's only two accents
-  // are lime (selected) and the blue START.
-  title2: { fontSize: 40, fontWeight: '900', color: A.lime, letterSpacing: 1, fontStyle: 'italic', lineHeight: 44 },
-  titleMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
-  titleTag: { fontSize: 12, color: A.lime, letterSpacing: 1.6, fontWeight: '800' },
-  titleIdx: { fontSize: 12, color: A.textVariant, letterSpacing: 0.8, fontWeight: '700' },
+  // Editorial type: a quiet tracked kicker over a big clean white headline —
+  // scale contrast does the work, not colour or italics.
+  title1: { fontSize: 11, fontWeight: '700', color: A.textMuted, letterSpacing: 4.5, marginBottom: 6 },
+  title2: { fontSize: 42, fontWeight: '800', color: A.ink, letterSpacing: -0.5, lineHeight: 46 },
+  titleMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
+  titleTag: { fontSize: 11, color: A.lime, letterSpacing: 2.4, fontWeight: '700' },
+  titleIdx: { fontSize: 11, color: A.textMuted, letterSpacing: 1, fontWeight: '600' },
 
   grid: { flex: 1, overflow: 'hidden' },
 
-  // Solid electric-blue START — one unmissable action, sunlight-proof.
-  startDock: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 28 },
+  // Solid electric-blue START — the screen's one loud element, kept tailored:
+  // tighter radius, restrained glow, tracked label.
+  startDock: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 30 },
   startSolid: {
-    height: 58, borderRadius: 17, backgroundColor: A.blueDeep,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    shadowColor: A.blueDeep, shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.45, shadowRadius: 16, elevation: 10
+    height: 56, borderRadius: 16, backgroundColor: A.blueDeep,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    shadowColor: A.blueDeep, shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35, shadowRadius: 14, elevation: 8
   },
-  startSolidTxt: { fontSize: 17, fontWeight: '900', color: '#ffffff', letterSpacing: 2 }
+  startSolidTxt: { fontSize: 15, fontWeight: '800', color: '#ffffff', letterSpacing: 3 }
 });
