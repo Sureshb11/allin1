@@ -14,7 +14,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
   Dimensions, PanResponder, Animated, Easing, Vibration, Platform } from
 'react-native';
-import Svg, { Path, Line, Circle, Rect, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Line, Circle, Rect, Defs, RadialGradient, LinearGradient, Stop } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import SportIcon from '../components/SportIcon';
 import SportLogoIcon, { hasSportAnim } from '../components/SportLogoIcon';
@@ -137,7 +137,7 @@ const clampPan = (p) => ({
 // with hairline rims and dim grey glyphs. The centred disc isn't painted, it's
 // LIT: same dark material, a fine lime ring, a soft glow, and the glyph turns
 // full-bright. Selection reads as light hitting the disc, not a colour fill.
-function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {const A = useArenaColors();const d = useThemedStyles(makeD);
+function Disc({ cell, scale, opacity, focused, attract, pulseAnim, onPress }) {const A = useArenaColors();const d = useThemedStyles(makeD);
   // Icon renders at a fixed size; the whole disc is scaled via transform.
   const iconSize = cell.featured ? 36 : 31;
   const glyph = focused ? A.ink : A.inkDim;
@@ -177,24 +177,32 @@ function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {const A = 
       { transform: [{ scale: pop }] }]
       }>
         {hasSportAnim(cell.id) ?
-        <SportLogoIcon id={cell.id} size={CELL + 6} color={glyph} active={focused} /> :
+        <SportLogoIcon id={cell.id} size={CELL + 6} color={glyph} active={focused || attract} /> :
         <SportIcon id={cell.id} size={iconSize} color={glyph} />}
       </Animated.View>
     </TouchableOpacity>);
 
 }
 
+// Open centred on the last-played sport (in-session; fresh launch → cricket).
+const initialArena = () => {
+  const selId = getSelectedSport().sport?.id;
+  const cell = POSITIONS.find((p) => p.id === selId);
+  return cell ? { id: cell.id, pan: { x: -cell.x, y: -cell.y } } : { id: 'cricket', pan: { x: 0, y: 0 } };
+};
+
 export default function SportPickerScreen({ navigation }) {const A = useArenaColors();const s = useThemedStyles(makeS);
   const { toggle, isDark } = useTheme();
-  const [panOff, setPanOff] = useState({ x: 0, y: 0 });
+  const initial = useRef(initialArena()).current;
+  const [panOff, setPanOff] = useState(initial.pan);
   const [dim, setDim] = useState({ w: SW, h: 560 });
-  const [focusId, setFocusId] = useState('cricket');
+  const [focusId, setFocusId] = useState(initial.id);
 
-  const panRef = useRef({ x: 0, y: 0 });
+  const panRef = useRef({ ...initial.pan });
   const velRef = useRef({ x: 0, y: 0 });
   const startRef = useRef({ mx: 0, my: 0, px: 0, py: 0 });
   const movedRef = useRef(false);
-  const focusRef = useRef('cricket');
+  const focusRef = useRef(initial.id);
   const rafRef = useRef(null);
   const intRef = useRef(null);
   const animRef = useRef(null);
@@ -204,8 +212,13 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
   // focused-disc glow pulse (loops) + per-disc entrance scale-in
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const enterAnims = useRef(POSITIONS.map(() => new Animated.Value(0))).current;
-  // centre stage-light breathing (slow 0.72↔1 opacity loop)
+  // headline fade-up, choreographed with the disc ripple
+  const titleAnim = useRef(new Animated.Value(0)).current;
+  // centre stage-light breathing (slow 0.72↔1 opacity loop) × a flare that
+  // spikes when a new disc ratchets into focus — the light reacts to you.
   const glowAnim = useRef(new Animated.Value(1)).current;
+  const flareAnim = useRef(new Animated.Value(1)).current;
+  const glowOpacity = useRef(Animated.multiply(glowAnim, flareAnim)).current;
   useEffect(() => {
     const breath = Animated.loop(Animated.sequence([
       Animated.timing(glowAnim, { toValue: 0.72, duration: 2600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
@@ -214,6 +227,23 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
     breath.start();
     return () => breath.stop();
   }, [glowAnim]);
+
+  // Idle attract: after ~7s untouched, a random disc quietly plays its logo
+  // for a beat — the cluster feels inhabited (Watch-style breathing gallery).
+  const lastTouchRef = useRef(Date.now());
+  const [attractId, setAttractId] = useState(null);
+  useEffect(() => {
+    const iv = setInterval(() => {
+      if (Date.now() - lastTouchRef.current < 6500) return;
+      const pool = POSITIONS.filter((p) => p.id !== focusRef.current && hasSportAnim(p.id));
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      if (pick) {
+        setAttractId(pick.id);
+        setTimeout(() => setAttractId(null), 2600);
+      }
+    }, 7000);
+    return () => clearInterval(iv);
+  }, []);
 
   const stopInertia = () => {
     if (intRef.current) {cancelAnimationFrame(intRef.current);intRef.current = null;}
@@ -224,6 +254,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 
   // During a drag we coalesce moves to one state commit per frame (rAF throttle).
   const schedulePan = useCallback((x, y) => {
+    lastTouchRef.current = Date.now();
     panRef.current = { x, y };
     if (!rafRef.current) {
       rafRef.current = requestAnimationFrame(() => {
@@ -256,8 +287,13 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
       Animated.timing(readoutAnim, {
         toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true
       }).start();
+      // stage light flares as the selection lands, then settles into its breath
+      flareAnim.setValue(1.5);
+      Animated.timing(flareAnim, {
+        toValue: 1, duration: 520, easing: Easing.out(Easing.quad), useNativeDriver: true
+      }).start();
     }
-  }, [panOff, readoutAnim]);
+  }, [panOff, readoutAnim, flareAnim]);
 
   // ── eased pan animation (tap-to-centre, spring-back, magnetic snap) ──
   // rAF-driven and vsync-aligned; progress is measured from the real frame
@@ -326,11 +362,19 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
     Animated.timing(pulseAnim, { toValue: 0, duration: 0, useNativeDriver: true })]
     ));
     pulse.start();
-    Animated.stagger(26, enterAnims.map((a) =>
-    Animated.spring(a, { toValue: 1, friction: 6, tension: 70, useNativeDriver: true })
+    // Curtain up: discs ripple outward from the centre (delay ∝ radius)
+    // while the headline fades up in step with the first ring.
+    Animated.parallel(enterAnims.map((a, i) =>
+    Animated.spring(a, {
+      toValue: 1, friction: 6, tension: 70, useNativeDriver: true,
+      delay: Math.hypot(POSITIONS[i].x, POSITIONS[i].y) * 1.15,
+    })
     )).start();
+    Animated.timing(titleAnim, {
+      toValue: 1, duration: 520, delay: 120, easing: Easing.out(Easing.cubic), useNativeDriver: true
+    }).start();
     return () => pulse.stop();
-  }, [pulseAnim, enterAnims]);
+  }, [pulseAnim, enterAnims, titleAnim]);
 
   // rubber-band: drift past bounds with resistance (Apple-Watch edge bounce)
   const rb = (v, lo, hi) => v < lo ? lo + (v - lo) * 0.42 : v > hi ? hi + (v - hi) * 0.42 : v;
@@ -367,6 +411,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
   // Tapping a disc only centres/selects it (updates focus + readout).
   // Entering the sport happens via the START button.
   const selectCell = useCallback((cell) => {
+    lastTouchRef.current = Date.now();
     if (movedRef.current) return;
     const target = { x: -cell.x, y: -cell.y };
     // Scale duration with travel distance so a nearby disc settles quickly while a
@@ -475,16 +520,24 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
       </View>
 
       {/* ── TITLE — static; the lit disc alone says what's selected ── */}
-      <View style={s.titleBlock}>
+      <Animated.View style={[s.titleBlock, {
+        opacity: titleAnim,
+        transform: [{ translateY: titleAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+      }]}>
         <Text style={s.title1}>CHOOSE YOUR</Text>
         <Text style={s.title2}>ARENA</Text>
-      </View>
+      </Animated.View>
 
       {/* ── HONEYCOMB ── */}
       <View style={s.grid} onLayout={onGridLayout} {...panResponder.panHandlers}>
-        {/* Lime stage light at the centre — breathes slowly, like a stadium
-            lamp warming, so the arena feels alive even before you pan. */}
-        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: glowAnim }]}>
+        {/* Lime stage light at the centre — breathes slowly, flares when a new
+            disc lands, and parallaxes at ~1/3 pan speed for depth. */}
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, {
+            opacity: glowOpacity,
+            transform: [{ translateX: panOff.x * 0.35 }, { translateY: panOff.y * 0.35 }],
+          }]}>
           <Svg width={dim.w} height={dim.h}>
             <Defs>
               <RadialGradient id="arenaGlow" cx="50%" cy="50%" r="50%">
@@ -525,20 +578,46 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
             scale={scale}
             opacity={opacity}
             focused={cell.id === focusId}
+            attract={cell.id === attractId}
             pulseAnim={pulseAnim}
             onPress={() => selectCell(cell)} />
           
           </Animated.View>
         )}
+
+        {/* edge melt: outer discs dissolve into the background instead of
+            hard-clipping at the stage bounds */}
+        <Svg pointerEvents="none" width={dim.w} height={54}
+          style={{ position: 'absolute', top: 0, left: 0, zIndex: 3000 }}>
+          <Defs>
+            <LinearGradient id="meltTop" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={A.navy0} stopOpacity={1} />
+              <Stop offset="1" stopColor={A.navy0} stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="54" fill="url(#meltTop)" />
+        </Svg>
+        <Svg pointerEvents="none" width={dim.w} height={54}
+          style={{ position: 'absolute', bottom: 0, left: 0, zIndex: 3000 }}>
+          <Defs>
+            <LinearGradient id="meltBot" x1="0" y1="1" x2="0" y2="0">
+              <Stop offset="0" stopColor={A.navy0} stopOpacity={1} />
+              <Stop offset="1" stopColor={A.navy0} stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="54" fill="url(#meltBot)" />
+        </Svg>
       </View>
 
-      {/* ── START — solid electric-blue, full width ── */}
+      {/* ── START — solid electric-blue, names the selection ── */}
       <View style={s.startDock}>
         <TouchableOpacity
           style={s.startSolid}
           activeOpacity={0.88}
           onPress={() => { haptic.impact(); routeSport(focus); }}>
-          <Text style={s.startSolidTxt}>START</Text>
+          <Text style={s.startSolidTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+            START {focus.name.toUpperCase()}
+          </Text>
           <Icon name="play" size={20} color="#ffffff" />
         </TouchableOpacity>
       </View>
