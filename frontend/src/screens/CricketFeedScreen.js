@@ -6,7 +6,7 @@ import { useTheme, useThemedStyles } from "../theme/ThemeContext"; // CricketFee
 // Dark "Kinetic Athlete" palette, consistent with the rest of MainApp.
 // Data is mock — wire posts/matches to real sources when available.
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList,
@@ -335,7 +335,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     caption: po.text || '',
     likedBy: null,
     likes: po.likes || 0,
-    liked: false,
+    liked: !!likedRef.current[po.id],   // preserve the like highlight across polls
     comments: [],
     commentCount: po.commentCount || 0,
   }), []);
@@ -355,12 +355,25 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     legendsApi.getPosts({ sport: 'cricket' }),
   ]).then(([mr, pr]) => {
     setMatches((mr?.data || []).map(mapMatch));
-    setPosts((pr?.data || []).map(mapPost));
+    // Merge, not replace: refresh like/comment counts + surface new posts, but
+    // keep already-loaded comment threads and the optimistic like highlight —
+    // so a background poll makes likes/comments populate live without flicker.
+    setPosts((prev) => {
+      const byId = Object.fromEntries(prev.map((p) => [p.id, p]));
+      return (pr?.data || []).map((sp) => {
+        const m = mapPost(sp), ex = byId[sp.id];
+        return ex ? { ...m, comments: ex.comments?.length ? ex.comments : m.comments } : m;
+      });
+    });
   }), [mapMatch, mapPost]);
 
   useFocusEffect(useCallback(() => {
     setLoading(true);
     fetchFeed().finally(() => setLoading(false));
+    // Poll every 5s while the feed is focused so likes, comment counts and new
+    // posts populate live (current-resources stand-in for a realtime socket).
+    const poll = setInterval(() => { fetchFeed(); }, 5000);
+    return () => clearInterval(poll);
   }, [fetchFeed]));
 
   const onRefresh = useCallback(() => {
@@ -375,14 +388,26 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     if (!likedRef.current[id]) { likedRef.current[id] = true; legendsApi.likePost(id); }
   }, []);
 
-  const openComments = useCallback(async (post) => {
-    setActivePost(post);
-    const res = await legendsApi.getComments(post.id);
+  const loadComments = useCallback(async (postId) => {
+    const res = await legendsApi.getComments(postId);
     if (res.success) {
       const mapped = (res.data || []).map((c) => ({ id: c.id, user: c.authorName || 'Player', text: c.text, color: colorFor(c.authorName) }));
-      setPosts((prev) => prev.map((po) => (po.id === post.id ? { ...po, comments: mapped, commentCount: mapped.length } : po)));
+      setPosts((prev) => prev.map((po) => (po.id === postId ? { ...po, comments: mapped, commentCount: mapped.length } : po)));
     }
   }, []);
+
+  const openComments = useCallback(async (post) => {
+    setActivePost(post);
+    loadComments(post.id);
+  }, [loadComments]);
+
+  // While the comments sheet is open, poll every 4s so comments others post
+  // populate live.
+  useEffect(() => {
+    if (!activePost) return;
+    const poll = setInterval(() => loadComments(activePost.id), 4000);
+    return () => clearInterval(poll);
+  }, [activePost, loadComments]);
 
   const addComment = useCallback(async (id, text) => {
     const res = await legendsApi.addComment(id, text);
