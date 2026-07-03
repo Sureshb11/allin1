@@ -37,13 +37,16 @@ export default function TournamentDetailScreen({ route, navigation }) {
 
   useEffect(() => {
     const load = async () => {
-      const [tRes, ptRes, schRes] = await Promise.all([
+      const [tRes, stRes, ptRes, schRes] = await Promise.all([
         legendsApi.getTournament(tournamentId),
-        legendsApi.getTournamentPointsTable(tournamentId),
+        legendsApi.getTournamentStandings(tournamentId),   // Module 2 computed table
+        legendsApi.getTournamentPointsTable(tournamentId), // fallback (older API)
         legendsApi.getTournamentSchedule(tournamentId),
       ]);
       if (tRes.success) setTournament(tRes.data);
-      if (ptRes.success) setPointsTable(ptRes.data);
+      // Prefer the computed standings; fall back to the legacy points table.
+      if (stRes.success && stRes.data.length) setPointsTable(stRes.data);
+      else if (ptRes.success) setPointsTable(ptRes.data);
       if (schRes.success) setSchedule(schRes.data);
       setLoading(false);
     };
@@ -126,6 +129,20 @@ export default function TournamentDetailScreen({ route, navigation }) {
     </ScrollView>
   );
 
+  // Tiebreaker column is sport-aware: cricket shows Net Run Rate, goal sports
+  // show Goal Difference, everything else a generic Difference.
+  const GOAL_SPORTS = ['football', 'hockey', 'handball'];
+  const tbKey = tournament?.sport === 'cricket' ? 'NRR'
+              : GOAL_SPORTS.includes(tournament?.sport) ? 'GD' : 'DIFF';
+  const tbValue = (row) => {
+    // computed-standings row has `stats`; legacy row has flat `nrr`.
+    const s = row.stats;
+    if (tbKey === 'NRR') { const v = s ? s.nrr : row.nrr; return `${v >= 0 ? '+' : ''}${(v || 0).toFixed(3)}`; }
+    const v = s ? s.goalDifference : 0;
+    return `${v > 0 ? '+' : ''}${v || 0}`;
+  };
+  const tbPositive = (row) => (row.stats ? (tbKey === 'NRR' ? row.stats.nrr : row.stats.goalDifference) : row.nrr) >= 0;
+
   const renderPointsTable = () => (
     <ScrollView contentContainerStyle={styles.tabContent}>
       {/* Table Header */}
@@ -135,18 +152,18 @@ export default function TournamentDetailScreen({ route, navigation }) {
         <Text style={[styles.ptNum, styles.ptHeaderText]}>W</Text>
         <Text style={[styles.ptNum, styles.ptHeaderText]}>L</Text>
         <Text style={[styles.ptNum, styles.ptHeaderText]}>Pts</Text>
-        <Text style={[styles.ptNum, styles.ptHeaderText]}>NRR</Text>
+        <Text style={[styles.ptNum, styles.ptHeaderText]}>{tbKey}</Text>
       </View>
       {pointsTable.length === 0 ? (
         <View style={styles.empty}>
           <Icon name="table-large" size={36} color={DS.textMuted} />
-          <Text style={styles.emptyText}>Points table not available</Text>
+          <Text style={styles.emptyText}>No results recorded yet</Text>
         </View>
       ) : (
         pointsTable.map((row, idx) => (
           <View key={row.teamId} style={[styles.ptRow, idx % 2 === 0 && styles.ptRowAlt]}>
             <View style={[styles.ptCell, styles.ptTeamCell]}>
-              <Text style={[styles.ptNum, { color: DS.textMuted, width: 20 }]}>{idx + 1}</Text>
+              <Text style={[styles.ptNum, { color: DS.textMuted, width: 20 }]}>{row.rank || idx + 1}</Text>
               <View style={styles.ptAvatar}>
                 <Text style={styles.ptAvatarText}>{row.team?.name?.charAt(0).toUpperCase()}</Text>
               </View>
@@ -156,8 +173,8 @@ export default function TournamentDetailScreen({ route, navigation }) {
             <Text style={styles.ptNum}>{row.won}</Text>
             <Text style={styles.ptNum}>{row.lost}</Text>
             <Text style={[styles.ptNum, styles.ptBold]}>{row.points}</Text>
-            <Text style={[styles.ptNum, { color: row.nrr >= 0 ? '#6ee76e' : DS.coral }]}>
-              {row.nrr >= 0 ? '+' : ''}{(row.nrr || 0).toFixed(3)}
+            <Text style={[styles.ptNum, { color: tbPositive(row) ? '#6ee76e' : DS.coral }]}>
+              {tbValue(row)}
             </Text>
           </View>
         ))

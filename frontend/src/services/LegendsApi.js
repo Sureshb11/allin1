@@ -928,6 +928,17 @@ class LegendsApi {
     }
   }
 
+  // Tournament — computed standings (Module 2 engine: points + per-sport
+  // tiebreakers NRR/Goal-Diff/… from recorded results).
+  async getTournamentStandings(tournamentId) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/standings`);
+      return { success: true, data: json.standings || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Tournament — schedule/fixtures
   async getTournamentSchedule(tournamentId) {
     try {
