@@ -13,10 +13,12 @@ import {
   StatusBar, Dimensions, Animated, Modal, TextInput, Share, RefreshControl,
   KeyboardAvoidingView, Platform, ActivityIndicator } from
 'react-native';
+import { Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import MomentumMeter from '../components/MomentumMeter';
 import { haptic } from '../utils/haptics';
+import { showToast } from '../components/Toast';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -160,6 +162,7 @@ function PostMedia({ kind, media }) {const DS = useTheme().colors;const c = useT
 
 function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().colors;const p = useThemedStyles(makeP);
   const popRef = useRef(new Animated.Value(1)).current;
+  const [saved, setSaved] = useState(false);
 
   const handleLike = () => {
     onLike(post.id);
@@ -167,6 +170,21 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
       popRef.setValue(0.6);
       Animated.spring(popRef, { toValue: 1, friction: 4, tension: 140, useNativeDriver: true }).start();
     }
+  };
+
+  const toggleSave = () => {
+    haptic.tick();
+    setSaved((v) => !v);
+    showToast(saved ? 'Removed from saved' : 'Saved', 'success', 1400);
+  };
+
+  // ⋯ menu — share the post or flag it (real actions, not a dead affordance).
+  const openMenu = () => {
+    Alert.alert(post.author.handle, undefined, [
+      { text: 'Share post', onPress: () => onShare(post) },
+      { text: 'Report post', style: 'destructive', onPress: () => showToast('Thanks — we’ll review this post.', 'success') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   return (
@@ -181,7 +199,7 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
           </View>
           <Text style={p.sub}>{post.author.team}</Text>
         </View>
-        <TouchableOpacity hitSlop={8}>
+        <TouchableOpacity hitSlop={8} onPress={openMenu}>
           <Icon name="dots-horizontal" size={22} color={DS.textMuted} />
         </TouchableOpacity>
       </View>
@@ -203,8 +221,8 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
           <Icon name="share-outline" size={25} color={DS.textPrimary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
-        <TouchableOpacity hitSlop={8} activeOpacity={0.7}>
-          <Icon name="bookmark-outline" size={24} color={DS.textPrimary} />
+        <TouchableOpacity hitSlop={8} activeOpacity={0.7} onPress={toggleSave}>
+          <Icon name={saved ? 'bookmark' : 'bookmark-outline'} size={24} color={saved ? DS.lime : DS.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -405,16 +423,18 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       {/* From Your Circle rail */}
       <View style={s.sectionHead}>
         <Text style={s.sectionTitle}>From Your Circle</Text>
-        <TouchableOpacity><Text style={s.seeAll}>See all</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('MyMatches')}>
+          <Text style={s.seeAll}>See all</Text>
+        </TouchableOpacity>
       </View>
       <Text style={s.sectionSub}>Teams you’ve played for · friends’ recent matches</Text>
       <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={s.railContent}>
-      
+
         {matches.length > 0
-        ? matches.map((mt) => <CircleMatchCard key={mt.id} match={mt} onPress={() => {}} />)
+        ? matches.map((mt) => <CircleMatchCard key={mt.id} match={mt} onPress={() => navigation.navigate('Scorecard', { matchId: mt.id })} />)
         : <View style={s.railEmpty}><Text style={s.railEmptyTxt}>No recent matches yet</Text></View>}
       </ScrollView>
 

@@ -250,8 +250,12 @@ export default function MyMatchesScreen({ navigation }) {
             <View style={styles.emptyIconWrap}>
               <Icon name="cricket" size={48} color={DS.textMuted} />
             </View>
-            <Text style={styles.emptyTitle}>No matches found</Text>
-            <Text style={styles.emptySub}>Start a match from the Home screen</Text>
+            <Text style={styles.emptyTitle}>No matches yet</Text>
+            <Text style={styles.emptySub}>Start scoring your first match</Text>
+            <TouchableOpacity style={styles.emptyCta} onPress={() => navigation.navigate('StartMatch')} activeOpacity={0.9}>
+              <Icon name="play-circle" size={18} color={DS.onBlue} />
+              <Text style={styles.emptyCtaText}>Start a Match</Text>
+            </TouchableOpacity>
           </View>
         }
       />
@@ -409,6 +413,11 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Empty */
   empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
+  emptyCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10,
+    backgroundColor: DS.blueDeep, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12,
+  },
+  emptyCtaText: { color: DS.onBlue, fontSize: 14, fontWeight: '800' },
   emptyIconWrap: {
     width: 80, height: 80, borderRadius: 40,
     backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center',
