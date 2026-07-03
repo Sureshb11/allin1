@@ -18,26 +18,38 @@ import FRAMES from './arenaAnimFrames';
 
 const FRAME_MS = 80;   // ~12fps playback
 const HOLD_TICKS = 6;  // beat on the finished logo before the loop restarts
-const START = 1;       // skip the (often blank) first frame so restarts don't flicker
+
+// These are logo *reveal* clips (the art draws itself in), so the early frames
+// show a half-drawn athlete — e.g. cricket's batsman has no legs until frame 10.
+// Loop each sport from the frame where its figure is fully drawn, so the
+// focused disc always shows a complete athlete, never a partial reveal.
+// (measured: first frame reaching 70% of the final alpha coverage.)
+const START_FRAME = {
+  badminton: 2, basketball: 0, boxing: 0, cricket: 10, football: 2,
+  handball: 0, hockey: 4, judo: 0, karate: 0, khokho: 1, pickleball: 0,
+  rummy: 1, skateboard: 0, squash: 0, tabletennis: 0, tennis: 0,
+  volleyball: 0, wrestling: 0,
+};
 
 export const hasSportAnim = (id) => Boolean(FRAMES[id]);
 
 export default function SportLogoIcon({ id, size = 54, color = '#c4f82a', active = false }) {
   const frames = FRAMES[id];
   const last = frames.length - 1;
+  const start = START_FRAME[id] ?? 0;         // loop from where the figure is fully drawn
   const [frame, setFrame] = useState(last);   // rest on the finished logo
-  const tick = useRef(START);
+  const tick = useRef(start);
 
   useEffect(() => {
     if (!active) { setFrame(last); return; }
-    tick.current = START;
+    tick.current = start;
     const timer = setInterval(() => {
       const t = tick.current;
       setFrame(t <= last ? t : last);
-      tick.current = t >= last + HOLD_TICKS ? START : t + 1;
+      tick.current = t >= last + HOLD_TICKS ? start : t + 1;
     }, FRAME_MS);
     return () => clearInterval(timer);
-  }, [active, id, last]);
+  }, [active, id, last, start]);
 
   const dim = { width: size, height: size };
 
