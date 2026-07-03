@@ -385,7 +385,48 @@ export const SPORT_CONFIG = {
   },
 };
 
-// Config for a sport id, falling back to cricket for unknowns.
-export const getScoringConfig = (sport) => SPORT_CONFIG[sport] || SPORT_CONFIG.cricket;
+// ── Server-driven config (SportConfiguration table) ─────────────────────────
+// The declarative rules (periods, actions, extras) can be served from the
+// backend so a sport's scoring UI is editable from the DB with no app release.
+// We merge those over the bundled config but KEEP the bundled score functions
+// (scoreLabel/oversLabel) and the derive engine — score COMPUTATION stays in
+// the app; only the declarative shape comes from data. Until hydrated (or if
+// the fetch fails / backend is old), everything falls back to bundled, so
+// behaviour is identical to before.
+const _server = {};
+const resolveColor = (c) =>
+  (typeof c === 'string' && !c.startsWith('#') && DS[c] != null) ? DS[c] : c;
 
-export default { SPORT_CONFIG, getScoringConfig, cnt, pts };
+export function applyServerConfigs(configs) {
+  if (!Array.isArray(configs)) return;
+  for (const cfg of configs) {
+    const r = cfg?.rules;
+    if (!r || !Array.isArray(r.actions)) continue;
+    _server[cfg.id] = {
+      periods: r.periods,
+      maxPeriods: r.maxPeriods,
+      extras: r.extras,
+      actions: r.actions.map((a) => ({ ...a, color: resolveColor(a.color) })),
+    };
+  }
+}
+
+const mergeActions = (base = [], srv = []) =>
+  srv.map((sa) => ({ ...(base.find((b) => b.type === sa.type) || {}), ...sa }));
+
+// Config for a sport id, falling back to cricket for unknowns. Server override
+// (if hydrated) replaces the declarative fields; bundled functions are kept.
+export const getScoringConfig = (sport) => {
+  const base = SPORT_CONFIG[sport] || SPORT_CONFIG.cricket;
+  const o = _server[sport];
+  if (!o) return base;
+  return {
+    ...base,
+    ...(o.periods ? { periods: o.periods } : {}),
+    ...(o.maxPeriods ? { maxPeriods: o.maxPeriods } : {}),
+    ...(o.extras ? { extras: o.extras } : {}),
+    ...(o.actions ? { actions: mergeActions(base.actions, o.actions) } : {}),
+  };
+};
+
+export default { SPORT_CONFIG, getScoringConfig, applyServerConfigs, cnt, pts };

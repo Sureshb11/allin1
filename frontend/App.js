@@ -14,6 +14,7 @@ import SplashScreen from './src/components/SplashScreen';
 import { ToastHost } from './src/components/Toast';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import legendsApi from './src/services/LegendsApi';
+import { applyServerConfigs } from './src/sports/scoring';
 
 const Stack = createStackNavigator();
 
@@ -33,6 +34,12 @@ const Root = () => {
       setIsAuthenticated(!!token);
       setReady(true);
     });
+    // Hydrate the polymorphic sport rules from the DB (SportConfiguration).
+    // Fire-and-forget: bundled config is the fallback if this fails or the
+    // backend is older than this endpoint, so scoring never depends on it.
+    legendsApi.getSportConfigs().then((res) => {
+      if (res.success) applyServerConfigs(res.data);
+    }).catch(() => {});
   }, []);
 
   if (!ready) {

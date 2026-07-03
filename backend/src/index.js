@@ -28,6 +28,7 @@ import umpiresRoutes from './routes/umpires.js';
 import scorersRoutes from './routes/scorers.js';
 import postsRoutes from './routes/posts.js';
 import rummyRoutes from './routes/sports/rummy.js';
+import sportConfigRoutes from './routes/sportConfig.js';
 
 const app = express();
 
@@ -75,6 +76,7 @@ app.use('/umpires', umpiresRoutes);
 app.use('/scorers', scorersRoutes);
 app.use('/posts', postsRoutes);
 app.use('/rummy', rummyRoutes);
+app.use('/sports', sportConfigRoutes);
 
 // Not found
 app.use((req, res) => res.status(404).json({ error: 'Not Found' }));

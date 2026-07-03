@@ -677,3 +677,22 @@ model RummyScore {
   @@index([roundId])
   @@index([playerId])
 }
+
+// Polymorphic sport rules — the declarative half of the SportConfiguration
+// engine. `rules` (JSONB) holds everything that describes how a sport is
+// scored *without executable code*: periods, the scoring-button actions,
+// extras, and a `scoreModel` descriptor the app's interpreter reads to compute
+// the score from the generic SportEvent stream (kind: cricket | count | sum |
+// rally | tennis). Editing a row changes a sport's scoring UI + rules with no
+// app release. Score COMPUTATION stays in the app interpreter (never ship
+// executable rules from the DB).
+model SportConfiguration {
+  id        String   @id                 // sport id: 'cricket', 'football', …
+  name      String
+  icon      String?
+  color     String?
+  accent    String?
+  rules     Json                          // { periods, maxPeriods, actions, extras, scoreModel, individual, competitorLabel }
+  version   Int      @default(1)
+  updatedAt DateTime @updatedAt
+}

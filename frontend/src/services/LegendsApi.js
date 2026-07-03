@@ -157,6 +157,16 @@ class LegendsApi {
     }
   }
 
+  // Polymorphic sport rules (SportConfiguration) — all sports in one call.
+  async getSportConfigs() {
+    try {
+      const json = await this.request('/sports/config');
+      return { success: true, data: json.configs };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Team Management
   async getTeams() {
     try {
