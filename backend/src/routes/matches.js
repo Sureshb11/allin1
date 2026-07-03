@@ -175,6 +175,54 @@ router.put('/:id/score', async (req, res) => {
   }
 });
 
+// Undo the last delivery of an inning — deletes the most recent ball and
+// reverses its over/inning tallies (dropping the over if it's now empty).
+// Transactional so a mis-tapped ball can be cleanly taken back on the ground.
+router.delete('/:id/score/last', async (req, res) => {
+  try {
+    const { inningId } = req.query;
+    if (!inningId) return res.status(400).json({ error: 'inningId required' });
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Most recent over in the inning, then its highest-numbered ball.
+      const lastOver = await tx.over.findFirst({
+        where: { inningId: String(inningId) },
+        orderBy: { overNumber: 'desc' },
+        include: { balls: { orderBy: { ballNumber: 'desc' }, take: 1 } },
+      });
+      const ball = lastOver?.balls[0];
+      if (!ball) return { empty: true };
+
+      await tx.ball.delete({ where: { id: ball.id } });
+      await tx.over.update({
+        where: { id: lastOver.id },
+        data: {
+          runs:    { decrement: ball.runs },
+          extras:  { decrement: ball.extras },
+          wickets: { decrement: ball.isWicket ? 1 : 0 },
+        },
+      });
+      await tx.inning.update({
+        where: { id: String(inningId) },
+        data: {
+          totalRuns:    { decrement: ball.runs + ball.extras },
+          totalWickets: { decrement: ball.isWicket ? 1 : 0 },
+        },
+      });
+      // If that was the only ball in the over, remove the empty over too.
+      const remaining = await tx.ball.count({ where: { overId: lastOver.id } });
+      if (remaining === 0) await tx.over.delete({ where: { id: lastOver.id } });
+
+      return { ball };
+    });
+
+    if (result.empty) return res.status(404).json({ error: 'No ball to undo' });
+    res.json({ success: true, undone: result.ball });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.get('/:id/scorecard', async (req, res) => {
   try {
     const match = await prisma.match.findUnique({

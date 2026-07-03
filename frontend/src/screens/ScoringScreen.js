@@ -6,6 +6,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { haptic } from '../utils/haptics';
+import { showToast } from '../components/Toast';
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +58,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [ballCount, setBallCount] = useState(0);
   const [overSummary, setOverSummary] = useState(null);
   const [scoringReady, setScoringReady] = useState(false);
+  // Undo: snapshot of everything a ball mutates, pushed before each delivery.
+  const [history, setHistory] = useState([]);
+  const [undoing, setUndoing] = useState(false);
 
   useEffect(() => {
     if (matchData) {
@@ -115,8 +119,43 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     Alert.alert('Match Complete!', result);
   };
 
+  // Undo the last delivery: restore the pre-ball snapshot and delete the ball
+  // server-side. Works across over boundaries because the snapshot captures the
+  // full state, not a diff.
+  const undoLastBall = async () => {
+    if (matchComplete || undoing || history.length === 0) return;
+    setUndoing(true);
+    haptic.tick();
+    const prev = history[history.length - 1];
+    const res = await legendsApi.undoLastBall(matchData.id, currentInningId);
+    if (!res.success) {
+      showToast(res.error || 'Could not undo', 'error');
+      setUndoing(false);
+      return;
+    }
+    setHistory((h) => h.slice(0, -1));
+    setCurrentScore(prev.score);
+    setCurrentOver(prev.over);
+    setBallCount(prev.ballCount);
+    setStriker(prev.striker);
+    setNonStriker(prev.nonStriker);
+    setCurrentBowler(prev.bowler);
+    setOverSummary(null);
+    setShowPlayerModal(false);
+    setShowBowlerModal(false);
+    const s = `${prev.score.runs}/${prev.score.wickets} (${prev.score.overs}.${prev.score.balls})`;
+    if (!isInnings2) legendsApi.updateMatch(matchData.id, { score1: s });
+    showToast('Last ball undone', 'success');
+    setUndoing(false);
+  };
+
   const handleScore = async (value) => {
-    if (matchComplete) return;
+    if (matchComplete || undoing) return;
+    // Snapshot the pre-ball state so this delivery can be taken back.
+    setHistory((h) => [...h.slice(-49), {
+      score: { ...currentScore }, over: [...currentOver], ballCount,
+      striker, nonStriker, bowler: currentBowler,
+    }]);
     // Tactile feedback: a firm buzz on a wicket, a light tick on every other ball.
     if (value === 'out') haptic.warn(); else haptic.tick();
     let newScore = { ...currentScore };
@@ -477,7 +516,10 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         {/* ── EXTRA ACTIONS ── */}
         {!matchComplete &&
         <View style={styles.extraRow}>
-            <TouchableOpacity style={styles.extraBtn} onPress={() => Alert.alert('Undo', 'Undo is not yet supported')}>
+            <TouchableOpacity
+              style={[styles.extraBtn, (history.length === 0 || undoing) && { opacity: 0.4 }]}
+              onPress={undoLastBall}
+              disabled={history.length === 0 || undoing}>
               <Icon name="undo" size={14} color={DS.textMuted} />
               <Text style={styles.extraBtnText}>UNDO</Text>
             </TouchableOpacity>

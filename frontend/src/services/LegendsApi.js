@@ -506,6 +506,16 @@ class LegendsApi {
     }
   }
 
+  // Undo the last scored delivery of an inning
+  async undoLastBall(matchId, inningId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/score/last?inningId=${encodeURIComponent(inningId)}`, { method: 'DELETE' });
+      return { success: true, data: json.undone };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // One transactional call from Toss & Lineup: records the toss, fixes
   // inning 1's batting/bowling teams, and persists both playing XIs.
   async submitToss(matchId, data) {
