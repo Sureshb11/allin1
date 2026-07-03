@@ -736,3 +736,38 @@ model MatchSubstitution {
 
   @@index([matchId, teamId])
 }
+
+// ── Module 8: polymorphic activity feed + per-user likes ─────────────────────
+
+// One row renders any card (milestone, match result, MVP, photo) — the whole
+// card lives in `payload` JSONB so the feed never joins to 10 tables. Filtered
+// by (subjectType, subjectId) for follow-personalisation; cursor-paginated on
+// (createdAt, id).
+model ActivityFeed {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  type        String   // milestone | match_result | mvp | photo | post
+  sport       String
+  actorId     String?
+  subjectType String?  // match | player | tournament | team
+  subjectId   String?
+  payload     Json
+  likes       Int      @default(0)   // denormalised count (source of truth = Like rows)
+  commentCount Int     @default(0)
+
+  @@index([sport, createdAt])
+  @@index([subjectType, subjectId, createdAt])
+}
+
+// Per-user like, polymorphic over feed items or posts — idempotent (a user can
+// like a thing once). Replaces the dumb Post.likes counter's spam-ability.
+model Like {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  userId     String
+  targetType String   // feed | post
+  targetId   String
+
+  @@unique([userId, targetType, targetId])
+  @@index([targetType, targetId])
+}

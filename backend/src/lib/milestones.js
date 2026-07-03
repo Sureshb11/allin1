@@ -7,6 +7,7 @@
 // notification is skipped, so re-running is safe.
 
 import { prisma } from './prisma.js';
+import { pushFeedItem } from './feed.js';
 
 // Career thresholds per sport/stat. Editable; small lists → cheap to scan.
 const MILESTONES = {
@@ -72,9 +73,14 @@ export async function checkMatchMilestones(matchId) {
           const title = `${ordinal(th)} ${match.sport} ${LABEL[stat]}!`;
           if (seen.has(`${player.userId}|${title}`)) continue;
           seen.add(`${player.userId}|${title}`);
-          toCreate.push({
-            userId: player.userId, type: 'milestone', title,
-            message: `${player.name} reached ${th} career ${LABEL[stat]}${th === 1 ? '' : 's'} 🎯`,
+          const message = `${player.name} reached ${th} career ${LABEL[stat]}${th === 1 ? '' : 's'} 🎯`;
+          toCreate.push({ userId: player.userId, type: 'milestone', title, message });
+          // Public social card — the same milestone becomes a feed item, not
+          // just a private notification.
+          await pushFeedItem({
+            type: 'milestone', sport: match.sport,
+            actorId: player.userId, subjectType: 'player', subjectId: player.id,
+            payload: { title, player: { id: player.id, name: player.name }, stat: `${th} ${LABEL[stat]}${th === 1 ? '' : 's'}`, matchId: match.id },
           });
         }
       }

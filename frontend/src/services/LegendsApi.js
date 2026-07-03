@@ -382,6 +382,30 @@ class LegendsApi {
     }
   }
 
+  // Activity feed (milestone/result cards) — cursor-paginated.
+  async getFeed({ sport, cursor, limit } = {}) {
+    try {
+      const q = new URLSearchParams();
+      if (sport) q.set('sport', sport);
+      if (cursor) q.set('cursor', cursor);
+      if (limit) q.set('limit', String(limit));
+      const json = await this.request(`/feed?${q.toString()}`);
+      return { success: true, data: json.feed || [], nextCursor: json.nextCursor, hasMore: json.hasMore };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Idempotent like toggle on a feed card → { liked, likes }.
+  async toggleFeedLike(feedId) {
+    try {
+      const json = await this.request(`/feed/${feedId}/like`, { method: 'POST' });
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Resume-state projection — rebuilds live scoring state (striker/bowler/over)
   // from the server so a new device or reopened app can continue a match.
   async getLiveState(matchId) {

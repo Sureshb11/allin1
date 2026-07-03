@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
 import { validateSquad, applySubstitution } from '../lib/roster.js';
 import { checkMatchMilestones } from '../lib/milestones.js';
+import { pushMatchResultCard } from '../lib/feed.js';
 
 const router = Router();
 
@@ -372,10 +373,13 @@ router.put('/:id', async (req, res) => {
         ...(currentInnings && { currentInnings }),
       },
     });
-    // On completion, detect career milestones → notifications. Run inline
-    // (awaited) because serverless suspends background work after the response;
-    // it's once per match and guarded so it never fails the completion.
-    if (status === 'completed') await checkMatchMilestones(match.id);
+    // On completion: post a match-result card + detect career milestones (which
+    // also inject milestone cards). Inline because serverless suspends work
+    // after the response; guarded so neither can fail the completion.
+    if (status === 'completed') {
+      await pushMatchResultCard(match).catch(() => {});
+      await checkMatchMilestones(match.id);
+    }
     res.json({ match });
   } catch (e) {
     res.status(400).json({ error: e.message });
