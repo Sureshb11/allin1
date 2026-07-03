@@ -20,17 +20,9 @@ import SportIcon from '../components/SportIcon';
 import SportLogoIcon, { hasSportAnim } from '../components/SportLogoIcon';
 import { haptic } from '../utils/haptics';
 import legendsApi from '../services/LegendsApi';
-import { getSport } from '../sports';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 
 const { width: SW } = Dimensions.get('window');
-
-// Darken a hex colour (light mode needs deeper accents to stay readable in sun).
-const shade = (hex, f) => {
-  const n = parseInt(hex.slice(1, 7), 16);
-  const r = Math.round(((n >> 16) & 255) * f), g = Math.round(((n >> 8) & 255) * f), b = Math.round((n & 255) * f);
-  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
-};
 
 // ── ARENA palette (from design_handoff_arena/app/data.jsx) ──────────────────
 
@@ -65,11 +57,6 @@ const SPORTS = [
 { id: 'skateboard', name: 'Skateboarding', tag: 'Street', mci: 'skateboard' },
 { id: 'rummy', name: 'Rummy', tag: '13 Cards', scored: true, mci: 'cards-playing-outline' }];
 
-// Per-sport accent from the sports registry — one source of truth with the
-// rest of the app (feeds, scoring). Fallback: the Arena's bright lime.
-const SPORT_ACCENT = Object.fromEntries(
-  SPORTS.map((sp) => [sp.id, getSport(sp.id)?.accent || '#c4f82a'])
-);
 
 
 // ── Honeycomb params (V2 Spotlight) ─────────────────────────────────────────
@@ -146,12 +133,15 @@ const clampPan = (p) => ({
 });
 
 // ── A single disc (memo-free; cheap enough for 22 cells/frame) ──────────────
-// Apple-Watch feel: every sport is a full-colour token — accent-tinted fill and
-// coloured glyph at rest; the focused disc goes SOLID accent (dark glyph on it)
-// with a springy "pop" and a matching pulse ring.
-function Disc({ cell, accent, scale, opacity, focused, pulseAnim, onPress }) {const A = useArenaColors();const d = useThemedStyles(makeD);
+// "Stadium Under Lights" — one material, one spotlight. Every disc is the same
+// glassy navy bubble with a soft periwinkle glyph (a single tonal cluster, like
+// the Watch's dark honeycomb), and ONLY the centred disc lights up lime: solid
+// fill, dark glyph, lime pulse + glow. Two accents on the whole screen —
+// lime = selected, blue = START — instead of the old 19-colour rainbow.
+function Disc({ cell, scale, opacity, focused, pulseAnim, onPress }) {const A = useArenaColors();const d = useThemedStyles(makeD);
   // Icon renders at a fixed size; the whole disc is scaled via transform.
   const iconSize = cell.featured ? 36 : 31;
+  const glyph = focused ? A.navy0 : A.blueSoft;
   // Springy pop each time this disc ratchets into focus.
   const pop = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -176,7 +166,7 @@ function Disc({ cell, accent, scale, opacity, focused, pulseAnim, onPress }) {co
       {focused &&
       <Animated.View
         pointerEvents="none"
-        style={[d.pulse, { borderColor: accent,
+        style={[d.pulse, {
           opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
           transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.75] }) }]
         }]} />
@@ -184,15 +174,12 @@ function Disc({ cell, accent, scale, opacity, focused, pulseAnim, onPress }) {co
       }
       <Animated.View style={[
       d.disc,
-      // Full-colour tokens read clearly even in direct sun.
-      focused ?
-      { borderColor: accent, backgroundColor: accent } :
-      { borderColor: accent + '66', backgroundColor: accent + '1C' },
+      focused && d.discFocused,
       { transform: [{ scale: pop }] }]
       }>
         {hasSportAnim(cell.id) ?
-        <SportLogoIcon id={cell.id} size={CELL + 6} color={focused ? A.navy0 : accent} active={focused} /> :
-        <SportIcon id={cell.id} size={iconSize} color={focused ? A.navy0 : accent} />}
+        <SportLogoIcon id={cell.id} size={CELL + 6} color={glyph} active={focused} /> :
+        <SportIcon id={cell.id} size={iconSize} color={glyph} />}
       </Animated.View>
     </TouchableOpacity>);
 
@@ -408,9 +395,6 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
   const cx = dim.w / 2,cy = dim.h / 2;
   const focus = useMemo(() => SPORTS.find((s) => s.id === focusId) || SPORTS[0], [focusId]);
   const focusIdx = SPORTS.findIndex((s) => s.id === focusId);
-  // Per-sport accents, darkened in light mode so they hold up in sunlight.
-  const accentOf = useCallback((id) => isDark ? SPORT_ACCENT[id] : shade(SPORT_ACCENT[id], 0.62), [isDark]);
-  const focusAccent = accentOf(focus.id);
 
   // per-frame fisheye for each disc, computed from current pan offset
   const discs = POSITIONS.map((c) => {
@@ -492,14 +476,14 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         <Text style={s.title1}>CHOOSE YOUR</Text>
         <Animated.View style={[readoutStyle, { alignSelf: 'stretch', alignItems: 'center' }]}>
           <Text
-            style={[s.title2, { color: focusAccent }]}
+            style={s.title2}
             numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.6}>
             {focus.name.toUpperCase()}
           </Text>
           <View style={s.titleMetaRow}>
-            <Text style={[s.titleTag, { color: focusAccent }]}>{focus.tag.toUpperCase()}</Text>
+            <Text style={s.titleTag}>{focus.tag.toUpperCase()}</Text>
             <Text style={s.titleIdx}>{String(focusIdx + 1).padStart(2, '0')} / {SPORTS.length}</Text>
           </View>
         </Animated.View>
@@ -511,8 +495,8 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         <Svg pointerEvents="none" width={dim.w} height={dim.h} style={StyleSheet.absoluteFill}>
           <Defs>
             <RadialGradient id="arenaGlow" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor={focusAccent} stopOpacity={0.18} />
-              <Stop offset="1" stopColor={focusAccent} stopOpacity={0} />
+              <Stop offset="0" stopColor={A.lime} stopOpacity={0.15} />
+              <Stop offset="1" stopColor={A.lime} stopOpacity={0} />
             </RadialGradient>
           </Defs>
           <Circle cx={cx} cy={cy} r={175} fill="url(#arenaGlow)" />
@@ -541,7 +525,6 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
           }}>
             <Disc
             cell={cell}
-            accent={accentOf(cell.id)}
             scale={scale}
             opacity={opacity}
             focused={cell.id === focusId}
@@ -567,11 +550,19 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 }
 
 const makeD = (A) => StyleSheet.create({
+  // Glass bubble — the one material every unfocused disc shares.
   disc: {
     width: CELL, height: CELL, borderRadius: CELL / 2,
-    borderWidth: 2.5, backgroundColor: A.cell,
+    borderWidth: 1.5, borderColor: A.blueSoft + '30',
+    backgroundColor: A.blueSoft + '14',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',   // clip the square animation frame to the disc circle
+  },
+  // The spotlight: solid lime, thicker rim, lime glow.
+  discFocused: {
+    borderWidth: 2.5, borderColor: A.lime, backgroundColor: A.lime,
+    shadowColor: A.lime, shadowOpacity: 0.55, shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 }, elevation: 10,
   },
   pulse: {
     position: 'absolute', left: 0, top: 0, width: CELL, height: CELL,
@@ -595,9 +586,11 @@ const makeS = (A) => StyleSheet.create({
 
   titleBlock: { alignItems: 'center', paddingTop: 8, paddingBottom: 6, paddingHorizontal: 24 },
   title1: { fontSize: 30, fontWeight: '900', color: A.ink, letterSpacing: 0.5 },
-  title2: { fontSize: 40, fontWeight: '900', color: A.blueSoft, letterSpacing: 1, fontStyle: 'italic', lineHeight: 44 },
+  // Lime headline — echoes the spotlight disc; the screen's only two accents
+  // are lime (selected) and the blue START.
+  title2: { fontSize: 40, fontWeight: '900', color: A.lime, letterSpacing: 1, fontStyle: 'italic', lineHeight: 44 },
   titleMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
-  titleTag: { fontSize: 12, letterSpacing: 1.6, fontWeight: '800' },
+  titleTag: { fontSize: 12, color: A.lime, letterSpacing: 1.6, fontWeight: '800' },
   titleIdx: { fontSize: 12, color: A.textVariant, letterSpacing: 0.8, fontWeight: '700' },
 
   grid: { flex: 1, overflow: 'hidden' },
