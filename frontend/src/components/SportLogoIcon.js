@@ -24,11 +24,14 @@ const HOLD_TICKS = 6;  // beat on the finished logo before the loop restarts
 // Loop each sport from the frame where its figure is fully drawn, so the
 // focused disc always shows a complete athlete, never a partial reveal.
 // (measured: first frame reaching 70% of the final alpha coverage.)
+// pickleball & volleyball draw a moving swing-arc "swoosh" mid-animation
+// (frames ~16–23) that reads as a stray ring; their tail frames are clean, so
+// they loop only the settled tail to avoid it.
 const START_FRAME = {
   badminton: 2, basketball: 0, boxing: 0, cricket: 10, football: 2,
-  handball: 0, hockey: 4, judo: 0, karate: 0, khokho: 1, pickleball: 0,
+  handball: 0, hockey: 4, judo: 0, karate: 0, khokho: 1, pickleball: 24,
   rummy: 1, skateboard: 0, squash: 0, tabletennis: 0, tennis: 0,
-  volleyball: 0, wrestling: 0,
+  volleyball: 24, wrestling: 0,
 };
 
 export const hasSportAnim = (id) => Boolean(FRAMES[id]);
