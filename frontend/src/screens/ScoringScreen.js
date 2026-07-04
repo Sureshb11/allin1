@@ -512,7 +512,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.body}>
 
         {/* ── SCORE CARD ── */}
         <View style={styles.scoreCard}>
@@ -535,6 +535,17 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               <Text style={styles.needText}>Need {need} from{'\n'}{ballsLeft} balls</Text>
             </View>
           }
+        </View>
+
+        {/* ── CURRENT OVER TRACKER (compact) ── */}
+        <View style={styles.overSection}>
+          <Text style={styles.overSectionLabel}>THIS OVER</Text>
+          <View style={styles.overBalls}>
+            {filledOver.map((b, i) =>
+            b !== null ? renderBallDot(b, i) :
+            <View key={i} style={[styles.overBall, styles.overBallEmpty]}><View style={styles.overBallDot} /></View>
+            )}
+          </View>
         </View>
 
         {/* ── STRIKER / BOWLER ── */}
@@ -648,31 +659,6 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           </View>
         }
 
-        {/* ── CURRENT OVER TRACKER ── */}
-        <View style={styles.overSection}>
-          <Text style={styles.overSectionLabel}>CURRENT{'\n'}OVER</Text>
-          <View style={styles.overBalls}>
-            {filledOver.map((b, i) =>
-            b !== null ?
-            renderBallDot(b, i) :
-            <View key={i} style={[styles.overBall, styles.overBallEmpty]}>
-                    <View style={styles.overBallDot} />
-                  </View>
-            )}
-          </View>
-        </View>
-
-        {/* ── MOMENTUM BAR ── */}
-        <View style={styles.momentumSection}>
-          <View style={styles.momentumBar}>
-            <View style={[styles.momentumFill, { width: `${Math.min(100, currentScore.runs / Math.max(1, totalOvers * 7) * 100)}%` }]} />
-          </View>
-          <View style={styles.momentumLabels}>
-            <Text style={styles.momentumLabelLeft}>BATTING POWER</Text>
-            <Text style={styles.momentumLabelRight}>BOWLING PRESSURE</Text>
-          </View>
-        </View>
-
         {/* ── OVER SUMMARY + COMPLETE OVER ── */}
         {overSummary &&
         <View style={styles.summaryRow}>
@@ -725,8 +711,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           </View>
         }
 
-        <View style={{ height: 32 }} />
-      </ScrollView>
+      </View>
 
       {/* ── BOTTOM TAB BAR ── */}
       <View style={styles.tabBar}>
@@ -809,13 +794,14 @@ const GRID_BTN = (width - 48) / 3;
 
 const makeStyles = (DS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.bg },
-  scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 16 },
+  // No-scroll: the content column fills the space between top bar and tab bar;
+  // the scoring grid flexes to take whatever's left.
+  body: { flex: 1, paddingTop: 4 },
 
   // Top bar
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 48, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: DS.bg
+    paddingTop: 44, paddingBottom: 8, paddingHorizontal: 16, backgroundColor: DS.bg
   },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brandStar: { width: 28, height: 28, borderRadius: 6, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
@@ -828,12 +814,12 @@ const makeStyles = (DS) => StyleSheet.create({
   // Score card
   scoreCard: {
     flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
-    backgroundColor: DS.surfaceHigh, marginHorizontal: 16, borderRadius: 16, padding: 16, marginBottom: 10
+    backgroundColor: DS.surfaceHigh, marginHorizontal: 16, borderRadius: 16, padding: 12, marginBottom: 8
   },
   scoreLeft: { flex: 1 },
-  scoreLabel: { fontSize: 11, fontWeight: '700', color: DS.lime, letterSpacing: 1.5, marginBottom: 4 },
+  scoreLabel: { fontSize: 11, fontWeight: '700', color: DS.lime, letterSpacing: 1.5, marginBottom: 2 },
   scoreRow: { flexDirection: 'row', alignItems: 'flex-end' },
-  scoreMain: { fontSize: 48, fontWeight: '900', color: DS.textPrimary, letterSpacing: -2, lineHeight: 54 },
+  scoreMain: { fontSize: 40, fontWeight: '900', color: DS.textPrimary, letterSpacing: -2, lineHeight: 44 },
   scoreOvers: { fontSize: 18, color: DS.textMuted, fontWeight: '600', marginBottom: 6 },
   scoreRight: { alignItems: 'flex-end' },
   targetLabel: { fontSize: 11, fontWeight: '700', color: DS.coral, letterSpacing: 1 },
@@ -843,18 +829,18 @@ const makeStyles = (DS) => StyleSheet.create({
   resultText: { fontSize: 12, fontWeight: '700', color: DS.bg },
 
   // Players row
-  playersRow: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 10 },
+  playersRow: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 8 },
   strikerCard: {
-    flex: 1.1, backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 12,
+    flex: 1.1, backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 10,
     borderLeftWidth: 3, borderLeftColor: DS.lime
   },
   bowlerCard: {
-    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 12,
+    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 10,
     borderLeftWidth: 3, borderLeftColor: DS.surfaceHighest
   },
-  playerCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  playerCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   strikerLabel: { fontSize: 10, fontWeight: '700', color: DS.lime, letterSpacing: 1.2 },
-  strikerName: { fontSize: 17, fontWeight: '900', color: DS.textPrimary, lineHeight: 22, marginBottom: 6 },
+  strikerName: { fontSize: 16, fontWeight: '900', color: DS.textPrimary, lineHeight: 20, marginBottom: 4 },
   strikerBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   strikerStats: { fontSize: 11, color: DS.textMuted, flex: 1 },
   searchBtn: { padding: 4 },
@@ -872,12 +858,12 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   extraBtnText: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5, textAlign: 'center' },
 
-  // 3×3 Grid
-  grid: { marginHorizontal: 16, gap: 8, marginBottom: 10 },
-  gridRow: { flexDirection: 'row', gap: 8 },
+  // 3×3 Grid — flexes to fill the space left below the score/players.
+  grid: { flex: 1, marginHorizontal: 16, gap: 8, marginBottom: 8, minHeight: 200 },
+  gridRow: { flex: 1, flexDirection: 'row', gap: 8 },
   gridBtn: {
-    flex: 1, height: GRID_BTN * 0.9, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center', gap: 4
+    flex: 1, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center', gap: 2
   },
   gridBtnDot: { backgroundColor: DS.surfaceHigh },
   gridBtnFour: { backgroundColor: DS.blue },
@@ -890,12 +876,12 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // Over tracker
   overSection: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
     marginHorizontal: 16, marginBottom: 8
   },
-  overSectionLabel: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.8, lineHeight: 14 },
+  overSectionLabel: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.8 },
   overBalls: { flex: 1, flexDirection: 'row', gap: 6 },
-  overBall: { flex: 1, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  overBall: { flex: 1, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   overBallEmpty: { backgroundColor: DS.surfaceHighest },
   overBallDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DS.surfaceHighest },
   overBallText: { fontSize: 11, fontWeight: '800' },
@@ -925,8 +911,8 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // End innings / match
   endBtn: {
-    marginHorizontal: 16, backgroundColor: DS.surfaceHigh, borderRadius: 14,
-    paddingVertical: 14, alignItems: 'center', marginBottom: 10
+    marginHorizontal: 16, backgroundColor: DS.surfaceHigh, borderRadius: 12,
+    paddingVertical: 10, alignItems: 'center', marginBottom: 8
   },
   endBtnText: { fontSize: 13, fontWeight: '700', color: DS.textMuted, letterSpacing: 1 },
 
