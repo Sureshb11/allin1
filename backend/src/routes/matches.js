@@ -285,7 +285,7 @@ router.get('/:id/live-state', async (req, res) => {
       include: {
         battingTeam: true, bowlingTeam: true,
         oversData: {
-          orderBy: { overNumber: 'desc' }, take: 1,
+          orderBy: { overNumber: 'desc' },
           include: { bowler: true, balls: { orderBy: { ballNumber: 'desc' }, include: { batter: true, nonStriker: true } } },
         },
       },
@@ -293,9 +293,21 @@ router.get('/:id/live-state', async (req, res) => {
     const inning = innings[innings.length - 1];
     if (!inning) return res.json({ sport: 'cricket', status: match.status, resumable: false });
 
+    const legalIn = (over) => (over.balls || []).filter((b) => !['wide', 'no-ball'].includes(b.extraType)).length;
+    // Per-bowler completed overs (6 legal balls) → enforces the spell limit on
+    // resume; lastOverBowlerId powers the no-consecutive-overs rule.
+    const bowlerOvers = {};
+    let lastOverBowlerId = null;
+    for (const ov of [...inning.oversData].sort((a, b) => a.overNumber - b.overNumber)) {
+      if (legalIn(ov) >= 6) {
+        bowlerOvers[ov.bowlerId] = (bowlerOvers[ov.bowlerId] || 0) + 1;
+        lastOverBowlerId = ov.bowlerId;
+      }
+    }
+
     const curOver = inning.oversData[0];               // latest over of the current inning
     const lastBall = curOver?.balls[0];                // most recent delivery
-    const legalThisOver = (curOver?.balls || []).filter((b) => !['wide', 'no-ball'].includes(b.extraType)).length;
+    const legalThisOver = curOver ? legalIn(curOver) : 0;
     const overComplete = legalThisOver >= 6;
     const completedOvers = overComplete ? curOver.overNumber : (curOver ? curOver.overNumber - 1 : 0);
     const ballInOver = overComplete ? 0 : legalThisOver;
@@ -340,6 +352,7 @@ router.get('/:id/live-state', async (req, res) => {
       bowler:     overComplete ? null : (curOver?.bowler ? { id: curOver.bowler.id, name: curOver.bowler.name } : null),
       needsNewBatter: !!lastBall?.isWicket,
       needsNewBowler: overComplete,
+      bowlerOvers, lastOverBowlerId,
       lastBall: lastBall ? { runs: lastBall.runs, extras: lastBall.extras, extraType: lastBall.extraType, isWicket: lastBall.isWicket } : null,
     });
   } catch (e) {

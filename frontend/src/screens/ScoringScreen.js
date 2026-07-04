@@ -58,6 +58,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [ballCount, setBallCount] = useState(0);
   const [overSummary, setOverSummary] = useState(null);
   const [scoringReady, setScoringReady] = useState(false);
+  // Bowling spell tracking → per-bowler over limit + no consecutive overs.
+  const [bowlerOvers, setBowlerOvers] = useState({});      // bowlerId -> overs bowled
+  const [lastOverBowlerId, setLastOverBowlerId] = useState(null);
   // Undo: snapshot of everything a ball mutates, pushed before each delivery.
   const [history, setHistory] = useState([]);
   const [undoing, setUndoing] = useState(false);
@@ -95,20 +98,28 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       setCurrentScore({ runs: d.totalRuns, wickets: d.wickets, overs: d.completedOvers, balls: d.ballInOver });
       setBallCount(d.ballInOver || 0);
       setCurrentOver(d.currentOverBalls || []);
-      setStriker(d.striker || null);
-      setNonStriker(d.nonStriker || null);
-      setCurrentBowler(d.bowler || null);   // null when a new over/bowler is due
       setCurrentInningId(d.inningId);
-      setScoringReady(true);
-      if (d.needsNewBatter) setShowPlayerModal(true);
-      else if (d.needsNewBowler) setShowBowlerModal(true);
-      showToast('Resumed scoring', 'success', 1400);
+      setBowlerOvers(d.bowlerOvers || {});
+      setLastOverBowlerId(d.lastOverBowlerId || null);
+      // A batter is "known" only if the last ball wasn't a wicket; bowler only
+      // if we're mid-over. Pre-fill what we know and, if anything's missing,
+      // drop to the setup screen so the scorer re-picks (this is why batters
+      // looked empty before — with no balls yet, the crease can't be recovered).
+      const knownStriker = d.needsNewBatter ? null : d.striker;
+      const knownBowler = d.needsNewBowler ? null : d.bowler;
+      setStriker(knownStriker || null);
+      setNonStriker(d.nonStriker || null);
+      setCurrentBowler(knownBowler || null);
+      const fullyKnown = knownStriker && d.nonStriker && knownBowler;
+      setScoringReady(!!fullyKnown);
+      showToast(fullyKnown ? 'Resumed scoring' : 'Resumed — confirm the players', 'success', 1600);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resume, resumeId]);
 
   const overStr = `${currentScore.overs}.${currentScore.balls}`;
   const totalOvers = parseInt(matchData.overs, 10) || 20;
+  const maxOversPerBowler = Math.ceil(totalOvers / 5);   // T20 → 4, ODI → 10
   const target = isInnings2 ? firstInningsScore.runs + 1 : 0;
   const need = isInnings2 ? Math.max(0, target - currentScore.runs) : 0;
   const ballsLeft = isInnings2 ? Math.max(1, totalOvers * 6 - (currentScore.overs * 6 + currentScore.balls)) : 1;
@@ -260,6 +271,12 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       newScore.balls = 0;
       setCurrentOver([]);
       setBallCount(0);
+      // Credit the completed over to the bowler (spell limit) + remember them
+      // so they can't bowl the next over (no consecutive overs).
+      if (currentBowler) {
+        setBowlerOvers((prev) => ({ ...prev, [currentBowler.id]: (prev[currentBowler.id] || 0) + 1 }));
+        setLastOverBowlerId(currentBowler.id);
+      }
       const t = striker;setStriker(nonStriker);setNonStriker(t);
       if (newScore.overs < totalOvers && newScore.wickets < 10) setShowBowlerModal(true);
     } else {
@@ -757,17 +774,26 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Change Bowler</Text>
+            <Text style={styles.modalSub}>Max {maxOversPerBowler} overs each · can’t bowl consecutive overs</Text>
             <ScrollView>
-              {bowlingXI.map((p, i) =>
-              <TouchableOpacity key={i} style={styles.playerOption}
-              onPress={() => {setCurrentBowler(p);setShowBowlerModal(false);}}>
-                  <View style={[styles.playerAvatar, { backgroundColor: DS.lime + '33' }]}>
-                    <Text style={[styles.playerInitial, { color: DS.lime }]}>{p.name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <Text style={styles.playerName}>{p.name}</Text>
-                  <Icon name="chevron-right" size={18} color={DS.textMuted} />
-                </TouchableOpacity>
-              )}
+              {bowlingXI.map((p, i) => {
+                const bowled = bowlerOvers[p.id] || 0;
+                const atMax = bowled >= maxOversPerBowler;
+                const justBowled = p.id === lastOverBowlerId;
+                const blocked = atMax || justBowled;
+                const reason = atMax ? `${bowled}/${maxOversPerBowler} ov` : justBowled ? 'bowled last over' : `${bowled} ov`;
+                return (
+                  <TouchableOpacity key={i} style={[styles.playerOption, blocked && { opacity: 0.4 }]}
+                    disabled={blocked}
+                    onPress={() => { setCurrentBowler(p); setShowBowlerModal(false); }}>
+                    <View style={[styles.playerAvatar, { backgroundColor: DS.lime + '33' }]}>
+                      <Text style={[styles.playerInitial, { color: DS.lime }]}>{p.name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
+                    <Text style={[styles.modalSub, { marginBottom: 0 }]}>{reason}</Text>
+                    {!blocked && <Icon name="chevron-right" size={18} color={DS.textMuted} />}
+                  </TouchableOpacity>);
+              })}
             </ScrollView>
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowBowlerModal(false)}>
               <Text style={styles.modalCloseText}>Cancel</Text>
@@ -927,7 +953,8 @@ const makeStyles = (DS) => StyleSheet.create({
     padding: 20, maxHeight: '60%'
   },
   modalHandle: { width: 40, height: 4, backgroundColor: DS.surfaceHighest, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: DS.textPrimary, marginBottom: 16, textAlign: 'center' },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: DS.textPrimary, marginBottom: 6, textAlign: 'center' },
+  modalSub: { fontSize: 11, fontWeight: '600', color: DS.textMuted, marginBottom: 14, textAlign: 'center' },
   playerOption: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13 },
   playerAvatar: { width: 38, height: 38, borderRadius: 12, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   playerInitial: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
