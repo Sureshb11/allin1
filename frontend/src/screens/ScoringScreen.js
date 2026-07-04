@@ -26,8 +26,8 @@ const { width } = Dimensions.get('window');
 
 
 export default function ScoringScreen({ route, navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const setup = useThemedStyles(makeSetup);
-  const { match } = route.params || {};
-  const [matchData] = useState(match || {});
+  const { match, resume, matchId: resumeId } = route.params || {};
+  const [matchData, setMatchData] = useState(match || {});
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -74,6 +74,38 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       // Do NOT auto-assign — user picks on setup screen
     }
   }, [matchData]);
+
+  // ── Resume an in-progress match: rehydrate the full scoring state from the
+  // server (Module 7 live-state projection) and skip the toss/setup screen.
+  useEffect(() => {
+    if (!resume || !resumeId) return;
+    (async () => {
+      const res = await legendsApi.getLiveState(resumeId);
+      const d = res.data;
+      if (!res.success || !d?.resumable) { showToast('Could not resume this match', 'error'); return; }
+      setMatchData({
+        id: d.matchId, overs: String(d.totalOvers), sport: 'cricket',
+        battingTeamName: d.battingTeam, bowlingTeamName: d.bowlingTeam,
+        battingXI: d.battingXI, bowlingXI: d.bowlingXI,
+        battingTeamId: d.battingTeamId, bowlingTeamId: d.bowlingTeamId,
+        firstInningId: d.inningId,
+      });
+      setIsInnings2(!!d.isInnings2);
+      if (d.isInnings2 && d.target) setFirstInningsScore({ runs: d.target - 1, wickets: 0, overs: 0 });
+      setCurrentScore({ runs: d.totalRuns, wickets: d.wickets, overs: d.completedOvers, balls: d.ballInOver });
+      setBallCount(d.ballInOver || 0);
+      setCurrentOver(d.currentOverBalls || []);
+      setStriker(d.striker || null);
+      setNonStriker(d.nonStriker || null);
+      setCurrentBowler(d.bowler || null);   // null when a new over/bowler is due
+      setCurrentInningId(d.inningId);
+      setScoringReady(true);
+      if (d.needsNewBatter) setShowPlayerModal(true);
+      else if (d.needsNewBowler) setShowBowlerModal(true);
+      showToast('Resumed scoring', 'success', 1400);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resume, resumeId]);
 
   const overStr = `${currentScore.overs}.${currentScore.balls}`;
   const totalOvers = parseInt(matchData.overs, 10) || 20;

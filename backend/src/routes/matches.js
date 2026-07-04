@@ -296,28 +296,50 @@ router.get('/:id/live-state', async (req, res) => {
     const curOver = inning.oversData[0];               // latest over of the current inning
     const lastBall = curOver?.balls[0];                // most recent delivery
     const legalThisOver = (curOver?.balls || []).filter((b) => !['wide', 'no-ball'].includes(b.extraType)).length;
-    const completedOvers = legalThisOver >= 6 ? curOver.overNumber : (curOver ? curOver.overNumber - 1 : 0);
-    const ballInOver = legalThisOver >= 6 ? 0 : legalThisOver;
+    const overComplete = legalThisOver >= 6;
+    const completedOvers = overComplete ? curOver.overNumber : (curOver ? curOver.overNumber - 1 : 0);
+    const ballInOver = overComplete ? 0 : legalThisOver;
+
+    // Squads (playing XIs) split by the current inning's batting/bowling team,
+    // so the resumed scorer keeps the same player pickers.
+    const squad = await prisma.matchPlayer.findMany({ where: { matchId: match.id }, include: { player: true } });
+    const xiFor = (teamId) => squad.filter((s) => s.teamId === teamId).map((s) => ({ id: s.player.id, name: s.player.name }));
+
+    // Notation for the balls already in the current over (to rebuild the log).
+    const notate = (b) => b.extraType === 'wide' ? 'WD' : b.extraType === 'no-ball' ? 'NB'
+      : b.extraType === 'bye' ? 'B' : b.extraType === 'legBye' ? 'LB' : b.extraType === 'penalty' ? 'P5'
+      : b.isWicket ? 'W' : b.runs === 0 ? '·' : String(b.runs);
+    const currentOverBalls = overComplete ? [] : [...(curOver?.balls || [])].reverse().map(notate);
 
     res.json({
       sport: 'cricket',
       status: match.status,
       resumable: true,
+      matchId: match.id,
+      team1: match.team1Id, team2: match.team2Id,
+      totalOvers: match.overs || 20,
       inningId: inning.id,
       inningNumber: inning.inningNumber,
+      isInnings2: inning.inningNumber === 2,
+      battingTeamId: inning.battingTeamId,
+      bowlingTeamId: inning.bowlingTeamId,
       battingTeam: inning.battingTeam?.name,
       bowlingTeam: inning.bowlingTeam?.name,
+      battingXI: xiFor(inning.battingTeamId),
+      bowlingXI: xiFor(inning.bowlingTeamId),
       score: `${inning.totalRuns}/${inning.totalWickets}`,
       totalRuns: inning.totalRuns,
       wickets: inning.totalWickets,
+      completedOvers, ballInOver, currentOverBalls,
       overs: `${completedOvers}.${ballInOver}`,
       target: inning.targetScore || null,
-      // The pair currently at the crease + the bowler mid-over, so the new
-      // device rehydrates the scoring UI exactly where the last one left off.
+      // The pair at the crease + the bowler mid-over → rehydrate the UI exactly.
+      // After a completed over the strike swaps and a new bowler is due.
       striker:    lastBall ? { id: lastBall.batter.id, name: lastBall.batter.name } : null,
       nonStriker: lastBall ? { id: lastBall.nonStriker.id, name: lastBall.nonStriker.name } : null,
-      bowler:     curOver?.bowler ? { id: curOver.bowler.id, name: curOver.bowler.name } : null,
-      needsNewBatter: !!lastBall?.isWicket,             // last ball was a wicket → pick incoming batter
+      bowler:     overComplete ? null : (curOver?.bowler ? { id: curOver.bowler.id, name: curOver.bowler.name } : null),
+      needsNewBatter: !!lastBall?.isWicket,
+      needsNewBowler: overComplete,
       lastBall: lastBall ? { runs: lastBall.runs, extras: lastBall.extras, extraType: lastBall.extraType, isWicket: lastBall.isWicket } : null,
     });
   } catch (e) {

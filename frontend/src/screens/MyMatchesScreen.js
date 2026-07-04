@@ -16,7 +16,7 @@ const makeStatusMeta = (DS) => ({
   scheduled: { color: DS.blue,      bg: 'rgba(183,196,255,0.12)', label: 'UPCOMING'  },
 });
 
-function MatchCard({ m, onPress, onStart }) {
+function MatchCard({ m, onPress, onStart, onResume }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const STATUS_META = makeStatusMeta(DS);
@@ -97,9 +97,14 @@ function MatchCard({ m, onPress, onStart }) {
             <Icon name="play" size={13} color={DS.onBlue} />
             <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>START MATCH</Text>
           </TouchableOpacity>
+        ) : m.status === 'live' ? (
+          <TouchableOpacity onPress={() => onResume(m)} style={[styles.scoreBtn, styles.startBtn]}>
+            <Icon name="play" size={13} color={DS.onBlue} />
+            <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>RESUME</Text>
+          </TouchableOpacity>
         ) : (
           <TouchableOpacity onPress={onPress} style={styles.scoreBtn}>
-            <Text style={styles.scoreBtnText}>{m.status === 'live' ? 'SET SCORE' : 'Scorecard'}</Text>
+            <Text style={styles.scoreBtnText}>Scorecard</Text>
             <Icon name="chevron-right" size={14} color={DS.bg} />
           </TouchableOpacity>
         )}
@@ -256,6 +261,7 @@ export default function MyMatchesScreen({ navigation }) {
             m={item}
             onPress={() => navigation.navigate('HomeTab', { screen: 'Scorecard', params: { matchId: item.id } })}
             onStart={startMatch}
+            onResume={(m) => navigation.navigate('HomeTab', { screen: 'Scoring', params: { resume: true, matchId: m.id } })}
           />
         )}
         ListFooterComponent={

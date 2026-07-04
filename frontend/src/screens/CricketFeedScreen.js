@@ -476,9 +476,10 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     } catch (e) {/* user dismissed */}
   }, []);
 
-  // Circle card tap: a scheduled match → launch toss & lineup → scoring; a
-  // live/completed match → its scorecard.
+  // Circle card tap: scheduled → toss & lineup; live → resume scoring;
+  // completed → scorecard.
   const openCircleMatch = useCallback(async (mt) => {
+    if (mt.status === 'live') { navigation.navigate('Scoring', { resume: true, matchId: mt.id }); return; }
     if (mt.status !== 'scheduled') { navigation.navigate('Scorecard', { matchId: mt.id }); return; }
     let firstInningId;
     const innRes = await legendsApi.getMatchInnings(mt.id);
