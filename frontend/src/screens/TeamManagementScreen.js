@@ -38,6 +38,8 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
   const [searchPhone, setSearchPhone] = useState('');
   const [foundUser, setFoundUser] = useState(null);
   const [searching, setSearching] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [addingGuest, setAddingGuest] = useState(false);
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
 
@@ -222,6 +224,25 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
     setShowAddPlayer(false);
     setSearchPhone('');
     setFoundUser(null);
+    setGuestName('');
+  };
+
+  // Add a guest player by name — no app account needed (most local players
+  // aren't registered). If they join Local Legends later they can claim this
+  // player and inherit its match history.
+  const addGuestPlayer = async () => {
+    const name = guestName.trim().replace(/\s+/g, ' ');
+    if (name.length < 2) return showToast('Enter the player’s name.', 'error');
+    setAddingGuest(true);
+    const result = await legendsApi.createPlayer({ name, role: 'Player', teamId: selectedTeam?.id });
+    setAddingGuest(false);
+    if (result.success) {
+      await loadData();
+      closeAddPlayer();
+      showToast(`${name} added to the team.`, 'success');
+    } else {
+      showToast(result.error || 'Failed to add player', 'error');
+    }
   };
 
   // Look up an existing Local Legends user by their mobile number.
@@ -314,11 +335,35 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
 
             {showAddPlayer &&
             <View style={styles.addPlayerForm}>
-                <Text style={styles.addPlayerHint}>Add an existing Local Legends user by their mobile number.</Text>
+                {/* Primary: add anyone by name — no app account required. */}
+                <Text style={styles.addPlayerHint}>Add a player by name.</Text>
                 <View style={styles.searchRow}>
                   <TextInput
                     style={[styles.playerInput, { flex: 1, marginBottom: 0 }]}
-                    placeholder="Player's mobile number"
+                    placeholder="Player's name"
+                    placeholderTextColor={DS.textMuted}
+                    value={guestName}
+                    onChangeText={setGuestName}
+                    autoCapitalize="words"
+                    returnKeyType="done"
+                    onSubmitEditing={addGuestPlayer} />
+                  <TouchableOpacity style={styles.saveButton} onPress={addGuestPlayer} disabled={addingGuest}>
+                    {addingGuest
+                      ? <ActivityIndicator color={DS.bg} size="small" />
+                      : <Text style={styles.saveButtonText}>Add</Text>}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Secondary: link an existing Local Legends user by number. */}
+                <View style={styles.addDivider}>
+                  <View style={styles.addDividerLine} />
+                  <Text style={styles.addDividerTxt}>OR LINK AN APP USER</Text>
+                  <View style={styles.addDividerLine} />
+                </View>
+                <View style={styles.searchRow}>
+                  <TextInput
+                    style={[styles.playerInput, { flex: 1, marginBottom: 0 }]}
+                    placeholder="Registered mobile number"
                     placeholderTextColor={DS.textMuted}
                     value={searchPhone}
                     onChangeText={(t) => { setSearchPhone(t); setFoundUser(null); }}
@@ -832,6 +877,9 @@ const makeStyles = (DS) => StyleSheet.create({
     marginBottom: 16
   },
   addPlayerHint: { color: DS.textMuted, fontSize: 12.5, marginBottom: 10 },
+  addDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 14 },
+  addDividerLine: { flex: 1, height: 1, backgroundColor: DS.surfaceHighest },
+  addDividerTxt: { color: DS.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   foundCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12,
