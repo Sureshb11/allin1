@@ -376,12 +376,16 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
 
   const mapMatch = useCallback((m) => ({
     id: m.id,
-    tag: m.status === 'live' ? 'Live' : 'Match',
+    status: m.status,
+    tag: m.status === 'live' ? 'Live' : m.status === 'scheduled' ? 'Upcoming' : 'Match',
     live: m.status === 'live',
     when: m.status === 'live' ? '' : timeAgo(m.createdAt),
     a: { name: sideName(m.team1), short: initials(sideName(m.team1)), color: colorFor(sideName(m.team1)), score: m.score1 ?? '—', overs: '' },
     b: { name: sideName(m.team2), short: initials(sideName(m.team2)), color: colorFor(sideName(m.team2) + 'x'), score: m.score2 ?? '—', overs: '' },
-    result: m.result || (m.status === 'completed' ? 'Completed' : m.status === 'live' ? 'In progress' : 'Scheduled'),
+    result: m.result || (m.status === 'completed' ? 'Completed' : m.status === 'live' ? 'In progress' : 'Tap to start'),
+    // raw fields needed to launch the toss → scoring flow for a scheduled match
+    team1Id: m.team1Id, team2Id: m.team2Id,
+    overs: m.overs, matchType: m.matchType,
   }), []);
 
   const fetchFeed = useCallback(() => Promise.all([
@@ -472,6 +476,24 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     } catch (e) {/* user dismissed */}
   }, []);
 
+  // Circle card tap: a scheduled match → launch toss & lineup → scoring; a
+  // live/completed match → its scorecard.
+  const openCircleMatch = useCallback(async (mt) => {
+    if (mt.status !== 'scheduled') { navigation.navigate('Scorecard', { matchId: mt.id }); return; }
+    let firstInningId;
+    const innRes = await legendsApi.getMatchInnings(mt.id);
+    if (innRes.success && innRes.data?.length) firstInningId = innRes.data[0].id;
+    navigation.navigate('TossLineup', {
+      matchId: mt.id,
+      team1: mt.a.name, team2: mt.b.name,
+      team1Id: mt.team1Id, team2Id: mt.team2Id,
+      overs: String(mt.overs || 20),
+      matchType: mt.matchType || 'T20',
+      firstInningId,
+      sport: 'cricket',
+    });
+  }, [navigation]);
+
   const submitPost = useCallback(async () => {
     const text = composeText.trim();
     if (!text) return;
@@ -507,7 +529,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       contentContainerStyle={s.railContent}>
 
         {matches.length > 0
-        ? matches.map((mt) => <CircleMatchCard key={mt.id} match={mt} onPress={() => navigation.navigate('Scorecard', { matchId: mt.id })} />)
+        ? matches.map((mt) => <CircleMatchCard key={mt.id} match={mt} onPress={() => openCircleMatch(mt)} />)
         : <View style={s.railEmpty}><Text style={s.railEmptyTxt}>No recent matches yet</Text></View>}
       </ScrollView>
 
