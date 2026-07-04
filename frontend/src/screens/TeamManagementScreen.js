@@ -55,6 +55,13 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
     loadData();
   }, []);
 
+  // Reload the squad whenever a team is opened (or closed) so the detail shows
+  // only that team's players.
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTeam?.id]);
+
   const mapTeam = (t) => ({
     id: t.id,
     name: t.name,
@@ -79,18 +86,23 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
         });
         setFollowedIds(new Set((c.followed || []).map((t) => t.id)));
       }
-      const playersRes = await legendsApi.getPlayers();
-      if (playersRes.success) {
-        const mapped = (playersRes.data || []).map((p) => ({
-          id: p.id,
-          name: p.name,
-          role: p.role,
-          matches: p.stats?.matches || 0,
-          runs: p.stats?.runs || 0,
-          wickets: p.stats?.wickets || 0,
-          teamName: typeof p.team === 'object' && p.team !== null ? p.team?.name : ''
-        }));
-        setPlayers(mapped);
+      // Squad list = only the OPEN team's players (was fetching every player in
+      // the database, which showed "so many" members in the detail view).
+      if (selectedTeam?.id) {
+        const playersRes = await legendsApi.getPlayers({ teamId: selectedTeam.id });
+        if (playersRes.success) {
+          setPlayers((playersRes.data || []).map((p) => ({
+            id: p.id,
+            name: p.name,
+            role: p.role,
+            matches: p.stats?.matches || 0,
+            runs: p.stats?.runs || 0,
+            wickets: p.stats?.wickets || 0,
+            teamName: typeof p.team === 'object' && p.team !== null ? p.team?.name : '',
+          })));
+        }
+      } else {
+        setPlayers([]);
       }
     } catch (error) {
       console.log('Error loading team data:', error);

@@ -16,7 +16,7 @@ const makeStatusMeta = (DS) => ({
   scheduled: { color: DS.blue,      bg: 'rgba(183,196,255,0.12)', label: 'UPCOMING'  },
 });
 
-function MatchCard({ m, onPress }) {
+function MatchCard({ m, onPress, onStart }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const STATUS_META = makeStatusMeta(DS);
@@ -92,12 +92,17 @@ function MatchCard({ m, onPress }) {
         ) : (
           <View style={{ flex: 1 }} />
         )}
-        <TouchableOpacity onPress={onPress} style={styles.scoreBtn}>
-          <Text style={styles.scoreBtnText}>
-            {m.status === 'live' ? 'SET SCORE' : 'Scorecard'}
-          </Text>
-          <Icon name="chevron-right" size={14} color={DS.bg} />
-        </TouchableOpacity>
+        {m.status === 'scheduled' ? (
+          <TouchableOpacity onPress={() => onStart(m)} style={[styles.scoreBtn, styles.startBtn]}>
+            <Icon name="play" size={13} color={DS.onBlue} />
+            <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>START MATCH</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={onPress} style={styles.scoreBtn}>
+            <Text style={styles.scoreBtnText}>{m.status === 'live' ? 'SET SCORE' : 'Scorecard'}</Text>
+            <Icon name="chevron-right" size={14} color={DS.bg} />
+          </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -130,6 +135,28 @@ export default function MyMatchesScreen({ navigation }) {
   };
 
   useEffect(() => { loadMatches(); }, []);
+
+  // Kick off a scheduled match → toss & lineup → ball-by-ball scoring.
+  const startMatch = async (m) => {
+    const t1 = typeof m.team1 === 'object' && m.team1 ? m.team1 : { id: m.team1Id, name: m.team1 };
+    const t2 = typeof m.team2 === 'object' && m.team2 ? m.team2 : { id: m.team2Id, name: m.team2 };
+    let firstInningId;
+    const innRes = await legendsApi.getMatchInnings(m.id);
+    if (innRes.success && innRes.data?.length) firstInningId = innRes.data[0].id;
+    navigation.navigate('HomeTab', {
+      screen: 'TossLineup',
+      params: {
+        matchId: m.id,
+        team1: t1.name, team2: t2.name,
+        team1Id: t1.id, team2Id: t2.id,
+        overs: String(m.overs || 20),
+        venue: m.venue || '',
+        matchType: m.matchType || 'T20',
+        firstInningId,
+        sport: m.sport || 'cricket',
+      },
+    });
+  };
 
   const onRefresh = async () => { setRefreshing(true); await loadMatches(); setRefreshing(false); };
 
@@ -228,6 +255,7 @@ export default function MyMatchesScreen({ navigation }) {
           <MatchCard
             m={item}
             onPress={() => navigation.navigate('HomeTab', { screen: 'Scorecard', params: { matchId: item.id } })}
+            onStart={startMatch}
           />
         )}
         ListFooterComponent={
@@ -386,6 +414,7 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 7,
   },
   scoreBtnText: { fontSize: 12, fontWeight: '800', color: DS.bg },
+  startBtn: { backgroundColor: DS.blueDeep },   // scheduled → solid-blue START
 
   /* Promo card */
   promoCard: {
