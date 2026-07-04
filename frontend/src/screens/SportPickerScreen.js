@@ -9,7 +9,7 @@ import { useTheme, useThemedStyles, useArenaColors } from "../theme/ThemeContext
 // letter-spacing) instead. Tapping a disc keeps the app's navigation contract
 // (→ SportSetup with the chosen sport).
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
   Dimensions, PanResponder, Animated, Easing, Vibration, Platform } from
@@ -132,12 +132,17 @@ const clampPan = (p) => ({
   y: clamp(p.y, BOUNDS.y[0], BOUNDS.y[1])
 });
 
-// ── A single disc (memo-free; cheap enough for 22 cells/frame) ──────────────
+// ── A single disc ────────────────────────────────────────────────────────────
 // Quiet luxury: the whole cluster is near-monochrome — barely-there bubbles
 // with hairline rims and dim grey glyphs. The centred disc isn't painted, it's
 // LIT: same dark material, a fine lime ring, a soft glow, and the glyph turns
 // full-bright. Selection reads as light hitting the disc, not a colour fill.
-function Disc({ cell, scale, opacity, focused, attract, pulseAnim, onPress }) {const A = useArenaColors();const d = useThemedStyles(makeD);
+//
+// Perf: memoized with a threshold comparator (below) so the 19 discs skip
+// re-rendering for invisible sub-pixel fisheye changes, and the 30-frame logo
+// stack only mounts once focus has SETTLED (~0.25s) — a fast fling ratcheting
+// through discs never pays the mount/unmount cost.
+const Disc = React.memo(function Disc({ cell, scale, opacity, focused, attract, pulseAnim, onSelect }) {const A = useArenaColors();const d = useThemedStyles(makeD);
   // Icon renders at a fixed size; the whole disc is scaled via transform.
   const iconSize = cell.featured ? 36 : 31;
   const glyph = focused ? A.ink : A.inkDim;
@@ -149,10 +154,17 @@ function Disc({ cell, scale, opacity, focused, attract, pulseAnim, onPress }) {c
       Animated.spring(pop, { toValue: 1, friction: 4, tension: 160, useNativeDriver: true }).start();
     }
   }, [focused, pop]);
+  // Play the logo only after focus settles, not while discs ratchet past.
+  const [play, setPlay] = useState(false);
+  useEffect(() => {
+    if (!focused) { setPlay(false); return; }
+    const t = setTimeout(() => setPlay(true), 250);
+    return () => clearTimeout(t);
+  }, [focused]);
   return (
     <TouchableOpacity
       activeOpacity={0.9}
-      onPress={onPress}
+      onPress={() => onSelect(cell)}
       style={{
         position: 'absolute',
         left: -CELL / 2,
@@ -177,12 +189,19 @@ function Disc({ cell, scale, opacity, focused, attract, pulseAnim, onPress }) {c
       { transform: [{ scale: pop }] }]
       }>
         {hasSportAnim(cell.id) ?
-        <SportLogoIcon id={cell.id} size={CELL + 6} color={glyph} active={focused || attract} /> :
+        <SportLogoIcon id={cell.id} size={CELL + 6} color={glyph} active={play || attract} /> :
         <SportIcon id={cell.id} size={iconSize} color={glyph} />}
       </Animated.View>
     </TouchableOpacity>);
 
-}
+}, (prev, next) =>
+  prev.cell.id === next.cell.id &&
+  prev.focused === next.focused &&
+  prev.attract === next.attract &&
+  prev.onSelect === next.onSelect &&
+  Math.abs(prev.scale - next.scale) < 0.012 &&
+  Math.abs(prev.opacity - next.opacity) < 0.03
+);
 
 // Open centred on the last-played sport (in-session; fresh launch → cricket).
 const initialArena = () => {
@@ -449,8 +468,10 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
   const cx = dim.w / 2,cy = dim.h / 2;
   const focus = useMemo(() => SPORTS.find((s) => s.id === focusId) || SPORTS[0], [focusId]);
 
-  // per-frame fisheye for each disc, computed from current pan offset
-  const discs = POSITIONS.map((c) => {
+  // Fisheye layout for the current pan offset. useMemo so non-pan re-renders
+  // (focus tick, attract, glow) reuse the identical array and the memoized
+  // Discs bail out instantly.
+  const discs = useMemo(() => POSITIONS.map((c) => {
     const sx = panOff.x + c.x,sy = panOff.y + c.y;
     const t = Math.hypot(sx, sy) / FALLOFF;
     let s = MIN_SCALE + (MAX_SCALE - MIN_SCALE) / (1 + t * t * 1.35);
@@ -458,7 +479,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
     s = clamp(s, MIN_SCALE, MAX_SCALE * 1.16);
     const opacity = clamp((s - MIN_SCALE) / (MAX_SCALE - MIN_SCALE) * 1.1 + 0.32, 0.32, 1);
     return { cell: c, left: cx + c.x + panOff.x, top: cy + c.y + panOff.y, scale: s, opacity };
-  });
+  }), [panOff.x, panOff.y, cx, cy]);
 
   return (
     <View style={s.root}>
@@ -548,7 +569,9 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
             <Circle cx={cx} cy={cy} r={185} fill="url(#arenaGlow)" />
           </Svg>
         </Animated.View>
-        {/* faint constellation mesh between neighbouring discs */}
+        {/* faint constellation mesh between neighbouring discs. Coordinates are
+            rounded to whole pixels so rn-svg skips native updates for
+            sub-pixel pan deltas — the lines are too faint for it to show. */}
         <Svg pointerEvents="none" width={dim.w} height={dim.h} style={StyleSheet.absoluteFill}>
           {EDGES.map(([i, j], k) => {
             const a = discs[i],b = discs[j];
@@ -557,8 +580,9 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
             return (
               <Line
                 key={k}
-                x1={a.left} y1={a.top} x2={b.left} y2={b.top}
-                stroke={A.lime} strokeWidth={1} strokeOpacity={(o - 0.3) * 0.09} />);
+                x1={Math.round(a.left)} y1={Math.round(a.top)}
+                x2={Math.round(b.left)} y2={Math.round(b.top)}
+                stroke={A.lime} strokeWidth={1} strokeOpacity={Math.round((o - 0.3) * 0.09 * 100) / 100} />);
 
 
           })}
@@ -580,7 +604,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
             focused={cell.id === focusId}
             attract={cell.id === attractId}
             pulseAnim={pulseAnim}
-            onPress={() => selectCell(cell)} />
+            onSelect={selectCell} />
           
           </Animated.View>
         )}
