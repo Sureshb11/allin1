@@ -41,6 +41,29 @@ const BALL_TYPES = [
   { label: 'Rubber',  icon: 'circle-outline' },
 ];
 
+// Quick fixture slots, computed relative to now. Includes near-term options so
+// a scheduled match can be created and start-tested the same day.
+const buildSlots = () => {
+  const at = (dayOffset, h, m = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() + dayOffset);
+    d.setHours(h, m, 0, 0);
+    return d;
+  };
+  const inHrs = (h) => { const d = new Date(); d.setMinutes(0, 0, 0); d.setHours(d.getHours() + h); return d; };
+  const now = new Date();
+  const todayEve = at(0, 18);
+  return [
+    { label: 'In 1 hr', date: inHrs(1) },
+    // "Today, 6 PM" only if it hasn't passed; otherwise skip to tomorrow slots.
+    ...(todayEve > now ? [{ label: 'Today 6 PM', date: todayEve }] : []),
+    { label: 'Tmrw 10 AM', date: at(1, 10) },
+    { label: 'Tmrw 6 PM', date: at(1, 18) },
+    { label: 'Sat 10 AM', date: (() => { const d = at(0, 10); d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7)); return d; })() },
+  ];
+};
+const SCHEDULE_SLOTS = buildSlots();
+
 /* ─── TeamPicker bottom-sheet ────────────────────────────── */
 const TeamPicker = ({ visible, onClose, onSelect, excludeId, title }) => {
   const c = useTheme().colors;
@@ -219,6 +242,8 @@ const StartMatchScreen = ({ navigation, route }) => {
   const [overs, setOvers]       = useState(String(FORMATS[0].value));
   const [ballType, setBallType] = useState('Leather');
   const [venue, setVenue]       = useState('');
+  // 'now' → toss & score immediately; a Date → schedule as an Upcoming fixture.
+  const [scheduleAt, setScheduleAt] = useState(null);
   const [team1, setTeam1]       = useState(null);
 
   useLayoutEffect(() => {
@@ -261,11 +286,20 @@ const StartMatchScreen = ({ navigation, route }) => {
         matchType: format.label,
         ...(isCricket ? { ballType } : {}),
         status: 'scheduled',
+        ...(scheduleAt ? { startTime: scheduleAt.toISOString() } : {}),
         sport: sport.id,
       });
 
       if (!matchRes.success) {
         showToast(matchRes.error || 'Failed to create match', 'error');
+        return;
+      }
+
+      // Scheduled for later → leave it as an Upcoming fixture; start it from
+      // My Matches (its START button) when it's time.
+      if (scheduleAt) {
+        showToast('Match scheduled ✓', 'success');
+        navigation.navigate('MyMatches');
         return;
       }
 
@@ -531,10 +565,39 @@ const StartMatchScreen = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* ── Start Scoring button (signature blue-gradient CTA) ── */}
+        {/* ── When: start now, or schedule as an Upcoming fixture ── */}
+        <SectionHead num="4" label="When" />
+        <View style={s.whenRow}>
+          <TouchableOpacity
+            style={[s.whenChip, !scheduleAt && s.whenChipActive]}
+            onPress={() => setScheduleAt(null)}
+            activeOpacity={0.85}>
+            <Icon name="play-circle" size={15} color={!scheduleAt ? K.bg : K.textMuted} />
+            <Text style={[s.whenChipTxt, !scheduleAt && s.whenChipTxtActive]}>Start now</Text>
+          </TouchableOpacity>
+          {SCHEDULE_SLOTS.map((slot) => {
+            const on = scheduleAt && scheduleAt.getTime() === slot.date.getTime();
+            return (
+              <TouchableOpacity
+                key={slot.label}
+                style={[s.whenChip, on && s.whenChipActive]}
+                onPress={() => setScheduleAt(slot.date)}
+                activeOpacity={0.85}>
+                <Text style={[s.whenChipTxt, on && s.whenChipTxtActive]}>{slot.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {scheduleAt && (
+          <Text style={s.whenReadout}>
+            Fixture: {scheduleAt.toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        )}
+
+        {/* ── CTA (signature blue-gradient) — start now or schedule ── */}
         <GradientButton
-          label="START SCORING"
-          icon={sport.icon || 'whistle'}
+          label={scheduleAt ? 'SCHEDULE MATCH' : 'START SCORING'}
+          icon={scheduleAt ? 'calendar-clock' : (sport.icon || 'whistle')}
           onPress={onCreate}
           loading={loading}
           disabled={!team1 || !team2 || emptyTeams.length > 0}
@@ -845,6 +908,18 @@ const makeS = (K) => StyleSheet.create({
     borderRadius: 16,
     marginTop: 28,
   },
+
+  /* ── When (schedule) ───────────────────────── */
+  whenRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  whenChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: K.surfaceHigh, borderRadius: 12,
+    paddingHorizontal: 13, paddingVertical: 9,
+  },
+  whenChipActive: { backgroundColor: K.lime },
+  whenChipTxt: { color: K.textVariant, fontSize: 13, fontWeight: '700' },
+  whenChipTxtActive: { color: K.bg },
+  whenReadout: { color: K.lime, fontSize: 12.5, fontWeight: '700', marginTop: 10 },
 
   /* ── Team Picker (modal) ───────────────────── */
   pickerOverlay: {
