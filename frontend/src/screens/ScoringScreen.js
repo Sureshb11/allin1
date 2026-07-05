@@ -71,6 +71,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [bowlStats, setBowlStats] = useState({});
   const [extraPrompt, setExtraPrompt] = useState(null);    // 'wide'|'noball'|'bye'|'legbye' → +runs sheet
   const [wicketPrompt, setWicketPrompt] = useState(false); // WICKET → dismissal-type sheet
+  const [showSettings, setShowSettings] = useState(false); // top-bar settings sheet (End Innings/Match lives here)
+  const [endPrompt, setEndPrompt] = useState(false);       // reason picker before ending innings/match
   // Undo: snapshot of everything a ball mutates, pushed before each delivery.
   const [history, setHistory] = useState([]);
   const [undoing, setUndoing] = useState(false);
@@ -368,40 +370,52 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     const scoreStr = `${newScore.runs}/${newScore.wickets} (${newScore.overs}.${newScore.balls})`;
     if (!isInnings2) legendsApi.updateMatch(matchData.id, { score1: scoreStr });
     if (isInnings2) checkWinCondition(newScore);
-    if (!isInnings2 && (newScore.wickets >= 10 || newScore.overs >= totalOvers && newScore.balls === 0)) endInnings();
+    if (!isInnings2 && (newScore.wickets >= 10 || newScore.overs >= totalOvers && newScore.balls === 0)) {
+      finishInnings(newScore.wickets >= 10 ? 'All out' : 'Overs completed', newScore);
+    }
   };
 
-  const endInnings = () => {
-    if (!isInnings2) {
-      const saved = { ...currentScore };
-      setFirstInningsScore(saved);
-      Alert.alert(
-        'End Innings',
-        `${battingTeamName}: ${saved.runs}/${saved.wickets} (${saved.overs}.${saved.balls})\nStart second innings?`,
-        [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Yes', onPress: async () => {
-            const s1 = `${saved.runs}/${saved.wickets} (${saved.overs}.${saved.balls})`;
-            await legendsApi.updateMatch(matchData.id, { score1: s1 });
-            const inn = await legendsApi.createInning(matchData.id, {
-              battingTeamId: bowlingTeamId, bowlingTeamId: battingTeamId, targetScore: saved.runs + 1
-            });
-            setIsInnings2(true);
-            setCurrentInningId(inn.success ? inn.data.id : '');
-            setCurrentScore({ runs: 0, wickets: 0, overs: 0, balls: 0 });
-            setCurrentOver([]);setBallCount(0);setOverSummary(null);
-            setBattingTeamName(bowlingTeamName);setBowlingTeamName(battingTeamName);
-            setBattingXI(bowlingXI);setBowlingXI(battingXI);
-            setBattingTeamId(bowlingTeamId);setBowlingTeamId(battingTeamId);
-            // Reset players — user picks on setup screen for 2nd innings too
-            setStriker(null);setNonStriker(null);setCurrentBowler(null);
-            setScoringReady(false);
-          } }]
+  // Reasons offered before ending — an innings mid-way vs. the whole match.
+  const END_REASONS = {
+    innings: ['All out', 'Overs completed', 'Declared', 'Rain / interruption'],
+    match:   ['Target achieved', 'All out', 'Overs completed', 'Rain / abandoned', 'Match conceded'],
+  };
 
-      );
+  // End the current innings/match with a recorded reason. `scoreOverride` lets an
+  // automatic end (all-out / overs-done) pass the just-computed score.
+  const finishInnings = async (reason, scoreOverride) => {
+    const score = scoreOverride || currentScore;
+    if (!isInnings2) {
+      setFirstInningsScore(score);
+      const s1 = `${score.runs}/${score.wickets} (${score.overs}.${score.balls})`;
+      await legendsApi.updateMatch(matchData.id, { score1: s1 });
+      const inn = await legendsApi.createInning(matchData.id, {
+        battingTeamId: bowlingTeamId, bowlingTeamId: battingTeamId, targetScore: score.runs + 1,
+      });
+      setIsInnings2(true);
+      setCurrentInningId(inn.success ? inn.data.id : '');
+      setCurrentScore({ runs: 0, wickets: 0, overs: 0, balls: 0 });
+      setCurrentOver([]); setBallCount(0); setOverSummary(null); setHistory([]);
+      // Fresh innings → reset per-player figures + bowling spell tracking.
+      setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null);
+      setBattingTeamName(bowlingTeamName); setBowlingTeamName(battingTeamName);
+      setBattingXI(bowlingXI); setBowlingXI(battingXI);
+      setBattingTeamId(bowlingTeamId); setBowlingTeamId(battingTeamId);
+      setStriker(null); setNonStriker(null); setCurrentBowler(null);
+      setScoringReady(false);
+      showToast(`1st innings ended · ${reason}`, 'success');
     } else {
-      const diff = target - 1 - currentScore.runs;
-      endMatch(diff === 0 ? 'Match Tied!' : `${bowlingTeamName} won by ${diff} run${diff !== 1 ? 's' : ''}`, currentScore);
+      let result;
+      if (reason === 'Match conceded') result = `${bowlingTeamName} won — ${battingTeamName} conceded`;
+      else if (reason === 'Rain / abandoned') result = 'Match abandoned · no result';
+      else if (score.runs >= target) {
+        const wr = 10 - score.wickets;
+        result = `${battingTeamName} won by ${wr} wicket${wr !== 1 ? 's' : ''}`;
+      } else {
+        const diff = target - 1 - score.runs;
+        result = diff === 0 ? 'Match Tied!' : `${bowlingTeamName} won by ${diff} run${diff !== 1 ? 's' : ''}`;
+      }
+      endMatch(result, score);
     }
   };
 
@@ -590,7 +604,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           <TouchableOpacity style={styles.topBarBtn} onPress={shareScore}>
             <Icon name="history" size={20} color={DS.textVariant} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.topBarBtn} onPress={() => Alert.alert('Settings', 'Match settings')}>
+          <TouchableOpacity style={styles.topBarBtn} onPress={() => setShowSettings(true)}>
             <Icon name="cog-outline" size={20} color={DS.textVariant} />
           </TouchableOpacity>
         </View>
@@ -763,12 +777,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           </View>
         }
 
-        {/* ── END INNINGS / MATCH ── */}
-        {!matchComplete &&
-        <TouchableOpacity style={styles.endBtn} onPress={endInnings}>
-            <Text style={styles.endBtnText}>{isInnings2 ? 'END MATCH' : 'END INNINGS'}</Text>
-          </TouchableOpacity>
-        }
+        {/* END INNINGS / MATCH now lives in the ⚙ settings sheet (top-right),
+            gated behind a reason picker. */}
 
         {/* ── MATCH COMPLETE ACTIONS ── */}
         {matchComplete &&
@@ -920,6 +930,55 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           </View>
         </View>
       </Modal>
+
+      {/* ── MATCH SETTINGS sheet (⚙) — End Innings/Match lives here ── */}
+      <Modal visible={showSettings} transparent animationType="slide" onRequestClose={() => setShowSettings(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Match Settings</Text>
+            <TouchableOpacity style={styles.settingRow} onPress={() => { setShowSettings(false); shareScore(); }}>
+              <Icon name="share-variant" size={20} color={DS.textPrimary} />
+              <Text style={styles.settingText}>Share score</Text>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
+            {!matchComplete && (
+              <TouchableOpacity style={styles.settingRow} onPress={() => { setShowSettings(false); setEndPrompt(true); }}>
+                <Icon name="flag-checkered" size={20} color={DS.wicketText} />
+                <Text style={[styles.settingText, { color: DS.wicketText }]}>
+                  {isInnings2 ? 'End match' : 'End innings'}
+                </Text>
+                <Icon name="chevron-right" size={18} color={DS.textMuted} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowSettings(false)}>
+              <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── END REASON picker — confirm why the innings/match is ending ── */}
+      <Modal visible={endPrompt} transparent animationType="slide" onRequestClose={() => setEndPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>{isInnings2 ? 'End Match' : 'End Innings'} — reason</Text>
+            <Text style={styles.modalSub}>Pick a reason to confirm</Text>
+            {(isInnings2 ? END_REASONS.match : END_REASONS.innings).map((reason) => (
+              <TouchableOpacity key={reason} style={styles.settingRow}
+                onPress={() => { setEndPrompt(false); finishInnings(reason); }}>
+                <Icon name="flag-outline" size={18} color={DS.coral} />
+                <Text style={[styles.settingText, { flex: 1 }]}>{reason}</Text>
+                <Icon name="chevron-right" size={18} color={DS.textMuted} />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.modalClose} onPress={() => setEndPrompt(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>);
 
 }
@@ -1064,12 +1123,12 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   completeOverText: { fontSize: 11, fontWeight: '900', color: DS.bg, textAlign: 'center', letterSpacing: 0.5 },
 
-  // End innings / match
-  endBtn: {
-    marginHorizontal: 16, backgroundColor: DS.surfaceHigh, borderRadius: 12,
-    paddingVertical: 10, alignItems: 'center', marginBottom: 8
+  // Settings sheet / end-reason rows
+  settingRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 15, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: DS.line,
   },
-  endBtnText: { fontSize: 13, fontWeight: '700', color: DS.textMuted, letterSpacing: 1 },
+  settingText: { flex: 1, fontSize: 15, fontWeight: '700', color: DS.textPrimary },
 
   // Match complete
   completeActions: { marginHorizontal: 16, gap: 10 },
