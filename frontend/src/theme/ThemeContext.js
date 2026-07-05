@@ -36,6 +36,10 @@ const dark = {
   limeBright: '#c4f82a',
   lime2: '#a6e814',
   coral: '#ffb59e',
+  // Wicket / danger accent — used for the WICKET button, dismissal chips, and the
+  // End innings/match action. Tinted panel + readable red text, works on dark surfaces.
+  wicketBg: 'rgba(255,122,92,0.16)',
+  wicketText: '#ff7a5c',
   blue: '#b7c4ff',
   // Signature "stadium under lights" electric blue — the primary CTA gradient
   // (primary_container → primary) from the Kinetic Athlete design system.
@@ -81,6 +85,9 @@ const light = {
   limeBright: '#6f9e00',
   lime2: '#6f9e00',
   coral: '#c2533a',
+  // Wicket / danger accent (light) — deeper red so it reads on light surfaces.
+  wicketBg: 'rgba(194,83,58,0.12)',
+  wicketText: '#c2533a',
   blue: '#3b5bdb',
   // Same electric-blue CTA gradient — self-contained coloured button, so it
   // reads well in light mode too (with white on-blue text).
