@@ -1,5 +1,7 @@
 import React from 'react';
+import { Image } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useCurrentUser } from '../utils/currentUser';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createStackNavigator} from '@react-navigation/stack';
 import {getFocusedRouteNameFromRoute} from '@react-navigation/native';
@@ -400,6 +402,7 @@ const ProfileStack = (props) => <HomeStack {...props} initialRouteName="Profile"
 
 const AppNavigator = ({ route: appRoute }) => {
   const DS = useTheme().colors;
+  const me = useCurrentUser();   // current user → profile-tab avatar
 
 
   // sport + format passed from SportSetupScreen via navigation.replace('MainApp', { sport, format })
@@ -429,7 +432,16 @@ const AppNavigator = ({ route: appRoute }) => {
             paddingBottom: 6,
           },
           headerShown: false,
-          tabBarIcon: ({ color, size }) => {
+          tabBarIcon: ({ color, size, focused }) => {
+            // Profile tab shows the user's photo when set; others use icons.
+            if (route.name === 'ProfileTab' && me?.avatarUrl) {
+              return (
+                <Image
+                  source={{ uri: me.avatarUrl }}
+                  style={{ width: 24, height: 24, borderRadius: 12, borderWidth: focused ? 2 : 0, borderColor: DS.lime }}
+                />
+              );
+            }
             const map = {
               HomeTab: 'home-variant',
               MyCricketTab: sportIcon,

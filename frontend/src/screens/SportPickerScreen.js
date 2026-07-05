@@ -12,10 +12,11 @@ import { useTheme, useThemedStyles, useArenaColors } from "../theme/ThemeContext
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
-  Dimensions, PanResponder, Animated, Easing, Vibration, Platform } from
+  Dimensions, PanResponder, Animated, Easing, Vibration, Platform, Image } from
 'react-native';
 import Svg, { Path, Line, Circle, Rect, Defs, RadialGradient, LinearGradient, Stop } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useCurrentUser } from '../utils/currentUser';
 import SportIcon from '../components/SportIcon';
 import SportLogoIcon, { hasSportAnim } from '../components/SportLogoIcon';
 import { haptic } from '../utils/haptics';
@@ -210,7 +211,7 @@ const initialArena = () => {
   return cell ? { id: cell.id, pan: { x: -cell.x, y: -cell.y } } : { id: 'cricket', pan: { x: 0, y: 0 } };
 };
 
-export default function SportPickerScreen({ navigation }) {const A = useArenaColors();const s = useThemedStyles(makeS);
+export default function SportPickerScreen({ navigation }) {const A = useArenaColors();const s = useThemedStyles(makeS);const me = useCurrentUser();
   const { toggle, isDark } = useTheme();
   const initial = useRef(initialArena()).current;
   const [panOff, setPanOff] = useState(initial.pan);
@@ -533,10 +534,12 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
               }]
             });
           }}>
-          <Svg width={20} height={20} viewBox="0 0 20 20" fill={A.inkDim}>
-            <Path d="M10 3.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Z" />
-            <Path d="M3.5 18a6.5 6.5 0 0 1 13 0Z" />
-          </Svg>
+          {me?.avatarUrl
+            ? <Image source={{ uri: me.avatarUrl }} style={s.avatarImg} />
+            : <Svg width={20} height={20} viewBox="0 0 20 20" fill={A.inkDim}>
+                <Path d="M10 3.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Z" />
+                <Path d="M3.5 18a6.5 6.5 0 0 1 13 0Z" />
+              </Svg>}
         </TouchableOpacity>
       </View>
 
@@ -685,6 +688,7 @@ const makeS = (A) => StyleSheet.create({
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: A.cellHi, alignItems: 'center', justifyContent: 'center'
   },
+  avatarImg: { width: 36, height: 36, borderRadius: 18 },
 
   titleBlock: { alignItems: 'center', paddingTop: 8, paddingBottom: 6, paddingHorizontal: 24 },
   // Editorial type: a quiet tracked kicker over a big clean white headline —

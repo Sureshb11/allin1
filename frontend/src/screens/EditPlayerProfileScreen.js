@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert,
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { pickAndUploadImage } from '../utils/imageUpload';
+import { setCurrentAvatar } from '../utils/currentUser';
 
 
 
@@ -32,6 +33,7 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
     setUploadingAvatar(false);
     if (r.url) {
       setAvatarUrl(r.url);
+      setCurrentAvatar(r.url);   // update every avatar across the app instantly
       await legendsApi.updateUserProfile({ avatarUrl: r.url });   // persist immediately
     } else if (r.error) {
       Alert.alert('Upload failed', r.error);

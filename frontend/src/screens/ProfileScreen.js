@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { pickAndUploadImage } from '../utils/imageUpload';
+import { setCurrentAvatar } from '../utils/currentUser';
 import legendsApi from '../services/LegendsApi';
 import SportSwitcher from '../components/SportSwitcher';
 import { getSelectedSport } from '../utils/selectedSport';
@@ -65,7 +66,7 @@ export default function ProfileScreen({ navigation }) {
         legendsApi.getUserProfile(),
         legendsApi.getUserStats(),
       ]);
-      if (profileRes.success) setProfile(profileRes.data);
+      if (profileRes.success) { setProfile(profileRes.data); setCurrentAvatar(profileRes.data?.avatarUrl || null); }
       if (statsRes.success) setStats(statsRes.data);
       const uid = profileRes.data?.id;
       if (uid) { const g = await legendsApi.getGallery({ userId: uid }); setGallery(g.data || []); }
@@ -148,9 +149,9 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.heroInner}>
           {/* Avatar */}
           <View style={styles.avatarWrap}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
+            {profile.avatarUrl
+              ? <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />
+              : <View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>}
             {stats.momCount > 0 && (
               <View style={styles.momBadge}>
                 <Icon name="star" size={10} color={DS.bg} />
