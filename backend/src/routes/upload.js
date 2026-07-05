@@ -36,21 +36,18 @@ router.post('/', authMiddleware, async (req, res) => {
     if (!dataBase64) return res.status(400).json({ error: 'dataBase64 required' });
     if (!FOLDERS.has(folder)) return res.status(400).json({ error: 'invalid folder' });
     const ext = MIME_EXT[contentType] || 'jpg';
-    const blobToken = resolveBlobToken();
-    if (!blobToken) {
-      return res.status(503).json({ error: 'Blob storage not configured (no blob RW token in env)' });
-    }
     // Strip a data-URL prefix if present, then decode.
     const raw = String(dataBase64).replace(/^data:[^;]+;base64,/, '');
     const buffer = Buffer.from(raw, 'base64');
     if (buffer.length > 10 * 1024 * 1024) return res.status(413).json({ error: 'Image too large (max 10MB)' });
 
     const key = `${folder}/${req.user.sub}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const blob = await put(key, buffer, {
-      access: 'public',
-      contentType,
-      token: blobToken,
-    });
+    // Auth resolution: a static RW token if present, otherwise the SDK falls back to
+    // the project's OIDC token + BLOB_STORE_ID automatically (connected private store).
+    const opts = { access: 'public', contentType, addRandomSuffix: false };
+    const blobToken = resolveBlobToken();
+    if (blobToken) opts.token = blobToken;
+    const blob = await put(key, buffer, opts);
     res.json({ success: true, url: blob.url });
   } catch (e) {
     res.status(500).json({ error: e.message });
