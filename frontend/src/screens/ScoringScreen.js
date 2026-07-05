@@ -71,6 +71,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [bowlStats, setBowlStats] = useState({});
   const [extraPrompt, setExtraPrompt] = useState(null);    // 'wide'|'noball'|'bye'|'legbye' → +runs sheet
   const [wicketPrompt, setWicketPrompt] = useState(false); // WICKET → dismissal-type sheet
+  const [runOutPrompt, setRunOutPrompt] = useState(false); // run out → which batter is out?
+  const [newBatterFor, setNewBatterFor] = useState('striker'); // which crease slot the new batter fills
+  const [outBatters, setOutBatters] = useState([]);        // player IDs dismissed this innings (can't re-bat)
   const [showSettings, setShowSettings] = useState(false); // top-bar settings sheet (End Innings/Match lives here)
   const [endPrompt, setEndPrompt] = useState(false);       // reason picker before ending innings/match
   // Undo: snapshot of everything a ball mutates, pushed before each delivery.
@@ -119,6 +122,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       setBowlStats(Object.fromEntries(
         Object.entries(d.bowlingFigures || {}).map(([id, f]) => [id, { ...f, overRuns: 0 }])
       ));
+      setOutBatters(d.dismissedBatters || []);   // dismissed players can't re-bat after resume
       // A batter is "known" only if the last ball wasn't a wicket; bowler only
       // if we're mid-over. Pre-fill what we know and, if anything's missing,
       // drop to the setup screen so the scorer re-picks (this is why batters
@@ -160,7 +164,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
   // countsAsBall=false for penalty runs — they're a team award, not a delivery,
   // so the over/ball count must not advance.
-  const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true) => {
+  const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true, dismissedId = null) => {
     if (!currentInningId || !striker || !nonStriker || !currentBowler) return;
     const overNumber = currentScore.overs + 1;
     const newBallCount = countsAsBall ? ballCount + 1 : ballCount;
@@ -170,7 +174,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       bowlerId: currentBowler.id, batterId: striker.id, nonStrikerId: nonStriker.id,
       runs, extras, extraType: extraType || null,
       isWicket, wicketType: wicketType || null,
-      dismissedPlayerId: isWicket ? striker.id : null,
+      // Usually the striker is out; a run-out can dismiss the non-striker.
+      dismissedPlayerId: isWicket ? (dismissedId || striker.id) : null,
       // Idempotency key — if the auto-retry re-sends a ball that actually
       // landed, the server dedupes instead of double-counting.
       clientEventId: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -224,6 +229,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     setCurrentBowler(prev.bowler);
     if (prev.batStats) setBatStats(prev.batStats);
     if (prev.bowlStats) setBowlStats(prev.bowlStats);
+    if (prev.outBatters) setOutBatters(prev.outBatters);
     setOverSummary(null);
     setShowPlayerModal(false);
     setShowBowlerModal(false);
@@ -235,13 +241,14 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
   // addRuns = extra runs on a wide/no-ball/bye/leg-bye (e.g. wide+2, no-ball+4).
   // wicketType = dismissal kind chosen from the Wicket sheet.
-  const handleScore = async (value, addRuns = 0, wicketType = 'bowled') => {
+  // dismissed = 'striker' | 'nonstriker' — a run-out can dismiss the non-striker.
+  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker') => {
     if (matchComplete || undoing) return;
     // Snapshot the pre-ball state so this delivery can be taken back.
     setHistory((h) => [...h.slice(-49), {
       score: { ...currentScore }, over: [...currentOver], ballCount,
       striker, nonStriker, bowler: currentBowler,
-      batStats: { ...batStats }, bowlStats: { ...bowlStats },
+      batStats: { ...batStats }, bowlStats: { ...bowlStats }, outBatters: [...outBatters],
     }]);
     // Tactile feedback: a firm buzz on a wicket, a light tick on every other ball.
     if (value === 'out') haptic.warn(); else haptic.tick();
@@ -281,11 +288,16 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       await persistBall(0, n, 'legBye', false, null);
       rotate(n);
     } else if (value === 'out') {
+      const outNon = dismissed === 'nonstriker';        // run-out of the non-striker
+      const outPlayer = outNon ? nonStriker : striker;
       newScore.wickets += 1;
       newScore.balls += 1;
       newOver.push('W');
-      await persistBall(0, 0, null, true, wicketType);
-      if (newScore.wickets < 10) setShowPlayerModal(true);
+      await persistBall(0, 0, null, true, wicketType, true, outPlayer?.id);
+      if (outPlayer) setOutBatters((prev) => [...prev, outPlayer.id]);   // can't re-bat this innings
+      // Clear the dismissed batter's slot and ask for a replacement for THAT end.
+      if (outNon) setNonStriker(null); else setStriker(null);
+      if (newScore.wickets < 10) { setNewBatterFor(outNon ? 'nonstriker' : 'striker'); setShowPlayerModal(true); }
     } else if (value === 'penalty') {
       // Penalty runs (5) — a team award, not a delivery: no ball faced, no
       // strike change, doesn't advance the over.
@@ -396,8 +408,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       setCurrentInningId(inn.success ? inn.data.id : '');
       setCurrentScore({ runs: 0, wickets: 0, overs: 0, balls: 0 });
       setCurrentOver([]); setBallCount(0); setOverSummary(null); setHistory([]);
-      // Fresh innings → reset per-player figures + bowling spell tracking.
-      setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null);
+      // Fresh innings → reset per-player figures + bowling spell tracking + dismissals.
+      setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setOutBatters([]);
       setBattingTeamName(bowlingTeamName); setBowlingTeamName(battingTeamName);
       setBattingXI(bowlingXI); setBowlingXI(battingXI);
       setBattingTeamId(bowlingTeamId); setBowlingTeamId(battingTeamId);
@@ -420,8 +432,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   };
 
   const getAvailableBatsmen = () => {
-    const used = [striker?.name, nonStriker?.name].filter(Boolean);
-    return battingXI.filter((p) => !used.includes(p.name));
+    // Exclude whoever's at the crease AND anyone already dismissed this innings.
+    const usedIds = [striker?.id, nonStriker?.id, ...outBatters].filter(Boolean);
+    return battingXI.filter((p) => !usedIds.includes(p.id));
   };
 
   const shareScore = async () => {
@@ -819,11 +832,13 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Select New Batsman</Text>
+            <Text style={styles.modalTitle}>
+              New Batsman{newBatterFor === 'nonstriker' ? ' (non-striker)' : ''}
+            </Text>
             <ScrollView>
               {getAvailableBatsmen().map((p, i) =>
               <TouchableOpacity key={i} style={styles.playerOption}
-              onPress={() => {setStriker(p);setShowPlayerModal(false);}}>
+              onPress={() => { if (newBatterFor === 'nonstriker') setNonStriker(p); else setStriker(p); setShowPlayerModal(false); setNewBatterFor('striker'); }}>
                   <View style={styles.playerAvatar}>
                     <Text style={styles.playerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
                   </View>
@@ -918,13 +933,45 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
                 ['run out', 'run-fast'], ['stumped', 'hand-back-left'], ['hit wicket', 'alert'],
               ].map(([type, icon]) => (
                 <TouchableOpacity key={type} style={styles.wktChip}
-                  onPress={() => { setWicketPrompt(false); handleScore('out', 0, type.replace(' ', '')); }}>
+                  onPress={() => {
+                    setWicketPrompt(false);
+                    const wt = type.replace(' ', '');
+                    // A run-out needs to know which batter (striker/non-striker) is out.
+                    if (wt === 'runout') setRunOutPrompt(true);
+                    else handleScore('out', 0, wt);
+                  }}>
                   <Icon name={icon} size={22} color={DS.wicketText} />
                   <Text style={styles.wktChipText}>{type}</Text>
                 </TouchableOpacity>
               ))}
             </View>
             <TouchableOpacity style={styles.modalClose} onPress={() => setWicketPrompt(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── RUN OUT — which batter is out? (striker or non-striker) ── */}
+      <Modal visible={runOutPrompt} transparent animationType="slide" onRequestClose={() => setRunOutPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Run out — who is out?</Text>
+            <Text style={styles.modalSub}>Which batter was run out</Text>
+            {[['striker', striker], ['nonstriker', nonStriker]].map(([slot, player]) => (
+              <TouchableOpacity key={slot} style={styles.settingRow}
+                onPress={() => { setRunOutPrompt(false); handleScore('out', 0, 'runout', slot); }}>
+                <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
+                  <Text style={[styles.playerInitial, { color: DS.wicketText }]}>{(player?.name || '?').charAt(0).toUpperCase()}</Text>
+                </View>
+                <Text style={[styles.settingText, { flex: 1 }]}>
+                  {player?.name || '—'} <Text style={styles.modalSub}>({slot === 'striker' ? 'striker' : 'non-striker'})</Text>
+                </Text>
+                <Icon name="chevron-right" size={18} color={DS.textMuted} />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.modalClose} onPress={() => setRunOutPrompt(false)}>
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
           </View>

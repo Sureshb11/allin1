@@ -368,6 +368,7 @@ router.get('/:id/live-state', async (req, res) => {
     // byes/penalty aren't charged. A maiden = a completed over with 0 charged runs.
     const battingFigures = {};
     const bowlingFigures = {};
+    const dismissedBatters = new Set();   // players out this innings → can't re-bat
     for (const ov of inning.oversData) {
       const bId = ov.bowlerId;
       if (!bowlingFigures[bId]) bowlingFigures[bId] = { balls: 0, runs: 0, wickets: 0, maidens: 0 };
@@ -396,6 +397,7 @@ router.get('/:id/live-state', async (req, res) => {
         if (b.isWicket) {
           const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
           if (wt !== 'runout' && wt !== 'retired') bowlingFigures[bId].wickets += 1;
+          if (b.dismissedPlayerId) dismissedBatters.add(b.dismissedPlayerId);
         }
       }
       if (overLegal >= 6 && overCharged === 0) bowlingFigures[bId].maidens += 1;
@@ -433,6 +435,7 @@ router.get('/:id/live-state', async (req, res) => {
       needsNewBowler: !creaseBowler,
       bowlerOvers, lastOverBowlerId,
       battingFigures, bowlingFigures,
+      dismissedBatters: [...dismissedBatters],
       lastBall: lastBall ? { runs: lastBall.runs, extras: lastBall.extras, extraType: lastBall.extraType, isWicket: lastBall.isWicket } : null,
     });
   } catch (e) {
