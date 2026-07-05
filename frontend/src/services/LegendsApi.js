@@ -474,7 +474,7 @@ class LegendsApi {
   async getScorerInfo(matchId) {
     try {
       const json = await this.request(`/matches/${matchId}/scorer`);
-      return { success: true, isScorer: json.isScorer, scorerId: json.scorerId, candidates: json.candidates || [] };
+      return { success: true, isScorer: json.isScorer, scorerId: json.scorerId, scorerName: json.scorerName || '', candidates: json.candidates || [] };
     } catch (error) {
       return { success: false, error: error.message, candidates: [] };
     }

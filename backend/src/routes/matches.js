@@ -8,6 +8,28 @@ import { pushMatchResultCard } from '../lib/feed.js';
 
 const router = Router();
 
+// ── Scorer access control ─────────────────────────────────────────────────────
+// Every scoring-mutation route must call this before writing. If the match has no
+// scorer yet (created without auth, or predates this feature), the first person to
+// write claims it — otherwise only the assigned scorer may proceed. Returns null
+// (and has already sent the response) when the caller should stop; otherwise
+// returns the match row so callers don't have to re-fetch it.
+async function assertScorer(req, res, matchId) {
+  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  if (!match) { res.status(404).json({ error: 'Match not found' }); return null; }
+  if (!req.user?.sub) { res.status(401).json({ error: 'Login required to score this match' }); return null; }
+  if (!match.scorerId) {
+    await prisma.match.update({ where: { id: matchId }, data: { scorerId: req.user.sub } });
+    match.scorerId = req.user.sub;
+    return match;
+  }
+  if (match.scorerId !== req.user.sub) {
+    res.status(403).json({ error: 'Only the assigned scorer can score this match', code: 'NOT_SCORER' });
+    return null;
+  }
+  return match;
+}
+
 // ── Module 2: substitution, enforced per the sport's roster rules ────────────
 // fixed → rejected (cricket), limited → capped (football 3–5), rolling →
 // unlimited (basketball). Records to MatchSubstitution when allowed.
@@ -20,6 +42,7 @@ const SubSchema = z.object({
 });
 router.post('/:id/substitution', authMiddleware, async (req, res) => {
   try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
     const d = SubSchema.parse(req.body);
     const result = await applySubstitution({ matchId: req.params.id, ...d });
     if (!result.ok) return res.status(409).json(result);
@@ -160,8 +183,9 @@ const ScoreUpdateSchema = z.object({
   clientEventId: z.string().optional().nullable(),   // offline idempotency key
 });
 
-router.put('/:id/score', async (req, res) => {
+router.put('/:id/score', authMiddleware, async (req, res) => {
   try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
     const data = ScoreUpdateSchema.parse(req.body);
 
     // Idempotency: if this exact delivery was already recorded (e.g. a retry
@@ -253,8 +277,9 @@ router.put('/:id/score', async (req, res) => {
 // Undo the last delivery of an inning — deletes the most recent ball and
 // reverses its over/inning tallies (dropping the over if it's now empty).
 // Transactional so a mis-tapped ball can be cleanly taken back on the ground.
-router.delete('/:id/score/last', async (req, res) => {
+router.delete('/:id/score/last', authMiddleware, async (req, res) => {
   try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
     const { inningId } = req.query;
     if (!inningId) return res.status(400).json({ error: 'inningId required' });
 
@@ -311,14 +336,21 @@ router.get('/:id/scorer', authMiddleware, async (req, res) => {
     // De-dupe registered users in the squad (exclude the current scorer).
     const seen = new Set();
     const candidates = [];
+    let scorerName = '';
     for (const s of squad) {
       const uid = s.player?.userId;
+      if (uid === match.scorerId) scorerName = s.player.name;
       if (uid && uid !== match.scorerId && !seen.has(uid)) {
         seen.add(uid);
         candidates.push({ userId: uid, name: s.player.name });
       }
     }
-    res.json({ scorerId: match.scorerId, isScorer: match.scorerId === req.user.sub, candidates });
+    // Fall back to the User's name if the scorer isn't in the squad as a linked player.
+    if (!scorerName && match.scorerId) {
+      const u = await prisma.user.findUnique({ where: { id: match.scorerId }, select: { firstName: true, lastName: true } });
+      if (u) scorerName = `${u.firstName || ''} ${u.lastName || ''}`.trim();
+    }
+    res.json({ scorerId: match.scorerId, scorerName, isScorer: match.scorerId === req.user.sub, candidates });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -345,8 +377,9 @@ router.put('/:id/scorer', authMiddleware, async (req, res) => {
 // ── Add a player to a live match's squad (from the team's full roster) ────────
 // Lets a scorer pull in a squad member mid-match when the playing XI runs short
 // or someone was missed at the toss. Idempotent (unique [matchId, playerId]).
-router.post('/:id/squad', async (req, res) => {
+router.post('/:id/squad', authMiddleware, async (req, res) => {
   try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
     const { playerId, teamId } = req.body || {};
     if (!playerId || !teamId) return res.status(400).json({ error: 'playerId and teamId required' });
     const mp = await prisma.matchPlayer.upsert({
@@ -365,8 +398,9 @@ router.post('/:id/squad', async (req, res) => {
 // Called by the scorer whenever the pair at the wicket or the bowler changes
 // (opening selection, strike rotation, new batter, new bowler) so a resumed match
 // restores them exactly — even before the first ball of an over/innings is bowled.
-router.put('/:id/crease', async (req, res) => {
+router.put('/:id/crease', authMiddleware, async (req, res) => {
   try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
     const { inningId, strikerId, nonStrikerId, currentBowlerId } = req.body || {};
     if (!inningId) return res.status(400).json({ error: 'inningId required' });
     await prisma.inning.update({
@@ -574,8 +608,9 @@ router.get('/:id/scorecard', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
     const { status, score1, score2, result, currentInnings } = req.body;
     const match = await prisma.match.update({
       where: { id: req.params.id },
@@ -616,8 +651,9 @@ const TossSchema = z.object({
   })).optional(),
 });
 
-router.post('/:id/toss', async (req, res) => {
+router.post('/:id/toss', authMiddleware, async (req, res) => {
   try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
     const data = TossSchema.parse(req.body);
     const matchId = req.params.id;
 
@@ -652,8 +688,9 @@ router.post('/:id/toss', async (req, res) => {
   }
 });
 
-router.post('/:id/innings', async (req, res) => {
+router.post('/:id/innings', authMiddleware, async (req, res) => {
   try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
     const { battingTeamId, bowlingTeamId, targetScore } = req.body;
     const inning = await prisma.inning.create({
       data: { matchId: req.params.id, inningNumber: 2, battingTeamId, bowlingTeamId, targetScore },
@@ -929,8 +966,9 @@ const SportEventSchema = z.object({
 });
 
 // POST /matches/:id/sport-events — record a scoring event
-router.post('/:id/sport-events', async (req, res) => {
+router.post('/:id/sport-events', authMiddleware, async (req, res) => {
   try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
     const data = SportEventSchema.parse(req.body);
 
     // Validate sport-specific metadata if schema exists
@@ -964,8 +1002,9 @@ router.post('/:id/sport-events', async (req, res) => {
 });
 
 // DELETE /matches/:id/sport-events/:eventId — undo last event
-router.delete('/:id/sport-events/:eventId', async (req, res) => {
+router.delete('/:id/sport-events/:eventId', authMiddleware, async (req, res) => {
   try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
     await prisma.sportEvent.delete({ where: { id: req.params.eventId } });
 
     // Recompute score after deletion

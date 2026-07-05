@@ -28,6 +28,10 @@ const { width } = Dimensions.get('window');
 export default function ScoringScreen({ route, navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const setup = useThemedStyles(makeSetup);
   const { match, resume, matchId: resumeId } = route.params || {};
   const [matchData, setMatchData] = useState(match || {});
+  // Only the assigned scorer may score a match — everyone else who can see/resume
+  // it from My Matches lands here but gets a locked, read-only view (not the
+  // interactive scoring UI). { locked, checked, scorerName }
+  const [scorerLock, setScorerLock] = useState({ locked: false, checked: false, scorerName: '' });
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -107,6 +111,25 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       // Do NOT auto-assign — user picks on setup screen
     }
   }, [matchData]);
+
+  // ── Scorer gate: check as soon as the match id is known (fresh match or resume),
+  // BEFORE the player-picker/scoring UI is interactable. Anyone can still open a
+  // match from My Matches (visibility ≠ scoring rights) — this is what actually
+  // stops a non-scorer from picking players or tapping runs.
+  useEffect(() => {
+    const id = matchData?.id;
+    if (!id) return;
+    let live = true;
+    legendsApi.getScorerInfo(id).then((res) => {
+      if (!live || !res.success) return;
+      if (!res.isScorer) {
+        setScorerLock({ locked: true, checked: true, scorerName: res.scorerName || '' });
+      } else {
+        setScorerLock({ locked: false, checked: true, scorerName: '' });
+      }
+    });
+    return () => { live = false; };
+  }, [matchData?.id]);
 
   // ── Resume an in-progress match: rehydrate the full scoring state from the
   // server (Module 7 live-state projection) and skip the toss/setup screen.
@@ -202,12 +225,14 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
   // countsAsBall=false for penalty runs — they're a team award, not a delivery,
   // so the over/ball count must not advance.
+  // Throws if the server rejects the ball (e.g. 403 — not the assigned scorer) so
+  // callers stop mutating local state instead of silently drifting from the server.
   const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true, dismissedId = null, catcher = null) => {
     if (!currentInningId || !striker || !nonStriker || !currentBowler) return;
     const overNumber = currentScore.overs + 1;
     const newBallCount = countsAsBall ? ballCount + 1 : ballCount;
     if (countsAsBall) setBallCount(newBallCount);
-    await legendsApi.updateScore(matchData.id, {
+    const res = await legendsApi.updateScore(matchData.id, {
       inningId: currentInningId, overNumber, ballNumber: newBallCount,
       bowlerId: currentBowler.id, batterId: striker.id, nonStrikerId: nonStriker.id,
       runs, extras, extraType: extraType || null,
@@ -219,6 +244,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       // landed, the server dedupes instead of double-counting.
       clientEventId: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     });
+    if (!res.success) throw new Error(res.error || 'Could not save this ball');
   };
 
   const checkWinCondition = (newScore) => {
@@ -494,6 +520,11 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     if (!isInnings2 && (newScore.wickets >= 10 || newScore.overs >= totalOvers && newScore.balls === 0)) {
       finishInnings(newScore.wickets >= 10 ? 'All out' : 'Overs completed', newScore);
     }
+    } catch (err) {
+      // The server rejected the ball (most commonly: scoring was transferred to
+      // someone else mid-session) — surface it instead of drifting from the DB.
+      Alert.alert('Could not score this ball', err.message || 'Please try again');
+      setScorerLock((prev) => (err.message?.includes('assigned scorer') ? { locked: true, message: err.message } : prev));
     } finally {
       savingRef.current = false;
     }
@@ -595,7 +626,12 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       batStats: { ...batStats }, bowlStats: { ...bowlStats }, outBatters: [...outBatters],
     }]);
     haptic.warn();
-    await persistBall(0, 0, 'retired', true, 'retiredout', false, leaving.id);
+    try {
+      await persistBall(0, 0, 'retired', true, 'retiredout', false, leaving.id);
+    } catch (err) {
+      Alert.alert('Could not save', err.message || 'Please try again');
+      return;
+    }
     setOutBatters((prev) => [...prev, leaving.id]);
     const newScore = { ...currentScore, wickets: currentScore.wickets + 1 };
     if (slot === 'nonstriker') { setNonStriker(null); setNewBatterFor('nonstriker'); }
@@ -674,6 +710,28 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     const b = bowlStats[currentBowler.id] || { balls: 0, runs: 0, wickets: 0, maidens: 0 };
     return `${Math.floor(b.balls / 6)}.${b.balls % 6} - ${b.maidens} - ${b.runs} - ${b.wickets}`;
   })();
+
+  // ── SCORER-LOCKED VIEW ── you can open/resume this match from My Matches (visibility),
+  // but only the assigned scorer can actually score it. Read-only — offer the scorecard.
+  if (scorerLock.locked) {
+    return (
+      <View style={[styles.root, { alignItems: 'center', justifyContent: 'center', padding: 32 }]}>
+        <Icon name="lock-outline" size={48} color={DS.textMuted} />
+        <Text style={{ fontSize: 18, fontWeight: '800', color: DS.textPrimary, marginTop: 16, textAlign: 'center' }}>
+          You're not the scorer for this match
+        </Text>
+        <Text style={{ fontSize: 14, color: DS.textMuted, marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
+          {scorerLock.scorerName ? `${scorerLock.scorerName} is scoring this match.` : 'Someone else is scoring this match.'}
+          {'\n'}Ask them to transfer scoring to you from the ⚙ settings menu.
+        </Text>
+        <TouchableOpacity
+          style={{ marginTop: 24, backgroundColor: DS.blueDeep, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 24 }}
+          onPress={() => navigation.replace('Scorecard', { matchId: matchData.id })}>
+          <Text style={{ color: DS.onBlue, fontWeight: '800', fontSize: 14 }}>View Scorecard</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   // ── PRE-SCORING SETUP SCREEN ──────────────────────────────────
   if (!scoringReady) {
