@@ -77,6 +77,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [catchPrompt, setCatchPrompt] = useState(false);   // caught → who took the catch?
   const [newBatterFor, setNewBatterFor] = useState('striker'); // which crease slot the new batter fills
   const [outBatters, setOutBatters] = useState([]);        // player IDs dismissed this innings (can't re-bat)
+  const [squadAddFor, setSquadAddFor] = useState(null);    // 'bat' | 'bowl' → add-from-roster sheet
+  const [roster, setRoster] = useState([]);                // the team's full roster for the add sheet
   const [showSettings, setShowSettings] = useState(false); // top-bar settings sheet (End Innings/Match lives here)
   const [endPrompt, setEndPrompt] = useState(false);       // reason picker before ending innings/match
   // Undo: snapshot of everything a ball mutates, pushed before each delivery.
@@ -463,6 +465,33 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       }
       endMatch(result, score);
     }
+  };
+
+  // Pull a player from the team's full roster into the live match squad. `kind`
+  // is 'bat' (batting side) or 'bowl' (bowling side); adds to the match + local XI
+  // and selects them straight away (as new batter or as the bowler).
+  const openSquadAdd = async (kind) => {
+    setSquadAddFor(kind);
+    setRoster([]);
+    const teamId = kind === 'bat' ? battingTeamId : bowlingTeamId;
+    const res = await legendsApi.getPlayers({ teamId, sport: 'cricket' });
+    setRoster(res.data || []);
+  };
+
+  const addFromSquad = async (p) => {
+    const kind = squadAddFor;
+    const teamId = kind === 'bat' ? battingTeamId : bowlingTeamId;
+    const entry = { id: p.id, name: p.name };
+    await legendsApi.addMatchPlayer(matchData.id, { playerId: p.id, teamId });
+    if (kind === 'bat') {
+      setBattingXI((xi) => xi.some((x) => x.id === p.id) ? xi : [...xi, entry]);
+      if (newBatterFor === 'nonstriker') setNonStriker(entry); else setStriker(entry);
+      setShowPlayerModal(false); setNewBatterFor('striker');
+    } else {
+      setBowlingXI((xi) => xi.some((x) => x.id === p.id) ? xi : [...xi, entry]);
+      setCurrentBowler(entry); setShowBowlerModal(false); setMustPickBowler(false);
+    }
+    setSquadAddFor(null);
   };
 
   const getAvailableBatsmen = () => {
@@ -882,6 +911,10 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
                 </TouchableOpacity>
               )}
             </ScrollView>
+            <TouchableOpacity style={styles.squadAddBtn} onPress={() => openSquadAdd('bat')}>
+              <Icon name="account-plus" size={18} color={DS.lime} />
+              <Text style={styles.squadAddText}>Add from squad</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowPlayerModal(false)}>
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
@@ -921,11 +954,48 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
                 ));
               })()}
             </ScrollView>
+            <TouchableOpacity style={styles.squadAddBtn} onPress={() => openSquadAdd('bowl')}>
+              <Icon name="account-plus" size={18} color={DS.lime} />
+              <Text style={styles.squadAddText}>Add from squad</Text>
+            </TouchableOpacity>
             {!mustPickBowler && (
               <TouchableOpacity style={styles.modalClose} onPress={() => setShowBowlerModal(false)}>
                 <Text style={styles.modalCloseText}>Cancel</Text>
               </TouchableOpacity>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── ADD FROM SQUAD — pull a roster player into the live match ── */}
+      <Modal visible={!!squadAddFor} transparent animationType="slide" onRequestClose={() => setSquadAddFor(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Add {squadAddFor === 'bowl' ? 'Bowler' : 'Batsman'} from Squad</Text>
+            <Text style={styles.modalSub}>{squadAddFor === 'bowl' ? bowlingTeamName : battingTeamName} roster</Text>
+            <ScrollView style={{ maxHeight: 320 }}>
+              {(() => {
+                const inXI = (squadAddFor === 'bowl' ? bowlingXI : battingXI).map((x) => x.id);
+                const avail = roster.filter((p) => !inXI.includes(p.id));
+                if (avail.length === 0) {
+                  return <Text style={[styles.modalSub, { textAlign: 'center', marginVertical: 16 }]}>Everyone in the squad is already in this match.</Text>;
+                }
+                return avail.map((p, i) => (
+                  <TouchableOpacity key={i} style={styles.playerOption} onPress={() => addFromSquad(p)}>
+                    <View style={styles.playerAvatar}>
+                      <Text style={styles.playerInitial}>{(p.name || '?').charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
+                    {p.role ? <Text style={[styles.modalSub, { marginBottom: 0 }]}>{p.role}</Text> : null}
+                    <Icon name="plus-circle" size={18} color={DS.lime} />
+                  </TouchableOpacity>
+                ));
+              })()}
+            </ScrollView>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setSquadAddFor(null)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1284,6 +1354,14 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingVertical: 15, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: DS.line,
   },
   settingText: { flex: 1, fontSize: 15, fontWeight: '700', color: DS.textPrimary },
+
+  // "Add from squad" button (batsman/bowler pickers)
+  squadAddBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginTop: 8, paddingVertical: 12, borderRadius: 12,
+    borderWidth: 1, borderColor: DS.lime, borderStyle: 'dashed',
+  },
+  squadAddText: { fontSize: 14, fontWeight: '800', color: DS.lime, letterSpacing: 0.3 },
 
   // Match complete
   completeActions: { marginHorizontal: 16, gap: 10 },

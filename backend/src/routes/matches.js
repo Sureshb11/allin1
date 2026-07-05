@@ -296,6 +296,25 @@ router.delete('/:id/score/last', async (req, res) => {
   }
 });
 
+// ── Add a player to a live match's squad (from the team's full roster) ────────
+// Lets a scorer pull in a squad member mid-match when the playing XI runs short
+// or someone was missed at the toss. Idempotent (unique [matchId, playerId]).
+router.post('/:id/squad', async (req, res) => {
+  try {
+    const { playerId, teamId } = req.body || {};
+    if (!playerId || !teamId) return res.status(400).json({ error: 'playerId and teamId required' });
+    const mp = await prisma.matchPlayer.upsert({
+      where: { matchId_playerId: { matchId: req.params.id, playerId } },
+      create: { matchId: req.params.id, teamId, playerId },
+      update: {},
+      include: { player: true },
+    });
+    res.json({ success: true, player: { id: mp.playerId, name: mp.player.name } });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // ── Persist the live crease + bowler (player IDs) on the inning ──────────────
 // Called by the scorer whenever the pair at the wicket or the bowler changes
 // (opening selection, strike rotation, new batter, new bowler) so a resumed match

@@ -417,6 +417,16 @@ class LegendsApi {
     }
   }
 
+  // Add a player from the team's roster to a live match's squad (playing XI).
+  async addMatchPlayer(matchId, { playerId, teamId }) {
+    try {
+      const json = await this.request(`/matches/${matchId}/squad`, { method: 'POST', body: { playerId, teamId } });
+      return { success: true, player: json.player };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Persist the live crease + bowler on the inning so a resumed match restores the
   // exact pair/bowler even before a ball is bowled. Fire-and-forget from the UI.
   async saveCrease(matchId, { inningId, strikerId, nonStrikerId, currentBowlerId }) {
