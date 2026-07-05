@@ -885,28 +885,29 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{mustPickBowler ? 'Next Over — Pick Bowler' : 'Change Bowler'}</Text>
             <Text style={styles.modalSub}>
-              Max {maxOversPerBowler} overs each · can’t bowl consecutive overs
-              {mustPickBowler ? ' · a different bowler must start this over' : ''}
+              Only eligible bowlers shown · max {maxOversPerBowler} overs each · no consecutive overs
             </Text>
             <ScrollView>
-              {bowlingXI.map((p, i) => {
-                const bowled = bowlerOvers[p.id] || 0;
-                const atMax = bowled >= maxOversPerBowler;
-                const justBowled = p.id === lastOverBowlerId;
-                const blocked = atMax || justBowled;
-                const reason = atMax ? `${bowled}/${maxOversPerBowler} ov · maxed` : justBowled ? 'bowled last over' : `${bowled}/${maxOversPerBowler} ov`;
-                return (
-                  <TouchableOpacity key={i} style={[styles.playerOption, blocked && { opacity: 0.4 }]}
-                    disabled={blocked}
+              {(() => {
+                // Auto-list only eligible bowlers: exclude whoever bowled the last
+                // over (no consecutive overs) and anyone who has maxed their spell.
+                const eligible = bowlingXI.filter((p) =>
+                  p.id !== lastOverBowlerId && (bowlerOvers[p.id] || 0) < maxOversPerBowler);
+                if (eligible.length === 0) {
+                  return <Text style={[styles.modalSub, { textAlign: 'center', marginVertical: 16 }]}>No eligible bowlers left.</Text>;
+                }
+                return eligible.map((p, i) => (
+                  <TouchableOpacity key={i} style={styles.playerOption}
                     onPress={() => { setCurrentBowler(p); setShowBowlerModal(false); setMustPickBowler(false); }}>
                     <View style={[styles.playerAvatar, { backgroundColor: DS.lime + '33' }]}>
                       <Text style={[styles.playerInitial, { color: DS.lime }]}>{p.name.charAt(0).toUpperCase()}</Text>
                     </View>
                     <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
-                    <Text style={[styles.modalSub, { marginBottom: 0 }]}>{reason}</Text>
-                    {!blocked && <Icon name="chevron-right" size={18} color={DS.textMuted} />}
-                  </TouchableOpacity>);
-              })}
+                    <Text style={[styles.modalSub, { marginBottom: 0 }]}>{bowlerOvers[p.id] || 0}/{maxOversPerBowler} ov</Text>
+                    <Icon name="chevron-right" size={18} color={DS.textMuted} />
+                  </TouchableOpacity>
+                ));
+              })()}
             </ScrollView>
             {!mustPickBowler && (
               <TouchableOpacity style={styles.modalClose} onPress={() => setShowBowlerModal(false)}>
