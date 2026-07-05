@@ -1,6 +1,8 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { pickAndUploadImage } from '../utils/imageUpload';
 
 
 
@@ -21,6 +23,20 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
     battingStyle: '', bowlingStyle: '', dateOfBirth: '', height: '', weight: '', bio: '',
   });
   const [saving, setSaving] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const changeAvatar = async () => {
+    setUploadingAvatar(true);
+    const r = await pickAndUploadImage('avatars');
+    setUploadingAvatar(false);
+    if (r.url) {
+      setAvatarUrl(r.url);
+      await legendsApi.updateUserProfile({ avatarUrl: r.url });   // persist immediately
+    } else if (r.error) {
+      Alert.alert('Upload failed', r.error);
+    }
+  };
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -36,6 +52,7 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
       const u = res?.success ? (res.data || {}) : {};
       const name = u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim();
       setProfile((prev) => ({ ...prev, name, phone: u.phone || '', bio: u.bio || '' }));
+      if (u.avatarUrl) setAvatarUrl(u.avatarUrl);
     });
   }, []);
 
@@ -64,6 +81,19 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
       </View>
 
       <View style={styles.form}>
+        {/* Avatar */}
+        <View style={styles.avatarWrap}>
+          <TouchableOpacity style={styles.avatarCircle} onPress={changeAvatar} activeOpacity={0.85}>
+            {avatarUrl
+              ? <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
+              : <Text style={styles.avatarInitial}>{(profile.name || '?').charAt(0).toUpperCase()}</Text>}
+            <View style={styles.avatarBadge}>
+              {uploadingAvatar ? <ActivityIndicator size="small" color={DS.bg} /> : <Icon name="camera" size={16} color={DS.bg} />}
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.avatarHint}>Tap to change photo</Text>
+        </View>
+
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Full Name</Text>
           <TextInput
@@ -201,6 +231,18 @@ const makeStyles = (DS) => StyleSheet.create({
     flex: 1,
     backgroundColor: DS.bg
   },
+  avatarWrap: { alignItems: 'center', marginBottom: 20 },
+  avatarCircle: {
+    width: 96, height: 96, borderRadius: 48, backgroundColor: DS.surfaceHigh,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DS.lime,
+  },
+  avatarImg: { width: 96, height: 96, borderRadius: 48 },
+  avatarInitial: { fontSize: 36, fontWeight: '900', color: DS.lime },
+  avatarBadge: {
+    position: 'absolute', right: -2, bottom: -2, width: 30, height: 30, borderRadius: 15,
+    backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DS.bg,
+  },
+  avatarHint: { fontSize: 12, color: DS.textMuted, marginTop: 8, fontWeight: '600' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

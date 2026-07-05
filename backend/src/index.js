@@ -30,12 +30,13 @@ import postsRoutes from './routes/posts.js';
 import rummyRoutes from './routes/sports/rummy.js';
 import sportConfigRoutes from './routes/sportConfig.js';
 import feedRoutes from './routes/feed.js';
+import uploadRoutes from './routes/upload.js';
 
 const app = express();
 
 app.use(cors());
 app.use(helmet());
-app.use(express.json());
+app.use(express.json({ limit: '12mb' }));   // allow base64 image uploads
 app.use(morgan('dev'));
 
 app.get('/', (req, res) => res.json({
@@ -79,6 +80,7 @@ app.use('/posts', postsRoutes);
 app.use('/rummy', rummyRoutes);
 app.use('/sports', sportConfigRoutes);
 app.use('/feed', feedRoutes);
+app.use('/upload', uploadRoutes);
 
 // Not found
 app.use((req, res) => res.status(404).json({ error: 'Not Found' }));

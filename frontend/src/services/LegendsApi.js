@@ -417,6 +417,17 @@ class LegendsApi {
     }
   }
 
+  // Upload a (base64) image to the Vercel Blob store → returns the public URL.
+  // folder ∈ avatars | feed | gallery | marketplace | teams.
+  async uploadImage({ folder, dataBase64, contentType = 'image/jpeg' }) {
+    try {
+      const json = await this.request('/upload', { method: 'POST', body: { folder, dataBase64, contentType } });
+      return { success: true, url: json.url };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Add a player from the team's roster to a live match's squad (playing XI).
   async addMatchPlayer(matchId, { playerId, teamId }) {
     try {
