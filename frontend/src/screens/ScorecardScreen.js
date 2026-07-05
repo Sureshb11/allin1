@@ -1,9 +1,11 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Share } from
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { captureRef } from 'react-native-view-shot';
+import RNShare from 'react-native-share';
 import legendsApi from '../services/LegendsApi';
 
 
@@ -155,6 +157,18 @@ function computeFOW(innings, nameById) {
   return fow;
 }
 
+// Short label for a ball in the over-by-over timeline.
+function ballLabel(b) {
+  if (b.extraType === 'wide') return `${b.extras > 1 ? b.extras : ''}wd`;
+  if (b.extraType === 'noBall') return `${b.runs > 0 ? b.runs : ''}nb`;
+  if (b.extraType === 'bye') return `${b.extras}b`;
+  if (b.extraType === 'legBye') return `${b.extras}lb`;
+  if (b.extraType === 'penalty') return 'P5';
+  if (b.extraType === 'retired') return 'R';
+  if (b.isWicket) return 'W';
+  return b.runs === 0 ? '•' : `${b.runs}`;
+}
+
 function TableHeader({ cols }) {const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.tableHeader}>
@@ -261,6 +275,35 @@ function InningsBlock({ innings, index, squads }) {const DS = useTheme().colors;
           <Text style={[styles.cell, styles.numCol]}>{b.economy}</Text>
         </View>
       )}
+
+      {/* Over-by-over timeline */}
+      {(innings.oversData || []).length > 0 &&
+        <>
+          <View style={[styles.sectionHeaderRow, { marginTop: 18 }]}>
+            <View style={styles.sectionHeaderLeft}>
+              <View style={[styles.inningsIndicator, { backgroundColor: DS.blue }]} />
+              <Text style={styles.sectionHeaderText}>OVER-BY-OVER</Text>
+            </View>
+          </View>
+          {[...(innings.oversData || [])].sort((a, b) => a.overNumber - b.overNumber).map((ov) => (
+            <View key={ov.id} style={styles.overLine}>
+              <Text style={styles.overLineNum}>Ov {ov.overNumber}</Text>
+              <View style={styles.overLineBalls}>
+                {(ov.balls || []).map((b, i) => {
+                  const lbl = ballLabel(b);
+                  const isW = b.isWicket, isBoundary = !b.extraType && (b.runs === 4 || b.runs === 6), isExtra = ['wide', 'noBall', 'bye', 'legBye', 'penalty'].includes(b.extraType);
+                  return (
+                    <View key={i} style={[styles.ballChip, isW && styles.ballChipW, isBoundary && styles.ballChipBoundary, isExtra && styles.ballChipExtra]}>
+                      <Text style={[styles.ballChipText, isW && { color: '#fff' }, isBoundary && { color: DS.bg }]}>{lbl}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+              <Text style={styles.overLineRuns}>{ov.runs + ov.extras}</Text>
+            </View>
+          ))}
+        </>
+      }
     </View>);
 
 }
@@ -270,6 +313,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
   const [inningsTab, setInningsTab] = useState(0);   // which innings/team scorecard to show
+  const shotRef = useRef(null);                      // capture target for "share as image"
 
   useLayoutEffect(() => {
     // Hide the stack header — the branded bar below is the single header, giving the
@@ -287,11 +331,14 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     if (!match) return;
     const t1 = match.team1?.name || 'Team 1';
     const t2 = match.team2?.name || 'Team 2';
+    const caption = `🏏 ${t1} vs ${t2}\n${match.score1 || '—'} | ${match.score2 || '—'}\n${match.result || ''}\nvia Local Legends`;
+    // Capture the scorecard as an image and share it; fall back to plain text.
     try {
-      await Share.share({
-        message: `🏏 Scorecard: ${t1} vs ${t2}\n${match.score1 || '—'} | ${match.score2 || '—'}\n${match.result || ''}\nShared via Local Legends`
-      });
-    } catch {}
+      const uri = await captureRef(shotRef, { format: 'png', quality: 0.95, result: 'tmpfile' });
+      await RNShare.open({ url: uri, type: 'image/png', message: caption, failOnCancel: false });
+    } catch (e) {
+      try { await Share.share({ message: caption }); } catch {}
+    }
   };
 
   if (loading) {
@@ -328,6 +375,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 12 }}>
+       <View ref={shotRef} collapsable={false} style={{ backgroundColor: DS.bg, paddingBottom: 12 }}>
         {/* Compact score summary (both innings) — the big hero was redundant with
             the per-innings score banner, so it's dropped to give the tables room. */}
         <View style={styles.scoreSummary}>
@@ -384,6 +432,8 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             return inn ? <InningsBlock key={inn.id || inningsTab} innings={inn} index={list.indexOf(inn)} squads={match.squads} /> : null;
           })()}
         </View>
+        <Text style={styles.watermark}>Local Legends</Text>
+       </View>
 
         {/* WhatsApp Share */}
         <TouchableOpacity style={styles.shareBtn} onPress={shareScorecard}>
@@ -533,11 +583,23 @@ const makeStyles = (DS) => StyleSheet.create({
   fowTitle: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 1, marginBottom: 4 },
   fowText: { fontSize: 11, color: DS.coral, lineHeight: 18 },
 
+  // Over-by-over timeline
+  overLine: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, gap: 8, borderTopWidth: 1, borderTopColor: DS.line },
+  overLineNum: { fontSize: 11, fontWeight: '800', color: DS.textMuted, width: 40 },
+  overLineBalls: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  overLineRuns: { fontSize: 13, fontWeight: '900', color: DS.textPrimary, width: 26, textAlign: 'right' },
+  ballChip: { minWidth: 22, paddingHorizontal: 5, paddingVertical: 3, borderRadius: 6, backgroundColor: DS.surfaceHigh, alignItems: 'center' },
+  ballChipW: { backgroundColor: DS.live },
+  ballChipBoundary: { backgroundColor: DS.lime },
+  ballChipExtra: { backgroundColor: 'rgba(255,181,158,0.18)' },
+  ballChipText: { fontSize: 11, fontWeight: '800', color: DS.textPrimary },
+
   // Share button
   shareBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: '#25D366', borderRadius: 14,
     paddingVertical: 14, marginHorizontal: 16, marginTop: 16
   },
-  shareBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' }
+  shareBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  watermark: { textAlign: 'center', fontSize: 11, fontWeight: '900', color: DS.lime, letterSpacing: 2, marginTop: 10, opacity: 0.8 },
 });
