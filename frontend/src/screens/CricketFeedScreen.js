@@ -105,7 +105,14 @@ function CircleMatchCard({ match, onPress }) {const DS = useTheme().colors;const
       )}
 
       <View style={c.cardDivider} />
-      <Text style={c.resultTxt} numberOfLines={1}>{match.result}</Text>
+      {match.live ? (
+        <View style={c.resumeRow}>
+          <Icon name="play-circle" size={16} color={DS.onBlue} />
+          <Text style={c.resumeTxt}>RESUME SCORING</Text>
+        </View>
+      ) : (
+        <Text style={c.resultTxt} numberOfLines={1}>{match.result}</Text>
+      )}
     </TouchableOpacity>);
 
 }
@@ -514,8 +521,29 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   // keep the open sheet in sync with the latest comments
   const sheetPost = activePost ? posts.find((po) => po.id === activePost.id) : null;
 
+  // If a match is live, surface a one-tap "Resume scoring" banner at the very top
+  // so the scorer never has to hunt for where to continue.
+  const liveMatch = matches.find((mt) => mt.live);
+
   const renderHeader =
   <View>
+      {liveMatch && (
+        <TouchableOpacity
+          style={s.resumeBanner}
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('Scoring', { resume: true, matchId: liveMatch.id })}>
+          <View style={s.resumeDot} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.resumeTitle}>LIVE MATCH · TAP TO RESUME SCORING</Text>
+            <Text style={s.resumeSub} numberOfLines={1}>{liveMatch.a.name} vs {liveMatch.b.name}</Text>
+          </View>
+          <View style={s.resumeCta}>
+            <Icon name="play" size={16} color={DS.onBlue} />
+            <Text style={s.resumeCtaTxt}>RESUME</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
       {/* From Your Circle rail */}
       <View style={s.sectionHead}>
         <Text style={s.sectionTitle}>From Your Circle</Text>
@@ -659,6 +687,21 @@ const makeS = (DS) => StyleSheet.create({
   brandTxt: { color: DS.textPrimary, fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   topActions: { flexDirection: 'row', alignItems: 'center', gap: 18 },
 
+  // Live-match resume banner (top of feed)
+  resumeBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginHorizontal: 16, marginTop: 14, padding: 14, borderRadius: 16,
+    backgroundColor: DS.blueDeep,
+  },
+  resumeDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: DS.live },
+  resumeTitle: { color: DS.onBlue, fontSize: 11, fontWeight: '900', letterSpacing: 0.6, opacity: 0.9 },
+  resumeSub: { color: DS.onBlue, fontSize: 15, fontWeight: '800', marginTop: 2 },
+  resumeCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7,
+  },
+  resumeCtaTxt: { color: DS.onBlue, fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+
   sectionHead: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 16
@@ -724,7 +767,12 @@ const makeC = (DS) => StyleSheet.create({
   teamScore: { color: DS.textPrimary, fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
 
   cardDivider: { height: 1, backgroundColor: DS.line, marginTop: 10, marginBottom: 8 },
-  resultTxt: { color: DS.lime, fontSize: 11.5, fontWeight: '700' }
+  resultTxt: { color: DS.lime, fontSize: 11.5, fontWeight: '700' },
+  resumeRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    backgroundColor: DS.blueDeep, borderRadius: 10, paddingVertical: 8,
+  },
+  resumeTxt: { color: DS.onBlue, fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
 });
 
 const makeM = (DS) => StyleSheet.create({
