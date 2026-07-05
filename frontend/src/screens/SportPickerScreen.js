@@ -513,34 +513,15 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         >
           <Icon name={isDark ? 'white-balance-sunny' : 'weather-night'} size={18} color={A.ink} />
         </TouchableOpacity>
-        <TouchableOpacity
-          style={s.avatar}
-          activeOpacity={0.8}
-          onPress={() => {
-            // Open the (sport-aware) Profile inside MainApp. Use the user's ACTIVE
-            // sport (selected-sport singleton) so the tab label + Profile's "Current
-            // Sport" always agree; fall back to the focused disc and commit it if
-            // nothing's been chosen yet. RESET (not push) so the Arena leaves the
-            // stack — once in the app you can't Back to the picker; switch via Profile.
-            const sel = getSelectedSport();
-            const sport = sel.sport || { ...focus, label: focus.name, icon: focus.mci };
-            setSelectedSport(sport, sel.format || null);
-            navigation.reset({
-              index: 0,
-              routes: [{
-                name: 'MainApp',
-                params: { sport },
-                state: { index: 0, routes: [{ name: 'ProfileTab', params: { initialSport: sport } }] }
-              }]
-            });
-          }}>
+        {/* Just the user's photo — display only, no navigation on tap. */}
+        <View style={s.avatar}>
           {me?.avatarUrl
             ? <Image source={{ uri: me.avatarUrl }} style={s.avatarImg} />
             : <Svg width={20} height={20} viewBox="0 0 20 20" fill={A.inkDim}>
                 <Path d="M10 3.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Z" />
                 <Path d="M3.5 18a6.5 6.5 0 0 1 13 0Z" />
               </Svg>}
-        </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── TITLE — static; the lit disc alone says what's selected ── */}
