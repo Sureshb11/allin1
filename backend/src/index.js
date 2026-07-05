@@ -32,6 +32,7 @@ import sportConfigRoutes from './routes/sportConfig.js';
 import feedRoutes from './routes/feed.js';
 import uploadRoutes from './routes/upload.js';
 import galleryRoutes from './routes/gallery.js';
+import pincodeRoutes from './routes/pincodes.js';
 
 const app = express();
 
@@ -83,6 +84,7 @@ app.use('/sports', sportConfigRoutes);
 app.use('/feed', feedRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/gallery', galleryRoutes);
+app.use('/pincodes', pincodeRoutes);
 
 // Not found
 app.use((req, res) => res.status(404).json({ error: 'Not Found' }));

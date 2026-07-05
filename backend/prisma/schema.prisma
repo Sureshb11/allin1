@@ -22,6 +22,11 @@ model User {
   lastName     String
   avatarUrl    String?
   bio          String?
+  city         String?
+  district     String?
+  state        String?
+  country      String?
+  pincode      String?
   plan         String   @default("free") // free | pro  (drives entitlements)
   proUntil     DateTime?                  // optional subscription expiry
 
@@ -279,6 +284,18 @@ model Product {
   seller      User     @relation(fields: [sellerId], references: [id])
   sellerId    String
   images      Json?
+}
+
+// Indian postal directory for city/town → district/state/pincode autocomplete.
+model Pincode {
+  id       Int    @id @default(autoincrement())
+  office   String // post-office / locality (the "city/town" the user types)
+  pincode  String
+  district String
+  state    String
+
+  @@index([office])
+  @@index([pincode])
 }
 
 // Photo gallery for a player (userId) or a club/team (teamId). Images live in the
