@@ -61,6 +61,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   // Bowling spell tracking → per-bowler over limit + no consecutive overs.
   const [bowlerOvers, setBowlerOvers] = useState({});      // bowlerId -> overs bowled
   const [lastOverBowlerId, setLastOverBowlerId] = useState(null);
+  const [extraPrompt, setExtraPrompt] = useState(null);    // 'wide'|'noball'|'bye'|'legbye' → +runs sheet
+  const [wicketPrompt, setWicketPrompt] = useState(false); // WICKET → dismissal-type sheet
   // Undo: snapshot of everything a ball mutates, pushed before each delivery.
   const [history, setHistory] = useState([]);
   const [undoing, setUndoing] = useState(false);
@@ -197,7 +199,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     setUndoing(false);
   };
 
-  const handleScore = async (value) => {
+  // addRuns = extra runs on a wide/no-ball/bye/leg-bye (e.g. wide+2, no-ball+4).
+  // wicketType = dismissal kind chosen from the Wicket sheet.
+  const handleScore = async (value, addRuns = 0, wicketType = 'bowled') => {
     if (matchComplete || undoing) return;
     // Snapshot the pre-ball state so this delivery can be taken back.
     setHistory((h) => [...h.slice(-49), {
@@ -208,36 +212,44 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     if (value === 'out') haptic.warn(); else haptic.tick();
     let newScore = { ...currentScore };
     let newOver = [...currentOver];
+    const rotate = (n) => { if (n % 2 === 1) { const t = striker; setStriker(nonStriker); setNonStriker(t); } };
 
     if (typeof value === 'number') {
       newScore.runs += value;
       newScore.balls += 1;
       newOver.push(value === 0 ? '·' : String(value));
       await persistBall(value, 0, null, false, null);
-      if (value % 2 === 1) {const t = striker;setStriker(nonStriker);setNonStriker(t);}
+      rotate(value);
     } else if (value === 'wide') {
-      newScore.runs += 1;
-      newOver.push('WD');
-      await persistBall(0, 1, 'wide', false, null);
+      const tot = 1 + addRuns;                    // wide penalty + runs run
+      newScore.runs += tot;
+      newOver.push(addRuns ? `${tot}wd` : 'WD');
+      await persistBall(0, tot, 'wide', false, null);
+      rotate(addRuns);
     } else if (value === 'noball') {
-      newScore.runs += 1;
-      newOver.push('NB');
-      await persistBall(0, 1, 'noBall', false, null);
+      newScore.runs += 1 + addRuns;               // 1 no-ball extra + runs off the bat
+      newOver.push(addRuns ? `${1 + addRuns}nb` : 'NB');
+      await persistBall(addRuns, 1, 'noBall', false, null);
+      rotate(addRuns);
     } else if (value === 'bye') {
-      newScore.runs += 1;
+      const n = addRuns || 1;
+      newScore.runs += n;
       newScore.balls += 1;
-      newOver.push('B');
-      await persistBall(0, 1, 'bye', false, null);
+      newOver.push(n > 1 ? `${n}b` : 'B');
+      await persistBall(0, n, 'bye', false, null);
+      rotate(n);
     } else if (value === 'legbye') {
-      newScore.runs += 1;
+      const n = addRuns || 1;
+      newScore.runs += n;
       newScore.balls += 1;
-      newOver.push('LB');
-      await persistBall(0, 1, 'legBye', false, null);
+      newOver.push(n > 1 ? `${n}lb` : 'LB');
+      await persistBall(0, n, 'legBye', false, null);
+      rotate(n);
     } else if (value === 'out') {
       newScore.wickets += 1;
       newScore.balls += 1;
       newOver.push('W');
-      await persistBall(0, 0, null, true, 'bowled');
+      await persistBall(0, 0, null, true, wicketType);
       if (newScore.wickets < 10) setShowPlayerModal(true);
     } else if (value === 'penalty') {
       // Penalty runs (5) — a team award, not a delivery: no ball faced, no
@@ -249,15 +261,16 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
     if (newScore.balls >= 6) {
       // Build over summary before reset
+      const isExtra = (b) => /wd|nb|^b$|lb|WD|NB|LB|P5/i.test(b) || b === 'B';
       const overRuns = newOver.reduce((acc, b) => {
         if (b === 'WD' || b === 'NB' || b === 'B' || b === 'LB') return acc + 1;
         if (b === 'P5') return acc + 5;
         if (b === '·') return acc;
-        if (!isNaN(parseInt(b))) return acc + parseInt(b);
-        return acc;
+        const n = parseInt(b);                    // '2wd','3nb','2b','3lb', or plain runs
+        return isNaN(n) ? acc : acc + n;
       }, 0);
       const overWickets = newOver.filter((b) => b === 'W').length;
-      const overExtras = newOver.filter((b) => ['WD', 'NB', 'B', 'LB', 'P5'].includes(b)).length;
+      const overExtras = newOver.filter(isExtra).length;
       setOverSummary({
         overNum: newScore.overs + 1,
         runs: overRuns,
@@ -585,78 +598,67 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           </View>
         </View>
 
-        {/* ── EXTRA ACTIONS ── */}
+        {/* ── EXTRAS ROW — tap for +runs (wide 2, no-ball 4, etc.) ── */}
         {!matchComplete &&
         <View style={styles.extraRow}>
             <TouchableOpacity
               style={[styles.extraBtn, (history.length === 0 || undoing) && { opacity: 0.4 }]}
-              onPress={undoLastBall}
-              disabled={history.length === 0 || undoing}>
+              onPress={undoLastBall} disabled={history.length === 0 || undoing}>
               <Icon name="undo" size={14} color={DS.textMuted} />
               <Text style={styles.extraBtnText}>UNDO</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} onPress={() => handleScore('bye')}>
-              <Text style={styles.extraBtnText}>BYE</Text>
+            <TouchableOpacity style={styles.extraBtn} onPress={() => setExtraPrompt('wide')}>
+              <Text style={[styles.extraBtnText, { color: DS.coral }]}>WD +</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} onPress={() => handleScore('legbye')}>
-              <Text style={styles.extraBtnText}>LEG{'\n'}BYE</Text>
+            <TouchableOpacity style={styles.extraBtn} onPress={() => setExtraPrompt('noball')}>
+              <Text style={[styles.extraBtnText, { color: DS.coral }]}>NB +</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.extraBtn} onPress={() => setExtraPrompt('bye')}>
+              <Text style={styles.extraBtnText}>BYE +</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.extraBtn} onPress={() => setExtraPrompt('legbye')}>
+              <Text style={styles.extraBtnText}>LB +</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.extraBtn} onPress={() => handleScore('penalty')}>
-              <Icon name="alert-octagon-outline" size={14} color={DS.textMuted} />
               <Text style={styles.extraBtnText}>PEN 5</Text>
             </TouchableOpacity>
           </View>
         }
 
-        {/* ── SCORING GRID 3×3 ── */}
+        {/* ── RUNS GRID (0-6) — flexes to fill ── */}
         {!matchComplete &&
         <View style={styles.grid}>
-            {/* Row 1 */}
             <View style={styles.gridRow}>
               <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(0)}>
-                <Text style={styles.gridBtnNum}>0</Text>
-                <Text style={styles.gridBtnLabel}>DOT</Text>
+                <Text style={styles.gridBtnNum}>0</Text><Text style={styles.gridBtnLabel}>DOT</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(1)}>
-                <Text style={styles.gridBtnNum}>1</Text>
-                <Text style={styles.gridBtnLabel}>SINGLE</Text>
+                <Text style={styles.gridBtnNum}>1</Text><Text style={styles.gridBtnLabel}>SINGLE</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(2)}>
-                <Text style={styles.gridBtnNum}>2</Text>
-                <Text style={styles.gridBtnLabel}>DOUBLE</Text>
+                <Text style={styles.gridBtnNum}>2</Text><Text style={styles.gridBtnLabel}>DOUBLE</Text>
               </TouchableOpacity>
             </View>
-            {/* Row 2 */}
             <View style={styles.gridRow}>
               <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(3)}>
-                <Text style={styles.gridBtnNum}>3</Text>
-                <Text style={styles.gridBtnLabel}>TRIPLE</Text>
+                <Text style={styles.gridBtnNum}>3</Text><Text style={styles.gridBtnLabel}>TRIPLE</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.gridBtn, styles.gridBtnFour]} onPress={() => handleScore(4)}>
-                <Text style={[styles.gridBtnNum, { color: '#fff' }]}>4</Text>
-                <Text style={[styles.gridBtnLabel, { color: 'rgba(255,255,255,0.7)' }]}>BOUNDARY</Text>
+                <Text style={[styles.gridBtnNum, { color: '#fff' }]}>4</Text><Text style={[styles.gridBtnLabel, { color: 'rgba(255,255,255,0.7)' }]}>FOUR</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.gridBtn, styles.gridBtnSix]} onPress={() => handleScore(6)}>
-                <Text style={[styles.gridBtnNum, { color: DS.lime }]}>6</Text>
-                <Text style={[styles.gridBtnLabel, { color: DS.lime }]}>MAXIMUM</Text>
-              </TouchableOpacity>
-            </View>
-            {/* Row 3 */}
-            <View style={styles.gridRow}>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnWide]} onPress={() => handleScore('wide')}>
-                <Text style={[styles.gridBtnNum, styles.gridBtnWideText]}>WD</Text>
-                <Text style={[styles.gridBtnLabel, styles.gridBtnWideText]}>WIDE</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnWide]} onPress={() => handleScore('noball')}>
-                <Text style={[styles.gridBtnNum, styles.gridBtnWideText]}>NB</Text>
-                <Text style={[styles.gridBtnLabel, styles.gridBtnWideText]}>NO BALL</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnWicket]} onPress={() => handleScore('out')}>
-                <Icon name="close" size={28} color={DS.wicketText} />
-                <Text style={[styles.gridBtnLabel, { color: DS.wicketText }]}>WICKET</Text>
+                <Text style={[styles.gridBtnNum, { color: DS.lime }]}>6</Text><Text style={[styles.gridBtnLabel, { color: DS.lime }]}>SIX</Text>
               </TouchableOpacity>
             </View>
           </View>
+        }
+
+        {/* ── WICKET — full width, always visible; asks the dismissal type ── */}
+        {!matchComplete &&
+        <TouchableOpacity style={styles.wicketBtn} onPress={() => setWicketPrompt(true)}>
+          <Icon name="alert-octagon" size={20} color={DS.wicketText} />
+          <Text style={styles.wicketBtnText}>WICKET</Text>
+        </TouchableOpacity>
         }
 
         {/* ── OVER SUMMARY + COMPLETE OVER ── */}
@@ -786,6 +788,60 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           </View>
         </View>
       </Modal>
+
+      {/* ── EXTRA + RUNS sheet (wide/no-ball/bye/leg-bye + runs run) ── */}
+      <Modal visible={!!extraPrompt} transparent animationType="slide" onRequestClose={() => setExtraPrompt(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>
+              {extraPrompt === 'wide' ? 'Wide' : extraPrompt === 'noball' ? 'No Ball' : extraPrompt === 'bye' ? 'Byes' : 'Leg Byes'} + runs
+            </Text>
+            <Text style={styles.modalSub}>
+              {extraPrompt === 'wide' || extraPrompt === 'noball' ? 'Extra + any runs the batters ran' : 'How many runs were run'}
+            </Text>
+            <View style={styles.runChips}>
+              {(extraPrompt === 'bye' || extraPrompt === 'legbye' ? [1, 2, 3, 4] : [0, 1, 2, 4]).map((n) => (
+                <TouchableOpacity key={n} style={styles.runChip}
+                  onPress={() => { const t = extraPrompt; setExtraPrompt(null); handleScore(t, n); }}>
+                  <Text style={styles.runChipNum}>+{n}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setExtraPrompt(null)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── WICKET TYPE sheet ── */}
+      <Modal visible={wicketPrompt} transparent animationType="slide" onRequestClose={() => setWicketPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>How was the batter out?</Text>
+            <ScrollView>
+              {[
+                ['bowled', 'cricket'], ['caught', 'hand-back-right'], ['lbw', 'target'],
+                ['run out', 'run-fast'], ['stumped', 'hand-back-left'], ['hit wicket', 'alert'],
+              ].map(([type, icon]) => (
+                <TouchableOpacity key={type} style={styles.playerOption}
+                  onPress={() => { setWicketPrompt(false); handleScore('out', 0, type.replace(' ', '')); }}>
+                  <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
+                    <Icon name={icon} size={16} color={DS.wicketText} />
+                  </View>
+                  <Text style={[styles.playerName, { flex: 1, textTransform: 'capitalize' }]}>{type}</Text>
+                  <Icon name="chevron-right" size={18} color={DS.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setWicketPrompt(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>);
 
 }
@@ -851,12 +907,24 @@ const makeStyles = (DS) => StyleSheet.create({
   bowlerStats: { fontSize: 11, color: DS.textMuted },
 
   // Extra action row
-  extraRow: { flexDirection: 'row', gap: 8, marginHorizontal: 16, marginBottom: 10 },
+  extraRow: { flexDirection: 'row', gap: 6, marginHorizontal: 16, marginBottom: 8 },
   extraBtn: {
     flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingVertical: 10,
     alignItems: 'center', justifyContent: 'center', gap: 2
   },
-  extraBtnText: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5, textAlign: 'center' },
+  extraBtnText: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.3, textAlign: 'center' },
+
+  // Full-width wicket button
+  wicketBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginHorizontal: 16, marginBottom: 8, backgroundColor: DS.wicketBg, borderRadius: 14, paddingVertical: 14,
+  },
+  wicketBtnText: { fontSize: 15, fontWeight: '900', color: DS.wicketText, letterSpacing: 2 },
+
+  // Run chips (extra + runs sheet)
+  runChips: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  runChip: { flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 14, paddingVertical: 18, alignItems: 'center' },
+  runChipNum: { fontSize: 24, fontWeight: '900', color: DS.textPrimary },
 
   // 3×3 Grid — flexes to fill the space left below the score/players.
   grid: { flex: 1, marginHorizontal: 16, gap: 8, marginBottom: 8, minHeight: 200 },
