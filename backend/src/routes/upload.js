@@ -8,6 +8,18 @@ const router = express.Router();
 const FOLDERS = new Set(['avatars', 'feed', 'gallery', 'marketplace', 'teams']);
 const MIME_EXT = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
 
+// A connected Blob store injects a token whose var name depends on the store name
+// (e.g. BLOB_READ_WRITE_TOKEN or allin1_api_blob_READ_WRITE_TOKEN). Vercel Blob RW
+// tokens always start with "vercel_blob_rw_", so find it by name or by value.
+function resolveBlobToken() {
+  if (process.env.BLOB_READ_WRITE_TOKEN) return process.env.BLOB_READ_WRITE_TOKEN;
+  for (const [k, v] of Object.entries(process.env)) {
+    if (typeof v !== 'string') continue;
+    if (/READ_WRITE_TOKEN$/.test(k) || v.startsWith('vercel_blob_rw_')) return v;
+  }
+  return null;
+}
+
 // POST /upload  { folder, contentType, dataBase64 }  → { url }
 // Uploads a (client-compressed) image to the Vercel Blob store "allin1-api-blob"
 // and returns its public URL. BLOB_READ_WRITE_TOKEN is injected by the connected
@@ -18,8 +30,9 @@ router.post('/', authMiddleware, async (req, res) => {
     if (!dataBase64) return res.status(400).json({ error: 'dataBase64 required' });
     if (!FOLDERS.has(folder)) return res.status(400).json({ error: 'invalid folder' });
     const ext = MIME_EXT[contentType] || 'jpg';
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      return res.status(503).json({ error: 'Blob storage not configured (BLOB_READ_WRITE_TOKEN missing)' });
+    const blobToken = resolveBlobToken();
+    if (!blobToken) {
+      return res.status(503).json({ error: 'Blob storage not configured (no blob RW token in env)' });
     }
     // Strip a data-URL prefix if present, then decode.
     const raw = String(dataBase64).replace(/^data:[^;]+;base64,/, '');
@@ -30,7 +43,7 @@ router.post('/', authMiddleware, async (req, res) => {
     const blob = await put(key, buffer, {
       access: 'public',
       contentType,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
+      token: blobToken,
     });
     res.json({ success: true, url: blob.url });
   } catch (e) {
