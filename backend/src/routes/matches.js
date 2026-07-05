@@ -578,9 +578,11 @@ router.get('/:id/scorecard', async (req, res) => {
     const match = await prisma.match.findUnique({
       where: { id: req.params.id },
       include: {
-        team1: true,
-        team2: true,
-        squads: { include: { player: true } },
+        // Full roster (not just the match squad) so the Squads tab can show a
+        // "Bench" section — team members named for this match but not selected.
+        team1: { include: { players: true } },
+        team2: { include: { players: true } },
+        squads: { include: { player: { include: { user: { select: { avatarUrl: true } } } } } },
         innings: {
           include: {
             battingTeam: true,
