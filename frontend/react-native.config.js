@@ -1,4 +1,5 @@
 module.exports = {
+  assets: ['./assets/fonts'],
   dependencies: {
     '@react-native-async-storage/async-storage': {
       platforms: {

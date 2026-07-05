@@ -3,6 +3,7 @@
  */
 
 import {AppRegistry, Text, TextInput} from 'react-native';
+import './src/utils/applyLexendFont'; // global font → Google Lexend (weight-mapped)
 import App from './App';
 
 // Lock text to the designed sizes so the OS "Font size" accessibility setting can't
