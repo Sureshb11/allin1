@@ -150,11 +150,27 @@ function HighlightCard({ item, onLike, onOpen }) {const DS = useTheme().colors;c
 
 }
 
+// Feed photo — computes the real aspect ratio so the FULL image shows (no crop),
+// width-locked to the card, height capped so a tall portrait doesn't take over the feed.
+function FeedPhoto({ uri, styles: m }) {
+  const [ratio, setRatio] = useState(1);
+  useEffect(() => {
+    let live = true;
+    Image.getSize(uri, (w, h) => { if (live && w && h) setRatio(w / h); }, () => {});
+    return () => { live = false; };
+  }, [uri]);
+  const cardW = SW;                                          // full-bleed card width
+  const height = Math.min(cardW / ratio, cardW * 1.25);       // cap extreme portraits
+  return <Image source={{ uri }} style={[m.photo, { height }]} resizeMode="cover" />;
+}
+
 function PostMedia({ kind, media }) {const DS = useTheme().colors;const c = useThemedStyles(makeC);const m = useThemedStyles(makeM);
   if (!media) return null;   // real text posts carry no rich media
-  // Real uploaded photo (blob URL string).
+  // Real uploaded photo (blob URL string) — size to the image's real aspect ratio
+  // so it's shown in FULL (no top/bottom crop), capped so a very tall photo doesn't
+  // dominate the feed.
   if (kind === 'photo' && typeof media === 'string') {
-    return <Image source={{ uri: media }} style={m.photo} resizeMode="cover" />;
+    return <FeedPhoto uri={media} styles={m} />;
   }
   if (kind === 'milestone') {
     return (
@@ -814,7 +830,7 @@ const makeC = (DS) => StyleSheet.create({
 
 const makeM = (DS) => StyleSheet.create({
   wrap: { marginHorizontal: 0, paddingVertical: 22, paddingHorizontal: 16, overflow: 'hidden' },
-  photo: { width: '100%', height: 300, backgroundColor: DS.surfaceHigh },
+  photo: { width: '100%', backgroundColor: DS.surfaceHigh },   // height set dynamically by FeedPhoto (real aspect ratio)
   glow: {
     position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: 80,
     backgroundColor: 'rgba(171,214,0,0.10)'
