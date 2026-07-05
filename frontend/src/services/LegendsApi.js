@@ -417,6 +417,37 @@ class LegendsApi {
     }
   }
 
+  // Photo gallery (player or team).
+  async getGallery({ userId, teamId } = {}) {
+    try {
+      const q = new URLSearchParams();
+      if (userId) q.set('userId', userId);
+      if (teamId) q.set('teamId', teamId);
+      const json = await this.request(`/gallery?${q.toString()}`);
+      return { success: true, data: json.photos || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  async addGalleryPhoto({ url, caption, teamId } = {}) {
+    try {
+      const json = await this.request('/gallery', { method: 'POST', body: { url, caption, teamId } });
+      return { success: true, data: json.photo };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async deleteGalleryPhoto(id) {
+    try {
+      await this.request(`/gallery/${id}`, { method: 'DELETE' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Upload a (base64) image to the Vercel Blob store → returns the public URL.
   // folder ∈ avatars | feed | gallery | marketplace | teams.
   async uploadImage({ folder, dataBase64, contentType = 'image/jpeg' }) {

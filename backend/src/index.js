@@ -31,6 +31,7 @@ import rummyRoutes from './routes/sports/rummy.js';
 import sportConfigRoutes from './routes/sportConfig.js';
 import feedRoutes from './routes/feed.js';
 import uploadRoutes from './routes/upload.js';
+import galleryRoutes from './routes/gallery.js';
 
 const app = express();
 
@@ -81,6 +82,7 @@ app.use('/rummy', rummyRoutes);
 app.use('/sports', sportConfigRoutes);
 app.use('/feed', feedRoutes);
 app.use('/upload', uploadRoutes);
+app.use('/gallery', galleryRoutes);
 
 // Not found
 app.use((req, res) => res.status(404).json({ error: 'Not Found' }));

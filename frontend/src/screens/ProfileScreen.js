@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, Share, ActivityIndicator,
+  Alert, Share, ActivityIndicator, Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { pickAndUploadImage } from '../utils/imageUpload';
 import legendsApi from '../services/LegendsApi';
 import SportSwitcher from '../components/SportSwitcher';
 import { getSelectedSport } from '../utils/selectedSport';
@@ -35,6 +36,8 @@ export default function ProfileScreen({ navigation }) {
   const styles = useThemedStyles(makeStyles);
   const [profile, setProfile] = useState({});
   const [stats, setStats] = useState({});
+  const [gallery, setGallery] = useState([]);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
@@ -64,11 +67,23 @@ export default function ProfileScreen({ navigation }) {
       ]);
       if (profileRes.success) setProfile(profileRes.data);
       if (statsRes.success) setStats(statsRes.data);
+      const uid = profileRes.data?.id;
+      if (uid) { const g = await legendsApi.getGallery({ userId: uid }); setGallery(g.data || []); }
     } catch {
       Alert.alert('Error', 'Failed to load profile data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const addGalleryPhoto = async () => {
+    setUploadingGallery(true);
+    const r = await pickAndUploadImage('gallery');
+    if (r.url) {
+      const add = await legendsApi.addGalleryPhoto({ url: r.url });
+      if (add.success) setGallery((prev) => [add.data, ...prev]);
+    } else if (r.error) Alert.alert('Upload failed', r.error);
+    setUploadingGallery(false);
   };
 
   const shareProfile = async () => {
@@ -284,6 +299,27 @@ export default function ProfileScreen({ navigation }) {
           ))}
         </View>
 
+        {/* Photo gallery */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>GALLERY</Text>
+          <View style={styles.galleryGrid}>
+            <TouchableOpacity style={styles.galleryAdd} onPress={addGalleryPhoto} disabled={uploadingGallery}>
+              {uploadingGallery ? <ActivityIndicator size="small" color={DS.lime} />
+                : <><Icon name="camera-plus" size={22} color={DS.lime} /><Text style={styles.galleryAddTxt}>Add</Text></>}
+            </TouchableOpacity>
+            {gallery.map((g) => (
+              <TouchableOpacity key={g.id} activeOpacity={0.85}
+                onLongPress={() => Alert.alert('Remove photo?', '', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Remove', style: 'destructive', onPress: async () => { await legendsApi.deleteGalleryPhoto(g.id); setGallery((prev) => prev.filter((x) => x.id !== g.id)); } },
+                ])}>
+                <Image source={{ uri: g.url }} style={styles.galleryImg} />
+              </TouchableOpacity>
+            ))}
+          </View>
+          {gallery.length === 0 && <Text style={styles.galleryHint}>Add your best cricket moments · long-press a photo to remove</Text>}
+        </View>
+
         {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Icon name="logout" size={18} color={DS.live} />
@@ -357,6 +393,11 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // Recent form
   section: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16, gap: 8 },
+  galleryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  galleryImg: { width: 88, height: 88, borderRadius: 10, backgroundColor: DS.surfaceLow },
+  galleryAdd: { width: 88, height: 88, borderRadius: 10, borderWidth: 1.5, borderColor: DS.lime, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 2 },
+  galleryAddTxt: { color: DS.lime, fontSize: 11, fontWeight: '700' },
+  galleryHint: { fontSize: 11, color: DS.textMuted, marginTop: 4 },
   sectionTitle: { fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4 },
   formRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
   resultDot: { width: 8, height: 8, borderRadius: 4 },
