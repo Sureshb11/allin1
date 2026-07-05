@@ -52,6 +52,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [bowlingTeamId, setBowlingTeamId] = useState('');
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const [showBowlerModal, setShowBowlerModal] = useState(false);
+  // At over-end the bowler MUST change (no consecutive overs) → mandatory, non-
+  // dismissable picker. A manual mid-over swap stays optional/cancellable.
+  const [mustPickBowler, setMustPickBowler] = useState(false);
   const [matchComplete, setMatchComplete] = useState(false);
   const [matchResult, setMatchResult] = useState('');
   const [currentInningId, setCurrentInningId] = useState('');
@@ -307,7 +310,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         setLastOverBowlerId(currentBowler.id);
       }
       const t = striker;setStriker(nonStriker);setNonStriker(t);
-      if (newScore.overs < totalOvers && newScore.wickets < 10) setShowBowlerModal(true);
+      if (newScore.overs < totalOvers && newScore.wickets < 10) { setMustPickBowler(true); setShowBowlerModal(true); }
     } else {
       setCurrentOver(newOver);
     }
@@ -606,7 +609,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               </View>
               <Text style={styles.bowlerLabel}>BOWLING</Text>
             </View>
-            <TouchableOpacity onPress={() => setShowBowlerModal(true)} style={styles.bowlerSwap}>
+            <TouchableOpacity onPress={() => { setMustPickBowler(false); setShowBowlerModal(true); }} style={styles.bowlerSwap}>
               <Icon name="swap-horizontal" size={16} color={DS.textMuted} />
             </TouchableOpacity>
             <Text style={styles.bowlerName} numberOfLines={1}>{currentBowler?.name || 'Select'}</Text>
@@ -698,7 +701,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
                 </View>
               </View>
             </View>
-            <TouchableOpacity style={styles.completeOverBtn} onPress={() => {setOverSummary(null);setShowBowlerModal(true);}}>
+            <TouchableOpacity style={styles.completeOverBtn} onPress={() => {setOverSummary(null);setMustPickBowler(true);setShowBowlerModal(true);}}>
               <Icon name="check-circle" size={28} color={DS.bg} />
               <Text style={styles.completeOverText}>COMPLETE{'\n'}OVER</Text>
             </TouchableOpacity>
@@ -772,23 +775,27 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       </Modal>
 
       {/* ── BOWLER MODAL ── */}
-      <Modal visible={showBowlerModal} transparent animationType="slide">
+      <Modal visible={showBowlerModal} transparent animationType="slide"
+        onRequestClose={() => { if (!mustPickBowler) setShowBowlerModal(false); }}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Change Bowler</Text>
-            <Text style={styles.modalSub}>Max {maxOversPerBowler} overs each · can’t bowl consecutive overs</Text>
+            <Text style={styles.modalTitle}>{mustPickBowler ? 'Next Over — Pick Bowler' : 'Change Bowler'}</Text>
+            <Text style={styles.modalSub}>
+              Max {maxOversPerBowler} overs each · can’t bowl consecutive overs
+              {mustPickBowler ? ' · a different bowler must start this over' : ''}
+            </Text>
             <ScrollView>
               {bowlingXI.map((p, i) => {
                 const bowled = bowlerOvers[p.id] || 0;
                 const atMax = bowled >= maxOversPerBowler;
                 const justBowled = p.id === lastOverBowlerId;
                 const blocked = atMax || justBowled;
-                const reason = atMax ? `${bowled}/${maxOversPerBowler} ov` : justBowled ? 'bowled last over' : `${bowled} ov`;
+                const reason = atMax ? `${bowled}/${maxOversPerBowler} ov · maxed` : justBowled ? 'bowled last over' : `${bowled}/${maxOversPerBowler} ov`;
                 return (
                   <TouchableOpacity key={i} style={[styles.playerOption, blocked && { opacity: 0.4 }]}
                     disabled={blocked}
-                    onPress={() => { setCurrentBowler(p); setShowBowlerModal(false); }}>
+                    onPress={() => { setCurrentBowler(p); setShowBowlerModal(false); setMustPickBowler(false); }}>
                     <View style={[styles.playerAvatar, { backgroundColor: DS.lime + '33' }]}>
                       <Text style={[styles.playerInitial, { color: DS.lime }]}>{p.name.charAt(0).toUpperCase()}</Text>
                     </View>
@@ -798,9 +805,11 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
                   </TouchableOpacity>);
               })}
             </ScrollView>
-            <TouchableOpacity style={styles.modalClose} onPress={() => setShowBowlerModal(false)}>
-              <Text style={styles.modalCloseText}>Cancel</Text>
-            </TouchableOpacity>
+            {!mustPickBowler && (
+              <TouchableOpacity style={styles.modalClose} onPress={() => setShowBowlerModal(false)}>
+                <Text style={styles.modalCloseText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
