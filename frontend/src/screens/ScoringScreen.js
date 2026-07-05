@@ -249,6 +249,23 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   // catcher = fielder/keeper/bowler name for a caught dismissal (shown in scorecard).
   const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null) => {
     if (matchComplete || undoing) return;
+    // Guard the FIRST ball of an over (any path, incl. resume/setup picks): the
+    // bowler must be within their spell limit and can't bowl consecutive overs.
+    if (currentScore.balls === 0 && currentBowler) {
+      const bowled = bowlerOvers[currentBowler.id] || 0;
+      if (bowled >= maxOversPerBowler) {
+        haptic.warn();
+        Alert.alert('Over limit reached', `${currentBowler.name} has already bowled ${maxOversPerBowler} overs. Pick another bowler.`);
+        setMustPickBowler(true); setShowBowlerModal(true);
+        return;
+      }
+      if (currentBowler.id === lastOverBowlerId) {
+        haptic.warn();
+        Alert.alert('No consecutive overs', `${currentBowler.name} bowled the previous over. Pick another bowler.`);
+        setMustPickBowler(true); setShowBowlerModal(true);
+        return;
+      }
+    }
     // Snapshot the pre-ball state so this delivery can be taken back.
     setHistory((h) => [...h.slice(-49), {
       score: { ...currentScore }, over: [...currentOver], ballCount,

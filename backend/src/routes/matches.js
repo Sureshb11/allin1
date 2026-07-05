@@ -174,6 +174,24 @@ router.put('/:id/score', async (req, res) => {
     });
 
     if (!over) {
+      // A new over is starting → enforce the bowling laws authoritatively (the UI
+      // guards too, but this catches every path: resume, old clients, retries).
+      const matchRow = await prisma.match.findUnique({ where: { id: req.params.id }, select: { overs: true } });
+      const maxOvers = Math.ceil((matchRow?.overs || 20) / 5);   // T20 → 4, ODI → 10
+      const priorOvers = await prisma.over.findMany({
+        where: { inningId: data.inningId },
+        include: { balls: { select: { extraType: true } } },
+        orderBy: { overNumber: 'asc' },
+      });
+      const legalCount = (o) => o.balls.filter((b) => b.extraType !== 'wide' && b.extraType !== 'noBall').length;
+      const completedByBowler = priorOvers.filter((o) => o.bowlerId === data.bowlerId && legalCount(o) >= 6).length;
+      if (completedByBowler >= maxOvers) {
+        return res.status(409).json({ error: `A bowler can bowl at most ${maxOvers} overs in this match.`, code: 'BOWLER_OVER_LIMIT' });
+      }
+      const lastOver = priorOvers[priorOvers.length - 1];
+      if (lastOver && lastOver.bowlerId === data.bowlerId && legalCount(lastOver) >= 6) {
+        return res.status(409).json({ error: 'A bowler cannot bowl two overs in a row.', code: 'BOWLER_CONSECUTIVE' });
+      }
       over = await prisma.over.create({
         data: { inningId: data.inningId, overNumber: data.overNumber, bowlerId: data.bowlerId }
       });
