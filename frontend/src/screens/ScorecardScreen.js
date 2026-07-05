@@ -5,6 +5,7 @@ import {
 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 import RNShare from 'react-native-share';
 import legendsApi from '../services/LegendsApi';
@@ -147,6 +148,22 @@ function computeFOW(innings, nameById) {
   return fow;
 }
 
+// Current partnership: runs added (bat + extras conceded) and legal balls faced by
+// the team since the last wicket fell (or since the innings began, if none yet).
+function computePartnership(innings) {
+  const balls = [];
+  (innings.oversData || []).forEach((over) => (over.balls || []).forEach((b) => balls.push(b)));
+  let lastWicketIdx = -1;
+  balls.forEach((b, i) => { if (b.isWicket) lastWicketIdx = i; });
+  let runs = 0, legalBalls = 0;
+  for (let i = lastWicketIdx + 1; i < balls.length; i++) {
+    const b = balls[i];
+    runs += (b.runs || 0) + (b.extras || 0);
+    if (!['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)) legalBalls += 1;
+  }
+  return { runs, balls: legalBalls };
+}
+
 // Short label for a ball in the over-by-over timeline.
 function ballLabel(b) {
   if (b.extraType === 'wide') return `${b.extras > 1 ? b.extras : ''}wd`;
@@ -196,6 +213,114 @@ function buildCommentary(innings) {
     });
   });
   return lines.reverse();
+}
+
+// Highlights: wickets, fifties/hundreds, 5-wicket hauls and hat-tricks, across the
+// whole match — newest first. Hat-trick/5-for logic mirrors the live toast detector
+// in ScoringScreen: only a bowler-credited wicket (not run-out/retired) extends a
+// bowler's streak; any other legal, non-wicket ball resets it; wides/no-balls and
+// non-credited wickets leave the streak untouched.
+function computeHighlights(match) {
+  const highlights = [];
+  (match.innings || []).forEach((innings, inningIdx) => {
+    const inningsLabel = inningIdx === 0 ? '1st Inns' : '2nd Inns';
+    const batterRuns = {};
+    const bowlerWkts = {};
+    let streakBowlerId = null, streakCount = 0;
+    (innings.oversData || []).forEach((over) => {
+      const bowlerName = over.bowler?.name || 'Bowler';
+      let legalInOver = 0;
+      (over.balls || []).forEach((ball) => {
+        const et = ball.extraType;
+        const isLegal = !['wide', 'noBall', 'penalty', 'retired'].includes(et);
+        if (isLegal) legalInOver += 1;
+        const label = `${over.overNumber - 1}.${legalInOver}`;
+        const batterName = ball.batter?.name || 'Batter';
+
+        // Batter milestone — runs off the bat only, same rule as computeBatting.
+        if (ball.batterId && (!et || et === 'noBall')) {
+          const before = batterRuns[ball.batterId] || 0;
+          const after = before + ball.runs;
+          batterRuns[ball.batterId] = after;
+          if (before < 100 && after >= 100) {
+            highlights.push({ key: `${over.id}-${ball.batterId}-100`, inningsLabel, label, icon: 'trophy', text: `HUNDRED! ${batterName} brings up the century` });
+          } else if (before < 50 && after >= 50) {
+            highlights.push({ key: `${over.id}-${ball.batterId}-50`, inningsLabel, label, icon: 'star', text: `FIFTY! ${batterName} reaches 50` });
+          }
+        }
+
+        if (ball.isWicket) {
+          highlights.push({ key: `${over.id}-${ball.batterId}-w`, inningsLabel, label, icon: 'alert-octagon', text: `WICKET! ${batterName} ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}` });
+          const wt = String(ball.wicketType || '').toLowerCase().replace(/\s/g, '');
+          const bowlerCredited = wt !== 'runout' && wt !== 'retired' && wt !== 'retiredout' && wt !== 'retiredhurt';
+          if (bowlerCredited) {
+            streakCount = streakBowlerId === over.bowlerId ? streakCount + 1 : 1;
+            streakBowlerId = over.bowlerId;
+            bowlerWkts[over.bowlerId] = (bowlerWkts[over.bowlerId] || 0) + 1;
+            if (streakCount === 3) highlights.push({ key: `${over.id}-${over.bowlerId}-hat`, inningsLabel, label, icon: 'cricket', text: `HAT-TRICK! ${bowlerName} takes three wickets in a row` });
+            if (bowlerWkts[over.bowlerId] === 5) highlights.push({ key: `${over.id}-${over.bowlerId}-5w`, inningsLabel, label, icon: 'cricket', text: `FIVE-WICKET HAUL! ${bowlerName} completes a five-for` });
+          }
+        } else if (isLegal) {
+          streakCount = 0; streakBowlerId = null;   // a non-wicket legal ball breaks the streak
+        }
+      });
+    });
+  });
+  return highlights.reverse();
+}
+
+// Cumulative team score at each over boundary — the points a worm/Manhattan
+// graph plots. Starts at (0, 0) so the line always begins at the origin.
+function cumulativePoints(innings) {
+  const points = [{ over: 0, runs: 0 }];
+  let cum = 0;
+  [...(innings.oversData || [])].sort((a, b) => a.overNumber - b.overNumber).forEach((over) => {
+    cum += (over.runs || 0) + (over.extras || 0);
+    points.push({ over: over.overNumber, runs: cum });
+  });
+  return points;
+}
+
+// Run-rate "worm" graph — cumulative score per over, both innings overlaid so you
+// can see at a glance who was ahead of the required pace at any point.
+function WormChart({ innings1, innings2, totalOvers }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+  const p1 = innings1 ? cumulativePoints(innings1) : [];
+  const p2 = innings2 ? cumulativePoints(innings2) : [];
+  if (p1.length < 2 && p2.length < 2) return null;   // nothing bowled yet
+
+  const W = 320, H = 130, PAD = 14;
+  const maxOver = Math.max(totalOvers || 0, p1[p1.length - 1]?.over || 0, p2[p2.length - 1]?.over || 0, 1);
+  const maxRuns = Math.max(p1[p1.length - 1]?.runs || 0, p2[p2.length - 1]?.runs || 0, 10);
+  const X = (o) => PAD + (o / maxOver) * (W - PAD * 2);
+  const Y = (r) => H - PAD - (r / maxRuns) * (H - PAD * 2);
+  const pathFor = (pts) => pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${X(p.over).toFixed(1)} ${Y(p.runs).toFixed(1)}`).join(' ');
+
+  return (
+    <View style={styles.wormCard}>
+      <Text style={styles.wormTitle}>RUN RATE</Text>
+      <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+        <Line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke={DS.line} strokeWidth={1} />
+        {p1.length > 1 && <Path d={pathFor(p1)} stroke={DS.lime} strokeWidth={2.5} fill="none" />}
+        {p2.length > 1 && <Path d={pathFor(p2)} stroke={DS.coral} strokeWidth={2.5} fill="none" />}
+        {p1.length > 0 && <Circle cx={X(p1[p1.length - 1].over)} cy={Y(p1[p1.length - 1].runs)} r={3.5} fill={DS.lime} />}
+        {p2.length > 0 && <Circle cx={X(p2[p2.length - 1].over)} cy={Y(p2[p2.length - 1].runs)} r={3.5} fill={DS.coral} />}
+      </Svg>
+      <View style={styles.wormLegendRow}>
+        {innings1 &&
+          <View style={styles.wormLegendItem}>
+            <View style={[styles.wormDot, { backgroundColor: DS.lime }]} />
+            <Text style={styles.wormLegendText} numberOfLines={1}>{innings1.battingTeam?.name || 'Team 1'} · {innings1.totalRuns}/{innings1.totalWickets}</Text>
+          </View>
+        }
+        {innings2 &&
+          <View style={styles.wormLegendItem}>
+            <View style={[styles.wormDot, { backgroundColor: DS.coral }]} />
+            <Text style={styles.wormLegendText} numberOfLines={1}>{innings2.battingTeam?.name || 'Team 2'} · {innings2.totalRuns}/{innings2.totalWickets}</Text>
+          </View>
+        }
+      </View>
+    </View>
+  );
 }
 
 function TableHeader({ cols }) {const styles = useThemedStyles(makeStyles);
@@ -338,6 +463,27 @@ function InningsOvers({ innings }) {const DS = useTheme().colors;const styles = 
   );
 }
 
+// ── HIGHLIGHTS tab: wickets, fifties/hundreds, 5-for and hat-tricks, whole match ─
+function HighlightsTab({ match }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+  const highlights = computeHighlights(match);
+  if (!highlights.length) return <Text style={styles.emptyTabText}>No notable moments yet.</Text>;
+  return (
+    <View style={styles.inningsCard}>
+      {highlights.map((h, i) => (
+        <View key={h.key} style={[styles.highlightRow, i === 0 && { borderTopWidth: 0 }]}>
+          <View style={styles.highlightIconWrap}>
+            <Icon name={h.icon} size={16} color={h.icon === 'alert-octagon' ? DS.live : DS.lime} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.highlightText}>{h.text}</Text>
+            <Text style={styles.highlightMeta}>{h.inningsLabel} · Ov {h.label}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ── LIVE tab: current-over box + reverse-chronological ball commentary ───────
 function LiveTab({ innings, squads, onViewAllOvers }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [expanded, setExpanded] = useState(false);
@@ -354,6 +500,7 @@ function LiveTab({ innings, squads, onViewAllOvers }) {const DS = useTheme().col
   const currentBowler = lastOver ? bowlers.find((b) => b.id === lastOver.bowlerId) : null;
   const commentary = buildCommentary(innings);
   const lastOverRuns = lastOver ? lastOver.runs + lastOver.extras : 0;
+  const partnership = computePartnership(innings);
 
   return (
     <View style={{ gap: 12 }}>
@@ -385,6 +532,9 @@ function LiveTab({ innings, squads, onViewAllOvers }) {const DS = useTheme().col
               <Text style={styles.liveFigText} numberOfLines={1}>{currentBowler.name}  <Text style={styles.liveFigNum}>{currentBowler.wickets}-{currentBowler.runs} ({currentBowler.overs})</Text></Text>
             }
           </View>
+          <Text style={styles.partnershipText}>
+            Partnership: <Text style={styles.liveFigNum}>{partnership.runs}({partnership.balls})</Text>
+          </Text>
           <View style={styles.liveBoxLinks}>
             <TouchableOpacity onPress={() => setExpanded((x) => !x)}>
               <Text style={styles.liveLinkText}>Over Summary {expanded ? '▲' : '▼'}</Text>
@@ -579,6 +729,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     { key: 'scorecard', label: 'SCORECARD' },
     { key: 'squads', label: 'SQUADS' },
     { key: 'overs', label: 'OVERS' },
+    { key: 'highlights', label: 'HIGHLIGHTS' },
   ];
   const inningsList = match.innings || [];
   const selectedInnings = inningsList[inningsTab] || inningsList[0];
@@ -647,6 +798,10 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
 
           {activeTab === 'live' && <LiveTab innings={liveInnings} squads={match.squads} onViewAllOvers={() => setTab('overs')} />}
 
+          {activeTab === 'scorecard' &&
+            <WormChart innings1={inningsList[0]} innings2={inningsList[1]} totalOvers={match.overs} />
+          }
+
           {(activeTab === 'scorecard' || activeTab === 'overs') && inningsList.length > 1 &&
             <View style={styles.inningsTabs}>
               {inningsList.map((inn, i) => {
@@ -671,6 +826,8 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             (selectedInnings ? <InningsOvers innings={selectedInnings} /> : <Text style={styles.emptyTabText}>No overs yet.</Text>)}
 
           {activeTab === 'squads' && <SquadsTab match={match} />}
+
+          {activeTab === 'highlights' && <HighlightsTab match={match} />}
         </View>
         <Text style={styles.watermark}>Local Legends</Text>
        </View>
@@ -842,6 +999,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   liveFigText: { fontSize: 12, color: DS.textVariant, fontWeight: '600' },
   liveFigNum: { fontWeight: '900', color: DS.textPrimary },
+  partnershipText: { fontSize: 11, color: DS.textMuted, fontWeight: '600', marginTop: -2 },
   liveBoxLinks: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   liveLinkText: { fontSize: 12, fontWeight: '700', color: DS.blue },
   liveSummaryText: { fontSize: 12, color: DS.textMuted, lineHeight: 18 },
@@ -863,6 +1021,20 @@ const makeStyles = (DS) => StyleSheet.create({
   squadAvatarText: { fontSize: 12, fontWeight: '900', color: DS.lime },
   squadName: { fontSize: 12, fontWeight: '700', color: DS.textPrimary },
   squadRole: { fontSize: 10, color: DS.textMuted, marginTop: 1 },
+
+  // HIGHLIGHTS tab
+  highlightRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: 1, borderTopColor: DS.line },
+  highlightIconWrap: { width: 30, height: 30, borderRadius: 15, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
+  highlightText: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
+  highlightMeta: { fontSize: 10, color: DS.textMuted, marginTop: 2, fontWeight: '600' },
+
+  // Run-rate worm graph (SCORECARD tab)
+  wormCard: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 14, gap: 8 },
+  wormTitle: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 1 },
+  wormLegendRow: { flexDirection: 'row', gap: 16 },
+  wormLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  wormDot: { width: 8, height: 8, borderRadius: 4 },
+  wormLegendText: { fontSize: 11, color: DS.textVariant, fontWeight: '600', flexShrink: 1 },
 
   // INFO tab
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 10, borderTopWidth: 1, borderTopColor: DS.line },
