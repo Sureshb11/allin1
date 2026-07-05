@@ -1,11 +1,11 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Share, Image } from
+  ActivityIndicator, Share, Image, RefreshControl } from
 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import Svg, { Path, Circle, Line } from 'react-native-svg';
+import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 import RNShare from 'react-native-share';
 import legendsApi from '../services/LegendsApi';
@@ -164,6 +164,34 @@ function computePartnership(innings) {
   return { runs, balls: legalBalls };
 }
 
+// 2nd-innings chase math: runs still needed, balls left, required run rate, current
+// run rate, and a naive win-read for the chasing side. Only meaningful once a target
+// is set (innings 2). Returns null otherwise.
+function computeChase(innings, totalOvers) {
+  if (!innings || !innings.targetScore || innings.inningNumber !== 2) return null;
+  const target = innings.targetScore;
+  const need = Math.max(0, target - innings.totalRuns);
+  let legal = 0;
+  (innings.oversData || []).forEach((over) => (over.balls || []).forEach((b) => {
+    if (!['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)) legal += 1;
+  }));
+  const ballsBowled = legal;
+  const ballsLeft = Math.max(0, (totalOvers || 20) * 6 - ballsBowled);
+  const crr = ballsBowled > 0 ? (innings.totalRuns / (ballsBowled / 6)) : 0;
+  const rrr = ballsLeft > 0 ? (need / (ballsLeft / 6)) : (need > 0 ? Infinity : 0);
+  const wktsLeft = 10 - innings.totalWickets;
+  // Simple, honest win-read (not a model): pace + wickets in hand. Chasers' share.
+  let chaseWin;
+  if (need <= 0) chaseWin = 100;
+  else if (ballsLeft === 0 || wktsLeft <= 0) chaseWin = 0;
+  else {
+    const paceGap = crr - rrr;                    // +ve → ahead of the rate
+    const wktFactor = Math.min(1, wktsLeft / 7);  // full confidence with 7+ in hand
+    chaseWin = Math.round(Math.max(2, Math.min(98, 50 + paceGap * 7 * wktFactor)));
+  }
+  return { target, need, ballsLeft, rrr, crr, wktsLeft, chaseWin, teamName: innings.battingTeam?.name || 'Chasing' };
+}
+
 // Short label for a ball in the over-by-over timeline.
 function ballLabel(b) {
   if (b.extraType === 'wide') return `${b.extras > 1 ? b.extras : ''}wd`;
@@ -318,6 +346,41 @@ function WormChart({ innings1, innings2, totalOvers }) {const DS = useTheme().co
             <Text style={styles.wormLegendText} numberOfLines={1}>{innings2.battingTeam?.name || 'Team 2'} · {innings2.totalRuns}/{innings2.totalWickets}</Text>
           </View>
         }
+      </View>
+    </View>
+  );
+}
+
+// Manhattan — per-over runs as bars, with a red cap on overs that had a wicket.
+// The other half of the standard cricket graphs view, for a single innings.
+function ManhattanChart({ innings }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+  const overs = [...(innings?.oversData || [])].sort((a, b) => a.overNumber - b.overNumber);
+  if (overs.length < 1) return null;
+  const bars = overs.map((o) => ({
+    over: o.overNumber,
+    runs: (o.runs || 0) + (o.extras || 0),
+    wickets: (o.balls || []).filter((b) => b.isWicket).length,
+  }));
+  const W = 320, H = 130, PAD = 16;
+  const maxRuns = Math.max(...bars.map((b) => b.runs), 6);
+  const slot = (W - PAD * 2) / bars.length;
+  const bw = Math.max(3, Math.min(18, slot * 0.7));
+
+  return (
+    <View style={styles.wormCard}>
+      <Text style={styles.wormTitle}>MANHATTAN · {(innings.battingTeam?.name || '').toUpperCase()}</Text>
+      <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+        <Line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke={DS.line} strokeWidth={1} />
+        {bars.map((b, i) => {
+          const h = (b.runs / maxRuns) * (H - PAD * 2);
+          const x = PAD + i * slot + (slot - bw) / 2;
+          const y = H - PAD - h;
+          return <Rect key={i} x={x} y={y} width={bw} height={Math.max(0, h)} rx={2} fill={b.wickets > 0 ? DS.live : DS.lime} />;
+        })}
+      </Svg>
+      <View style={styles.wormLegendRow}>
+        <View style={styles.wormLegendItem}><View style={[styles.wormDot, { backgroundColor: DS.lime }]} /><Text style={styles.wormLegendText}>Runs / over</Text></View>
+        <View style={styles.wormLegendItem}><View style={[styles.wormDot, { backgroundColor: DS.live }]} /><Text style={styles.wormLegendText}>Over with wicket</Text></View>
       </View>
     </View>
   );
@@ -485,9 +548,10 @@ function HighlightsTab({ match }) {const DS = useTheme().colors;const styles = u
 }
 
 // ── LIVE tab: current-over box + reverse-chronological ball commentary ───────
-function LiveTab({ innings, squads, onViewAllOvers }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+function LiveTab({ innings, squads, onViewAllOvers, totalOvers }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [expanded, setExpanded] = useState(false);
   if (!innings) return <Text style={styles.emptyTabText}>Play hasn't started yet.</Text>;
+  const chase = computeChase(innings, totalOvers);
 
   const battingXI = (squads || [])
     .filter((s) => s.teamId === innings.battingTeamId)
@@ -504,6 +568,25 @@ function LiveTab({ innings, squads, onViewAllOvers }) {const DS = useTheme().col
 
   return (
     <View style={{ gap: 12 }}>
+      {chase && chase.need > 0 &&
+        <View style={styles.chaseBox}>
+          <Text style={styles.chaseHeadline}>
+            {chase.teamName} need <Text style={styles.chaseNeed}>{chase.need}</Text> off <Text style={styles.chaseNeed}>{chase.ballsLeft}</Text> ball{chase.ballsLeft !== 1 ? 's' : ''}
+          </Text>
+          <View style={styles.chaseRatesRow}>
+            <Text style={styles.chaseRate}>CRR <Text style={styles.chaseRateNum}>{chase.crr.toFixed(2)}</Text></Text>
+            <Text style={styles.chaseRate}>RRR <Text style={styles.chaseRateNum}>{chase.rrr === Infinity ? '—' : chase.rrr.toFixed(2)}</Text></Text>
+            <Text style={styles.chaseRate}>{chase.wktsLeft} wkt{chase.wktsLeft !== 1 ? 's' : ''} left</Text>
+          </View>
+          <View style={styles.winBarTrack}>
+            <View style={[styles.winBarFill, { width: `${chase.chaseWin}%` }]} />
+          </View>
+          <View style={styles.winLabelRow}>
+            <Text style={styles.winLabel}>{chase.teamName} {chase.chaseWin}%</Text>
+            <Text style={styles.winLabelMuted}>win probability</Text>
+          </View>
+        </View>
+      }
       {lastOver &&
         <View style={styles.liveBox}>
           <View style={styles.liveBoxHead}>
@@ -652,6 +735,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const { matchId } = route.params || {};
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [inningsTab, setInningsTab] = useState(0);   // which innings/team scorecard to show
   const [tab, setTab] = useState(null);              // active top tab; null until match first loads
   const shotRef = useRef(null);                      // capture target for "share as image"
@@ -678,13 +762,21 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
       loadScorecard(true);
       const poll = setInterval(() => {
         setMatch((cur) => {
-          if (cur?.status === 'live') loadScorecard(false);
+          // Stop polling entirely once the match is no longer live — no point
+          // hitting the server every 6s for a finished game.
+          if (cur && cur.status !== 'live') { clearInterval(poll); return cur; }
+          loadScorecard(false);
           return cur;
         });
       }, 6000);
       return () => clearInterval(poll);
     }, [loadScorecard])
   );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadScorecard(false).finally(() => setRefreshing(false));
+  }, [loadScorecard]);
 
   const shareScorecard = async () => {
     if (!match) return;
@@ -762,7 +854,8 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
         })}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 12 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 12 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}>
        <View ref={shotRef} collapsable={false} style={{ backgroundColor: DS.bg, paddingBottom: 12 }}>
         {/* Compact score summary (both innings) — persistent context across every tab. */}
         <View style={styles.scoreSummary}>
@@ -785,18 +878,24 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
           </View>
         </View>
 
-        {/* Result */}
-        {match.result &&
+        {/* Result — a fuller "match ended" flourish once the game is complete. */}
+        {match.result && match.status === 'completed' ?
+        <View style={styles.resultCard}>
+            <Icon name="trophy-variant" size={28} color={DS.lime} />
+            <Text style={styles.resultCardLabel}>MATCH COMPLETE</Text>
+            <Text style={styles.resultCardText}>{match.result}</Text>
+          </View>
+        : match.result ?
         <View style={styles.resultBanner}>
             <Icon name="trophy" size={16} color={DS.lime} />
             <Text style={styles.resultBannerText}>{match.result}</Text>
           </View>
-        }
+        : null}
 
         <View style={styles.body}>
           {activeTab === 'info' && <InfoTab match={match} />}
 
-          {activeTab === 'live' && <LiveTab innings={liveInnings} squads={match.squads} onViewAllOvers={() => setTab('overs')} />}
+          {activeTab === 'live' && <LiveTab innings={liveInnings} squads={match.squads} totalOvers={match.overs} onViewAllOvers={() => setTab('overs')} />}
 
           {activeTab === 'scorecard' &&
             <WormChart innings1={inningsList[0]} innings2={inningsList[1]} totalOvers={match.overs} />
@@ -817,6 +916,10 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
                 );
               })}
             </View>
+          }
+
+          {activeTab === 'scorecard' && selectedInnings &&
+            <ManhattanChart innings={selectedInnings} />
           }
 
           {activeTab === 'scorecard' &&
@@ -901,6 +1004,13 @@ const makeStyles = (DS) => StyleSheet.create({
     borderLeftWidth: 4, borderLeftColor: DS.lime
   },
   resultBannerText: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
+  resultCard: {
+    alignItems: 'center', gap: 6, marginHorizontal: 16, marginTop: 12,
+    backgroundColor: 'rgba(171,214,0,0.08)', borderRadius: 14, paddingVertical: 18, paddingHorizontal: 16,
+    borderWidth: 1, borderColor: DS.lime + '33',
+  },
+  resultCardLabel: { fontSize: 10, fontWeight: '900', color: DS.lime, letterSpacing: 2 },
+  resultCardText: { fontSize: 16, fontWeight: '800', color: DS.textPrimary, textAlign: 'center' },
 
   body: { paddingHorizontal: 16, gap: 16, marginTop: 8 },
   emptyTabText: { fontSize: 13, color: DS.textMuted, textAlign: 'center', paddingVertical: 24 },
@@ -987,6 +1097,19 @@ const makeStyles = (DS) => StyleSheet.create({
   ballChipText: { fontSize: 11, fontWeight: '800', color: DS.textPrimary },
 
   // LIVE tab: current-over box
+  // Chase strip (2nd-innings LIVE tab)
+  chaseBox: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 14, gap: 10, borderLeftWidth: 4, borderLeftColor: DS.lime },
+  chaseHeadline: { fontSize: 15, fontWeight: '700', color: DS.textPrimary },
+  chaseNeed: { fontWeight: '900', color: DS.lime },
+  chaseRatesRow: { flexDirection: 'row', gap: 16, flexWrap: 'wrap' },
+  chaseRate: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
+  chaseRateNum: { fontWeight: '900', color: DS.textPrimary },
+  winBarTrack: { height: 8, borderRadius: 4, backgroundColor: DS.coral + '55', overflow: 'hidden' },
+  winBarFill: { height: 8, borderRadius: 4, backgroundColor: DS.lime },
+  winLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  winLabel: { fontSize: 12, fontWeight: '800', color: DS.textPrimary },
+  winLabelMuted: { fontSize: 10, color: DS.textMuted, fontWeight: '600' },
+
   liveBox: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 14, gap: 10 },
   liveBoxHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   liveBoxOver: { fontSize: 14, fontWeight: '900', color: DS.textPrimary },
