@@ -79,6 +79,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [outBatters, setOutBatters] = useState([]);        // player IDs dismissed this innings (can't re-bat)
   const [squadAddFor, setSquadAddFor] = useState(null);    // 'bat' | 'bowl' → add-from-roster sheet
   const [roster, setRoster] = useState([]);                // the team's full roster for the add sheet
+  const [freeHit, setFreeHit] = useState(false);           // next legal ball is a free hit (post no-ball)
+  const [retiredPrompt, setRetiredPrompt] = useState(false); // Retired hurt / out chooser
+  const [mvp, setMvp] = useState(null);                    // Player of the Match (computed on completion)
   const [showSettings, setShowSettings] = useState(false); // top-bar settings sheet (End Innings/Match lives here)
   const [endPrompt, setEndPrompt] = useState(false);       // reason picker before ending innings/match
   // Undo: snapshot of everything a ball mutates, pushed before each delivery.
@@ -217,7 +220,35 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     setShowPlayerModal(false); setOverSummary(null);
     const scoreStr = `${finalScore.runs}/${finalScore.wickets} (${finalScore.overs}.${finalScore.balls})`;
     await legendsApi.updateMatch(matchData.id, { status: 'completed', score2: scoreStr, result });
+    computeMvp();
     Alert.alert('Match Complete!', result);
+  };
+
+  // Player of the Match — simple all-round score (runs + 20·wickets) across both
+  // innings, from the full scorecard. Run-outs/retirements aren't bowler wickets.
+  const computeMvp = async () => {
+    const sc = await legendsApi.getScorecard(matchData.id);
+    if (!sc.success) return;
+    const pts = {};
+    (sc.data?.innings || []).forEach((inn) => (inn.oversData || []).forEach((over) => {
+      (over.balls || []).forEach((ball) => {
+        const bat = ball.batterId;
+        if (bat) {
+          pts[bat] = pts[bat] || { name: ball.batter?.name || 'Player', runs: 0, wickets: 0 };
+          if (!ball.extraType || ball.extraType === 'noBall') pts[bat].runs += ball.runs;
+        }
+        if (ball.isWicket) {
+          const wt = String(ball.wicketType || '').toLowerCase().replace(/\s/g, '');
+          if (wt !== 'runout' && wt !== 'retired' && wt !== 'retiredhurt' && over.bowlerId) {
+            pts[over.bowlerId] = pts[over.bowlerId] || { name: over.bowler?.name || 'Player', runs: 0, wickets: 0 };
+            pts[over.bowlerId].wickets += 1;
+          }
+        }
+      });
+    }));
+    let best = null;
+    Object.values(pts).forEach((p) => { p.score = p.runs + p.wickets * 20; if (!best || p.score > best.score) best = p; });
+    if (best) setMvp(best);
   };
 
   // Undo the last delivery: restore the pre-ball snapshot and delete the ball
@@ -415,6 +446,11 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       setCurrentOver(newOver);
     }
 
+    // Free Hit: a no-ball sets it for the next legal ball; a legal delivery consumes
+    // it (a wide keeps it alive; penalty runs don't affect it).
+    if (value === 'noball') setFreeHit(true);
+    else if (typeof value === 'number' || value === 'bye' || value === 'legbye' || value === 'out') setFreeHit(false);
+
     setCurrentScore(newScore);
     const scoreStr = `${newScore.runs}/${newScore.wickets} (${newScore.overs}.${newScore.balls})`;
     if (!isInnings2) legendsApi.updateMatch(matchData.id, { score1: scoreStr });
@@ -496,6 +532,15 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       setCurrentBowler(entry); setShowBowlerModal(false); setMustPickBowler(false);
     }
     setSquadAddFor(null);
+  };
+
+  // Retired hurt — the batter leaves the crease, NOT out, and can return later
+  // (kept out of outBatters, so they're selectable again). No ball is bowled.
+  const retireBatsman = (slot) => {
+    setRetiredPrompt(false);
+    if (slot === 'nonstriker') { setNonStriker(null); setNewBatterFor('nonstriker'); }
+    else { setStriker(null); setNewBatterFor('striker'); }
+    setShowPlayerModal(true);
   };
 
   const getAvailableBatsmen = () => {
@@ -720,6 +765,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         {/* ── CURRENT OVER TRACKER (compact) ── */}
         <View style={styles.overSection}>
           <Text style={styles.overSectionLabel}>THIS OVER</Text>
+          {freeHit && <View style={styles.freeHitPill}><Text style={styles.freeHitText}>FREE HIT</Text></View>}
           <View style={styles.overBalls}>
             {filledOver.map((b, i) =>
             b !== null ? renderBallDot(b, i) :
@@ -825,9 +871,10 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
         {/* ── WICKET — full width, always visible; asks the dismissal type ── */}
         {!matchComplete &&
-        <TouchableOpacity style={styles.wicketBtn} onPress={() => setWicketPrompt(true)}>
+        <TouchableOpacity style={styles.wicketBtn}
+          onPress={() => freeHit ? setRunOutPrompt(true) : setWicketPrompt(true)}>
           <Icon name="alert-octagon" size={20} color={DS.wicketText} />
-          <Text style={styles.wicketBtnText}>WICKET</Text>
+          <Text style={styles.wicketBtnText}>WICKET{freeHit ? ' (RUN OUT ONLY)' : ''}</Text>
         </TouchableOpacity>
         }
 
@@ -865,6 +912,18 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         {/* ── MATCH COMPLETE ACTIONS ── */}
         {matchComplete &&
         <View style={styles.completeActions}>
+            <View style={styles.resultCard}>
+              <Text style={styles.resultCardText}>{matchResult}</Text>
+              {mvp &&
+                <View style={styles.mvpRow}>
+                  <Icon name="star-circle" size={18} color={DS.lime} />
+                  <Text style={styles.mvpText}>
+                    Player of the Match: <Text style={styles.mvpName}>{mvp.name}</Text>
+                    {'  '}<Text style={styles.mvpStat}>({mvp.runs} runs{mvp.wickets ? `, ${mvp.wickets} wkt${mvp.wickets > 1 ? 's' : ''}` : ''})</Text>
+                  </Text>
+                </View>
+              }
+            </View>
             <TouchableOpacity
             style={[styles.completeBtn, { backgroundColor: DS.blueDeep }]}
             onPress={() => navigation.navigate('Scorecard', { matchId: matchData.id })}>
@@ -1042,14 +1101,16 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               {[
                 ['bowled', 'cricket'], ['caught', 'hand-back-right'], ['lbw', 'target'],
                 ['run out', 'run-fast'], ['stumped', 'hand-back-left'], ['hit wicket', 'alert'],
+                ['retired hurt', 'bandage'],
               ].map(([type, icon]) => (
                 <TouchableOpacity key={type} style={styles.wktChip}
                   onPress={() => {
                     setWicketPrompt(false);
-                    const wt = type.replace(' ', '');
-                    // Run-out → which batter is out; caught → who took the catch.
+                    const wt = type.replace(/ /g, '');
+                    // Run-out → which batter is out; caught → who caught; retired → who.
                     if (wt === 'runout') setRunOutPrompt(true);
                     else if (wt === 'caught') setCatchPrompt(true);
+                    else if (wt === 'retiredhurt') setRetiredPrompt(true);
                     else handleScore('out', 0, wt);
                   }}>
                   <Icon name={icon} size={22} color={DS.wicketText} />
@@ -1119,6 +1180,31 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               </TouchableOpacity>
             </ScrollView>
             <TouchableOpacity style={styles.modalClose} onPress={() => setRunOutFielderPrompt(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── RETIRED HURT — which batter left? (not out, can return) ── */}
+      <Modal visible={retiredPrompt} transparent animationType="slide" onRequestClose={() => setRetiredPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Retired hurt — who left?</Text>
+            <Text style={styles.modalSub}>Not out · can return to bat later</Text>
+            {[['striker', striker], ['nonstriker', nonStriker]].map(([slot, player]) => (
+              <TouchableOpacity key={slot} style={styles.settingRow} onPress={() => retireBatsman(slot)}>
+                <View style={[styles.playerAvatar, { backgroundColor: DS.lime + '33' }]}>
+                  <Text style={[styles.playerInitial, { color: DS.lime }]}>{(player?.name || '?').charAt(0).toUpperCase()}</Text>
+                </View>
+                <Text style={[styles.settingText, { flex: 1 }]}>
+                  {player?.name || '—'} <Text style={styles.modalSub}>({slot === 'striker' ? 'striker' : 'non-striker'})</Text>
+                </Text>
+                <Icon name="chevron-right" size={18} color={DS.textMuted} />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.modalClose} onPress={() => setRetiredPrompt(false)}>
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -1325,6 +1411,8 @@ const makeStyles = (DS) => StyleSheet.create({
     marginHorizontal: 16, marginBottom: 8
   },
   overSectionLabel: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.8 },
+  freeHitPill: { backgroundColor: DS.limeBright, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  freeHitText: { fontSize: 9, fontWeight: '900', color: DS.bg, letterSpacing: 0.8 },
   overBalls: { flex: 1, flexDirection: 'row', gap: 6 },
   overBall: { flex: 1, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   overBallEmpty: { backgroundColor: DS.surfaceHighest },
@@ -1371,6 +1459,12 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // Match complete
   completeActions: { marginHorizontal: 16, gap: 10 },
+  resultCard: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 14, gap: 8, borderLeftWidth: 4, borderLeftColor: DS.lime },
+  resultCardText: { fontSize: 16, fontWeight: '900', color: DS.textPrimary },
+  mvpRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  mvpText: { flex: 1, fontSize: 12, color: DS.textMuted, fontWeight: '600' },
+  mvpName: { color: DS.textPrimary, fontWeight: '800' },
+  mvpStat: { color: DS.lime, fontWeight: '700' },
   completeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, borderRadius: 14, paddingVertical: 16
