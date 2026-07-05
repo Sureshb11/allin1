@@ -20,6 +20,7 @@ import legendsApi from '../services/LegendsApi';
 import MomentumMeter from '../components/MomentumMeter';
 import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
+import { useCurrentUser } from '../utils/currentUser';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -105,10 +106,17 @@ function CircleMatchCard({ match, onPress }) {const DS = useTheme().colors;const
       )}
 
       <View style={c.cardDivider} />
-      {match.live ? (
+      {match.live && match.isScorer ? (
         <View style={c.resumeRow}>
           <Icon name="play-circle" size={16} color={DS.onBlue} />
-          <Text style={c.resumeTxt}>RESUME SCORING</Text>
+          <Text style={c.resumeTxt}>SCORE</Text>
+        </View>
+      ) : match.live ? (
+        // Watching, not scoring — anyone (team members, followers) can tap in to
+        // follow the live score, same as Cricbuzz/Cricinfo.
+        <View style={c.resumeRow}>
+          <Icon name="eye-outline" size={16} color={DS.onBlue} />
+          <Text style={c.resumeTxt}>WATCH LIVE</Text>
         </View>
       ) : (
         <Text style={c.resultTxt} numberOfLines={1}>{match.result}</Text>
@@ -370,6 +378,7 @@ function CommentsSheet({ post, onClose, onAdd }) {const DS = useTheme().colors;c
 
 // ── Screen ──────────────────────────────────────────────────────────────────
 export default function CricketFeedScreen({ navigation }) {const { colors: DS, isDark } = useTheme();const s = useThemedStyles(makeS);
+  const me = useCurrentUser();
   const [posts, setPosts] = useState([]);
   const [matches, setMatches] = useState([]);
   const [activity, setActivity] = useState([]);   // ActivityFeed highlight cards
@@ -408,6 +417,9 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     status: m.status,
     tag: m.status === 'live' ? 'Live' : m.status === 'scheduled' ? 'Upcoming' : 'Match',
     live: m.status === 'live',
+    // Only the assigned scorer gets the interactive scoring entry point; everyone
+    // else (team members, followers) watches the live score, Cricbuzz/Cricinfo-style.
+    isScorer: !!me?.id && m.scorerId === me.id,
     when: m.status === 'live' ? '' : timeAgo(m.createdAt),
     a: { name: sideName(m.team1), short: initials(sideName(m.team1)), color: colorFor(sideName(m.team1)), score: m.score1 ?? '—', overs: '' },
     b: { name: sideName(m.team2), short: initials(sideName(m.team2)), color: colorFor(sideName(m.team2) + 'x'), score: m.score2 ?? '—', overs: '' },
@@ -415,7 +427,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     // raw fields needed to launch the toss → scoring flow for a scheduled match
     team1Id: m.team1Id, team2Id: m.team2Id,
     overs: m.overs, matchType: m.matchType,
-  }), []);
+  }), [me?.id]);
 
   const fetchFeed = useCallback(() => Promise.all([
     legendsApi.getCircleMatches({ sport: 'cricket' }),
@@ -510,10 +522,14 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     } catch (e) {/* user dismissed */}
   }, []);
 
-  // Circle card tap: scheduled → toss & lineup; live → resume scoring;
+  // Circle card tap: scheduled → toss & lineup; live → scoring for the assigned
+  // scorer, the live (auto-refreshing) scorecard for everyone else watching;
   // completed → scorecard.
   const openCircleMatch = useCallback(async (mt) => {
-    if (mt.status === 'live') { navigation.navigate('Scoring', { resume: true, matchId: mt.id }); return; }
+    if (mt.status === 'live') {
+      navigation.navigate(mt.isScorer ? 'Scoring' : 'Scorecard', mt.isScorer ? { resume: true, matchId: mt.id } : { matchId: mt.id });
+      return;
+    }
     if (mt.status !== 'scheduled') { navigation.navigate('Scorecard', { matchId: mt.id }); return; }
     let firstInningId;
     const innRes = await legendsApi.getMatchInnings(mt.id);
@@ -557,8 +573,10 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   // keep the open sheet in sync with the latest comments
   const sheetPost = activePost ? posts.find((po) => po.id === activePost.id) : null;
 
-  // If a match is live, surface a one-tap "Resume scoring" banner at the very top
-  // so the scorer never has to hunt for where to continue.
+  // If a match is live, surface a one-tap banner at the very top: the assigned
+  // scorer jumps straight back into scoring; everyone else (team members,
+  // followers) jumps to the live, auto-refreshing scorecard — just watching,
+  // Cricbuzz/Cricinfo-style.
   const liveMatch = matches.find((mt) => mt.live);
 
   const renderHeader =
@@ -567,15 +585,15 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
         <TouchableOpacity
           style={s.resumeBanner}
           activeOpacity={0.9}
-          onPress={() => navigation.navigate('Scoring', { resume: true, matchId: liveMatch.id })}>
+          onPress={() => navigation.navigate(liveMatch.isScorer ? 'Scoring' : 'Scorecard', liveMatch.isScorer ? { resume: true, matchId: liveMatch.id } : { matchId: liveMatch.id })}>
           <View style={s.resumeDot} />
           <View style={{ flex: 1 }}>
-            <Text style={s.resumeTitle}>LIVE MATCH · TAP TO RESUME SCORING</Text>
+            <Text style={s.resumeTitle}>{liveMatch.isScorer ? 'LIVE MATCH · TAP TO RESUME SCORING' : 'LIVE MATCH · TAP TO WATCH'}</Text>
             <Text style={s.resumeSub} numberOfLines={1}>{liveMatch.a.name} vs {liveMatch.b.name}</Text>
           </View>
           <View style={s.resumeCta}>
-            <Icon name="play" size={16} color={DS.onBlue} />
-            <Text style={s.resumeCtaTxt}>RESUME</Text>
+            <Icon name={liveMatch.isScorer ? 'play' : 'eye-outline'} size={16} color={DS.onBlue} />
+            <Text style={s.resumeCtaTxt}>{liveMatch.isScorer ? 'SCORE' : 'WATCH'}</Text>
           </View>
         </TouchableOpacity>
       )}

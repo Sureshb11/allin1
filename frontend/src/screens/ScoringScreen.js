@@ -28,10 +28,6 @@ const { width } = Dimensions.get('window');
 export default function ScoringScreen({ route, navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const setup = useThemedStyles(makeSetup);
   const { match, resume, matchId: resumeId } = route.params || {};
   const [matchData, setMatchData] = useState(match || {});
-  // Only the assigned scorer may score a match — everyone else who can see/resume
-  // it from My Matches lands here but gets a locked, read-only view (not the
-  // interactive scoring UI). { locked, checked, scorerName }
-  const [scorerLock, setScorerLock] = useState({ locked: false, checked: false, scorerName: '' });
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -114,8 +110,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
   // ── Scorer gate: check as soon as the match id is known (fresh match or resume),
   // BEFORE the player-picker/scoring UI is interactable. Anyone can still open a
-  // match from My Matches (visibility ≠ scoring rights) — this is what actually
-  // stops a non-scorer from picking players or tapping runs.
+  // match from My Matches (visibility ≠ scoring rights) — spectators (team members,
+  // followers) are sent straight to the live-updating Scorecard instead, same as
+  // watching on Cricbuzz/Cricinfo. No interruption, no "ask them to transfer" message.
   useEffect(() => {
     const id = matchData?.id;
     if (!id) return;
@@ -123,13 +120,11 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     legendsApi.getScorerInfo(id).then((res) => {
       if (!live || !res.success) return;
       if (!res.isScorer) {
-        setScorerLock({ locked: true, checked: true, scorerName: res.scorerName || '' });
-      } else {
-        setScorerLock({ locked: false, checked: true, scorerName: '' });
+        navigation.replace('Scorecard', { matchId: id });
       }
     });
     return () => { live = false; };
-  }, [matchData?.id]);
+  }, [matchData?.id, navigation]);
 
   // ── Resume an in-progress match: rehydrate the full scoring state from the
   // server (Module 7 live-state projection) and skip the toss/setup screen.
@@ -521,10 +516,15 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       finishInnings(newScore.wickets >= 10 ? 'All out' : 'Overs completed', newScore);
     }
     } catch (err) {
-      // The server rejected the ball (most commonly: scoring was transferred to
-      // someone else mid-session) — surface it instead of drifting from the DB.
-      Alert.alert('Could not score this ball', err.message || 'Please try again');
-      setScorerLock((prev) => (err.message?.includes('assigned scorer') ? { locked: true, message: err.message } : prev));
+      // The server rejected the ball. If scoring was transferred away mid-session,
+      // switch straight to the live Scorecard (no alarming message); anything else
+      // (e.g. a network hiccup) gets a plain, actionable alert.
+      if (err.message?.includes('assigned scorer')) {
+        showToast('Switched to live view', 'info', 2000);
+        navigation.replace('Scorecard', { matchId: matchData.id });
+      } else {
+        Alert.alert('Could not score this ball', err.message || 'Please try again');
+      }
     } finally {
       savingRef.current = false;
     }
@@ -629,6 +629,11 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     try {
       await persistBall(0, 0, 'retired', true, 'retiredout', false, leaving.id);
     } catch (err) {
+      if (err.message?.includes('assigned scorer')) {
+        showToast('Switched to live view', 'info', 2000);
+        navigation.replace('Scorecard', { matchId: matchData.id });
+        return;
+      }
       Alert.alert('Could not save', err.message || 'Please try again');
       return;
     }
@@ -710,28 +715,6 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     const b = bowlStats[currentBowler.id] || { balls: 0, runs: 0, wickets: 0, maidens: 0 };
     return `${Math.floor(b.balls / 6)}.${b.balls % 6} - ${b.maidens} - ${b.runs} - ${b.wickets}`;
   })();
-
-  // ── SCORER-LOCKED VIEW ── you can open/resume this match from My Matches (visibility),
-  // but only the assigned scorer can actually score it. Read-only — offer the scorecard.
-  if (scorerLock.locked) {
-    return (
-      <View style={[styles.root, { alignItems: 'center', justifyContent: 'center', padding: 32 }]}>
-        <Icon name="lock-outline" size={48} color={DS.textMuted} />
-        <Text style={{ fontSize: 18, fontWeight: '800', color: DS.textPrimary, marginTop: 16, textAlign: 'center' }}>
-          You're not the scorer for this match
-        </Text>
-        <Text style={{ fontSize: 14, color: DS.textMuted, marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
-          {scorerLock.scorerName ? `${scorerLock.scorerName} is scoring this match.` : 'Someone else is scoring this match.'}
-          {'\n'}Ask them to transfer scoring to you from the ⚙ settings menu.
-        </Text>
-        <TouchableOpacity
-          style={{ marginTop: 24, backgroundColor: DS.blueDeep, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 24 }}
-          onPress={() => navigation.replace('Scorecard', { matchId: matchData.id })}>
-          <Text style={{ color: DS.onBlue, fontWeight: '800', fontSize: 14 }}>View Scorecard</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   // ── PRE-SCORING SETUP SCREEN ──────────────────────────────────
   if (!scoringReady) {

@@ -6,6 +6,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { useCurrentUser } from '../utils/currentUser';
 
 const TEAM_COLORS = ['#6366f1', '#f97316', '#06b6d4', '#ec4899', '#8b5cf6', '#14b8a6'];
 const getTeamColor = (name, idx) => TEAM_COLORS[(name || '').charCodeAt(0) % TEAM_COLORS.length] || TEAM_COLORS[idx % TEAM_COLORS.length];
@@ -16,7 +17,7 @@ const makeStatusMeta = (DS) => ({
   scheduled: { color: DS.blue,      bg: 'rgba(183,196,255,0.12)', label: 'UPCOMING'  },
 });
 
-function MatchCard({ m, onPress, onStart, onResume }) {
+function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const STATUS_META = makeStatusMeta(DS);
@@ -97,10 +98,18 @@ function MatchCard({ m, onPress, onStart, onResume }) {
             <Icon name="play" size={13} color={DS.onBlue} />
             <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>START MATCH</Text>
           </TouchableOpacity>
-        ) : m.status === 'live' ? (
+        ) : m.status === 'live' && isScorer ? (
           <TouchableOpacity onPress={() => onResume(m)} style={[styles.scoreBtn, styles.startBtn]}>
             <Icon name="play" size={13} color={DS.onBlue} />
-            <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>RESUME</Text>
+            <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>SCORE</Text>
+          </TouchableOpacity>
+        ) : m.status === 'live' ? (
+          // Not the assigned scorer — tap the card to watch the live score (like
+          // Cricbuzz/Cricinfo), no separate scoring entry point for spectators.
+          <TouchableOpacity onPress={onPress} style={[styles.scoreBtn, styles.watchBtn]}>
+            <View style={styles.watchLiveDot} />
+            <Text style={[styles.scoreBtnText, styles.watchBtnText]}>WATCH LIVE</Text>
+            <Icon name="chevron-right" size={14} color={DS.textPrimary} />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity onPress={onPress} style={styles.scoreBtn}>
@@ -119,6 +128,7 @@ const FILTER_STATUS_MAP = { all: 'all', live: 'live', upcoming: 'scheduled', com
 export default function MyMatchesScreen({ navigation }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
+  const me = useCurrentUser();
   const [query, setQuery]       = useState('');
   const [status, setStatus]     = useState('all');
   const [matches, setMatches]   = useState([]);
@@ -259,6 +269,7 @@ export default function MyMatchesScreen({ navigation }) {
         renderItem={({ item }) => (
           <MatchCard
             m={item}
+            isScorer={!!me?.id && item.scorerId === me.id}
             onPress={() => navigation.navigate('HomeTab', { screen: 'Scorecard', params: { matchId: item.id } })}
             onStart={startMatch}
             onResume={(m) => navigation.navigate('HomeTab', { screen: 'Scoring', params: { resume: true, matchId: m.id } })}
@@ -421,6 +432,10 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   scoreBtnText: { fontSize: 12, fontWeight: '800', color: DS.bg },
   startBtn: { backgroundColor: DS.blueDeep },   // scheduled → solid-blue START
+  // Spectator "watch live" action (team member / follower who isn't the scorer).
+  watchBtn: { backgroundColor: DS.surfaceHighest, gap: 6 },
+  watchBtnText: { color: DS.textPrimary },
+  watchLiveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DS.live },
 
   /* Promo card */
   promoCard: {

@@ -1,8 +1,9 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Share } from
 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { captureRef } from 'react-native-view-shot';
 import RNShare from 'react-native-share';
@@ -321,11 +322,29 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  useEffect(() => {
-    legendsApi.getScorecard(matchId).
-    then((res) => {if (res.success) setMatch(res.data);}).
-    finally(() => setLoading(false));
+  const loadScorecard = useCallback((showSpinner = false) => {
+    if (showSpinner) setLoading(true);
+    return legendsApi.getScorecard(matchId)
+      .then((res) => { if (res.success) setMatch(res.data); })
+      .finally(() => setLoading(false));
   }, [matchId]);
+
+  // Watch a live match like Cricbuzz/Cricinfo: auto-refresh every few seconds while
+  // this screen is focused, so the score/overs/wickets update without a manual pull.
+  // Anyone can land here — team members and followers included — this is the
+  // read-only "watch" experience (only the assigned scorer can actually score).
+  useFocusEffect(
+    useCallback(() => {
+      loadScorecard(true);
+      const poll = setInterval(() => {
+        setMatch((cur) => {
+          if (cur?.status === 'live') loadScorecard(false);
+          return cur;
+        });
+      }, 6000);
+      return () => clearInterval(poll);
+    }, [loadScorecard])
+  );
 
   const shareScorecard = async () => {
     if (!match) return;
@@ -371,7 +390,9 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
           </TouchableOpacity>
         }
         <Text style={styles.brandText}>LOCAL LEGENDS</Text>
-        <View style={{ width: 26 }} />
+        {match.status === 'live'
+          ? <View style={styles.liveBadge}><View style={styles.liveBadgeDot} /><Text style={styles.liveBadgeText}>LIVE</Text></View>
+          : <View style={{ width: 26 }} />}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 12 }}>
@@ -461,6 +482,13 @@ const makeStyles = (DS) => StyleSheet.create({
     fontSize: 13, fontWeight: '900', color: DS.lime, letterSpacing: 2
   },
   backBtn: { padding: 4 },
+  liveBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 10,
+    paddingHorizontal: 9, paddingVertical: 4,
+  },
+  liveBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DS.live },
+  liveBadgeText: { fontSize: 10, fontWeight: '900', color: DS.live, letterSpacing: 0.6 },
 
   // Hero
   hero: {
