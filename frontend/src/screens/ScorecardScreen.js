@@ -212,6 +212,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const { matchId } = route.params || {};
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [inningsTab, setInningsTab] = useState(0);   // which innings/team scorecard to show
 
   useLayoutEffect(() => {
     // Hide the stack header — the branded bar below is the single header, giving the
@@ -300,11 +301,31 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
           </View>
         }
 
-        {/* Innings */}
+        {/* Team / innings selector — tap a batting side to view its innings */}
+        {(match.innings || []).length > 1 &&
+          <View style={styles.inningsTabs}>
+            {(match.innings || []).map((inn, i) => {
+              const active = inningsTab === i;
+              return (
+                <TouchableOpacity key={inn.id || i} style={[styles.inningsTab, active && styles.inningsTabActive]}
+                  onPress={() => setInningsTab(i)}>
+                  <Text style={[styles.inningsTabText, active && styles.inningsTabTextActive]} numberOfLines={1}>
+                    {(inn.battingTeam?.name || `Innings ${i + 1}`).toUpperCase()}
+                  </Text>
+                  <Text style={[styles.inningsTabSub, active && { color: DS.bg }]}>{i === 0 ? '1st' : '2nd'} inns</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        }
+
+        {/* Selected innings */}
         <View style={styles.body}>
-          {(match.innings || []).map((inn, i) =>
-          <InningsBlock key={inn.id || i} innings={inn} index={i} squads={match.squads} />
-          )}
+          {(() => {
+            const list = match.innings || [];
+            const inn = list[inningsTab] || list[0];
+            return inn ? <InningsBlock key={inn.id || inningsTab} innings={inn} index={list.indexOf(inn)} squads={match.squads} /> : null;
+          })()}
         </View>
 
         {/* WhatsApp Share */}
@@ -384,6 +405,17 @@ const makeStyles = (DS) => StyleSheet.create({
   tabInactiveText: { fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 1 },
 
   body: { paddingHorizontal: 16, gap: 16, marginTop: 8 },
+
+  // Team / innings tabs
+  inningsTabs: { flexDirection: 'row', gap: 8, marginHorizontal: 16, marginTop: 14 },
+  inningsTab: {
+    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 8,
+    alignItems: 'center', gap: 2,
+  },
+  inningsTabActive: { backgroundColor: DS.lime },
+  inningsTabText: { fontSize: 12, fontWeight: '900', color: DS.textMuted, letterSpacing: 0.4 },
+  inningsTabTextActive: { color: DS.bg },
+  inningsTabSub: { fontSize: 10, fontWeight: '700', color: DS.textMuted },
 
   // Innings card
   inningsCard: {
