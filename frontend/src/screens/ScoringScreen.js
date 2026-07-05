@@ -72,6 +72,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [extraPrompt, setExtraPrompt] = useState(null);    // 'wide'|'noball'|'bye'|'legbye' → +runs sheet
   const [wicketPrompt, setWicketPrompt] = useState(false); // WICKET → dismissal-type sheet
   const [runOutPrompt, setRunOutPrompt] = useState(false); // run out → which batter is out?
+  const [runOutFielderPrompt, setRunOutFielderPrompt] = useState(false); // run out → which fielder?
+  const [runOutSlot, setRunOutSlot] = useState('striker'); // which batter the run-out dismisses
   const [catchPrompt, setCatchPrompt] = useState(false);   // caught → who took the catch?
   const [newBatterFor, setNewBatterFor] = useState('striker'); // which crease slot the new batter fills
   const [outBatters, setOutBatters] = useState([]);        // player IDs dismissed this innings (can't re-bat)
@@ -966,7 +968,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
             <Text style={styles.modalSub}>Which batter was run out</Text>
             {[['striker', striker], ['nonstriker', nonStriker]].map(([slot, player]) => (
               <TouchableOpacity key={slot} style={styles.settingRow}
-                onPress={() => { setRunOutPrompt(false); handleScore('out', 0, 'runout', slot); }}>
+                onPress={() => { setRunOutSlot(slot); setRunOutPrompt(false); setRunOutFielderPrompt(true); }}>
                 <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
                   <Text style={[styles.playerInitial, { color: DS.wicketText }]}>{(player?.name || '?').charAt(0).toUpperCase()}</Text>
                 </View>
@@ -977,6 +979,41 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               </TouchableOpacity>
             ))}
             <TouchableOpacity style={styles.modalClose} onPress={() => setRunOutPrompt(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── RUN OUT — which fielder effected it? (shown as 'run out (Fielder)') ── */}
+      <Modal visible={runOutFielderPrompt} transparent animationType="slide" onRequestClose={() => setRunOutFielderPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Run out — which fielder?</Text>
+            <Text style={styles.modalSub}>Who effected the run out</Text>
+            <ScrollView style={{ maxHeight: 300 }}>
+              {bowlingXI.map((p, i) => (
+                <TouchableOpacity key={i} style={styles.playerOption}
+                  onPress={() => { setRunOutFielderPrompt(false); handleScore('out', 0, 'runout', runOutSlot, p.name); }}>
+                  <View style={styles.playerAvatar}>
+                    <Text style={styles.playerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
+                  <Icon name="chevron-right" size={18} color={DS.textMuted} />
+                </TouchableOpacity>
+              ))}
+              {/* Fall back to no fielder credit (e.g. direct-hit uncertainty) */}
+              <TouchableOpacity style={styles.playerOption}
+                onPress={() => { setRunOutFielderPrompt(false); handleScore('out', 0, 'runout', runOutSlot, null); }}>
+                <View style={[styles.playerAvatar, { backgroundColor: DS.surfaceHigh }]}>
+                  <Icon name="help" size={16} color={DS.textMuted} />
+                </View>
+                <Text style={[styles.playerName, { flex: 1 }]}>Not sure / no fielder</Text>
+                <Icon name="chevron-right" size={18} color={DS.textMuted} />
+              </TouchableOpacity>
+            </ScrollView>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setRunOutFielderPrompt(false)}>
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
           </View>
