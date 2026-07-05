@@ -111,7 +111,10 @@ router.get('/circle', authMiddleware, async (req, res) => {
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
-    res.json({ matches });
+    // Server-authoritative "can this caller score it" flag. The client must NOT
+    // derive this by comparing scorerId to a locally-cached user id — that cache
+    // survives account switches, which showed the SCORE button to spectators.
+    res.json({ matches: matches.map((m) => ({ ...m, isScorer: !!m.scorerId && m.scorerId === uid })) });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

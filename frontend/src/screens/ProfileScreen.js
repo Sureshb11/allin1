@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { pickAndUploadImage } from '../utils/imageUpload';
-import { setCurrentAvatar } from '../utils/currentUser';
+import { setCurrentAvatar, clearCurrentUser } from '../utils/currentUser';
 import legendsApi from '../services/LegendsApi';
 import SportSwitcher from '../components/SportSwitcher';
 import { getSelectedSport } from '../utils/selectedSport';
@@ -121,6 +121,7 @@ export default function ProfileScreen({ navigation }) {
         text: 'Logout', style: 'destructive',
         onPress: async () => {
           await legendsApi.logout();                       // clear persisted JWT
+          clearCurrentUser();                              // wipe cached id/name/avatar
           // Reset the ROOT navigator back to the auth flow.
           const root = navigation.getParent('RootStack') || navigation;
           root.reset({ index: 0, routes: [{ name: 'Auth' }] });

@@ -6,7 +6,6 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import { useCurrentUser } from '../utils/currentUser';
 
 const TEAM_COLORS = ['#6366f1', '#f97316', '#06b6d4', '#ec4899', '#8b5cf6', '#14b8a6'];
 const getTeamColor = (name, idx) => TEAM_COLORS[(name || '').charCodeAt(0) % TEAM_COLORS.length] || TEAM_COLORS[idx % TEAM_COLORS.length];
@@ -124,7 +123,6 @@ const FILTER_STATUS_MAP = { all: 'all', live: 'live', upcoming: 'scheduled', com
 export default function MyMatchesScreen({ navigation }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
-  const me = useCurrentUser();
   const [query, setQuery]       = useState('');
   const [status, setStatus]     = useState('all');
   const [matches, setMatches]   = useState([]);
@@ -265,7 +263,7 @@ export default function MyMatchesScreen({ navigation }) {
         renderItem={({ item }) => (
           <MatchCard
             m={item}
-            isScorer={!!me?.id && item.scorerId === me.id}
+            isScorer={!!item.isScorer}
             onPress={() => navigation.navigate('HomeTab', { screen: 'Scorecard', params: { matchId: item.id } })}
             onStart={startMatch}
             onResume={(m) => navigation.navigate('HomeTab', { screen: 'Scoring', params: { resume: true, matchId: m.id } })}

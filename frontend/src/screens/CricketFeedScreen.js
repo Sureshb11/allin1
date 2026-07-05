@@ -20,7 +20,6 @@ import legendsApi from '../services/LegendsApi';
 import MomentumMeter from '../components/MomentumMeter';
 import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
-import { useCurrentUser } from '../utils/currentUser';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -378,7 +377,6 @@ function CommentsSheet({ post, onClose, onAdd }) {const DS = useTheme().colors;c
 
 // ── Screen ──────────────────────────────────────────────────────────────────
 export default function CricketFeedScreen({ navigation }) {const { colors: DS, isDark } = useTheme();const s = useThemedStyles(makeS);
-  const me = useCurrentUser();
   const [posts, setPosts] = useState([]);
   const [matches, setMatches] = useState([]);
   const [activity, setActivity] = useState([]);   // ActivityFeed highlight cards
@@ -419,7 +417,8 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     live: m.status === 'live',
     // Only the assigned scorer gets the interactive scoring entry point; everyone
     // else (team members, followers) watches the live score, Cricbuzz/Cricinfo-style.
-    isScorer: !!me?.id && m.scorerId === me.id,
+    // Server-authoritative flag from /circle — never derived from a cached local id.
+    isScorer: !!m.isScorer,
     when: m.status === 'live' ? '' : timeAgo(m.createdAt),
     a: { name: sideName(m.team1), short: initials(sideName(m.team1)), color: colorFor(sideName(m.team1)), score: m.score1 ?? '—', overs: '' },
     b: { name: sideName(m.team2), short: initials(sideName(m.team2)), color: colorFor(sideName(m.team2) + 'x'), score: m.score2 ?? '—', overs: '' },
@@ -427,7 +426,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     // raw fields needed to launch the toss → scoring flow for a scheduled match
     team1Id: m.team1Id, team2Id: m.team2Id,
     overs: m.overs, matchType: m.matchType,
-  }), [me?.id]);
+  }), []);
 
   const fetchFeed = useCallback(() => Promise.all([
     legendsApi.getCircleMatches({ sport: 'cricket' }),

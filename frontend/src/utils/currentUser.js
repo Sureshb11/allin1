@@ -18,6 +18,15 @@ export function getCurrentUser() {
   return cache;
 }
 
+// Wipe the cached identity on logout — the module cache and storage keys would
+// otherwise survive an account switch, leaving the OLD user's id/name/avatar
+// visible to the next login (this made spectators look like the scorer).
+export function clearCurrentUser() {
+  cache = null;
+  AsyncStorage.multiRemove([AVATAR_KEY, NAME_KEY]).catch(() => {});
+  emit();
+}
+
 // Optimistically update the avatar everywhere (e.g. right after an upload).
 export function setCurrentAvatar(url) {
   cache = { ...(cache || {}), avatarUrl: url || null };
