@@ -206,6 +206,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     haptic.success();   // celebratory buzz on the winning moment
     setMatchComplete(true);
     setMatchResult(result);
+    // Match's over — never leave the bowler picker (or any prompt) hanging.
+    setShowBowlerModal(false); setMustPickBowler(false);
+    setShowPlayerModal(false); setOverSummary(null);
     const scoreStr = `${finalScore.runs}/${finalScore.wickets} (${finalScore.overs}.${finalScore.balls})`;
     await legendsApi.updateMatch(matchData.id, { status: 'completed', score2: scoreStr, result });
     Alert.alert('Match Complete!', result);
@@ -396,7 +399,12 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         });
       }
       const t = striker;setStriker(nonStriker);setNonStriker(t);
-      if (newScore.overs < totalOvers && newScore.wickets < 10) { setMustPickBowler(true); setShowBowlerModal(true); }
+      // Don't prompt for the next over's bowler if the innings/match just ended:
+      // last over bowled, all out, or the chase (innings 2) is already won.
+      const chaseWon = isInnings2 && newScore.runs >= target;
+      if (newScore.overs < totalOvers && newScore.wickets < 10 && !chaseWon) {
+        setMustPickBowler(true); setShowBowlerModal(true);
+      }
     } else {
       setCurrentOver(newOver);
     }
