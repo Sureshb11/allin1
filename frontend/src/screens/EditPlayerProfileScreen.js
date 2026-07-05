@@ -34,7 +34,8 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
     if (r.url) {
       setAvatarUrl(r.url);
       setCurrentAvatar(r.url);   // update every avatar across the app instantly
-      await legendsApi.updateUserProfile({ avatarUrl: r.url });   // persist immediately
+      const saved = await legendsApi.updateUserProfile({ avatarUrl: r.url });   // persist
+      if (!saved.success) Alert.alert('Could not save photo', saved.error || 'Please try again');
     } else if (r.error) {
       Alert.alert('Upload failed', r.error);
     }

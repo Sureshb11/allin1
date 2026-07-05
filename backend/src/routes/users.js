@@ -187,16 +187,22 @@ router.post('/me/primary-sport', authMiddleware, async (req, res) => {
 });
 
 const ProfileSchema = z.object({
-  firstName: z.string().min(1),
-  lastName: z.string().default(''), // allow single-name users (e.g. "Sachin")
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().optional(),          // allow single-name users (e.g. "Sachin")
   avatarUrl: z.string().url().optional().nullable(),
   bio: z.string().max(500).optional().nullable()
 });
 
+// Partial update — only the fields actually sent are changed, so an avatar-only
+// save (just { avatarUrl }) no longer 400s on a missing firstName.
 router.put('/me', authMiddleware, async (req, res) => {
   try {
     const data = ProfileSchema.parse(req.body);
-    const user = await prisma.user.update({ where: { id: req.user.sub }, data });
+    const update = {};
+    for (const k of ['firstName', 'lastName', 'avatarUrl', 'bio']) {
+      if (data[k] !== undefined) update[k] = data[k];
+    }
+    const user = await prisma.user.update({ where: { id: req.user.sub }, data: update });
     res.json({ user });
   } catch (e) {
     res.status(400).json({ error: e.message });
