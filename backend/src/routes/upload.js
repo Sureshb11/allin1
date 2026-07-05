@@ -20,6 +20,12 @@ function resolveBlobToken() {
   return null;
 }
 
+// Diagnostic: which blob/token-ish env var NAMES exist (names only, no values).
+router.get('/env-check', authMiddleware, (req, res) => {
+  const names = Object.keys(process.env).filter((k) => /blob|token/i.test(k)).sort();
+  res.json({ blobOrTokenEnvNames: names, hasResolvedToken: !!resolveBlobToken() });
+});
+
 // POST /upload  { folder, contentType, dataBase64 }  → { url }
 // Uploads a (client-compressed) image to the Vercel Blob store "allin1-api-blob"
 // and returns its public URL. BLOB_READ_WRITE_TOKEN is injected by the connected
