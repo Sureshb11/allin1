@@ -174,7 +174,7 @@ router.put('/:id/score', async (req, res) => {
     // NOT count), then roll to a new over. We do NOT trust the client's overNumber:
     // rapid taps during the async save repeat a stale overNumber, which was piling
     // many balls into one over (overs of 8–12 balls). The server owns the boundary.
-    const legalCount = (o) => (o ? o.balls.filter((b) => b.extraType !== 'wide' && b.extraType !== 'noBall').length : 0);
+    const legalCount = (o) => (o ? o.balls.filter((b) => !['wide', 'noBall', 'retired'].includes(b.extraType)).length : 0);
     const latest = await prisma.over.findFirst({
       where: { inningId: data.inningId },
       orderBy: { overNumber: 'desc' },
@@ -365,7 +365,7 @@ router.get('/:id/live-state', async (req, res) => {
     const inning = innings[innings.length - 1];
     if (!inning) return res.json({ sport: 'cricket', status: match.status, resumable: false });
 
-    const legalIn = (over) => (over.balls || []).filter((b) => !['wide', 'no-ball'].includes(b.extraType)).length;
+    const legalIn = (over) => (over.balls || []).filter((b) => !['wide', 'noBall', 'retired'].includes(b.extraType)).length;
     // Per-bowler completed overs (6 legal balls) → enforces the spell limit on
     // resume; lastOverBowlerId powers the no-consecutive-overs rule.
     const bowlerOvers = {};
@@ -390,7 +390,7 @@ router.get('/:id/live-state', async (req, res) => {
     const xiFor = (teamId) => squad.filter((s) => s.teamId === teamId).map((s) => ({ id: s.player.id, name: s.player.name }));
 
     // Notation for the balls already in the current over (to rebuild the log).
-    const notate = (b) => b.extraType === 'wide' ? 'WD' : b.extraType === 'no-ball' ? 'NB'
+    const notate = (b) => b.extraType === 'wide' ? 'WD' : b.extraType === 'noBall' ? 'NB'
       : b.extraType === 'bye' ? 'B' : b.extraType === 'legBye' ? 'LB' : b.extraType === 'penalty' ? 'P5'
       : b.isWicket ? 'W' : b.runs === 0 ? '·' : String(b.runs);
     const currentOverBalls = overComplete ? [] : [...(curOver?.balls || [])].reverse().map(notate);
@@ -427,7 +427,7 @@ router.get('/:id/live-state', async (req, res) => {
         const et = b.extraType;
         if (b.batterId) {
           if (!battingFigures[b.batterId]) battingFigures[b.batterId] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
-          if (et !== 'wide' && et !== 'penalty') battingFigures[b.batterId].balls += 1;  // faced
+          if (et !== 'wide' && et !== 'penalty' && et !== 'retired') battingFigures[b.batterId].balls += 1;  // faced
           if (!et || et === 'noBall') {                                                   // runs off the bat
             battingFigures[b.batterId].runs += b.runs;
             if (b.runs === 4) battingFigures[b.batterId].fours += 1;
@@ -438,7 +438,7 @@ router.get('/:id/live-state', async (req, res) => {
         if (et === 'wide') charged = b.extras;
         else if (et === 'noBall') charged = b.runs + b.extras;
         else if (et === 'bye' || et === 'legBye') legal = true;   // charged 0
-        else if (et === 'penalty') charged = 0;
+        else if (et === 'penalty' || et === 'retired') charged = 0; // not a delivery
         else { charged = b.runs; legal = true; }                  // normal delivery / wicket
         overCharged += charged;
         if (legal) overLegal += 1;
@@ -705,7 +705,7 @@ router.get('/:id/insights', async (req, res) => {
         bowlerMap[id].wickets += over.wickets;
         for (const ball of over.balls) {
           if (ball.extraType === 'wide') bowlerMap[id].wides++;
-          if (ball.extraType === 'no-ball') bowlerMap[id].noBalls++;
+          if (ball.extraType === 'noBall') bowlerMap[id].noBalls++;
         }
       }
       const bowling = Object.values(bowlerMap)
@@ -715,7 +715,7 @@ router.get('/:id/insights', async (req, res) => {
       const extras = { wides: 0, noBalls: 0, byes: 0, legByes: 0 };
       for (const ball of allBalls) {
         if (ball.extraType === 'wide')   extras.wides++;
-        if (ball.extraType === 'no-ball') extras.noBalls++;
+        if (ball.extraType === 'noBall') extras.noBalls++;
         if (ball.extraType === 'bye')    extras.byes += ball.extras;
         if (ball.extraType === 'legbye') extras.legByes += ball.extras;
       }

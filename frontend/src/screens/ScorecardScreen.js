@@ -34,6 +34,8 @@ function formatDismissal(wicketType, catcher, bowler) {
     case 'stumped': return `st ${catcher || 'keeper'} b ${b}`;
     case 'runout': return `run out${catcher ? ` (${catcher})` : ''}`;
     case 'hitwicket': return `hit wicket b ${b}`;
+    case 'retiredout': return 'retired out';
+    case 'retiredhurt': return 'retired hurt';
     default: return wicketType || 'out';
   }
 }
@@ -51,7 +53,7 @@ function computeBatting(innings, battingXI) {
         if (ball.batter?.name) nameFromBall[id] = ball.batter.name;
         if (!fig[id]) fig[id] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
         const et = ball.extraType;
-        if (et !== 'wide' && et !== 'penalty') fig[id].balls += 1;          // faced
+        if (et !== 'wide' && et !== 'penalty' && et !== 'retired') fig[id].balls += 1;   // faced
         if (!et || et === 'noBall') {                                        // runs off the bat
           fig[id].runs += ball.runs;
           if (ball.runs === 4) fig[id].fours += 1;
@@ -98,7 +100,7 @@ function computeBowling(innings) {
       if (et === 'wide') charged = b.extras;
       else if (et === 'noBall') charged = b.runs + b.extras;
       else if (et === 'bye' || et === 'legBye') legal = true;      // not charged
-      else if (et === 'penalty') charged = 0;
+      else if (et === 'penalty' || et === 'retired') charged = 0;  // not a delivery
       else { charged = b.runs; legal = true; }
       map[id].runs += charged; overRuns += charged;
       if (legal) { map[id].legalBalls += 1; overLegal += 1; }
@@ -119,7 +121,7 @@ function computeBowling(innings) {
 function inningsOvers(innings) {
   let legal = 0;
   (innings.oversData || []).forEach((over) => (over.balls || []).forEach((b) => {
-    if (!['wide', 'noBall', 'penalty'].includes(b.extraType)) legal += 1;
+    if (!['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)) legal += 1;
   }));
   return `${Math.floor(legal / 6)}.${legal % 6}`;
 }
@@ -144,7 +146,7 @@ function computeFOW(innings, nameById) {
   let running = 0, wkts = 0, legal = 0;
   (innings.oversData || []).forEach((over) => (over.balls || []).forEach((b) => {
     running += b.runs + b.extras;
-    if (!['wide', 'noBall', 'penalty'].includes(b.extraType)) legal += 1;
+    if (!['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)) legal += 1;
     if (b.isWicket) {
       wkts += 1;
       fow.push({ wkt: wkts, score: running, name: nameById[b.dismissedPlayerId] || 'batter', over: `${Math.floor(legal / 6)}.${legal % 6}` });

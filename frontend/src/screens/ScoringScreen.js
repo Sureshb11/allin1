@@ -80,7 +80,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [squadAddFor, setSquadAddFor] = useState(null);    // 'bat' | 'bowl' → add-from-roster sheet
   const [roster, setRoster] = useState([]);                // the team's full roster for the add sheet
   const [freeHit, setFreeHit] = useState(false);           // next legal ball is a free hit (post no-ball)
-  const [retiredPrompt, setRetiredPrompt] = useState(false); // Retired hurt / out chooser
+  const [retiredPrompt, setRetiredPrompt] = useState(false); // Retired → which batter left
+  const [retiredKindPrompt, setRetiredKindPrompt] = useState(false); // hurt (return) vs out (wicket)
+  const [retiredSlot, setRetiredSlot] = useState('striker'); // which batter is retiring
   const [retiredBatters, setRetiredBatters] = useState([]);  // ids retired hurt (can return to bat)
   const [mvp, setMvp] = useState(null);                    // Player of the Match (computed on completion)
   const [showSettings, setShowSettings] = useState(false); // top-bar settings sheet (End Innings/Match lives here)
@@ -538,12 +540,35 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   // Retired hurt — the batter leaves the crease, NOT out, and can return later
   // (kept out of outBatters, so they're selectable again). No ball is bowled.
   const retireBatsman = (slot) => {
-    setRetiredPrompt(false);
+    setRetiredKindPrompt(false);
     const leaving = slot === 'nonstriker' ? nonStriker : striker;
     if (leaving) setRetiredBatters((prev) => prev.some((r) => r.id === leaving.id) ? prev : [...prev, { id: leaving.id, name: leaving.name }]);
     if (slot === 'nonstriker') { setNonStriker(null); setNewBatterFor('nonstriker'); }
     else { setStriker(null); setNewBatterFor('striker'); }
     setShowPlayerModal(true);
+  };
+
+  // Retired out — counts as a wicket but is NOT a delivery (no ball faced, over
+  // unchanged). Recorded via a ball with extraType 'retired' + countsAsBall=false.
+  const retireOut = async (slot) => {
+    setRetiredKindPrompt(false);
+    if (matchComplete) return;
+    const leaving = slot === 'nonstriker' ? nonStriker : striker;
+    if (!leaving) return;
+    setHistory((h) => [...h.slice(-49), {
+      score: { ...currentScore }, over: [...currentOver], ballCount,
+      striker, nonStriker, bowler: currentBowler,
+      batStats: { ...batStats }, bowlStats: { ...bowlStats }, outBatters: [...outBatters],
+    }]);
+    haptic.warn();
+    await persistBall(0, 0, 'retired', true, 'retiredout', false, leaving.id);
+    setOutBatters((prev) => [...prev, leaving.id]);
+    const newScore = { ...currentScore, wickets: currentScore.wickets + 1 };
+    if (slot === 'nonstriker') { setNonStriker(null); setNewBatterFor('nonstriker'); }
+    else { setStriker(null); setNewBatterFor('striker'); }
+    setCurrentScore(newScore);
+    if (newScore.wickets < 10) setShowPlayerModal(true);
+    else finishInnings('All out', newScore);
   };
 
   const getAvailableBatsmen = () => {
@@ -1112,7 +1137,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               {[
                 ['bowled', 'cricket'], ['caught', 'hand-back-right'], ['lbw', 'target'],
                 ['run out', 'run-fast'], ['stumped', 'hand-back-left'], ['hit wicket', 'alert'],
-                ['retired hurt', 'bandage'],
+                ['retired', 'bandage'],
               ].map(([type, icon]) => (
                 <TouchableOpacity key={type} style={styles.wktChip}
                   onPress={() => {
@@ -1121,7 +1146,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
                     // Run-out → which batter is out; caught → who caught; retired → who.
                     if (wt === 'runout') setRunOutPrompt(true);
                     else if (wt === 'caught') setCatchPrompt(true);
-                    else if (wt === 'retiredhurt') setRetiredPrompt(true);
+                    else if (wt === 'retired') setRetiredPrompt(true);
                     else handleScore('out', 0, wt);
                   }}>
                   <Icon name={icon} size={22} color={DS.wicketText} />
@@ -1197,15 +1222,16 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         </View>
       </Modal>
 
-      {/* ── RETIRED HURT — which batter left? (not out, can return) ── */}
+      {/* ── RETIRED — which batter? then hurt (return) or out (wicket) ── */}
       <Modal visible={retiredPrompt} transparent animationType="slide" onRequestClose={() => setRetiredPrompt(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Retired hurt — who left?</Text>
-            <Text style={styles.modalSub}>Not out · can return to bat later</Text>
+            <Text style={styles.modalTitle}>Retired — who left?</Text>
+            <Text style={styles.modalSub}>Pick the batter, then hurt or out</Text>
             {[['striker', striker], ['nonstriker', nonStriker]].map(([slot, player]) => (
-              <TouchableOpacity key={slot} style={styles.settingRow} onPress={() => retireBatsman(slot)}>
+              <TouchableOpacity key={slot} style={styles.settingRow}
+                onPress={() => { setRetiredSlot(slot); setRetiredPrompt(false); setRetiredKindPrompt(true); }}>
                 <View style={[styles.playerAvatar, { backgroundColor: DS.lime + '33' }]}>
                   <Text style={[styles.playerInitial, { color: DS.lime }]}>{(player?.name || '?').charAt(0).toUpperCase()}</Text>
                 </View>
@@ -1216,6 +1242,33 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               </TouchableOpacity>
             ))}
             <TouchableOpacity style={styles.modalClose} onPress={() => setRetiredPrompt(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── RETIRED — hurt (not out, can return) or out (counts as a wicket) ── */}
+      <Modal visible={retiredKindPrompt} transparent animationType="slide" onRequestClose={() => setRetiredKindPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Retired hurt or out?</Text>
+            <TouchableOpacity style={styles.settingRow} onPress={() => retireBatsman(retiredSlot)}>
+              <View style={[styles.playerAvatar, { backgroundColor: DS.lime + '33' }]}>
+                <Icon name="bandage" size={16} color={DS.lime} />
+              </View>
+              <Text style={[styles.settingText, { flex: 1 }]}>Retired hurt <Text style={styles.modalSub}>(not out · can return)</Text></Text>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.settingRow} onPress={() => retireOut(retiredSlot)}>
+              <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
+                <Icon name="flag-checkered" size={16} color={DS.wicketText} />
+              </View>
+              <Text style={[styles.settingText, { flex: 1, color: DS.wicketText }]}>Retired out <Text style={styles.modalSub}>(counts as a wicket)</Text></Text>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setRetiredKindPrompt(false)}>
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
           </View>
