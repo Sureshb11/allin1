@@ -10,7 +10,7 @@ import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { SPORTS } from '../sports/dashboard';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-export default function SportSwitcher({ navigation, current: currentOverride }) {
+export default function SportSwitcher({ navigation, current: currentOverride, variant }) {
   const C = useTheme().colors;
   const s = useThemedStyles(makeStyles);
   const [open, setOpen] = useState(false);
@@ -41,15 +41,26 @@ export default function SportSwitcher({ navigation, current: currentOverride }) 
 
   return (
     <View>
-      <Text style={s.label}>CURRENT SPORT</Text>
-      <TouchableOpacity style={s.selector} activeOpacity={0.85} onPress={() => setOpen(true)}>
-        <View style={s.iconBox}><Icon name={current.icon} size={18} color={C.lime} /></View>
-        <Text style={s.selectorText} numberOfLines={1}>{current.name}</Text>
-        <View style={s.right}>
-          <Text style={s.hint}>Change sport</Text>
-          <Icon name="chevron-down" size={16} color={C.textMuted} />
-        </View>
-      </TouchableOpacity>
+      {variant === 'iconButton'
+        ? (
+          <TouchableOpacity style={s.actionItem} activeOpacity={0.85} onPress={() => setOpen(true)}>
+            <View style={s.actionCircle}><Icon name={current.icon} size={22} color={C.lime} /></View>
+            <Text style={s.actionLabel} numberOfLines={1}>Sport</Text>
+          </TouchableOpacity>
+        )
+        : (
+          <>
+            <Text style={s.label}>CURRENT SPORT</Text>
+            <TouchableOpacity style={s.selector} activeOpacity={0.85} onPress={() => setOpen(true)}>
+              <View style={s.iconBox}><Icon name={current.icon} size={18} color={C.lime} /></View>
+              <Text style={s.selectorText} numberOfLines={1}>{current.name}</Text>
+              <View style={s.right}>
+                <Text style={s.hint}>Change sport</Text>
+                <Icon name="chevron-down" size={16} color={C.textMuted} />
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <View style={s.modalContainer}>
@@ -79,6 +90,14 @@ export default function SportSwitcher({ navigation, current: currentOverride }) 
 }
 
 const makeStyles = (C) => StyleSheet.create({
+  // Icon-button variant (Profile action bar) — matches ProfileScreen's ActionIcon.
+  actionItem: { alignItems: 'center', gap: 6, width: 64 },
+  actionCircle: {
+    width: 52, height: 52, borderRadius: 26, backgroundColor: C.surfaceLow,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  actionLabel: { fontSize: 11, fontWeight: '700', color: C.textVariant },
+
   label: { color: C.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 8 },
   selector: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.surfaceHigh, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12 },
   iconBox: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceHighest },

@@ -33,8 +33,17 @@ const MENU_ITEMS = [
 ];
 
 export default function ProfileScreen({ navigation }) {
-  const { colors: DS, pref, setMode } = useTheme();
+  const { colors: DS, pref, setMode, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const toggleTheme = () => setMode(isDark ? 'light' : 'dark');
+
+  // Compact circular action button (Share / Edit / Theme in the action bar).
+  const ActionIcon = ({ icon, label, color, onPress }) => (
+    <TouchableOpacity style={styles.actionItem} activeOpacity={0.85} onPress={onPress}>
+      <View style={styles.actionCircle}><Icon name={icon} size={22} color={color || DS.lime} /></View>
+      <Text style={styles.actionLabel} numberOfLines={1}>{label}</Text>
+    </TouchableOpacity>
+  );
   const [profile, setProfile] = useState({});
   const [stats, setStats] = useState({});
   const [gallery, setGallery] = useState([]);
@@ -224,61 +233,17 @@ export default function ProfileScreen({ navigation }) {
           </View>
         )}
 
-        {/* Share Profile */}
-        <TouchableOpacity style={styles.shareBtn} onPress={shareProfile}>
-          <Icon name="whatsapp" size={20} color="#fff" />
-          <Text style={styles.shareBtnText}>Share Profile on WhatsApp</Text>
-        </TouchableOpacity>
-
-        {/* Quick actions */}
-        <View style={styles.quickRow}>
-          <TouchableOpacity
-            style={styles.quickBtn}
-            onPress={() => navigation.navigate('EditPlayerProfile')}
-          >
-            <Icon name="account-edit" size={18} color={DS.lime} />
-            <Text style={styles.quickBtnText}>Edit Profile</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickBtn}
-            onPress={() => navigation.navigate('PlayerInsights')}
-          >
-            <Icon name="chart-line" size={18} color={DS.blue} />
-            <Text style={styles.quickBtnText}>Insights</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Sport switcher */}
-        <View style={styles.sportSwitchWrap}>
-          <SportSwitcher navigation={navigation} />
-        </View>
-
-        {/* Appearance */}
-        <View style={styles.appearanceCard}>
-          <View style={styles.appearanceHead}>
-            <Icon name="theme-light-dark" size={18} color={DS.lime} />
-            <Text style={styles.appearanceTitle}>Appearance</Text>
-          </View>
-          <View style={styles.segment}>
-            {[
-              { key: 'system', label: 'System', icon: 'cellphone' },
-              { key: 'light',  label: 'Light',  icon: 'white-balance-sunny' },
-              { key: 'dark',   label: 'Dark',   icon: 'weather-night' },
-            ].map((opt) => {
-              const active = pref === opt.key;
-              return (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[styles.segmentBtn, active && styles.segmentBtnActive]}
-                  activeOpacity={0.85}
-                  onPress={() => setMode(opt.key)}
-                >
-                  <Icon name={opt.icon} size={16} color={active ? DS.bg : DS.textMuted} />
-                  <Text style={[styles.segmentTxt, active && styles.segmentTxtActive]}>{opt.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+        {/* Icon action bar — Share · Edit · Sport · Theme */}
+        <View style={styles.actionBar}>
+          <ActionIcon icon="whatsapp" label="Share" color="#25D366" onPress={shareProfile} />
+          <ActionIcon icon="account-edit" label="Edit" onPress={() => navigation.navigate('EditPlayerProfile')} />
+          <SportSwitcher navigation={navigation} variant="iconButton" />
+          <ActionIcon
+            icon={isDark ? 'white-balance-sunny' : 'weather-night'}
+            label={isDark ? 'Light' : 'Dark'}
+            color={DS.blue}
+            onPress={toggleTheme}
+          />
         </View>
 
         {/* Menu Items */}
@@ -391,6 +356,18 @@ const makeStyles = (DS) => StyleSheet.create({
   extraLbl: { fontSize: 10, color: DS.textMuted, marginTop: 1 },
 
   body: { padding: 16, gap: 12 },
+
+  // Icon action bar (Share · Edit · Sport · Theme)
+  actionBar: {
+    flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-start',
+    backgroundColor: DS.surfaceHigh, borderRadius: 18, paddingVertical: 16, paddingHorizontal: 8,
+  },
+  actionItem: { alignItems: 'center', gap: 6, width: 64 },
+  actionCircle: {
+    width: 52, height: 52, borderRadius: 26, backgroundColor: DS.surfaceLow,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  actionLabel: { fontSize: 11, fontWeight: '700', color: DS.textVariant },
 
   // Recent form
   section: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16, gap: 8 },
