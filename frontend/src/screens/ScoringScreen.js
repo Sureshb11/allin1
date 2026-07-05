@@ -167,6 +167,10 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const target = isInnings2 ? firstInningsScore.runs + 1 : 0;
   const need = isInnings2 ? Math.max(0, target - currentScore.runs) : 0;
   const ballsLeft = isInnings2 ? Math.max(1, totalOvers * 6 - (currentScore.overs * 6 + currentScore.balls)) : 1;
+  // Live run rates: current (CRR) always; required (RRR) during a chase.
+  const ballsBowled = currentScore.overs * 6 + currentScore.balls;
+  const crr = ballsBowled > 0 ? (currentScore.runs / (ballsBowled / 6)).toFixed(2) : '0.00';
+  const rrr = isInnings2 && ballsLeft > 0 ? (need / (ballsLeft / 6)).toFixed(2) : null;
 
   // countsAsBall=false for penalty runs — they're a team award, not a delivery,
   // so the over/ball count must not advance.
@@ -697,6 +701,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               <Text style={styles.scoreMain}>{currentScore.runs}/{currentScore.wickets}</Text>
               <Text style={styles.scoreOvers}> ({overStr})</Text>
             </View>
+            <Text style={styles.crrText}>CRR {crr}{rrr ? `   ·   RRR ${rrr}` : ''}</Text>
             {matchComplete &&
             <View style={styles.resultPill}>
                 <Text style={styles.resultText}>{matchResult}</Text>
@@ -1239,6 +1244,7 @@ const makeStyles = (DS) => StyleSheet.create({
   scoreRow: { flexDirection: 'row', alignItems: 'flex-end' },
   scoreMain: { fontSize: 40, fontWeight: '900', color: DS.textPrimary, letterSpacing: -2, lineHeight: 44 },
   scoreOvers: { fontSize: 18, color: DS.textMuted, fontWeight: '600', marginBottom: 6 },
+  crrText: { fontSize: 12, fontWeight: '700', color: DS.lime, marginTop: 2 },
   scoreRight: { alignItems: 'flex-end' },
   targetLabel: { fontSize: 11, fontWeight: '700', color: DS.coral, letterSpacing: 1 },
   targetVal: { fontSize: 28, fontWeight: '900', color: DS.coral },

@@ -124,6 +124,35 @@ function inningsOvers(innings) {
   return `${Math.floor(legal / 6)}.${legal % 6}`;
 }
 
+// Extras breakdown: byes / leg-byes / wides / no-balls / penalty + total.
+function computeExtras(innings) {
+  const e = { byes: 0, legByes: 0, wides: 0, noBalls: 0, penalty: 0, total: 0 };
+  (innings.oversData || []).forEach((over) => (over.balls || []).forEach((b) => {
+    if (b.extraType === 'bye') e.byes += b.extras;
+    else if (b.extraType === 'legBye') e.legByes += b.extras;
+    else if (b.extraType === 'wide') e.wides += b.extras;
+    else if (b.extraType === 'noBall') e.noBalls += b.extras;
+    else if (b.extraType === 'penalty') e.penalty += b.extras;
+    e.total += (['bye', 'legBye', 'wide', 'noBall', 'penalty'].includes(b.extraType) ? b.extras : 0);
+  }));
+  return e;
+}
+
+// Fall of Wickets: "score-wicket (Batter, over.ball)" in the order they fell.
+function computeFOW(innings, nameById) {
+  const fow = [];
+  let running = 0, wkts = 0, legal = 0;
+  (innings.oversData || []).forEach((over) => (over.balls || []).forEach((b) => {
+    running += b.runs + b.extras;
+    if (!['wide', 'noBall', 'penalty'].includes(b.extraType)) legal += 1;
+    if (b.isWicket) {
+      wkts += 1;
+      fow.push({ wkt: wkts, score: running, name: nameById[b.dismissedPlayerId] || 'batter', over: `${Math.floor(legal / 6)}.${legal % 6}` });
+    }
+  }));
+  return fow;
+}
+
 function TableHeader({ cols }) {const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.tableHeader}>
@@ -138,8 +167,11 @@ function InningsBlock({ innings, index, squads }) {const DS = useTheme().colors;
   const battingXI = (squads || [])
     .filter((s) => s.teamId === innings.battingTeamId)
     .map((s) => ({ id: s.playerId, name: s.player?.name || 'Unknown' }));
+  const nameById = Object.fromEntries((squads || []).map((s) => [s.playerId, s.player?.name || 'batter']));
   const { batted, yetToBat } = computeBatting(innings, battingXI);
   const bowlers = computeBowling(innings);
+  const extras = computeExtras(innings);
+  const fow = computeFOW(innings, nameById);
   const label = index === 0 ? '1st' : '2nd';
 
   return (
@@ -176,10 +208,33 @@ function InningsBlock({ innings, index, squads }) {const DS = useTheme().colors;
           </Text>
         </View>
       )}
+      {/* Extras + Total */}
+      <View style={styles.extrasRow}>
+        <Text style={styles.extrasLabel}>Extras</Text>
+        <Text style={styles.extrasDetail}>
+          (b {extras.byes}, lb {extras.legByes}, w {extras.wides}, nb {extras.noBalls}{extras.penalty ? `, p ${extras.penalty}` : ''})
+        </Text>
+        <Text style={styles.extrasVal}>{extras.total}</Text>
+      </View>
+      <View style={styles.totalRow}>
+        <Text style={styles.totalLabel}>TOTAL</Text>
+        <Text style={styles.totalDetail}>({inningsOvers(innings)} ov)</Text>
+        <Text style={styles.totalVal}>{innings.totalRuns}/{innings.totalWickets}</Text>
+      </View>
+
       {yetToBat.length > 0 &&
         <View style={styles.yetToBatRow}>
           <Text style={styles.yetToBatLabel}>Yet to bat: </Text>
           <Text style={styles.yetToBatNames}>{yetToBat.join(', ')}</Text>
+        </View>
+      }
+
+      {fow.length > 0 &&
+        <View style={styles.fowBox}>
+          <Text style={styles.fowTitle}>FALL OF WICKETS</Text>
+          <Text style={styles.fowText}>
+            {fow.map((f) => `${f.score}-${f.wkt} (${f.name}, ${f.over})`).join('   ')}
+          </Text>
         </View>
       }
 
@@ -463,6 +518,18 @@ const makeStyles = (DS) => StyleSheet.create({
   yetToBatRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingTop: 8 },
   yetToBatLabel: { fontSize: 11, fontWeight: '700', color: DS.textMuted },
   yetToBatNames: { fontSize: 11, color: DS.textVariant, flex: 1 },
+
+  extrasRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: DS.line, marginTop: 4 },
+  extrasLabel: { fontSize: 12, fontWeight: '700', color: DS.textMuted, width: 52 },
+  extrasDetail: { fontSize: 11, color: DS.textMuted, flex: 1 },
+  extrasVal: { fontSize: 13, fontWeight: '800', color: DS.textPrimary },
+  totalRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: DS.surfaceHigh, borderRadius: 8 },
+  totalLabel: { fontSize: 13, fontWeight: '900', color: DS.textPrimary, width: 52, letterSpacing: 0.5 },
+  totalDetail: { fontSize: 12, color: DS.textMuted, flex: 1 },
+  totalVal: { fontSize: 16, fontWeight: '900', color: DS.lime },
+  fowBox: { paddingHorizontal: 12, paddingTop: 10 },
+  fowTitle: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 1, marginBottom: 4 },
+  fowText: { fontSize: 11, color: DS.coral, lineHeight: 18 },
 
   // Share button
   shareBtn: {
