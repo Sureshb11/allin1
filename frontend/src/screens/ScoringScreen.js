@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Alert, Modal, Share, StatusBar, Dimensions } from
@@ -82,6 +82,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   // Undo: snapshot of everything a ball mutates, pushed before each delivery.
   const [history, setHistory] = useState([]);
   const [undoing, setUndoing] = useState(false);
+  const savingRef = useRef(false);   // true while a ball is being persisted (debounces rapid taps)
 
   useEffect(() => {
     if (matchData) {
@@ -249,6 +250,11 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   // catcher = fielder/keeper/bowler name for a caught dismissal (shown in scorecard).
   const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null) => {
     if (matchComplete || undoing) return;
+    // Debounce: ignore a new tap while the previous ball is still being saved. Rapid
+    // taps during the async save read a stale score and used to pile balls into one
+    // over (8–12 ball overs). Real scoring is seconds apart, so this only drops
+    // accidental double-taps.
+    if (savingRef.current) return;
     // Guard the FIRST ball of an over (any path, incl. resume/setup picks): the
     // bowler must be within their spell limit and can't bowl consecutive overs.
     if (currentScore.balls === 0 && currentBowler) {
@@ -266,6 +272,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         return;
       }
     }
+    savingRef.current = true;
+    try {
     // Snapshot the pre-ball state so this delivery can be taken back.
     setHistory((h) => [...h.slice(-49), {
       score: { ...currentScore }, over: [...currentOver], ballCount,
@@ -406,6 +414,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     if (isInnings2) checkWinCondition(newScore);
     if (!isInnings2 && (newScore.wickets >= 10 || newScore.overs >= totalOvers && newScore.balls === 0)) {
       finishInnings(newScore.wickets >= 10 ? 'All out' : 'Overs completed', newScore);
+    }
+    } finally {
+      savingRef.current = false;
     }
   };
 

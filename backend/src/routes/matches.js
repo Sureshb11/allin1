@@ -169,39 +169,50 @@ router.put('/:id/score', async (req, res) => {
       if (dupe) return res.json({ success: true, ball: dupe, idempotent: true });
     }
 
-    let over = await prisma.over.findUnique({
-      where: { inningId_overNumber: { inningId: data.inningId, overNumber: data.overNumber } }
+    // ── Server-authoritative over placement ──────────────────────────────────
+    // Append to the current over until it has 6 LEGAL balls (wides & no-balls do
+    // NOT count), then roll to a new over. We do NOT trust the client's overNumber:
+    // rapid taps during the async save repeat a stale overNumber, which was piling
+    // many balls into one over (overs of 8–12 balls). The server owns the boundary.
+    const legalCount = (o) => (o ? o.balls.filter((b) => b.extraType !== 'wide' && b.extraType !== 'noBall').length : 0);
+    const latest = await prisma.over.findFirst({
+      where: { inningId: data.inningId },
+      orderBy: { overNumber: 'desc' },
+      include: { balls: { select: { extraType: true } } },
     });
 
-    if (!over) {
-      // A new over is starting → enforce the bowling laws authoritatively (the UI
-      // guards too, but this catches every path: resume, old clients, retries).
+    let over;
+    if (latest && legalCount(latest) < 6) {
+      over = latest;                       // current over still in progress → append
+    } else {
+      // A new over starts → enforce the bowling laws (spell limit + no consecutive).
       const matchRow = await prisma.match.findUnique({ where: { id: req.params.id }, select: { overs: true } });
       const maxOvers = Math.ceil((matchRow?.overs || 20) / 5);   // T20 → 4, ODI → 10
       const priorOvers = await prisma.over.findMany({
         where: { inningId: data.inningId },
         include: { balls: { select: { extraType: true } } },
-        orderBy: { overNumber: 'asc' },
       });
-      const legalCount = (o) => o.balls.filter((b) => b.extraType !== 'wide' && b.extraType !== 'noBall').length;
       const completedByBowler = priorOvers.filter((o) => o.bowlerId === data.bowlerId && legalCount(o) >= 6).length;
       if (completedByBowler >= maxOvers) {
         return res.status(409).json({ error: `A bowler can bowl at most ${maxOvers} overs in this match.`, code: 'BOWLER_OVER_LIMIT' });
       }
-      const lastOver = priorOvers[priorOvers.length - 1];
-      if (lastOver && lastOver.bowlerId === data.bowlerId && legalCount(lastOver) >= 6) {
+      if (latest && latest.bowlerId === data.bowlerId) {   // latest is the just-completed over
         return res.status(409).json({ error: 'A bowler cannot bowl two overs in a row.', code: 'BOWLER_CONSECUTIVE' });
       }
       over = await prisma.over.create({
-        data: { inningId: data.inningId, overNumber: data.overNumber, bowlerId: data.bowlerId }
+        data: { inningId: data.inningId, overNumber: (latest?.overNumber || 0) + 1, bowlerId: data.bowlerId },
       });
     }
+
+    // Ball number is assigned server-side (sequential within the over) so a stale
+    // client can't cause collisions or gaps.
+    const ballsInOver = await prisma.ball.count({ where: { overId: over.id } });
 
     const ball = await prisma.ball.create({
       data: {
         overId: over.id,
         clientEventId: data.clientEventId || undefined,
-        ballNumber: data.ballNumber,
+        ballNumber: ballsInOver + 1,
         batterId: data.batterId,
         nonStrikerId: data.nonStrikerId,
         runs: data.runs,
