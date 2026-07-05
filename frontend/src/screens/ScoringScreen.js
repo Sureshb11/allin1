@@ -255,19 +255,12 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     // over (8–12 ball overs). Real scoring is seconds apart, so this only drops
     // accidental double-taps.
     if (savingRef.current) return;
-    // Guard the FIRST ball of an over (any path, incl. resume/setup picks): the
-    // bowler must be within their spell limit and can't bowl consecutive overs.
+    // Guard the FIRST ball of an over (any path, incl. resume/setup picks): if the
+    // bowler is over their spell limit or would bowl consecutive overs, silently
+    // reopen the (eligible-only) bowler picker — no popup.
     if (currentScore.balls === 0 && currentBowler) {
       const bowled = bowlerOvers[currentBowler.id] || 0;
-      if (bowled >= maxOversPerBowler) {
-        haptic.warn();
-        Alert.alert('Over limit reached', `${currentBowler.name} has already bowled ${maxOversPerBowler} overs. Pick another bowler.`);
-        setMustPickBowler(true); setShowBowlerModal(true);
-        return;
-      }
-      if (currentBowler.id === lastOverBowlerId) {
-        haptic.warn();
-        Alert.alert('No consecutive overs', `${currentBowler.name} bowled the previous over. Pick another bowler.`);
+      if (bowled >= maxOversPerBowler || currentBowler.id === lastOverBowlerId) {
         setMustPickBowler(true); setShowBowlerModal(true);
         return;
       }
