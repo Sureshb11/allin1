@@ -470,6 +470,26 @@ class LegendsApi {
     }
   }
 
+  // Scorer info — current scorer + registered squad members you can transfer to.
+  async getScorerInfo(matchId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/scorer`);
+      return { success: true, isScorer: json.isScorer, scorerId: json.scorerId, candidates: json.candidates || [] };
+    } catch (error) {
+      return { success: false, error: error.message, candidates: [] };
+    }
+  }
+
+  // Transfer scoring rights to another user.
+  async transferScorer(matchId, scorerId) {
+    try {
+      await this.request(`/matches/${matchId}/scorer`, { method: 'PUT', body: { scorerId } });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Add a player from the team's roster to a live match's squad (playing XI).
   async addMatchPlayer(matchId, { playerId, teamId }) {
     try {

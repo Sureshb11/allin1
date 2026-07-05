@@ -140,6 +140,7 @@ model Match {
   team2           Team     @relation("team2", fields: [team2Id], references: [id])
   team2Id         String
   status          String   // scheduled | live | completed
+  scorerId        String?  // user id allowed to score it (creator by default; transferable)
   score1          String?
   score2          String?
   venue           String?

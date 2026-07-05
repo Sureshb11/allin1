@@ -86,6 +86,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [retiredBatters, setRetiredBatters] = useState([]);  // ids retired hurt (can return to bat)
   const [mvp, setMvp] = useState(null);                    // Player of the Match (computed on completion)
   const [showSettings, setShowSettings] = useState(false); // top-bar settings sheet (End Innings/Match lives here)
+  const [transferPrompt, setTransferPrompt] = useState(false);   // transfer-scorer sheet
+  const [transferCandidates, setTransferCandidates] = useState([]);
   const [endPrompt, setEndPrompt] = useState(false);       // reason picker before ending innings/match
   // Undo: snapshot of everything a ball mutates, pushed before each delivery.
   const [history, setHistory] = useState([]);
@@ -612,6 +614,36 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const shareScore = async () => {
     const msg = `${battingTeamName} ${currentScore.runs}/${currentScore.wickets} (${overStr}) — scoring live on Local Legends!`;
     await Share.share({ message: msg });
+  };
+
+  // Transfer scoring rights to another registered player in the squad.
+  const openTransferScorer = async () => {
+    if (!matchData?.id) return;
+    const res = await legendsApi.getScorerInfo(matchData.id);
+    if (!res.success) { Alert.alert('Transfer scorer', res.error || 'Could not load'); return; }
+    if (!res.candidates.length) {
+      Alert.alert('Transfer scorer', 'No other registered players in this match. Add players (linked to their app accounts) first.');
+      return;
+    }
+    setTransferCandidates(res.candidates);
+    setTransferPrompt(true);
+  };
+
+  const doTransfer = (cand) => {
+    Alert.alert('Transfer scoring?', `Hand scoring of this match to ${cand.name}? You will no longer be able to score it.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Transfer', style: 'destructive', onPress: async () => {
+        setTransferPrompt(false);
+        const r = await legendsApi.transferScorer(matchData.id, cand.userId);
+        if (r.success) {
+          Alert.alert('Scorer transferred', `${cand.name} can now score this match from their My Matches.`, [
+            { text: 'OK', onPress: () => navigation.goBack() },
+          ]);
+        } else {
+          Alert.alert('Transfer failed', r.error || 'Please try again');
+        }
+      } },
+    ]);
   };
 
   // Ball display in over tracker
@@ -1355,6 +1387,13 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               <Icon name="chevron-right" size={18} color={DS.textMuted} />
             </TouchableOpacity>
             {!matchComplete && (
+              <TouchableOpacity style={styles.settingRow} onPress={() => { setShowSettings(false); openTransferScorer(); }}>
+                <Icon name="account-switch" size={20} color={DS.blue} />
+                <Text style={styles.settingText}>Transfer scorer</Text>
+                <Icon name="chevron-right" size={18} color={DS.textMuted} />
+              </TouchableOpacity>
+            )}
+            {!matchComplete && (
               <TouchableOpacity style={styles.settingRow} onPress={() => { setShowSettings(false); setEndPrompt(true); }}>
                 <Icon name="flag-checkered" size={20} color={DS.wicketText} />
                 <Text style={[styles.settingText, { color: DS.wicketText }]}>
@@ -1365,6 +1404,31 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
             )}
             <TouchableOpacity style={styles.modalClose} onPress={() => setShowSettings(false)}>
               <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── TRANSFER SCORER — hand scoring to another registered squad member ── */}
+      <Modal visible={transferPrompt} transparent animationType="slide" onRequestClose={() => setTransferPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Transfer Scorer</Text>
+            <Text style={styles.modalSub}>They'll be able to resume &amp; score from their My Matches</Text>
+            <ScrollView style={{ maxHeight: 320 }}>
+              {transferCandidates.map((cand) => (
+                <TouchableOpacity key={cand.userId} style={styles.playerOption} onPress={() => doTransfer(cand)}>
+                  <View style={[styles.playerAvatar, { backgroundColor: DS.blue + '33' }]}>
+                    <Text style={[styles.playerInitial, { color: DS.blue }]}>{(cand.name || '?').charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <Text style={[styles.playerName, { flex: 1 }]}>{cand.name}</Text>
+                  <Icon name="account-switch" size={18} color={DS.blue} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setTransferPrompt(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { authMiddleware } from '../lib/auth.js';
+import { authMiddleware, optionalAuth } from '../lib/auth.js';
 import { validateSquad, applySubstitution } from '../lib/roster.js';
 import { checkMatchMilestones } from '../lib/milestones.js';
 import { pushMatchResultCard } from '../lib/feed.js';
@@ -74,11 +74,12 @@ router.get('/circle', authMiddleware, async (req, res) => {
       ...follows.map((f) => f.teamId),
     ])];
 
-    if (!teamIds.length) return res.json({ matches: [] });
+    // Include matches this user is the scorer of (e.g. transferred to them) even if
+    // they don't own/play/follow either team — so they can resume from My Matches.
+    const or = [{ scorerId: uid }];
+    if (teamIds.length) or.push({ team1Id: { in: teamIds } }, { team2Id: { in: teamIds } });
 
-    const where = {
-      OR: [{ team1Id: { in: teamIds } }, { team2Id: { in: teamIds } }],
-    };
+    const where = { OR: or };
     if (sport) where.sport = String(sport);
 
     const matches = await prisma.match.findMany({
@@ -105,7 +106,7 @@ const MatchSchema = z.object({
   sport: z.string().default('cricket'),
 });
 
-router.post('/', async (req, res) => {
+router.post('/', optionalAuth, async (req, res) => {
   try {
     const data = MatchSchema.parse(req.body);
 
@@ -118,8 +119,9 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Both teams need at least one player before a match can be created.' });
     }
 
+    // The creating user is the default scorer (can later transfer scoring rights).
     const match = await prisma.match.create({
-      data: { ...data, currentInnings: 1 }
+      data: { ...data, currentInnings: 1, scorerId: req.user?.sub || null }
     });
 
     if (data.sport === 'cricket') {
@@ -291,6 +293,50 @@ router.delete('/:id/score/last', async (req, res) => {
 
     if (result.empty) return res.status(404).json({ error: 'No ball to undo' });
     res.json({ success: true, undone: result.ball });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// ── Scorer info + transfer ───────────────────────────────────────────────────
+// Who can score, and the registered users in the match squad you can hand it to.
+router.get('/:id/scorer', authMiddleware, async (req, res) => {
+  try {
+    const match = await prisma.match.findUnique({ where: { id: req.params.id }, select: { scorerId: true } });
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+    const squad = await prisma.matchPlayer.findMany({
+      where: { matchId: req.params.id },
+      include: { player: { select: { userId: true, name: true } } },
+    });
+    // De-dupe registered users in the squad (exclude the current scorer).
+    const seen = new Set();
+    const candidates = [];
+    for (const s of squad) {
+      const uid = s.player?.userId;
+      if (uid && uid !== match.scorerId && !seen.has(uid)) {
+        seen.add(uid);
+        candidates.push({ userId: uid, name: s.player.name });
+      }
+    }
+    res.json({ scorerId: match.scorerId, isScorer: match.scorerId === req.user.sub, candidates });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PUT /matches/:id/scorer  { scorerId }  — only the current scorer can hand it over.
+router.put('/:id/scorer', authMiddleware, async (req, res) => {
+  try {
+    const { scorerId } = req.body || {};
+    if (!scorerId) return res.status(400).json({ error: 'scorerId required' });
+    const match = await prisma.match.findUnique({ where: { id: req.params.id }, select: { scorerId: true } });
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+    // If a scorer is set, only they may transfer; unassigned matches can be claimed.
+    if (match.scorerId && match.scorerId !== req.user.sub) {
+      return res.status(403).json({ error: 'Only the current scorer can transfer scoring' });
+    }
+    await prisma.match.update({ where: { id: req.params.id }, data: { scorerId } });
+    res.json({ success: true, scorerId });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
