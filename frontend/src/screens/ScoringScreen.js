@@ -815,27 +815,25 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         </View>
       </Modal>
 
-      {/* ── WICKET TYPE sheet ── */}
+      {/* ── WICKET TYPE sheet — chip grid, same style as the extras +runs popup ── */}
       <Modal visible={wicketPrompt} transparent animationType="slide" onRequestClose={() => setWicketPrompt(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>How was the batter out?</Text>
-            <ScrollView>
+            <Text style={styles.modalSub}>Tap the dismissal type</Text>
+            <View style={styles.wktChips}>
               {[
                 ['bowled', 'cricket'], ['caught', 'hand-back-right'], ['lbw', 'target'],
                 ['run out', 'run-fast'], ['stumped', 'hand-back-left'], ['hit wicket', 'alert'],
               ].map(([type, icon]) => (
-                <TouchableOpacity key={type} style={styles.playerOption}
+                <TouchableOpacity key={type} style={styles.wktChip}
                   onPress={() => { setWicketPrompt(false); handleScore('out', 0, type.replace(' ', '')); }}>
-                  <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
-                    <Icon name={icon} size={16} color={DS.wicketText} />
-                  </View>
-                  <Text style={[styles.playerName, { flex: 1, textTransform: 'capitalize' }]}>{type}</Text>
-                  <Icon name="chevron-right" size={18} color={DS.textMuted} />
+                  <Icon name={icon} size={22} color={DS.wicketText} />
+                  <Text style={styles.wktChipText}>{type}</Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
             <TouchableOpacity style={styles.modalClose} onPress={() => setWicketPrompt(false)}>
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
@@ -926,8 +924,17 @@ const makeStyles = (DS) => StyleSheet.create({
   runChip: { flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 14, paddingVertical: 18, alignItems: 'center' },
   runChipNum: { fontSize: 24, fontWeight: '900', color: DS.textPrimary },
 
+  // Wicket-type chips (3-per-row grid, same look as the +runs popup)
+  wktChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 },
+  wktChip: {
+    width: '30.6%', backgroundColor: DS.surfaceHigh, borderRadius: 14, paddingVertical: 16,
+    alignItems: 'center', justifyContent: 'center', gap: 6,
+  },
+  wktChipText: { fontSize: 12, fontWeight: '800', color: DS.textPrimary, textTransform: 'capitalize', textAlign: 'center' },
+
   // 3×3 Grid — flexes to fill the space left below the score/players.
-  grid: { flex: 1, marginHorizontal: 16, gap: 8, marginBottom: 8, minHeight: 200 },
+  // minHeight kept modest so the WICKET + END buttons below are always on-screen.
+  grid: { flex: 1, marginHorizontal: 16, gap: 8, marginBottom: 8, minHeight: 130 },
   gridRow: { flex: 1, flexDirection: 'row', gap: 8 },
   gridBtn: {
     flex: 1, borderRadius: 14,
