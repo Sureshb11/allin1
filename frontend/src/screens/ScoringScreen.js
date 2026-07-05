@@ -72,6 +72,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [extraPrompt, setExtraPrompt] = useState(null);    // 'wide'|'noball'|'bye'|'legbye' → +runs sheet
   const [wicketPrompt, setWicketPrompt] = useState(false); // WICKET → dismissal-type sheet
   const [runOutPrompt, setRunOutPrompt] = useState(false); // run out → which batter is out?
+  const [catchPrompt, setCatchPrompt] = useState(false);   // caught → who took the catch?
   const [newBatterFor, setNewBatterFor] = useState('striker'); // which crease slot the new batter fills
   const [outBatters, setOutBatters] = useState([]);        // player IDs dismissed this innings (can't re-bat)
   const [showSettings, setShowSettings] = useState(false); // top-bar settings sheet (End Innings/Match lives here)
@@ -164,7 +165,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
   // countsAsBall=false for penalty runs — they're a team award, not a delivery,
   // so the over/ball count must not advance.
-  const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true, dismissedId = null) => {
+  const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true, dismissedId = null, catcher = null) => {
     if (!currentInningId || !striker || !nonStriker || !currentBowler) return;
     const overNumber = currentScore.overs + 1;
     const newBallCount = countsAsBall ? ballCount + 1 : ballCount;
@@ -176,6 +177,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       isWicket, wicketType: wicketType || null,
       // Usually the striker is out; a run-out can dismiss the non-striker.
       dismissedPlayerId: isWicket ? (dismissedId || striker.id) : null,
+      wicketAssists: catcher || null,   // catcher / keeper / run-out fielder name
       // Idempotency key — if the auto-retry re-sends a ball that actually
       // landed, the server dedupes instead of double-counting.
       clientEventId: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -242,7 +244,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   // addRuns = extra runs on a wide/no-ball/bye/leg-bye (e.g. wide+2, no-ball+4).
   // wicketType = dismissal kind chosen from the Wicket sheet.
   // dismissed = 'striker' | 'nonstriker' — a run-out can dismiss the non-striker.
-  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker') => {
+  // catcher = fielder/keeper/bowler name for a caught dismissal (shown in scorecard).
+  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null) => {
     if (matchComplete || undoing) return;
     // Snapshot the pre-ball state so this delivery can be taken back.
     setHistory((h) => [...h.slice(-49), {
@@ -293,7 +296,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       newScore.wickets += 1;
       newScore.balls += 1;
       newOver.push('W');
-      await persistBall(0, 0, null, true, wicketType, true, outPlayer?.id);
+      await persistBall(0, 0, null, true, wicketType, true, outPlayer?.id, catcher);
       if (outPlayer) setOutBatters((prev) => [...prev, outPlayer.id]);   // can't re-bat this innings
       // Clear the dismissed batter's slot and ask for a replacement for THAT end.
       if (outNon) setNonStriker(null); else setStriker(null);
@@ -626,9 +629,10 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       <View style={styles.body}>
 
         {/* ── SCORE CARD ── */}
-        <View style={styles.scoreCard}>
+        <TouchableOpacity style={styles.scoreCard} activeOpacity={0.85}
+          onPress={() => matchData?.id && navigation.navigate('Scorecard', { matchId: matchData.id })}>
           <View style={styles.scoreLeft}>
-            <Text style={styles.scoreLabel}>CURRENT SCORE</Text>
+            <Text style={styles.scoreLabel}>CURRENT SCORE  ›  SCORECARD</Text>
             <View style={styles.scoreRow}>
               <Text style={styles.scoreMain}>{currentScore.runs}/{currentScore.wickets}</Text>
               <Text style={styles.scoreOvers}> ({overStr})</Text>
@@ -646,7 +650,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               <Text style={styles.needText}>Need {need} from{'\n'}{ballsLeft} balls</Text>
             </View>
           }
-        </View>
+        </TouchableOpacity>
 
         {/* ── CURRENT OVER TRACKER (compact) ── */}
         <View style={styles.overSection}>
@@ -936,8 +940,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
                   onPress={() => {
                     setWicketPrompt(false);
                     const wt = type.replace(' ', '');
-                    // A run-out needs to know which batter (striker/non-striker) is out.
+                    // Run-out → which batter is out; caught → who took the catch.
                     if (wt === 'runout') setRunOutPrompt(true);
+                    else if (wt === 'caught') setCatchPrompt(true);
                     else handleScore('out', 0, wt);
                   }}>
                   <Icon name={icon} size={22} color={DS.wicketText} />
@@ -972,6 +977,42 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               </TouchableOpacity>
             ))}
             <TouchableOpacity style={styles.modalClose} onPress={() => setRunOutPrompt(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── CAUGHT — who took the catch? (c&b / keeper / fielder) ── */}
+      <Modal visible={catchPrompt} transparent animationType="slide" onRequestClose={() => setCatchPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Who took the catch?</Text>
+            <Text style={styles.modalSub}>Caught &amp; bowled, keeper, or a fielder</Text>
+            {/* Caught & bowled — the bowler catches their own delivery */}
+            <TouchableOpacity style={styles.settingRow}
+              onPress={() => { setCatchPrompt(false); handleScore('out', 0, 'caught', 'striker', currentBowler?.name); }}>
+              <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
+                <Icon name="cricket" size={16} color={DS.wicketText} />
+              </View>
+              <Text style={[styles.settingText, { flex: 1 }]}>Caught &amp; Bowled <Text style={styles.modalSub}>({currentBowler?.name})</Text></Text>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
+            {/* Any fielder / keeper from the bowling XI (excluding the bowler) */}
+            <ScrollView style={{ maxHeight: 260 }}>
+              {bowlingXI.filter((p) => p.id !== currentBowler?.id).map((p, i) => (
+                <TouchableOpacity key={i} style={styles.playerOption}
+                  onPress={() => { setCatchPrompt(false); handleScore('out', 0, 'caught', 'striker', p.name); }}>
+                  <View style={styles.playerAvatar}>
+                    <Text style={styles.playerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
+                  <Icon name="chevron-right" size={18} color={DS.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setCatchPrompt(false)}>
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
           </View>

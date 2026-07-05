@@ -19,6 +19,25 @@ import legendsApi from '../services/LegendsApi';
 
 
 
+// Cricket dismissal notation: "b Bowler", "c Fielder b Bowler", "c & b Bowler",
+// "lbw b Bowler", "st Keeper b Bowler", "run out (Fielder)", "hit wicket b Bowler".
+function formatDismissal(wicketType, catcher, bowler) {
+  const t = String(wicketType || '').toLowerCase().replace(/[\s&]/g, '');
+  const b = bowler || '';
+  switch (t) {
+    case 'bowled': return `b ${b}`;
+    case 'lbw': return `lbw b ${b}`;
+    case 'caught':
+      if (catcher && bowler && catcher === bowler) return `c & b ${b}`;
+      return `c ${catcher || 'fielder'} b ${b}`;
+    case 'caughtbowled': case 'candb': return `c & b ${b}`;
+    case 'stumped': return `st ${catcher || 'keeper'} b ${b}`;
+    case 'runout': return `run out${catcher ? ` (${catcher})` : ''}`;
+    case 'hitwicket': return `hit wicket b ${b}`;
+    default: return wicketType || 'out';
+  }
+}
+
 function computeBatting(innings) {
   const map = {};
   (innings.oversData || []).forEach((over) => {
@@ -29,7 +48,10 @@ function computeBatting(innings) {
       if (ball.extraType !== 'wide') map[id].balls += 1;
       if (ball.runs === 4) map[id].fours += 1;
       if (ball.runs === 6) map[id].sixes += 1;
-      if (ball.isWicket && ball.dismissedPlayerId === id) {map[id].out = true;map[id].howOut = ball.wicketType || 'out';}
+      if (ball.isWicket && ball.dismissedPlayerId === id) {
+        map[id].out = true;
+        map[id].howOut = formatDismissal(ball.wicketType, ball.wicketAssists, over.bowler?.name);
+      }
     });
   });
   return Object.values(map);

@@ -154,6 +154,7 @@ const ScoreUpdateSchema = z.object({
   isWicket: z.boolean().default(false),
   wicketType: z.string().optional().nullable(),
   dismissedPlayerId: z.string().optional().nullable(),
+  wicketAssists: z.string().optional().nullable(),   // catcher / keeper / run-out fielder name
   clientEventId: z.string().optional().nullable(),   // offline idempotency key
 });
 
@@ -191,6 +192,7 @@ router.put('/:id/score', async (req, res) => {
         isWicket: data.isWicket,
         wicketType: data.wicketType,
         dismissedPlayerId: data.dismissedPlayerId,
+        wicketAssists: data.wicketAssists,
       }
     });
 
