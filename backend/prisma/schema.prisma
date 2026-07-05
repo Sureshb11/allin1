@@ -207,6 +207,12 @@ model Inning {
   totalOvers      Float    @default(0)
   extras          Json?    // {byes: 0, legByes: 0, wides: 0, noBalls: 0, penalty: 0}
 
+  // Live crease + bowler (player IDs) — persisted so a resumed match restores the
+  // exact pair at the wicket and the current bowler even before a ball is bowled.
+  strikerId       String?
+  nonStrikerId    String?
+  currentBowlerId String?
+
   oversData       Over[]
 
   @@unique([matchId, inningNumber])

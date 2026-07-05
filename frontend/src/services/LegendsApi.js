@@ -417,6 +417,20 @@ class LegendsApi {
     }
   }
 
+  // Persist the live crease + bowler on the inning so a resumed match restores the
+  // exact pair/bowler even before a ball is bowled. Fire-and-forget from the UI.
+  async saveCrease(matchId, { inningId, strikerId, nonStrikerId, currentBowlerId }) {
+    try {
+      await this.request(`/matches/${matchId}/crease`, {
+        method: 'PUT',
+        body: { inningId, strikerId, nonStrikerId, currentBowlerId },
+      });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Get deep scorecard for a Match
   async getScorecard(matchId) {
     try {

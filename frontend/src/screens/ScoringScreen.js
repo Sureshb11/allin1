@@ -119,6 +119,22 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resume, resumeId]);
 
+  // Persist the crease whenever it changes (opening pick, strike rotation, new
+  // batter, new bowler) so a back-out + resume restores the exact pair/bowler and
+  // never re-prompts "Select player". Only once scoring is live and the inning is known.
+  useEffect(() => {
+    if (!scoringReady) return;
+    const mId = matchData?.id;
+    if (!mId || !currentInningId) return;
+    legendsApi.saveCrease(mId, {
+      inningId: currentInningId,
+      strikerId: striker?.id || null,
+      nonStrikerId: nonStriker?.id || null,
+      currentBowlerId: currentBowler?.id || null,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoringReady, striker, nonStriker, currentBowler, matchData?.id, currentInningId]);
+
   const overStr = `${currentScore.overs}.${currentScore.balls}`;
   const totalOvers = parseInt(matchData.overs, 10) || 20;
   const maxOversPerBowler = Math.ceil(totalOvers / 5);   // T20 → 4, ODI → 10

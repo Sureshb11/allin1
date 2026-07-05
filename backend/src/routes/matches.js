@@ -265,6 +265,28 @@ router.delete('/:id/score/last', async (req, res) => {
   }
 });
 
+// ── Persist the live crease + bowler (player IDs) on the inning ──────────────
+// Called by the scorer whenever the pair at the wicket or the bowler changes
+// (opening selection, strike rotation, new batter, new bowler) so a resumed match
+// restores them exactly — even before the first ball of an over/innings is bowled.
+router.put('/:id/crease', async (req, res) => {
+  try {
+    const { inningId, strikerId, nonStrikerId, currentBowlerId } = req.body || {};
+    if (!inningId) return res.status(400).json({ error: 'inningId required' });
+    await prisma.inning.update({
+      where: { id: inningId },
+      data: {
+        strikerId: strikerId || null,
+        nonStrikerId: nonStrikerId || null,
+        currentBowlerId: currentBowlerId || null,
+      },
+    });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // ── Module 7: resume-state projection (crash recovery + device handoff) ──────
 // Rebuilds the exact live scoring state from the ball log so a new device (dead
 // battery) or a reopened app can continue a cricket match seamlessly — striker,
@@ -323,6 +345,24 @@ router.get('/:id/live-state', async (req, res) => {
       : b.isWicket ? 'W' : b.runs === 0 ? '·' : String(b.runs);
     const currentOverBalls = overComplete ? [] : [...(curOver?.balls || [])].reverse().map(notate);
 
+    // Resolve the persisted crease/bowler names. Look them up directly (not only
+    // in the squad) so it works even if the playing XI wasn't fully recorded.
+    const creaseIds = [inning.strikerId, inning.nonStrikerId, inning.currentBowlerId].filter(Boolean);
+    const creasePlayers = creaseIds.length
+      ? await prisma.player.findMany({ where: { id: { in: creaseIds } }, select: { id: true, name: true } })
+      : [];
+    const nameFor = (pid) => {
+      if (!pid) return null;
+      const p = creasePlayers.find((x) => x.id === pid) || squad.find((s) => s.player.id === pid)?.player;
+      return p ? { id: pid, name: p.name } : null;
+    };
+    const fbStriker = lastBall && !lastBall.isWicket ? { id: lastBall.batter.id, name: lastBall.batter.name } : null;
+    const fbNon = lastBall ? { id: lastBall.nonStriker.id, name: lastBall.nonStriker.name } : null;
+    const fbBowler = overComplete ? null : (curOver?.bowler ? { id: curOver.bowler.id, name: curOver.bowler.name } : null);
+    const creaseStriker = nameFor(inning.strikerId) || fbStriker;
+    const creaseNonStriker = nameFor(inning.nonStrikerId) || fbNon;
+    const creaseBowler = nameFor(inning.currentBowlerId) || fbBowler;
+
     res.json({
       sport: 'cricket',
       status: match.status,
@@ -345,13 +385,14 @@ router.get('/:id/live-state', async (req, res) => {
       completedOvers, ballInOver, currentOverBalls,
       overs: `${completedOvers}.${ballInOver}`,
       target: inning.targetScore || null,
-      // The pair at the crease + the bowler mid-over → rehydrate the UI exactly.
-      // After a completed over the strike swaps and a new bowler is due.
-      striker:    lastBall ? { id: lastBall.batter.id, name: lastBall.batter.name } : null,
-      nonStriker: lastBall ? { id: lastBall.nonStriker.id, name: lastBall.nonStriker.name } : null,
-      bowler:     overComplete ? null : (curOver?.bowler ? { id: curOver.bowler.id, name: curOver.bowler.name } : null),
-      needsNewBatter: !!lastBall?.isWicket,
-      needsNewBowler: overComplete,
+      // The pair at the crease + the bowler → rehydrate the UI exactly. Prefer the
+      // persisted crease (survives resume even before a ball is bowled); fall back
+      // to the last-ball derivation for matches saved before crease persistence.
+      striker: creaseStriker,
+      nonStriker: creaseNonStriker,
+      bowler: creaseBowler,
+      needsNewBatter: !creaseStriker,
+      needsNewBowler: !creaseBowler,
       bowlerOvers, lastOverBowlerId,
       lastBall: lastBall ? { runs: lastBall.runs, extras: lastBall.extras, extraType: lastBall.extraType, isWicket: lastBall.isWicket } : null,
     });
