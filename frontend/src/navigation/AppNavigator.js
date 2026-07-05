@@ -398,16 +398,10 @@ const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="Home" 
 // Insights, Badges, Edit Profile, …). Reusing HomeStack keeps all those sub-routes working.
 const ProfileStack = (props) => <HomeStack {...props} initialRouteName="Profile" />;
 
-// Full-screen routes that render their own bottom bar / need the whole viewport —
-// the navigator's tab bar is hidden on these so it doesn't stack into a duplicate menu.
-const FULLSCREEN_ROUTES = ['Scoring', 'SportScoring'];
-const tabBarStyleFor = (route, base) =>
-  FULLSCREEN_ROUTES.includes(getFocusedRouteNameFromRoute(route))
-    ? { display: 'none' }
-    : base;
-
 const AppNavigator = ({ route: appRoute }) => {
   const DS = useTheme().colors;
+
+
   // sport + format passed from SportSetupScreen via navigation.replace('MainApp', { sport, format })
   const initialSport  = appRoute?.params?.sport  || null;
   const initialFormat = appRoute?.params?.format || null;
@@ -421,27 +415,31 @@ const AppNavigator = ({ route: appRoute }) => {
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarActiveTintColor: DS.lime,
-        tabBarInactiveTintColor: DS.textMuted,
-        tabBarStyle: tabBarStyleFor(route, {
-          backgroundColor: DS.surfaceLow,
-          borderTopWidth: 0,
-          elevation: 0,
-          height: 58,
-          paddingBottom: 6,
-        }),
-        headerShown: false,
-        tabBarIcon: ({ color, size }) => {
-          const map = {
-            HomeTab: 'home-variant',
-            MyCricketTab: sportIcon,
-            ProfileTab: 'account-circle-outline',
-          };
-          const name = map[route.name] || 'apps';
-          return <Icon name={name} size={22} color={color} />;
-        },
-      })}
+      screenOptions={({ route, navigation }) => {
+        const focusedRouteName = getFocusedRouteNameFromRoute(route);
+        const isFullScreen = ['Scoring', 'SportScoring'].includes(focusedRouteName);
+        return {
+          tabBarActiveTintColor: DS.lime,
+          tabBarInactiveTintColor: DS.textMuted,
+          tabBarStyle: isFullScreen ? { height: 0, overflow: 'hidden', borderWidth: 0 } : {
+            backgroundColor: DS.surfaceLow,
+            borderTopWidth: 0,
+            elevation: 0,
+            height: 58,
+            paddingBottom: 6,
+          },
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => {
+            const map = {
+              HomeTab: 'home-variant',
+              MyCricketTab: sportIcon,
+              ProfileTab: 'account-circle-outline',
+            };
+            const name = map[route.name] || 'apps';
+            return <Icon name={name} size={22} color={color} />;
+          },
+        };
+      }}
     >
       <Tab.Screen
         name="HomeTab"
