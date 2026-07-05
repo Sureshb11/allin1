@@ -601,11 +601,13 @@ model Post {
   id         String   @id @default(cuid())
   createdAt  DateTime @default(now())
   sport      String   @default("cricket")
-  authorId   String?
-  authorName String
-  team       String?
-  text       String
-  likes      Int      @default(0)
+  authorId     String?
+  authorName   String
+  authorAvatar String?   // denormalised author photo (blob URL) for the feed
+  team         String?
+  text         String
+  mediaUrl     String?   // attached photo (Vercel Blob URL)
+  likes        Int      @default(0)
 
   comments   Comment[]
 

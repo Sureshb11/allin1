@@ -11,9 +11,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList,
   StatusBar, Dimensions, Animated, Modal, TextInput, Share, RefreshControl,
-  KeyboardAvoidingView, Platform, ActivityIndicator } from
+  KeyboardAvoidingView, Platform, ActivityIndicator, Image } from
 'react-native';
 import { Alert } from 'react-native';
+import { pickAndUploadImage } from '../utils/imageUpload';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import MomentumMeter from '../components/MomentumMeter';
@@ -51,13 +52,12 @@ const timeAgo = (iso) => {
 
 
 // ── Small building blocks ───────────────────────────────────────────────────
-function Avatar({ initial, color, size = 40, ring = false }) {const DS = useTheme().colors;
+function Avatar({ initial, color, size = 40, ring = false, uri = null }) {const DS = useTheme().colors;
+  const base = { width: size, height: size, borderRadius: size / 2 };
+  const ringStyle = ring && { borderWidth: 2, borderColor: DS.lime };
+  if (uri) return <Image source={{ uri }} style={[base, ringStyle]} />;
   return (
-    <View style={[
-    { width: size, height: size, borderRadius: size / 2, backgroundColor: color,
-      alignItems: 'center', justifyContent: 'center' },
-    ring && { borderWidth: 2, borderColor: DS.lime }]
-    }>
+    <View style={[base, { backgroundColor: color, alignItems: 'center', justifyContent: 'center' }, ringStyle]}>
       <Text style={{ color: '#fff', fontWeight: '800', fontSize: size * 0.4 }}>{initial}</Text>
     </View>);
 
@@ -152,6 +152,10 @@ function HighlightCard({ item, onLike, onOpen }) {const DS = useTheme().colors;c
 
 function PostMedia({ kind, media }) {const DS = useTheme().colors;const c = useThemedStyles(makeC);const m = useThemedStyles(makeM);
   if (!media) return null;   // real text posts carry no rich media
+  // Real uploaded photo (blob URL string).
+  if (kind === 'photo' && typeof media === 'string') {
+    return <Image source={{ uri: media }} style={m.photo} resizeMode="cover" />;
+  }
   if (kind === 'milestone') {
     return (
       <View style={[m.wrap, { backgroundColor: '#13351f' }]}>
@@ -231,7 +235,7 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
     <View style={p.card}>
       {/* header */}
       <View style={p.header}>
-        <Avatar initial={post.author.initial} color={post.author.color} size={42} ring />
+        <Avatar initial={post.author.initial} color={post.author.color} size={42} ring uri={post.author.avatar} />
         <View style={{ flex: 1, marginLeft: 10 }}>
           <View style={p.nameRow}>
             <Text style={p.name}>{post.author.name}</Text>
@@ -358,6 +362,8 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   const [activePost, setActivePost] = useState(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeText, setComposeText] = useState('');
+  const [composeImage, setComposeImage] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [posting, setPosting] = useState(false);
   const likedRef = useRef({});   // one like per session per post
 
@@ -369,10 +375,12 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       team: po.team || '',
       color: colorFor(po.authorName),
       initial: (po.authorName || 'P').charAt(0).toUpperCase(),
+      avatar: po.authorAvatar || null,
       verified: false,
     },
     time: timeAgo(po.createdAt),
-    kind: 'text', media: null,
+    kind: po.mediaUrl ? 'photo' : 'text',
+    media: po.mediaUrl || null,
     caption: po.text || '',
     likedBy: null,
     likes: po.likes || 0,
@@ -504,19 +512,28 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
 
   const submitPost = useCallback(async () => {
     const text = composeText.trim();
-    if (!text) return;
+    if (!text && !composeImage) return;
     setPosting(true);
     try {
-      const res = await legendsApi.createPost({ sport: 'cricket', text });
+      const res = await legendsApi.createPost({ sport: 'cricket', text: text || '📷', mediaUrl: composeImage });
       if (res.success) {
         setPosts((prev) => [mapPost(res.data), ...prev]);
         setComposeText('');
+        setComposeImage(null);
         setComposeOpen(false);
       }
     } finally {
       setPosting(false);
     }
-  }, [composeText, mapPost]);
+  }, [composeText, composeImage, mapPost]);
+
+  const addComposePhoto = useCallback(async () => {
+    setUploadingPhoto(true);
+    const r = await pickAndUploadImage('feed');
+    setUploadingPhoto(false);
+    if (r.url) setComposeImage(r.url);
+    else if (r.error) Alert.alert('Upload failed', r.error);
+  }, []);
 
   // keep the open sheet in sync with the latest comments
   const sheetPost = activePost ? posts.find((po) => po.id === activePost.id) : null;
@@ -648,11 +665,11 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
                 <Text style={s.composeTitle}>New Post</Text>
                 <TouchableOpacity
                   onPress={submitPost}
-                  disabled={posting || !composeText.trim()}
+                  disabled={posting || (!composeText.trim() && !composeImage)}
                   hitSlop={8}>
                   {posting
                     ? <ActivityIndicator color={DS.lime} />
-                    : <Text style={[s.composePost, !composeText.trim() && s.composePostOff]}>Post</Text>}
+                    : <Text style={[s.composePost, (!composeText.trim() && !composeImage) && s.composePostOff]}>Post</Text>}
                 </TouchableOpacity>
               </View>
               <TextInput
@@ -665,7 +682,21 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
                 autoFocus
                 maxLength={500}
                 editable={!posting} />
-              <Text style={s.composeCount}>{composeText.length}/500</Text>
+              {composeImage &&
+                <View style={s.composePreviewWrap}>
+                  <Image source={{ uri: composeImage }} style={s.composePreview} resizeMode="cover" />
+                  <TouchableOpacity style={s.composePreviewX} onPress={() => setComposeImage(null)}>
+                    <Icon name="close" size={16} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              }
+              <View style={s.composeToolbar}>
+                <TouchableOpacity style={s.composePhotoBtn} onPress={addComposePhoto} disabled={uploadingPhoto}>
+                  {uploadingPhoto ? <ActivityIndicator size="small" color={DS.lime} />
+                    : <><Icon name="image-plus" size={20} color={DS.lime} /><Text style={s.composePhotoTxt}>Photo</Text></>}
+                </TouchableOpacity>
+                <Text style={s.composeCount}>{composeText.length}/500</Text>
+              </View>
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -733,7 +764,13 @@ const makeS = (DS) => StyleSheet.create({
   composePost: { color: DS.blueSoft, fontSize: 15, fontWeight: '800' },
   composePostOff: { opacity: 0.4 },
   composeInput: { color: DS.textPrimary, fontSize: 16, lineHeight: 22, minHeight: 120, maxHeight: 240, textAlignVertical: 'top', backgroundColor: DS.surfaceLow, borderRadius: 14, borderWidth: 1, borderColor: DS.line, padding: 14 },
-  composeCount: { color: DS.textMuted, fontSize: 12, alignSelf: 'flex-end', marginTop: 8 }
+  composeCount: { color: DS.textMuted, fontSize: 12 },
+  composeToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  composePhotoBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  composePhotoTxt: { color: DS.lime, fontSize: 13, fontWeight: '800' },
+  composePreviewWrap: { marginTop: 12, borderRadius: 14, overflow: 'hidden' },
+  composePreview: { width: '100%', height: 200, borderRadius: 14 },
+  composePreviewX: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }
 });
 
 const makeH = (DS) => StyleSheet.create({
@@ -777,6 +814,7 @@ const makeC = (DS) => StyleSheet.create({
 
 const makeM = (DS) => StyleSheet.create({
   wrap: { marginHorizontal: 0, paddingVertical: 22, paddingHorizontal: 16, overflow: 'hidden' },
+  photo: { width: '100%', height: 300, backgroundColor: DS.surfaceHigh },
   glow: {
     position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: 80,
     backgroundColor: 'rgba(171,214,0,0.10)'

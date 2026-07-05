@@ -249,9 +249,9 @@ class LegendsApi {
     }
   }
 
-  async createPost({ sport = 'cricket', text, team }) {
+  async createPost({ sport = 'cricket', text, team, mediaUrl }) {
     try {
-      const json = await this.request('/posts', { method: 'POST', body: { sport, text, team } });
+      const json = await this.request('/posts', { method: 'POST', body: { sport, text, team, mediaUrl } });
       return { success: true, data: json.post };
     } catch (error) {
       return { success: false, error: error.message };

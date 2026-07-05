@@ -63,13 +63,14 @@ const PostSchema = z.object({
   text: z.string().min(1).max(500),
   authorName: z.string().optional(),
   team: z.string().optional(),
+  mediaUrl: z.string().url().optional().nullable(),
 });
 
 // POST /posts — create a post (auth optional; falls back to a guest name)
 router.post('/', async (req, res) => {
   try {
     const data = PostSchema.parse(req.body);
-    let authorId = null, authorName = data.authorName || 'You';
+    let authorId = null, authorName = data.authorName || 'You', authorAvatar = null;
     const hdr = req.headers.authorization || '';
     if (hdr.startsWith('Bearer ')) {
       try {
@@ -77,11 +78,11 @@ router.post('/', async (req, res) => {
         const dec = jwt.verify(hdr.slice(7), process.env.JWT_SECRET);
         authorId = dec.sub;
         const u = await prisma.user.findUnique({ where: { id: dec.sub } });
-        if (u) authorName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || authorName;
+        if (u) { authorName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || authorName; authorAvatar = u.avatarUrl || null; }
       } catch { /* unauthenticated post */ }
     }
     const post = await prisma.post.create({
-      data: { sport: data.sport, text: data.text, team: data.team, authorId, authorName },
+      data: { sport: data.sport, text: data.text, team: data.team, mediaUrl: data.mediaUrl || null, authorId, authorName, authorAvatar },
     });
     res.status(201).json({ post });
   } catch (e) {
