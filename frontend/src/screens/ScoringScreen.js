@@ -91,6 +91,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [history, setHistory] = useState([]);
   const [undoing, setUndoing] = useState(false);
   const savingRef = useRef(false);   // true while a ball is being persisted (debounces rapid taps)
+  const milestoneRef = useRef({ bat: {}, bowl: {}, streak: { id: null, n: 0 } });   // announced milestones + hat-trick streak
 
   useEffect(() => {
     if (matchData) {
@@ -166,6 +167,25 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scoringReady, striker, nonStriker, currentBowler, matchData?.id, currentInningId]);
+
+  // Live milestones: 50/100 for batters, 5-wicket haul for bowlers. Announced once
+  // each (tracked in milestoneRef) when the figure is crossed.
+  useEffect(() => {
+    if (!scoringReady) return;
+    const nameOf = (id) => (battingXI.find((p) => p.id === id) || bowlingXI.find((p) => p.id === id) || {}).name || 'Player';
+    Object.entries(batStats).forEach(([id, s]) => {
+      const prev = milestoneRef.current.bat[id] || 0;
+      const hit = s.runs >= 100 && prev < 100 ? 100 : (s.runs >= 50 && prev < 50 ? 50 : null);
+      if (hit) { haptic.success(); showToast(`🎉 ${nameOf(id)} ${hit === 100 ? 'HUNDRED' : 'FIFTY'}! ${s.runs}(${s.balls})`, 'success', 2600); }
+      milestoneRef.current.bat[id] = s.runs;
+    });
+    Object.entries(bowlStats).forEach(([id, s]) => {
+      const prev = milestoneRef.current.bowl[id] || 0;
+      if (s.wickets >= 5 && prev < 5) { haptic.success(); showToast(`🔥 ${nameOf(id)} — 5-wicket haul!`, 'success', 2600); }
+      milestoneRef.current.bowl[id] = s.wickets;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batStats, bowlStats]);
 
   const overStr = `${currentScore.overs}.${currentScore.balls}`;
   const totalOvers = parseInt(matchData.overs, 10) || 20;
@@ -454,6 +474,17 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     if (value === 'noball') setFreeHit(true);
     else if (typeof value === 'number' || value === 'bye' || value === 'legbye' || value === 'out') setFreeHit(false);
 
+    // Hat-trick: 3 bowler-credited wickets on consecutive deliveries by one bowler.
+    const st = milestoneRef.current.streak;
+    const bowlerWkt = value === 'out' && !['runout', 'retiredout', 'retired'].includes(String(wicketType).toLowerCase().replace(/\s/g, ''));
+    if (bowlerWkt && currentBowler) {
+      st.n = st.id === currentBowler.id ? st.n + 1 : 1;
+      st.id = currentBowler.id;
+      if (st.n === 3) { haptic.success(); showToast(`🎩 HAT-TRICK! ${currentBowler.name}`, 'success', 3000); }
+    } else if (typeof value === 'number' || value === 'bye' || value === 'legbye') {
+      st.n = 0;   // a legal delivery with no wicket breaks the streak (extras don't)
+    }
+
     setCurrentScore(newScore);
     const scoreStr = `${newScore.runs}/${newScore.wickets} (${newScore.overs}.${newScore.balls})`;
     if (!isInnings2) legendsApi.updateMatch(matchData.id, { score1: scoreStr });
@@ -489,6 +520,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       setCurrentOver([]); setBallCount(0); setOverSummary(null); setHistory([]);
       // Fresh innings → reset per-player figures + bowling spell tracking + dismissals.
       setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setOutBatters([]); setRetiredBatters([]);
+      milestoneRef.current = { bat: {}, bowl: {}, streak: { id: null, n: 0 } };   // fresh milestones for the new innings
       setBattingTeamName(bowlingTeamName); setBowlingTeamName(battingTeamName);
       setBattingXI(bowlingXI); setBowlingXI(battingXI);
       setBattingTeamId(bowlingTeamId); setBowlingTeamId(battingTeamId);
