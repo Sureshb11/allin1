@@ -20,12 +20,31 @@ import { setCurrentAvatar } from '../utils/currentUser';
 
 const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [profile, setProfile] = useState({
-    name: '', email: '', phone: '', city: '', state: '', country: '',
+    name: '', email: '', phone: '', city: '', district: '', state: '', country: '', pincode: '',
     battingStyle: '', bowlingStyle: '', dateOfBirth: '', height: '', weight: '', bio: '',
   });
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [citySuggest, setCitySuggest] = useState([]);   // pincode autocomplete results
+  const cityTimer = React.useRef(null);
+
+  // Debounced city/town search → suggestions from the Indian pincode directory.
+  const onCityChange = (text) => {
+    setProfile((prev) => ({ ...prev, city: text }));
+    if (cityTimer.current) clearTimeout(cityTimer.current);
+    if (text.trim().length < 2) { setCitySuggest([]); return; }
+    cityTimer.current = setTimeout(async () => {
+      const res = await legendsApi.searchPincodes(text.trim());
+      setCitySuggest(res.data || []);
+    }, 250);
+  };
+
+  // Pick a suggestion → auto-fill city/town, district, state, country, pincode.
+  const pickCity = (s) => {
+    setProfile((prev) => ({ ...prev, city: s.city, district: s.district, state: s.state, country: s.country || 'India', pincode: s.pincode }));
+    setCitySuggest([]);
+  };
 
   const changeAvatar = async () => {
     setUploadingAvatar(true);
@@ -54,7 +73,10 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
     legendsApi.getUserProfile().then((res) => {
       const u = res?.success ? (res.data || {}) : {};
       const name = u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim();
-      setProfile((prev) => ({ ...prev, name, phone: u.phone || '', bio: u.bio || '' }));
+      setProfile((prev) => ({
+        ...prev, name, phone: u.phone || '', bio: u.bio || '',
+        city: u.city || '', district: u.district || '', state: u.state || '', country: u.country || '', pincode: u.pincode || '',
+      }));
       if (u.avatarUrl) setAvatarUrl(u.avatarUrl);
     });
   }, []);
@@ -64,7 +86,11 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
     const parts = (profile.name || '').trim().split(/\s+/);
     const firstName = parts.shift() || 'Player';
     const lastName = parts.join(' ') || '-';
-    const res = await legendsApi.updateUserProfile({ firstName, lastName, bio: profile.bio || null });
+    const res = await legendsApi.updateUserProfile({
+      firstName, lastName, bio: profile.bio || null,
+      city: profile.city || null, district: profile.district || null,
+      state: profile.state || null, country: profile.country || null, pincode: profile.pincode || null,
+    });
     setSaving(false);
     if (res.success) {
       Alert.alert('Success', 'Profile updated.');
@@ -129,14 +155,37 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
           
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>City</Text>
+        <View style={[styles.inputGroup, { zIndex: 10 }]}>
+          <Text style={styles.label}>City/Town</Text>
           <TextInput
             style={styles.input}
             value={profile.city}
-            onChangeText={(text) => setProfile({ ...profile, city: text })}
+            onChangeText={onCityChange}
+            placeholder="Start typing your city or town…"
+            placeholderTextColor={DS.textMuted}
+            autoCorrect={false} />
+          {citySuggest.length > 0 &&
+            <View style={styles.suggestBox}>
+              {citySuggest.map((s, i) => (
+                <TouchableOpacity key={i} style={styles.suggestRow} onPress={() => pickCity(s)}>
+                  <Icon name="map-marker-outline" size={16} color={DS.lime} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.suggestCity}>{s.city}</Text>
+                    <Text style={styles.suggestMeta}>{s.district}, {s.state} · {s.pincode}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          }
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>District</Text>
+          <TextInput
+            style={styles.input}
+            value={profile.district}
+            onChangeText={(text) => setProfile({ ...profile, district: text })}
             placeholderTextColor={DS.textMuted} />
-          
         </View>
 
         <View style={styles.inputGroup}>
@@ -146,7 +195,6 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
             value={profile.state}
             onChangeText={(text) => setProfile({ ...profile, state: text })}
             placeholderTextColor={DS.textMuted} />
-          
         </View>
 
         <View style={styles.inputGroup}>
@@ -156,7 +204,17 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
             value={profile.country}
             onChangeText={(text) => setProfile({ ...profile, country: text })}
             placeholderTextColor={DS.textMuted} />
-          
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Pincode</Text>
+          <TextInput
+            style={styles.input}
+            value={profile.pincode}
+            onChangeText={(text) => setProfile({ ...profile, pincode: text })}
+            keyboardType="number-pad"
+            maxLength={6}
+            placeholderTextColor={DS.textMuted} />
         </View>
 
         <View style={styles.inputGroup}>
@@ -246,6 +304,15 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DS.bg,
   },
   avatarHint: { fontSize: 12, color: DS.textMuted, marginTop: 8, fontWeight: '600' },
+  suggestBox: {
+    marginTop: 6, backgroundColor: DS.surfaceHigh, borderRadius: 12, borderWidth: 1, borderColor: DS.line, overflow: 'hidden',
+  },
+  suggestRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12,
+    borderBottomWidth: 1, borderBottomColor: DS.line,
+  },
+  suggestCity: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
+  suggestMeta: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

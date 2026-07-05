@@ -417,6 +417,16 @@ class LegendsApi {
     }
   }
 
+  // Indian city/town → district/state/pincode autocomplete.
+  async searchPincodes(q) {
+    try {
+      const json = await this.request(`/pincodes/search?q=${encodeURIComponent(q)}`);
+      return { success: true, data: json.results || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
   // Photo gallery (player or team).
   async getGallery({ userId, teamId } = {}) {
     try {
