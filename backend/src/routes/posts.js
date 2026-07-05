@@ -1,19 +1,29 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { authMiddleware } from '../lib/auth.js';
+import { authMiddleware, optionalAuth } from '../lib/auth.js';
 
 const router = Router();
 
 // GET /posts?sport=cricket — community feed posts for a sport (+ comment counts)
-router.get('/', async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
   const { sport } = req.query;
   const where = sport ? { sport: String(sport) } : {};
   const rows = await prisma.post.findMany({
     where, orderBy: { createdAt: 'desc' }, take: 50,
     include: { _count: { select: { comments: true } } },
   });
-  const posts = rows.map(({ _count, ...p }) => ({ ...p, commentCount: _count.comments }));
+  // Annotate which posts the caller has liked (one query, not N) — so the heart
+  // shows correctly on reopen instead of resetting (it was only tracked in memory).
+  let likedSet = new Set();
+  if (req.user && rows.length) {
+    const likes = await prisma.like.findMany({
+      where: { userId: req.user.sub, targetType: 'post', targetId: { in: rows.map((p) => p.id) } },
+      select: { targetId: true },
+    });
+    likedSet = new Set(likes.map((l) => l.targetId));
+  }
+  const posts = rows.map(({ _count, ...p }) => ({ ...p, commentCount: _count.comments, liked: likedSet.has(p.id) }));
   res.json({ posts });
 });
 
@@ -90,18 +100,30 @@ router.post('/', async (req, res) => {
   }
 });
 
-// POST /posts/:id/like
-router.post('/:id/like', async (req, res) => {
+// POST /posts/:id/like — idempotent toggle (like/unlike), persisted per user so the
+// heart is still correct after the app is closed and reopened.
+router.post('/:id/like', authMiddleware, async (req, res) => {
   try {
-    const post = await prisma.post.update({ where: { id: req.params.id }, data: { likes: { increment: 1 } } });
-    if (post.authorId) {
+    const userId = req.user.sub, targetId = req.params.id;
+    const key = { userId_targetType_targetId: { userId, targetType: 'post', targetId } };
+    const existing = await prisma.like.findUnique({ where: key });
+
+    let liked;
+    if (existing) { await prisma.like.delete({ where: key }); liked = false; }
+    else { await prisma.like.create({ data: { userId, targetType: 'post', targetId } }); liked = true; }
+
+    // Recount from the source of truth and denormalise onto the post.
+    const likes = await prisma.like.count({ where: { targetType: 'post', targetId } });
+    const post = await prisma.post.update({ where: { id: targetId }, data: { likes } });
+
+    if (liked && post.authorId && post.authorId !== userId) {
       const actor = await resolveAuthor(req, 'Someone');
       await prisma.notification.create({
         data: { userId: post.authorId, type: 'like', title: 'New like',
                 message: `${actor.authorName} liked your post` },
       });
     }
-    res.json({ post });
+    res.json({ post, liked, likes });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

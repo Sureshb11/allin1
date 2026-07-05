@@ -258,10 +258,11 @@ class LegendsApi {
     }
   }
 
+  // Idempotent like/unlike toggle — returns the server's real { liked, likes }.
   async likePost(id) {
     try {
       const json = await this.request(`/posts/${id}/like`, { method: 'POST' });
-      return { success: true, data: json.post };
+      return { success: true, liked: json.liked, likes: json.likes, data: json.post };
     } catch (error) {
       return { success: false, error: error.message };
     }

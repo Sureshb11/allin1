@@ -381,8 +381,6 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   const [composeImage, setComposeImage] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [posting, setPosting] = useState(false);
-  const likedRef = useRef({});   // one like per session per post
-
   const mapPost = useCallback((po) => ({
     id: po.id,
     author: {
@@ -400,7 +398,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     caption: po.text || '',
     likedBy: null,
     likes: po.likes || 0,
-    liked: !!likedRef.current[po.id],   // preserve the like highlight across polls
+    liked: !!po.liked,   // authoritative per-user state from the server (persists across app restarts)
     comments: [],
     commentCount: po.commentCount || 0,
   }), []);
@@ -452,11 +450,16 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     fetchFeed().finally(() => setRefreshing(false));
   }, [fetchFeed]);
 
-  const toggleLike = useCallback((id) => {
+  const toggleLike = useCallback(async (id) => {
     haptic.tick();
+    // Optimistic flip, then reconcile with the server's real { liked, likes } —
+    // persisted per-user (Like table) so it's still correct after the app restarts.
     setPosts((prev) => prev.map((po) =>
       po.id === id ? { ...po, liked: !po.liked, likes: Math.max(0, po.likes + (po.liked ? -1 : 1)) } : po));
-    if (!likedRef.current[id]) { likedRef.current[id] = true; legendsApi.likePost(id); }
+    const res = await legendsApi.likePost(id);
+    if (res.success) {
+      setPosts((prev) => prev.map((po) => (po.id === id ? { ...po, liked: res.liked, likes: res.likes } : po)));
+    }
   }, []);
 
   const loadComments = useCallback(async (postId) => {
