@@ -20,7 +20,7 @@ const SPORT_STAT_FIELDS = {
 const DEFAULT_STAT_FIELDS = [['matches', 'Matches'], ['events', 'Events'], ['fights', 'Fights'], ['wins', 'Wins'], ['titles', 'Titles'], ['ko', 'KO'], ['goals', 'Goals']];
 
 const MENU_ITEMS = [
-  { id: 'edit-profile',   title: 'Edit Profile',          icon: 'account-edit',   screen: 'EditPlayerProfile' },
+  // 'Edit Profile' now lives only in the icon action bar above (avoids duplicating it here).
   { id: 'edit-team',      title: 'Team Profile',           icon: 'account-group',  screen: 'EditTeamProfile' },
   { id: 'club-profile',   title: 'Club Profile',           icon: 'domain',         screen: 'ClubProfile' },
   { id: 'services',       title: 'Services Profile',       icon: 'cog',            screen: 'ServicesProfile' },
