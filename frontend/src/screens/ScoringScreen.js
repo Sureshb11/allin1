@@ -81,6 +81,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [roster, setRoster] = useState([]);                // the team's full roster for the add sheet
   const [freeHit, setFreeHit] = useState(false);           // next legal ball is a free hit (post no-ball)
   const [retiredPrompt, setRetiredPrompt] = useState(false); // Retired hurt / out chooser
+  const [retiredBatters, setRetiredBatters] = useState([]);  // ids retired hurt (can return to bat)
   const [mvp, setMvp] = useState(null);                    // Player of the Match (computed on completion)
   const [showSettings, setShowSettings] = useState(false); // top-bar settings sheet (End Innings/Match lives here)
   const [endPrompt, setEndPrompt] = useState(false);       // reason picker before ending innings/match
@@ -485,7 +486,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       setCurrentScore({ runs: 0, wickets: 0, overs: 0, balls: 0 });
       setCurrentOver([]); setBallCount(0); setOverSummary(null); setHistory([]);
       // Fresh innings → reset per-player figures + bowling spell tracking + dismissals.
-      setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setOutBatters([]);
+      setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setOutBatters([]); setRetiredBatters([]);
       setBattingTeamName(bowlingTeamName); setBowlingTeamName(battingTeamName);
       setBattingXI(bowlingXI); setBowlingXI(battingXI);
       setBattingTeamId(bowlingTeamId); setBowlingTeamId(battingTeamId);
@@ -538,6 +539,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   // (kept out of outBatters, so they're selectable again). No ball is bowled.
   const retireBatsman = (slot) => {
     setRetiredPrompt(false);
+    const leaving = slot === 'nonstriker' ? nonStriker : striker;
+    if (leaving) setRetiredBatters((prev) => prev.some((r) => r.id === leaving.id) ? prev : [...prev, { id: leaving.id, name: leaving.name }]);
     if (slot === 'nonstriker') { setNonStriker(null); setNewBatterFor('nonstriker'); }
     else { setStriker(null); setNewBatterFor('striker'); }
     setShowPlayerModal(true);
@@ -964,16 +967,24 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               New Batsman{newBatterFor === 'nonstriker' ? ' (non-striker)' : ''}
             </Text>
             <ScrollView>
-              {getAvailableBatsmen().map((p, i) =>
-              <TouchableOpacity key={i} style={styles.playerOption}
-              onPress={() => { if (newBatterFor === 'nonstriker') setNonStriker(p); else setStriker(p); setShowPlayerModal(false); setNewBatterFor('striker'); }}>
-                  <View style={styles.playerAvatar}>
-                    <Text style={styles.playerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
+              {getAvailableBatsmen().map((p, i) => {
+                const resuming = retiredBatters.some((r) => r.id === p.id);   // retired hurt, coming back
+                return (
+                <TouchableOpacity key={i} style={styles.playerOption}
+                onPress={() => {
+                  if (newBatterFor === 'nonstriker') setNonStriker(p); else setStriker(p);
+                  if (resuming) setRetiredBatters((prev) => prev.filter((r) => r.id !== p.id));
+                  setShowPlayerModal(false); setNewBatterFor('striker');
+                }}>
+                  <View style={[styles.playerAvatar, resuming && { backgroundColor: DS.lime + '33' }]}>
+                    <Text style={[styles.playerInitial, resuming && { color: DS.lime }]}>{p.name.charAt(0).toUpperCase()}</Text>
                   </View>
-                  <Text style={styles.playerName}>{p.name}</Text>
-                  <Icon name="chevron-right" size={18} color={DS.textMuted} />
-                </TouchableOpacity>
-              )}
+                  <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
+                  {resuming
+                    ? <Text style={[styles.modalSub, { marginBottom: 0, color: DS.lime }]}>retired · resume</Text>
+                    : <Icon name="chevron-right" size={18} color={DS.textMuted} />}
+                </TouchableOpacity>);
+              })}
             </ScrollView>
             <TouchableOpacity style={styles.squadAddBtn} onPress={() => openSquadAdd('bat')}>
               <Icon name="account-plus" size={18} color={DS.lime} />
