@@ -363,6 +363,44 @@ router.get('/:id/live-state', async (req, res) => {
     const creaseNonStriker = nameFor(inning.nonStrikerId) || fbNon;
     const creaseBowler = nameFor(inning.currentBowlerId) || fbBowler;
 
+    // Per-player figures for resume: striker runs/balls and bowler O-M-R-W.
+    // Runs "charged" to the bowler = bat runs + wides + no-ball penalty; byes/leg-
+    // byes/penalty aren't charged. A maiden = a completed over with 0 charged runs.
+    const battingFigures = {};
+    const bowlingFigures = {};
+    for (const ov of inning.oversData) {
+      const bId = ov.bowlerId;
+      if (!bowlingFigures[bId]) bowlingFigures[bId] = { balls: 0, runs: 0, wickets: 0, maidens: 0 };
+      let overCharged = 0, overLegal = 0;
+      for (const b of ov.balls) {
+        const et = b.extraType;
+        if (b.batterId) {
+          if (!battingFigures[b.batterId]) battingFigures[b.batterId] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
+          if (et !== 'wide' && et !== 'penalty') battingFigures[b.batterId].balls += 1;  // faced
+          if (!et || et === 'noBall') {                                                   // runs off the bat
+            battingFigures[b.batterId].runs += b.runs;
+            if (b.runs === 4) battingFigures[b.batterId].fours += 1;
+            if (b.runs === 6) battingFigures[b.batterId].sixes += 1;
+          }
+        }
+        let charged = 0, legal = false;
+        if (et === 'wide') charged = b.extras;
+        else if (et === 'noBall') charged = b.runs + b.extras;
+        else if (et === 'bye' || et === 'legBye') legal = true;   // charged 0
+        else if (et === 'penalty') charged = 0;
+        else { charged = b.runs; legal = true; }                  // normal delivery / wicket
+        overCharged += charged;
+        if (legal) overLegal += 1;
+        bowlingFigures[bId].runs += charged;
+        if (legal) bowlingFigures[bId].balls += 1;
+        if (b.isWicket) {
+          const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
+          if (wt !== 'runout' && wt !== 'retired') bowlingFigures[bId].wickets += 1;
+        }
+      }
+      if (overLegal >= 6 && overCharged === 0) bowlingFigures[bId].maidens += 1;
+    }
+
     res.json({
       sport: 'cricket',
       status: match.status,
@@ -394,6 +432,7 @@ router.get('/:id/live-state', async (req, res) => {
       needsNewBatter: !creaseStriker,
       needsNewBowler: !creaseBowler,
       bowlerOvers, lastOverBowlerId,
+      battingFigures, bowlingFigures,
       lastBall: lastBall ? { runs: lastBall.runs, extras: lastBall.extras, extraType: lastBall.extraType, isWicket: lastBall.isWicket } : null,
     });
   } catch (e) {

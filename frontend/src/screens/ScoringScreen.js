@@ -64,6 +64,11 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   // Bowling spell tracking → per-bowler over limit + no consecutive overs.
   const [bowlerOvers, setBowlerOvers] = useState({});      // bowlerId -> overs bowled
   const [lastOverBowlerId, setLastOverBowlerId] = useState(null);
+  // Real per-player figures for the live cards (not team totals):
+  //   batStats:  playerId -> { runs, balls, fours, sixes }
+  //   bowlStats: playerId -> { balls, runs, wickets, maidens, overRuns }
+  const [batStats, setBatStats] = useState({});
+  const [bowlStats, setBowlStats] = useState({});
   const [extraPrompt, setExtraPrompt] = useState(null);    // 'wide'|'noball'|'bye'|'legbye' → +runs sheet
   const [wicketPrompt, setWicketPrompt] = useState(false); // WICKET → dismissal-type sheet
   // Undo: snapshot of everything a ball mutates, pushed before each delivery.
@@ -106,6 +111,12 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       setCurrentInningId(d.inningId);
       setBowlerOvers(d.bowlerOvers || {});
       setLastOverBowlerId(d.lastOverBowlerId || null);
+      // Rehydrate real per-player figures so the striker/bowler cards resume with
+      // correct O-M-R-W and runs(balls) — not zeros or team totals.
+      setBatStats(d.battingFigures || {});
+      setBowlStats(Object.fromEntries(
+        Object.entries(d.bowlingFigures || {}).map(([id, f]) => [id, { ...f, overRuns: 0 }])
+      ));
       // A batter is "known" only if the last ball wasn't a wicket; bowler only
       // if we're mid-over. Pre-fill what we know and, if anything's missing,
       // drop to the setup screen so the scorer re-picks (this is why batters
@@ -209,6 +220,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     setStriker(prev.striker);
     setNonStriker(prev.nonStriker);
     setCurrentBowler(prev.bowler);
+    if (prev.batStats) setBatStats(prev.batStats);
+    if (prev.bowlStats) setBowlStats(prev.bowlStats);
     setOverSummary(null);
     setShowPlayerModal(false);
     setShowBowlerModal(false);
@@ -226,6 +239,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     setHistory((h) => [...h.slice(-49), {
       score: { ...currentScore }, over: [...currentOver], ballCount,
       striker, nonStriker, bowler: currentBowler,
+      batStats: { ...batStats }, bowlStats: { ...bowlStats },
     }]);
     // Tactile feedback: a firm buzz on a wicket, a light tick on every other ball.
     if (value === 'out') haptic.warn(); else haptic.tick();
@@ -278,6 +292,35 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       await persistBall(0, 5, 'penalty', false, null, false);
     }
 
+    // ── Real per-player figures (striker runs/balls, bowler O-M-R-W) ──
+    // Runs off the bat go to the striker; runs "charged" to the bowler are bat
+    // runs + wides + no-ball penalty (byes/leg-byes/penalty are NOT charged).
+    {
+      let batRuns = 0, batFaced = 0, isFour = 0, isSix = 0, charged = 0, tookWkt = 0;
+      const bowlerLegal = typeof value === 'number' || value === 'bye' || value === 'legbye' || value === 'out';
+      if (typeof value === 'number') { batRuns = value; batFaced = 1; isFour = value === 4 ? 1 : 0; isSix = value === 6 ? 1 : 0; charged = value; }
+      else if (value === 'wide') { charged = 1 + addRuns; }
+      else if (value === 'noball') { batRuns = addRuns; batFaced = 1; charged = 1 + addRuns; }
+      else if (value === 'bye' || value === 'legbye') { batFaced = 1; }
+      else if (value === 'out') {
+        batFaced = 1;
+        const wt = String(wicketType).toLowerCase().replace(/\s/g, '');
+        tookWkt = (wt === 'runout' || wt === 'retired') ? 0 : 1;   // run-outs aren't credited to the bowler
+      }
+      // 'penalty' → no batsman/bowler effect
+      if (striker) setBatStats((prev) => {
+        const c = prev[striker.id] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+        return { ...prev, [striker.id]: { runs: c.runs + batRuns, balls: c.balls + batFaced, fours: c.fours + isFour, sixes: c.sixes + isSix } };
+      });
+      if (currentBowler) setBowlStats((prev) => {
+        const c = prev[currentBowler.id] || { balls: 0, runs: 0, wickets: 0, maidens: 0, overRuns: 0 };
+        return { ...prev, [currentBowler.id]: {
+          balls: c.balls + (bowlerLegal ? 1 : 0), runs: c.runs + charged,
+          wickets: c.wickets + tookWkt, maidens: c.maidens, overRuns: c.overRuns + charged,
+        } };
+      });
+    }
+
     if (newScore.balls >= 6) {
       // Build over summary before reset
       const isExtra = (b) => /wd|nb|^b$|lb|WD|NB|LB|P5/i.test(b) || b === 'B';
@@ -308,6 +351,12 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       if (currentBowler) {
         setBowlerOvers((prev) => ({ ...prev, [currentBowler.id]: (prev[currentBowler.id] || 0) + 1 }));
         setLastOverBowlerId(currentBowler.id);
+        // Maiden = 0 runs charged to the bowler this over; then reset the tally.
+        setBowlStats((prev) => {
+          const c = prev[currentBowler.id];
+          if (!c) return prev;
+          return { ...prev, [currentBowler.id]: { ...c, maidens: c.maidens + (c.overRuns === 0 ? 1 : 0), overRuns: 0 } };
+        });
       }
       const t = striker;setStriker(nonStriker);setNonStriker(t);
       if (newScore.overs < totalOvers && newScore.wickets < 10) { setMustPickBowler(true); setShowBowlerModal(true); }
@@ -388,9 +437,12 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const filledOver = [...currentOver];
   while (filledOver.length < 6) filledOver.push(null);
 
-  const bowlerStats = currentBowler ?
-  `${currentScore.overs}.${currentScore.balls} - 0 - ${currentScore.runs} - ${currentScore.wickets}` :
-  '—';
+  // Real bowler figures: Overs - Maidens - Runs - Wickets (O-M-R-W).
+  const bowlerStats = (() => {
+    if (!currentBowler) return '—';
+    const b = bowlStats[currentBowler.id] || { balls: 0, runs: 0, wickets: 0, maidens: 0 };
+    return `${Math.floor(b.balls / 6)}.${b.balls % 6} - ${b.maidens} - ${b.runs} - ${b.wickets}`;
+  })();
 
   // ── PRE-SCORING SETUP SCREEN ──────────────────────────────────
   if (!scoringReady) {
@@ -593,7 +645,10 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
             <Text style={styles.strikerName} numberOfLines={2}>{striker?.name || 'Select Batter'}</Text>
             <View style={styles.strikerBottom}>
               <Text style={styles.strikerStats}>
-                {striker ? `${(striker.stats?.runs || 0) % 100}(${(striker.stats?.balls || 0) % 50}) • 4x4, 2x6` : '—'}
+                {striker ? (() => {
+                  const st = batStats[striker.id] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+                  return `${st.runs}(${st.balls}) • ${st.fours}x4, ${st.sixes}x6`;
+                })() : '—'}
               </Text>
               <TouchableOpacity onPress={() => setShowPlayerModal(true)} style={styles.searchBtn}>
                 <Icon name="account-search" size={18} color={DS.textMuted} />
