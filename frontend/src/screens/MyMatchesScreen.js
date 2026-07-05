@@ -104,13 +104,9 @@ function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
             <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>SCORE</Text>
           </TouchableOpacity>
         ) : m.status === 'live' ? (
-          // Not the assigned scorer — tap the card to watch the live score (like
-          // Cricbuzz/Cricinfo), no separate scoring entry point for spectators.
-          <TouchableOpacity onPress={onPress} style={[styles.scoreBtn, styles.watchBtn]}>
-            <View style={styles.watchLiveDot} />
-            <Text style={[styles.scoreBtnText, styles.watchBtnText]}>WATCH LIVE</Text>
-            <Icon name="chevron-right" size={14} color={DS.textPrimary} />
-          </TouchableOpacity>
+          // Not the assigned scorer — the LIVE pill in the header above is enough;
+          // the whole card is already tappable through to the live scorecard.
+          <View style={{ flex: 1 }} />
         ) : (
           <TouchableOpacity onPress={onPress} style={styles.scoreBtn}>
             <Text style={styles.scoreBtnText}>Scorecard</Text>
@@ -432,10 +428,6 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   scoreBtnText: { fontSize: 12, fontWeight: '800', color: DS.bg },
   startBtn: { backgroundColor: DS.blueDeep },   // scheduled → solid-blue START
-  // Spectator "watch live" action (team member / follower who isn't the scorer).
-  watchBtn: { backgroundColor: DS.surfaceHighest, gap: 6 },
-  watchBtnText: { color: DS.textPrimary },
-  watchLiveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DS.live },
 
   /* Promo card */
   promoCard: {

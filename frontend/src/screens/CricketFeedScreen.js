@@ -105,22 +105,22 @@ function CircleMatchCard({ match, onPress }) {const DS = useTheme().colors;const
         </View>
       )}
 
-      <View style={c.cardDivider} />
+      {/* Not the scorer? The LIVE pill above is enough — the whole card already
+          taps through to the live scorecard, no extra row needed. */}
       {match.live && match.isScorer ? (
-        <View style={c.resumeRow}>
-          <Icon name="play-circle" size={16} color={DS.onBlue} />
-          <Text style={c.resumeTxt}>SCORE</Text>
-        </View>
-      ) : match.live ? (
-        // Watching, not scoring — anyone (team members, followers) can tap in to
-        // follow the live score, same as Cricbuzz/Cricinfo.
-        <View style={c.resumeRow}>
-          <Icon name="eye-outline" size={16} color={DS.onBlue} />
-          <Text style={c.resumeTxt}>WATCH LIVE</Text>
-        </View>
-      ) : (
-        <Text style={c.resultTxt} numberOfLines={1}>{match.result}</Text>
-      )}
+        <>
+          <View style={c.cardDivider} />
+          <View style={c.resumeRow}>
+            <Icon name="play-circle" size={16} color={DS.onBlue} />
+            <Text style={c.resumeTxt}>SCORE</Text>
+          </View>
+        </>
+      ) : !match.live ? (
+        <>
+          <View style={c.cardDivider} />
+          <Text style={c.resultTxt} numberOfLines={1}>{match.result}</Text>
+        </>
+      ) : null}
     </TouchableOpacity>);
 
 }
@@ -573,11 +573,10 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   // keep the open sheet in sync with the latest comments
   const sheetPost = activePost ? posts.find((po) => po.id === activePost.id) : null;
 
-  // If a match is live, surface a one-tap banner at the very top: the assigned
-  // scorer jumps straight back into scoring; everyone else (team members,
-  // followers) jumps to the live, auto-refreshing scorecard — just watching,
-  // Cricbuzz/Cricinfo-style.
-  const liveMatch = matches.find((mt) => mt.live);
+  // Only the assigned scorer gets the "jump back into scoring" banner at the top —
+  // for everyone else the red LIVE pill on the circle card is enough; the card
+  // already taps through to the live scorecard, no separate banner needed.
+  const liveMatch = matches.find((mt) => mt.live && mt.isScorer);
 
   const renderHeader =
   <View>
@@ -585,15 +584,15 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
         <TouchableOpacity
           style={s.resumeBanner}
           activeOpacity={0.9}
-          onPress={() => navigation.navigate(liveMatch.isScorer ? 'Scoring' : 'Scorecard', liveMatch.isScorer ? { resume: true, matchId: liveMatch.id } : { matchId: liveMatch.id })}>
+          onPress={() => navigation.navigate('Scoring', { resume: true, matchId: liveMatch.id })}>
           <View style={s.resumeDot} />
           <View style={{ flex: 1 }}>
-            <Text style={s.resumeTitle}>{liveMatch.isScorer ? 'LIVE MATCH · TAP TO RESUME SCORING' : 'LIVE MATCH · TAP TO WATCH'}</Text>
+            <Text style={s.resumeTitle}>LIVE MATCH · TAP TO RESUME SCORING</Text>
             <Text style={s.resumeSub} numberOfLines={1}>{liveMatch.a.name} vs {liveMatch.b.name}</Text>
           </View>
           <View style={s.resumeCta}>
-            <Icon name={liveMatch.isScorer ? 'play' : 'eye-outline'} size={16} color={DS.onBlue} />
-            <Text style={s.resumeCtaTxt}>{liveMatch.isScorer ? 'SCORE' : 'WATCH'}</Text>
+            <Icon name="play" size={16} color={DS.onBlue} />
+            <Text style={s.resumeCtaTxt}>SCORE</Text>
           </View>
         </TouchableOpacity>
       )}
