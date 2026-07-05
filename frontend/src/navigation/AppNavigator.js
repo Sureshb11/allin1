@@ -2,6 +2,7 @@ import React from 'react';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createStackNavigator} from '@react-navigation/stack';
+import {getFocusedRouteNameFromRoute} from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 
 import HomeScreen from '../screens/HomeScreen';
@@ -397,6 +398,14 @@ const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="Home" 
 // Insights, Badges, Edit Profile, …). Reusing HomeStack keeps all those sub-routes working.
 const ProfileStack = (props) => <HomeStack {...props} initialRouteName="Profile" />;
 
+// Full-screen routes that render their own bottom bar / need the whole viewport —
+// the navigator's tab bar is hidden on these so it doesn't stack into a duplicate menu.
+const FULLSCREEN_ROUTES = ['Scoring', 'SportScoring'];
+const tabBarStyleFor = (route, base) =>
+  FULLSCREEN_ROUTES.includes(getFocusedRouteNameFromRoute(route))
+    ? { display: 'none' }
+    : base;
+
 const AppNavigator = ({ route: appRoute }) => {
   const DS = useTheme().colors;
   // sport + format passed from SportSetupScreen via navigation.replace('MainApp', { sport, format })
@@ -415,13 +424,13 @@ const AppNavigator = ({ route: appRoute }) => {
       screenOptions={({ route }) => ({
         tabBarActiveTintColor: DS.lime,
         tabBarInactiveTintColor: DS.textMuted,
-        tabBarStyle: {
+        tabBarStyle: tabBarStyleFor(route, {
           backgroundColor: DS.surfaceLow,
           borderTopWidth: 0,
           elevation: 0,
           height: 58,
           paddingBottom: 6,
-        },
+        }),
         headerShown: false,
         tabBarIcon: ({ color, size }) => {
           const map = {
