@@ -38,36 +38,90 @@ function formatDismissal(wicketType, catcher, bowler) {
   }
 }
 
-function computeBatting(innings) {
-  const map = {};
+// Full batting card built from the batting XI (in order) so EVERY batter shows —
+// including run-out non-strikers who never faced a ball, and yet-to-bat players.
+function computeBatting(innings, battingXI) {
+  const fig = {};   // playerId -> figures (runs/balls off the bat)
+  const dis = {};   // dismissedPlayerId -> howOut (covers non-facing run-outs too)
+  const nameFromBall = {};
   (innings.oversData || []).forEach((over) => {
     (over.balls || []).forEach((ball) => {
       const id = ball.batterId;
-      if (!map[id]) map[id] = { name: ball.batter?.name || 'Unknown', runs: 0, balls: 0, fours: 0, sixes: 0, out: false, howOut: '' };
-      map[id].runs += ball.runs;
-      if (ball.extraType !== 'wide') map[id].balls += 1;
-      if (ball.runs === 4) map[id].fours += 1;
-      if (ball.runs === 6) map[id].sixes += 1;
-      if (ball.isWicket && ball.dismissedPlayerId === id) {
-        map[id].out = true;
-        map[id].howOut = formatDismissal(ball.wicketType, ball.wicketAssists, over.bowler?.name);
+      if (id) {
+        if (ball.batter?.name) nameFromBall[id] = ball.batter.name;
+        if (!fig[id]) fig[id] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
+        const et = ball.extraType;
+        if (et !== 'wide' && et !== 'penalty') fig[id].balls += 1;          // faced
+        if (!et || et === 'noBall') {                                        // runs off the bat
+          fig[id].runs += ball.runs;
+          if (ball.runs === 4) fig[id].fours += 1;
+          if (ball.runs === 6) fig[id].sixes += 1;
+        }
+      }
+      if (ball.isWicket && ball.dismissedPlayerId) {
+        dis[ball.dismissedPlayerId] = formatDismissal(ball.wicketType, ball.wicketAssists, over.bowler?.name);
       }
     });
   });
-  return Object.values(map);
+  // Prefer the actual XI order; fall back to whoever appears in the ball log.
+  const xi = (battingXI && battingXI.length)
+    ? battingXI
+    : [...new Set([...Object.keys(fig), ...Object.keys(dis)])].map((id) => ({ id, name: nameFromBall[id] || 'Unknown' }));
+  const batted = [];
+  const yetToBat = [];
+  xi.forEach((p) => {
+    const f = fig[p.id];
+    const out = dis[p.id];
+    if (f || out) {
+      batted.push({
+        name: p.name, runs: f?.runs || 0, balls: f?.balls || 0,
+        fours: f?.fours || 0, sixes: f?.sixes || 0, out: !!out, howOut: out || '',
+      });
+    } else {
+      yetToBat.push(p.name);
+    }
+  });
+  return { batted, yetToBat };
 }
 
+// Bowling card from the ball log: overs from legal balls, runs actually charged to
+// the bowler (byes/leg-byes excluded), wickets (run-outs not credited), maidens.
 function computeBowling(innings) {
   const map = {};
   (innings.oversData || []).forEach((over) => {
     const id = over.bowlerId;
-    if (!map[id]) map[id] = { name: over.bowler?.name || 'Unknown', overs: 0, runs: 0, wickets: 0, extras: 0 };
-    map[id].overs += 1;
-    map[id].runs += over.runs;
-    map[id].wickets += over.wickets;
-    map[id].extras += over.extras;
+    if (!map[id]) map[id] = { name: over.bowler?.name || 'Unknown', legalBalls: 0, runs: 0, wickets: 0, maidens: 0 };
+    let overRuns = 0, overLegal = 0;
+    (over.balls || []).forEach((b) => {
+      const et = b.extraType;
+      let charged = 0, legal = false;
+      if (et === 'wide') charged = b.extras;
+      else if (et === 'noBall') charged = b.runs + b.extras;
+      else if (et === 'bye' || et === 'legBye') legal = true;      // not charged
+      else if (et === 'penalty') charged = 0;
+      else { charged = b.runs; legal = true; }
+      map[id].runs += charged; overRuns += charged;
+      if (legal) { map[id].legalBalls += 1; overLegal += 1; }
+      if (b.isWicket) {
+        const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
+        if (wt !== 'runout' && wt !== 'retired') map[id].wickets += 1;
+      }
+    });
+    if (overLegal >= 6 && overRuns === 0) map[id].maidens += 1;
   });
-  return Object.values(map).map((b) => ({ ...b, economy: b.overs > 0 ? ((b.runs + b.extras) / b.overs).toFixed(1) : '0.0' }));
+  return Object.values(map).map((b) => {
+    const oversFloat = b.legalBalls / 6;
+    return { ...b, overs: `${Math.floor(b.legalBalls / 6)}.${b.legalBalls % 6}`, economy: oversFloat > 0 ? (b.runs / oversFloat).toFixed(1) : '0.0' };
+  });
+}
+
+// Total overs bowled in the innings (from legal balls) → "X.Y".
+function inningsOvers(innings) {
+  let legal = 0;
+  (innings.oversData || []).forEach((over) => (over.balls || []).forEach((b) => {
+    if (!['wide', 'noBall', 'penalty'].includes(b.extraType)) legal += 1;
+  }));
+  return `${Math.floor(legal / 6)}.${legal % 6}`;
 }
 
 function TableHeader({ cols }) {const styles = useThemedStyles(makeStyles);
@@ -80,8 +134,11 @@ function TableHeader({ cols }) {const styles = useThemedStyles(makeStyles);
 
 }
 
-function InningsBlock({ innings, index }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
-  const batters = computeBatting(innings);
+function InningsBlock({ innings, index, squads }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+  const battingXI = (squads || [])
+    .filter((s) => s.teamId === innings.battingTeamId)
+    .map((s) => ({ id: s.playerId, name: s.player?.name || 'Unknown' }));
+  const { batted, yetToBat } = computeBatting(innings, battingXI);
   const bowlers = computeBowling(innings);
   const label = index === 0 ? '1st' : '2nd';
 
@@ -100,11 +157,11 @@ function InningsBlock({ innings, index }) {const DS = useTheme().colors;const st
 
       <View style={styles.inningsScoreBanner}>
         <Text style={styles.inningsScore}>{innings.totalRuns}/{innings.totalWickets}</Text>
-        <Text style={styles.inningsOvers}>({innings.totalOvers ?? '—'} ov)</Text>
+        <Text style={styles.inningsOvers}>({inningsOvers(innings)} ov)</Text>
       </View>
 
       <TableHeader cols={['BATTER', 'R', 'B', '4s', '6s', 'SR']} />
-      {batters.map((b, i) =>
+      {batted.map((b, i) =>
       <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
           <View style={[styles.cell, styles.nameCol]}>
             <Text style={styles.batterName}>{b.name}</Text>
@@ -119,9 +176,15 @@ function InningsBlock({ innings, index }) {const DS = useTheme().colors;const st
           </Text>
         </View>
       )}
+      {yetToBat.length > 0 &&
+        <View style={styles.yetToBatRow}>
+          <Text style={styles.yetToBatLabel}>Yet to bat: </Text>
+          <Text style={styles.yetToBatNames}>{yetToBat.join(', ')}</Text>
+        </View>
+      }
 
       {/* Bowling section */}
-      <View style={[styles.sectionHeaderRow, { marginTop: 20 }]}>
+      <View style={[styles.sectionHeaderRow, { marginTop: 18 }]}>
         <View style={styles.sectionHeaderLeft}>
           <View style={[styles.inningsIndicator, { backgroundColor: DS.coral }]} />
           <Text style={styles.sectionHeaderText}>
@@ -130,12 +193,13 @@ function InningsBlock({ innings, index }) {const DS = useTheme().colors;const st
         </View>
       </View>
 
-      <TableHeader cols={['BOWLER', 'O', 'R', 'W', 'ECON']} />
+      <TableHeader cols={['BOWLER', 'O', 'M', 'R', 'W', 'ECON']} />
       {bowlers.map((b, i) =>
       <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
           <Text style={[styles.cell, styles.nameCol, styles.bowlerName]}>{b.name}</Text>
           <Text style={[styles.cell, styles.numCol]}>{b.overs}</Text>
-          <Text style={[styles.cell, styles.numCol]}>{b.runs + b.extras}</Text>
+          <Text style={[styles.cell, styles.numCol]}>{b.maidens}</Text>
+          <Text style={[styles.cell, styles.numCol]}>{b.runs}</Text>
           <Text style={[styles.cell, styles.numCol, b.wickets >= 3 && styles.highlight]}>{b.wickets}</Text>
           <Text style={[styles.cell, styles.numCol]}>{b.economy}</Text>
         </View>
@@ -150,11 +214,9 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Scorecard',
-    });
+    // Hide the stack header — the branded bar below is the single header, giving the
+    // scorecard the full screen (no duplicate "Scorecard" bar eating vertical space).
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   useEffect(() => {
@@ -207,22 +269,9 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
         <View style={{ width: 26 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Hero score section */}
-        <View style={styles.hero}>
-          <Text style={styles.heroScore}>{match.score1 || '—'}</Text>
-          <Text style={styles.heroOvers}>
-            {match.innings?.[0]?.totalOvers ? `(${match.innings[0].totalOvers})` : ''}
-          </Text>
-          <Text style={styles.heroMatchup}>
-            {t1.toUpperCase()} vs {t2.toUpperCase()}
-          </Text>
-          <Text style={styles.heroMeta}>
-            {[match.venue, match.matchType].filter(Boolean).join(' · ')}
-          </Text>
-        </View>
-
-        {/* Score summary row */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 12 }}>
+        {/* Compact score summary (both innings) — the big hero was redundant with
+            the per-innings score banner, so it's dropped to give the tables room. */}
         <View style={styles.scoreSummary}>
           <View style={styles.scoreTeam}>
             <View style={[styles.scoreAvatar, { backgroundColor: DS.lime }]}>
@@ -251,20 +300,10 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
           </View>
         }
 
-        {/* Tab switcher */}
-        <View style={styles.tabRow}>
-          <View style={styles.tabActive}>
-            <Text style={styles.tabActiveText}>SCORECARD</Text>
-          </View>
-          <View style={styles.tabInactive}>
-            <Text style={styles.tabInactiveText}>PARTNERSHIPS</Text>
-          </View>
-        </View>
-
         {/* Innings */}
         <View style={styles.body}>
           {(match.innings || []).map((inn, i) =>
-          <InningsBlock key={inn.id || i} innings={inn} index={i} />
+          <InningsBlock key={inn.id || i} innings={inn} index={i} squads={match.squads} />
           )}
         </View>
 
@@ -389,6 +428,9 @@ const makeStyles = (DS) => StyleSheet.create({
   howOut: { fontSize: 10, color: DS.coral, marginTop: 1 },
   notOut: { fontSize: 10, color: DS.lime, marginTop: 1 },
   highlight: { color: DS.lime, fontWeight: '800' },
+  yetToBatRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingTop: 8 },
+  yetToBatLabel: { fontSize: 11, fontWeight: '700', color: DS.textMuted },
+  yetToBatNames: { fontSize: 11, color: DS.textVariant, flex: 1 },
 
   // Share button
   shareBtn: {
