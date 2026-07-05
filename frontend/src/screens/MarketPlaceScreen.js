@@ -1,6 +1,6 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Alert } from
+  View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Alert, Image } from
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -22,9 +22,12 @@ import legendsApi from '../services/LegendsApi';
 function ProductCard({ item, onPress }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   return (
     <TouchableOpacity style={styles.productCard} onPress={onPress} activeOpacity={0.85}>
-      <View style={styles.productThumb}>
-        <Icon name="shopping-outline" size={28} color={DS.lime} />
-      </View>
+      {(() => {
+        const img = Array.isArray(item.images) ? item.images[0] : (typeof item.images === 'string' ? item.images : null);
+        return img
+          ? <Image source={{ uri: img }} style={styles.productThumb} resizeMode="cover" />
+          : <View style={styles.productThumb}><Icon name="shopping-outline" size={28} color={DS.lime} /></View>;
+      })()}
       <View style={styles.productBody}>
         <Text style={styles.productTitle} numberOfLines={2}>{item.title}</Text>
         <Text style={styles.productDesc} numberOfLines={2}>{item.description}</Text>

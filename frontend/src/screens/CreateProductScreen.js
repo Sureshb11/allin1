@@ -1,6 +1,8 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, StatusBar, Image } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { pickAndUploadImage } from '../utils/imageUpload';
 
 
 
@@ -20,6 +22,16 @@ const CreateProductScreen = ({ navigation }) => {const DS = useTheme().colors;co
   const [category, setCategory] = useState('equipment');
   const [location, setLocation] = useState('');
   const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState([]);
+  const [uploading, setUploading] = useState(false);
+
+  const addPhoto = async () => {
+    setUploading(true);
+    const r = await pickAndUploadImage('marketplace');
+    setUploading(false);
+    if (r.url) setImages((prev) => [...prev, r.url].slice(0, 5));   // up to 5 photos
+    else if (r.error) Alert.alert('Upload failed', r.error);
+  };
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -48,7 +60,8 @@ const CreateProductScreen = ({ navigation }) => {const DS = useTheme().colors;co
         description: description.trim(),
         price: parseInt(price, 10),
         category,
-        location: location.trim() || undefined
+        location: location.trim() || undefined,
+        images,
       });
 
       if (res.success) {
@@ -81,6 +94,27 @@ const CreateProductScreen = ({ navigation }) => {const DS = useTheme().colors;co
       </View>
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+
+        {/* Photos */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>PHOTOS</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>
+            {images.map((uri, i) => (
+              <View key={i} style={styles.photoThumbWrap}>
+                <Image source={{ uri }} style={styles.photoThumb} />
+                <TouchableOpacity style={styles.photoThumbX} onPress={() => setImages((prev) => prev.filter((_, x) => x !== i))}>
+                  <Icon name="close" size={14} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            ))}
+            {images.length < 5 &&
+              <TouchableOpacity style={styles.addPhotoBtn} onPress={addPhoto} disabled={uploading}>
+                {uploading ? <ActivityIndicator size="small" color={DS.lime} />
+                  : <><Icon name="camera-plus" size={24} color={DS.lime} /><Text style={styles.addPhotoTxt}>Add photo</Text></>}
+              </TouchableOpacity>
+            }
+          </ScrollView>
+        </View>
 
         {/* Category Section */}
         <View style={styles.section}>
@@ -228,6 +262,12 @@ const makeStyles = (DS) => StyleSheet.create({
     letterSpacing: 1.4,
     marginBottom: 14
   },
+  photoRow: { gap: 10, paddingRight: 16 },
+  photoThumbWrap: { position: 'relative' },
+  photoThumb: { width: 90, height: 90, borderRadius: 12, backgroundColor: DS.surfaceHigh },
+  photoThumbX: { position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: DS.coral, alignItems: 'center', justifyContent: 'center' },
+  addPhotoBtn: { width: 90, height: 90, borderRadius: 12, borderWidth: 1.5, borderColor: DS.lime, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  addPhotoTxt: { color: DS.lime, fontSize: 11, fontWeight: '700' },
   categoriesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
