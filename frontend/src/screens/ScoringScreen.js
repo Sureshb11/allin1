@@ -849,54 +849,51 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
 
-      {/* ── TOP BAR ── */}
-      <View style={styles.topBar}>
-        <View style={styles.brand}>
-          <View style={styles.brandStar}>
-            <Icon name="star" size={14} color={DS.bg} />
+      {/* ── SCOREBOARD HEADER (chrome + score + this-over, one panel) ── */}
+      <View style={styles.scoreboard}>
+        <View style={styles.sbChrome}>
+          <View style={styles.sbBrand}>
+            <View style={styles.brandStar}><Icon name="star" size={11} color={DS.bg} /></View>
+            <Text style={styles.sbBrandText}>LOCAL LEGENDS</Text>
+            {!matchComplete &&
+              <View style={styles.liveTag}><View style={styles.liveDot} /><Text style={styles.liveTagText}>LIVE</Text></View>}
           </View>
-          <Text style={styles.brandLocal}>LOCAL</Text>
-          <View style={styles.brandBadge}><Text style={styles.brandLegends}>LEGENDS</Text></View>
+          <View style={styles.topBarRight}>
+            <TouchableOpacity style={styles.topBarBtn} onPress={shareScore}>
+              <Icon name="share-variant" size={18} color={DS.textVariant} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.topBarBtn} onPress={() => setShowSettings(true)}>
+              <Icon name="cog-outline" size={18} color={DS.textVariant} />
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.topBarRight}>
-          <TouchableOpacity style={styles.topBarBtn} onPress={shareScore}>
-            <Icon name="history" size={20} color={DS.textVariant} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.topBarBtn} onPress={() => setShowSettings(true)}>
-            <Icon name="cog-outline" size={20} color={DS.textVariant} />
-          </TouchableOpacity>
-        </View>
-      </View>
 
-      <View style={styles.body}>
-
-        {/* ── SCORE CARD ── */}
-        <TouchableOpacity style={styles.scoreCard} activeOpacity={0.85}
+        <TouchableOpacity activeOpacity={0.85} style={styles.sbScoreRow}
           onPress={() => matchData?.id && navigation.navigate('Scorecard', { matchId: matchData.id })}>
-          <View style={styles.scoreLeft}>
-            <Text style={styles.scoreLabel}>CURRENT SCORE  ›  SCORECARD</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sbTeam} numberOfLines={1}>{battingTeamName || 'Batting'}</Text>
             <View style={styles.scoreRow}>
               <Text style={styles.scoreMain}>{currentScore.runs}/{currentScore.wickets}</Text>
               <Text style={styles.scoreOvers}> ({overStr})</Text>
             </View>
-            <Text style={styles.crrText}>CRR {crr}{rrr ? `   ·   RRR ${rrr}` : ''}</Text>
+            <View style={styles.sbRates}>
+              <Text style={styles.sbRate}>CRR <Text style={styles.sbRateNum}>{crr}</Text></Text>
+              {rrr ? <Text style={styles.sbRate}>RRR <Text style={styles.sbRateNum}>{rrr}</Text></Text> : null}
+              <Text style={styles.sbScorecardLink}>Scorecard ›</Text>
+            </View>
             {matchComplete &&
-            <View style={styles.resultPill}>
-                <Text style={styles.resultText}>{matchResult}</Text>
-              </View>
-            }
+              <View style={styles.resultPill}><Text style={styles.resultText}>{matchResult}</Text></View>}
           </View>
-          {isInnings2 &&
-          <View style={styles.scoreRight}>
-              <Text style={styles.targetLabel}>TARGET:</Text>
-              <Text style={styles.targetVal}>{target}</Text>
-              <Text style={styles.needText}>Need {need} from{'\n'}{ballsLeft} balls</Text>
+          {isInnings2 && !matchComplete &&
+            <View style={styles.sbTarget}>
+              <Text style={styles.targetLabel}>TARGET {target}</Text>
+              <Text style={styles.sbNeedBig}>{need}</Text>
+              <Text style={styles.needText}>off {ballsLeft}</Text>
             </View>
           }
         </TouchableOpacity>
 
-        {/* ── CURRENT OVER TRACKER (compact) ── */}
-        <View style={styles.overSection}>
+        <View style={styles.sbOverRow}>
           <Text style={styles.overSectionLabel}>THIS OVER</Text>
           {freeHit && <View style={styles.freeHitPill}><Text style={styles.freeHitText}>FREE HIT</Text></View>}
           <View style={styles.overBalls}>
@@ -906,44 +903,43 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
             )}
           </View>
         </View>
+      </View>
 
-        {/* ── STRIKER / BOWLER ── */}
-        <View style={styles.playersRow}>
-          {/* Striker */}
-          <View style={styles.strikerCard}>
-            <View style={styles.playerCardTop}>
-              <Text style={styles.strikerLabel}>STRIKER</Text>
-              <TouchableOpacity onPress={() => {const t = striker;setStriker(nonStriker);setNonStriker(t);}}>
-                <Icon name="swap-horizontal" size={16} color={DS.textMuted} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.strikerName} numberOfLines={2}>{striker?.name || 'Select Batter'}</Text>
-            <View style={styles.strikerBottom}>
-              <Text style={styles.strikerStats}>
-                {striker ? (() => {
-                  const st = batStats[striker.id] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
-                  return `${st.runs}(${st.balls}) • ${st.fours}x4, ${st.sixes}x6`;
-                })() : '—'}
-              </Text>
-              <TouchableOpacity onPress={() => setShowPlayerModal(true)} style={styles.searchBtn}>
-                <Icon name="account-search" size={18} color={DS.textMuted} />
-              </TouchableOpacity>
-            </View>
+      <View style={styles.body}>
+
+        {/* ── CREASE PANEL — both batters + the bowler, like a real scoreboard ── */}
+        <View style={styles.creasePanel}>
+          <View style={styles.creaseRow}>
+            <Icon name="chevron-right" size={16} color={DS.lime} />
+            <Text style={[styles.creaseName, styles.creaseStriker]} numberOfLines={1}>{striker?.name || 'Select batter'}</Text>
+            <Text style={styles.creaseFig}>
+              {striker ? (() => { const st = batStats[striker.id] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+                return `${st.runs} (${st.balls})  ${st.fours}×4 ${st.sixes}×6`; })() : '—'}
+            </Text>
+            <TouchableOpacity hitSlop={8} onPress={() => { const t = striker; setStriker(nonStriker); setNonStriker(t); }}>
+              <Icon name="swap-horizontal" size={17} color={DS.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity hitSlop={8} onPress={() => setShowPlayerModal(true)}>
+              <Icon name="account-search" size={17} color={DS.textMuted} />
+            </TouchableOpacity>
           </View>
 
-          {/* Bowler */}
-          <View style={styles.bowlerCard}>
-            <View style={styles.playerCardTop}>
-              <View style={styles.bowlerIconCircle}>
-                <Icon name="cricket" size={14} color={DS.textMuted} />
-              </View>
-              <Text style={styles.bowlerLabel}>BOWLING</Text>
-            </View>
-            <TouchableOpacity onPress={() => { setMustPickBowler(false); setShowBowlerModal(true); }} style={styles.bowlerSwap}>
-              <Icon name="swap-horizontal" size={16} color={DS.textMuted} />
+          <View style={[styles.creaseRow, styles.creaseRowDivider]}>
+            <View style={{ width: 16 }} />
+            <Text style={styles.creaseName} numberOfLines={1}>{nonStriker?.name || '—'}</Text>
+            <Text style={styles.creaseFig}>
+              {nonStriker ? (() => { const st = batStats[nonStriker.id] || { runs: 0, balls: 0 };
+                return `${st.runs} (${st.balls})`; })() : ''}
+            </Text>
+          </View>
+
+          <View style={[styles.creaseRow, styles.creaseBowlerRow]}>
+            <Icon name="cricket" size={14} color={DS.coral} />
+            <Text style={styles.creaseName} numberOfLines={1}>{currentBowler?.name || 'Select bowler'}</Text>
+            <Text style={styles.creaseFig}>{bowlerStats}</Text>
+            <TouchableOpacity hitSlop={8} onPress={() => { setMustPickBowler(false); setShowBowlerModal(true); }}>
+              <Icon name="swap-horizontal" size={17} color={DS.textMuted} />
             </TouchableOpacity>
-            <Text style={styles.bowlerName} numberOfLines={1}>{currentBowler?.name || 'Select'}</Text>
-            <Text style={styles.bowlerStats}>{bowlerStats}</Text>
           </View>
         </View>
 
@@ -1504,77 +1500,67 @@ const GRID_BTN = (width - 48) / 3;
 
 const makeStyles = (DS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.bg },
-  // No-scroll: the content column fills the space between top bar and tab bar;
-  // the scoring grid flexes to take whatever's left.
-  body: { flex: 1, paddingTop: 4 },
-
-  // Top bar
-  topBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 44, paddingBottom: 8, paddingHorizontal: 16, backgroundColor: DS.bg
-  },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  brandStar: { width: 28, height: 28, borderRadius: 6, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
-  brandLocal: { fontSize: 16, fontWeight: '900', color: DS.textPrimary, letterSpacing: 1 },
-  brandBadge: { backgroundColor: DS.lime, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  brandLegends: { fontSize: 13, fontWeight: '900', color: DS.bg, letterSpacing: 1 },
+  // No-scroll: the content column fills the space between the scoreboard header
+  // and tab bar; the scoring grid flexes to take whatever's left.
+  body: { flex: 1, paddingTop: 8 },
   topBarRight: { flexDirection: 'row', gap: 8 },
-  topBarBtn: { width: 38, height: 38, borderRadius: 10, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
+  topBarBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
 
-  // Score card
-  scoreCard: {
-    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
-    backgroundColor: DS.surfaceHigh, marginHorizontal: 16, borderRadius: 16, padding: 12, marginBottom: 8
+  // ── Scoreboard header — one floodlit panel: chrome + score + this-over ──
+  scoreboard: {
+    backgroundColor: DS.surfaceLow, paddingTop: 44, paddingHorizontal: 16, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: DS.line,
   },
-  scoreLeft: { flex: 1 },
-  scoreLabel: { fontSize: 11, fontWeight: '700', color: DS.lime, letterSpacing: 1.5, marginBottom: 2 },
+  sbChrome: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  sbBrand: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  brandStar: { width: 22, height: 22, borderRadius: 6, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
+  sbBrandText: { fontSize: 13, fontWeight: '900', color: DS.textPrimary, letterSpacing: 1.5 },
+  liveTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginLeft: 4 },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DS.live },
+  liveTagText: { fontSize: 9, fontWeight: '900', color: DS.live, letterSpacing: 0.8 },
+
+  sbScoreRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  sbTeam: { fontSize: 12, fontWeight: '800', color: DS.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 },
   scoreRow: { flexDirection: 'row', alignItems: 'flex-end' },
-  scoreMain: { fontSize: 40, fontWeight: '900', color: DS.textPrimary, letterSpacing: -2, lineHeight: 44 },
-  scoreOvers: { fontSize: 18, color: DS.textMuted, fontWeight: '600', marginBottom: 6 },
-  crrText: { fontSize: 12, fontWeight: '700', color: DS.lime, marginTop: 2 },
-  scoreRight: { alignItems: 'flex-end' },
-  targetLabel: { fontSize: 11, fontWeight: '700', color: DS.coral, letterSpacing: 1 },
-  targetVal: { fontSize: 28, fontWeight: '900', color: DS.coral },
-  needText: { fontSize: 13, color: DS.coral, textAlign: 'right', lineHeight: 18, marginTop: 2 },
-  resultPill: { marginTop: 8, backgroundColor: DS.lime, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 3, alignSelf: 'flex-start' },
-  resultText: { fontSize: 12, fontWeight: '700', color: DS.bg },
+  scoreMain: { fontSize: 46, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1.5, lineHeight: 50 },
+  scoreOvers: { fontSize: 18, color: DS.textMuted, fontWeight: '700', marginBottom: 8 },
+  sbRates: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 4 },
+  sbRate: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
+  sbRateNum: { color: DS.lime, fontWeight: '900' },
+  sbScorecardLink: { fontSize: 12, fontWeight: '800', color: DS.blue },
+  sbTarget: { alignItems: 'flex-end', backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, minWidth: 84 },
+  targetLabel: { fontSize: 10, fontWeight: '800', color: DS.coral, letterSpacing: 0.6 },
+  sbNeedBig: { fontSize: 30, fontWeight: '900', color: DS.coral, lineHeight: 34, marginTop: 2 },
+  needText: { fontSize: 12, color: DS.coral, fontWeight: '600' },
+  resultPill: { marginTop: 8, backgroundColor: DS.lime, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4, alignSelf: 'flex-start' },
+  resultText: { fontSize: 12, fontWeight: '800', color: DS.bg },
 
-  // Players row
-  playersRow: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 8 },
-  strikerCard: {
-    flex: 1.1, backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 10,
-    borderLeftWidth: 3, borderLeftColor: DS.lime
-  },
-  bowlerCard: {
-    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 10,
-    borderLeftWidth: 3, borderLeftColor: DS.surfaceHighest
-  },
-  playerCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  strikerLabel: { fontSize: 10, fontWeight: '700', color: DS.lime, letterSpacing: 1.2 },
-  strikerName: { fontSize: 16, fontWeight: '900', color: DS.textPrimary, lineHeight: 20, marginBottom: 4 },
-  strikerBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  strikerStats: { fontSize: 11, color: DS.textMuted, flex: 1 },
-  searchBtn: { padding: 4 },
-  bowlerIconCircle: { width: 24, height: 24, borderRadius: 12, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
-  bowlerLabel: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 1.2 },
-  bowlerSwap: { alignSelf: 'flex-start', marginBottom: 4 },
-  bowlerName: { fontSize: 16, fontWeight: '800', color: DS.textPrimary, marginBottom: 4 },
-  bowlerStats: { fontSize: 11, color: DS.textMuted },
+  sbOverRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
+
+  // ── Crease panel — striker (lit) / non-striker / bowler ──
+  creasePanel: { backgroundColor: DS.surfaceHigh, borderRadius: 16, marginHorizontal: 16, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 8 },
+  creaseRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9 },
+  creaseRowDivider: { paddingTop: 4 },
+  creaseBowlerRow: { borderTopWidth: 1, borderTopColor: DS.line },
+  creaseName: { flex: 1, fontSize: 15, fontWeight: '700', color: DS.textVariant },
+  creaseStriker: { fontWeight: '900', color: DS.textPrimary },
+  creaseFig: { fontSize: 12, fontWeight: '700', color: DS.textMuted, marginRight: 4 },
 
   // Extra action row
   extraRow: { flexDirection: 'row', gap: 6, marginHorizontal: 16, marginBottom: 8 },
   extraBtn: {
-    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingVertical: 10,
-    alignItems: 'center', justifyContent: 'center', gap: 2
+    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingVertical: 11,
+    alignItems: 'center', justifyContent: 'center', gap: 2, borderWidth: 1, borderColor: DS.line,
   },
-  extraBtnText: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.3, textAlign: 'center' },
+  extraBtnText: { fontSize: 11, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.3, textAlign: 'center' },
 
   // Full-width wicket button
   wicketBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    marginHorizontal: 16, marginBottom: 8, backgroundColor: DS.wicketBg, borderRadius: 14, paddingVertical: 14,
+    marginHorizontal: 16, marginBottom: 8, backgroundColor: DS.wicketBg, borderRadius: 16, paddingVertical: 16,
+    borderWidth: 1, borderColor: DS.wicketText + '33',
   },
-  wicketBtnText: { fontSize: 15, fontWeight: '900', color: DS.wicketText, letterSpacing: 2 },
+  wicketBtnText: { fontSize: 15, fontWeight: '900', color: DS.wicketText, letterSpacing: 2.5 },
 
   // Run chips (extra + runs sheet)
   runChips: { flexDirection: 'row', gap: 10, marginBottom: 8 },
@@ -1591,19 +1577,19 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // 3×3 Grid — flexes to fill the space left below the score/players.
   // minHeight kept modest so the WICKET + END buttons below are always on-screen.
-  grid: { flex: 1, marginHorizontal: 16, gap: 8, marginBottom: 8, minHeight: 130 },
-  gridRow: { flex: 1, flexDirection: 'row', gap: 8 },
+  grid: { flex: 1, marginHorizontal: 16, gap: 10, marginBottom: 10, minHeight: 150 },
+  gridRow: { flex: 1, flexDirection: 'row', gap: 10 },
   gridBtn: {
-    flex: 1, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center', gap: 2
+    flex: 1, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center', gap: 3
   },
-  gridBtnDot: { backgroundColor: DS.surfaceHigh },
-  gridBtnFour: { backgroundColor: DS.blue },
-  gridBtnSix: { backgroundColor: 'rgba(171,214,0,0.12)' },
+  gridBtnDot: { backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.line },
+  gridBtnFour: { backgroundColor: DS.blueDeep },
+  gridBtnSix: { backgroundColor: 'rgba(171,214,0,0.14)', borderWidth: 1, borderColor: DS.lime + '44' },
   gridBtnWide: { backgroundColor: 'rgba(255,181,158,0.1)' },
   gridBtnWicket: { backgroundColor: DS.wicketBg },
-  gridBtnNum: { fontSize: 28, fontWeight: '900', color: DS.textPrimary },
-  gridBtnLabel: { fontSize: 11, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
+  gridBtnNum: { fontSize: 34, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1 },
+  gridBtnLabel: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 1 },
   gridBtnWideText: { color: DS.coral },
 
   // Over tracker
