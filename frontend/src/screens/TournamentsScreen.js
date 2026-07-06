@@ -119,7 +119,7 @@ function TournamentCard({ item, onJoin, onPress }) {
 }
 
 /* ── Main Screen ── */
-const TournamentsScreen = ({ navigation }) => {
+const TournamentsScreen = ({ navigation, inline }) => {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const [tournaments, setTournaments] = useState([]);
@@ -129,12 +129,14 @@ const TournamentsScreen = ({ navigation }) => {
   const [filter, setFilter] = useState('All');
 
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Tournaments',
-    });
-  }, [navigation]);
+    if (!inline) {
+      navigation.setOptions({
+        headerShown: true,
+        headerBackVisible: true,
+        headerTitle: 'Tournaments',
+      });
+    }
+  }, [navigation, inline]);
 
   useEffect(() => { loadTournaments(); }, []);
 
@@ -191,12 +193,14 @@ const TournamentsScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {/* Brand header */}
-      <View style={styles.brandHeader}>
-        <View>
-          <Text style={styles.brandName}>LOCAL LEGENDS</Text>
-          <Text style={styles.brandSub}>ATHLETE HUB</Text>
+      {!inline && (
+        <View style={styles.brandHeader}>
+          <View>
+            <Text style={styles.brandName}>LOCAL LEGENDS</Text>
+            <Text style={styles.brandSub}>ATHLETE HUB</Text>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Title + Create */}
       <View style={styles.titleRow}>

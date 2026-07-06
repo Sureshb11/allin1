@@ -11,6 +11,9 @@ import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { SPORTS, getDashboard } from '../sports/dashboard';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { MatchCard, FILTERS, FILTER_STATUS_MAP } from './MyMatchesScreen';
+import TeamManagementScreen from './TeamManagementScreen';
+import TournamentsScreen from './TournamentsScreen';
+import StatisticsScreen from './StatisticsScreen';
 
 const { width } = Dimensions.get('window');
 
@@ -207,116 +210,121 @@ export default function HomeScreen({ navigation }) {
         ))}
       </View>
 
-      {/* ── FEED ──────────────────────────── */}
+      {/* ── CONTENT ──────────────────────────── */}
       <Animated.View style={[{ flex: 1 }, { opacity: contentAnim }]}>
-        <FlatList
-          style={styles.feed}
-          contentContainerStyle={styles.feedContent}
-          data={filteredMatches}
-          keyExtractor={(item, i) => item.id || String(i)}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            <>
-              {/* Start Match CTA */}
-              <TouchableOpacity
-                style={[
-                  styles.startMatchCTA,
-                  currentSport.id === 'cricket' && { backgroundColor: DS.blueDeep }
-                ]}
-                onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
-                activeOpacity={0.88}
-              >
-                <View style={styles.startMatchLeft}>
-                  <View style={[
-                    styles.startMatchIconBox,
-                    currentSport.id === 'cricket' && { backgroundColor: 'rgba(255,255,255,0.15)' }
-                  ]}>
-                    <Icon name={currentSport.icon} size={26} color={currentSport.id === 'cricket' ? DS.onBlue : DS.bg} />
-                  </View>
-                  <View>
-                    <Text style={[
-                      styles.startMatchTitle,
-                      currentSport.id === 'cricket' && { color: DS.onBlue }
+        {activeNavTab === 0 && (
+          <FlatList
+            style={styles.feed}
+            contentContainerStyle={styles.feedContent}
+            data={filteredMatches}
+            keyExtractor={(item, i) => item.id || String(i)}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={
+              <>
+                {/* Start Match CTA */}
+                <TouchableOpacity
+                  style={[
+                    styles.startMatchCTA,
+                    currentSport.id === 'cricket' && { backgroundColor: DS.blueDeep }
+                  ]}
+                  onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
+                  activeOpacity={0.88}
+                >
+                  <View style={styles.startMatchLeft}>
+                    <View style={[
+                      styles.startMatchIconBox,
+                      currentSport.id === 'cricket' && { backgroundColor: 'rgba(255,255,255,0.15)' }
                     ]}>
-                      {currentSport.id === 'cricket' ? 'Toss & Play' : `Start a ${currentSport.name} Match`}
-                    </Text>
-                    <Text style={[
-                      styles.startMatchSub,
-                      currentSport.id === 'cricket' && { color: 'rgba(255,255,255,0.7)' }
-                    ]}>{cfg.ctaSubtitle}</Text>
-                  </View>
-                </View>
-                <Icon name="chevron-right" size={22} color={currentSport.id === 'cricket' ? DS.onBlue : DS.bg} />
-              </TouchableOpacity>
-
-              {/* Search */}
-              <View style={styles.searchWrap}>
-                <Icon name="magnify" size={18} color={DS.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search teams, venue, type..."
-                  placeholderTextColor={DS.textMuted}
-                  value={query}
-                  onChangeText={setQuery}
-                />
-                {query.length > 0 && (
-                  <TouchableOpacity onPress={() => setQuery('')}>
-                    <Icon name="close-circle" size={16} color={DS.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Filter tabs */}
-              <View style={styles.filtersRow}>
-                {FILTERS.map(f => {
-                  const active = status === f;
-                  return (
-                    <TouchableOpacity
-                      key={f}
-                      style={[styles.filterTab, active && styles.filterTabActive]}
-                      onPress={() => setStatus(f)}
-                    >
-                      <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
-                        {f.toUpperCase()}
+                      <Icon name={currentSport.icon} size={26} color={currentSport.id === 'cricket' ? DS.onBlue : DS.bg} />
+                    </View>
+                    <View>
+                      <Text style={[
+                        styles.startMatchTitle,
+                        currentSport.id === 'cricket' && { color: DS.onBlue }
+                      ]}>
+                        {currentSport.id === 'cricket' ? 'Toss & Play' : `Start a ${currentSport.name} Match`}
                       </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                      <Text style={[
+                        styles.startMatchSub,
+                        currentSport.id === 'cricket' && { color: 'rgba(255,255,255,0.7)' }
+                      ]}>{cfg.ctaSubtitle}</Text>
+                    </View>
+                  </View>
+                  <Icon name="chevron-right" size={22} color={currentSport.id === 'cricket' ? DS.onBlue : DS.bg} />
+                </TouchableOpacity>
 
-              {/* Match count */}
-              <View style={styles.countRow}>
-                <Text style={styles.countText}>{filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''}</Text>
+                {/* Search */}
+                <View style={styles.searchWrap}>
+                  <Icon name="magnify" size={18} color={DS.textMuted} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search teams, venue, type..."
+                    placeholderTextColor={DS.textMuted}
+                    value={query}
+                    onChangeText={setQuery}
+                  />
+                  {query.length > 0 && (
+                    <TouchableOpacity onPress={() => setQuery('')}>
+                      <Icon name="close-circle" size={16} color={DS.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Filter tabs */}
+                <View style={styles.filtersRow}>
+                  {FILTERS.map(f => {
+                    const active = status === f;
+                    return (
+                      <TouchableOpacity
+                        key={f}
+                        style={[styles.filterTab, active && styles.filterTabActive]}
+                        onPress={() => setStatus(f)}
+                      >
+                        <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
+                          {f.toUpperCase()}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Match count */}
+                <View style={styles.countRow}>
+                  <Text style={styles.countText}>{filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''}</Text>
+                </View>
+              </>
+            }
+            renderItem={({ item }) => (
+              <MatchCard
+                m={item}
+                isScorer={!!item.isScorer}
+                onPress={() => currentSport.id === 'cricket' 
+                  ? navigation.navigate('Scorecard', { matchId: item.id }) 
+                  : navigation.navigate('MatchStats', { matchId: item.id, sportName: currentSport.name })}
+                onStart={startMatch}
+                onResume={(m) => navigation.navigate('Scoring', { resume: true, matchId: m.id })}
+              />
+            )}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <View style={styles.emptyIconWrap}>
+                  <Icon name="cricket" size={48} color={DS.textMuted} />
+                </View>
+                <Text style={styles.emptyTitle}>No matches yet</Text>
+                <Text style={styles.emptySub}>Start scoring your first match</Text>
+                <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('StartMatch')} activeOpacity={0.9}>
+                  <Icon name="play-circle" size={18} color={DS.bg} />
+                  <Text style={styles.emptyBtnText}>Start a Match</Text>
+                </TouchableOpacity>
               </View>
-            </>
-          }
-          renderItem={({ item }) => (
-            <MatchCard
-              m={item}
-              isScorer={!!item.isScorer}
-              onPress={() => currentSport.id === 'cricket' 
-                ? navigation.navigate('Scorecard', { matchId: item.id }) 
-                : navigation.navigate('MatchStats', { matchId: item.id, sportName: currentSport.name })}
-              onStart={startMatch}
-              onResume={(m) => navigation.navigate('Scoring', { resume: true, matchId: m.id })}
-            />
-          )}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <View style={styles.emptyIconWrap}>
-                <Icon name="cricket" size={48} color={DS.textMuted} />
-              </View>
-              <Text style={styles.emptyTitle}>No matches yet</Text>
-              <Text style={styles.emptySub}>Start scoring your first match</Text>
-              <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('StartMatch')} activeOpacity={0.9}>
-                <Icon name="play-circle" size={18} color={DS.bg} />
-                <Text style={styles.emptyBtnText}>Start a Match</Text>
-              </TouchableOpacity>
-            </View>
-          }
-          ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
-        />
+            }
+            ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
+          />
+        )}
+        {activeNavTab === 1 && <TeamManagementScreen navigation={navigation} inline={true} />}
+        {activeNavTab === 2 && <TournamentsScreen navigation={navigation} inline={true} />}
+        {activeNavTab === 3 && <StatisticsScreen navigation={navigation} inline={true} />}
       </Animated.View>
 
       {/* ── MORE SHEET ─────────────────────── */}

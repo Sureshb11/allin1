@@ -113,19 +113,21 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
 
 }
 
-export default function StatisticsScreen({ navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+export default function StatisticsScreen({ navigation, inline }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [tab, setTab] = useState('Players');
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
-    navigation?.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Statistics',
-    });
-  }, [navigation]);
+    if (!inline) {
+      navigation?.setOptions({
+        headerShown: true,
+        headerBackVisible: true,
+        headerTitle: 'Statistics',
+      });
+    }
+  }, [navigation, inline]);
 
   useEffect(() => {
     let alive = true;
@@ -157,10 +159,12 @@ export default function StatisticsScreen({ navigation }) {const DS = useTheme().
   return (
     <View style={styles.container}>
       {/* Hero */}
-      <View style={styles.hero}>
-        <Icon name="chart-bar" size={20} color={DS.lime} />
-        <Text style={styles.heroTitle}>Statistics</Text>
-      </View>
+      {!inline && (
+        <View style={styles.hero}>
+          <Icon name="chart-bar" size={20} color={DS.lime} />
+          <Text style={styles.heroTitle}>Statistics</Text>
+        </View>
+      )}
 
       {/* Tab bar */}
       <View style={styles.tabBar}>

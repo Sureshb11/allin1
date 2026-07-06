@@ -28,7 +28,7 @@ import { showToast } from '../components/Toast';
 
 const AVATAR_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#e91e63'];
 
-const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [tab, setTab] = useState('mine');   // mine | opponents | followed
   const [categorized, setCategorized] = useState({ mine: [], opponents: [], followed: [] });
   const [followedIds, setFollowedIds] = useState(new Set());
@@ -44,12 +44,14 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
   const [newTeamName, setNewTeamName] = useState('');
 
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Teams',
-    });
-  }, [navigation]);
+    if (!inline) {
+      navigation.setOptions({
+        headerShown: true,
+        headerBackVisible: true,
+        headerTitle: 'Teams',
+      });
+    }
+  }, [navigation, inline]);
 
   useEffect(() => {
     loadData();
@@ -302,12 +304,12 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
   if (selectedTeam) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, inline && { paddingTop: 16 }]}>
           <TouchableOpacity onPress={() => setSelectedTeam(null)} style={styles.backButton}>
             <Icon name="arrow-left" size={24} color={DS.textPrimary} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.brandText}>Local Legends</Text>
+            {!inline && <Text style={styles.brandText}>Local Legends</Text>}
             <Text style={styles.headerTitle}>{selectedTeam.name}</Text>
           </View>
           <View style={styles.headerSpacer} />
@@ -424,15 +426,17 @@ const TeamManagementScreen = ({ navigation }) => {const DS = useTheme().colors;c
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.brandText}>Local Legends</Text>
-          <Text style={styles.hubLabel}>ATHLETE HUB</Text>
+      {!inline && (
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.brandText}>Local Legends</Text>
+            <Text style={styles.hubLabel}>ATHLETE HUB</Text>
+          </View>
+          <TouchableOpacity style={styles.profileIcon}>
+            <Icon name="account-circle" size={32} color={DS.textMuted} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.profileIcon}>
-          <Icon name="account-circle" size={32} color={DS.textMuted} />
-        </TouchableOpacity>
-      </View>
+      )}
 
       {/* ── Category tabs ── */}
       <View style={styles.tabBar}>
