@@ -72,6 +72,12 @@ const BOWLING_STATS = (s, DS) => [
 { label: 'Best Figures', value: s.bestBowling ?? '—', color: '#7c3aed' },
 { label: '5-wkt Hauls', value: s.fiveWickets ?? 0, color: '#d97706' }];
 
+const FIELDING_STATS = (s, DS) => [
+{ label: 'Matches', value: s.matches, color: DS.lime },
+{ label: 'Catches', value: s.catches ?? 0, color: '#34d399' },
+{ label: 'Run Outs', value: s.runOuts ?? 0, color: DS.blue },
+{ label: 'Stumpings', value: s.stumpings ?? 0, color: DS.coral }];
+
 
 export default function MyPerformanceScreen({ navigation, inline }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [stats, setStats] = useState(null);
@@ -95,11 +101,12 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
     });
   }, []);
 
-  const tabStats = stats ? tab === 'batting' ? BATTING_STATS(stats, DS) : BOWLING_STATS(stats, DS) : [];
+  const tabStats = stats ? tab === 'batting' ? BATTING_STATS(stats, DS) : tab === 'bowling' ? BOWLING_STATS(stats, DS) : FIELDING_STATS(stats, DS) : [];
   const chartData = tab === 'batting' ?
   stats?.recentScores || [45, 60, 32, 78, 25, 90, 40, 65, 55, 72] :
-  stats?.recentWickets || [2, 4, 1, 3, 5, 2, 1, 4, 3, 2];
-  const chartColor = tab === 'batting' ? DS.lime : DS.coral;
+  tab === 'bowling' ? stats?.recentWickets || [2, 4, 1, 3, 5, 2, 1, 4, 3, 2] :
+  stats?.recentCatches || [0, 1, 0, 2, 1, 0, 0, 1, 0, 2];
+  const chartColor = tab === 'batting' ? DS.lime : tab === 'bowling' ? DS.coral : '#3b82f6';
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -113,10 +120,10 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
 
       {/* Tab bar */}
       <View style={styles.tabBar}>
-        {['batting', 'bowling'].map((t) =>
+        {['batting', 'bowling', 'fielding'].map((t) =>
         <TouchableOpacity key={t} style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
         onPress={() => setTab(t)}>
-            <Icon name={t === 'batting' ? 'cricket' : 'weather-windy'} size={14}
+            <Icon name={t === 'batting' ? 'cricket' : t === 'bowling' ? 'weather-windy' : 'shield-account'} size={14}
           color={tab === t ? DS.bg : DS.textMuted} />
             <Text style={[styles.tabBtnText, tab === t && styles.tabBtnTextActive]}>
               {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -142,7 +149,7 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
             {/* Chart */}
             <View style={styles.chartCard}>
               <Text style={styles.chartTitle}>
-                {tab === 'batting' ? 'Recent Scores' : 'Recent Wickets'} — Last {chartData.length} Matches
+                {tab === 'batting' ? 'Recent Scores' : tab === 'bowling' ? 'Recent Wickets' : 'Recent Catches/Runouts'} — Last {chartData.length} Matches
               </Text>
               <PerformanceChart values={chartData} color={chartColor} />
             </View>
