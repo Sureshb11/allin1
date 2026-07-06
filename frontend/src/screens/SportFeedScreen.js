@@ -11,7 +11,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, Animated, Share, Vibration,
-  StatusBar, Modal, TextInput, KeyboardAvoidingView, Platform, RefreshControl,
+  StatusBar, Modal, TextInput, KeyboardAvoidingView, Platform, RefreshControl, Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Defs, LinearGradient as SvgGrad, RadialGradient, Stop, Rect } from 'react-native-svg';
@@ -19,6 +19,7 @@ import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
 import { getScoringConfig } from '../sports/scoring';
+import { useCurrentUser } from '../utils/currentUser';
 import Skeleton from '../components/Skeleton';
 import GradientButton from '../components/GradientButton';
 import MomentumMeter from '../components/MomentumMeter';
@@ -173,6 +174,7 @@ function ResultCard({ m, accent, onPress }) {
 export default function SportFeedScreen({ navigation }) {
   const { colors: D, isDark } = useTheme();
   const s = useThemedStyles(makeStyles);
+  const meUser = useCurrentUser();
   const selected = getSelectedSport().sport;
   const sportId = selected?.id || 'cricket';
   const def = getSport(sportId);
@@ -268,7 +270,14 @@ export default function SportFeedScreen({ navigation }) {
         </View>
         <View style={s.topActions}>
           <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Notification')}>
-            <Icon name="heart-outline" size={22} color={D.ink} />
+            <Icon name="bell-outline" size={22} color={D.ink} />
+          </TouchableOpacity>
+          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Profile')} style={{ marginLeft: 6 }}>
+            {meUser?.avatarUrl ? (
+              <Image source={{ uri: meUser.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
+            ) : (
+              <Icon name="account-circle-outline" size={24} color={D.ink} />
+            )}
           </TouchableOpacity>
         </View>
       </View>

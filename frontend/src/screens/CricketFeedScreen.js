@@ -20,6 +20,7 @@ import legendsApi from '../services/LegendsApi';
 import MomentumMeter from '../components/MomentumMeter';
 import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
+import { useCurrentUser } from '../utils/currentUser';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -377,6 +378,7 @@ function CommentsSheet({ post, onClose, onAdd }) {const DS = useTheme().colors;c
 
 // ── Screen ──────────────────────────────────────────────────────────────────
 export default function CricketFeedScreen({ navigation }) {const { colors: DS, isDark } = useTheme();const s = useThemedStyles(makeS);
+  const meUser = useCurrentUser();
   const [posts, setPosts] = useState([]);
   const [matches, setMatches] = useState([]);
   const [activity, setActivity] = useState([]);   // ActivityFeed highlight cards
@@ -655,7 +657,14 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
             <Icon name="plus-box-outline" size={24} color={DS.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Notification')}>
-            <Icon name="heart-outline" size={22} color={DS.textPrimary} />
+            <Icon name="bell-outline" size={22} color={DS.textPrimary} />
+          </TouchableOpacity>
+          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Profile')}>
+            {meUser?.avatarUrl ? (
+              <Image source={{ uri: meUser.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
+            ) : (
+              <Icon name="account-circle-outline" size={24} color={DS.textPrimary} />
+            )}
           </TouchableOpacity>
         </View>
       </View>

@@ -3,7 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   RefreshControl, Modal, Share, Dimensions, StatusBar, Animated, Alert,
-  FlatList, TextInput
+  FlatList, TextInput, Image
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -14,6 +14,7 @@ import { MatchCard, FILTERS, FILTER_STATUS_MAP } from './MyMatchesScreen';
 import TeamManagementScreen from './TeamManagementScreen';
 import TournamentsScreen from './TournamentsScreen';
 import StatisticsScreen from './StatisticsScreen';
+import { useCurrentUser } from '../utils/currentUser';
 
 const { width } = Dimensions.get('window');
 
@@ -42,6 +43,7 @@ const MENU_SECTIONS = [
 export default function HomeScreen({ navigation }) {
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const meUser = useCurrentUser();
   const [liveMatches, setLiveMatches] = useState([]);
   const [players, setPlayers]         = useState([]);
   const [me, setMe]                   = useState(null);   // { user, player } when logged in
@@ -187,6 +189,13 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.headerRight}>
             <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.navigate('Notification')}>
               <Icon name="bell-outline" size={22} color={DS.textVariant} />
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.headerBtn, { paddingLeft: 10 }]} onPress={() => navigation.navigate('Profile')}>
+              {meUser?.avatarUrl ? (
+                <Image source={{ uri: meUser.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
+              ) : (
+                <Icon name="account-circle-outline" size={24} color={DS.textVariant} />
+              )}
             </TouchableOpacity>
           </View>
         </View>

@@ -1,11 +1,12 @@
 import React, { useLayoutEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 import MyPerformanceScreen from './MyPerformanceScreen';
 import StatisticsScreen from './StatisticsScreen';
 import LookingForScreen from './LookingForScreen';
+import { useCurrentUser } from '../utils/currentUser';
 
 const TABS = [
   { label: 'My Stats', icon: 'chart-line',  component: MyPerformanceScreen },
@@ -16,6 +17,7 @@ const TABS = [
 export default function PavilionScreen({ navigation, route }) {
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const meUser = useCurrentUser();
 
   const [activeTab, setActiveTab] = useState(0);
   const contentAnim = useRef(new Animated.Value(1)).current;
@@ -51,8 +53,22 @@ export default function PavilionScreen({ navigation, route }) {
       
       {/* ── HEADER ──────────────────────── */}
       <View style={styles.hero}>
-        <Icon name="stadium" size={24} color={DS.lime} />
-        <Text style={styles.heroTitle}>Pavilion</Text>
+        <View style={styles.heroLeft}>
+          <Icon name="stadium" size={24} color={DS.lime} />
+          <Text style={styles.heroTitle}>Pavilion</Text>
+        </View>
+        <View style={styles.heroRight}>
+          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Notification')}>
+            <Icon name="bell-outline" size={22} color={DS.textPrimary} />
+          </TouchableOpacity>
+          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Profile')} style={{ marginLeft: 16 }}>
+            {meUser?.avatarUrl ? (
+              <Image source={{ uri: meUser.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
+            ) : (
+              <Icon name="account-circle-outline" size={24} color={DS.textPrimary} />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── NAV TABS ──────────────────────── */}
@@ -96,10 +112,12 @@ export default function PavilionScreen({ navigation, route }) {
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   hero: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: DS.surfaceLow, paddingTop: 16, paddingBottom: 16, paddingHorizontal: 20,
   },
+  heroLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   heroTitle: { fontSize: 24, fontWeight: '800', color: DS.textPrimary },
+  heroRight: { flexDirection: 'row', alignItems: 'center' },
   
   navTabs: {
     flexDirection: 'row',

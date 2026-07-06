@@ -395,9 +395,7 @@ const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="Home" 
 // "Pavilion" tab - same stack, opens on Pavilion screen
 const PavilionStack = (props) => <HomeStack {...props} initialRouteName="Pavilion" />;
 
-// "Profile" tab — same stack, opens on the user profile (which links to Player
-// Insights, Badges, Edit Profile, …). Reusing HomeStack keeps all those sub-routes working.
-const ProfileStack = (props) => <HomeStack {...props} initialRouteName="Profile" />;
+
 
 const AppNavigator = ({ route: appRoute }) => {
   const DS = useTheme().colors;
@@ -432,20 +430,10 @@ const AppNavigator = ({ route: appRoute }) => {
           },
           headerShown: false,
           tabBarIcon: ({ color, size, focused }) => {
-            // Profile tab shows the user's photo when set; others use icons.
-            if (route.name === 'ProfileTab' && me?.avatarUrl) {
-              return (
-                <Image
-                  source={{ uri: me.avatarUrl }}
-                  style={{ width: 24, height: 24, borderRadius: 12, borderWidth: focused ? 2 : 0, borderColor: DS.lime }}
-                />
-              );
-            }
-            const map = {
+              const map = {
               HomeTab: 'home-variant',
               MyCricketTab: sportIcon,
               PavilionTab: 'stadium',
-              ProfileTab: 'account-circle-outline',
             };
             const name = map[route.name] || 'apps';
             return <Icon name={name} size={22} color={color} />;
@@ -469,12 +457,6 @@ const AppNavigator = ({ route: appRoute }) => {
         name="PavilionTab"
         component={PavilionStack}
         options={{ tabBarLabel: 'Pavilion' }}
-        initialParams={{ initialSport, initialFormat }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileStack}
-        options={{ tabBarLabel: 'Profile' }}
         initialParams={{ initialSport, initialFormat }}
       />
     </Tab.Navigator>
