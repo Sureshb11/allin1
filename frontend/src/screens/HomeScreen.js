@@ -6,7 +6,6 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
-import SimpleSidebar from '../components/SimpleSidebar';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { SPORTS, getDashboard } from '../sports/dashboard';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -27,6 +26,29 @@ const MORE_ITEMS = [
   { label: 'Umpires',        icon: 'whistle',                    screen: 'Umpires',          color: '#14B8A6' },
 ];
 
+// Full navigation menu — moved out of the old burger drawer and onto this screen.
+// Grouped into Play / Performance / Explore, rendered as icon tiles in the feed.
+const MENU_SECTIONS = [
+  { title: 'Play', items: [
+    { id: 'start-match', label: 'Start a Match',        icon: 'cricket',              screen: 'StartMatch' },
+    { id: 'my-matches',  label: 'My Matches',           icon: 'format-list-bulleted', screen: 'MyMatches' },
+    { id: 'tournament',  label: 'Tournaments',          icon: 'trophy-outline',       screen: 'Tournaments' },
+  ]},
+  { title: 'Performance', items: [
+    { id: 'performance', label: 'My Performance',       icon: 'chart-line',           screen: 'MyPerformance' },
+    { id: 'stats',       label: 'Leaderboard',          icon: 'podium',               screen: 'Statistics' },
+    { id: 'awards',      label: 'Awards & Badges',      icon: 'trophy-variant',       screen: 'BadgeDetail' },
+    { id: 'challenges',  label: 'Challenges',           icon: 'target',               screen: 'Quiz' },
+  ]},
+  { title: 'Explore', items: [
+    { id: 'go-live',     label: 'Go Live',              icon: 'broadcast',            screen: 'StreamingLanding' },
+    { id: 'looking-for', label: 'Looking For',          icon: 'telescope',            screen: 'LookingFor' },
+    { id: 'coaching',    label: 'Find a Coach',         icon: 'school',               screen: 'Coaching' },
+    { id: 'umpires',     label: 'Find an Umpire',       icon: 'whistle',              screen: 'Umpires' },
+    { id: 'store',       label: 'Store',                icon: 'store-outline',        screen: 'MarketPlace' },
+  ]},
+];
+
 export default function HomeScreen({ navigation }) {
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -35,7 +57,6 @@ export default function HomeScreen({ navigation }) {
   const [me, setMe]                   = useState(null);   // { user, player } when logged in
   const [refreshing, setRefreshing]   = useState(false);
   const [loading, setLoading]         = useState(true);
-  const [sidebarVisible, setSidebarVisible]   = useState(false);
   const [moreVisible, setMoreVisible]         = useState(false);
   const [activeNavTab, setActiveNavTab]       = useState(0);
   const [showGuestQR, setShowGuestQR]         = useState(false);
@@ -130,12 +151,8 @@ export default function HomeScreen({ navigation }) {
       {/* ── HEADER ────────────────────────── */}
       <View style={styles.header}>
 
-        {/* Row 1: menu · logo · icons */}
+        {/* Row 1: logo · icons (menu items now live inline in the feed below) */}
         <View style={styles.headerRow1}>
-          <TouchableOpacity onPress={() => setSidebarVisible(true)} style={styles.headerBtn}>
-            <Icon name="menu" size={24} color={DS.textPrimary} />
-          </TouchableOpacity>
-
           <View style={styles.headerBrand}>
             <Text style={styles.brandText}>LOCAL</Text>
             <View style={styles.brandBadge}>
@@ -236,6 +253,31 @@ export default function HomeScreen({ navigation }) {
               </ScrollView>
             </>
           )}
+
+          {/* ── MENU — everything that used to live in the burger drawer ── */}
+          {MENU_SECTIONS.map((section) => (
+            <View key={section.title}>
+              <View style={styles.sectionHeader}>
+                <Icon name="menu" size={13} color={DS.textMuted} />
+                <Text style={styles.sectionLabel}>{section.title.toUpperCase()}</Text>
+              </View>
+              <View style={styles.menuGrid}>
+                {section.items.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.menuTile}
+                    activeOpacity={0.85}
+                    onPress={() => navigation.navigate(item.screen)}
+                  >
+                    <View style={styles.menuTileIcon}>
+                      <Icon name={item.icon} size={22} color={DS.lime} />
+                    </View>
+                    <Text style={styles.menuTileLabel} numberOfLines={2}>{item.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ))}
 
           {/* Quick Access Grid — `primary` = solid electric-blue Action-Taker tile */}
           <View style={styles.quickGrid}>
@@ -376,8 +418,6 @@ export default function HomeScreen({ navigation }) {
         </View>
       </Modal>
 
-      <SimpleSidebar visible={sidebarVisible} onClose={() => setSidebarVisible(false)} navigation={navigation} />
-
     </View>
   );
 }
@@ -486,7 +526,7 @@ const makeStyles = (DS) => StyleSheet.create({
   header: { flexDirection: 'column', paddingTop: 48, paddingBottom: 10, paddingHorizontal: 16, backgroundColor: DS.surfaceLow },
   headerRow1: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   headerBtn: { padding: 6, flexShrink: 0 },
-  headerBrand: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8 },
+  headerBrand: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   brandText: { fontSize: 20, fontWeight: '800', color: DS.textPrimary, letterSpacing: 1.5 },
   brandBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.lime, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 3 },
   brandBadgeText: { fontSize: 13, fontWeight: '800', color: DS.bg, letterSpacing: 0.8 },
@@ -543,6 +583,12 @@ const makeStyles = (DS) => StyleSheet.create({
   startMatchSub: { fontSize: 12, color: 'rgba(15,19,31,0.6)', marginTop: 2 },
 
   // Quick Access
+  // Inline menu grid (moved out of the burger drawer) — 4 tiles per row.
+  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
+  menuTile: { width: '25%', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 2 },
+  menuTileIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.surfaceHigh },
+  menuTileLabel: { fontSize: 11, color: DS.textVariant, fontWeight: '600', textAlign: 'center', lineHeight: 14 },
+
   quickGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   quickItem: { flex: 1, alignItems: 'center', gap: 6 },
   quickIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.surfaceHigh },

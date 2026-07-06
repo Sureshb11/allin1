@@ -48,7 +48,7 @@ function PlayerCard({ item, rank }) {const DS = useTheme().colors;const styles =
       </View>
       <View style={styles.statRow}>
         {[
-        { label: 'Runs', value: item.runs.toLocaleString(), icon: 'cricket', color: DS.lime },
+        { label: 'Runs', value: (item.runs || 0).toLocaleString(), icon: 'cricket', color: DS.lime },
         { label: 'Avg', value: item.average, icon: 'numeric', color: DS.blue },
         { label: 'SR', value: item.strikeRate, icon: 'lightning-bolt', color: DS.coral },
         { label: '100s', value: item.centuries, icon: 'star-circle-outline', color: '#d97706' },
@@ -100,7 +100,7 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
         {[
         { label: 'Wins', value: item.wins, color: '#34d399' },
         { label: 'Losses', value: item.losses, color: DS.live },
-        { label: 'Runs', value: item.totalRuns.toLocaleString(), color: DS.lime },
+        { label: 'Runs', value: (item.totalRuns || 0).toLocaleString(), color: DS.lime },
         { label: 'Wickets', value: item.totalWickets, color: DS.blue }].
         map((s) =>
         <View key={s.label} style={styles.statItem}>
@@ -132,8 +132,18 @@ export default function StatisticsScreen({ navigation }) {const DS = useTheme().
     setLoading(true);
     Promise.all([legendsApi.getPlayers(), legendsApi.getTeams()]).then(([pr, tr]) => {
       if (!alive) return;
-      setPlayers((pr?.data || []).map((p) => ({ id: p.id, name: p.name, ...(p.stats || {}) })));
-      setTeams((tr?.data || []).map((t) => ({ id: t.id, name: t.name, ...(t.stats || {}) })));
+      // Default every stat to 0 — a player/team with no stored stats used to crash
+      // the card (e.g. `undefined.toLocaleString()`).
+      setPlayers((pr?.data || []).map((p) => ({
+        id: p.id, name: p.name,
+        matches: 0, runs: 0, average: 0, strikeRate: 0, centuries: 0, wickets: 0,
+        ...(p.stats || {}),
+      })));
+      setTeams((tr?.data || []).map((t) => ({
+        id: t.id, name: t.name,
+        matches: 0, wins: 0, losses: 0, totalRuns: 0, totalWickets: 0, winRate: 0,
+        ...(t.stats || {}),
+      })));
       setLoading(false);
     });
     return () => { alive = false; };
