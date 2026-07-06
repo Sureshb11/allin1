@@ -30,7 +30,6 @@ import MarketPlaceScreen from '../screens/MarketPlaceScreen';
 import BadgeDetailScreen from '../screens/BadgeDetailScreen';
 import PlayerInsightsScreen from '../screens/PlayerInsightsScreen';
 import NotificationScreen from '../screens/NotificationScreen';
-import GlobalSearchScreen from '../screens/GlobalSearchScreen';
 import StartMatchScreen from '../screens/StartMatchScreen';
 import MyCricketScreen from '../screens/MyCricketScreen';
 import MyPerformanceScreen from '../screens/MyPerformanceScreen';
@@ -358,11 +357,6 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
         headerTitleStyle: {color: DS.textPrimary},
         headerTintColor: DS.textPrimary,
       }}
-    />
-    <Stack.Screen
-      name="GlobalSearch"
-      component={GlobalSearchScreen}
-      options={{ headerShown: false }}
     />
     <Stack.Screen
       name="FindCricketers"

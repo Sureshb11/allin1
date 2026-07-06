@@ -185,9 +185,6 @@ export default function HomeScreen({ navigation }) {
           </View>
 
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.navigate('GlobalSearch')}>
-              <Icon name="magnify" size={22} color={DS.textVariant} />
-            </TouchableOpacity>
             <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.navigate('Notification')}>
               <Icon name="bell-outline" size={22} color={DS.textVariant} />
             </TouchableOpacity>
