@@ -30,11 +30,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [matchData, setMatchData] = useState(match || {});
 
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Scoring',
-    });
+    // Full-screen console — hide the stack "Scoring" header; the scoreboard's own
+    // back button + brand replace it, reclaiming the top of the screen.
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   const [currentScore, setCurrentScore] = useState({ runs: 0, wickets: 0, overs: 0, balls: 0 });
@@ -853,6 +851,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       <View style={styles.scoreboard}>
         <View style={styles.sbChrome}>
           <View style={styles.sbBrand}>
+            <TouchableOpacity hitSlop={8} onPress={() => navigation.goBack()} style={styles.sbBackBtn}>
+              <Icon name="arrow-left" size={22} color={DS.textPrimary} />
+            </TouchableOpacity>
             <View style={styles.brandStar}><Icon name="star" size={11} color={DS.bg} /></View>
             <Text style={styles.sbBrandText}>LOCAL LEGENDS</Text>
             {!matchComplete &&
@@ -1513,6 +1514,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   sbChrome: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   sbBrand: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  sbBackBtn: { marginRight: 2, marginLeft: -4 },
   brandStar: { width: 22, height: 22, borderRadius: 6, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
   sbBrandText: { fontSize: 13, fontWeight: '900', color: DS.textPrimary, letterSpacing: 1.5 },
   liveTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginLeft: 4 },
