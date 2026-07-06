@@ -8,9 +8,9 @@ import StatisticsScreen from './StatisticsScreen';
 import LookingForScreen from './LookingForScreen';
 
 const TABS = [
-  { label: 'My Performance', icon: 'chart-line',  component: MyPerformanceScreen },
-  { label: 'Leaderboard',    icon: 'podium',      component: StatisticsScreen },
-  { label: 'Looking For',    icon: 'telescope',   component: LookingForScreen },
+  { label: 'My Stats', icon: 'chart-line',  component: MyPerformanceScreen },
+  { label: 'Rankings', icon: 'podium',      component: StatisticsScreen },
+  { label: 'Scout',    icon: 'telescope',   component: LookingForScreen },
 ];
 
 export default function PavilionScreen({ navigation, route }) {
@@ -86,7 +86,8 @@ export default function PavilionScreen({ navigation, route }) {
         onPress={() => navigation.navigate('StreamingLanding')}
         activeOpacity={0.85}
       >
-        <Icon name="broadcast" size={24} color={DS.bg} />
+        <Icon name="broadcast" size={20} color={DS.bg} />
+        <Text style={styles.fabText}>Live Action</Text>
       </TouchableOpacity>
     </View>
   );
@@ -137,15 +138,22 @@ const makeStyles = (DS) => StyleSheet.create({
     bottom: 24,
     right: 24,
     backgroundColor: '#EF4444',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 28,
+    gap: 8,
     shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 8,
+  },
+  fabText: {
+    color: DS.bg,
+    fontWeight: '800',
+    fontSize: 14,
+    letterSpacing: 0.5,
   },
 });

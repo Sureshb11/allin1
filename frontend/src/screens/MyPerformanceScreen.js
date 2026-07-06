@@ -55,7 +55,7 @@ function StatBento({ label, value, color }) {const DS = useTheme().colors;const 
 
 }
 
-const BATTING_STATS = (s) => [
+const BATTING_STATS = (s, DS) => [
 { label: 'Matches', value: s.matches, color: DS.lime },
 { label: 'Runs', value: s.runs, color: DS.coral },
 { label: 'Average', value: s.battingAverage ?? s.average, color: '#7c3aed' },
@@ -64,7 +64,7 @@ const BATTING_STATS = (s) => [
 { label: 'Highest', value: s.highestScore ?? '—', color: '#34d399' }];
 
 
-const BOWLING_STATS = (s) => [
+const BOWLING_STATS = (s, DS) => [
 { label: 'Matches', value: s.matches, color: DS.lime },
 { label: 'Wickets', value: s.wickets, color: '#34d399' },
 { label: 'Bowling Avg', value: s.bowlingAverage ?? '—', color: DS.blue },
@@ -95,7 +95,7 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
     });
   }, []);
 
-  const tabStats = stats ? tab === 'batting' ? BATTING_STATS(stats) : BOWLING_STATS(stats) : [];
+  const tabStats = stats ? tab === 'batting' ? BATTING_STATS(stats, DS) : BOWLING_STATS(stats, DS) : [];
   const chartData = tab === 'batting' ?
   stats?.recentScores || [45, 60, 32, 78, 25, 90, 40, 65, 55, 72] :
   stats?.recentWickets || [2, 4, 1, 3, 5, 2, 1, 4, 3, 2];
