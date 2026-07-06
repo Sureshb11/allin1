@@ -130,7 +130,7 @@ export default function MyMatchesScreen({ navigation }) {
   const [loading, setLoading]   = useState(true);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: true, headerBackVisible: true, headerTitle: 'My Matches' });
+    navigation.setOptions({ headerShown: true, headerBackVisible: false, headerTitle: 'My Cricket' });
   }, [navigation]);
 
   const loadMatches = async () => {
@@ -269,21 +269,27 @@ export default function MyMatchesScreen({ navigation }) {
             onResume={(m) => navigation.navigate('HomeTab', { screen: 'Scoring', params: { resume: true, matchId: m.id } })}
           />
         )}
-        ListFooterComponent={
-          <TouchableOpacity style={styles.promoCard} activeOpacity={0.85}>
-            <View style={styles.promoContent}>
-              <Icon name="trophy" size={22} color={DS.lime} />
-              <View style={styles.promoTextWrap}>
-                <Text style={styles.promoTitle}>HOST YOUR OWN TOURNAMENT</Text>
-                <Text style={styles.promoSub}>Organize local matches and track every ball</Text>
+        ListHeaderComponent={
+          <View style={{ paddingBottom: 16 }}>
+            <TouchableOpacity
+              style={styles.startMatchCTA}
+              onPress={() => navigation.navigate('StartMatch')}
+              activeOpacity={0.88}
+            >
+              <View style={styles.startMatchLeft}>
+                <View style={styles.startMatchIconBox}>
+                  <Icon name="cricket" size={26} color={DS.onBlue} />
+                </View>
+                <View>
+                  <Text style={styles.startMatchTitle}>Toss & Play</Text>
+                  <Text style={styles.startMatchSub}>Start scoring instantly</Text>
+                </View>
               </View>
-            </View>
-            <View style={styles.promoCta}>
-              <Text style={styles.promoCtaText}>Get Started</Text>
-              <Icon name="arrow-right" size={14} color={DS.onBlue} />
-            </View>
-          </TouchableOpacity>
+              <Icon name="chevron-right" size={22} color={DS.onBlue} />
+            </TouchableOpacity>
+          </View>
         }
+        ListFooterComponent={null}
         ListEmptyComponent={
           <View style={styles.empty}>
             <View style={styles.emptyIconWrap}>
@@ -427,29 +433,17 @@ const makeStyles = (DS) => StyleSheet.create({
   scoreBtnText: { fontSize: 12, fontWeight: '800', color: DS.bg },
   startBtn: { backgroundColor: DS.blueDeep },   // scheduled → solid-blue START
 
-  /* Promo card */
-  promoCard: {
-    backgroundColor: DS.surfaceHigh, borderRadius: 16,
-    borderWidth: 1, borderColor: DS.lime + '30',
-    marginTop: 8, marginBottom: 24, overflow: 'hidden',
+  startMatchCTA: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderRadius: 20, padding: 20, backgroundColor: DS.blueDeep,
   },
-  promoContent: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    padding: 16, paddingBottom: 10,
+  startMatchLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  startMatchIconBox: {
+    width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center'
   },
-  promoTextWrap: { flex: 1 },
-  promoTitle: {
-    fontSize: 13, fontWeight: '900', color: DS.textPrimary,
-    letterSpacing: 0.8, marginBottom: 3,
-  },
-  promoSub: { fontSize: 12, color: DS.textMuted },
-  // Primary "Action-Taker" CTA — solid electric blue per the design system.
-  promoCta: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: DS.blueDeep, marginHorizontal: 16, marginBottom: 16,
-    borderRadius: 10, paddingVertical: 10,
-  },
-  promoCtaText: { fontSize: 13, fontWeight: '800', color: DS.onBlue },
+  startMatchTitle: { fontSize: 16, fontWeight: '700', color: DS.onBlue },
+  startMatchSub: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
 
   /* Empty */
   empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
