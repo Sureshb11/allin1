@@ -121,10 +121,23 @@ const light = {
 
 export const PALETTES = { dark, light };
 
+export const typography = {
+  thin: 'Lexend-Thin',
+  extraLight: 'Lexend-ExtraLight',
+  light: 'Lexend-Light',
+  regular: 'Lexend-Regular',
+  medium: 'Lexend-Medium',
+  semiBold: 'Lexend-SemiBold',
+  bold: 'Lexend-Bold',
+  extraBold: 'Lexend-ExtraBold',
+  black: 'Lexend-Black',
+};
+
 const ThemeContext = createContext({
   mode: 'dark',
   pref: 'system',
   colors: dark,
+  typography,
   isDark: true,
   setMode: () => {},
   toggle: () => {},
@@ -169,6 +182,7 @@ export function ThemeProvider({ children }) {
     mode,
     pref,
     colors: PALETTES[mode],
+    typography,
     isDark: mode === 'dark',
     setMode,
     toggle,
