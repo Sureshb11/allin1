@@ -49,11 +49,7 @@ export default function PavilionScreen({ navigation, route }) {
     <View style={styles.container}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
       
-      {/* ── HEADER ──────────────────────── */}
-      <View style={styles.hero}>
-        <Icon name="stadium" size={24} color={DS.lime} />
-        <Text style={styles.heroTitle}>Pavilion</Text>
-      </View>
+
 
       {/* ── NAV TABS ──────────────────────── */}
       <View style={styles.navTabs}>
@@ -95,11 +91,6 @@ export default function PavilionScreen({ navigation, route }) {
 
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
-  hero: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: DS.surfaceLow, paddingTop: 16, paddingBottom: 16, paddingHorizontal: 20,
-  },
-  heroTitle: { fontSize: 24, fontWeight: '800', color: DS.textPrimary },
   
   navTabs: {
     flexDirection: 'row',
