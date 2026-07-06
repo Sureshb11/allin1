@@ -30,22 +30,7 @@ const MORE_ITEMS = [
 // Grouped into Play / Performance / Explore, rendered as icon tiles in the feed.
 const MENU_SECTIONS = [
   { title: 'Play', items: [
-    { id: 'start-match', label: 'Start a Match',        icon: 'cricket',              screen: 'StartMatch' },
-    { id: 'my-matches',  label: 'My Matches',           icon: 'format-list-bulleted', screen: 'MyMatches' },
     { id: 'tournament',  label: 'Tournaments',          icon: 'trophy-outline',       screen: 'Tournaments' },
-  ]},
-  { title: 'Performance', items: [
-    { id: 'performance', label: 'My Performance',       icon: 'chart-line',           screen: 'MyPerformance' },
-    { id: 'stats',       label: 'Leaderboard',          icon: 'podium',               screen: 'Statistics' },
-    { id: 'awards',      label: 'Awards & Badges',      icon: 'trophy-variant',       screen: 'BadgeDetail' },
-    { id: 'challenges',  label: 'Challenges',           icon: 'target',               screen: 'Quiz' },
-  ]},
-  { title: 'Explore', items: [
-    { id: 'go-live',     label: 'Go Live',              icon: 'broadcast',            screen: 'StreamingLanding' },
-    { id: 'looking-for', label: 'Looking For',          icon: 'telescope',            screen: 'LookingFor' },
-    { id: 'coaching',    label: 'Find a Coach',         icon: 'school',               screen: 'Coaching' },
-    { id: 'umpires',     label: 'Find an Umpire',       icon: 'whistle',              screen: 'Umpires' },
-    { id: 'store',       label: 'Store',                icon: 'store-outline',        screen: 'MarketPlace' },
   ]},
 ];
 
@@ -198,20 +183,34 @@ export default function HomeScreen({ navigation }) {
 
           {/* Start Match CTA */}
           <TouchableOpacity
-            style={styles.startMatchCTA}
+            style={[
+              styles.startMatchCTA,
+              currentSport.id === 'cricket' && { backgroundColor: DS.blueDeep }
+            ]}
             onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
             activeOpacity={0.88}
           >
             <View style={styles.startMatchLeft}>
-              <View style={styles.startMatchIconBox}>
-                <Icon name={currentSport.icon} size={26} color={DS.bg} />
+              <View style={[
+                styles.startMatchIconBox,
+                currentSport.id === 'cricket' && { backgroundColor: 'rgba(255,255,255,0.15)' }
+              ]}>
+                <Icon name={currentSport.icon} size={26} color={currentSport.id === 'cricket' ? DS.onBlue : DS.bg} />
               </View>
               <View>
-                <Text style={styles.startMatchTitle}>Start a {currentSport.name} Match</Text>
-                <Text style={styles.startMatchSub}>{cfg.ctaSubtitle}</Text>
+                <Text style={[
+                  styles.startMatchTitle,
+                  currentSport.id === 'cricket' && { color: DS.onBlue }
+                ]}>
+                  {currentSport.id === 'cricket' ? 'Toss & Play' : `Start a ${currentSport.name} Match`}
+                </Text>
+                <Text style={[
+                  styles.startMatchSub,
+                  currentSport.id === 'cricket' && { color: 'rgba(255,255,255,0.7)' }
+                ]}>{cfg.ctaSubtitle}</Text>
               </View>
             </View>
-            <Icon name="chevron-right" size={22} color={DS.bg} />
+            <Icon name="chevron-right" size={22} color={currentSport.id === 'cricket' ? DS.onBlue : DS.bg} />
           </TouchableOpacity>
 
           {/* Live & recent matches rail */}
@@ -295,73 +294,7 @@ export default function HomeScreen({ navigation }) {
             ))}
           </View>
 
-          {/* Sport Features */}
-          <View style={styles.sectionHeader}>
-            <Icon name="star-four-points" size={13} color={DS.textMuted} />
-            <Text style={styles.sectionLabel}>{currentSport.name.toUpperCase()} FEATURES</Text>
-          </View>
-          <View style={styles.featuresGrid}>
-            {cfg.features.map(f => (
-              <View key={f.label} style={styles.featureCard}>
-                <View style={styles.featureIcon}>
-                  <Icon name={f.icon} size={22} color={DS.lime} />
-                </View>
-                <Text style={styles.featureLabel}>{f.label}</Text>
-                <Text style={styles.featureDesc}>{f.desc}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Top Players */}
-          {players.length > 0 && (
-            <>
-              <View style={styles.sectionHeader}>
-                <Icon name="trophy" size={13} color={DS.textMuted} />
-                <Text style={styles.sectionLabel}>TOP PLAYERS</Text>
-              </View>
-              <View style={styles.leaderCard}>
-                {players.slice(0, 3).map((p, i) => (
-                  <View key={p.id || i} style={[styles.leaderRow, i < 2 && styles.leaderRowDivider]}>
-                    <View style={[styles.leaderRank, i === 0 && styles.leaderRankGold]}>
-                      {i === 0
-                        ? <Icon name="medal" size={14} color={DS.lime} />
-                        : <Text style={styles.leaderRankText}>{i + 1}</Text>}
-                    </View>
-                    <View style={[styles.leaderAvatar, { backgroundColor: DS.surfaceHighest }]}>
-                      <Text style={styles.leaderAvatarText}>{(p.name || 'P').charAt(0).toUpperCase()}</Text>
-                    </View>
-                    <Text style={styles.leaderName} numberOfLines={1}>{p.name}</Text>
-                    <Text style={styles.leaderTeam} numberOfLines={1}>
-                      {typeof p.team === 'object' ? p.team?.name : p.team || 'Free Agent'}
-                    </Text>
-                    <Text style={styles.leaderRole}>{p.role}</Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-
-          {/* Guest Scorer QR */}
-          <View style={styles.sectionHeader}>
-            <Icon name="qrcode-scan" size={13} color={DS.textMuted} />
-            <Text style={styles.sectionLabel}>GUEST SCORER</Text>
-          </View>
-          <View style={styles.guestCard}>
-            <View style={styles.guestLeft}>
-              <View style={styles.guestIconRow}>
-                <Icon name="qrcode" size={16} color={DS.lime} />
-                <Text style={styles.guestTitle}>Join as Guest Scorer</Text>
-              </View>
-              <View style={styles.guestSubRow}>
-                <Icon name="line-scan" size={13} color={DS.textMuted} />
-                <Text style={styles.guestSub}>Scan QR from captain's phone</Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.guestBtn} onPress={() => setShowGuestQR(true)}>
-              <Icon name="camera" size={15} color={DS.bg} />
-              <Text style={styles.guestBtnText}>Scan QR</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Guest Scorer QR has been removed */}
 
           <View style={{ height: 24 }} />
         </ScrollView>

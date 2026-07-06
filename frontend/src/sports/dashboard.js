@@ -62,7 +62,7 @@ const _buildConfigs = () => {
       // Live Scores (dead) + Insights (duplicate of STATS) removed — every tile
       // navigates to a working screen. Start-a-Match is the blue primary tile.
       quickAccess: [
-        { label: 'Start a Cricket Match', icon: 'play-circle', screen: 'StartMatch', primary: true },
+        { label: 'Toss & Play', icon: 'play-circle', screen: 'StartMatch', primary: true },
         { label: 'My Performance',        icon: 'chart-line',  screen: 'MyPerformance' },
         { label: 'My Matches',            icon: 'cricket',     screen: 'MyMatches' },
       ],

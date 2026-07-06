@@ -51,6 +51,7 @@ import TournamentDetailScreen from '../screens/TournamentDetailScreen';
 import MatchInsightsScreen from '../screens/MatchInsightsScreen';
 import TeamInsightsScreen from '../screens/TeamInsightsScreen';
 import PlaceholderScreen from '../screens/PlaceholderScreen';
+import PavilionScreen from '../screens/PavilionScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -389,12 +390,16 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
     <Stack.Screen name="VideoStreaming" component={PlaceholderScreen} initialParams={{title: 'Video Streaming'}} />
     <Stack.Screen name="TournamentRegistration" component={PlaceholderScreen} initialParams={{title: 'Tournament Registration'}} />
     <Stack.Screen name="BadgeLeaderboardFilter" component={PlaceholderScreen} initialParams={{title: 'Badge Leaderboard'}} />
+    <Stack.Screen name="Pavilion" component={PavilionScreen} options={{ headerShown: false }} />
   </Stack.Navigator>
   );
 };
 
 // "My Cricket" tab — same stack, but opens on the cricket dashboard (Home).
 const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="Home" />;
+
+// "Pavilion" tab - same stack, opens on Pavilion screen
+const PavilionStack = (props) => <HomeStack {...props} initialRouteName="Pavilion" />;
 
 // "Profile" tab — same stack, opens on the user profile (which links to Player
 // Insights, Badges, Edit Profile, …). Reusing HomeStack keeps all those sub-routes working.
@@ -445,6 +450,7 @@ const AppNavigator = ({ route: appRoute }) => {
             const map = {
               HomeTab: 'home-variant',
               MyCricketTab: sportIcon,
+              PavilionTab: 'stadium',
               ProfileTab: 'account-circle-outline',
             };
             const name = map[route.name] || 'apps';
@@ -463,6 +469,12 @@ const AppNavigator = ({ route: appRoute }) => {
         name="MyCricketTab"
         component={MyCricketStack}
         options={{ tabBarLabel: `My ${sportName}` }}
+        initialParams={{ initialSport, initialFormat }}
+      />
+      <Tab.Screen
+        name="PavilionTab"
+        component={PavilionStack}
+        options={{ tabBarLabel: 'Pavilion' }}
         initialParams={{ initialSport, initialFormat }}
       />
       <Tab.Screen

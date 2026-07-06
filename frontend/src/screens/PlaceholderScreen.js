@@ -15,7 +15,8 @@ const SCREEN_ICONS = {
   'Streaming': 'broadcast',
   'Marketplace': 'store-outline',
   'Chat': 'message-outline',
-  'Profile': 'account-outline'
+  'Profile': 'account-outline',
+  'Pavilion': 'stadium'
 };
 
 const PlaceholderScreen = ({ route, navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
