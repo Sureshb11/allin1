@@ -82,7 +82,7 @@ export default function PavilionScreen({ navigation, route }) {
               onPress={() => handleTabPress(i)}
               activeOpacity={0.8}
             >
-              <Icon name={tab.icon} size={18} color={isActive ? DS.bg : DS.textMuted} />
+              <Icon name={tab.icon} size={18} color={isActive ? DS.onBlue : DS.textMuted} />
               <Text style={[styles.navTabText, isActive && styles.navTabTextActive]}>
                 {tab.label}
               </Text>
@@ -119,37 +119,14 @@ const makeStyles = (DS) => StyleSheet.create({
   heroTitle: { fontSize: 24, fontWeight: '800', color: DS.textPrimary },
   heroRight: { flexDirection: 'row', alignItems: 'center' },
   
-  navTabs: {
-    flexDirection: 'row',
-    backgroundColor: DS.surfaceLow,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: DS.surfaceHigh,
-    gap: 8,
-  },
-  navTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    backgroundColor: DS.surfaceHigh,
-    borderRadius: 12,
-    gap: 6,
-  },
+  navTabs: { flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: DS.surfaceLow },
+  navTab: { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 2, borderRadius: 14 },
   navTabActive: {
-    backgroundColor: DS.lime,
+    backgroundColor: DS.blueDeep,
+    shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6,
   },
-  navTabText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: DS.textMuted,
-    letterSpacing: 0.2,
-  },
-  navTabTextActive: {
-    color: DS.bg,
-  },
+  navTabText: { fontSize: 9, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
+  navTabTextActive: { color: DS.onBlue },
   
   fab: {
     position: 'absolute',
