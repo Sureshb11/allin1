@@ -395,8 +395,8 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
   );
 };
 
-// "My Cricket" tab — same stack, but opens on the matches dashboard (MyMatches).
-const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="MyMatches" />;
+// "My Cricket" tab — same stack, but opens on the cricket dashboard (Home).
+const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="Home" />;
 
 // "Pavilion" tab - same stack, opens on Pavilion screen
 const PavilionStack = (props) => <HomeStack {...props} initialRouteName="Pavilion" />;
