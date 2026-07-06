@@ -1,20 +1,24 @@
-import React, { useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import React, { useLayoutEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-const PAVILION_ITEMS = [
-  { label: 'My Performance', icon: 'chart-line',           screen: 'MyPerformance',    color: '#22c55e' },
-  { label: 'Leaderboard',    icon: 'podium',               screen: 'Statistics',       color: '#a855f7' },
-  { label: 'Awards & Badges',icon: 'trophy-variant',       screen: 'BadgeDetail',      color: '#f59e0b' },
-  { label: 'Challenges',     icon: 'target',               screen: 'Quiz',             color: '#ef4444' },
-  { label: 'Go Live',        icon: 'broadcast',            screen: 'StreamingLanding', color: '#EF4444' },
-  { label: 'Looking For',    icon: 'telescope',            screen: 'LookingFor',       color: '#6366F1' },
+import MyPerformanceScreen from './MyPerformanceScreen';
+import StatisticsScreen from './StatisticsScreen';
+import LookingForScreen from './LookingForScreen';
+
+const TABS = [
+  { label: 'My Performance', icon: 'chart-line',  component: MyPerformanceScreen },
+  { label: 'Leaderboard',    icon: 'podium',      component: StatisticsScreen },
+  { label: 'Looking For',    icon: 'telescope',   component: LookingForScreen },
 ];
 
-export default function PavilionScreen({ navigation }) {
+export default function PavilionScreen({ navigation, route }) {
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
+
+  const [activeTab, setActiveTab] = useState(0);
+  const contentAnim = useRef(new Animated.Value(1)).current;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -23,37 +27,67 @@ export default function PavilionScreen({ navigation }) {
     });
   }, [navigation]);
 
+  const handleTabPress = (index) => {
+    if (index === activeTab) return;
+    Animated.timing(contentAnim, {
+      toValue: 0,
+      duration: 100,
+      useNativeDriver: true,
+    }).start(() => {
+      setActiveTab(index);
+      Animated.timing(contentAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  const ActiveComponent = TABS[activeTab].component;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
       
+      {/* ── HEADER ──────────────────────── */}
       <View style={styles.hero}>
         <Icon name="stadium" size={24} color={DS.lime} />
         <Text style={styles.heroTitle}>Pavilion</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <View style={styles.grid}>
-          {PAVILION_ITEMS.map(t => {
-            return (
+      {/* ── NAV TABS ──────────────────────── */}
+      <View style={styles.navTabs}>
+        {TABS.map((tab, i) => {
+          const isActive = activeTab === i;
+          return (
             <TouchableOpacity
-              key={t.screen}
-              style={styles.tile}
-              onPress={() => navigation.navigate(t.screen)}
-              activeOpacity={0.82}
+              key={tab.label}
+              style={[styles.navTab, isActive && styles.navTabActive]}
+              onPress={() => handleTabPress(i)}
+              activeOpacity={0.8}
             >
-              <View style={[styles.tileIconWrap, { backgroundColor: t.color + '22' }]}>
-                <Icon name={t.icon} size={26} color={t.color} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.tileLabel}>{t.label}</Text>
-              </View>
-              <Icon name="chevron-right" size={18} color={DS.faint} />
+              <Icon name={tab.icon} size={18} color={isActive ? DS.bg : DS.textMuted} />
+              <Text style={[styles.navTabText, isActive && styles.navTabTextActive]}>
+                {tab.label}
+              </Text>
             </TouchableOpacity>
-            );
-          })}
-        </View>
-      </ScrollView>
+          );
+        })}
+      </View>
+
+      {/* ── CONTENT ──────────────────────────── */}
+      <Animated.View style={[{ flex: 1 }, { opacity: contentAnim }]}>
+        <ActiveComponent navigation={navigation} inline={true} route={route} />
+      </Animated.View>
+
+      {/* ── FAB for Go Live ────────────────── */}
+      <TouchableOpacity 
+        style={styles.fab}
+        onPress={() => navigation.navigate('StreamingLanding')}
+        activeOpacity={0.85}
+      >
+        <Icon name="broadcast" size={24} color={DS.bg} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -62,15 +96,56 @@ const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 20, paddingHorizontal: 20,
+    backgroundColor: DS.surfaceLow, paddingTop: 16, paddingBottom: 16, paddingHorizontal: 20,
   },
   heroTitle: { fontSize: 24, fontWeight: '800', color: DS.textPrimary },
-  content: { padding: 16 },
-  grid: { gap: 12 },
-  tile: {
-    flexDirection: 'row', alignItems: 'center', gap: 16,
-    backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16,
+  
+  navTabs: {
+    flexDirection: 'row',
+    backgroundColor: DS.surfaceLow,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: DS.surfaceHigh,
+    gap: 8,
   },
-  tileIconWrap: { width: 50, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  tileLabel: { fontSize: 16, fontWeight: '700', color: DS.textPrimary },
+  navTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    backgroundColor: DS.surfaceHigh,
+    borderRadius: 12,
+    gap: 6,
+  },
+  navTabActive: {
+    backgroundColor: DS.lime,
+  },
+  navTabText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: DS.textMuted,
+    letterSpacing: 0.2,
+  },
+  navTabTextActive: {
+    color: DS.bg,
+  },
+  
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    backgroundColor: '#EF4444',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
 });

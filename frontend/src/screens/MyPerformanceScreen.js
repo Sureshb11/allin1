@@ -73,18 +73,20 @@ const BOWLING_STATS = (s) => [
 { label: '5-wkt Hauls', value: s.fiveWickets ?? 0, color: '#d97706' }];
 
 
-export default function MyPerformanceScreen({ navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+export default function MyPerformanceScreen({ navigation, inline }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [stats, setStats] = useState(null);
   const [tab, setTab] = useState('batting');
   const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'My Performance',
-    });
-  }, [navigation]);
+    if (!inline) {
+      navigation.setOptions({
+        headerShown: true,
+        headerBackVisible: true,
+        headerTitle: 'My Performance',
+      });
+    }
+  }, [navigation, inline]);
 
   useEffect(() => {
     legendsApi.getUserStats().then((res) => {
@@ -102,10 +104,12 @@ export default function MyPerformanceScreen({ navigation }) {const DS = useTheme
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Hero */}
-      <View style={styles.hero}>
-        <Icon name="chart-bar" size={20} color={DS.lime} />
-        <Text style={styles.heroTitle}>My Performance</Text>
-      </View>
+      {!inline && (
+        <View style={styles.hero}>
+          <Icon name="chart-bar" size={20} color={DS.lime} />
+          <Text style={styles.heroTitle}>My Performance</Text>
+        </View>
+      )}
 
       {/* Tab bar */}
       <View style={styles.tabBar}>

@@ -44,7 +44,7 @@ const makeTypeChipColors = (DS) => ({
 
 const INITIAL_FORM = { type: 'player', title: '', description: '', location: '', format: '', ageGroup: '', contactInfo: '' };
 
-export default function LookingForScreen({ navigation, route }) {
+export default function LookingForScreen({ navigation, route, inline }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const TYPE_CHIP_COLORS = makeTypeChipColors(DS);
@@ -62,12 +62,14 @@ export default function LookingForScreen({ navigation, route }) {
   const sportFilter = route?.params?.sport || getSelectedSport().sport?.id || null;
 
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Looking For',
-    });
-  }, [navigation]);
+    if (!inline) {
+      navigation.setOptions({
+        headerShown: true,
+        headerBackVisible: true,
+        headerTitle: 'Looking For',
+      });
+    }
+  }, [navigation, inline]);
 
   const load = useCallback(async (type) => {
     const filters = {};
@@ -164,21 +166,25 @@ export default function LookingForScreen({ navigation, route }) {
   return (
     <View style={styles.container}>
       {/* Brand bar */}
-      <View style={styles.brandBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={22} color={DS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.brandText}>LOCAL LEGENDS</Text>
-        <TouchableOpacity onPress={() => setShowCreate(true)} style={styles.addBtn}>
-          <Icon name="plus" size={20} color={DS.bg} />
-        </TouchableOpacity>
-      </View>
+      {!inline && (
+        <View style={styles.brandBar}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Icon name="arrow-left" size={22} color={DS.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.brandText}>LOCAL LEGENDS</Text>
+          <TouchableOpacity onPress={() => setShowCreate(true)} style={styles.addBtn}>
+            <Icon name="plus" size={20} color={DS.bg} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Hero section */}
-      <View style={styles.hero}>
-        <Text style={styles.heroTitle}>EXPLORE.</Text>
-        <Text style={styles.heroSubtitle}>Find players, teams, coaches & grounds near you</Text>
-      </View>
+      {!inline && (
+        <View style={styles.hero}>
+          <Text style={styles.heroTitle}>EXPLORE.</Text>
+          <Text style={styles.heroSubtitle}>Find players, teams, coaches & grounds near you</Text>
+        </View>
+      )}
 
       {/* Search bar */}
       <View style={styles.searchWrap}>
