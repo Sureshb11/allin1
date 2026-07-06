@@ -267,9 +267,6 @@ export default function SportFeedScreen({ navigation }) {
           <View style={[s.sportTag, { backgroundColor: accent }]}><Text style={s.sportTagTxt}>{sportName.toUpperCase()}</Text></View>
         </View>
         <View style={s.topActions}>
-          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('GlobalSearch')}>
-            <Icon name="magnify" size={23} color={D.ink} />
-          </TouchableOpacity>
           <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Notification')}>
             <Icon name="heart-outline" size={22} color={D.ink} />
           </TouchableOpacity>

@@ -654,9 +654,6 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
           <TouchableOpacity hitSlop={8} onPress={() => setComposeOpen(true)}>
             <Icon name="plus-box-outline" size={24} color={DS.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('GlobalSearch')}>
-            <Icon name="magnify" size={23} color={DS.textPrimary} />
-          </TouchableOpacity>
           <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Notification')}>
             <Icon name="heart-outline" size={22} color={DS.textPrimary} />
           </TouchableOpacity>
