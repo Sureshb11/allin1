@@ -19,18 +19,6 @@ const SPORT_STAT_FIELDS = {
 };
 const DEFAULT_STAT_FIELDS = [['matches', 'Matches'], ['events', 'Events'], ['fights', 'Fights'], ['wins', 'Wins'], ['titles', 'Titles'], ['ko', 'KO'], ['goals', 'Goals']];
 
-const MENU_ITEMS = [
-  // 'Edit Profile' now lives only in the icon action bar above (avoids duplicating it here).
-  { id: 'edit-team',      title: 'Team Profile',           icon: 'account-group',  screen: 'EditTeamProfile' },
-  { id: 'club-profile',   title: 'Club Profile',           icon: 'domain',         screen: 'ClubProfile' },
-  { id: 'services',       title: 'Services Profile',       icon: 'cog',            screen: 'ServicesProfile' },
-  { id: 'badges',         title: 'Badges & Achievements',  icon: 'trophy',         screen: 'BadgeDetail' },
-  { id: 'insights',       title: 'Player Insights',        icon: 'chart-line',     screen: 'PlayerInsights' },
-  { id: 'premium',        title: 'Premium Features',       icon: 'star-circle-outline', screen: 'Premium' },
-  { id: 'notifications',  title: 'Notifications',          icon: 'bell',           screen: 'Notification' },
-  { id: 'help',           title: 'Help & FAQs',            icon: 'help-circle',    screen: 'HelpFAQs' },
-  { id: 'contact',        title: 'Contact Us',             icon: 'phone',          screen: 'ContactUs' },
-];
 
 export default function ProfileScreen({ navigation }) {
   const { colors: DS, pref, setMode, isDark } = useTheme();
@@ -46,8 +34,6 @@ export default function ProfileScreen({ navigation }) {
   );
   const [profile, setProfile] = useState({});
   const [stats, setStats] = useState({});
-  const [gallery, setGallery] = useState([]);
-  const [uploadingGallery, setUploadingGallery] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
@@ -77,8 +63,6 @@ export default function ProfileScreen({ navigation }) {
       ]);
       if (profileRes.success) { setProfile(profileRes.data); setCurrentAvatar(profileRes.data?.avatarUrl || null); }
       if (statsRes.success) setStats(statsRes.data);
-      const uid = profileRes.data?.id;
-      if (uid) { const g = await legendsApi.getGallery({ userId: uid }); setGallery(g.data || []); }
     } catch {
       Alert.alert('Error', 'Failed to load profile data');
     } finally {
@@ -86,15 +70,7 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
-  const addGalleryPhoto = async () => {
-    setUploadingGallery(true);
-    const r = await pickAndUploadImage('gallery');
-    if (r.url) {
-      const add = await legendsApi.addGalleryPhoto({ url: r.url });
-      if (add.success) setGallery((prev) => [add.data, ...prev]);
-    } else if (r.error) Alert.alert('Upload failed', r.error);
-    setUploadingGallery(false);
-  };
+
 
   const shareProfile = async () => {
     const sp = getSelectedSport().sport || { name: 'Cricket' };
@@ -247,45 +223,7 @@ export default function ProfileScreen({ navigation }) {
           />
         </View>
 
-        {/* Menu Items */}
-        <View style={styles.menuCard}>
-          {MENU_ITEMS.map((item, i) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[styles.menuItem, i < MENU_ITEMS.length - 1 && styles.menuItemDivider]}
-              onPress={() => navigation.navigate(item.screen)}
-            >
-              <View style={styles.menuLeft}>
-                <View style={styles.menuIconWrap}>
-                  <Icon name={item.icon} size={18} color={DS.lime} />
-                </View>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-              </View>
-              <Icon name="chevron-right" size={18} color={DS.textMuted} />
-            </TouchableOpacity>
-          ))}
-        </View>
 
-        {/* Photo gallery */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>GALLERY</Text>
-          <View style={styles.galleryGrid}>
-            <TouchableOpacity style={styles.galleryAdd} onPress={addGalleryPhoto} disabled={uploadingGallery}>
-              {uploadingGallery ? <ActivityIndicator size="small" color={DS.lime} />
-                : <><Icon name="camera-plus" size={22} color={DS.lime} /><Text style={styles.galleryAddTxt}>Add</Text></>}
-            </TouchableOpacity>
-            {gallery.map((g) => (
-              <TouchableOpacity key={g.id} activeOpacity={0.85}
-                onLongPress={() => Alert.alert('Remove photo?', '', [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Remove', style: 'destructive', onPress: async () => { await legendsApi.deleteGalleryPhoto(g.id); setGallery((prev) => prev.filter((x) => x.id !== g.id)); } },
-                ])}>
-                <Image source={{ uri: g.url }} style={styles.galleryImg} />
-              </TouchableOpacity>
-            ))}
-          </View>
-          {gallery.length === 0 && <Text style={styles.galleryHint}>Add your best cricket moments · long-press a photo to remove</Text>}
-        </View>
 
         {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
