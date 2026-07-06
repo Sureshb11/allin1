@@ -16,7 +16,7 @@ const makeStatusMeta = (DS) => ({
   scheduled: { color: DS.blue,      bg: 'rgba(183,196,255,0.12)', label: 'UPCOMING'  },
 });
 
-function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
+export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const STATUS_META = makeStatusMeta(DS);
@@ -117,8 +117,8 @@ function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
   );
 }
 
-const FILTERS = ['all', 'live', 'upcoming', 'completed'];
-const FILTER_STATUS_MAP = { all: 'all', live: 'live', upcoming: 'scheduled', completed: 'completed' };
+export const FILTERS = ['all', 'live', 'upcoming', 'completed'];
+export const FILTER_STATUS_MAP = { all: 'all', live: 'live', upcoming: 'scheduled', completed: 'completed' };
 
 export default function MyMatchesScreen({ navigation }) {
   const DS = useTheme().colors;

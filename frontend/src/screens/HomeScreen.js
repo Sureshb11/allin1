@@ -1,14 +1,16 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   RefreshControl, Modal, Share, Dimensions, StatusBar, Animated, Alert,
+  FlatList, TextInput
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { SPORTS, getDashboard } from '../sports/dashboard';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { MatchCard, FILTERS, FILTER_STATUS_MAP } from './MyMatchesScreen';
 
 const { width } = Dimensions.get('window');
 
@@ -47,6 +49,8 @@ export default function HomeScreen({ navigation }) {
   const [showGuestQR, setShowGuestQR]         = useState(false);
   const [currentSport, setCurrentSport]       = useState(SPORTS[0]);
   const [currentFormat, setCurrentFormat]     = useState(null);
+  const [query, setQuery]                     = useState('');
+  const [status, setStatus]                   = useState('all');
 
   // Re-read sport/format from the singleton every time this screen gains focus,
   // so picking a new sport in SportPickerScreen always updates the UI.
@@ -98,6 +102,37 @@ export default function HomeScreen({ navigation }) {
     if (tab.screen) { navigation.navigate(tab.screen); return; }
     setActiveNavTab(i);
   };
+
+  const startMatch = async (m) => {
+    const t1 = typeof m.team1 === 'object' && m.team1 ? m.team1 : { id: m.team1Id, name: m.team1 };
+    const t2 = typeof m.team2 === 'object' && m.team2 ? m.team2 : { id: m.team2Id, name: m.team2 };
+    let firstInningId;
+    const innRes = await legendsApi.getMatchInnings(m.id);
+    if (innRes.success && innRes.data?.length) firstInningId = innRes.data[0].id;
+    navigation.navigate('TossLineup', {
+      matchId: m.id,
+      team1: t1.name, team2: t2.name,
+      team1Id: t1.id, team2Id: t2.id,
+      overs: String(m.overs || 20),
+      venue: m.venue || '',
+      matchType: m.matchType || 'T20',
+      firstInningId,
+      sport: m.sport || 'cricket',
+    });
+  };
+
+  const filteredMatches = useMemo(() => {
+    const mappedStatus = FILTER_STATUS_MAP[status];
+    return liveMatches
+      .filter(m => mappedStatus === 'all' || (m.status || '') === mappedStatus)
+      .filter(m => {
+        const q = query.trim().toLowerCase();
+        if (!q) return true;
+        const t1 = typeof m.team1 === 'object' ? m.team1?.name : m.team1;
+        const t2 = typeof m.team2 === 'object' ? m.team2?.name : m.team2;
+        return [t1, t2, m.venue, m.matchType].join(' ').toLowerCase().includes(q);
+      });
+  }, [liveMatches, status, query]);
 
   const shareScore = async (match) => {
     const msg = `${match.team1} ${match.score1} vs ${match.team2} ${match.score2} — Live on Local Legends!`;
@@ -174,130 +209,114 @@ export default function HomeScreen({ navigation }) {
 
       {/* ── FEED ──────────────────────────── */}
       <Animated.View style={[{ flex: 1 }, { opacity: contentAnim }]}>
-        <ScrollView
+        <FlatList
           style={styles.feed}
           contentContainerStyle={styles.feedContent}
+          data={filteredMatches}
+          keyExtractor={(item, i) => item.id || String(i)}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
           showsVerticalScrollIndicator={false}
-        >
-
-          {/* Start Match CTA */}
-          <TouchableOpacity
-            style={[
-              styles.startMatchCTA,
-              currentSport.id === 'cricket' && { backgroundColor: DS.blueDeep }
-            ]}
-            onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
-            activeOpacity={0.88}
-          >
-            <View style={styles.startMatchLeft}>
-              <View style={[
-                styles.startMatchIconBox,
-                currentSport.id === 'cricket' && { backgroundColor: 'rgba(255,255,255,0.15)' }
-              ]}>
-                <Icon name={currentSport.icon} size={26} color={currentSport.id === 'cricket' ? DS.onBlue : DS.bg} />
-              </View>
-              <View>
-                <Text style={[
-                  styles.startMatchTitle,
-                  currentSport.id === 'cricket' && { color: DS.onBlue }
-                ]}>
-                  {currentSport.id === 'cricket' ? 'Toss & Play' : `Start a ${currentSport.name} Match`}
-                </Text>
-                <Text style={[
-                  styles.startMatchSub,
-                  currentSport.id === 'cricket' && { color: 'rgba(255,255,255,0.7)' }
-                ]}>{cfg.ctaSubtitle}</Text>
-              </View>
-            </View>
-            <Icon name="chevron-right" size={22} color={currentSport.id === 'cricket' ? DS.onBlue : DS.bg} />
-          </TouchableOpacity>
-
-          {/* Live & recent matches rail */}
-          {liveMatches.length > 0 && (
+          ListHeaderComponent={
             <>
-              <View style={styles.sectionHeader}>
-                <Icon name="access-point" size={13} color={DS.live} />
-                <Text style={styles.sectionLabel}>{currentSport.name} Matches</Text>
+              {/* Start Match CTA */}
+              <TouchableOpacity
+                style={[
+                  styles.startMatchCTA,
+                  currentSport.id === 'cricket' && { backgroundColor: DS.blueDeep }
+                ]}
+                onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
+                activeOpacity={0.88}
+              >
+                <View style={styles.startMatchLeft}>
+                  <View style={[
+                    styles.startMatchIconBox,
+                    currentSport.id === 'cricket' && { backgroundColor: 'rgba(255,255,255,0.15)' }
+                  ]}>
+                    <Icon name={currentSport.icon} size={26} color={currentSport.id === 'cricket' ? DS.onBlue : DS.bg} />
+                  </View>
+                  <View>
+                    <Text style={[
+                      styles.startMatchTitle,
+                      currentSport.id === 'cricket' && { color: DS.onBlue }
+                    ]}>
+                      {currentSport.id === 'cricket' ? 'Toss & Play' : `Start a ${currentSport.name} Match`}
+                    </Text>
+                    <Text style={[
+                      styles.startMatchSub,
+                      currentSport.id === 'cricket' && { color: 'rgba(255,255,255,0.7)' }
+                    ]}>{cfg.ctaSubtitle}</Text>
+                  </View>
+                </View>
+                <Icon name="chevron-right" size={22} color={currentSport.id === 'cricket' ? DS.onBlue : DS.bg} />
+              </TouchableOpacity>
+
+              {/* Search */}
+              <View style={styles.searchWrap}>
+                <Icon name="magnify" size={18} color={DS.textMuted} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search teams, venue, type..."
+                  placeholderTextColor={DS.textMuted}
+                  value={query}
+                  onChangeText={setQuery}
+                />
+                {query.length > 0 && (
+                  <TouchableOpacity onPress={() => setQuery('')}>
+                    <Icon name="close-circle" size={16} color={DS.textMuted} />
+                  </TouchableOpacity>
+                )}
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }} contentContainerStyle={{ gap: 12 }}>
-                {liveMatches.map((m) => {
-                  const isLive = m.status === 'live';
-                  const tName = (t) => (typeof t === 'object' ? (t?.name || 'Team') : String(t || 'Team'));
+
+              {/* Filter tabs */}
+              <View style={styles.filtersRow}>
+                {FILTERS.map(f => {
+                  const active = status === f;
                   return (
                     <TouchableOpacity
-                      key={m.id}
-                      style={styles.liveCard}
-                      activeOpacity={0.85}
-                      onPress={() => currentSport.id === 'cricket'
-                        ? navigation.navigate('Scorecard', { matchId: m.id })
-                        : navigation.navigate('MatchStats', { matchId: m.id, sportName: currentSport.name })}
+                      key={f}
+                      style={[styles.filterTab, active && styles.filterTabActive]}
+                      onPress={() => setStatus(f)}
                     >
-                      <View style={styles.liveCardTop}>
-                        <Text style={styles.liveCardTag}>{(m.matchType || currentSport.name).toUpperCase()}</Text>
-                        {isLive
-                          ? <View style={styles.liveBadge}><View style={styles.liveDot} /><Text style={styles.liveBadgeTxt}>LIVE</Text></View>
-                          : <Text style={styles.liveCardWhen}>{m.status === 'completed' ? 'FT' : 'SOON'}</Text>}
-                      </View>
-                      {[[m.team1, m.score1], [m.team2, m.score2]].map(([t, sc], i) => (
-                        <View key={i} style={styles.liveTeamRow}>
-                          <Text style={styles.liveTeamName} numberOfLines={1}>{tName(t)}</Text>
-                          <Text style={styles.liveTeamScore}>{sc ?? '—'}</Text>
-                        </View>
-                      ))}
-                      <Text style={styles.liveCardFoot} numberOfLines={1}>{m.result || m.venue || 'View stats ›'}</Text>
+                      <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
+                        {f.toUpperCase()}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
-              </ScrollView>
+              </View>
+
+              {/* Match count */}
+              <View style={styles.countRow}>
+                <Text style={styles.countText}>{filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''}</Text>
+              </View>
             </>
+          }
+          renderItem={({ item }) => (
+            <MatchCard
+              m={item}
+              isScorer={!!item.isScorer}
+              onPress={() => currentSport.id === 'cricket' 
+                ? navigation.navigate('Scorecard', { matchId: item.id }) 
+                : navigation.navigate('MatchStats', { matchId: item.id, sportName: currentSport.name })}
+              onStart={startMatch}
+              onResume={(m) => navigation.navigate('Scoring', { resume: true, matchId: m.id })}
+            />
           )}
-
-          {/* ── MENU — everything that used to live in the burger drawer ── */}
-          {MENU_SECTIONS.map((section) => (
-            <View key={section.title}>
-              <View style={styles.sectionHeader}>
-                <Icon name="menu" size={13} color={DS.textMuted} />
-                <Text style={styles.sectionLabel}>{section.title.toUpperCase()}</Text>
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <View style={styles.emptyIconWrap}>
+                <Icon name="cricket" size={48} color={DS.textMuted} />
               </View>
-              <View style={styles.menuGrid}>
-                {section.items.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.menuTile}
-                    activeOpacity={0.85}
-                    onPress={() => navigation.navigate(item.screen)}
-                  >
-                    <View style={styles.menuTileIcon}>
-                      <Icon name={item.icon} size={22} color={DS.lime} />
-                    </View>
-                    <Text style={styles.menuTileLabel} numberOfLines={2}>{item.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          ))}
-
-          {/* Quick Access Grid — `primary` = solid electric-blue Action-Taker tile */}
-          <View style={styles.quickGrid}>
-            {cfg.quickAccess.map(q => (
-              <TouchableOpacity
-                key={q.label}
-                style={styles.quickItem}
-                onPress={() => q.screen && navigation.navigate(q.screen)}
-              >
-                <View style={[styles.quickIcon, q.primary && styles.quickIconPrimary]}>
-                  <Icon name={q.icon} size={q.primary ? 24 : 20} color={q.primary ? DS.onBlue : DS.lime} />
-                </View>
-                <Text style={[styles.quickLabel, q.primary && styles.quickLabelPrimary]}>{q.label}</Text>
+              <Text style={styles.emptyTitle}>No matches yet</Text>
+              <Text style={styles.emptySub}>Start scoring your first match</Text>
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('StartMatch')} activeOpacity={0.9}>
+                <Icon name="play-circle" size={18} color={DS.bg} />
+                <Text style={styles.emptyBtnText}>Start a Match</Text>
               </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Guest Scorer QR has been removed */}
-
-          <View style={{ height: 24 }} />
-        </ScrollView>
+            </View>
+          }
+          ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
+        />
       </Animated.View>
 
       {/* ── MORE SHEET ─────────────────────── */}
@@ -515,23 +534,30 @@ const makeStyles = (DS) => StyleSheet.create({
   startMatchTitle: { fontSize: 16, fontWeight: '700', color: DS.bg },
   startMatchSub: { fontSize: 12, color: 'rgba(15,19,31,0.6)', marginTop: 2 },
 
-  // Quick Access
-  // Inline menu grid (moved out of the burger drawer) — 4 tiles per row.
-  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
-  menuTile: { width: '25%', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 2 },
-  menuTileIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.surfaceHigh },
-  menuTileLabel: { fontSize: 11, color: DS.textVariant, fontWeight: '600', textAlign: 'center', lineHeight: 14 },
-
-  quickGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  quickItem: { flex: 1, alignItems: 'center', gap: 6 },
-  quickIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.surfaceHigh },
-  // Solid electric-blue Action-Taker tile (Start a Match) with the blue glow.
-  quickIconPrimary: {
-    backgroundColor: DS.blueDeep,
-    shadowColor: DS.blueDeep, shadowOpacity: 0.45, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 7,
+  // Filters and Search
+  searchWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: DS.surfaceHigh, marginBottom: 4,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+    borderWidth: 1, borderColor: DS.surfaceHighest,
   },
-  quickLabel: { fontSize: 12, color: DS.textVariant, fontWeight: '600', textAlign: 'center' },
-  quickLabelPrimary: { color: DS.textPrimary, fontWeight: '800' },
+  searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary },
+  filtersRow: {
+    flexDirection: 'row', gap: 6, paddingTop: 14, paddingBottom: 6,
+  },
+  filterTab: {
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: 'transparent',
+  },
+  filterTabActive: {
+    backgroundColor: DS.lime,
+  },
+  filterTabText: {
+    fontSize: 12, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8,
+  },
+  filterTabTextActive: { color: DS.bg },
+  countRow: { paddingBottom: 16 },
+  countText: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
 
   // Live matches rail
   liveCard: { width: 210, backgroundColor: DS.surfaceLow, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: DS.surfaceHigh },
