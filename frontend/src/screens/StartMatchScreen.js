@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useMemo, useLayoutEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Alert, ActivityIndicator, Modal, TextInput, FlatList,
-  StatusBar,
+  StatusBar, Animated
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { Typography, Spacing, Radius } from '../theme';
@@ -244,7 +245,30 @@ const StartMatchScreen = ({ navigation, route }) => {
   const [venue, setVenue]       = useState('');
   // 'now' → toss & score immediately; a Date → schedule as an Upcoming fixture.
   const [scheduleAt, setScheduleAt] = useState(null);
+  
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempDate, setTempDate] = useState(new Date());
+
   const [team1, setTeam1]       = useState(null);
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: true, headerBackVisible: true, headerTitle: 'Start Match' });
@@ -362,10 +386,11 @@ const StartMatchScreen = ({ navigation, route }) => {
   return (
     <View style={s.root}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={K.bg} />
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
       >
         {/* ── Top label + Headline ────────────────── */}
         <View style={s.topLabel}>
@@ -403,14 +428,14 @@ const StartMatchScreen = ({ navigation, route }) => {
 
         {/* ── 02 · Team Selection ─────────────────── */}
         <SectionHead num="02" label={indiv ? 'PLAYER DETAILS' : 'TEAM DETAILS'} />
-        <View style={s.teamsRow}>
+        <View style={s.vsContainer}>
           {/* Team 1 */}
           <TouchableOpacity
             style={[s.teamCard, team1 && s.teamCardFilled]}
             onPress={() => setPicker('team1')}
             activeOpacity={0.8}
           >
-            <Text style={s.teamRoleTag}>{indiv ? 'PLAYER 1' : 'TEAM A (HOME)'}</Text>
+            <Text style={s.teamRoleTag}>{indiv ? 'PLAYER 1' : 'TEAM A'}</Text>
             {team1 ? (
               <>
                 <View style={[s.teamCardAvatar, { backgroundColor: K.lime }]}>
@@ -430,15 +455,17 @@ const StartMatchScreen = ({ navigation, route }) => {
                 <View style={s.teamCardEmpty}>
                   <Icon name="camera-plus-outline" size={24} color={K.textMuted} />
                 </View>
-                <Text style={s.teamCardPlaceholder}>Upload avatar</Text>
-                <Text style={s.teamCardAction}>Tap to select</Text>
+                <Text style={s.teamCardPlaceholder}>Select Team</Text>
+                <Text style={s.teamCardAction}>Tap to add</Text>
               </>
             )}
           </TouchableOpacity>
 
           {/* VS badge */}
-          <View style={s.vsBadge}>
-            <Text style={s.vsText}>VS</Text>
+          <View style={s.vsBadgeWrapper}>
+            <View style={s.vsBadge}>
+              <Text style={s.vsText}>VS</Text>
+            </View>
           </View>
 
           {/* Team 2 */}
@@ -447,10 +474,10 @@ const StartMatchScreen = ({ navigation, route }) => {
             onPress={() => setPicker('team2')}
             activeOpacity={0.8}
           >
-            <Text style={s.teamRoleTag}>{indiv ? 'PLAYER 2' : 'TEAM B (AWAY)'}</Text>
+            <Text style={s.teamRoleTag}>{indiv ? 'PLAYER 2' : 'TEAM B'}</Text>
             {team2 ? (
               <>
-                <View style={[s.teamCardAvatar, { backgroundColor: K.blue }]}>
+                <View style={[s.teamCardAvatar, s.teamCardAvatarAway, { backgroundColor: K.blue }]}>
                   <Text style={s.teamCardInitial}>{team2.name.charAt(0).toUpperCase()}</Text>
                 </View>
                 <Text style={s.teamCardName} numberOfLines={2}>{team2.name}</Text>
@@ -467,8 +494,8 @@ const StartMatchScreen = ({ navigation, route }) => {
                 <View style={s.teamCardEmpty}>
                   <Icon name="camera-plus-outline" size={24} color={K.textMuted} />
                 </View>
-                <Text style={s.teamCardPlaceholder}>Upload avatar</Text>
-                <Text style={s.teamCardAction}>Tap to select</Text>
+                <Text style={s.teamCardPlaceholder}>Select Team</Text>
+                <Text style={s.teamCardAction}>Tap to add</Text>
               </>
             )}
           </TouchableOpacity>
@@ -504,7 +531,7 @@ const StartMatchScreen = ({ navigation, route }) => {
               value={overs}
               onChangeText={setOvers}
               keyboardType="numeric"
-              maxLength={3}
+              maxLength={2}
               placeholder={String(FORMATS[0].value)}
               placeholderTextColor={K.textMuted}
             />
@@ -518,8 +545,7 @@ const StartMatchScreen = ({ navigation, route }) => {
                 <View style={s.configIconWrap}>
                   <Icon name="circle-slice-8" size={18} color={K.lime} />
                 </View>
-                <Text style={s.configLabel}>Ball</Text>
-                <View style={s.ballRow}>
+                <View style={[s.ballRow, { flex: 1 }]}>
                   {BALL_TYPES.map(b => {
                     const active = b.label === ballType;
                     return (
@@ -529,7 +555,7 @@ const StartMatchScreen = ({ navigation, route }) => {
                         onPress={() => setBallType(b.label)}
                         activeOpacity={0.8}
                       >
-                        <Text style={[s.ballChipText, active && s.ballChipTextActive]}>{b.label}</Text>
+                        <Text style={[s.ballChipText, active && s.ballChipTextActive]} numberOfLines={1}>{b.label}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -557,7 +583,7 @@ const StartMatchScreen = ({ navigation, route }) => {
                 {emptyTeams.map((t) => t.name).join(' and ')} {emptyTeams.length > 1 ? 'have' : 'has'} no players.
                 Add at least one player to each {COMP.toLowerCase()} before you can start.
               </Text>
-              <TouchableOpacity style={s.squadWarnBtn} onPress={() => navigation.navigate('TeamManagement')} activeOpacity={0.8}>
+              <TouchableOpacity style={s.squadWarnBtn} onPress={() => navigation.navigate('Teams')} activeOpacity={0.8}>
                 <Icon name="account-plus" size={14} color={K.lime} />
                 <Text style={s.squadWarnBtnText}>Add players</Text>
               </TouchableOpacity>
@@ -565,8 +591,8 @@ const StartMatchScreen = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* ── When: start now, or schedule as an Upcoming fixture ── */}
-        <SectionHead num="4" label="When" />
+        {/* ── 04 · When: start now, or schedule ───── */}
+        <SectionHead num="04" label="When" />
         <View style={s.whenRow}>
           <TouchableOpacity
             style={[s.whenChip, !scheduleAt && s.whenChipActive]}
@@ -587,6 +613,20 @@ const StartMatchScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             );
           })}
+          {(() => {
+            const isCustom = scheduleAt && !SCHEDULE_SLOTS.some(s => s.date.getTime() === scheduleAt.getTime());
+            return (
+              <TouchableOpacity
+                style={[s.whenChip, isCustom && s.whenChipActive]}
+                onPress={() => {
+                  setTempDate(scheduleAt || new Date());
+                  setShowDatePicker(true);
+                }}
+                activeOpacity={0.85}>
+                <Icon name="calendar" size={15} color={isCustom ? K.bg : K.textMuted} />
+              </TouchableOpacity>
+            );
+          })()}
         </View>
         {scheduleAt && (
           <Text style={s.whenReadout}>
@@ -605,7 +645,7 @@ const StartMatchScreen = ({ navigation, route }) => {
           style={s.createBtn}
           textStyle={{ fontSize: 16, letterSpacing: 1 }}
         />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Team Picker modal */}
       <TeamPicker
@@ -615,6 +655,36 @@ const StartMatchScreen = ({ navigation, route }) => {
         excludeId={picker === 'team2' ? team1?.id : team2?.id}
         title={`Select ${COMP} ${picker === 'team1' ? '1' : '2'}`}
       />
+
+      {/* Date & Time Pickers */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={tempDate}
+          mode="date"
+          display="default"
+          onChange={(event, selectedDate) => {
+            setShowDatePicker(false);
+            if (event.type === 'set' && selectedDate) {
+              setTempDate(selectedDate);
+              setTimeout(() => setShowTimePicker(true), 100);
+            }
+          }}
+        />
+      )}
+
+      {showTimePicker && (
+        <DateTimePicker
+          value={tempDate}
+          mode="time"
+          display="default"
+          onChange={(event, selectedTime) => {
+            setShowTimePicker(false);
+            if (event.type === 'set' && selectedTime) {
+              setScheduleAt(selectedTime);
+            }
+          }}
+        />
+      )}
     </View>
   );
 };
@@ -622,7 +692,7 @@ const StartMatchScreen = ({ navigation, route }) => {
 /* ─── Styles ─────────────────────────────────────────────── */
 const makeS = (K) => StyleSheet.create({
   root: { flex: 1, backgroundColor: K.bg },
-  scroll: { padding: 20, paddingBottom: 48 },
+  scroll: { padding: 16, paddingBottom: 24 },
 
   /* ── Top area ──────────────────────────────── */
   topLabel: {
@@ -659,46 +729,53 @@ const makeS = (K) => StyleSheet.create({
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 28,
-    marginBottom: 14,
+    marginTop: 16,
+    marginBottom: 8,
     gap: 10,
   },
   sectionNumBadge: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: 14,
     backgroundColor: K.limeDim,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: K.lime,
   },
   sectionNum: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
     color: K.lime,
   },
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: K.textVariant,
-    letterSpacing: 1.2,
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
 
   /* ── Format row ────────────────────────────── */
   formatRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   formatCard: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
     backgroundColor: K.surfaceLow,
-    gap: 6,
+    gap: 8,
   },
   formatCardActive: {
     backgroundColor: K.lime,
+    shadowColor: K.lime,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 4,
   },
   formatLabel: {
     fontSize: 12,
@@ -711,31 +788,43 @@ const makeS = (K) => StyleSheet.create({
   },
 
   /* ── Teams row ─────────────────────────────── */
-  teamsRow: {
+  vsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    backgroundColor: K.surfaceLow,
+    borderRadius: 24,
+    padding: 6,
+    position: 'relative',
+    shadowColor: K.lime,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: K.surfaceHigh,
+    marginTop: 10,
+    marginBottom: 10,
   },
   teamCard: {
     flex: 1,
-    backgroundColor: K.surfaceLow,
-    borderRadius: 18,
+    backgroundColor: 'transparent',
+    borderRadius: 20,
     alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 10,
-    minHeight: 160,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    minHeight: 140,
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
   },
   teamCardFilled: {
-    backgroundColor: K.surfaceHigh,
+    backgroundColor: K.surfaceHigh + '40',
   },
   teamRoleTag: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     color: K.textMuted,
-    letterSpacing: 1,
-    marginBottom: 4,
+    letterSpacing: 1.5,
+    marginBottom: 6,
   },
   teamCardAvatar: {
     width: 54,
@@ -743,25 +832,38 @@ const makeS = (K) => StyleSheet.create({
     borderRadius: 27,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: K.lime,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  teamCardAvatarAway: {
+    shadowColor: K.blue,
   },
   teamCardInitial: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: K.black,
   },
   teamCardName: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: K.text,
     textAlign: 'center',
+    marginTop: 4,
   },
   teamCardChange: {
     marginTop: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: K.surfaceHigh,
+    borderRadius: 12,
   },
   teamCardChangeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: K.lime,
+    fontSize: 11,
+    fontWeight: '700',
+    color: K.text,
   },
   teamCardEmpty: {
     width: 54,
@@ -771,45 +873,72 @@ const makeS = (K) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: K.surfaceTop,
+    borderColor: K.textMuted + '60',
     borderStyle: 'dashed',
   },
   teamCardPlaceholder: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: K.textMuted,
     textAlign: 'center',
+    marginTop: 4,
   },
   teamCardAction: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: K.lime,
   },
+  vsBadgeWrapper: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    transform: [{ translateX: -20 }, { translateY: -20 }],
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: K.bg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
   vsBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: K.surfaceTop,
     justifyContent: 'center',
     alignItems: 'center',
   },
   vsText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: K.textVariant,
+    fontSize: 13,
+    fontWeight: '900',
+    color: K.lime,
+    fontStyle: 'italic',
   },
 
   /* ── Config card ───────────────────────────── */
   configCard: {
     backgroundColor: K.surfaceLow,
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: K.surfaceHigh,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
   },
   configRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 10,
     gap: 12,
   },
   configIconWrap: {
@@ -843,19 +972,23 @@ const makeS = (K) => StyleSheet.create({
   },
   ballRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    flexShrink: 1,
     gap: 6,
   },
   ballChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 9,
     backgroundColor: K.surfaceHigh,
+    flexShrink: 0,
   },
   ballChipActive: {
     backgroundColor: K.lime,
   },
   ballChipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: K.textMuted,
   },
@@ -905,6 +1038,8 @@ const makeS = (K) => StyleSheet.create({
 
   /* ── Create / Start button (gradient CTA provides its own fill) ── */
   createBtn: {
+    alignSelf: 'center',
+    paddingHorizontal: 40,
     borderRadius: 16,
     marginTop: 28,
   },

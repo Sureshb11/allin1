@@ -35,6 +35,7 @@ const dark = {
   lime: '#abd600',
   limeBright: '#c4f82a',
   lime2: '#a6e814',
+  onLime: '#12151c', // Ensure high contrast black/dark-slate text on lime
   coral: '#ffb59e',
   // Wicket / danger accent — used for the WICKET button, dismissal chips, and the
   // End innings/match action. Tinted panel + readable red text, works on dark surfaces.
@@ -84,6 +85,7 @@ const light = {
   lime: '#5f8a00',
   limeBright: '#6f9e00',
   lime2: '#6f9e00',
+  onLime: '#ffffff', // For dark green background, use white text
   coral: '#c2533a',
   // Wicket / danger accent (light) — deeper red so it reads on light surfaces.
   wicketBg: 'rgba(194,83,58,0.12)',
@@ -94,10 +96,10 @@ const light = {
   blueDeep: '#0052ff',   // primary_container
   blueSoft: '#4d7bff',   // primary (slightly deeper in light for contrast)
   onBlue: '#ffffff',     // text on the blue gradient
-  textPrimary: '#12151c',
-  textVariant: '#33394a',
-  textSecondary: '#33394a',
-  textMuted: '#525a68',
+  textPrimary: '#000000',
+  textVariant: '#171b24',
+  textSecondary: '#171b24',
+  textMuted: '#4b5563',
   faint: '#aab2c0',          // very subtle fg (chevrons, empty-state icons)
   onDark: '#eaf0fb',         // text on a fixed-dark card/banner (light in BOTH modes)
   onDarkDim: '#9aa3b8',      // muted text on a fixed-dark card/banner
@@ -115,8 +117,8 @@ const light = {
   navy2: '#ffffff',
   cell: '#ffffff',
   cellHi: '#eef1f7',
-  ink: '#12151c',
-  inkDim: '#525a68',
+  ink: '#000000',
+  inkDim: '#4b5563',
 };
 
 export const PALETTES = { dark, light };
@@ -134,20 +136,20 @@ export const typography = {
 };
 
 const ThemeContext = createContext({
-  mode: 'dark',
+  mode: 'light',
   pref: 'system',
-  colors: dark,
+  colors: light,
   typography,
-  isDark: true,
+  isDark: false,
   setMode: () => {},
   toggle: () => {},
 });
 
 export function ThemeProvider({ children }) {
   // `pref` is the user's choice: 'system' | 'light' | 'dark'. On a fresh install
-  // (nothing saved) we follow the device's system theme.
-  const [pref, setPref] = useState('system');
-  const [sysScheme, setSysScheme] = useState(() => Appearance.getColorScheme() || 'dark');
+  // (nothing saved) we force the light theme by default.
+  const [pref, setPref] = useState('light');
+  const [sysScheme, setSysScheme] = useState(() => Appearance.getColorScheme() || 'light');
 
   // Restore the persisted preference on launch.
   useEffect(() => {
@@ -158,7 +160,7 @@ export function ThemeProvider({ children }) {
 
   // Track the OS theme so 'system' updates live when the device switches.
   useEffect(() => {
-    const sub = Appearance.addChangeListener(({ colorScheme }) => setSysScheme(colorScheme || 'dark'));
+    const sub = Appearance.addChangeListener(({ colorScheme }) => setSysScheme(colorScheme || 'light'));
     return () => sub?.remove?.();
   }, []);
 
@@ -171,7 +173,7 @@ export function ThemeProvider({ children }) {
 
   const toggle = useCallback(() => {
     setPref((cur) => {
-      const resolved = cur === 'system' ? (Appearance.getColorScheme() || 'dark') : cur;
+      const resolved = cur === 'system' ? (Appearance.getColorScheme() || 'light') : cur;
       const next = resolved === 'dark' ? 'light' : 'dark';
       AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
       return next;

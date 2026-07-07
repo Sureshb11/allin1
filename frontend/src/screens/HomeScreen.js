@@ -15,6 +15,7 @@ import TeamManagementScreen from './TeamManagementScreen';
 import TournamentsScreen from './TournamentsScreen';
 import StatisticsScreen from './StatisticsScreen';
 import { useCurrentUser } from '../utils/currentUser';
+import BrandLogo from '../components/BrandLogo';
 
 const { width } = Dimensions.get('window');
 
@@ -40,9 +41,32 @@ const MENU_SECTIONS = [
   ]},
 ];
 
+function matchStatus(ms, scheduleStr) {
+  if (ms === 'live') return 'LIVE NOW';
+  if (ms === 'scheduled') return scheduleStr || 'UPCOMING';
+  if (ms === 'completed') return 'COMPLETED';
+  return 'UNKNOWN';
+}
+
+const AnimatedPulse = ({ children }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.02, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulseAnim]);
+  return <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>{children}</Animated.View>;
+};
+
 export default function HomeScreen({ navigation }) {
-  const { colors: DS, isDark } = useTheme();
-  const styles = useThemedStyles(makeStyles);
+  const { colors: DS, mode, isDark, typography } = useTheme();
+  const styles = useMemo(() => makeStyles(DS, typography), [DS, typography]);
+  const lcStyles = useThemedStyles(makeLcStyles);
   const meUser = useCurrentUser();
   const [liveMatches, setLiveMatches] = useState([]);
   const [players, setPlayers]         = useState([]);
@@ -97,7 +121,9 @@ export default function HomeScreen({ navigation }) {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { 
+    load(); 
+  }, []);
 
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
@@ -173,47 +199,43 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.root}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
 
-      {/* ── HEADER ────────────────────────── */}
-      <View style={styles.header}>
+      {/* ── TOP GLASS BAR ────────────────────────── */}
+      <View style={styles.topGlassBar}>
+        <View style={styles.header}>
 
-        {/* Row 1: logo · icons (menu items now live inline in the feed below) */}
-        <View style={styles.headerRow1}>
-          <View style={styles.headerBrand}>
-            <Text style={styles.brandText}>LOCAL</Text>
-            <View style={styles.brandBadge}>
-              <Icon name="star-four-points" size={10} color={DS.bg} style={{ marginRight: 3 }} />
-              <Text style={styles.brandBadgeText}>LEGENDS</Text>
+          {/* Row 1: logo · icons (menu items now live inline in the feed below) */}
+          <View style={styles.headerRow1}>
+            <BrandLogo />
+
+            <View style={styles.headerRight}>
+              <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.navigate('Notification')}>
+                <Icon name="bell-outline" size={22} color={DS.textVariant} />
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.headerBtn, { paddingLeft: 10 }]} onPress={() => navigation.navigate('Profile')}>
+                {meUser?.avatarUrl ? (
+                  <Image source={{ uri: meUser.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
+                ) : (
+                  <Icon name="account-circle-outline" size={24} color={DS.textVariant} />
+                )}
+              </TouchableOpacity>
             </View>
           </View>
 
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.navigate('Notification')}>
-              <Icon name="bell-outline" size={22} color={DS.textVariant} />
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.headerBtn, { paddingLeft: 10 }]} onPress={() => navigation.navigate('Profile')}>
-              {meUser?.avatarUrl ? (
-                <Image source={{ uri: meUser.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
-              ) : (
-                <Icon name="account-circle-outline" size={24} color={DS.textVariant} />
-              )}
-            </TouchableOpacity>
-          </View>
         </View>
 
-      </View>
-
-      {/* ── NAV TABS ──────────────────────── */}
-      <View style={styles.navTabs}>
-        {cfg.navTabs.map((tab, i) => (
-          <TouchableOpacity
-            key={tab.label}
-            style={[styles.navTab, activeNavTab === i && styles.navTabActive]}
-            onPress={() => handleNavTab(i)}
-          >
-            <Icon name={tab.icon} size={18} color={activeNavTab === i ? DS.onBlue : DS.textMuted} />
-            <Text style={[styles.navTabText, activeNavTab === i && styles.navTabTextActive]}>{tab.label}</Text>
-          </TouchableOpacity>
-        ))}
+        {/* ── NAV TABS ──────────────────────── */}
+        <View style={styles.navTabs}>
+          {cfg.navTabs.map((tab, i) => (
+            <TouchableOpacity
+              key={tab.label}
+              style={[styles.navTab, activeNavTab === i && styles.navTabActive]}
+              onPress={() => handleNavTab(i)}
+            >
+              <Icon name={tab.icon} size={18} color={activeNavTab === i ? DS.lime : DS.textMuted} />
+              <Text style={[styles.navTabText, activeNavTab === i && styles.navTabTextActive]}>{tab.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       {/* ── CONTENT ──────────────────────────── */}
@@ -227,38 +249,33 @@ export default function HomeScreen({ navigation }) {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={
-              <>
+              <View>
                 {/* Start Match CTA */}
-                <TouchableOpacity
-                  style={[
-                    styles.startMatchCTA,
-                    currentSport.id === 'cricket' && { backgroundColor: DS.blueDeep }
-                  ]}
-                  onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
-                  activeOpacity={0.88}
-                >
-                  <View style={styles.startMatchLeft}>
-                    <View style={[
-                      styles.startMatchIconBox,
-                      currentSport.id === 'cricket' && { backgroundColor: 'rgba(255,255,255,0.15)' }
-                    ]}>
-                      <Icon name={currentSport.icon} size={26} color={currentSport.id === 'cricket' ? DS.onBlue : DS.bg} />
-                    </View>
-                    <View>
-                      <Text style={[
-                        styles.startMatchTitle,
-                        currentSport.id === 'cricket' && { color: DS.onBlue }
-                      ]}>
-                        {currentSport.id === 'cricket' ? 'Toss & Play' : `Start a ${currentSport.name} Match`}
-                      </Text>
-                      <Text style={[
-                        styles.startMatchSub,
-                        currentSport.id === 'cricket' && { color: 'rgba(255,255,255,0.7)' }
-                      ]}>{cfg.ctaSubtitle}</Text>
-                    </View>
+                <AnimatedPulse>
+                  <View style={{ alignItems: 'center' }}>
+                    <TouchableOpacity
+                      style={styles.startMatchCTA}
+                      onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
+                      activeOpacity={0.88}
+                    >
+                      <View style={styles.startMatchLeft}>
+                        <View style={styles.startMatchIconBox}>
+                          <Icon name={currentSport.icon} size={26} color={DS.blueDeep} />
+                        </View>
+                        <View>
+                          <Text style={styles.startMatchTitle}>
+                            {currentSport.id === 'cricket' ? 'Toss & Play' : `Start a ${currentSport.name} Match`}
+                          </Text>
+                          <Text style={styles.startMatchSub}>{cfg.ctaSubtitle}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.startMatchRight}>
+                        <Text style={styles.startMatchGo}>GO</Text>
+                        <Icon name="chevron-right" size={20} color={DS.onBlue} />
+                      </View>
+                    </TouchableOpacity>
                   </View>
-                  <Icon name="chevron-right" size={22} color={currentSport.id === 'cricket' ? DS.onBlue : DS.bg} />
-                </TouchableOpacity>
+                </AnimatedPulse>
 
                 {/* Search */}
                 <View style={styles.searchWrap}>
@@ -299,7 +316,7 @@ export default function HomeScreen({ navigation }) {
                 <View style={styles.countRow}>
                   <Text style={styles.countText}>{filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''}</Text>
                 </View>
-              </>
+              </View>
             }
             renderItem={({ item }) => (
               <MatchCard
@@ -328,9 +345,9 @@ export default function HomeScreen({ navigation }) {
             ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
           />
         )}
-        {activeNavTab === 1 && <TeamManagementScreen navigation={navigation} inline={true} />}
-        {activeNavTab === 2 && <TournamentsScreen navigation={navigation} inline={true} />}
-        {activeNavTab === 3 && <StatisticsScreen navigation={navigation} inline={true} />}
+        {activeNavTab === 1 && <View style={{ flex: 1 }}><TeamManagementScreen navigation={navigation} inline={true} /></View>}
+        {activeNavTab === 2 && <View style={{ flex: 1 }}><TournamentsScreen navigation={navigation} inline={true} /></View>}
+        {activeNavTab === 3 && <View style={{ flex: 1 }}><StatisticsScreen navigation={navigation} inline={true} /></View>}
       </Animated.View>
 
       {/* ── MORE SHEET ─────────────────────── */}
@@ -399,7 +416,7 @@ function LiveMatchCard({ match, sport, navigation, onShare }) {
         <View style={lcStyles.cardHeaderLeft}>
           {isLive && (
             <View style={lcStyles.livePill}>
-              <Icon name="access-point" size={10} color="#fff" />
+              <Icon name="access-point" size={10} color={DS.white} />
               <Text style={lcStyles.livePillText}>LIVE</Text>
             </View>
           )}
@@ -450,7 +467,7 @@ function LiveMatchCard({ match, sport, navigation, onShare }) {
             <Text style={lcStyles.actionBtnText}>Score Live</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[lcStyles.actionBtn, lcStyles.actionBtnWhatsApp]} onPress={onShare}>
-            <Icon name="whatsapp" size={16} color="#fff" />
+            <Icon name="whatsapp" size={16} color={DS.white} />
             <Text style={lcStyles.actionBtnTextWhatsApp}>WhatsApp</Text>
           </TouchableOpacity>
         </View>
@@ -464,7 +481,7 @@ const makeLcStyles = (DS) => StyleSheet.create({
   cardHeader: { paddingHorizontal: 18, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: DS.surfaceHighest, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   livePill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: DS.live, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 2 },
-  livePillText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  livePillText: { color: DS.white, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   venuePill: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   venueText: { color: DS.textVariant, fontSize: 13, fontWeight: '600', maxWidth: 140 },
   sportBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -479,20 +496,25 @@ const makeLcStyles = (DS) => StyleSheet.create({
   scoreMain: { fontSize: 22, fontWeight: '900', color: DS.lime, letterSpacing: -0.5 },
   vsLabel: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
   actions: { flexDirection: 'row', gap: 10 },
-  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 14, paddingVertical: 14, backgroundColor: DS.lime },
-  actionBtnText: { fontSize: 14, fontWeight: '700', color: DS.bg },
+  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 14, paddingVertical: 14, backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  actionBtnText: { fontSize: 15, fontWeight: '800', color: DS.onLime },
   actionBtnWhatsApp: { backgroundColor: '#25D366' },
-  actionBtnTextWhatsApp: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  actionBtnTextWhatsApp: { fontSize: 14, fontWeight: '700', color: DS.white },
 });
 
-const makeStyles = (DS) => StyleSheet.create({
+const makeStyles = (DS, typography) => StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.bg },
 
+  // Top Bar
+  topGlassBar: {
+    backgroundColor: DS.surfaceLow,
+  },
+
   // Header
-  header: { flexDirection: 'column', paddingTop: 48, paddingBottom: 10, paddingHorizontal: 16, backgroundColor: DS.surfaceLow },
+  header: { flexDirection: 'column', paddingTop: 48, paddingBottom: 10, paddingHorizontal: 16, backgroundColor: 'transparent' },
   headerRow1: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   headerBtn: { padding: 6, flexShrink: 0 },
-  headerBrand: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headerBrand: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandText: { fontSize: 20, fontWeight: '800', color: DS.textPrimary, letterSpacing: 1.5 },
   brandBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.lime, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 3 },
   brandBadgeText: { fontSize: 13, fontWeight: '800', color: DS.bg, letterSpacing: 0.8 },
@@ -507,23 +529,23 @@ const makeStyles = (DS) => StyleSheet.create({
   sportSelectorHint: { fontSize: 11, color: DS.textMuted, fontWeight: '500' },
 
   // Nav tabs
-  navTabs: { flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: DS.surfaceLow },
+  navTabs: { flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: 'transparent' },
   navTab: { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 2, borderRadius: 14 },
-  // Active tab = electric-blue pill with a scoreboard glow (design reference).
   navTabActive: {
-    backgroundColor: DS.blueDeep,
-    shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6,
+    backgroundColor: DS.surfaceHighest,
+    shadowColor: DS.lime, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4,
+    borderWidth: 1, borderColor: 'rgba(171,214,0,0.3)',
   },
-  navTabText: { fontSize: 9, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
-  navTabTextActive: { color: DS.onBlue },
+  navTabText: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
+  navTabTextActive: { color: DS.lime },
 
   // Feed
   feed: { flex: 1 },
-  feedContent: { padding: 16, paddingTop: 16 },
+  feedContent: { paddingHorizontal: 16, paddingBottom: 16 },
 
   // Start Match CTA
   // My Cricket summary card
-  mcCard: { backgroundColor: DS.surfaceHigh, borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(171,214,0,0.18)' },
+  mcCard: { backgroundColor: DS.surfaceHigh, borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: DS.lime + '2E' },
   mcHeadRow: { flexDirection: 'row', alignItems: 'center' },
   mcAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
   mcAvatarTxt: { color: DS.bg, fontSize: 17, fontWeight: '900' },
@@ -531,8 +553,8 @@ const makeStyles = (DS) => StyleSheet.create({
   mcRole: { color: DS.textMuted, fontSize: 12, marginTop: 2 },
   mcProfileBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   mcProfileTxt: { color: DS.lime, fontSize: 13, fontWeight: '700' },
-  mcStatsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(150,170,210,0.10)' },
-  mcSportsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 7, marginTop: 13, paddingTop: 13, borderTopWidth: 1, borderTopColor: 'rgba(150,170,210,0.10)' },
+  mcStatsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: DS.border },
+  mcSportsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 7, marginTop: 13, paddingTop: 13, borderTopWidth: 1, borderTopColor: DS.border },
   mcSportsLbl: { color: DS.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 1, marginRight: 2 },
   mcSportChip: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 14, backgroundColor: DS.surfaceHighest },
   mcSportChipPrimary: { backgroundColor: DS.lime },
@@ -542,18 +564,20 @@ const makeStyles = (DS) => StyleSheet.create({
   mcStatVal: { color: DS.lime, fontSize: 18, fontWeight: '900' },
   mcStatLbl: { color: DS.textMuted, fontSize: 10.5, fontWeight: '600', marginTop: 2, letterSpacing: 0.3 },
 
-  startMatchCTA: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 20, padding: 20, marginBottom: 16, backgroundColor: DS.lime },
+  startMatchCTA: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, borderRadius: 20, paddingVertical: 14, paddingHorizontal: 24, marginBottom: 20, backgroundColor: DS.blueDeep, elevation: 10, shadowColor: DS.blueDeep, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, borderWidth: 1, borderColor: DS.border },
   startMatchLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  startMatchIconBox: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(15,19,31,0.15)', alignItems: 'center', justifyContent: 'center' },
-  startMatchTitle: { fontSize: 16, fontWeight: '700', color: DS.bg },
-  startMatchSub: { fontSize: 12, color: 'rgba(15,19,31,0.6)', marginTop: 2 },
+  startMatchIconBox: { width: 48, height: 48, borderRadius: 24, backgroundColor: DS.white, alignItems: 'center', justifyContent: 'center', elevation: 3, shadowColor: DS.textPrimary, shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 3 } },
+  startMatchTitle: { fontSize: 17, fontWeight: '800', color: DS.onBlue, textTransform: 'uppercase', letterSpacing: 0.5 },
+  startMatchSub: { fontSize: 12, fontWeight: '600', color: DS.onBlue, marginTop: 2, letterSpacing: 0.3, opacity: 0.8 },
+  startMatchRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  startMatchGo: { fontSize: 14, fontWeight: '800', color: DS.onBlue, letterSpacing: 1 },
 
   // Filters and Search
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: DS.surfaceHigh, marginBottom: 4,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1, borderColor: DS.surfaceHighest,
+    backgroundColor: DS.surfaceHighest, marginBottom: 8,
+    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12,
+    borderWidth: 1, borderColor: DS.border,
   },
   searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary },
   filtersRow: {
@@ -605,7 +629,7 @@ const makeStyles = (DS) => StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '700', color: DS.textVariant },
   emptySub: { fontSize: 13, color: DS.textMuted, textAlign: 'center' },
   emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 999, paddingHorizontal: 24, paddingVertical: 10, marginTop: 6, backgroundColor: DS.lime },
-  emptyBtnText: { fontSize: 13, fontWeight: '700', color: DS.bg },
+  emptyBtnText: { fontSize: 14, fontWeight: '800', color: DS.onLime },
 
   // Leaderboard
   leaderCard: { backgroundColor: DS.surfaceHigh, borderRadius: 20, marginBottom: 20 },
@@ -631,7 +655,7 @@ const makeStyles = (DS) => StyleSheet.create({
   guestBtnText: { fontSize: 14, fontWeight: '700', color: DS.bg },
 
   // MORE sheet
-  sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+  sheetOverlay: { flex: 1, backgroundColor: DS.overlay },
   sheet: { backgroundColor: DS.surfaceLow, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, paddingBottom: 36 },
   sheetHandle: { width: 40, height: 4, backgroundColor: DS.surfaceHighest, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontSize: 18, fontWeight: '700', color: DS.textPrimary, marginBottom: 16 },
@@ -641,7 +665,7 @@ const makeStyles = (DS) => StyleSheet.create({
   moreLabel: { fontSize: 12, color: DS.textVariant, textAlign: 'center', fontWeight: '600' },
 
   // Guest QR modal
-  qrOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  qrOverlay: { flex: 1, backgroundColor: DS.overlay, alignItems: 'center', justifyContent: 'center', padding: 24 },
   qrSheet: { backgroundColor: DS.surfaceLow, borderRadius: 24, padding: 30, width: '100%', maxWidth: 340, alignItems: 'center' },
   qrHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   qrTitle: { fontSize: 18, fontWeight: '800', color: DS.textPrimary },
@@ -654,7 +678,7 @@ const makeStyles = (DS) => StyleSheet.create({
   qrJoinText: { fontSize: 14, fontWeight: '700', color: DS.bg },
 
   // Sport Picker
-  sportPickerContainer: { flex: 1, flexDirection: 'column', backgroundColor: 'rgba(0,0,0,0.6)' },
+  sportPickerContainer: { flex: 1, flexDirection: 'column', backgroundColor: DS.overlay },
   sportPickerDismiss: { flex: 1 },
   sportPickerSheet: { height: 420, backgroundColor: DS.surfaceLow, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 12 },
   sportPickerHandle: { width: 40, height: 4, backgroundColor: DS.surfaceHighest, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },

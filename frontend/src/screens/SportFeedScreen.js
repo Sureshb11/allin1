@@ -24,6 +24,7 @@ import Skeleton from '../components/Skeleton';
 import GradientButton from '../components/GradientButton';
 import MomentumMeter from '../components/MomentumMeter';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import BrandLogo from "../components/BrandLogo";
 
 const DEFAULT_COPY = { live: 'Live Now', results: 'Results & Fixtures', community: 'From the Community', compose: 'Share a moment' };
 
@@ -265,7 +266,7 @@ export default function SportFeedScreen({ navigation }) {
       <View style={s.topBar}>
         <View style={s.brand}>
           <Icon name={sportIcon} size={22} color={accent} />
-          <Text style={s.brandTxt}>LOCAL LEGENDS</Text>
+          <BrandLogo scale={0.75} />
           <View style={[s.sportTag, { backgroundColor: accent }]}><Text style={s.sportTagTxt}>{sportName.toUpperCase()}</Text></View>
         </View>
         <View style={s.topActions}>

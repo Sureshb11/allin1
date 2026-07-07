@@ -117,7 +117,7 @@ export default function UmpireScreen({ navigation }) {const DS = useTheme().colo
           </View>
       }
       </View>
-      <View style={[styles.availBadge, { backgroundColor: item.available ? 'rgba(171,214,0,0.15)' : 'rgba(255,181,158,0.15)' }]}>
+      <View style={[styles.availBadge, { backgroundColor: item.available ? DS.lime + '26' : 'rgba(255,181,158,0.15)' }]}>
         <Text style={[styles.availText, { color: item.available ? DS.lime : DS.coral }]}>
           {item.available ? 'Available' : 'Busy'}
         </Text>
@@ -255,7 +255,7 @@ const makeStyles = (DS) => StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 80 },
   emptyText: { fontSize: 20, fontWeight: '700', color: DS.textMuted, marginTop: 12 },
   emptySubText: { fontSize: 13, color: DS.textMuted, marginTop: 4 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: DS.overlay, justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: DS.surfaceLow, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
   modalTitle: { fontSize: 20, fontWeight: '700', color: DS.textPrimary },

@@ -159,7 +159,7 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16,
     marginHorizontal: 16, marginBottom: 10
   },
-  unreadNotification: { backgroundColor: 'rgba(171,214,0,0.06)' },
+  unreadNotification: { backgroundColor: DS.lime + '0F' },
   notificationContent: { flex: 1 },
   notificationHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
   iconContainer: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },

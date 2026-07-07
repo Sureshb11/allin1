@@ -54,8 +54,11 @@ export default function PavilionScreen({ navigation, route }) {
       {/* ── HEADER ──────────────────────── */}
       <View style={styles.hero}>
         <View style={styles.heroLeft}>
-          <Icon name="stadium" size={24} color={DS.lime} />
-          <Text style={styles.heroTitle}>Pavilion</Text>
+          <Text style={styles.brandText}>LOCAL</Text>
+          <View style={styles.brandBadge}>
+            <Icon name="star-four-points" size={10} color={DS.bg} style={{ marginRight: 3 }} />
+            <Text style={styles.brandBadgeText}>LEGENDS</Text>
+          </View>
         </View>
         <View style={styles.heroRight}>
           <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Notification')}>
@@ -113,10 +116,12 @@ const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   hero: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: DS.surfaceLow, paddingTop: 16, paddingBottom: 16, paddingHorizontal: 20,
+    backgroundColor: DS.surfaceLow, paddingTop: 48, paddingBottom: 10, paddingHorizontal: 16,
   },
   heroLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  heroTitle: { fontSize: 24, fontWeight: '800', color: DS.textPrimary },
+  brandText: { fontSize: 20, fontWeight: '800', color: DS.textPrimary, letterSpacing: 1.5 },
+  brandBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.lime, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 3 },
+  brandBadgeText: { fontSize: 13, fontWeight: '800', color: DS.bg, letterSpacing: 0.8 },
   heroRight: { flexDirection: 'row', alignItems: 'center' },
   
   navTabs: { flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: DS.surfaceLow },

@@ -124,7 +124,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: DS.overlay,
   },
   sidebar: {
     width: SIDEBAR_WIDTH,

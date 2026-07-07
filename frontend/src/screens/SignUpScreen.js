@@ -75,7 +75,7 @@ export default function SignUpScreen({ navigation }) {const DS = useTheme().colo
         {/* Logo */}
         <View style={s.logo}>
           <View style={s.logoStar}>
-            <Icon name="star" size={16} color="#fff" />
+            <Icon name="star" size={16} color={DS.bg} />
           </View>
           <Text style={s.logoLocal}>LOCAL</Text>
           <View style={s.logoBadge}>
@@ -193,9 +193,9 @@ const makeS = (DS) => StyleSheet.create({
   },
   logo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logoStar: { backgroundColor: DS.lime, borderRadius: 6, padding: 6, alignItems: 'center', justifyContent: 'center' },
-  logoLocal: { fontSize: 18, fontWeight: '900', color: '#fff', letterSpacing: -0.5, fontStyle: 'italic' },
+  logoLocal: { fontSize: 18, fontWeight: '900', color: DS.textPrimary, letterSpacing: -0.5, fontStyle: 'italic' },
   logoBadge: { backgroundColor: DS.lime, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 2 },
-  logoLegends: { fontSize: 18, fontWeight: '900', color: '#fff', letterSpacing: -0.5, fontStyle: 'italic' },
+  logoLegends: { fontSize: 18, fontWeight: '900', color: DS.bg, letterSpacing: -0.5, fontStyle: 'italic' },
 
   body: { paddingHorizontal: 20, paddingTop: 24 },
 
@@ -235,7 +235,7 @@ const makeS = (DS) => StyleSheet.create({
   },
   chipActive: {
     backgroundColor: DS.lime,
-    borderColor: '#c3f400',
+    borderColor: DS.lime,
     shadowColor: DS.lime,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,

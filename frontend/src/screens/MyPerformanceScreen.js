@@ -1,22 +1,9 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useEffect, useState, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
-import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
+import React, { useEffect, useState, useLayoutEffect, useRef } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, Animated } from 'react-native';
+import Svg, { Polyline, Polygon, Circle, Line, Text as SvgText } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 const W = Dimensions.get('window').width - 48;
 
@@ -24,35 +11,52 @@ function PerformanceChart({ values, color }) {const DS = useTheme().colors;
   const H = 120;
   const max = Math.max(...values, 1);
   const stepX = W / Math.max(values.length - 1, 1);
-  const points = values.map((v, i) => `${i * stepX},${H - v / max * (H - 16)}`).join(' ');
-  return (
-    <Svg width={W} height={H + 20}>
-      {[0.25, 0.5, 0.75, 1].map((r, i) =>
-      <Line key={i} x1={0} y1={H - r * (H - 16)} x2={W} y2={H - r * (H - 16)}
-      stroke={DS.surfaceHighest} strokeWidth={1} />
-      )}
-      <Polyline points={points} fill="none" stroke={color} strokeWidth={2.5}
-      strokeLinecap="round" strokeLinejoin="round" />
-      {values.map((v, i) =>
-      <Circle key={i} cx={i * stepX} cy={H - v / max * (H - 16)} r={4}
-      fill={color} />
-      )}
-      {values.map((_, i) =>
-      <SvgText key={i} x={i * stepX} y={H + 16} fontSize="9"
-      fill={DS.textMuted} textAnchor="middle">M{i + 1}</SvgText>
-      )}
-    </Svg>);
+  
+  // Animation state
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    anim.setValue(0);
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+  }, [values]);
 
+  const points = values.map((v, i) => `${i * stepX},${H - v / max * (H - 16)}`).join(' ');
+  const areaPoints = `${0},${H} ` + points + ` ${W},${H}`;
+  
+  return (
+    <Animated.View style={{ opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }}>
+      <Svg width={W} height={H + 20}>
+        {/* Grid lines */}
+        {[0.25, 0.5, 0.75, 1].map((r, i) =>
+          <Line key={i} x1={0} y1={H - r * (H - 16)} x2={W} y2={H - r * (H - 16)} stroke={DS.surfaceHighest} strokeWidth={1} />
+        )}
+        {/* Area fill */}
+        <Polygon points={areaPoints} fill={color} fillOpacity={0.15} />
+        {/* Line */}
+        <Polyline points={points} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+        {/* Points */}
+        {values.map((v, i) =>
+          <Circle key={i} cx={i * stepX} cy={H - v / max * (H - 16)} r={4} fill={DS.surfaceHigh} stroke={color} strokeWidth={2} />
+        )}
+        {/* Labels */}
+        {values.map((_, i) =>
+          <SvgText key={i} x={i * stepX} y={H + 16} fontSize="9" fill={DS.textMuted} textAnchor="middle">M{i + 1}</SvgText>
+        )}
+      </Svg>
+    </Animated.View>
+  );
 }
 
 function StatBento({ label, value, color }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   return (
-    <View style={[styles.bentoCard, { backgroundColor: DS.surfaceHigh }]}>
-      <View style={{ width: '100%', height: 3, backgroundColor: color, borderRadius: 2, marginBottom: 10 }} />
-      <Text style={styles.bentoVal}>{value ?? '—'}</Text>
+    <View style={[styles.bentoCard, { backgroundColor: color + '15', borderColor: color + '30', borderWidth: 1 }]}>
+      <View style={{ width: '100%', height: 3, backgroundColor: color, borderRadius: 2, marginBottom: 10, opacity: 0.8 }} />
+      <Text style={[styles.bentoVal, { color: color }]}>{value ?? '—'}</Text>
       <Text style={styles.bentoLbl}>{label}</Text>
     </View>);
-
 }
 
 const BATTING_STATS = (s, DS) => [
@@ -106,7 +110,7 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
   stats?.recentScores || [45, 60, 32, 78, 25, 90, 40, 65, 55, 72] :
   tab === 'bowling' ? stats?.recentWickets || [2, 4, 1, 3, 5, 2, 1, 4, 3, 2] :
   stats?.recentCatches || [0, 1, 0, 2, 1, 0, 0, 1, 0, 2];
-  const chartColor = tab === 'batting' ? DS.lime : tab === 'bowling' ? DS.coral : '#3b82f6';
+  const chartColor = tab === 'batting' ? DS.lime : tab === 'bowling' ? DS.coral : DS.blue;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -162,26 +166,26 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
         }
       </View>
     </ScrollView>);
-
 }
 
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   hero: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 18, paddingHorizontal: 16
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: DS.bg, paddingTop: 52, paddingBottom: 12, paddingHorizontal: 16
   },
-  heroTitle: { fontSize: 20, fontWeight: '800', color: DS.textPrimary },
+  heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
   tabBar: {
-    flexDirection: 'row', backgroundColor: DS.surfaceHigh,
-    margin: 16, borderRadius: 16, padding: 4
+    flexDirection: 'row', backgroundColor: DS.surfaceLow,
+    marginHorizontal: 16, marginTop: 4, marginBottom: 12,
+    borderRadius: 14, padding: 4,
   },
   tabBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 10, borderRadius: 12
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, borderRadius: 10, backgroundColor: 'transparent',
   },
-  tabBtnActive: { backgroundColor: DS.lime },
+  tabBtnActive: { backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   tabBtnText: { fontWeight: '700', fontSize: 13, color: DS.textMuted },
   tabBtnTextActive: { color: DS.bg },
   body: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },

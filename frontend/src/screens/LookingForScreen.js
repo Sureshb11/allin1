@@ -1,13 +1,49 @@
-import { useState, useEffect, useCallback, useLayoutEffect } from 'react';
+import { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl,
+  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import BrandLogo from "../components/BrandLogo";
+
+// ── Shimmer Skeleton ────────────────────────────────────────────────────────
+function ScoutSkeleton({ DS }) {
+  const shimmer = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 1000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [shimmer]);
+  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
+  const Bar = ({ w, h, r = 6, mt = 0 }) => (
+    <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity, marginTop: mt }} />
+  );
+  return (
+    <View style={{ padding: 16, gap: 14 }}>
+      {[0, 1, 2].map((i) => (
+        <View key={i} style={{ backgroundColor: DS.surfaceHigh, borderRadius: 16, overflow: 'hidden' }}>
+          <Bar w="100%" h={90} r={0} />
+          <View style={{ padding: 14, gap: 12 }}>
+            <Bar w={80} h={20} r={10} />
+            <Bar w="80%" h={16} />
+            <Bar w="60%" h={12} />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+               <Bar w={70} h={14} />
+               <Bar w={70} h={14} />
+            </View>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 // Real post types used by the create-post form.
 const TYPES = ['all', 'player', 'team', 'umpire', 'scorer', 'coach'];
@@ -111,9 +147,12 @@ export default function LookingForScreen({ navigation, route, inline }) {
     const chipColor = TYPE_CHIP_COLORS[item.type] || DS.lime;
     return (
       <View style={styles.card}>
-        {/* Image placeholder area */}
-        <View style={styles.cardImageArea}>
-          <Icon name={TYPE_ICONS[item.type] || 'help-circle-outline'} size={36} color={DS.textMuted} />
+        {/* Rich header area */}
+        <View style={[styles.cardImageArea, { backgroundColor: chipColor + '15' }]}>
+          <Icon name={TYPE_ICONS[item.type] || 'help-circle-outline'} size={64} color={chipColor + '20'} style={{ position: 'absolute', right: -10, bottom: -15, transform: [{ rotate: '-15deg' }] }} />
+          <View style={{ position: 'absolute', top: 12, left: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: chipColor + '30', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={20} color={chipColor} />
+          </View>
         </View>
 
         <View style={styles.cardBody}>
@@ -171,7 +210,7 @@ export default function LookingForScreen({ navigation, route, inline }) {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Icon name="arrow-left" size={22} color={DS.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.brandText}>LOCAL LEGENDS</Text>
+          <BrandLogo scale={0.75} />
           <TouchableOpacity onPress={() => setShowCreate(true)} style={styles.addBtn}>
             <Icon name="plus" size={20} color={DS.bg} />
           </TouchableOpacity>
@@ -211,7 +250,7 @@ export default function LookingForScreen({ navigation, route, inline }) {
       </ScrollView>
 
       {loading ? (
-        <ActivityIndicator style={{ flex: 1 }} color={DS.lime} />
+        <ScoutSkeleton DS={DS} />
       ) : (
         <FlatList
           data={posts}
@@ -313,9 +352,9 @@ const makeStyles = (DS) => StyleSheet.create({
   addBtn: { backgroundColor: DS.lime, borderRadius: 20, padding: 6 },
 
   /* Hero */
-  hero: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 6, backgroundColor: DS.bg },
-  heroTitle: { fontSize: 38, fontWeight: '900', color: '#ffffff', letterSpacing: 1 },
-  heroSubtitle: { fontSize: 14, color: DS.textVariant, marginTop: 4, lineHeight: 20 },
+  hero: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 6, backgroundColor: DS.bg },
+  heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
+  heroSubtitle: { fontSize: 13, color: DS.textMuted, marginTop: 4, lineHeight: 20 },
 
   /* Search */
   searchWrap: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: DS.bg },
@@ -334,15 +373,15 @@ const makeStyles = (DS) => StyleSheet.create({
   list: { padding: 16, gap: 14, paddingBottom: 32 },
 
   /* Card */
-  card: { backgroundColor: DS.surfaceHigh, borderRadius: 16, overflow: 'hidden' },
-  cardImageArea: { height: 100, backgroundColor: DS.surfaceLow, alignItems: 'center', justifyContent: 'center' },
-  cardBody: { padding: 14 },
+  card: { backgroundColor: DS.surfaceHigh, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: DS.border },
+  cardImageArea: { height: 90, overflow: 'hidden' },
+  cardBody: { padding: 14, paddingTop: 12 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   typeText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   closeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   closeBtnText: { fontSize: 11, color: DS.lime, fontWeight: '700' },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#ffffff', marginBottom: 4 },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: DS.textPrimary, marginBottom: 4 },
   cardDesc: { fontSize: 13, color: DS.textVariant, marginBottom: 10, lineHeight: 18 },
   cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 12 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -354,7 +393,7 @@ const makeStyles = (DS) => StyleSheet.create({
   ctaCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, overflow: 'hidden', marginTop: 6 },
   ctaAccent: { height: 3, backgroundColor: DS.lime },
   ctaContent: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  ctaTitle: { fontSize: 15, fontWeight: '700', color: '#ffffff' },
+  ctaTitle: { fontSize: 15, fontWeight: '700', color: DS.textPrimary },
   ctaDesc: { fontSize: 12, color: DS.textMuted, marginTop: 2 },
 
   /* Empty */
@@ -363,10 +402,10 @@ const makeStyles = (DS) => StyleSheet.create({
   emptySubText: { fontSize: 13, color: DS.textMuted, marginTop: 4 },
 
   /* Modal */
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: DS.overlay, justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: DS.surfaceLow, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: DS.surfaceHigh },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#ffffff' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: DS.textPrimary },
   modalBody: { paddingHorizontal: 16, paddingTop: 8 },
   fieldLabel: { fontSize: 12, fontWeight: '700', color: DS.textMuted, marginBottom: 6, marginTop: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: DS.textPrimary, borderWidth: 0 },

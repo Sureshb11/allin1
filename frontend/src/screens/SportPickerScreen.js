@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles, useArenaColors } from "../theme/ThemeContext"; // SportPickerScreen — "Choose Your Arena" honeycomb picker.
+// SportPickerScreen — "Choose Your Arena" honeycomb picker.
 // Ported from the design handoff (design_handoff_arena), V2 "Spotlight":
 // an Apple-Watch-style honeycomb of sport discs the user drags to pan, with a
 // fisheye falloff (centre disc largest, edges shrink & fade). The centred disc
@@ -22,6 +22,8 @@ import SportLogoIcon, { hasSportAnim } from '../components/SportLogoIcon';
 import { haptic } from '../utils/haptics';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
+import { useTheme, useThemedStyles, useArenaColors } from '../theme/ThemeContext';
+import BrandLogo from '../components/BrandLogo';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -204,6 +206,28 @@ const Disc = React.memo(function Disc({ cell, scale, opacity, focused, attract, 
   Math.abs(prev.opacity - next.opacity) < 0.03
 );
 
+const SPORT_COLORS = {
+  cricket: '#b7ff00',
+  football: '#00d2ff',
+  basketball: '#ff6b00',
+  tennis: '#a8ff00',
+  kabaddi: '#ff0055',
+  hockey: '#00e676',
+  badminton: '#ffea00',
+  volleyball: '#ff9100',
+  boxing: '#f44336',
+  wrestling: '#e91e63',
+  tabletennis: '#29b6f6',
+  khokho: '#ffc107',
+  handball: '#8e24aa',
+  squash: '#00b0ff',
+  pickleball: '#c6ff00',
+  judo: '#ffffff',
+  karate: '#ffffff',
+  skateboard: '#ff3d00',
+  rummy: '#b7ff00',
+};
+
 // Open centred on the last-played sport (in-session; fresh launch → cricket).
 const initialArena = () => {
   const selId = getSelectedSport().sport?.id;
@@ -239,14 +263,23 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
   const glowAnim = useRef(new Animated.Value(1)).current;
   const flareAnim = useRef(new Animated.Value(1)).current;
   const glowOpacity = useRef(Animated.multiply(glowAnim, flareAnim)).current;
+  const btnPulseAnim = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     const breath = Animated.loop(Animated.sequence([
       Animated.timing(glowAnim, { toValue: 0.72, duration: 2600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       Animated.timing(glowAnim, { toValue: 1, duration: 2600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ]));
     breath.start();
-    return () => breath.stop();
-  }, [glowAnim]);
+
+    const btnPulse = Animated.loop(Animated.sequence([
+      Animated.timing(btnPulseAnim, { toValue: 1.04, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(btnPulseAnim, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    btnPulse.start();
+
+    return () => { breath.stop(); btnPulse.stop(); };
+  }, [glowAnim, btnPulseAnim]);
 
   // Idle attract: after ~7s untouched, a random disc quietly plays its logo
   // for a beat — the cluster feels inhabited (Watch-style breathing gallery).
@@ -479,20 +512,27 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
     if (c.featured) s = Math.min(MAX_SCALE * 1.16, s * 1.14);
     s = clamp(s, MIN_SCALE, MAX_SCALE * 1.16);
     const opacity = clamp((s - MIN_SCALE) / (MAX_SCALE - MIN_SCALE) * 1.1 + 0.32, 0.32, 1);
-    return { cell: c, left: cx + c.x + panOff.x, top: cy + c.y + panOff.y, scale: s, opacity };
+    
+    // 3D Spherical Wrap: Tilt discs slightly away from the camera based on distance from center
+    const tiltStrength = 0.08;
+    const rotateX = `${clamp(sy * tiltStrength, -40, 40)}deg`;
+    const rotateY = `${clamp(-sx * tiltStrength, -40, 40)}deg`;
+
+    return { cell: c, left: cx + c.x + panOff.x, top: cy + c.y + panOff.y, scale: s, opacity, rotateX, rotateY };
   }), [panOff.x, panOff.y, cx, cy]);
+
+  const moodColor = SPORT_COLORS[focus.id] || A.lime;
 
   return (
     <View style={s.root}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={A.navy0} />
 
-      {/* Lime room-light wash behind the header — the Arena is the app's
-          lime-branded space. Dimmer in light mode to protect title contrast. */}
+      {/* Sport-specific room-light wash behind the header. */}
       <Svg pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0 }} width="100%" height={320}>
         <Defs>
           <RadialGradient id="floodlight" cx="50%" cy="0%" r="75%">
-            <Stop offset="0" stopColor={A.lime} stopOpacity={isDark ? 0.1 : 0.06} />
-            <Stop offset="1" stopColor={A.lime} stopOpacity={0} />
+            <Stop offset="0" stopColor={moodColor} stopOpacity={isDark ? 0.15 : 0.08} />
+            <Stop offset="1" stopColor={moodColor} stopOpacity={0} />
           </RadialGradient>
         </Defs>
         <Rect x="0" y="0" width="100%" height="320" fill="url(#floodlight)" />
@@ -505,7 +545,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
             <Path d="M14 4 7 11l7 7" stroke={A.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </TouchableOpacity>
-        <Text style={s.brand}>LOCAL LEGENDS</Text>
+        <BrandLogo scale={0.8} textColor={A.ink} />
         <TouchableOpacity
           style={[s.avatar, { marginRight: 8 }]}
           activeOpacity={0.8}
@@ -524,18 +564,22 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         </View>
       </View>
 
-      {/* ── TITLE — static; the lit disc alone says what's selected ── */}
+      {/* ── TITLE — 3D parallax effect against the honeycomb ── */}
       <Animated.View style={[s.titleBlock, {
         opacity: titleAnim,
-        transform: [{ translateY: titleAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+        transform: [
+          { translateY: titleAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
+          { translateX: panOff.x * -0.05 },
+          { translateY: panOff.y * -0.05 }
+        ],
       }]}>
         <Text style={s.title1}>CHOOSE YOUR</Text>
-        <Text style={s.title2}>ARENA</Text>
+        <Text style={[s.title2, { color: moodColor, textShadowColor: moodColor + '40', textShadowOffset: {width: 0, height: 4}, textShadowRadius: 12 }]}>ARENA</Text>
       </Animated.View>
 
       {/* ── HONEYCOMB ── */}
       <View style={s.grid} onLayout={onGridLayout} {...panResponder.panHandlers}>
-        {/* Lime stage light at the centre — breathes slowly, flares when a new
+        {/* Dynamic stage light at the centre — breathes slowly, flares when a new
             disc lands, and parallaxes at ~1/3 pan speed for depth. */}
         <Animated.View
           pointerEvents="none"
@@ -546,32 +590,14 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
           <Svg width={dim.w} height={dim.h}>
             <Defs>
               <RadialGradient id="arenaGlow" cx="50%" cy="50%" r="50%">
-                <Stop offset="0" stopColor={A.lime} stopOpacity={0.16} />
-                <Stop offset="1" stopColor={A.lime} stopOpacity={0} />
+                <Stop offset="0" stopColor={moodColor} stopOpacity={0.2} />
+                <Stop offset="1" stopColor={moodColor} stopOpacity={0} />
               </RadialGradient>
             </Defs>
-            <Circle cx={cx} cy={cy} r={185} fill="url(#arenaGlow)" />
+            <Circle cx={cx} cy={cy} r={200} fill="url(#arenaGlow)" />
           </Svg>
         </Animated.View>
-        {/* faint constellation mesh between neighbouring discs. Coordinates are
-            rounded to whole pixels so rn-svg skips native updates for
-            sub-pixel pan deltas — the lines are too faint for it to show. */}
-        <Svg pointerEvents="none" width={dim.w} height={dim.h} style={StyleSheet.absoluteFill}>
-          {EDGES.map(([i, j], k) => {
-            const a = discs[i],b = discs[j];
-            const o = Math.min(a.opacity, b.opacity);
-            if (o < 0.42) return null; // skip edges fading out near the rim
-            return (
-              <Line
-                key={k}
-                x1={Math.round(a.left)} y1={Math.round(a.top)}
-                x2={Math.round(b.left)} y2={Math.round(b.top)}
-                stroke={A.lime} strokeWidth={1} strokeOpacity={Math.round((o - 0.3) * 0.09 * 100) / 100} />);
-
-
-          })}
-        </Svg>
-        {discs.map(({ cell, left, top, scale, opacity }, i) =>
+        {discs.map(({ cell, left, top, scale, opacity, rotateX, rotateY }, i) =>
         <Animated.View
           key={cell.id}
           pointerEvents="box-none"
@@ -579,7 +605,12 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
             position: 'absolute', left, top,
             zIndex: 1000 + Math.round(scale * 100),
             opacity: enterAnims[i],
-            transform: [{ scale: enterAnims[i] }]
+            transform: [
+              { perspective: 1000 },
+              { rotateX },
+              { rotateY },
+              { scale: enterAnims[i] }
+            ]
           }}>
             <Disc
             cell={cell}
@@ -619,15 +650,17 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 
       {/* ── START — solid electric-blue, names the selection ── */}
       <View style={s.startDock}>
-        <TouchableOpacity
-          style={s.startSolid}
-          activeOpacity={0.88}
-          onPress={() => { haptic.impact(); routeSport(focus); }}>
-          <Text style={s.startSolidTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-            START {focus.name.toUpperCase()}
-          </Text>
-          <Icon name="play" size={20} color="#ffffff" />
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: btnPulseAnim }] }}>
+          <TouchableOpacity
+            style={s.startSolid}
+            activeOpacity={0.88}
+            onPress={() => { haptic.impact(); routeSport(focus); }}>
+            <Text style={s.startSolidTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+              PLAY {focus.name.toUpperCase()}
+            </Text>
+            <Icon name="play" size={20} color="#ffffff" />
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     </View>);
 
@@ -675,9 +708,7 @@ const makeS = (A) => StyleSheet.create({
   // Editorial type: a quiet tracked kicker over a big clean white headline —
   // scale contrast does the work, not colour or italics.
   title1: { fontSize: 11, fontWeight: '700', color: A.textMuted, letterSpacing: 4.5, marginBottom: 6 },
-  // Lime Signature (approved mock, option 4): the Arena is the app's
-  // lime-branded room — italic lime headline over a muted tracked kicker.
-  title2: { fontSize: 42, fontWeight: '900', color: A.lime, letterSpacing: 1, fontStyle: 'italic', lineHeight: 46 },
+  title2: { fontSize: 48, fontWeight: '900', color: A.lime, letterSpacing: 2, lineHeight: 52 },
 
   grid: { flex: 1, overflow: 'hidden' },
 
@@ -685,10 +716,19 @@ const makeS = (A) => StyleSheet.create({
   // tighter radius, restrained glow, tracked label.
   startDock: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 30 },
   startSolid: {
+    alignSelf: 'center', paddingHorizontal: 40,
     height: 56, borderRadius: 16, backgroundColor: A.blueDeep,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     shadowColor: A.blueDeep, shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.35, shadowRadius: 14, elevation: 8
   },
-  startSolidTxt: { fontSize: 15, fontWeight: '800', color: '#ffffff', letterSpacing: 3 }
+  startSolidTxt: { fontSize: 15, fontWeight: '800', color: '#ffffff', letterSpacing: 3 },
+  tagBadge: {
+    alignSelf: 'center', marginBottom: 16,
+    paddingHorizontal: 16, paddingVertical: 6,
+    borderRadius: 20, backgroundColor: A.lime + '1A',
+    borderWidth: 1, borderColor: A.lime + '40',
+    shadowColor: A.lime, shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }
+  },
+  tagText: { color: A.lime, fontSize: 11, fontWeight: '800', letterSpacing: 2 }
 });

@@ -1,9 +1,9 @@
 // GradientButton — the signature "Action-Taker" CTA from the Kinetic Athlete
-// design system. A 135° electric-blue gradient (primary_container #0052ff →
-// primary #b7c4ff) that simulates the shimmer of technical sports apparel.
+// design system. A 135° lime gradient (lime #abd600 → limeBright #c4f82a)
+// that simulates the high-contrast aesthetic of athletic gear.
 //
 // Shared across every sport so primary actions (Start Match, Create, Verify…)
-// look identical app-wide. Lime stays reserved for "Live / Go" moments.
+// look identical app-wide.
 //
 //   <GradientButton label="Start Match" icon="cricket" onPress={…} />
 //
@@ -31,9 +31,9 @@ export default function GradientButton({
   const c = useTheme().colors;
   const [size, setSize] = useState({ w: 0, h: height });
 
-  const from = c.blueDeep || '#0052ff';
-  const to = c.blueSoft || '#b7c4ff';
-  const ink = c.onBlue || '#ffffff';
+  const from = c.lime || '#abd600';
+  const to = c.limeBright || '#c4f82a';
+  const ink = c.onLime || '#12151c';
 
   const IconEl = icon ? <Icon name={icon} size={20} color={ink} /> : null;
 

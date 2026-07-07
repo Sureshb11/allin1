@@ -8,7 +8,7 @@ import legendsApi from '../services/LegendsApi';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const makeStatusConfig = (DS) => ({
-  analyzed:  { label: 'Analysed',    color: DS.lime,       bg: 'rgba(171,214,0,0.15)' },
+  analyzed:  { label: 'Analysed',    color: DS.lime,       bg: DS.lime + '26' },
   analyzing: { label: 'Processing...', color: DS.coral,    bg: 'rgba(255,181,158,0.15)' },
   uploaded:  { label: 'Uploaded',    color: DS.textMuted,  bg: DS.surfaceHighest },
 });

@@ -336,7 +336,7 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
             style={[s.genPlayerChip, on && { backgroundColor: cfg.color, borderColor: cfg.color }]}
             onPress={() => setActiveId(a => ({ ...a, [teamId]: on ? undefined : p.id }))}
           >
-            <Text style={[s.genPlayerChipTxt, on && { color: '#fff' }]} numberOfLines={1}>{p.name}</Text>
+            <Text style={[s.genPlayerChipTxt, on && { color: DS.white }]} numberOfLines={1}>{p.name}</Text>
           </TouchableOpacity>
         );
       })}
@@ -717,7 +717,7 @@ const makeS = (DS) => StyleSheet.create({
   },
   periodChipActive: {},
   periodChipText: { fontSize: 12, fontWeight: '700', color: DS.muted },
-  periodChipTextActive: { color: '#fff' },
+  periodChipTextActive: { color: DS.white },
 
   /* ══ CRICKET STYLES ══════════════════════════════════ */
 
@@ -876,7 +876,7 @@ const makeS = (DS) => StyleSheet.create({
   genPlayerAddTxt: { fontSize: 12, fontWeight: '800', color: DS.tertiary },
 
   // add-player modal
-  genModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 28 },
+  genModalBackdrop: { flex: 1, backgroundColor: DS.overlay, alignItems: 'center', justifyContent: 'center', padding: 28 },
   genModalCard: { width: '100%', backgroundColor: DS.cHigh, borderRadius: 18, padding: 18 },
   genModalTitle: { fontSize: 15, fontWeight: '800', color: DS.onSurface, marginBottom: 12 },
   genModalInput: { backgroundColor: DS.cLow, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: DS.onSurface, fontSize: 15 },
@@ -900,7 +900,7 @@ const makeS = (DS) => StyleSheet.create({
   genActionBadge: {
     borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, marginLeft: 'auto',
   },
-  genActionBadgeText: { fontSize: 10, fontWeight: '900', color: '#fff' },
+  genActionBadgeText: { fontSize: 10, fontWeight: '900', color: DS.white },
 
   /* ── Event Log ────────────────────────────────────── */
   genEventLog: { paddingHorizontal: 14, marginBottom: 14 },

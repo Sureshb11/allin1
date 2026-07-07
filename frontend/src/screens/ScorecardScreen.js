@@ -9,6 +9,7 @@ import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 import RNShare from 'react-native-share';
 import legendsApi from '../services/LegendsApi';
+import BrandLogo from "../components/BrandLogo";
 
 // Cricket dismissal notation: "b Bowler", "c Fielder b Bowler", "c & b Bowler",
 // "lbw b Bowler", "st Keeper b Bowler", "run out (Fielder)", "hit wicket b Bowler".
@@ -514,7 +515,7 @@ function InningsOvers({ innings }) {const DS = useTheme().colors;const styles = 
               const isW = b.isWicket, isBoundary = !b.extraType && (b.runs === 4 || b.runs === 6), isExtra = ['wide', 'noBall', 'bye', 'legBye', 'penalty'].includes(b.extraType);
               return (
                 <View key={i} style={[styles.ballChip, isW && styles.ballChipW, isBoundary && styles.ballChipBoundary, isExtra && styles.ballChipExtra]}>
-                  <Text style={[styles.ballChipText, isW && { color: '#fff' }, isBoundary && { color: DS.bg }]}>{lbl}</Text>
+                  <Text style={[styles.ballChipText, isW && { color: DS.white }, isBoundary && { color: DS.bg }]}>{lbl}</Text>
                 </View>
               );
             })}
@@ -599,7 +600,7 @@ function LiveTab({ innings, squads, onViewAllOvers, totalOvers }) {const DS = us
               const isW = b.isWicket, isBoundary = !b.extraType && (b.runs === 4 || b.runs === 6);
               return (
                 <View key={i} style={[styles.ballChip, isW && styles.ballChipW, isBoundary && styles.ballChipBoundary]}>
-                  <Text style={[styles.ballChipText, isW && { color: '#fff' }, isBoundary && { color: DS.bg }]}>{lbl}</Text>
+                  <Text style={[styles.ballChipText, isW && { color: DS.white }, isBoundary && { color: DS.bg }]}>{lbl}</Text>
                 </View>
               );
             })}
@@ -836,7 +837,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             <Icon name="arrow-left" size={22} color={DS.textPrimary} />
           </TouchableOpacity>
         }
-        <Text style={styles.brandText}>LOCAL LEGENDS</Text>
+        <BrandLogo scale={0.75} />
         {isLive
           ? <View style={styles.liveBadge}><View style={styles.liveBadgeDot} /><Text style={styles.liveBadgeText}>LIVE</Text></View>
           : <View style={{ width: 26 }} />}
@@ -897,10 +898,6 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
 
           {activeTab === 'live' && <LiveTab innings={liveInnings} squads={match.squads} totalOvers={match.overs} onViewAllOvers={() => setTab('overs')} />}
 
-          {activeTab === 'scorecard' &&
-            <WormChart innings1={inningsList[0]} innings2={inningsList[1]} totalOvers={match.overs} />
-          }
-
           {(activeTab === 'scorecard' || activeTab === 'overs') && inningsList.length > 1 &&
             <View style={styles.inningsTabs}>
               {inningsList.map((inn, i) => {
@@ -918,12 +915,16 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             </View>
           }
 
+          {activeTab === 'scorecard' &&
+            (selectedInnings ? <InningsScorecard innings={selectedInnings} index={inningsList.indexOf(selectedInnings)} squads={match.squads} /> : <Text style={styles.emptyTabText}>No play yet.</Text>)}
+
           {activeTab === 'scorecard' && selectedInnings &&
             <ManhattanChart innings={selectedInnings} />
           }
 
-          {activeTab === 'scorecard' &&
-            (selectedInnings ? <InningsScorecard innings={selectedInnings} index={inningsList.indexOf(selectedInnings)} squads={match.squads} /> : <Text style={styles.emptyTabText}>No play yet.</Text>)}
+          {activeTab === 'scorecard' && inningsList.length > 0 &&
+            <WormChart innings1={inningsList[0]} innings2={inningsList[1]} totalOvers={match.overs} />
+          }
 
           {activeTab === 'overs' &&
             (selectedInnings ? <InningsOvers innings={selectedInnings} /> : <Text style={styles.emptyTabText}>No overs yet.</Text>)}
@@ -932,12 +933,12 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
 
           {activeTab === 'highlights' && <HighlightsTab match={match} />}
         </View>
-        <Text style={styles.watermark}>Local Legends</Text>
+        <BrandLogo scale={0.75} />
        </View>
 
         {/* WhatsApp Share */}
         <TouchableOpacity style={styles.shareBtn} onPress={shareScorecard}>
-          <Icon name="whatsapp" size={20} color="#fff" />
+          <Icon name="whatsapp" size={20} color={DS.white} />
           <Text style={styles.shareBtnText}>Share Scorecard</Text>
         </TouchableOpacity>
 
@@ -999,14 +1000,14 @@ const makeStyles = (DS) => StyleSheet.create({
   // Result
   resultBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: 'rgba(171,214,0,0.08)', marginHorizontal: 16, marginTop: 12,
+    backgroundColor: DS.lime + '14', marginHorizontal: 16, marginTop: 12,
     borderRadius: 10, paddingVertical: 10,
     borderLeftWidth: 4, borderLeftColor: DS.lime
   },
   resultBannerText: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
   resultCard: {
     alignItems: 'center', gap: 6, marginHorizontal: 16, marginTop: 12,
-    backgroundColor: 'rgba(171,214,0,0.08)', borderRadius: 14, paddingVertical: 18, paddingHorizontal: 16,
+    backgroundColor: DS.lime + '14', borderRadius: 14, paddingVertical: 18, paddingHorizontal: 16,
     borderWidth: 1, borderColor: DS.lime + '33',
   },
   resultCardLabel: { fontSize: 10, fontWeight: '900', color: DS.lime, letterSpacing: 2 },
@@ -1049,7 +1050,7 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'baseline', gap: 6,
     paddingHorizontal: 14, paddingVertical: 8
   },
-  inningsScore: { fontSize: 26, fontWeight: '900', color: '#fff' },
+  inningsScore: { fontSize: 26, fontWeight: '900', color: DS.textPrimary },
   inningsOvers: { fontSize: 12, color: DS.textMuted },
 
   // Table
@@ -1059,7 +1060,7 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingVertical: 8, paddingHorizontal: 12
   },
   tableRow: { flexDirection: 'row', paddingVertical: 9, paddingHorizontal: 12 },
-  tableRowAlt: { backgroundColor: 'rgba(255,255,255,0.02)' },
+  tableRowAlt: { backgroundColor: DS.surfaceHighest },
   headerCell: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
   cell: { fontSize: 13, color: DS.textVariant },
   nameCol: { flex: 2.5 },
@@ -1170,6 +1171,6 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: '#25D366', borderRadius: 14,
     paddingVertical: 14, marginHorizontal: 16, marginTop: 16
   },
-  shareBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  shareBtnText: { fontSize: 15, fontWeight: '700', color: DS.white },
   watermark: { textAlign: 'center', fontSize: 11, fontWeight: '900', color: DS.lime, letterSpacing: 2, marginTop: 10, opacity: 0.8 },
 });

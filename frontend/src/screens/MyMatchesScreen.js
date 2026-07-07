@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState, useLayoutEffect } from 'react';
+import React, { useEffect, useMemo, useState, useLayoutEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
-  FlatList, RefreshControl, ActivityIndicator,
+  View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable, ScrollView,
+  FlatList, RefreshControl, ActivityIndicator, Animated, Dimensions
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import BrandLogo from '../components/BrandLogo';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const TEAM_COLORS = ['#6366f1', '#f97316', '#06b6d4', '#ec4899', '#8b5cf6', '#14b8a6'];
@@ -12,9 +13,53 @@ const getTeamColor = (name, idx) => TEAM_COLORS[(name || '').charCodeAt(0) % TEA
 
 const makeStatusMeta = (DS) => ({
   live:      { color: DS.live,      bg: 'rgba(239,68,68,0.15)',  label: 'LIVE'      },
-  completed: { color: DS.lime,      bg: 'rgba(171,214,0,0.12)',  label: 'FINAL'     },
-  scheduled: { color: DS.blue,      bg: 'rgba(183,196,255,0.12)', label: 'UPCOMING'  },
+  completed: { color: DS.lime,      bg: DS.lime + '1F',  label: 'FINAL'     },
+  scheduled: { color: DS.blue,      bg: DS.blue + '1F', label: 'UPCOMING'  },
 });
+
+// ── Shimmer Skeleton ────────────────────────────────────────────────────────
+function MatchSkeleton({ DS }) {
+  const shimmer = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 1000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [shimmer]);
+  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
+  const Bar = ({ w, h, r = 6, mt = 0 }) => (
+    <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity, marginTop: mt }} />
+  );
+  return (
+    <View style={{ padding: 16, paddingTop: 4, gap: 14 }}>
+      {[0, 1, 2].map((i) => (
+        <View key={i} style={{ backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 14 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+            <Bar w={50} h={18} r={4} />
+            <Bar w={30} h={18} r={4} />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Bar w={36} h={36} r={18} />
+              <View style={{ gap: 6 }}><Bar w={60} h={12} /><Bar w={40} h={16} /></View>
+            </View>
+            <Bar w={20} h={12} />
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, justifyContent: 'flex-end' }}>
+              <View style={{ gap: 6, alignItems: 'flex-end' }}><Bar w={60} h={12} /><Bar w={40} h={16} /></View>
+              <Bar w={36} h={36} r={18} />
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+             <Bar w={80} h={20} r={8} />
+             <Bar w={80} h={20} r={8} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
   const DS = useTheme().colors;
@@ -26,94 +71,108 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
   const t1Color = getTeamColor(m.team1, 0);
   const t2Color = getTeamColor(m.team2, 1);
 
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (m.status === 'live') {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulse, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true })
+        ])
+      ).start();
+    }
+  }, [m.status]);
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
-      {/* Status + format row */}
-      <View style={styles.cardHeader}>
-        <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
-          {m.status === 'live' && <View style={styles.liveDot} />}
-          <Text style={[styles.statusPillText, { color: meta.color }]}>{meta.label}</Text>
-        </View>
-        <View style={styles.formatBadge}>
-          <Text style={styles.formatBadgeText}>{m.matchType || 'T20'}</Text>
-        </View>
-      </View>
+    <Pressable onPress={onPress}>
+      {({ pressed }) => (
+        <Animated.View style={[styles.card, { transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+          {/* Status + format row */}
+          <View style={styles.cardHeader}>
+            <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
+              {m.status === 'live' && <Animated.View style={[styles.liveDot, { opacity: pulse }]} />}
+              <Text style={[styles.statusPillText, { color: meta.color }]}>{meta.label}</Text>
+            </View>
 
-      {/* Teams + scores */}
-      <View style={styles.teamsRow}>
-        <View style={styles.teamSide}>
-          <View style={[styles.teamAvatar, { backgroundColor: t1Color }]}>
-            <Text style={styles.teamAvatarText}>{t1Init}</Text>
+            <View style={styles.formatBadge}>
+              <Text style={styles.formatBadgeText}>{m.matchType || 'T20'}</Text>
+            </View>
           </View>
-          <View style={styles.teamInfo}>
-            <Text style={styles.teamName} numberOfLines={1}>{m.team1 || 'TBD'}</Text>
-            {m.score1 ? <Text style={styles.teamScore}>{m.score1}</Text> : null}
-          </View>
-        </View>
 
-        <View style={styles.vsBlock}>
-          <Text style={styles.vsText}>VS</Text>
-        </View>
+          <View style={styles.teamsRow}>
+            <View style={styles.teamSide}>
+              <View style={[styles.teamAvatarContainer, { shadowColor: t1Color }]}>
+                <View style={[styles.teamAvatar, { backgroundColor: t1Color }]}>
+                  <Text style={styles.teamAvatarText}>{t1Init}</Text>
+                </View>
+              </View>
+              <View style={styles.teamInfo}>
+                <Text style={styles.teamName} numberOfLines={1}>{m.team1 || 'TBD'}</Text>
+                {m.score1 ? <Text style={styles.teamScore}>{m.score1}</Text> : null}
+              </View>
+            </View>
 
-        <View style={[styles.teamSide, styles.teamSideRight]}>
-          <View style={styles.teamInfoRight}>
-            <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>{m.team2 || 'TBD'}</Text>
-            {m.score2 ? <Text style={[styles.teamScore, { textAlign: 'right' }]}>{m.score2}</Text> : null}
-          </View>
-          <View style={[styles.teamAvatar, { backgroundColor: t2Color }]}>
-            <Text style={styles.teamAvatarText}>{t2Init}</Text>
-          </View>
-        </View>
-      </View>
+            <View style={styles.vsBlock}>
+              <Text style={styles.vsText}>VS</Text>
+            </View>
 
-      {/* Details row: venue + date */}
-      <View style={styles.detailsRow}>
-        {m.venue ? (
-          <View style={styles.detailChip}>
-            <Icon name="map-marker-outline" size={12} color={DS.textMuted} />
-            <Text style={styles.detailChipText} numberOfLines={1}>{m.venue}</Text>
+            <View style={[styles.teamSide, styles.teamSideRight]}>
+              <View style={styles.teamInfoRight}>
+                <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>{m.team2 || 'TBD'}</Text>
+                {m.score2 ? <Text style={[styles.teamScore, { textAlign: 'right' }]}>{m.score2}</Text> : null}
+              </View>
+              <View style={[styles.teamAvatarContainer, { shadowColor: t2Color }]}>
+                <View style={[styles.teamAvatar, { backgroundColor: t2Color }]}>
+                  <Text style={styles.teamAvatarText}>{t2Init}</Text>
+                </View>
+              </View>
+            </View>
           </View>
-        ) : null}
-        {m.createdAt ? (
-          <View style={styles.detailChip}>
-            <Icon name="calendar-outline" size={12} color={DS.textMuted} />
-            <Text style={styles.detailChipText}>{new Date(m.createdAt).toLocaleDateString()}</Text>
-          </View>
-        ) : null}
-      </View>
 
-      {/* Footer: result + action */}
-      <View style={styles.cardFooter}>
-        {m.result ? (
-          <View style={styles.resultWrap}>
-            <Icon name="trophy-outline" size={13} color={DS.lime} />
-            <Text style={styles.resultText} numberOfLines={1}>{m.result}</Text>
+          <View style={styles.detailsRow}>
+            {m.venue ? (
+              <View style={styles.detailChip}>
+                <Icon name="map-marker-outline" size={12} color={DS.textMuted} />
+                <Text style={styles.detailChipText} numberOfLines={1}>{m.venue}</Text>
+              </View>
+            ) : null}
+            {m.createdAt ? (
+              <View style={styles.detailChip}>
+                <Icon name="calendar-outline" size={12} color={DS.textMuted} />
+                <Text style={styles.detailChipText}>{new Date(m.createdAt).toLocaleDateString()}</Text>
+              </View>
+            ) : null}
           </View>
-        ) : (
-          <View style={{ flex: 1 }} />
-        )}
-        {m.status === 'scheduled' ? (
-          <TouchableOpacity onPress={() => onStart(m)} style={[styles.scoreBtn, styles.startBtn]}>
-            <Icon name="play" size={13} color={DS.onBlue} />
-            <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>START MATCH</Text>
-          </TouchableOpacity>
-        ) : m.status === 'live' && isScorer ? (
-          <TouchableOpacity onPress={() => onResume(m)} style={[styles.scoreBtn, styles.startBtn]}>
-            <Icon name="play" size={13} color={DS.onBlue} />
-            <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>SCORE</Text>
-          </TouchableOpacity>
-        ) : m.status === 'live' ? (
-          // Not the assigned scorer — the LIVE pill in the header above is enough;
-          // the whole card is already tappable through to the live scorecard.
-          <View style={{ flex: 1 }} />
-        ) : (
-          <TouchableOpacity onPress={onPress} style={styles.scoreBtn}>
-            <Text style={styles.scoreBtnText}>Scorecard</Text>
-            <Icon name="chevron-right" size={14} color={DS.bg} />
-          </TouchableOpacity>
-        )}
-      </View>
-    </TouchableOpacity>
+
+          <View style={styles.cardFooter}>
+            {m.result ? (
+              <View style={styles.resultWrap}>
+                <Icon name="trophy-outline" size={13} color={DS.lime} />
+                <Text style={styles.resultText} numberOfLines={1}>{m.result}</Text>
+              </View>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+            {m.status === 'scheduled' ? (
+              <TouchableOpacity onPress={() => onStart(m)} style={[styles.scoreBtn, styles.startBtn]}>
+                <Icon name="play" size={13} color={DS.onBlue} />
+                <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>START MATCH</Text>
+              </TouchableOpacity>
+            ) : m.status === 'live' && isScorer ? (
+              <TouchableOpacity onPress={() => onResume(m)} style={[styles.scoreBtn, styles.startBtn]}>
+                <Icon name="play" size={13} color={DS.onBlue} />
+                <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>SCORE</Text>
+              </TouchableOpacity>
+            ) : m.status !== 'live' ? (
+              <TouchableOpacity onPress={onPress} style={styles.scoreBtn}>
+                <Text style={styles.scoreBtnText}>Scorecard</Text>
+                <Icon name="chevron-right" size={14} color={DS.bg} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </Animated.View>
+      )}
+    </Pressable>
   );
 }
 
@@ -189,8 +248,12 @@ export default function MyMatchesScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={DS.lime} />
+      <View style={styles.container}>
+        <View style={styles.brandBar}>
+          <View style={styles.brandLeft}><BrandLogo scale={0.8} /></View>
+          <View style={styles.profileIcon}><Icon name="account" size={18} color={DS.textPrimary} /></View>
+        </View>
+        <MatchSkeleton DS={DS} />
       </View>
     );
   }
@@ -200,8 +263,7 @@ export default function MyMatchesScreen({ navigation }) {
       {/* Brand bar */}
       <View style={styles.brandBar}>
         <View style={styles.brandLeft}>
-          <Icon name="cricket" size={18} color={DS.lime} />
-          <Text style={styles.brandTitle}>LOCAL LEGENDS</Text>
+          <BrandLogo scale={0.8} />
         </View>
         <View style={styles.profileIcon}>
           <Icon name="account" size={18} color={DS.textPrimary} />
@@ -227,20 +289,25 @@ export default function MyMatchesScreen({ navigation }) {
 
       {/* Filter tabs */}
       <View style={styles.filtersRow}>
-        {FILTERS.map(f => {
-          const active = status === f;
-          return (
-            <TouchableOpacity
-              key={f}
-              style={[styles.filterTab, active && styles.filterTabActive]}
-              onPress={() => setStatus(f)}
-            >
-              <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
-                {f.toUpperCase()}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContainer}>
+          {FILTERS.map((f, i) => {
+            const active = status === f;
+            const dotColor = f === 'live' ? DS.live : f === 'upcoming' ? DS.blue : null;
+            return (
+              <TouchableOpacity
+                key={f}
+                style={[styles.filterTab, active && styles.filterTabActive]}
+                onPress={() => setStatus(f)}
+                activeOpacity={0.8}
+              >
+                {dotColor && <View style={[styles.tabDot, { backgroundColor: dotColor }]} />}
+                <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
+                  {f.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* Match count */}
@@ -280,7 +347,7 @@ export default function MyMatchesScreen({ navigation }) {
             </View>
             <View style={styles.promoCta}>
               <Text style={styles.promoCtaText}>Get Started</Text>
-              <Icon name="arrow-right" size={14} color={DS.onBlue} />
+              <Icon name="arrow-right" size={14} color={DS.onLime} />
             </View>
           </TouchableOpacity>
         }
@@ -292,7 +359,7 @@ export default function MyMatchesScreen({ navigation }) {
             <Text style={styles.emptyTitle}>No matches yet</Text>
             <Text style={styles.emptySub}>Start scoring your first match</Text>
             <TouchableOpacity style={styles.emptyCta} onPress={() => navigation.navigate('StartMatch')} activeOpacity={0.9}>
-              <Icon name="play-circle" size={18} color={DS.onBlue} />
+              <Icon name="play-circle" size={18} color={DS.onLime} />
               <Text style={styles.emptyCtaText}>Start a Match</Text>
             </TouchableOpacity>
           </View>
@@ -333,19 +400,24 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Filter tabs */
   filtersRow: {
-    flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6,
+    paddingTop: 14, paddingBottom: 6,
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 8,
   },
   filterTab: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-    backgroundColor: 'transparent',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20,
+    backgroundColor: DS.surfaceLow,
   },
-  filterTabActive: {
-    backgroundColor: DS.lime,
-  },
+  filterTabActive: { backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   filterTabText: {
-    fontSize: 12, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8,
+    fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8,
   },
   filterTabTextActive: { color: DS.bg },
+  tabDot: { width: 6, height: 6, borderRadius: 3 },
 
   /* Count */
   countRow: { paddingHorizontal: 16, paddingBottom: 6 },
@@ -384,15 +456,18 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   teamSide: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   teamSideRight: { justifyContent: 'flex-end' },
+  teamAvatarContainer: {
+    shadowOpacity: 0.5, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 4,
+  },
   teamAvatar: {
     width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
   },
-  teamAvatarText: { fontSize: 14, fontWeight: '900', color: '#fff' },
+  teamAvatarText: { fontSize: 14, fontWeight: '900', color: DS.white },
   teamInfo: { flex: 1, gap: 2 },
   teamInfoRight: { flex: 1, gap: 2, alignItems: 'flex-end' },
   teamName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
-  teamScore: { fontSize: 18, fontWeight: '900', color: '#fff' },
+  teamScore: { fontSize: 18, fontWeight: '900', color: DS.textPrimary },
   vsBlock: { paddingHorizontal: 8 },
   vsText: {
     fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 1.5,
@@ -414,7 +489,7 @@ const makeStyles = (DS) => StyleSheet.create({
   cardFooter: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingBottom: 14, gap: 10,
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.04)',
+    borderTopWidth: 1, borderTopColor: DS.border,
     paddingTop: 10,
   },
   resultWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -443,21 +518,21 @@ const makeStyles = (DS) => StyleSheet.create({
     letterSpacing: 0.8, marginBottom: 3,
   },
   promoSub: { fontSize: 12, color: DS.textMuted },
-  // Primary "Action-Taker" CTA — solid electric blue per the design system.
+  // Primary "Action-Taker" CTA — solid lime per the design system.
   promoCta: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: DS.blueDeep, marginHorizontal: 16, marginBottom: 16,
+    backgroundColor: DS.lime, marginHorizontal: 16, marginBottom: 16,
     borderRadius: 10, paddingVertical: 10,
   },
-  promoCtaText: { fontSize: 13, fontWeight: '800', color: DS.onBlue },
+  promoCtaText: { fontSize: 13, fontWeight: '800', color: DS.onLime },
 
   /* Empty */
   empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
   emptyCta: {
     flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10,
-    backgroundColor: DS.blueDeep, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12,
+    backgroundColor: DS.lime, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12,
   },
-  emptyCtaText: { color: DS.onBlue, fontSize: 14, fontWeight: '800' },
+  emptyCtaText: { color: DS.onLime, fontSize: 14, fontWeight: '800' },
   emptyIconWrap: {
     width: 80, height: 80, borderRadius: 40,
     backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center',

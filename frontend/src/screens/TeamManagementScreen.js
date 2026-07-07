@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,13 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Animated,
   Modal } from
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { showToast } from '../components/Toast';
+import BrandLogo from "../components/BrandLogo";
 
 
 
@@ -27,6 +29,21 @@ import { showToast } from '../components/Toast';
 
 
 const AVATAR_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#e91e63'];
+
+const AnimatedPulse = ({ children, style }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.15, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulseAnim]);
+  return <Animated.View style={[style, { transform: [{ scale: pulseAnim }] }]}>{children}</Animated.View>;
+};
 
 const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [tab, setTab] = useState('mine');   // mine | opponents | followed
@@ -42,6 +59,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   const [addingGuest, setAddingGuest] = useState(false);
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
+  const [teamSearchQuery, setTeamSearchQuery] = useState('');
 
   useLayoutEffect(() => {
     if (!inline) {
@@ -187,6 +205,13 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
             <Text style={styles.statLabel}>D</Text>
           </View>
         </View>
+        {item.matches > 0 && (
+          <View style={styles.winRateBar}>
+            <View style={[styles.winRateFill, { width: `${(item.wins / item.matches) * 100}%`, backgroundColor: DS.lime }]} />
+            <View style={[styles.winRateFill, { width: `${(losses / item.matches) * 100}%`, backgroundColor: '#ef4444' }]} />
+            <View style={[styles.winRateFill, { width: `${(draws / item.matches) * 100}%`, backgroundColor: DS.textMuted }]} />
+          </View>
+        )}
         <View style={styles.actionRow}>
           {mineTab ? (
             <TouchableOpacity style={styles.actionChip} onPress={() => setSelectedTeam(item)}>
@@ -309,7 +334,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
             <Icon name="arrow-left" size={24} color={DS.textPrimary} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            {!inline && <Text style={styles.brandText}>Local Legends</Text>}
+            {!inline && <BrandLogo scale={0.75} />}
             <Text style={styles.headerTitle}>{selectedTeam.name}</Text>
           </View>
           <View style={styles.headerSpacer} />
@@ -429,7 +454,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
       {!inline && (
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.brandText}>Local Legends</Text>
+            <BrandLogo scale={0.75} />
             <Text style={styles.hubLabel}>ATHLETE HUB</Text>
           </View>
           <TouchableOpacity style={styles.profileIcon}>
@@ -438,45 +463,49 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
         </View>
       )}
 
-      {/* ── Category tabs ── */}
-      <View style={styles.tabBar}>
-        {[['mine', 'My Teams'], ['opponents', 'Opponents'], ['followed', 'Followed']].map(([key, label]) => (
-          <TouchableOpacity key={key} style={[styles.tabBtn, tab === key && styles.tabBtnActive]} onPress={() => setTab(key)} activeOpacity={0.8}>
-            <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
-            {categorized[key].length > 0 &&
-              <View style={[styles.tabCount, tab === key && styles.tabCountActive]}>
-                <Text style={[styles.tabCountText, tab === key && { color: DS.bg }]}>{categorized[key].length}</Text>
-              </View>}
-          </TouchableOpacity>
-        ))}
-      </View>
-
+      {/* Tabs moved to ListHeaderComponent */}
       <FlatList
-        data={categorized[tab]}
+        data={categorized[tab].filter(t => t.name.toLowerCase().includes(teamSearchQuery.toLowerCase()))}
         renderItem={renderTeam}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.teamsList}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          tab === 'mine' ? (
-            <View style={styles.ctaCard}>
-              <View style={styles.ctaAccent} />
-              <View style={styles.ctaContent}>
-                <Text style={styles.ctaTitle}>Start a New Legend</Text>
-                <Text style={styles.ctaSubtitle}>Create your team and dominate the field</Text>
-                <TouchableOpacity style={styles.ctaButton} onPress={() => setShowCreateTeamModal(true)}>
-                  <Icon name="plus" size={16} color={DS.bg} />
-                  <Text style={styles.ctaButtonText}>CREATE NEW TEAM</Text>
+          <View>
+            <View style={styles.searchWrap}>
+              <Icon name="magnify" size={22} color={DS.lime} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search teams..."
+                placeholderTextColor={DS.faint}
+                value={teamSearchQuery}
+                onChangeText={setTeamSearchQuery}
+              />
+              {teamSearchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setTeamSearchQuery('')} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+                  <Icon name="close-circle" size={18} color={DS.faint} />
                 </TouchableOpacity>
-              </View>
+              )}
             </View>
-          ) : (
-            <Text style={styles.tabHint}>
-              {tab === 'opponents'
-                ? 'Teams you’ve faced in matches. Follow them to keep track.'
-                : 'Teams you follow.'}
-            </Text>
-          )
+            <View style={styles.tabBar}>
+              {[['mine', 'My Teams'], ['opponents', 'Opponents'], ['followed', 'Followed']].map(([key, label]) => (
+                <TouchableOpacity key={key} style={[styles.tabBtn, tab === key && styles.tabBtnActive]} onPress={() => setTab(key)} activeOpacity={0.8}>
+                  <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
+                  {categorized[key].length > 0 &&
+                    <View style={[styles.tabCount, tab === key && styles.tabCountActive]}>
+                      <Text style={[styles.tabCountText, tab === key && { color: DS.bg }]}>{categorized[key].length}</Text>
+                    </View>}
+                </TouchableOpacity>
+              ))}
+            </View>
+            {tab !== 'mine' && (
+              <Text style={styles.tabHint}>
+                {tab === 'opponents'
+                  ? 'Teams you’ve faced in matches. Follow them to keep track.'
+                  : 'Teams you follow.'}
+              </Text>
+            )}
+          </View>
         }
         ListEmptyComponent={
           <View style={styles.emptyBox}>
@@ -525,6 +554,14 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
           </View>
         </View>
       </Modal>
+
+      {!selectedTeam && tab === 'mine' && (
+        <AnimatedPulse style={styles.fabWrap}>
+          <TouchableOpacity style={styles.fab} onPress={() => setShowCreateTeamModal(true)}>
+            <Icon name="plus" size={28} color={DS.onBlue} />
+          </TouchableOpacity>
+        </AnimatedPulse>
+      )}
     </View>);
 
 };
@@ -587,7 +624,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   ctaAccent: {
     width: 4,
-    backgroundColor: DS.lime
+    backgroundColor: DS.blueDeep
   },
   ctaContent: {
     flex: 1,
@@ -608,21 +645,47 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: DS.lime,
+    backgroundColor: DS.blueDeep,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
-    gap: 6
+    gap: 6,
+    elevation: 4,
+    shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }
   },
   ctaButtonText: {
     fontSize: 13,
     fontWeight: '800',
-    color: DS.bg,
+    color: DS.onBlue,
     letterSpacing: 0.5
+  },
+  /* Search */
+  searchWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: DS.surfaceHighest, marginHorizontal: 20, borderRadius: 16,
+    paddingHorizontal: 16, paddingVertical: 14, marginTop: 16, marginBottom: 8,
+    borderWidth: 1, borderColor: DS.border,
+  },
+  searchInput: { flex: 1, fontSize: 15, fontWeight: '500', color: DS.textPrimary },
+  fabWrap: { position: 'absolute', bottom: 24, right: 24, zIndex: 999 },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: DS.blueDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+    zIndex: 999,
+    shadowColor: DS.blueDeep,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
   // Team list
   teamsList: {
-    padding: 20
+    paddingHorizontal: 20,
+    paddingBottom: 20
   },
   teamCard: {
     backgroundColor: DS.surfaceHigh,
@@ -646,7 +709,7 @@ const makeStyles = (DS) => StyleSheet.create({
   teamAvatarText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#ffffff'
+    color: DS.white
   },
   teamInfo: {
     flex: 1
@@ -701,6 +764,18 @@ const makeStyles = (DS) => StyleSheet.create({
     height: 24,
     backgroundColor: DS.surfaceHigh
   },
+  winRateBar: {
+    flexDirection: 'row',
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 14,
+    marginHorizontal: 16,
+    backgroundColor: DS.surfaceHighest,
+  },
+  winRateFill: {
+    height: '100%',
+  },
   actionRow: {
     flexDirection: 'row',
     gap: 10
@@ -725,14 +800,15 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // Category tabs
   tabBar: {
-    flexDirection: 'row', gap: 8,
-    paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10,
+    flexDirection: 'row', backgroundColor: DS.surfaceLow,
+    marginHorizontal: 16, marginTop: 4, marginBottom: 12,
+    borderRadius: 14, padding: 4,
   },
   tabBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 10, borderRadius: 12, backgroundColor: DS.surfaceHigh,
+    paddingVertical: 10, borderRadius: 10, backgroundColor: 'transparent',
   },
-  tabBtnActive: { backgroundColor: DS.lime },
+  tabBtnActive: { backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   tabText: { fontSize: 13, fontWeight: '800', color: DS.textMuted },
   tabTextActive: { color: DS.bg },
   tabCount: {
@@ -851,7 +927,7 @@ const makeStyles = (DS) => StyleSheet.create({
   playerAvatarText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#ffffff'
+    color: DS.white
   },
   playerInfo: {
     flex: 1
@@ -944,7 +1020,7 @@ const makeStyles = (DS) => StyleSheet.create({
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: DS.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24

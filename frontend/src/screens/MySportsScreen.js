@@ -140,7 +140,7 @@ const makeS = (DS) => StyleSheet.create({
   sub: { color: DS.textMuted, fontSize: 13, marginBottom: 14 },
 
   card: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceLow, borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: DS.line },
-  cardPrimary: { borderColor: DS.lime, backgroundColor: 'rgba(171,214,0,0.08)' },
+  cardPrimary: { borderColor: DS.lime, backgroundColor: DS.lime + '14' },
   iconWrap: { width: 46, height: 46, borderRadius: 14, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   name: { color: DS.textPrimary, fontSize: 16, fontWeight: '800' },
   role: { color: DS.textMuted, fontSize: 12, marginTop: 1 },

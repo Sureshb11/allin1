@@ -10,6 +10,7 @@ import {
   ActivityIndicator } from
 'react-native';
 import legendsApi from '../services/LegendsApi';
+import BrandLogo from "../components/BrandLogo";
 
 
 
@@ -171,7 +172,7 @@ const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme
           <View style={styles.starBadge}>
             <Text style={styles.starIcon}>{'\u2605'}</Text>
           </View>
-          <Text style={styles.brandText}>LOCAL LEGENDS</Text>
+          <BrandLogo scale={0.75} />
         </View>
       </View>
 
@@ -221,7 +222,7 @@ const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme
           disabled={loading}
           activeOpacity={0.8}>
           {loading ?
-          <ActivityIndicator color="#fff" size="small" /> :
+          <ActivityIndicator color={DS.white} size="small" /> :
 
           <Text style={styles.verifyButtonText}>VERIFY</Text>
           }
@@ -324,7 +325,7 @@ const makeStyles = (DS) => StyleSheet.create({
   title: {
     fontSize: 30,
     fontWeight: '800',
-    color: '#ffffff',
+    color: DS.textPrimary,
     marginBottom: 12,
     textAlign: 'center'
   },
@@ -355,7 +356,7 @@ const makeStyles = (DS) => StyleSheet.create({
     borderStyle: 'dashed',
     fontSize: 24,
     fontWeight: '700',
-    color: '#ffffff',
+    color: DS.textPrimary,
     textAlign: 'center'
   },
   otpBoxActive: {
@@ -389,7 +390,7 @@ const makeStyles = (DS) => StyleSheet.create({
     opacity: 0.5
   },
   verifyButtonText: {
-    color: '#ffffff',
+    color: DS.white,
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 2

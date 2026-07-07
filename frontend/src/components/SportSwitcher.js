@@ -105,7 +105,7 @@ const makeStyles = (C) => StyleSheet.create({
   right: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   hint: { fontSize: 11, color: C.textMuted, fontWeight: '500' },
 
-  modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
+  modalContainer: { flex: 1, backgroundColor: C.overlay },
   dismiss: { flex: 1 },
   sheet: { maxHeight: '70%', backgroundColor: C.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, borderTopWidth: 1, borderColor: C.line },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: C.surfaceHighest, alignSelf: 'center', marginBottom: 12 },

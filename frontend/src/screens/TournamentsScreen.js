@@ -1,23 +1,39 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, ActivityIndicator, RefreshControl,
+  TextInput, ActivityIndicator, RefreshControl, Animated
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 
 /* ── Design System ── */
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import BrandLogo from "../components/BrandLogo";
 
 const FILTERS = ['All', 'Open', 'Ongoing', 'Completed'];
 
 const makeStatusColors = (DS) => ({
   Open:      DS.lime,
-  Ongoing:   DS.lime,
-  Active:    DS.lime,
+  Ongoing:   '#fbbf24', // Gold
+  Active:    '#fbbf24', // Gold
   Upcoming:  DS.blue,
   Completed: DS.textMuted,
 });
+
+const AnimatedPulse = ({ children, style }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.15, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulseAnim]);
+  return <Animated.View style={[style, { transform: [{ scale: pulseAnim }] }]}>{children}</Animated.View>;
+};
 
 /* ── Stats Pill ── */
 function StatPill({ value, label }) {
@@ -39,8 +55,12 @@ function TournamentCard({ item, onJoin, onPress }) {
   const teamsLeft = (item.maxTeams || 16) - (item.teams || 0);
   const progress = (item.teams || 0) / (item.maxTeams || 16);
 
+  const isGold = item.status === 'Ongoing' || item.status === 'Active';
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity 
+      style={[styles.card, isGold && { borderColor: '#fbbf24', borderWidth: 1, shadowColor: '#fbbf24', shadowOpacity: 0.15, shadowRadius: 10, elevation: 4 }]} 
+      onPress={onPress} activeOpacity={0.85}>
       {/* Header row */}
       <View style={styles.cardHeader}>
         <View style={{ flex: 1 }}>
@@ -196,59 +216,54 @@ const TournamentsScreen = ({ navigation, inline }) => {
       {!inline && (
         <View style={styles.brandHeader}>
           <View>
-            <Text style={styles.brandName}>LOCAL LEGENDS</Text>
+            <BrandLogo scale={0.75} />
             <Text style={styles.brandSub}>ATHLETE HUB</Text>
           </View>
         </View>
       )}
 
-      {/* Title + Create */}
-      <View style={styles.titleRow}>
-        <Text style={styles.pageTitle}>MY TOURNAMENTS</Text>
-        <TouchableOpacity style={styles.createBtn} onPress={() => navigation.navigate('CreateTournament')}>
-          <Icon name="plus" size={16} color={DS.bg} />
-          <Text style={styles.createBtnText}>CREATE TOURNAMENT</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Stats row */}
-      <View style={styles.statsRow}>
-        <StatPill value={String(activeCount).padStart(2, '0')} label="Active" />
-        <StatPill value={String(tournaments.length).padStart(2, '0')} label="Tournaments" />
-        <StatPill value={String(totalTeams)} label="Players" />
-      </View>
-
-      {/* Search */}
-      <View style={styles.searchWrap}>
-        <Icon name="magnify" size={18} color={DS.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search tournaments..."
-          placeholderTextColor={DS.textMuted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      {/* Filter chips */}
-      <View style={styles.filterRow}>
-        {FILTERS.map(f => (
-          <TouchableOpacity
-            key={f}
-            style={[styles.filterChip, filter === f && styles.filterChipActive]}
-            onPress={() => setFilter(f)}
-          >
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
+      {/* Moved fixed items to ListHeaderComponent */}
       <FlatList
         data={filtered}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
+        ListHeaderComponent={
+          <View>
+            {/* Removed CTA Card for floating button */}
+
+            {/* Search */}
+            <View style={styles.searchWrap}>
+              <Icon name="magnify" size={22} color={DS.lime} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Find a tournament..."
+                placeholderTextColor={DS.faint}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+                  <Icon name="close-circle" size={18} color={DS.faint} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Filter chips */}
+            <View style={styles.filterRow}>
+              {FILTERS.map(f => (
+                <TouchableOpacity
+                  key={f}
+                  style={[styles.filterChip, filter === f && styles.filterChipActive]}
+                  onPress={() => setFilter(f)}
+                >
+                  <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        }
         renderItem={({ item }) => (
           <TournamentCard
             item={item}
@@ -264,6 +279,11 @@ const TournamentsScreen = ({ navigation, inline }) => {
           </View>
         }
       />
+      <AnimatedPulse style={styles.fabWrap}>
+        <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateTournament')}>
+          <Icon name="plus" size={28} color="#fff" />
+        </TouchableOpacity>
+      </AnimatedPulse>
     </View>
   );
 };
@@ -290,6 +310,66 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16,
   },
+  ctaCard: {
+    backgroundColor: DS.surfaceHigh,
+    borderRadius: 16,
+    marginBottom: 24,
+    marginHorizontal: 20,
+    overflow: 'hidden',
+    flexDirection: 'row'
+  },
+  ctaAccent: {
+    width: 4,
+    backgroundColor: DS.blueDeep
+  },
+  ctaContent: {
+    flex: 1,
+    padding: 20
+  },
+  ctaTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: DS.textPrimary,
+    marginBottom: 4
+  },
+  ctaSubtitle: {
+    fontSize: 13,
+    color: DS.textMuted,
+    marginBottom: 16
+  },
+  ctaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: DS.blueDeep,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+    elevation: 4,
+    shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }
+  },
+  ctaButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.5
+  },
+  fabWrap: { position: 'absolute', bottom: 24, right: 24, zIndex: 999 },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: DS.blueDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+    zIndex: 999,
+    shadowColor: DS.blueDeep,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
   pageTitle: {
     fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 1,
   },
@@ -298,7 +378,7 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.lime, borderRadius: 8,
     paddingHorizontal: 14, paddingVertical: 10,
   },
-  createBtnText: { fontSize: 11, fontWeight: '900', color: DS.bg, letterSpacing: 0.5 },
+  createBtnText: { fontSize: 12, fontWeight: '900', color: DS.onLime, letterSpacing: 0.5 },
 
   /* Stats row */
   statsRow: {
@@ -313,22 +393,25 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Search */
   searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: DS.surfaceLow, marginHorizontal: 20, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 11, marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)', marginHorizontal: 20, borderRadius: 16,
+    paddingHorizontal: 16, paddingVertical: 14, marginBottom: 16,
+    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary },
+  searchInput: { flex: 1, fontSize: 15, fontWeight: '500', color: DS.textPrimary },
 
   /* Filters */
   filterRow: {
-    flexDirection: 'row', gap: 8, paddingHorizontal: 20, marginBottom: 14,
+    flexDirection: 'row', backgroundColor: DS.surfaceLow,
+    marginHorizontal: 16, marginTop: 4, marginBottom: 14,
+    borderRadius: 14, padding: 4,
   },
   filterChip: {
-    paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20,
-    backgroundColor: DS.surfaceLow,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, borderRadius: 10, backgroundColor: 'transparent',
   },
-  filterChipActive: { backgroundColor: DS.lime },
-  filterText: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
+  filterChipActive: { backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  filterText: { fontSize: 11, fontWeight: '700', color: DS.textMuted },
   filterTextActive: { color: DS.bg },
 
   /* List */
@@ -337,6 +420,7 @@ const makeStyles = (DS) => StyleSheet.create({
   /* Card */
   card: {
     backgroundColor: DS.surfaceHigh, borderRadius: 14, overflow: 'hidden',
+    borderWidth: 1, borderColor: 'transparent',
   },
   cardHeader: {
     flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
@@ -386,7 +470,7 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.lime, borderRadius: 8,
     paddingHorizontal: 20, paddingVertical: 9,
   },
-  joinBtnText: { fontSize: 12, fontWeight: '900', color: DS.bg },
+  joinBtnText: { fontSize: 13, fontWeight: '900', color: DS.onLime },
   chipBtn: {
     backgroundColor: DS.surfaceHighest, borderRadius: 8,
     paddingHorizontal: 14, paddingVertical: 8,

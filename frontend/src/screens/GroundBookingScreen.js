@@ -37,7 +37,7 @@ function GroundCard({ item, onBook }) {const DS = useTheme().colors;const styles
             <Text style={styles.locationText} numberOfLines={1}>{item.location}</Text>
           </View>
         </View>
-        <View style={[styles.availPill, { backgroundColor: item.available ? 'rgba(171,214,0,0.15)' : 'rgba(239,68,68,0.15)' }]}>
+        <View style={[styles.availPill, { backgroundColor: item.available ? DS.lime + '26' : 'rgba(239,68,68,0.15)' }]}>
           <View style={[styles.availDot, { backgroundColor: item.available ? DS.lime : DS.live }]} />
           <Text style={[styles.availText, { color: item.available ? DS.lime : DS.live }]}>
             {item.available ? 'Available' : 'Booked'}

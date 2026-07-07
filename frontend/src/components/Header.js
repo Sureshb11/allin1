@@ -1,48 +1,65 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { Colors, Typography, Spacing, Radius } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
+import { Spacing, Radius } from '../theme';
+import BrandLogo from './BrandLogo';
 
-const Header = ({ title, onSearchPress, onNotificationsPress, onMenuPress }) => (
-  <View style={styles.container}>
-    {onMenuPress ? (
-      <TouchableOpacity style={styles.iconBtn} onPress={onMenuPress}>
-        <Icon name="menu" size={24} color={Colors.textInverse} />
-      </TouchableOpacity>
-    ) : (
-      <View style={styles.brand}>
-        <Icon name="cricket" size={20} color={Colors.primary} />
-        <Text style={styles.brandText}>{title || 'Local Legends'}</Text>
-      </View>
-    )}
+const Header = ({ title, onSearchPress, onNotificationsPress, onMenuPress }) => {
+  const { colors: DS, typography } = useTheme();
 
-    {onMenuPress && (
-      <View style={styles.brand}>
-        <Icon name="cricket" size={20} color={Colors.primary} />
-        <Text style={styles.brandText}>{title || 'Local Legends'}</Text>
-      </View>
-    )}
-
-    <View style={styles.actions}>
-      {onSearchPress && (
-        <TouchableOpacity style={styles.iconBtn} onPress={onSearchPress}>
-          <Icon name="magnify" size={22} color={Colors.textInverse} />
+  return (
+    <View style={[styles.container, { backgroundColor: DS.surfaceLow }]}>
+      {onMenuPress ? (
+        <TouchableOpacity style={styles.iconBtn} onPress={onMenuPress}>
+          <Icon name="menu" size={24} color={DS.textInverse} />
         </TouchableOpacity>
+      ) : (
+        <View style={styles.brand}>
+          {title ? (
+            <>
+              <Icon name="cricket" size={20} color={DS.lime} />
+              <Text style={[styles.brandText, typography.h4, { color: DS.textInverse }]}>{title}</Text>
+            </>
+          ) : (
+            <BrandLogo scale={0.75} />
+          )}
+        </View>
       )}
-      {onNotificationsPress && (
-        <TouchableOpacity style={styles.iconBtn} onPress={onNotificationsPress}>
-          <Icon name="bell-outline" size={22} color={Colors.textInverse} />
-        </TouchableOpacity>
+
+      {onMenuPress && (
+        <View style={styles.brand}>
+          {title ? (
+            <>
+              <Icon name="cricket" size={20} color={DS.lime} />
+              <Text style={[styles.brandText, typography.h4, { color: DS.textInverse }]}>{title}</Text>
+            </>
+          ) : (
+            <BrandLogo scale={0.75} />
+          )}
+        </View>
       )}
+
+      <View style={styles.actions}>
+        {onSearchPress && (
+          <TouchableOpacity style={styles.iconBtn} onPress={onSearchPress}>
+            <Icon name="magnify" size={22} color={DS.textInverse} />
+          </TouchableOpacity>
+        )}
+        {onNotificationsPress && (
+          <TouchableOpacity style={styles.iconBtn} onPress={onNotificationsPress}>
+            <Icon name="bell-outline" size={22} color={DS.textInverse} />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.secondary,
     paddingHorizontal: Spacing.sm,
     paddingTop: 44,
     paddingBottom: Spacing.sm,
@@ -55,8 +72,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brandText: {
-    ...Typography.h4,
-    color: Colors.textInverse,
     letterSpacing: 0.3,
   },
   actions: {

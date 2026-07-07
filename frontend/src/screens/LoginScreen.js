@@ -12,6 +12,8 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import legendsApi from '../services/LegendsApi';
 import { showToast } from '../components/Toast';
+import { haptic } from '../utils/haptics';
+import BrandLogo from '../components/BrandLogo';
 import GradientButton from '../components/GradientButton';
 
 const COUNTRIES = [
@@ -130,11 +132,7 @@ export default function LoginScreen({ navigation }) {const { colors: DS, isDark 
 
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {/* Brand */}
-        <View style={s.brand}>
-          <View style={s.logoBox}><Icon name="star-four-points" size={16} color={DS.onBlue} /></View>
-          <Text style={s.brandLocal}>LOCAL</Text>
-          <View style={s.brandBadge}><Text style={s.brandBadgeTxt}>LEGENDS</Text></View>
-        </View>
+        <BrandLogo style={{ paddingHorizontal: 24, paddingTop: 56, paddingBottom: 8 }} scale={1.2} />
 
         {/* Hero */}
         <View style={s.hero}>

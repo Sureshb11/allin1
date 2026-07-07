@@ -264,7 +264,7 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.surfaceHigh, borderRadius: 12, padding: 14,
     flexDirection: 'row', alignItems: 'center', gap: 12
   },
-  optionSelected: { backgroundColor: 'rgba(171,214,0,0.1)' },
+  optionSelected: { backgroundColor: DS.lime + '1A' },
   optionLetter: {
     width: 30, height: 30, borderRadius: 15, backgroundColor: DS.surfaceHighest,
     alignItems: 'center', justifyContent: 'center'

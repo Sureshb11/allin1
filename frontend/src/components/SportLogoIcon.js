@@ -66,17 +66,21 @@ export default function SportLogoIcon({ id, size = 54, color = '#c4f82a', active
     return <Image source={frames[last]} style={dim} tintColor={color} resizeMode="contain" fadeDuration={0} />;
   }
 
-  // Stack every frame with the SAME explicit sizing as the static <Image>
-  // above (absolutely positioned so they overlap), and reveal one via opacity.
-  // Using absoluteFill here instead mis-sized the contained image — the active
-  // disc rendered the art tiny (~30%) while the static disc was correct.
+  // Ring Buffer (3 Images): eliminates OOM (hiding) by only mounting 3 images instead of 30,
+  // and eliminates flickering by pre-decoding the next frame (opacity 0) 80ms before it's shown.
+  const getSourceForSlot = (slot) => {
+    if (frame % 3 === slot) return frame; // Current frame
+    if ((frame + 1) % 3 === slot) return Math.min(frame + 1, last); // Next frame (pre-decoding)
+    return Math.max(frame - 1, 0); // Previous frame
+  };
+
   return (
     <View style={dim}>
-      {frames.map((src, i) => (
+      {[0, 1, 2].map((slot) => (
         <Image
-          key={i}
-          source={src}
-          style={[dim, { position: 'absolute', opacity: i === frame ? 1 : 0 }]}
+          key={slot}
+          source={frames[getSourceForSlot(slot)]}
+          style={[dim, { position: 'absolute', opacity: frame % 3 === slot ? 1 : 0 }]}
           tintColor={color}
           resizeMode="contain"
           fadeDuration={0}

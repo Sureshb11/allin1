@@ -272,7 +272,7 @@ const makeS = (DS) => StyleSheet.create({
 
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: DS.line },
   avatar: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
-  avatarTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  avatarTxt: { color: DS.white, fontSize: 16, fontWeight: '800' },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   name: { color: DS.textPrimary, fontSize: 15, fontWeight: '700', flexShrink: 1 },
   meta: { color: DS.textVariant, fontSize: 12.5, marginTop: 2 },

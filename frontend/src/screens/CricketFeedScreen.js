@@ -21,6 +21,7 @@ import MomentumMeter from '../components/MomentumMeter';
 import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
+import BrandLogo from '../components/BrandLogo';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -49,8 +50,45 @@ const timeAgo = (iso) => {
 
 
 
-
-
+// ── Shimmer Skeleton ────────────────────────────────────────────────────────
+function FeedSkeleton({ DS }) {
+  const shimmer = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 1000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [shimmer]);
+  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
+  const Bar = ({ w, h, r = 6, mt = 0 }) => (
+    <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity, marginTop: mt }} />
+  );
+  return (
+    <View style={{ paddingHorizontal: 14, paddingTop: 16, gap: 20 }}>
+      {[0, 1, 2].map((i) => (
+        <View key={i} style={{ backgroundColor: DS.surfaceLow, borderRadius: 16, padding: 14, gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Animated.View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: DS.surfaceHigh, opacity }} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <Bar w={120} h={12} />
+              <Bar w={80} h={10} />
+            </View>
+          </View>
+          <Bar w="100%" h={200} r={12} mt={4} />
+          <View style={{ flexDirection: 'row', gap: 16, marginTop: 4 }}>
+            <Bar w={26} h={26} r={13} />
+            <Bar w={26} h={26} r={13} />
+            <Bar w={26} h={26} r={13} />
+          </View>
+          <Bar w={140} h={12} mt={2} />
+          <Bar w="90%" h={12} />
+        </View>
+      ))}
+    </View>
+  );
+}
 
 // ── Small building blocks ───────────────────────────────────────────────────
 function Avatar({ initial, color, size = 40, ring = false, uri = null }) {const DS = useTheme().colors;
@@ -59,7 +97,7 @@ function Avatar({ initial, color, size = 40, ring = false, uri = null }) {const 
   if (uri) return <Image source={{ uri }} style={[base, ringStyle]} />;
   return (
     <View style={[base, { backgroundColor: color, alignItems: 'center', justifyContent: 'center' }, ringStyle]}>
-      <Text style={{ color: '#fff', fontWeight: '800', fontSize: size * 0.4 }}>{initial}</Text>
+      <Text style={{ color: DS.white, fontWeight: '800', fontSize: size * 0.4 }}>{initial}</Text>
     </View>);
 
 }
@@ -225,12 +263,13 @@ function PostMedia({ kind, media }) {const DS = useTheme().colors;const c = useT
       <Text style={[m.smallLabel, { marginTop: 12 }]}>{media.label}</Text>
       <Text style={m.metaTxt}>{media.sub}</Text>
     </View>);
-
 }
 
 function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().colors;const p = useThemedStyles(makeP);
   const popRef = useRef(new Animated.Value(1)).current;
+  const heartOverlay = useRef(new Animated.Value(0)).current;
   const [saved, setSaved] = useState(false);
+  const lastTap = useRef(0);
 
   const handleLike = () => {
     onLike(post.id);
@@ -240,17 +279,32 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
     }
   };
 
+  // Instagram-style double-tap heart
+  const handleDoubleTap = () => {
+    const now = Date.now();
+    if (now - lastTap.current < 300) {
+      if (!post.liked) onLike(post.id);
+      haptic.impact();
+      heartOverlay.setValue(0);
+      Animated.sequence([
+        Animated.spring(heartOverlay, { toValue: 1, friction: 4, tension: 120, useNativeDriver: true }),
+        Animated.delay(600),
+        Animated.timing(heartOverlay, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]).start();
+    }
+    lastTap.current = now;
+  };
+
   const toggleSave = () => {
     haptic.tick();
     setSaved((v) => !v);
     showToast(saved ? 'Removed from saved' : 'Saved', 'success', 1400);
   };
 
-  // ⋯ menu — share the post or flag it (real actions, not a dead affordance).
   const openMenu = () => {
     Alert.alert(post.author.handle, undefined, [
       { text: 'Share post', onPress: () => onShare(post) },
-      { text: 'Report post', style: 'destructive', onPress: () => showToast('Thanks — we’ll review this post.', 'success') },
+      { text: 'Report post', style: 'destructive', onPress: () => showToast('Thanks — we\'ll review this post.', 'success') },
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
@@ -265,15 +319,25 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
             <Text style={p.name}>{post.author.name}</Text>
             {post.author.verified && <Icon name="check-decagram" size={14} color={DS.lime} style={{ marginLeft: 4 }} />}
           </View>
-          <Text style={p.sub}>{post.author.team}</Text>
+          <Text style={p.sub}>{post.author.team} · {post.time}</Text>
         </View>
         <TouchableOpacity hitSlop={8} onPress={openMenu}>
           <Icon name="dots-horizontal" size={22} color={DS.textMuted} />
         </TouchableOpacity>
       </View>
 
-      {/* media */}
-      <PostMedia kind={post.kind} media={post.media} />
+      {/* media with double-tap heart overlay */}
+      <TouchableOpacity activeOpacity={1} onPress={handleDoubleTap}>
+        <PostMedia kind={post.kind} media={post.media} />
+        <Animated.View pointerEvents="none" style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          alignItems: 'center', justifyContent: 'center',
+          opacity: heartOverlay,
+          transform: [{ scale: heartOverlay.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }],
+        }}>
+          <Icon name="heart" size={80} color={DS.white} style={{ textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: {width: 0, height: 2}, textShadowRadius: 10 }} />
+        </Animated.View>
+      </TouchableOpacity>
 
       {/* actions */}
       <View style={p.actions}>
@@ -283,7 +347,10 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
           </Animated.View>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => onComment(post)} hitSlop={8} style={p.actionBtn} activeOpacity={0.7}>
-          <Icon name="comment-outline" size={24} color={DS.textPrimary} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <Icon name="comment-outline" size={24} color={DS.textPrimary} />
+            {(post.commentCount || 0) > 0 && <Text style={{ color: DS.textMuted, fontSize: 12, fontWeight: '700' }}>{post.commentCount}</Text>}
+          </View>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => onShare(post)} hitSlop={8} style={p.actionBtn} activeOpacity={0.7}>
           <Icon name="share-outline" size={25} color={DS.textPrimary} />
@@ -296,11 +363,14 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
 
       {/* likes */}
       {post.likes > 0 &&
-        <Text style={p.likes}>
-          {post.likedBy
-            ? <>Liked by <Text style={p.bold}>{post.likedBy}</Text> and <Text style={p.bold}>{(post.likes - 1).toLocaleString()} others</Text></>
-            : <Text style={p.bold}>{post.likes.toLocaleString()} {post.likes === 1 ? 'like' : 'likes'}</Text>}
-        </Text>
+        <View style={p.likesRow}>
+          <Icon name="heart" size={13} color={DS.live} style={{ marginRight: 5 }} />
+          <Text style={p.likes}>
+            {post.likedBy
+              ? <>Liked by <Text style={p.bold}>{post.likedBy}</Text> and <Text style={p.bold}>{(post.likes - 1).toLocaleString()} others</Text></>
+              : <Text style={p.bold}>{post.likes.toLocaleString()} {post.likes === 1 ? 'like' : 'likes'}</Text>}
+          </Text>
+        </View>
       }
 
       {/* caption */}
@@ -311,7 +381,8 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
 
       {/* comments preview */}
       {(post.commentCount || post.comments.length) > 0 &&
-      <TouchableOpacity onPress={() => onComment(post)} activeOpacity={0.7}>
+      <TouchableOpacity onPress={() => onComment(post)} activeOpacity={0.7} style={p.commentsBtn}>
+          <Icon name="comment-text-outline" size={14} color={DS.textMuted} style={{ marginRight: 5 }} />
           <Text style={p.viewComments}>View all {post.commentCount || post.comments.length} comments</Text>
         </TouchableOpacity>
       }
@@ -319,6 +390,40 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
       <Text style={p.time}>{post.time}</Text>
     </View>);
 
+}
+
+// ── Comment Row with likeable heart ─────────────────────────────────────────
+function CommentRow({ item, DS, cm }) {
+  const [liked, setLiked] = useState(false);
+  const [likes, setLikes] = useState(item.likes || 0);
+  const scaleRef = useRef(new Animated.Value(1)).current;
+
+  const toggleLike = () => {
+    haptic.tick();
+    const next = !liked;
+    setLiked(next);
+    setLikes((v) => v + (next ? 1 : -1));
+    if (next) {
+      scaleRef.setValue(0.5);
+      Animated.spring(scaleRef, { toValue: 1, friction: 4, tension: 140, useNativeDriver: true }).start();
+    }
+  };
+
+  return (
+    <View style={cm.commentRow}>
+      <Avatar initial={item.user[0].toUpperCase()} color={item.color || DS.surfaceHighest} size={34} />
+      <View style={{ flex: 1, marginLeft: 10 }}>
+        <Text style={cm.commentUser}>{item.user}</Text>
+        <Text style={cm.commentTxt}>{item.text}</Text>
+        {likes > 0 && <Text style={{ color: DS.textMuted, fontSize: 11, marginTop: 3, fontWeight: '600' }}>{likes} {likes === 1 ? 'like' : 'likes'}</Text>}
+      </View>
+      <TouchableOpacity hitSlop={12} onPress={toggleLike} activeOpacity={0.7}>
+        <Animated.View style={{ transform: [{ scale: scaleRef }] }}>
+          <Icon name={liked ? 'heart' : 'heart-outline'} size={18} color={liked ? DS.live : DS.textMuted} />
+        </Animated.View>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 // ── Comments bottom sheet ───────────────────────────────────────────────────
@@ -344,15 +449,7 @@ function CommentsSheet({ post, onClose, onAdd }) {const DS = useTheme().colors;c
               keyExtractor={(it) => it.id}
               style={{ maxHeight: 320 }}
               ListEmptyComponent={<Text style={cm.empty}>No comments yet. Be the first.</Text>}
-              renderItem={({ item }) =>
-              <View style={cm.commentRow}>
-                  <Avatar initial={item.user[0].toUpperCase()} color={item.color || DS.surfaceHighest} size={34} />
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={cm.commentUser}>{item.user}</Text>
-                    <Text style={cm.commentTxt}>{item.text}</Text>
-                  </View>
-                  <Icon name="heart-outline" size={16} color={DS.textMuted} />
-                </View>
+              renderItem={({ item }) => <CommentRow item={item} DS={DS} cm={cm} />
               } />
             
             <View style={cm.inputRow}>
@@ -648,10 +745,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
 
       {/* top bar */}
       <View style={s.topBar}>
-        <View style={s.brand}>
-          <Icon name="cricket" size={22} color={DS.lime} />
-          <Text style={s.brandTxt}>LOCAL LEGENDS</Text>
-        </View>
+        <BrandLogo />
         <View style={s.topActions}>
           <TouchableOpacity hitSlop={8} onPress={() => setComposeOpen(true)}>
             <Icon name="plus-box-outline" size={24} color={DS.textPrimary} />
@@ -676,12 +770,14 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
         renderItem={({ item }) =>
         <PostCard post={item} onLike={toggleLike} onShare={sharePost} onComment={openComments} />
         }
-        ListEmptyComponent={!loading &&
+        ListEmptyComponent={!loading ?
           <View style={s.feedEmpty}>
             <Icon name="cricket" size={40} color={DS.surfaceHighest} />
             <Text style={s.feedEmptyTxt}>No posts yet</Text>
             <Text style={s.feedEmptySub}>Be the first to share a cricket moment.</Text>
-          </View>}
+          </View>
+          : <FeedSkeleton DS={DS} />
+        }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 24 }} />
@@ -727,7 +823,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
                 <View style={s.composePreviewWrap}>
                   <Image source={{ uri: composeImage }} style={s.composePreview} resizeMode="cover" />
                   <TouchableOpacity style={s.composePreviewX} onPress={() => setComposeImage(null)}>
-                    <Icon name="close" size={16} color="#fff" />
+                    <Icon name="close" size={16} color={DS.white} />
                   </TouchableOpacity>
                 </View>
               }
@@ -755,8 +851,10 @@ const makeS = (DS) => StyleSheet.create({
     paddingTop: 52, paddingBottom: 10, paddingHorizontal: 16,
     borderBottomWidth: 1, borderBottomColor: DS.line
   },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  brandTxt: { color: DS.textPrimary, fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brandText: { fontSize: 20, fontWeight: '800', color: DS.textPrimary, letterSpacing: 1.5 },
+  brandBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.lime, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 3 },
+  brandBadgeText: { fontSize: 13, fontWeight: '800', color: DS.bg, letterSpacing: 0.8 },
   topActions: { flexDirection: 'row', alignItems: 'center', gap: 18 },
 
   // Live-match resume banner (top of feed)
@@ -770,7 +868,7 @@ const makeS = (DS) => StyleSheet.create({
   resumeSub: { color: DS.onBlue, fontSize: 15, fontWeight: '800', marginTop: 2 },
   resumeCta: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7,
+    backgroundColor: DS.surfaceHighest, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7,
   },
   resumeCtaTxt: { color: DS.onBlue, fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
 
@@ -797,7 +895,7 @@ const makeS = (DS) => StyleSheet.create({
     backgroundColor: DS.blueDeep, alignItems: 'center', justifyContent: 'center',
     shadowColor: DS.blueDeep, shadowOpacity: 0.45, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8,
   },
-  composeBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  composeBackdrop: { flex: 1, backgroundColor: DS.overlay, justifyContent: 'flex-end' },
   composeSheet: { backgroundColor: DS.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 28 },
   composeHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   composeTitle: { color: DS.textPrimary, fontSize: 16, fontWeight: '800' },
@@ -811,7 +909,7 @@ const makeS = (DS) => StyleSheet.create({
   composePhotoTxt: { color: DS.lime, fontSize: 13, fontWeight: '800' },
   composePreviewWrap: { marginTop: 12, borderRadius: 14, overflow: 'hidden' },
   composePreview: { width: '100%', height: 200, borderRadius: 14 },
-  composePreviewX: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }
+  composePreviewX: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 14, backgroundColor: DS.overlay, alignItems: 'center', justifyContent: 'center' }
 });
 
 const makeH = (DS) => StyleSheet.create({
@@ -840,7 +938,7 @@ const makeC = (DS) => StyleSheet.create({
 
   teamRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 4 },
   teamBadge: { width: 26, height: 26, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  teamBadgeTxt: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  teamBadgeTxt: { color: DS.white, fontSize: 10, fontWeight: '800' },
   teamName: { flex: 1, color: DS.textVariant, fontSize: 13, fontWeight: '600', marginLeft: 9 },
   teamScore: { color: DS.textPrimary, fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
 
@@ -858,7 +956,7 @@ const makeM = (DS) => StyleSheet.create({
   photo: { width: '100%', backgroundColor: DS.surfaceHigh },   // height set dynamically by FeedPhoto (real aspect ratio)
   glow: {
     position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: 80,
-    backgroundColor: 'rgba(171,214,0,0.10)'
+    backgroundColor: DS.lime + '1A'
   },
   smallLabel: { color: DS.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 1.4 },
   bigRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 6, gap: 8 },
@@ -877,7 +975,7 @@ const makeM = (DS) => StyleSheet.create({
 });
 
 const makeP = (DS) => StyleSheet.create({
-  card: { backgroundColor: DS.surfaceLow, marginTop: 12, paddingBottom: 12 },
+  card: { backgroundColor: DS.surfaceLow, marginTop: 8, paddingBottom: 14, borderRadius: 0 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 11 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   name: { color: DS.textPrimary, fontSize: 14, fontWeight: '800' },
@@ -886,15 +984,16 @@ const makeP = (DS) => StyleSheet.create({
   actions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 12, gap: 16 },
   actionBtn: {},
 
-  likes: { color: DS.textPrimary, fontSize: 13, fontWeight: '600', paddingHorizontal: 14, paddingTop: 10 },
+  likesRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 10 },
+  likes: { color: DS.textPrimary, fontSize: 13, fontWeight: '600' },
   bold: { fontWeight: '800', color: DS.textPrimary },
   caption: { color: DS.textVariant, fontSize: 13.5, lineHeight: 19, paddingHorizontal: 14, paddingTop: 5 },
-  viewComments: { color: DS.textMuted, fontSize: 13, paddingHorizontal: 14, paddingTop: 6 },
-  time: { color: DS.textMuted, fontSize: 10.5, letterSpacing: 0.5, paddingHorizontal: 14, paddingTop: 8 }
+  commentsBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 8 },
+  viewComments: { color: DS.textMuted, fontSize: 13 },
 });
 
 const makeCm = (DS) => StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
+  backdrop: { flex: 1, backgroundColor: DS.overlay },
   sheet: { backgroundColor: DS.surfaceLow, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
   grab: { width: 40, height: 4, borderRadius: 2, backgroundColor: DS.surfaceHighest, alignSelf: 'center', marginBottom: 10 },
   title: { color: DS.textPrimary, fontSize: 16, fontWeight: '800', textAlign: 'center', marginBottom: 10 },

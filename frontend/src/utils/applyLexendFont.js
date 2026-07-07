@@ -12,7 +12,7 @@
  * Imported once for its side-effect from index.js, before AppRegistry.
  */
 import React from 'react';
-import { Text, TextInput, StyleSheet } from 'react-native';
+import { Text, TextInput, StyleSheet, Platform } from 'react-native';
 
 const WEIGHT_TO_FAMILY = {
   '100': 'Lexend-Thin',
@@ -39,12 +39,18 @@ const patch = (Component) => {
   if (Component.__lexendPatched) return;
   const original = Component.render;
   Component.render = function render(...args) {
+    console.log('applyLexendFont.js Text.render called!');
     const origin = original.apply(this, args);
     if (!origin) return origin;
     const flat = StyleSheet.flatten(origin.props.style) || {};
     // Keep glyph/icon fonts (and any deliberately non-Lexend family) as-is.
     if (isIconFamily(flat.fontFamily)) return origin;
-    const family = familyForWeight(flat.fontWeight);
+    
+    // On Android, we have res/font/lexend.xml mapping weights to .ttf files natively.
+    // So we just use 'lexend' and let Android handle the fontWeight natively!
+    // On iOS, we still map to the specific postscript names.
+    const family = Platform.OS === 'android' ? 'lexend' : familyForWeight(flat.fontWeight);
+    
     return React.cloneElement(origin, {
       style: [{ fontFamily: family }, origin.props.style],
     });

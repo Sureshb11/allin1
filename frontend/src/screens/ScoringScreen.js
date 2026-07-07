@@ -7,6 +7,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
+import BrandLogo from "../components/BrandLogo";
 
 const { width } = Dimensions.get('window');
 
@@ -693,8 +694,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     if (b === 'W') {bg = DS.wicketBg;color = DS.wicketText;}
     if (b === 'WD') {bg = 'rgba(255,181,158,0.15)';color = DS.coral;}
     if (b === 'NB') {bg = 'rgba(255,181,158,0.15)';color = DS.coral;}
-    if (b === '4') {bg = 'rgba(59,91,219,0.2)';color = DS.blue + 'ff';}
-    if (b === '6') {bg = 'rgba(171,214,0,0.15)';color = DS.lime;}
+    if (b === '4') {bg = DS.blue + '33';color = DS.blue + 'ff';}
+    if (b === '6') {bg = DS.lime + '26';color = DS.lime;}
     if (b === '·') {bg = DS.surfaceHighest;color = DS.textMuted;}
     return (
       <View key={i} style={[styles.overBall, { backgroundColor: bg }]}>
@@ -855,7 +856,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               <Icon name="arrow-left" size={22} color={DS.textPrimary} />
             </TouchableOpacity>
             <View style={styles.brandStar}><Icon name="star" size={11} color={DS.bg} /></View>
-            <Text style={styles.sbBrandText}>LOCAL LEGENDS</Text>
+            <BrandLogo scale={0.75} />
             {!matchComplete &&
               <View style={styles.liveTag}><View style={styles.liveDot} /><Text style={styles.liveTagText}>LIVE</Text></View>}
           </View>
@@ -990,7 +991,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
                 <Text style={styles.gridBtnNum}>3</Text><Text style={styles.gridBtnLabel}>TRIPLE</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.gridBtn, styles.gridBtnFour]} onPress={() => handleScore(4)}>
-                <Text style={[styles.gridBtnNum, { color: '#fff' }]}>4</Text><Text style={[styles.gridBtnLabel, { color: 'rgba(255,255,255,0.7)' }]}>FOUR</Text>
+                <Text style={[styles.gridBtnNum, { color: DS.white }]}>4</Text><Text style={[styles.gridBtnLabel, { color: 'rgba(255,255,255,0.7)' }]}>FOUR</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.gridBtn, styles.gridBtnSix]} onPress={() => handleScore(6)}>
                 <Text style={[styles.gridBtnNum, { color: DS.lime }]}>6</Text><Text style={[styles.gridBtnLabel, { color: DS.lime }]}>SIX</Text>
@@ -1062,8 +1063,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               <Text style={[styles.completeBtnText, { color: DS.onBlue }]}>VIEW SCORECARD</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.completeBtn, { backgroundColor: '#25D366' }]} onPress={shareScore}>
-              <Icon name="whatsapp" size={18} color="#fff" />
-              <Text style={[styles.completeBtnText, { color: '#fff' }]}>SHARE SCORE</Text>
+              <Icon name="whatsapp" size={18} color={DS.white} />
+              <Text style={[styles.completeBtnText, { color: DS.white }]}>SHARE SCORE</Text>
             </TouchableOpacity>
           </View>
         }
@@ -1587,7 +1588,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   gridBtnDot: { backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.line },
   gridBtnFour: { backgroundColor: DS.blueDeep },
-  gridBtnSix: { backgroundColor: 'rgba(171,214,0,0.14)', borderWidth: 1, borderColor: DS.lime + '44' },
+  gridBtnSix: { backgroundColor: DS.lime + '24', borderWidth: 1, borderColor: DS.lime + '44' },
   gridBtnWide: { backgroundColor: 'rgba(255,181,158,0.1)' },
   gridBtnWicket: { backgroundColor: DS.wicketBg },
   gridBtnNum: { fontSize: 34, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1 },
@@ -1669,7 +1670,7 @@ const makeStyles = (DS) => StyleSheet.create({
   tabLabel: { fontSize: 9, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
 
   // Modals
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: DS.overlay, justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: DS.surfaceLow, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 20, maxHeight: '60%'
@@ -1701,7 +1702,7 @@ const makeSetup = (DS) => StyleSheet.create({
 
   inningsBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: 'rgba(171,214,0,0.08)', borderRadius: 12, padding: 12, marginBottom: 8
+    backgroundColor: DS.lime + '14', borderRadius: 12, padding: 12, marginBottom: 8
   },
   inningsText: { fontSize: 14, fontWeight: '700', color: DS.lime },
 
@@ -1712,7 +1713,7 @@ const makeSetup = (DS) => StyleSheet.create({
     alignItems: 'center', gap: 6, padding: 10,
     backgroundColor: DS.surfaceLow, borderRadius: 14, minWidth: 72
   },
-  playerChipActive: { backgroundColor: 'rgba(171,214,0,0.08)', borderWidth: 1.5, borderColor: DS.lime },
+  playerChipActive: { backgroundColor: DS.lime + '14', borderWidth: 1.5, borderColor: DS.lime },
   chipAvatar: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   chipInitial: { fontSize: 18, fontWeight: '900' },
   chipName: { fontSize: 11, fontWeight: '600', color: DS.textVariant, textAlign: 'center', lineHeight: 14 },

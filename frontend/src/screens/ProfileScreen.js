@@ -335,7 +335,7 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: '#25D366', borderRadius: 16,
     paddingVertical: 14,
   },
-  shareBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  shareBtnText: { fontSize: 15, fontWeight: '700', color: DS.white },
 
   // Quick actions
   quickRow: { flexDirection: 'row', gap: 10 },

@@ -1,26 +1,57 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Animated } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
-import Skeleton from '../components/Skeleton';
-
-const SK = ['#1a2029', '#283039'];   // dark shimmer pair
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 const MEDAL = ['#FFD700', '#C0C0C0', '#CD7F32'];
+
+// ── Shimmer Skeleton ────────────────────────────────────────────────────────
+function StatSkeleton({ DS }) {
+  const shimmer = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 1000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [shimmer]);
+  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
+  const Bar = ({ w, h, r = 6, mt = 0 }) => (
+    <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity, marginTop: mt }} />
+  );
+  return (
+    <View style={{ paddingHorizontal: 16, paddingBottom: 24, gap: 14 }}>
+      {[0, 1, 2, 3].map((i) => (
+        <View key={i} style={{ backgroundColor: DS.surfaceHigh, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: DS.border }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Bar w={42} h={42} r={21} />
+            <View style={{ flex: 1, gap: 8 }}>
+              <Bar w="55%" h={14} />
+              <Bar w="32%" h={11} />
+            </View>
+          </View>
+          <Bar w="100%" h={40} r={10} mt={14} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const TABS = [
 { id: 'Players', label: 'Players', icon: 'account' },
@@ -32,11 +63,13 @@ function initials(name) {
 }
 
 function PlayerCard({ item, rank }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+  const isTop = rank < 3;
+  const rankColor = isTop ? MEDAL[rank] : DS.border;
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 }]}>
       <View style={styles.cardHeader}>
-        <View style={[styles.rankBadge, rank < 3 && { backgroundColor: MEDAL[rank] }]}>
-          <Text style={styles.rankText}>{rank + 1}</Text>
+        <View style={[styles.rankBadge, { backgroundColor: isTop ? rankColor : DS.surfaceHighest, borderColor: isTop ? rankColor : DS.border }]}>
+          <Text style={[styles.rankText, isTop ? { color: '#000' } : { color: DS.textPrimary }]}>{rank + 1}</Text>
         </View>
         <View style={[styles.avatar, { backgroundColor: DS.lime }]}>
           <Text style={[styles.avatarText, { color: DS.bg }]}>{initials(item.name)}</Text>
@@ -55,7 +88,7 @@ function PlayerCard({ item, rank }) {const DS = useTheme().colors;const styles =
         { label: 'Wkts', value: item.wickets, icon: 'weather-windy', color: '#34d399' }].
         map((s) =>
         <View key={s.label} style={styles.statItem}>
-            <Icon name={s.icon} size={14} color={s.color} />
+            <Icon name={s.icon} size={16} color={s.color} />
             <Text style={styles.statVal}>{s.value}</Text>
             <Text style={styles.statLbl}>{s.label}</Text>
           </View>
@@ -67,11 +100,13 @@ function PlayerCard({ item, rank }) {const DS = useTheme().colors;const styles =
 
 function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const pct = item.winRate;
+  const isTop = rank < 3;
+  const rankColor = isTop ? MEDAL[rank] : DS.border;
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 }]}>
       <View style={styles.cardHeader}>
-        <View style={[styles.rankBadge, rank < 3 && { backgroundColor: MEDAL[rank] }]}>
-          <Text style={styles.rankText}>{rank + 1}</Text>
+        <View style={[styles.rankBadge, { backgroundColor: isTop ? rankColor : DS.surfaceHighest, borderColor: isTop ? rankColor : DS.border }]}>
+          <Text style={[styles.rankText, isTop ? { color: '#000' } : { color: DS.textPrimary }]}>{rank + 1}</Text>
         </View>
         <View style={[styles.avatar, { backgroundColor: DS.blue }]}>
           <Text style={[styles.avatarText, { color: DS.bg }]}>{initials(item.name)}</Text>
@@ -88,10 +123,10 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
 
       {/* Win/Loss bar */}
       <View style={styles.ratioBar}>
-        <View style={[styles.ratioFill, { flex: item.wins, backgroundColor: '#34d399' }]}>
+        <View style={[styles.ratioFill, { flex: item.wins || 1, backgroundColor: '#34d399' }]}>
           <Text style={styles.ratioFillText}>{item.wins}W</Text>
         </View>
-        <View style={[styles.ratioFill, { flex: item.losses, backgroundColor: DS.live }]}>
+        <View style={[styles.ratioFill, { flex: item.losses || 1, backgroundColor: DS.live }]}>
           <Text style={styles.ratioFillText}>{item.losses}L</Text>
         </View>
       </View>
@@ -117,6 +152,7 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
   const [tab, setTab] = useState('Players');
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
@@ -151,59 +187,88 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
     return () => { alive = false; };
   }, []);
 
-  const data = tab === 'Players' ? players : teams;
+  const rawData = tab === 'Players' ? players : teams;
+  const data = rawData.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
   const renderCard = tab === 'Players' ?
   ({ item, index }) => <PlayerCard item={item} rank={index} /> :
   ({ item, index }) => <TeamCard item={item} rank={index} />;
+
+  const listAnim = useRef(new Animated.Value(1)).current;
+
+  const handleTabChange = (newTab) => {
+    if (tab === newTab) return;
+    Animated.timing(listAnim, { toValue: 0, duration: 100, useNativeDriver: true }).start(() => {
+      setTab(newTab);
+      Animated.timing(listAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+    });
+  };
 
   return (
     <View style={styles.container}>
       {/* Hero */}
       {!inline && (
         <View style={styles.hero}>
-          <Icon name="chart-bar" size={20} color={DS.lime} />
-          <Text style={styles.heroTitle}>Statistics</Text>
+          <Icon name="chart-bar" size={24} color={DS.lime} />
+          <Text style={styles.heroTitle}>Rankings</Text>
         </View>
       )}
 
-      {/* Tab bar */}
-      <View style={styles.tabBar}>
-        {TABS.map((t) =>
-        <TouchableOpacity key={t.id} style={[styles.tabBtn, tab === t.id && styles.tabBtnActive]}
-        onPress={() => setTab(t.id)}>
-            <Icon name={t.icon} size={15} color={tab === t.id ? DS.bg : DS.textMuted} />
-            <Text style={[styles.tabBtnText, tab === t.id && styles.tabBtnTextActive]}>{t.label}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
       {loading ? (
         <View style={styles.list}>
-          {[0, 1, 2, 3, 4].map((i) => (
-            <View key={i} style={[styles.card, { padding: 16, marginBottom: 12 }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Skeleton width={40} height={40} radius={20} colors={SK} />
-                <View style={{ flex: 1, gap: 8 }}>
-                  <Skeleton width={'55%'} height={14} colors={SK} />
-                  <Skeleton width={'32%'} height={11} colors={SK} />
-                </View>
-              </View>
-              <Skeleton width={'100%'} height={40} radius={10} colors={SK} style={{ marginTop: 14 }} />
-            </View>
-          ))}
+          {/* Tab bar (rendered outside list while loading) */}
+          <View style={styles.tabBar}>
+            {TABS.map((t) =>
+            <TouchableOpacity key={t.id} style={[styles.tabBtn, tab === t.id && styles.tabBtnActive]}
+            onPress={() => handleTabChange(t.id)}>
+                <Icon name={t.icon} size={15} color={tab === t.id ? DS.bg : DS.textMuted} />
+                <Text style={[styles.tabBtnText, tab === t.id && styles.tabBtnTextActive]}>{t.label}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <StatSkeleton DS={DS} />
         </View>
       ) : (
-        <FlatList
-          data={data}
-          renderItem={renderCard}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <View style={{ alignItems: 'center', paddingVertical: 48, gap: 8 }}>
-              <Icon name="chart-bar" size={44} color={DS.surfaceHighest} />
-              <Text style={{ color: DS.textMuted, fontSize: 14 }}>No {tab.toLowerCase()} ranked yet</Text>
-            </View>}
-          showsVerticalScrollIndicator={false} />
+        <Animated.View style={{ flex: 1, opacity: listAnim }}>
+          <FlatList
+            data={data}
+            renderItem={renderCard}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.list}
+            ListHeaderComponent={
+              <View>
+                <View style={styles.searchWrap}>
+                  <Icon name="magnify" size={22} color={DS.lime} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder={`Search ${tab.toLowerCase()}...`}
+                    placeholderTextColor={DS.faint}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+                      <Icon name="close-circle" size={18} color={DS.faint} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <View style={styles.tabBar}>
+                {TABS.map((t) =>
+                <TouchableOpacity key={t.id} style={[styles.tabBtn, tab === t.id && styles.tabBtnActive]}
+                onPress={() => handleTabChange(t.id)}>
+                    <Icon name={t.icon} size={15} color={tab === t.id ? DS.bg : DS.textMuted} />
+                    <Text style={[styles.tabBtnText, tab === t.id && styles.tabBtnTextActive]}>{t.label}</Text>
+                  </TouchableOpacity>
+                )}
+                </View>
+              </View>
+            }
+            ListEmptyComponent={
+              <View style={{ alignItems: 'center', paddingVertical: 48, gap: 8 }}>
+                <Icon name="chart-bar" size={44} color={DS.surfaceHighest} />
+                <Text style={{ color: DS.textMuted, fontSize: 14 }}>No {tab.toLowerCase()} ranked yet</Text>
+              </View>}
+            showsVerticalScrollIndicator={false} />
+        </Animated.View>
       )}
 
     </View>);
@@ -214,37 +279,51 @@ const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
 
   hero: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 16, paddingHorizontal: 16
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: DS.bg, paddingTop: 52, paddingBottom: 12, paddingHorizontal: 16
   },
-  heroTitle: { fontSize: 20, fontWeight: '800', color: DS.textPrimary },
+  heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
 
   tabBar: {
-    flexDirection: 'row', backgroundColor: DS.surfaceHigh,
-    margin: 16, borderRadius: 16, padding: 4
+    flexDirection: 'row', backgroundColor: DS.surfaceLow,
+    marginHorizontal: 16, marginTop: 4, marginBottom: 12,
+    borderRadius: 14, padding: 4,
   },
   tabBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 10, borderRadius: 12
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, borderRadius: 10, backgroundColor: 'transparent',
   },
-  tabBtnActive: { backgroundColor: DS.lime },
+  tabBtnActive: { backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   tabBtnText: { fontWeight: '700', fontSize: 13, color: DS.textMuted },
   tabBtnTextActive: { color: DS.bg },
 
-  list: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
-
-  card: { backgroundColor: DS.surfaceHigh, borderRadius: 16 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, paddingBottom: 10 },
-  rankBadge: {
-    width: 24, height: 24, borderRadius: 12,
-    backgroundColor: DS.surfaceHighest,
-    alignItems: 'center', justifyContent: 'center'
+  /* Search */
+  searchWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: DS.surfaceHighest, marginHorizontal: 16, borderRadius: 16,
+    paddingHorizontal: 16, paddingVertical: 14, marginTop: 16,
+    borderWidth: 1, borderColor: DS.border,
   },
-  rankText: { fontSize: 11, fontWeight: '900', color: DS.bg },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  searchInput: { flex: 1, fontSize: 15, fontWeight: '500', color: DS.textPrimary },
+
+  list: { paddingHorizontal: 16, paddingBottom: 24, gap: 14 },
+
+  card: { 
+    backgroundColor: DS.surfaceHigh, borderRadius: 18,
+    borderWidth: 1, borderColor: DS.border,
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, paddingBottom: 12 },
+  rankBadge: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: DS.surfaceHighest,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: DS.border
+  },
+  rankText: { fontSize: 11, fontWeight: '900' },
+  avatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 14, fontWeight: '900' },
-  cardName: { fontSize: 15, fontWeight: '800', color: DS.textPrimary },
-  cardSub: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
+  cardName: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
+  cardSub: { fontSize: 12, color: DS.textMuted, marginTop: 2, fontWeight: '500' },
 
   winRatePill: {
     backgroundColor: 'rgba(52,211,153,0.15)', borderRadius: 12,
@@ -254,18 +333,25 @@ const makeStyles = (DS) => StyleSheet.create({
   winRatePillSub: { fontSize: 9, color: '#34d399', fontWeight: '700' },
 
   ratioBar: {
-    flexDirection: 'row', height: 24, overflow: 'hidden',
-    marginHorizontal: 14, marginBottom: 10, borderRadius: 6
+    flexDirection: 'row', height: 18, overflow: 'hidden',
+    marginHorizontal: 16, marginBottom: 8, borderRadius: 9,
+    borderWidth: 1, borderColor: DS.border
   },
-  ratioFill: { justifyContent: 'center', alignItems: 'center', minWidth: 20 },
-  ratioFillText: { fontSize: 10, fontWeight: '700', color: DS.bg },
+  ratioFill: { justifyContent: 'center', alignItems: 'center', minWidth: 24 },
+  ratioFillText: { fontSize: 9, fontWeight: '800', color: DS.bg },
 
   statRow: {
-    flexDirection: 'row', justifyContent: 'space-around',
-    paddingVertical: 10, paddingHorizontal: 8,
-    backgroundColor: DS.surfaceHighest, borderBottomLeftRadius: 16, borderBottomRightRadius: 16
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingVertical: 12, paddingHorizontal: 12,
+    backgroundColor: 'transparent', gap: 8,
+    borderBottomLeftRadius: 18, borderBottomRightRadius: 18
   },
-  statItem: { alignItems: 'center', gap: 2 },
-  statVal: { fontSize: 15, fontWeight: '900', color: DS.textPrimary },
-  statLbl: { fontSize: 10, color: DS.textMuted, fontWeight: '600' }
+  statItem: { 
+    flex: 1, alignItems: 'center', gap: 4,
+    backgroundColor: DS.surfaceHighest,
+    paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1, borderColor: DS.border
+  },
+  statVal: { fontSize: 14, fontWeight: '900', color: DS.textPrimary },
+  statLbl: { fontSize: 9, color: DS.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }
 });

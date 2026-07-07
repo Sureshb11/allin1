@@ -181,8 +181,8 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: DS.live, borderRadius: 24, paddingHorizontal: 8, paddingVertical: 3
   },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' },
-  liveText: { fontSize: 10, fontWeight: '900', color: '#fff' },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DS.white },
+  liveText: { fontSize: 10, fontWeight: '900', color: DS.white },
   streamBody: { padding: 10, gap: 4 },
   streamTitle: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
   streamTeams: { fontSize: 12, color: DS.textVariant },
