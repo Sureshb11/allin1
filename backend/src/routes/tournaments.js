@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
 import { computeStandings, persistStandings } from '../lib/standings.js';
 import { resolveBracket } from '../lib/bracket.js';
+import { notifyTeams, notifyAllParticipants, safeNotify } from '../lib/notify.js';
 
 const router = Router();
 
@@ -29,7 +30,7 @@ const ResultSchema = z.object({
 router.post('/:id/result', authMiddleware, async (req, res) => {
   try {
     const d = ResultSchema.parse(req.body);
-    await prisma.tournamentMatch.update({
+    const match = await prisma.tournamentMatch.update({
       where: { id: d.tmId },
       data: {
         status: 'completed',
@@ -41,8 +42,32 @@ router.post('/:id/result', authMiddleware, async (req, res) => {
     const standings = await persistStandings(req.params.id);
     const bracket = await resolveBracket(req.params.id); // advance any placeholder fixtures
     res.json({ success: true, standings, resolved: bracket.resolved });
+
+    // ── Notify participants (best-effort, after responding) ──
+    const tourney = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { name: true } });
+    const tName = tourney?.name || 'the tournament';
+    // Both teams of the completed match get a result notification.
+    const involved = [match.team1Id, match.team2Id].filter(Boolean);
+    if (involved.length) {
+      const teams = await prisma.team.findMany({ where: { id: { in: involved } }, select: { id: true, name: true } });
+      const nameOf = Object.fromEntries(teams.map((t) => [t.id, t.name]));
+      let message;
+      if (d.resultKind === 'win' && d.winnerTeamId) {
+        const loserId = involved.find((id) => id !== d.winnerTeamId);
+        message = `${nameOf[d.winnerTeamId] || 'A team'} beat ${nameOf[loserId] || 'their opponent'} in ${tName}.`;
+      } else {
+        message = `${(match.round || 'A')} match in ${tName} ended in a ${d.resultKind}.`;
+      }
+      safeNotify(() => notifyTeams(involved, { title: `${match.round || 'Match'} result`, message }));
+    }
+    // Teams newly advanced into a next-round fixture get an "advanced" nudge.
+    for (const a of bracket.advanced || []) {
+      safeNotify(() => notifyTeams([a.teamId], {
+        title: 'You advanced!', message: `Your team has advanced to the ${a.round} in ${tName}.`,
+      }));
+    }
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    if (!res.headersSent) res.status(400).json({ error: e.message });
   }
 });
 
@@ -165,6 +190,13 @@ router.post('/:id/teams', authMiddleware, async (req, res) => {
       include: { team: true },
     });
     res.status(201).json({ entry });
+
+    // Notify the added team's members that they're in.
+    const tourney = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { name: true } });
+    safeNotify(() => notifyTeams([teamId], {
+      title: 'Added to a tournament',
+      message: `${entry.team?.name || 'Your team'} has been entered into ${tourney?.name || 'a tournament'}.`,
+    }));
   } catch (e) {
     if (e.code === 'P2002') return res.status(409).json({ error: 'Team already registered' });
     res.status(400).json({ error: e.message });
@@ -554,8 +586,17 @@ router.post('/:id/auto-schedule', authMiddleware, async (req, res) => {
     }
 
     res.json({ success: true, count: matches.length });
+
+    // Notify every participant that the fixtures are out.
+    if (matches.length > 0) {
+      const tourney = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { name: true } });
+      safeNotify(() => notifyAllParticipants(req.params.id, {
+        title: 'Schedule released',
+        message: `The fixtures for ${tourney?.name || 'your tournament'} are out — ${matches.length} matches scheduled.`,
+      }));
+    }
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    if (!res.headersSent) res.status(400).json({ error: e.message });
   }
 });
 

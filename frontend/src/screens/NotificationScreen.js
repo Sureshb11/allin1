@@ -62,6 +62,7 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
       case 'match':return { icon: 'cricket', bg: DS.lime };
       case 'reminder':return { icon: 'timer-outline', bg: DS.warning };
       case 'achievement':return { icon: 'trophy', bg: '#d97706' };
+      case 'tournament':return { icon: 'trophy-variant', bg: DS.lime };
       case 'social':return { icon: 'account-group', bg: DS.success };
       case 'system':return { icon: 'cog-outline', bg: DS.textMuted };
       default:return { icon: 'bell-outline', bg: DS.blue };

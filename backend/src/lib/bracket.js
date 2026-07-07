@@ -74,17 +74,18 @@ export async function resolveBracket(tournamentId) {
 
   // 3) Fill any still-placeholder scheduled fixture whose label is now known.
   const updates = [];
+  const advanced = []; // { teamId, round } for each team newly placed into a fixture
   for (const m of all) {
     if (m.status !== 'scheduled') continue;
     const t1 = !m.team1Id && m.placeholder1 ? label2team[m.placeholder1] : undefined;
     const t2 = !m.team2Id && m.placeholder2 ? label2team[m.placeholder2] : undefined;
     const data = {};
-    if (t1) data.team1Id = t1;
-    if (t2) data.team2Id = t2;
+    if (t1) { data.team1Id = t1; advanced.push({ teamId: t1, round: m.round }); }
+    if (t2) { data.team2Id = t2; advanced.push({ teamId: t2, round: m.round }); }
     if (Object.keys(data).length) {
       updates.push(prisma.tournamentMatch.update({ where: { id: m.id }, data }));
     }
   }
   if (updates.length) await Promise.all(updates);
-  return { resolved: updates.length, labels: label2team };
+  return { resolved: updates.length, labels: label2team, advanced };
 }
