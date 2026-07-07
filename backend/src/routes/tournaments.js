@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
 import { computeStandings, persistStandings } from '../lib/standings.js';
+import { resolveBracket } from '../lib/bracket.js';
 
 const router = Router();
 
@@ -38,7 +39,8 @@ router.post('/:id/result', authMiddleware, async (req, res) => {
       },
     });
     const standings = await persistStandings(req.params.id);
-    res.json({ success: true, standings });
+    const bracket = await resolveBracket(req.params.id); // advance any placeholder fixtures
+    res.json({ success: true, standings, resolved: bracket.resolved });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -256,7 +258,8 @@ router.post('/:id/auto-schedule', authMiddleware, async (req, res) => {
           scheduledAt: new Date(scheduledDate),
           status: 'scheduled'
         });
-        round1Winners.push(`Winner R1 M${i + 1}`);
+        round1Winners.push(`Winner Round 1 M${i + 1}`);
+        scheduledDate.setHours(scheduledDate.getHours() + 3); // distinct time per match → stable ordering
       }
       
       while (teamIndex < teams.length) {
@@ -289,10 +292,12 @@ router.post('/:id/auto-schedule', authMiddleware, async (req, res) => {
             status: 'scheduled'
           });
           nextRoundTeams.push({ placeholder: `Winner ${roundName} M${(i/2) + 1}` });
+          scheduledDate.setHours(scheduledDate.getHours() + 3); // distinct time per match → stable ordering
         }
         currentRoundTeams = nextRoundTeams;
         roundNum++;
         scheduledDate.setDate(scheduledDate.getDate() + 1);
+        scheduledDate.setHours(10, 0, 0, 0);
       }
 
     } else {
@@ -532,11 +537,13 @@ router.post('/:id/auto-schedule', authMiddleware, async (req, res) => {
                   status: 'scheduled'
                 });
                 nextRoundTeams.push({ placeholder: `Winner ${roundName} M${(i/2) + 1}` });
+                scheduledDate.setHours(scheduledDate.getHours() + 3); // distinct time per match → stable ordering
               }
             }
             currentRoundTeams = nextRoundTeams;
             roundNum++;
             scheduledDate.setDate(scheduledDate.getDate() + 1);
+            scheduledDate.setHours(10, 0, 0, 0);
           }
         }
       }

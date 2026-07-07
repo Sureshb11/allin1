@@ -1081,6 +1081,18 @@ class LegendsApi {
     }
   }
 
+  // Tournament — report a fixture result (marks it completed, recomputes the
+  // points table, and advances any knockout/bracket placeholders).
+  // result = { tmId, winnerTeamId?, resultKind, stats: { [teamId]: {scored, conceded, oversFaced?, oversBowled?} } }
+  async reportTournamentResult(tournamentId, result) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/result`, { method: 'POST', body: result });
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Tournament — schedule/fixtures
   async getTournamentSchedule(tournamentId) {
     try {
