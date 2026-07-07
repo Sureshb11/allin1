@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Alert, ScrollView, ActivityIndicator,
+  Alert, ScrollView, ActivityIndicator, TextInput,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Spacing, Radius } from '../theme';
@@ -30,44 +30,31 @@ const makeK = (c) => ({
    Shows players for one team. Green tick = available today.
    XI box = selected in playing eleven.
 ────────────────────────────────────────────────────────────── */
-function PlayerList({ teamId, color, xi, setXI, available, setAvailable }) {
+function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailable }) {
   const c = useTheme().colors;
   const K = useMemo(() => makeK(c), [c]);
   const s = useMemo(() => makeS(K), [K]);
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     legendsApi.getTeam(teamId).then(res => {
       const list = res.success && Array.isArray(res.data?.players)
         ? res.data.players : [];
       setPlayers(list);
-      const av = {};
-      list.forEach(p => { av[p.id] = true; });
-      setAvailable(av);
       // Auto-select all players (up to 11) so user just removes unavailable ones
-      setXI(list.slice(0, 11).map(p => ({ id: p.id, name: p.name })));
+      setXI(list.slice(0, 11).map(p => ({ id: p.id, name: p.name, role: p.role })));
       setLoading(false);
     });
   }, [teamId]);
-
-  const toggleAvail = (id) => {
-    setAvailable(prev => {
-      const next = { ...prev, [id]: !prev[id] };
-      if (!next[id]) {
-        // deselect from XI if marked unavailable
-        setXI(prev2 => prev2.filter(p => p.id !== id));
-      }
-      return next;
-    });
-  };
 
   const toggleXI = (player) => {
     setXI(prev => {
       const inXI = prev.some(p => p.id === player.id);
       if (inXI) return prev.filter(p => p.id !== player.id);
       if (prev.length >= 11) { Alert.alert('XI Full', 'Deselect a player first.'); return prev; }
-      return [...prev, { id: player.id, name: player.name }];
+      return [...prev, { id: player.id, name: player.name, role: player.role }];
     });
   };
 
@@ -86,60 +73,81 @@ function PlayerList({ teamId, color, xi, setXI, available, setAvailable }) {
     </View>
   );
 
+  const filteredPlayers = players.filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
+
   return (
     <View>
-      {players.map(p => {
-        const isAvail = !!available[p.id];
-        const inXI    = xi.some(x => x.id === p.id);
-        return (
-          <View
-            key={p.id}
-            style={[
-              s.playerRow,
-              { borderLeftColor: inXI ? K.lime : isAvail ? K.surfaceTop : K.red + '55' },
-            ]}
-          >
-            {/* Available toggle */}
-            <TouchableOpacity onPress={() => toggleAvail(p.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Icon
-                name={isAvail ? 'check-circle' : 'circle-outline'}
-                size={22}
-                color={isAvail ? K.lime : K.textMuted}
-              />
-            </TouchableOpacity>
-
-            {/* Avatar */}
-            <View style={[s.pAvatar, { backgroundColor: isAvail ? color + '33' : K.surfaceTop }]}>
-              <Text style={[s.pInitial, { color: isAvail ? color : K.textMuted }]}>
-                {(p.name || '?').charAt(0).toUpperCase()}
-              </Text>
-            </View>
-
-            {/* Name + role */}
-            <View style={{ flex: 1 }}>
-              <Text style={[s.pName, !isAvail && s.pNameOut]}>{p.name}</Text>
-              <Text style={s.pRole}>{(p.role || 'Player').toUpperCase()}</Text>
-            </View>
-
-            {/* Unavailable badge */}
-            {!isAvail && (
-              <View style={s.outBadge}>
-                <Text style={s.outBadgeText}>OUT</Text>
-              </View>
-            )}
-
-            {/* XI checkbox */}
-            {isAvail && (
-              <TouchableOpacity
-                style={[s.xiBox, inXI && { backgroundColor: K.lime, borderColor: K.lime }]}
-                onPress={() => toggleXI(p)}
-              >
-                {inXI
-                  ? <Icon name="check" size={13} color={K.bg} />
-                  : <Text style={s.xiLabel}>XI</Text>}
-              </TouchableOpacity>
-            )}
+      {/* Hero Banner */}
+      <View style={s.heroContainer}>
+        <View style={s.heroContent}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.heroTeamName}>{teamName.toUpperCase()}</Text>
+            <Text style={s.heroSubtitle}>PRIMARY SQUAD</Text>
           </View>
+          <View style={s.heroStats}>
+            <Text style={s.heroCount}>{xi.length}/15</Text>
+            <Text style={s.heroCountLabel}>PLAYERS PICKED</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Search Bar */}
+      <View style={s.searchContainer}>
+        <Icon name="magnify" size={20} color={K.textMuted} style={s.searchIcon} />
+        <TextInput
+          style={s.searchInput}
+          placeholder="Find player..."
+          placeholderTextColor={K.textMuted}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        <TouchableOpacity style={s.filterBtn}>
+          <Icon name="filter-variant" size={20} color={K.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Player List */}
+      {filteredPlayers.map(p => {
+        const inXI = xi.some(x => x.id === p.id);
+
+        if (inXI) {
+          return (
+            <TouchableOpacity key={p.id} style={s.selectedCard} onPress={() => toggleXI(p)} activeOpacity={0.8}>
+              <View style={s.avatarContainer}>
+                <View style={[s.avatarBlue, { backgroundColor: color }]}>
+                  <Text style={s.avatarInitials}>{(p.name || '?').charAt(0).toUpperCase()}</Text>
+                </View>
+                <View style={s.roleBadge}>
+                  <Text style={s.roleBadgeText}>{(p.role || 'P').charAt(0).toUpperCase()}</Text>
+                </View>
+              </View>
+              <View style={s.nameContainer}>
+                <Text style={s.playerNameSelected}>{p.name}</Text>
+                <Text style={s.playerRoleSelected}>{(p.role || 'PLAYER').toUpperCase()}</Text>
+              </View>
+              <View style={s.actionRow}>
+                <View style={s.actionIconBlue}><Icon name="cricket" size={14} color="#fff" /></View>
+                <View style={s.actionIconCheck}><Icon name="check" size={16} color="#000" /></View>
+              </View>
+            </TouchableOpacity>
+          );
+        }
+
+        return (
+          <TouchableOpacity key={p.id} style={s.unselectedCard} onPress={() => toggleXI(p)} activeOpacity={0.7}>
+            <View style={s.avatarContainer}>
+              <View style={s.avatarDark}>
+                <Text style={s.avatarInitialsDark}>{(p.name || '?').charAt(0).toUpperCase()}</Text>
+              </View>
+            </View>
+            <View style={s.nameContainer}>
+              <Text style={s.playerNameUnselected}>{p.name}</Text>
+              <Text style={s.playerRoleUnselected}>{(p.role || 'PLAYER').toUpperCase()}</Text>
+            </View>
+            <View style={s.addBtn}>
+              <Icon name="plus" size={18} color={K.textMuted} />
+            </View>
+          </TouchableOpacity>
         );
       })}
     </View>
@@ -346,33 +354,11 @@ export default function TossLineupScreen({ route, navigation }) {
               })}
             </View>
 
-            {/* Active team name large */}
-            <Text style={s.activeTeamName}>{teams[activeTeam]}</Text>
-            <Text style={s.primarySquadLabel}>PRIMARY SQUAD</Text>
-
-            {/* Legend */}
-            <View style={s.legendRow}>
-              <Icon name="check-circle" size={13} color={K.lime} />
-              <Text style={s.legendText}>Available</Text>
-              <View style={s.legendDivider} />
-              <View style={[s.xiBox, { backgroundColor: K.lime, borderColor: K.lime, width: 20, height: 20 }]}>
-                <Icon name="check" size={10} color={K.bg} />
-              </View>
-              <Text style={s.legendText}>In Playing XI</Text>
-              <View style={{ flex: 1 }} />
-              <TouchableOpacity
-                style={s.autoBtn}
-                onPress={() => autoPickTeam(teamAvail[activeTeam], setXIs[activeTeam], teamIds[activeTeam])}
-              >
-                <Icon name="auto-fix" size={13} color={K.lime} />
-                <Text style={s.autoBtnText}>Auto-pick</Text>
-              </TouchableOpacity>
-            </View>
-
             {/* Player list for active team */}
             <PlayerList
               key={activeTeam}
               teamId={teamIds[activeTeam]}
+              teamName={teams[activeTeam]}
               color={teamColor[activeTeam]}
               xi={teamXIs[activeTeam]}
               setXI={setXIs[activeTeam]}
@@ -380,33 +366,33 @@ export default function TossLineupScreen({ route, navigation }) {
               setAvailable={setAvails[activeTeam]}
             />
 
-            {/* XI confirmation bar */}
-            {teamXIs[activeTeam].length > 0 && (
-              <View style={s.xiBar}>
-                <Icon name="account-group" size={15} color={K.lime} />
-                <Text style={s.xiBarText}>
-                  {teamXIs[activeTeam].length === 11
-                    ? `${teams[activeTeam]} XI confirmed`
-                    : `${teamXIs[activeTeam].length}/11 -- ${teamXIs[activeTeam].map(p => p.name).join(', ')}`}
-                </Text>
-              </View>
-            )}
+            {/* ── Bottom spacer for button ─────────────── */}
+            <View style={{ height: 80 }} />
           </View>
-
-          {/* ── Bottom spacer for button ─────────────── */}
-          <View style={{ height: 80 }} />
         </View>
       </ScrollView>
 
       {/* ── Fixed bottom bar ──────────────────────────── */}
+      {/* FAB */}
+      <TouchableOpacity style={s.fab}>
+        <Icon name="clipboard-check" size={24} color="#5C3B2E" />
+      </TouchableOpacity>
+
       <View style={s.bottomBar}>
-        <View style={s.selectionCount}>
+        <View style={s.selectionInfo}>
           <Text style={s.selectionLabel}>CURRENT SELECTION</Text>
-          <Text style={s.selectionNumbers}>
-            <Text style={{ color: K.lime }}>{team1XI.length}</Text>
-            <Text style={{ color: K.textMuted }}> + </Text>
-            <Text style={{ color: K.lime }}>{team2XI.length}</Text>
-          </Text>
+          <View style={s.miniAvatarsRow}>
+            {teamXIs[activeTeam].slice(0, 3).map((p, idx) => (
+              <View key={p.id || idx} style={[s.miniAvatar, idx > 0 && { marginLeft: -8 }]}>
+                <Text style={s.miniAvatarText}>{(p.name || '?').charAt(0).toUpperCase()}</Text>
+              </View>
+            ))}
+            {teamXIs[activeTeam].length > 3 && (
+              <View style={[s.miniBadge, { marginLeft: -8 }]}>
+                <Text style={s.miniBadgeText}>+{teamXIs[activeTeam].length - 3}</Text>
+              </View>
+            )}
+          </View>
         </View>
         <TouchableOpacity
           style={[s.proceedBtn, !canProceed && s.proceedBtnDisabled]}
@@ -414,13 +400,10 @@ export default function TossLineupScreen({ route, navigation }) {
           disabled={loading || !canProceed}
           activeOpacity={0.8}
         >
-          {loading ? <ActivityIndicator color={K.onBlue} /> : (
-            <>
-              <Icon name="play-circle" size={18} color={K.onBlue} />
-              <Text style={s.proceedBtnText}>
-                {canProceed ? 'PROCEED TO SCORING' : `SELECT XI (${team1XI.length}+${team2XI.length})`}
-              </Text>
-            </>
+          {loading ? <ActivityIndicator color="#000" /> : (
+            <Text style={s.proceedBtnText}>
+              {canProceed ? 'CONFIRM SQUAD' : `SELECT XI (${team1XI.length}+${team2XI.length})`}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -560,58 +543,84 @@ const makeS = (K) => StyleSheet.create({
   autoBtnText: { fontSize: 11, fontWeight: '700', color: K.lime },
 
   /* Player rows */
-  loaderRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingVertical: 24, justifyContent: 'center',
+
+  /* Squad Selection New Styles */
+  heroContainer: {
+    backgroundColor: K.surfaceLow, borderRadius: Radius.lg, padding: 20,
+    marginBottom: Spacing.md, overflow: 'hidden', position: 'relative'
   },
+  heroContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroTeamName: { fontSize: 24, fontWeight: '900', color: K.textPrimary, fontStyle: 'italic', letterSpacing: 1 },
+  heroSubtitle: { fontSize: 11, fontWeight: '800', color: K.lime, letterSpacing: 2, marginTop: 4 },
+  heroStats: { alignItems: 'flex-end' },
+  heroCount: { fontSize: 24, fontWeight: '900', color: K.textPrimary },
+  heroCountLabel: { fontSize: 10, fontWeight: '700', color: K.blueDeep || '#3b82f6', letterSpacing: 1, marginTop: 2 },
+
+  searchContainer: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: K.surfaceHigh,
+    borderRadius: Radius.md, paddingHorizontal: 12, marginBottom: Spacing.md,
+    borderWidth: 1, borderColor: K.border
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, height: 44, color: K.textPrimary, fontSize: 14 },
+  filterBtn: {
+    width: 36, height: 36, borderRadius: Radius.sm, backgroundColor: K.surfaceTop,
+    alignItems: 'center', justifyContent: 'center', marginLeft: 8
+  },
+
+  selectedCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: K.blue,
+    borderRadius: Radius.lg, padding: 12, marginBottom: 10
+  },
+  unselectedCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: K.surfaceHigh,
+    borderRadius: Radius.lg, padding: 12, marginBottom: 10
+  },
+  
+  avatarContainer: { position: 'relative', width: 44, height: 44, marginRight: 12 },
+  avatarBlue: { width: 44, height: 44, borderRadius: Radius.md, backgroundColor: K.surfaceTop, alignItems: 'center', justifyContent: 'center' },
+  avatarInitials: { fontSize: 18, fontWeight: '800', color: K.textPrimary },
+  avatarDark: { width: 44, height: 44, borderRadius: Radius.md, backgroundColor: K.surfaceTop, alignItems: 'center', justifyContent: 'center' },
+  avatarInitialsDark: { fontSize: 18, fontWeight: '800', color: K.textMuted },
+  roleBadge: {
+    position: 'absolute', bottom: -4, right: -4, backgroundColor: K.lime,
+    borderRadius: 4, width: 18, height: 18, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: K.blue
+  },
+  roleBadgeText: { fontSize: 10, fontWeight: '800', color: K.bg },
+
+  nameContainer: { flex: 1 },
+  playerNameSelected: { fontSize: 15, fontWeight: '800', color: K.textPrimary },
+  playerRoleSelected: { fontSize: 10, fontWeight: '600', color: K.onBlue + 'CC', marginTop: 2, letterSpacing: 0.5 },
+  playerNameUnselected: { fontSize: 15, fontWeight: '800', color: K.textPrimary },
+  playerRoleUnselected: { fontSize: 10, fontWeight: '600', color: K.textMuted, marginTop: 2, letterSpacing: 0.5 },
+
+  actionRow: { flexDirection: 'row', gap: 6 },
+  actionIconBlue: { width: 28, height: 28, borderRadius: 6, backgroundColor: K.onBlue + '33', alignItems: 'center', justifyContent: 'center' },
+  actionIconCheck: { width: 28, height: 28, borderRadius: 6, backgroundColor: K.lime, alignItems: 'center', justifyContent: 'center' },
+  addBtn: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: K.textMuted, alignItems: 'center', justifyContent: 'center' },
+
+  loaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 24, justifyContent: 'center' },
   loaderText: { fontSize: 13, color: K.textMuted },
   emptyBox: { alignItems: 'center', paddingVertical: 32, gap: 6 },
   emptyText: { fontSize: 14, fontWeight: '600', color: K.textVariant },
   emptyHint: { fontSize: 12, color: K.textMuted },
 
-  playerRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 10, paddingLeft: 12,
-    borderBottomWidth: 1, borderBottomColor: K.border,
-    borderLeftWidth: 3,
-    backgroundColor: K.surfaceLow,
-  },
-  pAvatar: {
-    width: 38, height: 38, borderRadius: Radius.full,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  pInitial: { fontSize: 15, fontWeight: '800' },
-  pName: { fontSize: 14, fontWeight: '700', color: K.textPrimary },
-  pNameOut: { color: K.textMuted, textDecorationLine: 'line-through' },
-  pRole: {
-    fontSize: 10, color: K.textMuted, marginTop: 2,
-    fontWeight: '600', letterSpacing: 0.8,
+  selectionInfo: { flex: 1 },
+  selectionLabel: { fontSize: 10, fontWeight: '800', color: K.lime, letterSpacing: 1, marginBottom: 6 },
+  miniAvatarsRow: { flexDirection: 'row', alignItems: 'center' },
+  miniAvatar: { width: 24, height: 24, borderRadius: 12, backgroundColor: K.blue, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: K.surfaceLow },
+  miniAvatarText: { fontSize: 10, fontWeight: '700', color: K.textPrimary },
+  miniBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: K.blue, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: K.surfaceLow },
+  miniBadgeText: { fontSize: 10, fontWeight: '700', color: K.textPrimary },
+
+  fab: {
+    position: 'absolute', top: -20, right: Spacing.md,
+    width: 48, height: 48, borderRadius: Radius.lg, backgroundColor: K.textVariant,
+    alignItems: 'center', justifyContent: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
+    zIndex: 10
   },
 
-  outBadge: {
-    backgroundColor: K.red + '22', borderRadius: Radius.full,
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderWidth: 1, borderColor: K.red + '33',
-  },
-  outBadgeText: { fontSize: 10, fontWeight: '700', color: K.red },
-
-  xiBox: {
-    width: 28, height: 28, borderRadius: 7,
-    borderWidth: 1.5, borderColor: K.border,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: K.surfaceHigh,
-  },
-  xiLabel: { fontSize: 9, fontWeight: '800', color: K.textMuted },
-
-  xiBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginTop: 14, borderRadius: Radius.md, padding: 12,
-    backgroundColor: K.lime + '11',
-    borderWidth: 1, borderColor: K.lime + '33',
-  },
-  xiBarText: { flex: 1, fontSize: 12, fontWeight: '600', color: K.lime },
-
-  /* Bottom bar */
   bottomBar: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: K.surfaceLow,
@@ -620,22 +629,15 @@ const makeS = (K) => StyleSheet.create({
     borderTopWidth: 1, borderTopColor: K.border,
     gap: 12,
   },
-  selectionCount: { alignItems: 'center' },
-  selectionLabel: {
-    fontSize: 9, fontWeight: '700', letterSpacing: 1,
-    color: K.textMuted, marginBottom: 2,
-  },
-  selectionNumbers: { fontSize: 18, fontWeight: '900' },
 
-  // Primary "Action-Taker" CTA — solid electric blue per the design system.
   proceedBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: K.blue, borderRadius: Radius.md,
-    paddingVertical: 14,
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: K.lime, borderRadius: Radius.md,
+    paddingVertical: 14, elevation: 2,
   },
-  proceedBtnDisabled: { opacity: 0.35 },
+  proceedBtnDisabled: { opacity: 0.5 },
   proceedBtnText: {
-    fontSize: 13, fontWeight: '800', color: K.onBlue,
+    fontSize: 14, fontWeight: '900', color: K.bg,
     letterSpacing: 0.5,
-  },
+  }
 });

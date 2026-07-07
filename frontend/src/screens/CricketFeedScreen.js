@@ -678,22 +678,6 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
 
   const renderHeader =
   <View>
-      {liveMatch && (
-        <TouchableOpacity
-          style={s.resumeBanner}
-          activeOpacity={0.9}
-          onPress={() => navigation.navigate('Scoring', { resume: true, matchId: liveMatch.id })}>
-          <View style={s.resumeDot} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.resumeTitle}>LIVE MATCH · TAP TO RESUME SCORING</Text>
-            <Text style={s.resumeSub} numberOfLines={1}>{liveMatch.a.name} vs {liveMatch.b.name}</Text>
-          </View>
-          <View style={s.resumeCta}>
-            <Icon name="play" size={16} color={DS.onBlue} />
-            <Text style={s.resumeCtaTxt}>SCORE</Text>
-          </View>
-        </TouchableOpacity>
-      )}
 
       {/* From Your Circle rail */}
       <View style={s.sectionHead}>

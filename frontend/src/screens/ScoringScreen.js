@@ -1,7 +1,7 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Alert, Modal, Share, StatusBar, Dimensions } from
+  Alert, Modal, Share, StatusBar, Dimensions, BackHandler } from
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -50,6 +50,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [battingTeamId, setBattingTeamId] = useState('');
   const [bowlingTeamId, setBowlingTeamId] = useState('');
   const [showPlayerModal, setShowPlayerModal] = useState(false);
+  const [setupSelecting, setSetupSelecting] = useState(null); // 'striker' | 'nonstriker' | 'bowler'
   const [showBowlerModal, setShowBowlerModal] = useState(false);
   // At over-end the bowler MUST change (no consecutive overs) → mandatory, non-
   // dismissable picker. A manual mid-over swap stays optional/cancellable.
@@ -85,6 +86,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [retiredBatters, setRetiredBatters] = useState([]);  // ids retired hurt (can return to bat)
   const [mvp, setMvp] = useState(null);                    // Player of the Match (computed on completion)
   const [showSettings, setShowSettings] = useState(false); // top-bar settings sheet (End Innings/Match lives here)
+  const [showExitModal, setShowExitModal] = useState(false);
   const [transferPrompt, setTransferPrompt] = useState(false);   // transfer-scorer sheet
   const [transferCandidates, setTransferCandidates] = useState([]);
   const [endPrompt, setEndPrompt] = useState(false);       // reason picker before ending innings/match
@@ -168,8 +170,17 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       setScoringReady(!!fullyKnown);
       showToast(fullyKnown ? 'Resumed scoring' : 'Resumed — confirm the players', 'success', 1600);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resume, resumeId]);
+
+  // ── Prevent accidental exit
+  useEffect(() => {
+    const backAction = () => {
+      setShowExitModal(true);
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, []);
 
   // Persist the crease whenever it changes (opening pick, strike rotation, new
   // batter, new bowler) so a back-out + resume restores the exact pair/bowler and
@@ -691,17 +702,22 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     let bg = DS.surfaceHighest;
     let color = DS.textPrimary;
     let label = b;
-    if (b === 'W') {bg = DS.wicketBg;color = DS.wicketText;}
-    if (b === 'WD') {bg = 'rgba(255,181,158,0.15)';color = DS.coral;}
-    if (b === 'NB') {bg = 'rgba(255,181,158,0.15)';color = DS.coral;}
-    if (b === '4') {bg = DS.blue + '33';color = DS.blue + 'ff';}
-    if (b === '6') {bg = DS.lime + '26';color = DS.lime;}
-    if (b === '·') {bg = DS.surfaceHighest;color = DS.textMuted;}
+    const str = String(b).toLowerCase();
+    
+    if (str === '·') label = '0';
+
+    if (str.includes('w') && !str.includes('wd')) { bg = DS.wicketBg; color = DS.wicketText; } // Wickets
+    else if (str.includes('wd') || str.includes('nb')) { bg = 'rgba(255,181,158,0.15)'; color = DS.coral; } // Wides, NBs
+    else if (str.includes('b')) { bg = DS.surfaceHigh; color = DS.textVariant; } // Byes / Leg Byes
+    else if (str.includes('4')) { bg = DS.blue + '33'; color = DS.blue + 'ff'; } // Fours
+    else if (str.includes('6')) { bg = DS.lime + '26'; color = DS.lime; } // Sixes
+    else if (label === '0') { bg = DS.surfaceHighest; color = DS.textMuted; } // Dots
+    else { bg = DS.surfaceHigh; color = DS.textPrimary; } // Normal runs
+
     return (
       <View key={i} style={[styles.overBall, { backgroundColor: bg }]}>
         <Text style={[styles.overBallText, { color }]}>{label}</Text>
       </View>);
-
   };
 
   // Fill remaining balls as empty dots
@@ -719,33 +735,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   if (!scoringReady) {
     const canStart = striker && nonStriker && currentBowler;
 
-    const PlayerPickRow = ({ label, selected, onPick, players, exclude }) => {
-      const available = players.filter((p) => p.name !== exclude?.name);
-      return (
-        <View style={setup.section}>
-          <Text style={setup.sectionLabel}>{label}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={setup.playerRow}>
-            {available.map((p, i) => {
-              const active = selected?.name === p.name;
-              return (
-                <TouchableOpacity key={i} style={[setup.playerChip, active && setup.playerChipActive]} onPress={() => onPick(p)}>
-                  <View style={[setup.chipAvatar, { backgroundColor: active ? DS.lime : DS.surfaceHighest }]}>
-                    <Text style={[setup.chipInitial, { color: active ? DS.bg : DS.textMuted }]}>
-                      {p.name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <Text style={[setup.chipName, active && { color: DS.lime, fontWeight: '700' }]} numberOfLines={2}>
-                    {p.name}
-                  </Text>
-                  {active && <Icon name="check-circle" size={14} color={DS.lime} />}
-                </TouchableOpacity>);
-
-            })}
-          </ScrollView>
-        </View>);
-
-    };
-
+    
     return (
       <View style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
@@ -770,39 +760,57 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
             </Text>
           </View>
 
-          {/* Striker */}
-          <PlayerPickRow
-            label="STRIKER (OPENING BATTER)"
-            selected={striker}
-            onPick={(p) => {
-              setStriker(p);
-              if (nonStriker?.name === p.name) setNonStriker(null);
-            }}
-            players={battingXI}
-            exclude={nonStriker} />
           
+          {/* Setup Slots Redesign */}
+          <View style={setup.slotsContainer}>
+            <View style={setup.batterSlots}>
+              <TouchableOpacity style={setup.slotCard} activeOpacity={0.7} onPress={() => setSetupSelecting('striker')}>
+                <Text style={setup.slotLabel}>STRIKER</Text>
+                {striker ? (
+                  <View style={setup.slotFilled}>
+                    <View style={[setup.slotAvatar, { backgroundColor: DS.lime }]}><Text style={[setup.slotAvatarText, {color: DS.bg}]}>{striker.name.charAt(0)}</Text></View>
+                    <Text style={setup.slotName} numberOfLines={1}>{striker.name}</Text>
+                    <Icon name="cricket" size={16} color={DS.textMuted} />
+                  </View>
+                ) : (
+                  <View style={setup.slotEmpty}><Icon name="plus" size={16} color={DS.textMuted} /><Text style={setup.slotEmptyText}>Select</Text></View>
+                )}
+              </TouchableOpacity>
 
-          {/* Non-striker */}
-          <PlayerPickRow
-            label="NON-STRIKER"
-            selected={nonStriker}
-            onPick={(p) => {
-              setNonStriker(p);
-              if (striker?.name === p.name) setStriker(null);
-            }}
-            players={battingXI}
-            exclude={striker} />
+              <TouchableOpacity style={setup.swapBtn} activeOpacity={0.7} onPress={() => {
+                const t = striker; setStriker(nonStriker); setNonStriker(t);
+              }}>
+                <Icon name="swap-vertical" size={20} color={DS.textPrimary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={setup.slotCard} activeOpacity={0.7} onPress={() => setSetupSelecting('nonstriker')}>
+                <Text style={setup.slotLabel}>NON-STRIKER</Text>
+                {nonStriker ? (
+                  <View style={setup.slotFilled}>
+                    <View style={[setup.slotAvatar, { backgroundColor: DS.surfaceHighest }]}><Text style={setup.slotAvatarText}>{nonStriker.name.charAt(0)}</Text></View>
+                    <Text style={setup.slotName} numberOfLines={1}>{nonStriker.name}</Text>
+                    <Icon name="cricket" size={16} color={DS.textMuted} />
+                  </View>
+                ) : (
+                  <View style={setup.slotEmpty}><Icon name="plus" size={16} color={DS.textMuted} /><Text style={setup.slotEmptyText}>Select</Text></View>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={[setup.slotCard, { marginTop: 16 }]} activeOpacity={0.7} onPress={() => setSetupSelecting('bowler')}>
+              <Text style={setup.slotLabel}>OPENING BOWLER</Text>
+              {currentBowler ? (
+                <View style={setup.slotFilled}>
+                  <View style={[setup.slotAvatar, { backgroundColor: DS.coral }]}><Text style={[setup.slotAvatarText, {color: DS.bg}]}>{currentBowler.name.charAt(0)}</Text></View>
+                  <Text style={setup.slotName} numberOfLines={1}>{currentBowler.name}</Text>
+                  <Icon name="baseball" size={16} color={DS.textMuted} />
+                </View>
+              ) : (
+                <View style={setup.slotEmpty}><Icon name="plus" size={16} color={DS.textMuted} /><Text style={setup.slotEmptyText}>Select Bowler</Text></View>
+              )}
+            </TouchableOpacity>
+          </View>
           
-
-          {/* Bowler */}
-          <PlayerPickRow
-            label="OPENING BOWLER"
-            selected={currentBowler}
-            onPick={setCurrentBowler}
-            players={bowlingXI}
-            exclude={null} />
-          
-
           {/* Summary */}
           {canStart &&
           <View style={setup.summary}>
@@ -840,6 +848,49 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           <Text style={setup.hintText}>Select striker, non-striker and bowler to continue</Text>
           }
         </View>
+
+      <Modal visible={!!setupSelecting} transparent animationType="slide" onRequestClose={() => setSetupSelecting(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>
+              Select {setupSelecting === 'striker' ? 'Striker' : setupSelecting === 'nonstriker' ? 'Non-Striker' : 'Bowler'}
+            </Text>
+            <Text style={styles.modalSub}>
+              {setupSelecting === 'bowler' ? bowlingTeamName : battingTeamName}
+            </Text>
+            <ScrollView style={{ maxHeight: Dimensions.get('window').height * 0.6, marginTop: 10 }}>
+              {(setupSelecting === 'bowler' ? bowlingXI : battingXI).map(p => {
+                // filter out already selected for the other slot
+                if (setupSelecting === 'striker' && nonStriker?.id === p.id) return null;
+                if (setupSelecting === 'nonstriker' && striker?.id === p.id) return null;
+                
+                return (
+                  <TouchableOpacity key={p.id} style={setup.modalRow} onPress={() => {
+                    if (setupSelecting === 'striker') setStriker(p);
+                    if (setupSelecting === 'nonstriker') setNonStriker(p);
+                    if (setupSelecting === 'bowler') setCurrentBowler(p);
+                    setSetupSelecting(null);
+                  }}>
+                    <View style={setup.modalAvatar}>
+                      <Text style={setup.modalAvatarText}>{p.name.charAt(0)}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={setup.modalRowName}>{p.name}</Text>
+                      {p.role ? <Text style={setup.modalRowRole}>{p.role}</Text> : null}
+                    </View>
+                    <Icon name="chevron-right" size={20} color={DS.textMuted} />
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setSetupSelecting(null)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       </View>);
 
   }
@@ -852,7 +903,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       <View style={styles.scoreboard}>
         <View style={styles.sbChrome}>
           <View style={styles.sbBrand}>
-            <TouchableOpacity hitSlop={8} onPress={() => navigation.goBack()} style={styles.sbBackBtn}>
+            <TouchableOpacity hitSlop={8} onPress={() => setShowExitModal(true)} style={styles.sbBackBtn}>
               <Icon name="arrow-left" size={22} color={DS.textPrimary} />
             </TouchableOpacity>
             <View style={styles.brandStar}><Icon name="star" size={11} color={DS.bg} /></View>
@@ -896,7 +947,6 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         </TouchableOpacity>
 
         <View style={styles.sbOverRow}>
-          <Text style={styles.overSectionLabel}>THIS OVER</Text>
           {freeHit && <View style={styles.freeHitPill}><Text style={styles.freeHitText}>FREE HIT</Text></View>}
           <View style={styles.overBalls}>
             {filledOver.map((b, i) =>
@@ -1071,20 +1121,28 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
       </View>
 
-      {/* ── BOTTOM TAB BAR ── */}
-      <View style={styles.tabBar}>
-        {[
-        { icon: 'home-variant', label: 'HOME', onPress: () => navigation.navigate('HomeTab') },
-        { icon: 'cricket', label: 'MATCHES', onPress: () => navigation.navigate('MyMatches') },
-        { icon: 'scoreboard-outline', label: 'SCORER', active: true, onPress: () => {} },
-        { icon: 'account', label: 'PROFILE', onPress: () => navigation.navigate('Profile') }].
-        map((tab, i) =>
-        <TouchableOpacity key={i} style={styles.tabItem} onPress={tab.onPress}>
-            <Icon name={tab.icon} size={22} color={tab.active ? DS.lime : DS.textMuted} />
-            <Text style={[styles.tabLabel, tab.active && { color: DS.lime }]}>{tab.label}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <Modal visible={showExitModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Pause / Leave Match?</Text>
+            <ScrollView>
+              {['Raining', 'Break', 'Lunch', 'End of Day', 'Match Abandoned'].map((reason, i) => (
+                <TouchableOpacity key={i} style={styles.playerOption} onPress={() => {
+                  setShowExitModal(false);
+                  navigation.goBack();
+                }}>
+                  <Text style={[styles.playerName, { flex: 1, paddingLeft: 10 }]}>{reason}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={[styles.playerOption, { borderTopWidth: 1, borderTopColor: DS.line }]} onPress={() => setShowExitModal(false)}>
+                <Icon name="close" size={20} color={DS.textMuted} />
+                <Text style={[styles.playerName, { flex: 1, color: DS.textMuted }]}>Mistake / Cancel</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── PLAYER MODAL ── */}
       <Modal visible={showPlayerModal} transparent animationType="slide">
@@ -1525,8 +1583,8 @@ const makeStyles = (DS) => StyleSheet.create({
   sbScoreRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   sbTeam: { fontSize: 12, fontWeight: '800', color: DS.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 },
   scoreRow: { flexDirection: 'row', alignItems: 'flex-end' },
-  scoreMain: { fontSize: 46, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1.5, lineHeight: 50 },
-  scoreOvers: { fontSize: 18, color: DS.textMuted, fontWeight: '700', marginBottom: 8 },
+  scoreMain: { fontSize: 56, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1.5, lineHeight: 60 },
+  scoreOvers: { fontSize: 24, color: DS.textMuted, fontWeight: '700', marginBottom: 10, marginLeft: 4 },
   sbRates: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 4 },
   sbRate: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
   sbRateNum: { color: DS.lime, fontWeight: '900' },
@@ -1545,9 +1603,9 @@ const makeStyles = (DS) => StyleSheet.create({
   creaseRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9 },
   creaseRowDivider: { paddingTop: 4 },
   creaseBowlerRow: { borderTopWidth: 1, borderTopColor: DS.line },
-  creaseName: { flex: 1, fontSize: 15, fontWeight: '700', color: DS.textVariant },
-  creaseStriker: { fontWeight: '900', color: DS.textPrimary },
-  creaseFig: { fontSize: 12, fontWeight: '700', color: DS.textMuted, marginRight: 4 },
+  creaseName: { flex: 1, fontSize: 18, fontWeight: '700', color: DS.textVariant },
+  creaseStriker: { fontSize: 18, fontWeight: '900', color: DS.textPrimary },
+  creaseFig: { fontSize: 17, fontWeight: '800', color: DS.textMuted, marginRight: 4 },
 
   // Extra action row
   extraRow: { flexDirection: 'row', gap: 6, marginHorizontal: 16, marginBottom: 8 },
@@ -1600,14 +1658,14 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginHorizontal: 16, marginBottom: 8
   },
-  overSectionLabel: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.8 },
-  freeHitPill: { backgroundColor: DS.limeBright, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  overSectionLabel: { fontSize: 18, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8 },
+  freeHitPill: { backgroundColor: DS.limeBright, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'center', marginRight: 8 },
   freeHitText: { fontSize: 9, fontWeight: '900', color: DS.bg, letterSpacing: 0.8 },
-  overBalls: { flex: 1, flexDirection: 'row', gap: 6 },
-  overBall: { flex: 1, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  overBalls: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  overBall: { width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   overBallEmpty: { backgroundColor: DS.surfaceHighest },
   overBallDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DS.surfaceHighest },
-  overBallText: { fontSize: 11, fontWeight: '800' },
+  overBallText: { fontSize: 18, fontWeight: '800' },
 
   // Momentum bar
   momentumSection: { marginHorizontal: 16, marginBottom: 12 },
@@ -1687,6 +1745,36 @@ const makeStyles = (DS) => StyleSheet.create({
 });
 
 const makeSetup = (DS) => StyleSheet.create({
+  slotsContainer: { paddingHorizontal: 16, marginTop: 10 },
+  batterSlots: { flexDirection: 'column', gap: 12 },
+  slotCard: {
+    backgroundColor: DS.surfaceLow, borderRadius: 12, padding: 16,
+    borderWidth: 1, borderColor: DS.border
+  },
+  slotLabel: { fontSize: 10, fontWeight: '800', color: DS.textVariant, letterSpacing: 1, marginBottom: 10 },
+  slotEmpty: { flexDirection: 'row', alignItems: 'center', gap: 6, opacity: 0.7 },
+  slotEmptyText: { fontSize: 14, color: DS.textMuted, fontWeight: '600' },
+  slotFilled: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  slotAvatar: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  slotAvatarText: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
+  slotName: { flex: 1, fontSize: 15, fontWeight: '700', color: DS.textPrimary },
+  swapBtn: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: DS.surfaceHighest,
+    alignItems: 'center', justifyContent: 'center', zIndex: 10,
+    alignSelf: 'center', marginTop: -20, marginBottom: -20,
+    borderWidth: 1, borderColor: DS.border
+  },
+  modalRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20,
+    borderBottomWidth: 1, borderBottomColor: DS.border
+  },
+  modalAvatar: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: DS.surfaceHighest,
+    alignItems: 'center', justifyContent: 'center', marginRight: 12
+  },
+  modalAvatarText: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
+  modalRowName: { fontSize: 15, fontWeight: '700', color: DS.textPrimary },
+  modalRowRole: { fontSize: 11, color: DS.textMuted, marginTop: 2 },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 16, paddingHorizontal: 16

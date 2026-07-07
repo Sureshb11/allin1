@@ -574,7 +574,15 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         ],
       }]}>
         <Text style={s.title1}>CHOOSE YOUR</Text>
-        <Text style={[s.title2, { color: moodColor, textShadowColor: moodColor + '40', textShadowOffset: {width: 0, height: 4}, textShadowRadius: 12 }]}>ARENA</Text>
+        <Text style={[
+          s.title2, 
+          { 
+            color: isDark ? moodColor : A.ink, 
+            textShadowColor: isDark ? moodColor + '40' : moodColor, 
+            textShadowOffset: {width: 0, height: isDark ? 4 : 3}, 
+            textShadowRadius: isDark ? 12 : 0 
+          }
+        ]}>ARENA</Text>
       </Animated.View>
 
       {/* ── HONEYCOMB ── */}

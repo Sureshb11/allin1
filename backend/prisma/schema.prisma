@@ -601,8 +601,10 @@ model TournamentMatch {
   tournament   Tournament @relation(fields: [tournamentId], references: [id])
   tournamentId String
   matchId      String?
-  team1Id      String
-  team2Id      String
+  team1Id      String?
+  team2Id      String?
+  placeholder1 String?
+  placeholder2 String?
   scheduledAt  DateTime?
   venue        String?
   round        String?    // Group | QF | SF | Final

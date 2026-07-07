@@ -1101,6 +1101,16 @@ class LegendsApi {
     }
   }
 
+  // Tournament — remove a team
+  async removeTeamFromTournament(tournamentId, teamId) {
+    try {
+      await this.request(`/tournaments/${tournamentId}/teams/${teamId}`, { method: 'DELETE' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Tournament — add fixture
   async addTournamentFixture(tournamentId, fixtureData) {
     try {
@@ -1108,6 +1118,29 @@ class LegendsApi {
       return { success: true, data: json.match };
     } catch (error) {
       return { success: false, error: error.message };
+    }
+  }
+
+  // Tournament — auto schedule Round Robin
+  async autoScheduleTournament(tournamentId, params = { format: 'classic_t20', autoSplit: true }) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/auto-schedule`, { method: 'POST', body: params });
+      return { success: true, data: json };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  // Tournament — assign groups manually
+  async assignTournamentGroups(tournamentId, assignments) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/assign-groups`, {
+        method: 'PUT',
+        body: { assignments }
+      });
+      return { success: true, data: json };
+    } catch (e) {
+      return { success: false, error: e.message };
     }
   }
 
