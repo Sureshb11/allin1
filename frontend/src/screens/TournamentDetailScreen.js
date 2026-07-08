@@ -9,7 +9,7 @@ import { getSport } from '../sports';
 
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-const TABS = ['Overview', 'Points Table', 'Schedule'];
+const TABS = ['Overview', 'Points Table', 'Schedule', 'Leaders'];
 
 const makeStatusColors = (DS) => ({
   upcoming: { bg: DS.surfaceHighest, text: DS.coral },
@@ -44,6 +44,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const [autoSplit, setAutoSplit] = useState(true);
   const [manualGroups, setManualGroups] = useState({});
   // Record-result modal state
+  const [leaderboard, setLeaderboard] = useState(null); // { batsmen, bowlers, mvp }
   const [resultFixture, setResultFixture] = useState(null); // fixture being scored
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
@@ -82,6 +83,14 @@ export default function TournamentDetailScreen({ route, navigation }) {
     };
     load();
   }, [tournamentId]);
+
+  // Lazily load the leaderboard the first time the Leaders tab is opened.
+  useEffect(() => {
+    if (activeTab === 'Leaders' && !leaderboard) {
+      legendsApi.getTournamentLeaderboard(tournamentId).then(r =>
+        setLeaderboard(r.success ? r.data : { batsmen: [], bowlers: [], mvp: [] }));
+    }
+  }, [activeTab, leaderboard, tournamentId]);
 
   const toggleTeamSelection = (id) => {
     const next = new Set(selectedTeamIds);
@@ -171,6 +180,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
     if (schRes.success) setSchedule(schRes.data);
     if (stRes.success && stRes.data.length) setPointsTable(stRes.data);
     if (tRes.success) setTournament(tRes.data);
+    setLeaderboard(null); // stale after a result → re-fetch when Leaders tab reopens
   };
 
   const openResult = (fixture) => {
@@ -562,6 +572,57 @@ export default function TournamentDetailScreen({ route, navigation }) {
     );
   };
 
+  const renderLeaders = () => {
+    if (!leaderboard) {
+      return <View style={styles.centered}><ActivityIndicator color={DS.lime} /></View>;
+    }
+    const { batsmen, bowlers, mvp } = leaderboard;
+    if (!batsmen.length && !bowlers.length) {
+      return (
+        <View style={styles.empty}>
+          <Icon name="chart-box-outline" size={36} color={DS.textMuted} />
+          <Text style={styles.emptyText}>No stats yet</Text>
+          <Text style={[styles.emptyText, { fontSize: 12, marginTop: 4 }]}>
+            Play a fixture through “Start Match & Score” to build the leaderboard.
+          </Text>
+        </View>
+      );
+    }
+    const capRow = (rank, name, team, main, sub, highlight) => (
+      <View key={name + rank} style={[styles.ptRow, rank % 2 === 0 && styles.ptRowAlt, rank === 1 && highlight]}>
+        <Text style={[styles.ptNum, { width: 22, color: rank === 1 ? DS.lime : DS.textMuted, fontWeight: rank === 1 ? '800' : '400' }]}>{rank}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.ptTeamName} numberOfLines={1}>{name}</Text>
+          {!!team && <Text style={styles.leaderTeam} numberOfLines={1}>{team}</Text>}
+          {!!sub && <Text style={styles.leaderSub}>{sub}</Text>}
+        </View>
+        <Text style={styles.leaderMain}>{main}</Text>
+      </View>
+    );
+    return (
+      <ScrollView contentContainerStyle={styles.tabContent}>
+        {mvp[0] && (
+          <View style={styles.mvpCard}>
+            <Icon name="star-circle" size={22} color={DS.bg} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.mvpLabel}>Player of the Tournament</Text>
+              <Text style={styles.mvpName} numberOfLines={1}>{mvp[0].name}</Text>
+            </View>
+            <Text style={styles.mvpStat}>{mvp[0].runs} runs · {mvp[0].wickets} wkts</Text>
+          </View>
+        )}
+
+        <Text style={styles.leaderTitle}>🧡  Orange Cap · Most Runs</Text>
+        {batsmen.map((b, i) => capRow(i + 1, b.name, b.team, `${b.runs}`,
+          `${b.balls}b · SR ${b.strikeRate} · ${b.fours}×4 ${b.sixes}×6 · HS ${b.highest}`, styles.orangeLead))}
+
+        <Text style={[styles.leaderTitle, { marginTop: 24 }]}>🟣  Purple Cap · Most Wickets</Text>
+        {bowlers.map((b, i) => capRow(i + 1, b.name, b.team, `${b.wickets}`,
+          `${b.overs} ov · econ ${b.economy} · ${b.runs} runs`, styles.purpleLead))}
+      </ScrollView>
+    );
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -599,6 +660,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
       {activeTab === 'Overview' && renderOverview()}
       {activeTab === 'Points Table' && renderPointsTable()}
       {activeTab === 'Schedule' && renderSchedule()}
+      {activeTab === 'Leaders' && renderLeaders()}
 
       {showTeamPicker && (
         <Modal transparent animationType="slide">
@@ -780,6 +842,16 @@ const makeStyles = (DS) => StyleSheet.create({
   statusChip: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginTop: 4 },
   championBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.lime, marginHorizontal: 16, marginBottom: 8, paddingVertical: 10, borderRadius: 12 },
   championText: { fontSize: 14, fontWeight: '800', color: DS.bg, letterSpacing: 0.3 },
+  leaderTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginBottom: 8, marginLeft: 4 },
+  leaderTeam: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
+  leaderSub: { fontSize: 10, color: DS.textMuted, marginTop: 2 },
+  leaderMain: { fontSize: 18, fontWeight: '800', color: DS.textPrimary, minWidth: 42, textAlign: 'right' },
+  orangeLead: { borderLeftWidth: 3, borderLeftColor: '#ff8c1a' },
+  purpleLead: { borderLeftWidth: 3, borderLeftColor: '#a855f7' },
+  mvpCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: DS.lime, borderRadius: 14, padding: 14, marginBottom: 20 },
+  mvpLabel: { fontSize: 10, fontWeight: '700', color: DS.bg, opacity: 0.7, letterSpacing: 0.5, textTransform: 'uppercase' },
+  mvpName: { fontSize: 18, fontWeight: '800', color: DS.bg },
+  mvpStat: { fontSize: 12, fontWeight: '700', color: DS.bg },
   statusText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   tabs: { flexDirection: 'row', backgroundColor: DS.surfaceLow },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },

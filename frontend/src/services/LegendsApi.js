@@ -1105,6 +1105,16 @@ class LegendsApi {
     }
   }
 
+  // Tournament — leaderboard (Orange Cap / Purple Cap / MVP from ball-by-ball data)
+  async getTournamentLeaderboard(tournamentId) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/leaderboard`);
+      return { success: true, data: { batsmen: json.batsmen || [], bowlers: json.bowlers || [], mvp: json.mvp || [] } };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Tournament — schedule/fixtures
   async getTournamentSchedule(tournamentId) {
     try {
