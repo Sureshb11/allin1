@@ -8,9 +8,9 @@
 // and notifies participants — so both paths behave identically.
 
 import { prisma } from './prisma.js';
-import { persistStandings } from './standings.js';
+import { persistStandings, computeStandings } from './standings.js';
 import { resolveBracket } from './bracket.js';
-import { notifyTeams, safeNotify } from './notify.js';
+import { notifyTeams, notifyAllParticipants, safeNotify } from './notify.js';
 
 // Apply a finished result to a fixture and run the full downstream pipeline.
 // result = { tmId, winnerTeamId?, resultKind, stats }
@@ -30,6 +30,7 @@ export async function applyTournamentResult(tournamentId, { tmId, winnerTeamId, 
   // ── Notify participants (best-effort) ──
   const tourney = await prisma.tournament.findUnique({ where: { id: tournamentId }, select: { name: true } });
   const tName = tourney?.name || 'the tournament';
+  const link = { tournamentId }; // deep-link payload → tapping opens the tournament
   const involved = [fixture.team1Id, fixture.team2Id].filter(Boolean);
   if (involved.length) {
     const teams = await prisma.team.findMany({ where: { id: { in: involved } }, select: { id: true, name: true } });
@@ -41,15 +42,50 @@ export async function applyTournamentResult(tournamentId, { tmId, winnerTeamId, 
     } else {
       message = `${fixture.round || 'A'} match in ${tName} ended in a ${resultKind}.`;
     }
-    safeNotify(() => notifyTeams(involved, { title: `${fixture.round || 'Match'} result`, message }));
+    safeNotify(() => notifyTeams(involved, { title: `${fixture.round || 'Match'} result`, message, data: link }));
   }
   for (const a of bracket.advanced || []) {
     safeNotify(() => notifyTeams([a.teamId], {
-      title: 'You advanced!', message: `Your team has advanced to the ${a.round} in ${tName}.`,
+      title: 'You advanced!', message: `Your team has advanced to the ${a.round} in ${tName}.`, data: link,
     }));
   }
 
+  // If that was the last fixture, crown the champion and close the tournament.
+  await maybeCompleteTournament(tournamentId, tName).catch((e) => console.error('[tournament complete]', e.message));
+
   return { standings, resolved: bracket.resolved };
+}
+
+// When every fixture is completed, mark the tournament completed, record the
+// champion, and announce it. Champion = the Final's winner (or the last knockout
+// match's winner, or the league leader for a pure round-robin). Idempotent.
+async function maybeCompleteTournament(tournamentId, tName) {
+  const fixtures = await prisma.tournamentMatch.findMany({ where: { tournamentId } });
+  if (!fixtures.length || !fixtures.every((f) => f.status === 'completed')) return;
+
+  const tourney = await prisma.tournament.findUnique({ where: { id: tournamentId }, select: { status: true } });
+  if (!tourney || tourney.status === 'completed') return; // already crowned
+
+  let championId = fixtures.find((f) => f.round === 'Final' && f.winnerTeamId)?.winnerTeamId || null;
+  if (!championId) {
+    const knockouts = fixtures
+      .filter((f) => f.round && !f.round.startsWith('Group ') && f.winnerTeamId)
+      .sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));
+    championId = knockouts[0]?.winnerTeamId
+      || (await computeStandings(tournamentId))[0]?.teamId
+      || null;
+  }
+
+  await prisma.tournament.update({ where: { id: tournamentId }, data: { status: 'completed', championId } });
+
+  if (championId) {
+    const champ = await prisma.team.findUnique({ where: { id: championId }, select: { name: true } });
+    safeNotify(() => notifyAllParticipants(tournamentId, {
+      title: '🏆 Champions!',
+      message: `${champ?.name || 'A team'} won ${tName}!`,
+      data: { tournamentId },
+    }));
+  }
 }
 
 // Derive a tournament result from a completed cricket match's innings totals.

@@ -577,6 +577,16 @@ export default function TournamentDetailScreen({ route, navigation }) {
         </View>
       </View>
 
+      {/* Champion banner (once completed) */}
+      {tournament.status === 'completed' && tournament.championId && (
+        <View style={styles.championBanner}>
+          <Icon name="trophy" size={18} color={DS.bg} />
+          <Text style={styles.championText}>
+            Champions: {(tournament.teams || []).find(t => t.team?.id === tournament.championId)?.team?.name || 'TBD'}
+          </Text>
+        </View>
+      )}
+
       {/* Tabs */}
       <View style={styles.tabs}>
         {TABS.map(t => (
@@ -768,6 +778,8 @@ const makeStyles = (DS) => StyleSheet.create({
   backBtn: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: DS.textPrimary },
   statusChip: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginTop: 4 },
+  championBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.lime, marginHorizontal: 16, marginBottom: 8, paddingVertical: 10, borderRadius: 12 },
+  championText: { fontSize: 14, fontWeight: '800', color: DS.bg, letterSpacing: 0.3 },
   statusText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   tabs: { flexDirection: 'row', backgroundColor: DS.surfaceLow },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },

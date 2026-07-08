@@ -190,6 +190,7 @@ router.post('/:id/teams', authMiddleware, async (req, res) => {
     safeNotify(() => notifyTeams([teamId], {
       title: 'Added to a tournament',
       message: `${entry.team?.name || 'Your team'} has been entered into ${tourney?.name || 'a tournament'}.`,
+      data: { tournamentId: req.params.id },
     }));
   } catch (e) {
     if (e.code === 'P2002') return res.status(409).json({ error: 'Team already registered' });
@@ -587,6 +588,7 @@ router.post('/:id/auto-schedule', authMiddleware, async (req, res) => {
       safeNotify(() => notifyAllParticipants(req.params.id, {
         title: 'Schedule released',
         message: `The fixtures for ${tourney?.name || 'your tournament'} are out — ${matches.length} matches scheduled.`,
+        data: { tournamentId: req.params.id },
       }));
     }
   } catch (e) {

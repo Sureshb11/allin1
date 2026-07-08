@@ -76,7 +76,10 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
         style={[styles.notificationCard, !item.read && styles.unreadNotification]}
         onPress={() => {
           if (!item.read) markAsRead(item.id);
-          if (item.type === 'achievement') navigation.navigate('BadgeDetail');
+          // Deep-link: tournament notifications carry { tournamentId }.
+          if (item.data?.tournamentId) navigation.navigate('TournamentDetail', { tournamentId: item.data.tournamentId });
+          else if (item.data?.matchId) navigation.navigate('Scorecard', { matchId: item.data.matchId });
+          else if (item.type === 'achievement') navigation.navigate('BadgeDetail');
         }}>
         <View style={styles.notificationContent}>
           <View style={styles.notificationHeader}>

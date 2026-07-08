@@ -28,11 +28,13 @@ export async function audienceForTeams(teamIds) {
 }
 
 // Create one in-app notification per user. Safe no-op on empty audience.
-export async function notifyUsers(userIds, { title, message, type = 'tournament' }) {
+// `data` is an optional deep-link payload (e.g. { tournamentId }) the app uses
+// to open the right screen when the notification is tapped.
+export async function notifyUsers(userIds, { title, message, type = 'tournament', data }) {
   const uniq = [...new Set((userIds || []).filter(Boolean))];
   if (!uniq.length) return 0;
   await prisma.notification.createMany({
-    data: uniq.map((userId) => ({ userId, type, title, message })),
+    data: uniq.map((userId) => ({ userId, type, title, message, ...(data ? { data } : {}) })),
   });
   return uniq.length;
 }

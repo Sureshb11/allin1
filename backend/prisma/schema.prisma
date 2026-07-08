@@ -66,6 +66,7 @@ model Notification {
   message   String
   type      String
   read      Boolean  @default(false)
+  data      Json?    // optional deep-link payload, e.g. { tournamentId } | { matchId }
 }
 
 model Team {
@@ -347,6 +348,7 @@ model Tournament {
   description String?
   organizer   String?
   sport       String   @default("cricket")
+  championId  String?  // winning team once the tournament completes
 
   teams   TournamentTeam[]
   matches TournamentMatch[]
