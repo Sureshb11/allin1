@@ -45,6 +45,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const [manualGroups, setManualGroups] = useState({});
   // Record-result modal state
   const [leaderboard, setLeaderboard] = useState(null); // { batsmen, bowlers, mvp }
+  const [scheduleView, setScheduleView] = useState(route.params?.bracket ? 'bracket' : 'fixtures'); // Schedule tab sub-view
   const [resultFixture, setResultFixture] = useState(null); // fixture being scored
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
@@ -552,8 +553,29 @@ export default function TournamentDetailScreen({ route, navigation }) {
       byRound[r].push({ f, idx: globalIdx++ });
     }
     const isKnockout = (r) => !r.startsWith('Group ') && r !== 'Fixtures';
+    const hasBracket = rounds.some(isKnockout);
+    const toggle = hasBracket && (
+      <View style={styles.segment}>
+        {['fixtures', 'bracket'].map((v) => (
+          <TouchableOpacity key={v} style={[styles.segmentBtn, scheduleView === v && styles.segmentBtnActive]}
+            onPress={() => setScheduleView(v)} activeOpacity={0.85}>
+            <Icon name={v === 'bracket' ? 'tournament' : 'format-list-bulleted'} size={14} color={scheduleView === v ? DS.bg : DS.textMuted} />
+            <Text style={[styles.segmentTxt, scheduleView === v && styles.segmentTxtActive]}>{v === 'bracket' ? 'Bracket' : 'Fixtures'}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+    if (hasBracket && scheduleView === 'bracket') {
+      return (
+        <View style={{ flex: 1 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>{toggle}</View>
+          {renderBracket()}
+        </View>
+      );
+    }
     return (
       <ScrollView contentContainerStyle={styles.tabContent}>
+        {toggle}
         {rounds.map((r) => {
           const done = byRound[r].every(({ f }) => f.status === 'completed');
           return (
@@ -568,6 +590,67 @@ export default function TournamentDetailScreen({ route, navigation }) {
             </View>
           );
         })}
+      </ScrollView>
+    );
+  };
+
+  // Visual knockout bracket: rounds as columns (QF → SF → Final), later rounds
+  // vertically centered so it reads as a tree. Group-stage matches are excluded.
+  const renderBracket = () => {
+    const ko = schedule.filter((m) => m.round && !m.round.startsWith('Group ') && m.round !== 'Fixtures');
+    if (!ko.length) {
+      return (
+        <View style={styles.empty}>
+          <Icon name="tournament" size={36} color={DS.textMuted} />
+          <Text style={styles.emptyText}>No knockout bracket yet</Text>
+          <Text style={[styles.emptyText, { fontSize: 12, marginTop: 4 }]}>Generate a knockout schedule to see the bracket.</Text>
+        </View>
+      );
+    }
+    const byRound = {};
+    for (const m of ko) (byRound[m.round] ||= []).push(m);
+    const roundNames = Object.keys(byRound).sort((a, b) => {
+      const ta = Math.min(...byRound[a].map((m) => new Date(m.scheduledAt || 0).getTime()));
+      const tb = Math.min(...byRound[b].map((m) => new Date(m.scheduledAt || 0).getTime()));
+      return ta - tb;
+    });
+    const SLOT = 92;
+    const colHeight = Math.max(byRound[roundNames[0]].length, 1) * SLOT;
+
+    const bracketBox = (m) => {
+      const s1 = m.resultStats?.[m.team1?.id]?.scored;
+      const s2 = m.resultStats?.[m.team2?.id]?.scored;
+      const done = m.status === 'completed';
+      const win1 = done && m.winnerTeamId && m.winnerTeamId === m.team1?.id;
+      const win2 = done && m.winnerTeamId && m.winnerTeamId === m.team2?.id;
+      const side = (name, score, win, isTop) => (
+        <View style={[styles.brSide, isTop && styles.brSideTop, win && styles.brSideWin]}>
+          <Text style={[styles.brName, win && styles.brNameWin]} numberOfLines={1}>{name}</Text>
+          {done && score != null && <Text style={[styles.brScore, win && styles.brNameWin]}>{score}</Text>}
+        </View>
+      );
+      return (
+        <View key={m.id} style={styles.brBox}>
+          {side(m.team1?.name || m.placeholder1 || 'TBD', s1, win1, true)}
+          {side(m.team2?.name || m.placeholder2 || 'TBD', s2, win2, false)}
+        </View>
+      );
+    };
+
+    return (
+      <ScrollView>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ padding: 16 }}>
+          <View style={{ flexDirection: 'row', height: colHeight }}>
+            {roundNames.map((r) => (
+              <View key={r} style={styles.brCol}>
+                <Text style={styles.brRoundHead} numberOfLines={1}>{r}</Text>
+                <View style={{ flex: 1, justifyContent: 'space-around' }}>
+                  {byRound[r].map((m) => bracketBox(m))}
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       </ScrollView>
     );
   };
@@ -897,6 +980,20 @@ const makeStyles = (DS) => StyleSheet.create({
   qualLegendText: { fontSize: 10, color: DS.textMuted },
 
   // Schedule
+  segment: { flexDirection: 'row', backgroundColor: DS.surfaceLow, borderRadius: 10, padding: 3, marginBottom: 16 },
+  segmentBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, borderRadius: 8 },
+  segmentBtnActive: { backgroundColor: DS.lime },
+  segmentTxt: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
+  segmentTxtActive: { color: DS.bg },
+  brCol: { width: 148, marginRight: 26, justifyContent: 'flex-start' },
+  brRoundHead: { fontSize: 12, fontWeight: '800', color: DS.lime, marginBottom: 8, letterSpacing: 0.3 },
+  brBox: { backgroundColor: DS.surfaceHigh, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: DS.line },
+  brSide: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 8, gap: 6 },
+  brSideTop: { borderBottomWidth: 1, borderBottomColor: DS.line },
+  brSideWin: { backgroundColor: '#1a2e1a' },
+  brName: { flex: 1, fontSize: 12, fontWeight: '600', color: DS.textPrimary },
+  brNameWin: { color: DS.lime, fontWeight: '800' },
+  brScore: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
   roundSection: { marginBottom: 20, gap: 10 },
   roundHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   roundHeaderText: { fontSize: 14, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.3 },

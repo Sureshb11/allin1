@@ -125,7 +125,7 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
           </>
         ) : (
           <>
-            <TouchableOpacity style={styles.chipBtn} onPress={() => onOpen('Schedule')}>
+            <TouchableOpacity style={styles.chipBtn} onPress={() => onOpen('Schedule', { bracket: true })}>
               <Text style={styles.chipBtnText}>BRACKET</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.chipBtn} onPress={() => onOpen('Points Table')}>
@@ -269,7 +269,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
             item={item}
             onJoin={handleJoin}
             onPress={() => navigation.navigate('TournamentDetail', { tournamentId: item.id })}
-            onOpen={(tab) => navigation.navigate('TournamentDetail', { tournamentId: item.id, initialTab: tab })}
+            onOpen={(tab, extra) => navigation.navigate('TournamentDetail', { tournamentId: item.id, initialTab: tab, ...extra })}
           />
         )}
         ListEmptyComponent={
