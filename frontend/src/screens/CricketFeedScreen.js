@@ -17,13 +17,24 @@ import { Alert } from 'react-native';
 import { pickAndUploadImage } from '../utils/imageUpload';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
-import MomentumMeter from '../components/MomentumMeter';
 import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo from '../components/BrandLogo';
 
 const { width: SW } = Dimensions.get('window');
+// Netflix-style snap carousel: card is most of the width, leaving a peek of the
+// next one; snapToInterval = card + gap so each swipe lands one card.
+const CARD_GAP = 12;
+const MATCH_CARD_W = Math.round(SW - 56);
+
+// Parse a cricket score string like "217/4 (11.0)" → { runs, wkts, overs }.
+const parseScore = (s) => {
+  if (!s || typeof s !== 'string') return { runs: null, wkts: null, overs: null };
+  const m = s.match(/(\d+)\s*\/?\s*(\d+)?\s*(?:\(([\d.]+)\))?/);
+  if (!m) return { runs: null, wkts: null, overs: null };
+  return { runs: m[1] != null ? +m[1] : null, wkts: m[2] != null ? +m[2] : null, overs: m[3] != null ? +m[3] : null };
+};
 
 // ── helpers (map real API data → the feed's render shapes) ──────────────────
 const sideName = (t) => (typeof t === 'object' ? (t?.name || 'Team') : String(t || 'Team'));
@@ -102,65 +113,86 @@ function Avatar({ initial, color, size = 40, ring = false, uri = null }) {const 
 
 }
 
-function CircleMatchCard({ match, onPress }) {const DS = useTheme().colors;const c = useThemedStyles(makeC);
-  const tagColor = match.tag === 'You played' ? DS.lime : DS.blue;
-  return (
-    <TouchableOpacity activeOpacity={0.85} style={c.card} onPress={onPress}>
-      <View style={c.cardTop}>
-        <View style={[c.tagPill, { backgroundColor: tagColor + '22', borderColor: tagColor + '55' }]}>
-          <Text style={[c.tagTxt, { color: tagColor }]}>{match.tag.toUpperCase()}</Text>
-        </View>
-        {match.live ?
-        <View style={c.liveRow}>
-            <View style={c.liveDot} />
-            <Text style={c.liveTxt}>LIVE</Text>
-          </View> :
+// Full match card for the "From Your Circle" snap carousel — mirrors the design:
+// LIVE (score, overs/RR, radium progress bar, LIVE SCORECARD) · FINAL (result
+// banner, VIEW SUMMARY) · UPCOMING (VS, when, START/VIEW).
+function CircleMatchCard({ match, onPress }) {
+  const { colors: DS, isDark } = useTheme();
+  const c = useThemedStyles(makeC);
+  const { live } = match;
+  const completed = match.status === 'completed';
 
-        <Text style={c.whenTxt}>{match.when}</Text>
-        }
+  const pa = parseScore(match.a.score);
+  const pb = parseScore(match.b.score);
+  const batting = pa.overs != null ? pa : pb.overs != null ? pb : null;
+  const rr = batting && batting.overs > 0 ? (batting.runs / batting.overs) : null;
+  const progress = batting && match.overs ? Math.min(batting.overs / match.overs, 1) : 0;
+  const league = (match.matchType || 'Match').toUpperCase() + (match.matchType ? ' LEAGUE' : '');
+
+  const Team = ({ t, muted }) => (
+    <View style={c.team}>
+      <View style={[c.teamAvatar, { backgroundColor: t.color }]}>
+        <Text style={c.teamAvatarTxt}>{t.short}</Text>
+      </View>
+      <Text style={c.teamName} numberOfLines={2}>{t.name}</Text>
+      <Text style={[c.teamScore, muted && c.teamScoreMuted]}>{(t.score || '—').replace(/\s*\(.*\)\s*/, '')}</Text>
+    </View>
+  );
+
+  return (
+    <TouchableOpacity activeOpacity={0.9} style={[c.card, live && c.cardLive]} onPress={onPress}>
+      {/* header row */}
+      <View style={c.head}>
+        {live ? (
+          <View style={c.liveRow}>
+            <View style={c.liveDot} />
+            <Text style={c.liveTxt}>LIVE NOW</Text>
+          </View>
+        ) : (
+          <Text style={c.statusTxt}>{completed ? 'FINAL RESULT' : 'UPCOMING'}</Text>
+        )}
+        <View style={[c.leaguePill, live && c.leaguePillLive]}>
+          <Text style={[c.leaguePillTxt, live && c.leaguePillTxtLive]}>{live ? league : (match.matchType || (completed ? 'CLUB MATCH' : match.when || 'MATCH'))}</Text>
+        </View>
       </View>
 
-      {[match.a, match.b].map((t, i) =>
-      <View key={i} style={c.teamRow}>
-          <View style={[c.teamBadge, { backgroundColor: t.color }]}>
-            <Text style={c.teamBadgeTxt}>{t.short}</Text>
-          </View>
-          <Text style={c.teamName} numberOfLines={1}>{t.name}</Text>
-          <Text style={c.teamScore}>{t.score}{t.overs ? `  (${t.overs})` : ''}</Text>
-        </View>
-      )}
+      {/* teams */}
+      <View style={c.teamsRow}>
+        <Team t={match.a} muted={!pa.runs && !live} />
+        {live ? <View style={c.teamDivider} /> : <Text style={c.vs}>VS</Text>}
+        <Team t={match.b} muted={!pb.runs} />
+      </View>
 
-      {match.live && (
-        <View style={{ marginTop: 10 }}>
-          <MomentumMeter
-            a={Number(String(match.a.score).replace(/[^\d.]/g, '')) || 0}
-            b={Number(String(match.b.score).replace(/[^\d.]/g, '')) || 0}
-            leftLabel={match.a.short}
-            rightLabel={match.b.short}
-            height={6}
-            showLabels={false}
-          />
-        </View>
-      )}
-
-      {/* Not the scorer? The LIVE pill above is enough — the whole card already
-          taps through to the live scorecard, no extra row needed. */}
-      {match.live && match.isScorer ? (
+      {live ? (
         <>
-          <View style={c.cardDivider} />
-          <View style={c.resumeRow}>
-            <Icon name="play-circle" size={16} color={DS.onBlue} />
-            <Text style={c.resumeTxt}>SCORE</Text>
+          <View style={c.metaRow}>
+            <Text style={c.metaMuted}>Overs: {batting?.overs != null ? batting.overs.toFixed(1) : '—'}</Text>
+            {rr != null && <Text style={[c.metaRR, { color: isDark ? DS.lime : '#5a7302' }]}>RR: {rr.toFixed(1)}</Text>}
+          </View>
+          <View style={c.track}>
+            <View style={[c.fill, { width: `${Math.max(progress * 100, 4)}%` }]} />
+          </View>
+          <View style={c.primaryBtn}>
+            <Icon name="chart-box" size={18} color={DS.onBlue} />
+            <Text style={c.primaryBtnTxt}>LIVE SCORECARD</Text>
           </View>
         </>
-      ) : !match.live ? (
+      ) : completed ? (
         <>
-          <View style={c.cardDivider} />
-          <Text style={c.resultTxt} numberOfLines={1}>{match.result}</Text>
+          <View style={c.resultBanner}>
+            <Text style={c.resultBannerTxt} numberOfLines={2}>{match.result}</Text>
+          </View>
+          <View style={c.outlineBtn}>
+            <Text style={c.outlineBtnTxt}>VIEW SUMMARY</Text>
+          </View>
         </>
-      ) : null}
-    </TouchableOpacity>);
-
+      ) : (
+        <View style={c.outlineBtn}>
+          <Text style={c.outlineBtnTxt}>{match.isScorer ? 'START MATCH' : 'VIEW MATCH'}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
 }
 
 // Highlight card — renders an ActivityFeed item (milestone or match result)
@@ -690,6 +722,9 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      snapToInterval={MATCH_CARD_W + CARD_GAP}
+      snapToAlignment="start"
+      decelerationRate="fast"
       contentContainerStyle={s.railContent}>
 
         {matches.length > 0
@@ -860,13 +895,13 @@ const makeS = (DS) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 16
   },
-  sectionTitle: { color: DS.textPrimary, fontSize: 18, fontWeight: '800', letterSpacing: 0.2 },
-  seeAll: { color: DS.lime, fontSize: 13, fontWeight: '700' },
-  sectionSub: { color: DS.textMuted, fontSize: 12, paddingHorizontal: 16, marginTop: 2 },
+  sectionTitle: { color: DS.textPrimary, fontSize: 20, fontWeight: '800', letterSpacing: 0.2 },
+  seeAll: { color: DS.blueDeep, fontSize: 14, fontWeight: '700' },
+  sectionSub: { color: DS.textVariant, fontSize: 13, fontWeight: '500', paddingHorizontal: 16, marginTop: 2 },
 
-  railContent: { paddingHorizontal: 16, paddingTop: 12, gap: 12 },
+  railContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4, gap: CARD_GAP },
 
-  railEmpty: { width: SW - 32, paddingVertical: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.surfaceLow, borderRadius: 16, borderWidth: 1, borderColor: DS.line },
+  railEmpty: { width: MATCH_CARD_W, paddingVertical: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.line },
   railEmptyTxt: { color: DS.textMuted, fontSize: 13 },
   feedEmpty: { alignItems: 'center', paddingVertical: 40, gap: 6 },
   feedEmptyTxt: { color: DS.textPrimary, fontSize: 15, fontWeight: '700', marginTop: 4 },
@@ -909,30 +944,44 @@ const makeH = (DS) => StyleSheet.create({
 
 const makeC = (DS) => StyleSheet.create({
   card: {
-    width: 248, backgroundColor: DS.surfaceLow, borderRadius: 18, padding: 14,
-    borderWidth: 1, borderColor: DS.line
+    width: MATCH_CARD_W, backgroundColor: DS.surface, borderRadius: 16, padding: 18,
+    borderWidth: 1, borderColor: DS.line,
+    shadowColor: '#000', shadowOpacity: DS.mode === 'dark' ? 0.3 : 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
   },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  tagPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
-  tagTxt: { fontSize: 9, fontWeight: '800', letterSpacing: 0.6 },
-  liveRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  cardLive: { borderWidth: 1.5, borderColor: DS.blueDeep + (DS.mode === 'dark' ? '55' : '33') },
+
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
+  liveRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: DS.live },
-  liveTxt: { color: DS.live, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  whenTxt: { color: DS.textMuted, fontSize: 11, fontWeight: '600' },
+  liveTxt: { color: DS.live, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  statusTxt: { color: DS.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  leaguePill: { backgroundColor: DS.surfaceHigh, borderRadius: 5, paddingHorizontal: 8, paddingVertical: 3 },
+  leaguePillLive: { backgroundColor: DS.blueDeep },
+  leaguePillTxt: { color: DS.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 0.2 },
+  leaguePillTxtLive: { color: DS.onBlue },
 
-  teamRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 4 },
-  teamBadge: { width: 26, height: 26, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  teamBadgeTxt: { color: DS.white, fontSize: 10, fontWeight: '800' },
-  teamName: { flex: 1, color: DS.textVariant, fontSize: 13, fontWeight: '600', marginLeft: 9 },
-  teamScore: { color: DS.textPrimary, fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  teamsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
+  team: { flex: 1, alignItems: 'center', gap: 8 },
+  teamAvatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 },
+  teamAvatarTxt: { color: '#ffffff', fontSize: 18, fontWeight: '900' },
+  teamName: { color: DS.textPrimary, fontSize: 12, fontWeight: '700', textAlign: 'center', lineHeight: 15 },
+  teamScore: { color: DS.textPrimary, fontSize: 20, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  teamScoreMuted: { color: DS.textMuted },
+  teamDivider: { width: 1, height: 64, backgroundColor: DS.line, marginHorizontal: 4 },
+  vs: { color: DS.textMuted, fontSize: 12, fontWeight: '900', marginHorizontal: 4 },
 
-  cardDivider: { height: 1, backgroundColor: DS.line, marginTop: 10, marginBottom: 8 },
-  resultTxt: { color: DS.lime, fontSize: 11.5, fontWeight: '700' },
-  resumeRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-    backgroundColor: DS.blueDeep, borderRadius: 10, paddingVertical: 8,
-  },
-  resumeTxt: { color: DS.onBlue, fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  metaMuted: { color: DS.textMuted, fontSize: 12, fontWeight: '700' },
+  metaRR: { fontSize: 12, fontWeight: '800' },
+  track: { height: 6, backgroundColor: DS.surfaceHigh, borderRadius: 3, overflow: 'hidden', marginBottom: 18 },
+  fill: { height: 6, backgroundColor: DS.lime, borderRadius: 3, shadowColor: DS.lime, shadowOpacity: 0.6, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
+
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.blueDeep, height: 48, borderRadius: 10, shadowColor: DS.blueDeep, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  primaryBtnTxt: { color: DS.onBlue, fontSize: 14, fontWeight: '800', letterSpacing: 0.8 },
+  resultBanner: { backgroundColor: DS.lime + '26', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', marginBottom: 16 },
+  resultBannerTxt: { color: DS.textPrimary, fontSize: 13, fontWeight: '800', textAlign: 'center' },
+  outlineBtn: { height: 48, borderRadius: 10, borderWidth: 1.5, borderColor: DS.faint, alignItems: 'center', justifyContent: 'center' },
+  outlineBtnTxt: { color: DS.textPrimary, fontSize: 14, fontWeight: '800', letterSpacing: 0.5 },
 });
 
 const makeM = (DS) => StyleSheet.create({

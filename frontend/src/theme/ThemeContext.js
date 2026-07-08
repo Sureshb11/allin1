@@ -22,124 +22,118 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'theme:mode';
 
-// ── DARK (the original "Kinetic Athlete" palette) ───────────────────────────
+// ── DARK (Premium Sporty 1) ─────────────────────────────────────────────────
 const dark = {
   mode: 'dark',
-  // Profile-style roles
-  bg: '#0f131f',
-  surfaceLow: '#171b28',
-  surface: '#1c222b',
-  surfaceHigh: '#262a37',
-  surfaceHighest: '#313442',
-  white: '#f8fafc',
-  lime: '#abd600',
-  limeBright: '#c4f82a',
-  lime2: '#a6e814',
-  onLime: '#12151c', // Ensure high contrast black/dark-slate text on lime
-  coral: '#ffb59e',
-  // Wicket / danger accent — used for the WICKET button, dismissal chips, and the
-  // End innings/match action. Tinted panel + readable red text, works on dark surfaces.
-  wicketBg: 'rgba(255,122,92,0.16)',
-  wicketText: '#ff7a5c',
-  blue: '#b7c4ff',
-  // Signature "stadium under lights" electric blue — the primary CTA gradient
-  // (primary_container → primary) from the Kinetic Athlete design system.
-  blueDeep: '#0052ff',   // primary_container
-  blueSoft: '#b7c4ff',   // primary
-  onBlue: '#ffffff',     // text on the blue gradient
-  textPrimary: '#dfe2f3',
-  textVariant: '#c3c5d9',
-  textSecondary: '#c3c5d9',
-  textMuted: '#8d90a2',
-  faint: '#313442',          // very subtle fg (chevrons, empty-state icons)
-  onDark: '#eaf0fb',         // text on a fixed-dark card/banner (light in BOTH modes)
-  onDarkDim: '#9aa3b8',      // muted text on a fixed-dark card/banner
-  limeDark: '#8ab000',
-  live: '#ef4444',
-  danger: '#ff5a5a',
-  dangerTxt: '#ff7a7a',
+  bg: '#131313',
+  surfaceLow: '#1c1b1b',
+  surface: '#201f1f',
+  surfaceHigh: '#2a2a2a',
+  surfaceHighest: '#353534',
+  white: '#ffffff',
+  lime: '#ccff00',      // Radium Green
+  limeBright: '#c3f400',
+  lime2: '#abd600',
+  onLime: '#161e00',
+  coral: '#ffb4ab',
+  wicketBg: 'rgba(255,180,171,0.16)',
+  wicketText: '#ffb4ab',
+  blue: '#b6c4ff',
+  blueDeep: '#0055ff',  
+  blueSoft: '#b6c4ff',
+  onBlue: '#ffffff',
+  textPrimary: '#e5e2e1',
+  textVariant: '#c4c9ac',
+  textSecondary: '#c4c9ac',
+  textMuted: '#8e9379',
+  faint: '#353534',
+  onDark: '#e5e2e1',
+  onDarkDim: '#c4c9ac',
+  limeDark: '#3c4d00',
+  live: '#ffb4ab',
+  danger: '#ffb4ab',
+  dangerTxt: '#ffb4ab',
   warn: '#ffb24a',
-  success: '#22c55e',
-  border: 'rgba(150,180,230,0.10)',
-  line: 'rgba(150,180,230,0.10)',
-  overlay: 'rgba(0,0,0,0.55)',
-  // Arena/Rummy-style roles (mapped onto the same surfaces)
-  navy0: '#0a0e18',
-  navy1: '#0d1320',
-  navy2: '#111a2b',
-  cell: '#161f30',
-  cellHi: '#1d2942',
-  ink: '#eaf0fb',
-  inkDim: '#8a97b0',
+  success: '#ccff00',
+  border: 'rgba(204,255,0,0.2)', // Radium Green 20%
+  line: 'rgba(204,255,0,0.1)',
+  overlay: 'rgba(0,0,0,0.8)',
+  // Arena fallback roles
+  navy0: '#0e0e0e',
+  navy1: '#131313',
+  navy2: '#1c1b1b',
+  cell: '#201f1f',
+  cellHi: '#2a2a2a',
+  ink: '#e5e2e1',
+  inkDim: '#8e9379',
 };
 
-// ── LIGHT ───────────────────────────────────────────────────────────────────
+// ── LIGHT (Premium Sporty 2 - Vivid Match) ──────────────────────────────────
 const light = {
   mode: 'light',
-  bg: '#eef1f7',
+  bg: '#f4f6f8',         // Light gray background
   surfaceLow: '#ffffff',
-  surface: '#f4f6fb',
-  surfaceHigh: '#ffffff',
-  surfaceHighest: '#e9edf5',
+  surface: '#ffffff',
+  surfaceHigh: '#f0f2f5',
+  surfaceHighest: '#e4e7eb',
   white: '#ffffff',
-  lime: '#5f8a00',
-  limeBright: '#6f9e00',
-  lime2: '#6f9e00',
-  onLime: '#ffffff', // For dark green background, use white text
-  coral: '#c2533a',
-  // Wicket / danger accent (light) — deeper red so it reads on light surfaces.
-  wicketBg: 'rgba(194,83,58,0.12)',
-  wicketText: '#c2533a',
+  lime: '#ccff00',       // Radium Green (matches screenshot)
+  limeBright: '#d4ff33',
+  lime2: '#ccff00',
+  onLime: '#000000',     // Black text on neon green
+  coral: '#e63946',
+  wicketBg: 'rgba(230,57,70,0.12)',
+  wicketText: '#e63946',
   blue: '#3b5bdb',
-  // Same electric-blue CTA gradient — self-contained coloured button, so it
-  // reads well in light mode too (with white on-blue text).
-  blueDeep: '#0052ff',   // primary_container
-  blueSoft: '#4d7bff',   // primary (slightly deeper in light for contrast)
-  onBlue: '#ffffff',     // text on the blue gradient
-  textPrimary: '#000000',
-  textVariant: '#171b24',
-  textSecondary: '#171b24',
-  textMuted: '#4b5563',
-  faint: '#aab2c0',          // very subtle fg (chevrons, empty-state icons)
-  onDark: '#eaf0fb',         // text on a fixed-dark card/banner (light in BOTH modes)
-  onDarkDim: '#9aa3b8',      // muted text on a fixed-dark card/banner
-  limeDark: '#4f7300',
-  live: '#dc2626',
-  danger: '#dc2626',
-  dangerTxt: '#dc2626',
-  warn: '#b45309',
-  success: '#16a34a',
-  border: 'rgba(20,30,60,0.12)',
-  line: 'rgba(20,30,60,0.12)',
-  overlay: 'rgba(20,28,48,0.32)',
-  navy0: '#e4e9f2',
-  navy1: '#eef1f7',
-  navy2: '#ffffff',
+  blueDeep: '#0047ff',   // Bright Electric Blue (matches screenshot)
+  blueSoft: '#0047ff',
+  onBlue: '#ffffff',
+  textPrimary: '#111111', // Pitch black for high contrast
+  textVariant: '#555555', // Medium gray
+  textSecondary: '#555555',
+  textMuted: '#888888',
+  faint: '#d1d5db',
+  onDark: '#ffffff',
+  onDarkDim: '#e0e3e5',
+  limeDark: '#447000',
+  live: '#e60000',       // Bright Red
+  danger: '#d32f2f',
+  dangerTxt: '#d32f2f',
+  warn: '#f59e0b',
+  success: '#10b981',
+  border: '#e5e7eb',     // Light border
+  line: '#e5e7eb',
+  overlay: 'rgba(0,0,0,0.4)',
+  navy0: '#ffffff',
+  navy1: '#f4f6f8',
+  navy2: '#f0f2f5',
   cell: '#ffffff',
-  cellHi: '#eef1f7',
-  ink: '#000000',
-  inkDim: '#4b5563',
+  cellHi: '#f4f6f8',
+  ink: '#111111',
+  inkDim: '#555555',
 };
 
 export const PALETTES = { dark, light };
 
-export const typography = {
-  thin: 'Lexend-Thin',
-  extraLight: 'Lexend-ExtraLight',
-  light: 'Lexend-Light',
-  regular: 'Lexend-Regular',
-  medium: 'Lexend-Medium',
-  semiBold: 'Lexend-SemiBold',
-  bold: 'Lexend-Bold',
-  extraBold: 'Lexend-ExtraBold',
-  black: 'Lexend-Black',
+export const typographyDark = {
+  display: { fontFamily: 'Anybody', fontWeight: '800' },
+  headline: { fontFamily: 'Anybody', fontWeight: '700' },
+  body: { fontFamily: 'Lexend', fontWeight: '400' },
+  label: { fontFamily: 'Lexend', fontWeight: '600' },
+};
+
+export const typographyLight = {
+  display: { fontFamily: 'Hanken Grotesk', fontWeight: '800' },
+  headline: { fontFamily: 'Hanken Grotesk', fontWeight: '700' },
+  body: { fontFamily: 'Inter', fontWeight: '400' },
+  label: { fontFamily: 'Hanken Grotesk', fontWeight: '600' },
 };
 
 const ThemeContext = createContext({
   mode: 'light',
   pref: 'system',
   colors: light,
-  typography,
+  typography: typographyLight,
   isDark: false,
   setMode: () => {},
   toggle: () => {},
@@ -184,7 +178,7 @@ export function ThemeProvider({ children }) {
     mode,
     pref,
     colors: PALETTES[mode],
-    typography,
+    typography: mode === 'dark' ? typographyDark : typographyLight,
     isDark: mode === 'dark',
     setMode,
     toggle,

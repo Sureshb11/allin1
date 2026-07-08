@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LOCAL - Premium Cricket Dashboard</title>
+<!-- Google Fonts: Hanken Grotesk for Headlines, Inter for Body -->
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700;800;900&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed-variant": "#0039b3",
+                    "secondary-fixed": "#ccff00",
+                    "error": "#ba1a1a",
+                    "on-tertiary-container": "#e0e7ff",
+                    "surface-container": "#eceef0",
+                    "on-tertiary": "#ffffff",
+                    "tertiary": "#474f65",
+                    "secondary-fixed-dim": "#abd600",
+                    "outline-variant": "#c3c5d9",
+                    "surface-container-low": "#f2f4f6",
+                    "surface": "#f7f9fb",
+                    "surface-bright": "#f7f9fb",
+                    "inverse-on-surface": "#eff1f3",
+                    "surface-tint": "#004dea",
+                    "on-tertiary-fixed-variant": "#3f465c",
+                    "on-error": "#ffffff",
+                    "secondary": "#506600",
+                    "primary-fixed-dim": "#b6c4ff",
+                    "tertiary-fixed": "#dae2fd",
+                    "tertiary-fixed-dim": "#bec6e0",
+                    "error-container": "#ffdad6",
+                    "inverse-primary": "#b6c4ff",
+                    "secondary-container": "#ccff00",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed": "#001551",
+                    "on-tertiary-fixed": "#131b2e",
+                    "on-error-container": "#93000a",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-secondary-container": "#161e00",
+                    "on-primary-container": "#e3e6ff",
+                    "on-surface": "#191c1e",
+                    "on-surface-variant": "#434656",
+                    "primary": "#0041c8",
+                    "background": "#f7f9fb",
+                    "on-primary": "#ffffff",
+                    "surface-dim": "#d8dadc",
+                    "on-secondary-fixed": "#0f2000",
+                    "on-background": "#191c1e",
+                    "surface-container-high": "#e6e8ea",
+                    "primary-fixed": "#dce1ff",
+                    "primary-container": "#0055ff",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-fixed-variant": "#3c4d00",
+                    "outline": "#737688",
+                    "surface-variant": "#e0e3e5",
+                    "inverse-surface": "#2d3133",
+                    "tertiary-container": "#5f677e",
+                    "radium-green": "#ccff00",
+                    "on-radium-green": "#161e00"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "base": "4px",
+                    "md": "16px",
+                    "lg": "24px",
+                    "gutter": "16px",
+                    "xl": "32px",
+                    "xs": "8px",
+                    "margin-desktop": "48px",
+                    "sm": "12px",
+                    "margin-mobile": "16px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Hanken Grotesk"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Hanken Grotesk"],
+                    "display-lg": ["Hanken Grotesk"],
+                    "label-lg": ["Hanken Grotesk"],
+                    "label-sm": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #f7f9fb;
+            font-family: 'Inter', sans-serif;
+            color: #191c1e;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .live-pulse {
+            position: relative;
+        }
+        .live-pulse::after {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 6px;
+            height: 6px;
+            background-color: #ba1a1a;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: translateY(-50%) scale(1); opacity: 1; }
+            100% { transform: translateY(-50%) scale(2.5); opacity: 0; }
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .optical-punch {
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-20">
+<!-- TopAppBar -->
+<header class="sticky top-0 z-50 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline flex justify-between items-center w-full px-margin-mobile py-sm">
+<div class="flex items-center gap-xs">
+<span class="text-headline-lg-mobile font-headline-lg-mobile font-black tracking-tighter text-on-surface dark:text-on-surface-variant">LOCAL</span>
+<div class="bg-radium-green text-on-radium-green px-xs py-0.5 rounded-full flex items-center gap-1 ml-1 scale-90 origin-left">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">add</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Legends</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high transition-colors p-2 rounded-full" data-icon="add_box"></button>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-high transition-colors p-2 rounded-full" data-icon="notifications"></button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional close-up studio portrait of a young cricket player in a clean white jersey, soft dramatic lighting from the side, minimalist blurred stadium background in the distance. The aesthetic is sharp, clean, and high-performance sporty with a bright daylight feel." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVgSZ85sqFr0gg285E29NfqnUvmm-579-xf3hGLf7dVLpiOdAjbEIijrf3tVgYiKfP8u_VW6HXO3QqXSXOwpvA9Tcb8bakaqGYz2PZ83hDw1veZpTNeOn8wUZMfpKiACo0wWr8COTTG9LjCNB54Uoo9X5rQdwNfPVLT1h4HwHQp6mUcunOZWskgu3sCp4oD_FMula_VTv93HY46a4fs28YKuq5SCwYY6wpekrTAc9pQ99x9dUfoi6tJqf0jOaMJ3OV2j6TKvdeL2Y"/>
+</div>
+</div>
+</header>
+<main class="max-w-[1280px] mx-auto">
+<!-- Section: From Your Circle (Carousel) -->
+<section class="py-lg px-margin-mobile">
+<div class="flex justify-between items-end mb-md">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">From Your Circle</h2>
+<p class="text-label-lg font-label-lg text-on-surface-variant">Teams you've played for · friends' matches</p>
+</div>
+<button class="text-primary font-bold text-label-lg hover:underline transition-all">See all</button>
+</div>
+<div class="flex overflow-x-auto gap-lg no-scrollbar snap-x snap-mandatory pb-lg px-margin-mobile -mx-margin-mobile">
+<!-- Card 1: Live -->
+<div class="snap-center flex-shrink-0 w-[85vw] md:w-[380px] bg-surface-container-lowest border-1.5 border-primary/20 rounded-xl p-lg shadow-xl transition-transform duration-300 scale-100">
+<div class="flex justify-between items-center mb-lg">
+<div class="flex items-center gap-xs">
+<span class="w-2 h-2 bg-error rounded-full animate-pulse"></span>
+<span class="text-error font-bold text-label-sm tracking-widest uppercase">Live Now</span>
+</div>
+<span class="bg-primary-container text-on-primary-container text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-tighter">T20 League</span>
+</div>
+<div class="flex items-center justify-between gap-md mb-lg relative">
+<div class="flex flex-col items-center gap-sm flex-1">
+<div class="w-14 h-14 rounded-full bg-error text-white flex items-center justify-center font-black text-headline-md shadow-sm">CC</div>
+<span class="font-bold text-label-sm text-center">Chennai<br/>Chargers</span>
+<span class="font-black text-headline-md">217/4</span>
+</div>
+<div class="h-16 border-l border-outline-variant/50"></div>
+<div class="flex flex-col items-center gap-sm flex-1">
+<div class="w-14 h-14 rounded-full bg-secondary text-white flex items-center justify-center font-black text-headline-md shadow-sm">MM</div>
+<span class="font-bold text-label-sm text-center">Mumbai<br/>Mavericks</span>
+<span class="text-on-surface-variant font-bold text-headline-md">—</span>
+</div>
+</div>
+<div class="space-y-xs mb-lg">
+<div class="flex justify-between text-label-sm font-bold">
+<span class="text-on-surface-variant">Overs: 11.0</span>
+<span class="text-secondary">RR: 19.7</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-radium-green w-[65%] rounded-full shadow-[0_0_8px_rgba(204,255,0,0.5)]"></div>
+</div>
+</div>
+<button class="w-full bg-primary text-white font-bold h-12 rounded-lg flex items-center justify-center gap-sm shadow-lg active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="tracking-wider">LIVE SCORECARD</span>
+</button>
+</div>
+<!-- Card 2: Match Ended -->
+<div class="snap-center flex-shrink-0 w-[85vw] md:w-[380px] bg-surface-container-lowest border border-outline-variant rounded-xl p-lg shadow-sm opacity-90 transition-transform duration-300 scale-95">
+<div class="flex justify-between items-center mb-lg">
+<span class="text-on-surface-variant font-bold text-label-sm tracking-widest uppercase">Final Result</span>
+<span class="bg-surface-container-high text-on-surface-variant text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-tighter">Club Match</span>
+</div>
+<div class="flex items-center justify-between gap-md mb-lg">
+<div class="flex flex-col items-center gap-sm flex-1">
+<div class="w-14 h-14 rounded-full bg-tertiary text-white flex items-center justify-center font-black text-headline-md">DX</div>
+<span class="font-bold text-label-sm text-center">D-Vigo-S XI</span>
+<span class="font-black text-headline-md">142/8</span>
+</div>
+<div class="text-label-sm font-black text-outline-variant">VS</div>
+<div class="flex flex-col items-center gap-sm flex-1">
+<div class="w-14 h-14 rounded-full bg-on-secondary-fixed-variant text-white flex items-center justify-center font-black text-headline-md">SC</div>
+<span class="font-bold text-label-sm text-center">Silver Caps</span>
+<span class="font-black text-headline-md">112/10</span>
+</div>
+</div>
+<div class="bg-secondary-container/30 p-sm rounded-lg mb-lg text-center">
+<p class="text-on-secondary-container font-bold text-label-lg">D-Vigo-S XI won by 30 runs</p>
+</div>
+<button class="w-full border-1.5 border-outline text-on-surface font-bold h-12 rounded-lg flex items-center justify-center gap-sm hover:bg-surface-container transition-colors">
+<span>VIEW SUMMARY</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Section: Latest from Players (Feed) -->
+<section class="bg-surface-container-lowest">
+<div class="px-margin-mobile py-md">
+<h2 class="font-headline-md text-headline-md text-on-surface">Latest from Players</h2>
+</div>
+<!-- Post 1 -->
+<article class="border-b border-outline-variant/50">
+<div class="flex justify-between items-center px-margin-mobile py-md">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-bold text-headline-md">N</div>
+<div>
+<h3 class="font-bold text-body-md">New Player</h3>
+<p class="text-label-sm font-label-sm text-on-surface-variant">· 3d ago</p>
+</div>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant" data-icon="more_horiz"></button>
+</div>
+<div class="w-full aspect-square bg-surface-container-high relative">
+<img class="w-full h-full object-cover" data-alt="A high-action shot of a local cricket batsman performing a powerful drive in a sun-drenched suburban park. The lighting is bright and high-contrast, characteristic of midday sports photography. The focus is sharp on the player's intense expression and the movement of the dust, while the green trees in the background are softly blurred. Premium sporty aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZfd3M05YKQzc6dXaYFzejve9C5JLLqCX9diVvFJKgH6vM2pS5A0D8foYQh89MhPvMMAkm83JzUkY4Ist4NTeXvAP9XeG7UDggaP3XZdOUVwE88ATbyHsZIKRiOw_gIyobn9xFlTVYDZTKIAjQ-MYqpvRUsYQMPin6ZArGZP54fsJ5IFoyHO0RCYHUHzJyHYTAxB1ocq0SZlJbi7czdbN5xKsgsmEylRKVbqOtsXJzJ4MgIcnv_SCDVnfIXbJkIJkgPYKbOCZ5PMM"/>
+</div>
+<div class="px-margin-mobile py-md">
+<div class="flex justify-between items-center mb-sm">
+<div class="flex gap-lg">
+<button class="flex items-center gap-1 group">
+<span class="material-symbols-outlined text-error transition-transform active:scale-125" style="font-variation-settings: 'FILL' 1;">favorite</span>
+<span class="text-label-lg font-bold">2 likes</span>
+</button>
+<button class="flex items-center gap-1">
+<span class="material-symbols-outlined text-on-surface-variant">chat_bubble</span>
+</button>
+<button class="flex items-center gap-1">
+<span class="material-symbols-outlined text-on-surface-variant">send</span>
+</button>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant" data-icon="bookmark"></button>
+</div>
+<p class="text-body-md"><span class="font-bold">new_player</span> prod like-persist test showing off the new field gear!</p>
+</div>
+</article>
+<!-- Post 2 -->
+<article class="border-b border-outline-variant/50">
+<div class="flex justify-between items-center px-margin-mobile py-md">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-white font-bold text-headline-md">S</div>
+<div>
+<h3 class="font-bold text-body-md">Strike Master</h3>
+<p class="text-label-sm font-label-sm text-on-surface-variant">· 5h ago</p>
+</div>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant" data-icon="more_horiz"></button>
+</div>
+<div class="w-full aspect-video bg-surface-container-high relative">
+<img class="w-full h-full object-cover" data-alt="A dramatic wide-angle shot of a cricket stadium pitch at dusk, under bright white floodlights. The grass is vibrant green with visible patterns from mowing. Long shadows stretch across the field. The sky is a deep twilight blue. The image evokes a sense of anticipation and the high-energy environment of a professional match. Minimalist and high-contrast." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCN3varngw-OtKMETrkX4j2Qp7MVwh5poSI9235-Q0kWiSf51eHANrjSeJ7qsxdbqP7DiVAfDHcoCLraoofq1W48PUmmoE1POjKyl1ngBrt7_CNGornss2IsrYyxdmIbMpnnxkQlX2BklaBoKPSVqAkIyrlRty2QKzRrftgYx3-Lw4CIRqrQiasTDF8Zqfq7jStLomR2Yi17RehZW3BOsnZbElCv1a7VRSjw-iFruMdVdFj739xGsI3DUSuNvtRtCNwZxaTgvDtsV4"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/40">
+<span class="material-symbols-outlined text-white text-[40px]" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</div>
+</div>
+</div>
+<div class="px-margin-mobile py-md">
+<div class="flex justify-between items-center mb-sm">
+<div class="flex gap-lg">
+<button class="flex items-center gap-1">
+<span class="material-symbols-outlined text-on-surface-variant">favorite</span>
+<span class="text-label-lg font-bold">42 likes</span>
+</button>
+<button class="flex items-center gap-1">
+<span class="material-symbols-outlined text-on-surface-variant">chat_bubble</span>
+</button>
+<button class="flex items-center gap-1">
+<span class="material-symbols-outlined text-on-surface-variant">send</span>
+</button>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant" data-icon="bookmark"></button>
+</div>
+<p class="text-body-md"><span class="font-bold">strike_master</span> Night games hits different. The intensity is on another level tonight! 🏏✨</p>
+</div>
+</article>
+</section></main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-20 right-6 w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center shadow-xl active:scale-90 transition-transform z-40">
+<span class="material-symbols-outlined text-[32px]">add</span>
+</button>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 bg-surface-container-lowest dark:bg-inverse-surface border-t border-outline-variant dark:border-outline shadow-lg flex justify-around items-center h-16 px-4">
+<a class="flex flex-col items-center justify-center text-radium-green drop-shadow-sm font-bold transition-opacity" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-label-sm font-label-sm text-on-surface font-bold">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant opacity-70 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined">sports_cricket</span>
+<span class="text-label-sm font-label-sm">My Cricket</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant opacity-70 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined">stadium</span>
+<span class="text-label-sm font-label-sm">Pavilion</span>
+</a>
+</nav>
+<script>
+        // Micro-interactions for likes
+        document.querySelectorAll('button .material-symbols-outlined[data-icon="favorite"]').forEach(btn => {
+            btn.closest('button').addEventListener('click', function() {
+                const icon = this.querySelector('.material-symbols-outlined');
+                const isFilled = icon.style.fontVariationSettings.includes("'FILL' 1");
+                
+                if (isFilled) {
+                    icon.style.fontVariationSettings = "'FILL' 0";
+                    icon.classList.remove('text-error');
+                    icon.classList.add('text-on-surface-variant');
+                } else {
+                    icon.style.fontVariationSettings = "'FILL' 1";
+                    icon.classList.remove('text-on-surface-variant');
+                    icon.classList.add('text-error');
+                }
+            });
+        });
+    </script>
+</body></html>
