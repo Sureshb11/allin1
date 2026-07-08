@@ -5,6 +5,7 @@ import { authMiddleware, optionalAuth } from '../lib/auth.js';
 import { validateSquad, applySubstitution } from '../lib/roster.js';
 import { checkMatchMilestones } from '../lib/milestones.js';
 import { pushMatchResultCard } from '../lib/feed.js';
+import { reportMatchToTournament } from '../lib/tournamentResult.js';
 
 const router = Router();
 
@@ -640,6 +641,9 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (status === 'completed') {
       await pushMatchResultCard(match).catch(() => {});
       await checkMatchMilestones(match.id);
+      // If this match is a tournament fixture, auto-finalize it (score → standings
+      // → bracket → notifications). Guarded so it can't fail the completion.
+      await reportMatchToTournament(match).catch((e) => console.error('[tournament report]', e.message));
     }
     res.json({ match });
   } catch (e) {

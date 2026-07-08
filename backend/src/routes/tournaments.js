@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
-import { computeStandings, persistStandings } from '../lib/standings.js';
-import { resolveBracket } from '../lib/bracket.js';
+import { computeStandings } from '../lib/standings.js';
+import { applyTournamentResult } from '../lib/tournamentResult.js';
 import { notifyTeams, notifyAllParticipants, safeNotify } from '../lib/notify.js';
 
 const router = Router();
@@ -30,44 +30,28 @@ const ResultSchema = z.object({
 router.post('/:id/result', authMiddleware, async (req, res) => {
   try {
     const d = ResultSchema.parse(req.body);
-    const match = await prisma.tournamentMatch.update({
-      where: { id: d.tmId },
-      data: {
-        status: 'completed',
-        winnerTeamId: d.resultKind === 'win' ? d.winnerTeamId : null,
-        resultKind: d.resultKind,
-        resultStats: d.stats || {},
-      },
-    });
-    const standings = await persistStandings(req.params.id);
-    const bracket = await resolveBracket(req.params.id); // advance any placeholder fixtures
-    res.json({ success: true, standings, resolved: bracket.resolved });
-
-    // ── Notify participants (best-effort, after responding) ──
-    const tourney = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { name: true } });
-    const tName = tourney?.name || 'the tournament';
-    // Both teams of the completed match get a result notification.
-    const involved = [match.team1Id, match.team2Id].filter(Boolean);
-    if (involved.length) {
-      const teams = await prisma.team.findMany({ where: { id: { in: involved } }, select: { id: true, name: true } });
-      const nameOf = Object.fromEntries(teams.map((t) => [t.id, t.name]));
-      let message;
-      if (d.resultKind === 'win' && d.winnerTeamId) {
-        const loserId = involved.find((id) => id !== d.winnerTeamId);
-        message = `${nameOf[d.winnerTeamId] || 'A team'} beat ${nameOf[loserId] || 'their opponent'} in ${tName}.`;
-      } else {
-        message = `${(match.round || 'A')} match in ${tName} ended in a ${d.resultKind}.`;
-      }
-      safeNotify(() => notifyTeams(involved, { title: `${match.round || 'Match'} result`, message }));
-    }
-    // Teams newly advanced into a next-round fixture get an "advanced" nudge.
-    for (const a of bracket.advanced || []) {
-      safeNotify(() => notifyTeams([a.teamId], {
-        title: 'You advanced!', message: `Your team has advanced to the ${a.round} in ${tName}.`,
-      }));
-    }
+    const { standings, resolved } = await applyTournamentResult(req.params.id, d);
+    res.json({ success: true, standings, resolved });
   } catch (e) {
-    if (!res.headersSent) res.status(400).json({ error: e.message });
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Link a real (ball-by-ball) Match to a fixture when scoring starts. The fixture
+// goes 'live'; its result auto-populates when that match completes (see the
+// match-completion hook in routes/matches.js). Sport-safe: the Match was created
+// with the tournament's sport + same-sport teams, so the link can't cross sports.
+router.put('/:id/fixtures/:tmId/match', authMiddleware, async (req, res) => {
+  try {
+    const { matchId } = req.body;
+    if (!matchId) return res.status(400).json({ error: 'matchId required' });
+    const fixture = await prisma.tournamentMatch.update({
+      where: { id: req.params.tmId },
+      data: { matchId, status: 'live' },
+    });
+    res.json({ success: true, fixture });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
 

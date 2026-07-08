@@ -1094,6 +1094,17 @@ class LegendsApi {
     }
   }
 
+  // Tournament — link a real (ball-by-ball) match to a fixture when scoring
+  // starts; the fixture goes live and auto-completes when the match finishes.
+  async linkTournamentFixtureMatch(tournamentId, tmId, matchId) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/fixtures/${tmId}/match`, { method: 'PUT', body: { matchId } });
+      return { success: true, data: json.fixture };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Tournament — schedule/fixtures
   async getTournamentSchedule(tournamentId) {
     try {

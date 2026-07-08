@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { getSport } from '../sports';
 
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
@@ -205,6 +206,48 @@ export default function TournamentDetailScreen({ route, navigation }) {
       alert(res.error || 'Failed to save result');
     }
     setProcessing(false);
+  };
+
+  // Start a real ball-by-ball match for this fixture: create the match (seeded
+  // from the tournament + sport-safe), link it to the fixture, then jump into the
+  // scoring flow. When that match completes, the fixture auto-finalizes.
+  const startFixtureMatch = async (fixture) => {
+    if (!fixture?.team1?.id || !fixture?.team2?.id) return;
+    setProcessing(true);
+    const sportId = tournament.sport || 'cricket';
+    const overs = tournament.overs || 20;
+    const venue = tournament.venue || fixture.venue || '';
+    const res = await legendsApi.createMatch({
+      team1Id: fixture.team1.id,
+      team2Id: fixture.team2.id,
+      overs,
+      venue,
+      matchType: tournament.format || 'T20',
+      ...(sportId === 'cricket' ? { ballType: tournament.ballType || 'Leather' } : {}),
+      status: 'scheduled',
+      sport: sportId,
+    });
+    if (!res.success) { setProcessing(false); alert(res.error || 'Could not start match'); return; }
+    const matchId = res.data.id;
+    await legendsApi.linkTournamentFixtureMatch(tournamentId, fixture.id, matchId);
+    await reloadData();
+    setProcessing(false);
+
+    const inningsRes = await legendsApi.getMatchInnings(matchId);
+    const firstInning = inningsRes.success && inningsRes.data.length > 0 ? inningsRes.data[0] : null;
+    // TournamentDetail, TossLineup and Scoring share one stack → navigate directly.
+    navigation.navigate('TossLineup', {
+      team1: fixture.team1.name, team2: fixture.team2.name,
+      overs: String(overs), venue, matchType: tournament.format || 'T20',
+      ballType: tournament.ballType || 'Leather',
+      matchId, team1Id: fixture.team1.id, team2Id: fixture.team2.id,
+      firstInningId: firstInning?.id, sport: getSport(sportId),
+    });
+  };
+
+  const resumeFixtureMatch = (fixture) => {
+    if (!fixture?.matchId) return;
+    navigation.navigate('Scoring', { resume: true, matchId: fixture.matchId });
   };
 
   if (loading) {
@@ -408,18 +451,16 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const renderFixture = (item, index) => {
     const STATUS_C = { scheduled: DS.coral, live: '#ff4d4d', completed: '#6ee76e' };
     const completed = item.status === 'completed';
+    const isLive = item.status === 'live';
     const bothKnown = !!item.team1?.id && !!item.team2?.id;
-    const canScore = bothKnown && !completed && ['upcoming', 'ongoing'].includes(tournament.status);
+    const actionable = bothKnown && !completed && ['upcoming', 'ongoing'].includes(tournament.status);
+    const isCricket = (tournament.sport || 'cricket') === 'cricket';
     const s1 = item.resultStats?.[item.team1?.id]?.scored;
     const s2 = item.resultStats?.[item.team2?.id]?.scored;
     const win1 = completed && item.winnerTeamId && item.winnerTeamId === item.team1?.id;
     const win2 = completed && item.winnerTeamId && item.winnerTeamId === item.team2?.id;
     return (
-      <TouchableOpacity
-        key={item.id}
-        style={styles.fixtureCard}
-        activeOpacity={canScore ? 0.7 : 1}
-        onPress={() => canScore && openResult(item)}>
+      <View key={item.id} style={styles.fixtureCard}>
         <View style={styles.fixtureMeta}>
           <Text style={styles.roundText}>Match {index + 1}</Text>
           {!!item.scheduledAt && (
@@ -435,7 +476,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
             {item.team1?.name || item.placeholder1 || 'TBD'}{completed && s1 != null ? `  ${s1}` : ''}
           </Text>
           <View style={[styles.vsChip, { backgroundColor: STATUS_C[item.status] || DS.coral }]}>
-            <Text style={styles.vsText}>{completed ? 'FT' : item.status === 'live' ? 'LIVE' : 'VS'}</Text>
+            <Text style={styles.vsText}>{completed ? 'FT' : isLive ? 'LIVE' : 'VS'}</Text>
           </View>
           <Text style={[styles.fixtureTeamName, win2 && styles.winnerName]} numberOfLines={1}>
             {completed && s2 != null ? `${s2}  ` : ''}{item.team2?.name || item.placeholder2 || 'TBD'}
@@ -447,13 +488,32 @@ export default function TournamentDetailScreen({ route, navigation }) {
             <Text style={styles.venueText}>{item.venue}</Text>
           </View>
         )}
-        {canScore && (
-          <View style={styles.scoreCta}>
-            <Icon name="whistle-outline" size={13} color={DS.lime} />
-            <Text style={styles.scoreCtaText}>Tap to record result</Text>
+        {actionable && (
+          <View style={styles.fixtureActions}>
+            {isLive ? (
+              <TouchableOpacity style={styles.startBtn} onPress={() => resumeFixtureMatch(item)} disabled={processing} activeOpacity={0.85}>
+                <Icon name="play-circle" size={15} color={DS.bg} />
+                <Text style={styles.startBtnText}>Resume Scoring</Text>
+              </TouchableOpacity>
+            ) : isCricket ? (
+              <>
+                <TouchableOpacity style={styles.startBtn} onPress={() => startFixtureMatch(item)} disabled={processing} activeOpacity={0.85}>
+                  <Icon name="whistle-outline" size={15} color={DS.bg} />
+                  <Text style={styles.startBtnText}>{processing ? 'Starting…' : 'Start Match & Score'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => openResult(item)} disabled={processing} activeOpacity={0.7}>
+                  <Text style={styles.manualLink}>Enter result manually</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity style={styles.scoreCta} onPress={() => openResult(item)} disabled={processing} activeOpacity={0.7}>
+                <Icon name="whistle-outline" size={13} color={DS.lime} />
+                <Text style={styles.scoreCtaText}>Tap to record result</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -767,8 +827,12 @@ const makeStyles = (DS) => StyleSheet.create({
   vsText: { fontSize: 10, fontWeight: '700', color: DS.bg },
   venueRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   venueText: { fontSize: 12, color: DS.textMuted },
-  scoreCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: DS.line },
+  scoreCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 4 },
   scoreCtaText: { fontSize: 11, fontWeight: '700', color: DS.lime },
+  fixtureActions: { alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: DS.line },
+  startBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'stretch', backgroundColor: DS.lime, paddingVertical: 10, borderRadius: 12 },
+  startBtnText: { fontSize: 13, fontWeight: '800', color: DS.bg },
+  manualLink: { fontSize: 11, fontWeight: '600', color: DS.textMuted, textDecorationLine: 'underline' },
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   resultTeam: { flex: 1, fontSize: 14, fontWeight: '700', color: DS.textPrimary },
   resultScoreInput: { width: 64, backgroundColor: DS.surfaceLow, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 16, fontWeight: '800', color: DS.textPrimary },
