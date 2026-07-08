@@ -42,10 +42,12 @@ export async function applyTournamentResult(tournamentId, { tmId, winnerTeamId, 
     } else {
       message = `${fixture.round || 'A'} match in ${tName} ended in a ${resultKind}.`;
     }
-    safeNotify(() => notifyTeams(involved, { title: `${fixture.round || 'Match'} result`, message, data: link }));
+    // Awaited (not fire-and-forget): on serverless the function suspends after
+    // the response, so post-response promises may never run.
+    await safeNotify(() => notifyTeams(involved, { title: `${fixture.round || 'Match'} result`, message, data: link }));
   }
   for (const a of bracket.advanced || []) {
-    safeNotify(() => notifyTeams([a.teamId], {
+    await safeNotify(() => notifyTeams([a.teamId], {
       title: 'You advanced!', message: `Your team has advanced to the ${a.round} in ${tName}.`, data: link,
     }));
   }
@@ -80,7 +82,7 @@ async function maybeCompleteTournament(tournamentId, tName) {
 
   if (championId) {
     const champ = await prisma.team.findUnique({ where: { id: championId }, select: { name: true } });
-    safeNotify(() => notifyAllParticipants(tournamentId, {
+    await safeNotify(() => notifyAllParticipants(tournamentId, {
       title: '🏆 Champions!',
       message: `${champ?.name || 'A team'} won ${tName}!`,
       data: { tournamentId },

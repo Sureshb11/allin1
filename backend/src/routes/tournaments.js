@@ -183,15 +183,15 @@ router.post('/:id/teams', authMiddleware, async (req, res) => {
       data: { tournamentId: req.params.id, teamId, group },
       include: { team: true },
     });
-    res.status(201).json({ entry });
 
-    // Notify the added team's members that they're in.
-    const tourney = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { name: true } });
-    safeNotify(() => notifyTeams([teamId], {
+    // Notify the added team's members that they're in. Awaited before responding
+    // because serverless suspends work after the response is sent.
+    await safeNotify(() => notifyTeams([teamId], {
       title: 'Added to a tournament',
-      message: `${entry.team?.name || 'Your team'} has been entered into ${tourney?.name || 'a tournament'}.`,
+      message: `${entry.team?.name || 'Your team'} has been entered into ${tournament?.name || 'a tournament'}.`,
       data: { tournamentId: req.params.id },
     }));
+    res.status(201).json({ entry });
   } catch (e) {
     if (e.code === 'P2002') return res.status(409).json({ error: 'Team already registered' });
     res.status(400).json({ error: e.message });
@@ -580,19 +580,19 @@ router.post('/:id/auto-schedule', authMiddleware, async (req, res) => {
       await prisma.tournamentMatch.createMany({ data: matches });
     }
 
-    res.json({ success: true, count: matches.length });
-
-    // Notify every participant that the fixtures are out.
+    // Notify every participant that the fixtures are out. Awaited before
+    // responding (serverless suspends post-response work).
     if (matches.length > 0) {
       const tourney = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { name: true } });
-      safeNotify(() => notifyAllParticipants(req.params.id, {
+      await safeNotify(() => notifyAllParticipants(req.params.id, {
         title: 'Schedule released',
         message: `The fixtures for ${tourney?.name || 'your tournament'} are out — ${matches.length} matches scheduled.`,
         data: { tournamentId: req.params.id },
       }));
     }
+    res.json({ success: true, count: matches.length });
   } catch (e) {
-    if (!res.headersSent) res.status(400).json({ error: e.message });
+    res.status(400).json({ error: e.message });
   }
 });
 
