@@ -72,8 +72,9 @@ export default function TournamentDetailScreen({ route, navigation }) {
       if (stRes.success && stRes.data.length) setPointsTable(stRes.data);
       else if (ptRes.success) setPointsTable(ptRes.data);
       if (schRes.success) setSchedule(schRes.data);
-      
-      const myTeamsRes = await legendsApi.getTeams();
+
+      // Sport isolation: only offer same-sport teams for this tournament.
+      const myTeamsRes = await legendsApi.getTeams(tRes.success ? tRes.data.sport : undefined);
       if (myTeamsRes.success) setMyTeams(myTeamsRes.data);
 
       setLoading(false);

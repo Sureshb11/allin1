@@ -185,6 +185,16 @@ router.post('/:id/teams', authMiddleware, async (req, res) => {
   try {
     const { teamId, group = 'A' } = req.body;
     if (!teamId) return res.status(400).json({ error: 'teamId required' });
+    // Sport isolation: a team can only enter a tournament of its own sport.
+    const [tournament, team] = await Promise.all([
+      prisma.tournament.findUnique({ where: { id: req.params.id }, select: { sport: true, name: true } }),
+      prisma.team.findUnique({ where: { id: teamId }, select: { sport: true, name: true } }),
+    ]);
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    if (team.sport !== tournament.sport) {
+      return res.status(400).json({ error: `Sport mismatch: ${team.name} is a ${team.sport} team but ${tournament.name} is a ${tournament.sport} tournament.` });
+    }
     const entry = await prisma.tournamentTeam.create({
       data: { tournamentId: req.params.id, teamId, group },
       include: { team: true },

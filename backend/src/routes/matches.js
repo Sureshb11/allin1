@@ -137,12 +137,19 @@ router.post('/', optionalAuth, async (req, res) => {
     const data = MatchSchema.parse(req.body);
 
     // A match needs a squad: both teams must have at least one player.
-    const [c1, c2] = await Promise.all([
+    const [c1, c2, t1, t2] = await Promise.all([
       prisma.player.count({ where: { teamId: data.team1Id } }),
       prisma.player.count({ where: { teamId: data.team2Id } }),
+      prisma.team.findUnique({ where: { id: data.team1Id }, select: { sport: true, name: true } }),
+      prisma.team.findUnique({ where: { id: data.team2Id }, select: { sport: true, name: true } }),
     ]);
     if (c1 < 1 || c2 < 1) {
       return res.status(400).json({ error: 'Both teams need at least one player before a match can be created.' });
+    }
+    // Sport isolation: a match and both its teams must be the same sport.
+    if (!t1 || !t2) return res.status(400).json({ error: 'Both teams must exist.' });
+    if (t1.sport !== data.sport || t2.sport !== data.sport) {
+      return res.status(400).json({ error: `Sport mismatch: a ${data.sport} match needs two ${data.sport} teams (got ${t1.name}: ${t1.sport}, ${t2.name}: ${t2.sport}).` });
     }
 
     // The creating user is the default scorer (can later transfer scoring rights).

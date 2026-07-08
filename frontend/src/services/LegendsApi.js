@@ -178,9 +178,10 @@ class LegendsApi {
   }
 
   // Team Management
-  async getTeams() {
+  async getTeams(sport) {
     try {
-      const json = await this.request('/teams');
+      const qs = sport ? `?sport=${encodeURIComponent(sport)}` : '';
+      const json = await this.request(`/teams${qs}`);
       return { success: true, data: json.teams || json.data || [] };
     } catch (error) {
       return { success: true, data: [] };

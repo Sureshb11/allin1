@@ -6,7 +6,13 @@ import { authMiddleware } from '../lib/auth.js';
 const router = Router();
 
 router.get('/', async (req, res) => {
-  const teams = await prisma.team.findMany({ include: { players: true } });
+  // Sport isolation: scope the team list to a sport when asked (the team pickers
+  // pass the current sport so, e.g., a cricket tournament never sees football teams).
+  const { sport } = req.query;
+  const teams = await prisma.team.findMany({
+    where: sport ? { sport: String(sport) } : {},
+    include: { players: true },
+  });
   res.json({ teams });
 });
 

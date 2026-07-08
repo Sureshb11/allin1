@@ -66,7 +66,7 @@ const buildSlots = () => {
 const SCHEDULE_SLOTS = buildSlots();
 
 /* ─── TeamPicker bottom-sheet ────────────────────────────── */
-const TeamPicker = ({ visible, onClose, onSelect, excludeId, title }) => {
+const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cricket' }) => {
   const c = useTheme().colors;
   const K = useMemo(() => makeK(c), [c]);
   const s = useMemo(() => makeS(K), [K]);
@@ -83,11 +83,11 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title }) => {
     setCreating(false);
     setNewName('');
     setLoading(true);
-    legendsApi.getTeams().then(res => {
+    legendsApi.getTeams(sport).then(res => {
       setTeams(res.success ? (res.data || []) : []);
       setLoading(false);
     });
-  }, [visible]);
+  }, [visible, sport]);
 
   const filtered = teams.filter(t =>
     t.id !== excludeId &&
@@ -98,7 +98,7 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title }) => {
     const name = newName.trim();
     if (!name) return;
     setSaving(true);
-    const res = await legendsApi.createTeam({ name });
+    const res = await legendsApi.createTeam({ name, sport });
     setSaving(false);
     if (res.success && res.data) {
       onSelect(res.data);
@@ -654,6 +654,7 @@ const StartMatchScreen = ({ navigation, route }) => {
         onSelect={selectTeam}
         excludeId={picker === 'team2' ? team1?.id : team2?.id}
         title={`Select ${COMP} ${picker === 'team1' ? '1' : '2'}`}
+        sport={sport.id}
       />
 
       {/* Date & Time Pickers */}
