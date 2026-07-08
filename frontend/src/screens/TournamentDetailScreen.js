@@ -33,7 +33,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const [tournament, setTournament] = useState(null);
   const [pointsTable, setPointsTable] = useState([]);
   const [schedule, setSchedule] = useState([]);
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [activeTab, setActiveTab] = useState(TABS.includes(route.params?.initialTab) ? route.params.initialTab : 'Overview');
   const [loading, setLoading] = useState(true);
   const [showTeamPicker, setShowTeamPicker] = useState(false);
   const [selectedTeamIds, setSelectedTeamIds] = useState(new Set());

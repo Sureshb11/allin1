@@ -47,7 +47,7 @@ function StatPill({ value, label }) {
 }
 
 /* ── Tournament Card ── */
-function TournamentCard({ item, onJoin, onPress }) {
+function TournamentCard({ item, onJoin, onPress, onOpen }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const STATUS_COLORS = makeStatusColors(DS);
@@ -125,10 +125,10 @@ function TournamentCard({ item, onJoin, onPress }) {
           </>
         ) : (
           <>
-            <TouchableOpacity style={styles.chipBtn}>
+            <TouchableOpacity style={styles.chipBtn} onPress={() => onOpen('Schedule')}>
               <Text style={styles.chipBtnText}>BRACKET</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.chipBtn}>
+            <TouchableOpacity style={styles.chipBtn} onPress={() => onOpen('Points Table')}>
               <Text style={styles.chipBtnText}>STANDINGS</Text>
             </TouchableOpacity>
           </>
@@ -269,6 +269,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
             item={item}
             onJoin={handleJoin}
             onPress={() => navigation.navigate('TournamentDetail', { tournamentId: item.id })}
+            onOpen={(tab) => navigation.navigate('TournamentDetail', { tournamentId: item.id, initialTab: tab })}
           />
         )}
         ListEmptyComponent={
