@@ -656,11 +656,11 @@ const makeStyles = (DS) => StyleSheet.create({
   searchPlaceholder: { fontSize: 14, color: DS.textMuted },
 
   /* Filter tabs */
-  tabs: { backgroundColor: DS.bg, maxHeight: 52 },
-  tabsContent: { paddingHorizontal: 16, paddingVertical: 6, gap: 8 },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint },
+  tabs: { backgroundColor: DS.bg, flexGrow: 0, flexShrink: 0 },
+  tabsContent: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, alignItems: 'center' },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint },
   tabActive: { backgroundColor: DS.lime, borderColor: DS.lime },
-  tabText: { fontSize: 12, color: DS.textVariant, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  tabText: { fontSize: 12, color: DS.textVariant, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, includeFontPadding: false },
   tabTextActive: { color: DS.onLime },
 
   /* List */
