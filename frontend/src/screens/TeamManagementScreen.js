@@ -663,7 +663,7 @@ const makeStyles = (DS) => StyleSheet.create({
   /* Search */
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: DS.surface, marginHorizontal: 20, borderRadius: 10,
+    backgroundColor: DS.surface, borderRadius: 10,
     paddingHorizontal: 12, paddingVertical: 9, marginTop: 14, marginBottom: 8,
     borderWidth: 1, borderColor: DS.faint,
   },
@@ -818,7 +818,7 @@ const makeStyles = (DS) => StyleSheet.create({
   // Category tabs
   tabBar: {
     flexDirection: 'row', backgroundColor: DS.surfaceLow,
-    marginHorizontal: 16, marginTop: 4, marginBottom: 12,
+    marginTop: 4, marginBottom: 12,
     borderRadius: 14, padding: 4,
   },
   tabBtn: {
