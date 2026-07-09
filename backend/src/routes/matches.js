@@ -6,8 +6,43 @@ import { validateSquad, applySubstitution } from '../lib/roster.js';
 import { checkMatchMilestones } from '../lib/milestones.js';
 import { pushMatchResultCard } from '../lib/feed.js';
 import { reportMatchToTournament } from '../lib/tournamentResult.js';
+import { computeAwards } from '../lib/mvp.js';
 
 const router = Router();
+
+// ── Match awards (MVP): Man of the Match, Fighter, Best Batter/Bowler/Fielder ──
+// Computed from ball-by-ball data using the CricHeroes-style MVP algorithm.
+router.get('/:id/awards', async (req, res) => {
+  try {
+    const match = await prisma.match.findUnique({
+      where: { id: req.params.id },
+      include: {
+        team1: true,
+        team2: true,
+        squads: { include: { player: { select: { name: true } } } },
+        innings: {
+          orderBy: { inningNumber: 'asc' },
+          include: {
+            battingTeam: { select: { name: true } },
+            bowlingTeam: { select: { name: true } },
+            oversData: {
+              orderBy: { overNumber: 'asc' },
+              include: {
+                bowler: { select: { name: true } },
+                balls: { orderBy: { ballNumber: 'asc' }, include: { batter: { select: { name: true } } } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+    const awards = computeAwards(match);
+    res.json({ awards, result: match.result || null });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ── Scorer access control ─────────────────────────────────────────────────────
 // Every scoring-mutation route must call this before writing. If the match has no

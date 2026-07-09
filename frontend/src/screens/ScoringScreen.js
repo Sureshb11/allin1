@@ -8,6 +8,7 @@ import legendsApi from '../services/LegendsApi';
 import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
 import BrandLogo from "../components/BrandLogo";
+import MatchAwardsModal from "../components/MatchAwardsModal";
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +58,11 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [mustPickBowler, setMustPickBowler] = useState(false);
   const [matchComplete, setMatchComplete] = useState(false);
   const [matchResult, setMatchResult] = useState('');
+  // Post-match awards popup (MVP): fetched when the match completes.
+  const [showAwards, setShowAwards] = useState(false);
+  const [awards, setAwards] = useState(null);
+  const [awardsLoading, setAwardsLoading] = useState(false);
+  const awardsFetched = useRef(false);
   const [currentInningId, setCurrentInningId] = useState('');
   const [ballCount, setBallCount] = useState(0);
   const [overSummary, setOverSummary] = useState(null);
@@ -95,6 +101,25 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [undoing, setUndoing] = useState(false);
   const savingRef = useRef(false);   // true while a ball is being persisted (debounces rapid taps)
   const milestoneRef = useRef({ bat: {}, bowl: {}, streak: { id: null, n: 0 } });   // announced milestones + hat-trick streak
+
+  // When the match finishes, compute the MVP awards once and pop the winner
+  // sheet for the scorer. Dismissing it redirects to the Home feed.
+  useEffect(() => {
+    if (!matchComplete || awardsFetched.current || !matchData?.id) return;
+    awardsFetched.current = true;
+    setShowAwards(true);
+    setAwardsLoading(true);
+    legendsApi.getMatchAwards(matchData.id)
+      .then((res) => { if (res.success) setAwards(res.data.awards); })
+      .catch(() => {})
+      .finally(() => setAwardsLoading(false));
+  }, [matchComplete, matchData?.id]);
+
+  const closeAwards = () => {
+    setShowAwards(false);
+    // Back to the cricket feed (root of this stack) — the "home" screen.
+    if (navigation.canGoBack()) navigation.popToTop();
+  };
 
   useEffect(() => {
     if (matchData) {
@@ -1552,6 +1577,15 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           </View>
         </View>
       </Modal>
+
+      {/* Post-match awards (MVP) — shown to the scorer, then → Home feed */}
+      <MatchAwardsModal
+        visible={showAwards}
+        loading={awardsLoading}
+        awards={awards}
+        result={matchResult}
+        onClose={closeAwards}
+      />
     </View>);
 
 }

@@ -419,6 +419,16 @@ class LegendsApi {
     }
   }
 
+  // Match awards (MVP): Man of the Match, Fighter, Best Batter/Bowler/Fielder.
+  async getMatchAwards(matchId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/awards`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Indian city/town → district/state/pincode autocomplete.
   async searchPincodes(q) {
     try {
