@@ -325,9 +325,9 @@ export default function HomeScreen({ navigation }) {
                         <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
                           {f.toUpperCase()}
                         </Text>
-                        {filterCounts[f] > 0 && (
-                          <View style={[styles.filterCount, active && styles.filterCountActive]}>
-                            <Text style={[styles.filterCountText, active && styles.filterCountTextActive]}>{filterCounts[f]}</Text>
+                        {active && filterCounts[f] > 0 && (
+                          <View style={[styles.filterCount, styles.filterCountActive]}>
+                            <Text style={[styles.filterCountText, styles.filterCountTextActive]}>{filterCounts[f]}</Text>
                           </View>
                         )}
                       </TouchableOpacity>
