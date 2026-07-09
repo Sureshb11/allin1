@@ -512,6 +512,21 @@ model LookingFor {
   @@index([type])
 }
 
+// A "Connect" request on a Scout listing. Chat unlocks only once the poster accepts.
+model LookingForConnection {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  listingId   String
+  requesterId String
+  posterId    String
+  status      String   @default("pending") // pending | accepted | declined
+  chatRoomId  String?
+
+  @@unique([listingId, requesterId])
+  @@index([posterId, status])
+  @@index([requesterId])
+}
+
 // Coaches
 model Coach {
   id           String        @id @default(cuid())

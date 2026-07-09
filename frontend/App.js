@@ -21,7 +21,7 @@ const Stack = createStackNavigator();
 // ⚙️ DEV ONLY — bypass the login/OTP screens and start straight on the sport
 // picker so you can develop & test the in-app flows without signing in.
 // Set this back to `false` to re-enable the OTP auth screen before release.
-const DEV_BYPASS_LOGIN = false;
+const DEV_BYPASS_LOGIN = true;
 
 const Root = () => {
   const { colors, isDark } = useTheme();
@@ -54,10 +54,10 @@ const Root = () => {
         backgroundColor={colors.bg}
       />
       <NavigationContainer>
-        <Stack.Navigator
+          <Stack.Navigator
           id="RootStack"
           screenOptions={{ headerShown: false, animationEnabled: false, cardStyle: { backgroundColor: colors.bg } }}
-          initialRouteName={(DEV_BYPASS_LOGIN || isAuthenticated) ? 'SportPicker' : 'Auth'}
+          initialRouteName={(DEV_BYPASS_LOGIN) ? 'MainApp' : (isAuthenticated ? 'SportPicker' : 'Auth')}
         >
           <Stack.Screen name="Auth" component={AuthNavigator} />
           {/* SportPicker shown on every launch after auth */}

@@ -1216,6 +1216,34 @@ class LegendsApi {
     }
   }
 
+  // Scout "Connect" flow — request → poster accepts → chat unlocks.
+  async connectLookingFor(postId) {
+    try {
+      const json = await this.request(`/looking-for/${postId}/connect`, { method: 'POST', body: {} });
+      return { success: true, data: json.connection };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getLookingForConnections() {
+    try {
+      const json = await this.request('/looking-for/connections');
+      return { success: true, data: json.connections || [] };
+    } catch (error) {
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  async respondLookingForConnection(connectionId, action) {
+    try {
+      const json = await this.request(`/looking-for/connections/${connectionId}`, { method: 'PUT', body: { action } });
+      return { success: true, data: json.connection };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Coaching
   async getCoaches(filters = {}) {
     try {

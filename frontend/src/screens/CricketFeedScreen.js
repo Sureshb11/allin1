@@ -22,9 +22,7 @@ import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo from '../components/BrandLogo';
 
-const { width: SW } = Dimensions.get('window');
-// Netflix-style snap carousel: card is most of the width, leaving a peek of the
-// next one; snapToInterval = card + gap so each swipe lands one card.
+const SW = Dimensions.get('window').width;
 const CARD_GAP = 12;
 const MATCH_CARD_W = Math.round(SW - 56);
 
@@ -79,7 +77,7 @@ function FeedSkeleton({ DS }) {
   return (
     <View style={{ paddingHorizontal: 14, paddingTop: 16, gap: 20 }}>
       {[0, 1, 2].map((i) => (
-        <View key={i} style={{ backgroundColor: DS.surfaceLow, borderRadius: 16, padding: 14, gap: 10 }}>
+        <View key={i} style={{ backgroundColor: DS.surface, borderRadius: 16, padding: 14, gap: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Animated.View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: DS.surfaceHigh, opacity }} />
             <View style={{ flex: 1, gap: 6 }}>
@@ -110,8 +108,21 @@ function Avatar({ initial, color, size = 40, ring = false, uri = null }) {const 
     <View style={[base, { backgroundColor: color, alignItems: 'center', justifyContent: 'center' }, ringStyle]}>
       <Text style={{ color: DS.white, fontWeight: '800', fontSize: size * 0.4 }}>{initial}</Text>
     </View>);
-
 }
+
+const LiveDot = () => {
+  const { colors: DS } = useTheme();
+  const anim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 800, useNativeDriver: true })
+      ])
+    ).start();
+  }, [anim]);
+  return <Animated.View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: DS.live, opacity: anim }} />;
+};
 
 // Full match card for the "From Your Circle" snap carousel — mirrors the design:
 // LIVE (score, overs/RR, radium progress bar, LIVE SCORECARD) · FINAL (result
@@ -127,7 +138,7 @@ function CircleMatchCard({ match, onPress }) {
   const batting = pa.overs != null ? pa : pb.overs != null ? pb : null;
   const rr = batting && batting.overs > 0 ? (batting.runs / batting.overs) : null;
   const progress = batting && match.overs ? Math.min(batting.overs / match.overs, 1) : 0;
-  const league = (match.matchType || 'Match').toUpperCase() + (match.matchType ? ' LEAGUE' : '');
+  const league = (match.matchType || 'T20').toUpperCase() + ' LEAGUE';
 
   const Team = ({ t, muted }) => (
     <View style={c.team}>
@@ -139,60 +150,67 @@ function CircleMatchCard({ match, onPress }) {
     </View>
   );
 
-  return (
-    <TouchableOpacity activeOpacity={0.9} style={[c.card, live && c.cardLive]} onPress={onPress}>
-      {/* header row */}
-      <View style={c.head}>
-        {live ? (
-          <View style={c.liveRow}>
-            <View style={c.liveDot} />
-            <Text style={c.liveTxt}>LIVE NOW</Text>
+  const content = (
+    <TouchableOpacity activeOpacity={0.9} style={[c.card, (live || match.status === 'break') && c.cardLive, { minHeight: 290, justifyContent: 'space-between' }]} onPress={onPress}>
+      <View>
+        {/* header row */}
+        <View style={c.head}>
+          {live || match.status === 'break' ? (
+            <View style={c.liveRow}>
+              <LiveDot />
+              <Text style={c.liveTxt}>{match.status === 'break' ? 'INNINGS BREAK' : 'LIVE NOW'}</Text>
+            </View>
+          ) : (
+            <Text style={c.statusTxt}>{completed ? 'FINAL RESULT' : 'UPCOMING'}</Text>
+          )}
+          <View style={[c.leaguePill, c.leaguePillLive]}>
+            <Text style={[c.leaguePillTxt, c.leaguePillTxtLive]}>{league}</Text>
           </View>
+        </View>
+
+        {/* teams */}
+        <View style={c.teamsRow}>
+          <Team t={match.a} muted={!pa.runs && !live} />
+          {live ? <View style={c.teamDivider} /> : <Text style={c.vs}>VS</Text>}
+          <Team t={match.b} muted={!pb.runs} />
+        </View>
+      </View>
+
+      <View style={{ justifyContent: 'flex-end' }}>
+
+        {live || match.status === 'break' ? (
+          <>
+            <View style={c.metaRow}>
+              <Text style={c.metaMuted}>Overs: {batting?.overs != null ? batting.overs.toFixed(1) : '—'}</Text>
+              {rr != null && <Text style={[c.metaRR, { color: isDark ? DS.lime : '#5a7302' }]}>RR: {rr.toFixed(1)}</Text>}
+            </View>
+            <View style={c.track}>
+              <View style={[c.fill, { width: `${Math.max(progress * 100, 4)}%` }]} />
+            </View>
+            <View style={c.primaryBtn}>
+              <Icon name="chart-box" size={16} color={DS.onBlue} />
+              <Text style={c.primaryBtnTxt}>{match.isScorer ? 'RESUME' : 'LIVE SCORECARD'}</Text>
+            </View>
+          </>
+        ) : completed ? (
+          <>
+            <View style={c.resultBanner}>
+              <Text style={c.resultBannerTxt} numberOfLines={1} adjustsFontSizeToFit>{match.result}</Text>
+            </View>
+            <View style={c.primaryBtn}>
+              <Text style={c.primaryBtnTxt}>VIEW SUMMARY</Text>
+            </View>
+          </>
         ) : (
-          <Text style={c.statusTxt}>{completed ? 'FINAL RESULT' : 'UPCOMING'}</Text>
-        )}
-        <View style={[c.leaguePill, live && c.leaguePillLive]}>
-          <Text style={[c.leaguePillTxt, live && c.leaguePillTxtLive]}>{live ? league : (match.matchType || (completed ? 'CLUB MATCH' : match.when || 'MATCH'))}</Text>
-        </View>
-      </View>
-
-      {/* teams */}
-      <View style={c.teamsRow}>
-        <Team t={match.a} muted={!pa.runs && !live} />
-        {live ? <View style={c.teamDivider} /> : <Text style={c.vs}>VS</Text>}
-        <Team t={match.b} muted={!pb.runs} />
-      </View>
-
-      {live ? (
-        <>
-          <View style={c.metaRow}>
-            <Text style={c.metaMuted}>Overs: {batting?.overs != null ? batting.overs.toFixed(1) : '—'}</Text>
-            {rr != null && <Text style={[c.metaRR, { color: isDark ? DS.lime : '#5a7302' }]}>RR: {rr.toFixed(1)}</Text>}
-          </View>
-          <View style={c.track}>
-            <View style={[c.fill, { width: `${Math.max(progress * 100, 4)}%` }]} />
-          </View>
           <View style={c.primaryBtn}>
-            <Icon name="chart-box" size={18} color={DS.onBlue} />
-            <Text style={c.primaryBtnTxt}>LIVE SCORECARD</Text>
+            <Text style={c.primaryBtnTxt}>{match.isScorer ? 'START MATCH' : 'NOTIFY ME'}</Text>
           </View>
-        </>
-      ) : completed ? (
-        <>
-          <View style={c.resultBanner}>
-            <Text style={c.resultBannerTxt} numberOfLines={2}>{match.result}</Text>
-          </View>
-          <View style={c.outlineBtn}>
-            <Text style={c.outlineBtnTxt}>VIEW SUMMARY</Text>
-          </View>
-        </>
-      ) : (
-        <View style={c.outlineBtn}>
-          <Text style={c.outlineBtnTxt}>{match.isScorer ? 'START MATCH' : 'VIEW MATCH'}</Text>
-        </View>
-      )}
+        )}
+      </View>
     </TouchableOpacity>
   );
+
+  return content;
 }
 
 // Highlight card — renders an ActivityFeed item (milestone or match result)
@@ -519,6 +537,8 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   const [composeImage, setComposeImage] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [posting, setPosting] = useState(false);
+  const scrollX = useRef(new Animated.Value(0)).current;
+
   const mapPost = useCallback((po) => ({
     id: po.id,
     author: {
@@ -564,7 +584,13 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     legendsApi.getPosts({ sport: 'cricket' }),
     legendsApi.getFeed({ sport: 'cricket', limit: 12 }),
   ]).then(([mr, pr, fr]) => {
-    setMatches((mr?.data || []).map(mapMatch));
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const recentMatches = (mr?.data || []).filter(m => {
+      if (!m.date && !m.createdAt) return true;
+      return new Date(m.date || m.createdAt) >= oneWeekAgo;
+    });
+    setMatches(recentMatches.map(mapMatch));
     setActivity(fr?.data || []);
     // Merge, not replace: refresh like/comment counts + surface new posts, but
     // keep already-loaded comment threads and the optimistic like highlight —
@@ -719,18 +745,70 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
         </TouchableOpacity>
       </View>
       <Text style={s.sectionSub}>Teams you’ve played for · friends’ recent matches</Text>
-      <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      snapToInterval={MATCH_CARD_W + CARD_GAP}
-      snapToAlignment="start"
-      decelerationRate="fast"
-      contentContainerStyle={s.railContent}>
-
-        {matches.length > 0
-        ? matches.map((mt) => <CircleMatchCard key={mt.id} match={mt} onPress={() => openCircleMatch(mt)} />)
-        : <View style={s.railEmpty}><Text style={s.railEmptyTxt}>No recent matches yet</Text></View>}
-      </ScrollView>
+      <Animated.FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={matches}
+        keyExtractor={item => item.id}
+        snapToInterval={MATCH_CARD_W}
+        decelerationRate="fast"
+        bounces={false}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ paddingHorizontal: (SW - MATCH_CARD_W) / 2, paddingVertical: 14 }}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: true }
+        )}
+        ListEmptyComponent={<View style={s.railEmpty}><Text style={s.railEmptyTxt}>No recent matches yet</Text></View>}
+        renderItem={({ item, index }) => {
+          const inputRange = [
+            (index - 1) * MATCH_CARD_W,
+            index * MATCH_CARD_W,
+            (index + 1) * MATCH_CARD_W,
+          ];
+          const scale = scrollX.interpolate({
+            inputRange,
+            outputRange: [0.75, 1, 0.75],
+            extrapolate: 'clamp',
+          });
+          const opacity = scrollX.interpolate({
+            inputRange,
+            outputRange: [0.5, 1, 0.5],
+            extrapolate: 'clamp',
+          });
+          const rotateY = scrollX.interpolate({
+            inputRange,
+            outputRange: ['60deg', '0deg', '-60deg'],
+            extrapolate: 'clamp',
+          });
+          const translateX = scrollX.interpolate({
+            inputRange,
+            outputRange: [-55, 0, 55],
+            extrapolate: 'clamp',
+          });
+          const zIndex = scrollX.interpolate({
+            inputRange,
+            outputRange: [0, 100, 0],
+            extrapolate: 'clamp',
+          });
+          return (
+            <Animated.View style={{ 
+              width: MATCH_CARD_W, 
+              opacity,
+              zIndex,
+              elevation: zIndex,
+              transform: [
+                { perspective: 800 },
+                { translateX },
+                { scale },
+                { rotateY }
+              ] 
+            }}>
+              <CircleMatchCard match={item} onPress={() => openCircleMatch(item)} />
+            </Animated.View>
+          );
+        }}
+      />
 
       {/* Highlights rail — milestone + match-result cards from the activity feed */}
       {activity.length > 0 && (
@@ -867,7 +945,7 @@ const makeS = (DS) => StyleSheet.create({
 
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 52, paddingBottom: 10, paddingHorizontal: 16,
+    paddingTop: 16, paddingBottom: 10, paddingHorizontal: 16,
     borderBottomWidth: 1, borderBottomColor: DS.line
   },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -921,7 +999,7 @@ const makeS = (DS) => StyleSheet.create({
   composeCancel: { color: DS.textMuted, fontSize: 15, fontWeight: '600' },
   composePost: { color: DS.blueSoft, fontSize: 15, fontWeight: '800' },
   composePostOff: { opacity: 0.4 },
-  composeInput: { color: DS.textPrimary, fontSize: 16, lineHeight: 22, minHeight: 120, maxHeight: 240, textAlignVertical: 'top', backgroundColor: DS.surfaceLow, borderRadius: 14, borderWidth: 1, borderColor: DS.line, padding: 14 },
+  composeInput: { color: DS.textPrimary, fontSize: 16, lineHeight: 22, minHeight: 120, maxHeight: 240, textAlignVertical: 'top', backgroundColor: DS.surface, borderRadius: 14, borderWidth: 1, borderColor: DS.line, padding: 14 },
   composeCount: { color: DS.textMuted, fontSize: 12 },
   composeToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
   composePhotoBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
@@ -932,7 +1010,7 @@ const makeS = (DS) => StyleSheet.create({
 });
 
 const makeH = (DS) => StyleSheet.create({
-  card: { width: 190, backgroundColor: DS.surfaceLow, borderRadius: 18, padding: 14, gap: 6 },
+  card: { width: 190, backgroundColor: DS.surface, borderRadius: 18, padding: 14, gap: 6 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   badgeTxt: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   title: { color: DS.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 2 },
@@ -942,7 +1020,7 @@ const makeH = (DS) => StyleSheet.create({
   likeTxt: { color: DS.textMuted, fontSize: 12, fontWeight: '700' },
 });
 
-const makeC = (DS) => StyleSheet.create({
+const makeC = (DS, TYPO) => StyleSheet.create({
   card: {
     width: MATCH_CARD_W, backgroundColor: DS.surface, borderRadius: 16, padding: 18,
     borderWidth: 1, borderColor: DS.line,
@@ -950,38 +1028,36 @@ const makeC = (DS) => StyleSheet.create({
   },
   cardLive: { borderWidth: 1.5, borderColor: DS.blueDeep + (DS.mode === 'dark' ? '55' : '33') },
 
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: DS.live },
-  liveTxt: { color: DS.live, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  statusTxt: { color: DS.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  liveTxt: { fontFamily: TYPO.label.fontFamily, color: DS.live, fontSize: 12, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase' },
+  statusTxt: { fontFamily: TYPO.label.fontFamily, color: DS.textMuted, fontSize: 12, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase' },
   leaguePill: { backgroundColor: DS.surfaceHigh, borderRadius: 5, paddingHorizontal: 8, paddingVertical: 3 },
   leaguePillLive: { backgroundColor: DS.blueDeep },
-  leaguePillTxt: { color: DS.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 0.2 },
+  leaguePillTxt: { fontFamily: TYPO.label.fontFamily, color: DS.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: -0.5, textTransform: 'uppercase' },
   leaguePillTxtLive: { color: DS.onBlue },
 
-  teamsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
+  teamsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   team: { flex: 1, alignItems: 'center', gap: 8 },
-  teamAvatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 },
-  teamAvatarTxt: { color: '#ffffff', fontSize: 18, fontWeight: '900' },
-  teamName: { color: DS.textPrimary, fontSize: 12, fontWeight: '700', textAlign: 'center', lineHeight: 15 },
-  teamScore: { color: DS.textPrimary, fontSize: 20, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  teamAvatar: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 },
+  teamAvatarTxt: { fontFamily: TYPO.headline.fontFamily, color: '#ffffff', fontSize: 20, fontWeight: '900' },
+  teamName: { fontFamily: TYPO.label.fontFamily, color: DS.textPrimary, fontSize: 14, fontWeight: '700', textAlign: 'center', lineHeight: 17 },
+  teamScore: { fontFamily: TYPO.headline.fontFamily, color: DS.textPrimary, fontSize: 20, fontWeight: '900', fontVariant: ['tabular-nums'] },
   teamScoreMuted: { color: DS.textMuted },
-  teamDivider: { width: 1, height: 64, backgroundColor: DS.line, marginHorizontal: 4 },
-  vs: { color: DS.textMuted, fontSize: 12, fontWeight: '900', marginHorizontal: 4 },
+  teamDivider: { width: 1, height: 56, backgroundColor: DS.line, marginHorizontal: 4 },
+  vs: { fontFamily: TYPO.headline.fontFamily, color: DS.textMuted, fontSize: 16, fontWeight: '700', marginHorizontal: 4 },
 
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  metaMuted: { color: DS.textMuted, fontSize: 12, fontWeight: '700' },
-  metaRR: { fontSize: 12, fontWeight: '800' },
-  track: { height: 6, backgroundColor: DS.surfaceHigh, borderRadius: 3, overflow: 'hidden', marginBottom: 18 },
+  metaMuted: { fontFamily: TYPO.label.fontFamily, color: DS.textMuted, fontSize: 12, fontWeight: '700' },
+  metaRR: { fontFamily: TYPO.label.fontFamily, fontSize: 12, fontWeight: '700' },
+  track: { height: 6, backgroundColor: DS.surfaceHigh, borderRadius: 3, overflow: 'hidden', marginBottom: 16 },
   fill: { height: 6, backgroundColor: DS.lime, borderRadius: 3, shadowColor: DS.lime, shadowOpacity: 0.6, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
 
-  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.blueDeep, height: 48, borderRadius: 10, shadowColor: DS.blueDeep, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  primaryBtnTxt: { color: DS.onBlue, fontSize: 14, fontWeight: '800', letterSpacing: 0.8 },
-  resultBanner: { backgroundColor: DS.lime + '26', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', marginBottom: 16 },
-  resultBannerTxt: { color: DS.textPrimary, fontSize: 13, fontWeight: '800', textAlign: 'center' },
-  outlineBtn: { height: 48, borderRadius: 10, borderWidth: 1.5, borderColor: DS.faint, alignItems: 'center', justifyContent: 'center' },
-  outlineBtnTxt: { color: DS.textPrimary, fontSize: 14, fontWeight: '800', letterSpacing: 0.5 },
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: DS.blueDeep, height: 44, borderRadius: 10, shadowColor: DS.blueDeep, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  primaryBtnTxt: { fontFamily: TYPO.label.fontFamily, color: DS.onBlue, fontSize: 14, fontWeight: '700', letterSpacing: 0.8 },
+  resultBanner: { backgroundColor: DS.surfaceHighest, borderWidth: 1, borderColor: DS.lime + '44', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 10, alignItems: 'center', marginBottom: 14 },
+  resultBannerTxt: { fontFamily: TYPO.label.fontFamily, color: DS.lime, fontSize: 13, fontWeight: '800', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 },
 });
 
 const makeM = (DS) => StyleSheet.create({
@@ -1008,7 +1084,7 @@ const makeM = (DS) => StyleSheet.create({
 });
 
 const makeP = (DS) => StyleSheet.create({
-  card: { backgroundColor: DS.surfaceLow, marginTop: 8, paddingBottom: 14, borderRadius: 0 },
+  card: { backgroundColor: DS.surface, marginTop: 8, paddingBottom: 14, borderRadius: 0 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 11 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   name: { color: DS.textPrimary, fontSize: 14, fontWeight: '800' },
@@ -1027,7 +1103,7 @@ const makeP = (DS) => StyleSheet.create({
 
 const makeCm = (DS) => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: DS.overlay },
-  sheet: { backgroundColor: DS.surfaceLow, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
+  sheet: { backgroundColor: DS.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
   grab: { width: 40, height: 4, borderRadius: 2, backgroundColor: DS.surfaceHighest, alignSelf: 'center', marginBottom: 10 },
   title: { color: DS.textPrimary, fontSize: 16, fontWeight: '800', textAlign: 'center', marginBottom: 10 },
   empty: { color: DS.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 24 },

@@ -9,6 +9,7 @@ import legendsApi from '../services/LegendsApi';
 /* ── Design System ── */
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import BrandLogo from "../components/BrandLogo";
+import PressableScale from '../components/PressableScale';
 
 const FILTERS = ['All', 'Open', 'Ongoing', 'Completed'];
 
@@ -58,9 +59,9 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
   const isGold = item.status === 'Ongoing' || item.status === 'Active';
 
   return (
-    <TouchableOpacity 
-      style={[styles.card, isGold && { borderColor: '#fbbf24', borderWidth: 1, shadowColor: '#fbbf24', shadowOpacity: 0.15, shadowRadius: 10, elevation: 4 }]} 
-      onPress={onPress} activeOpacity={0.85}>
+    <PressableScale
+      style={[styles.card, isGold && { borderColor: DS.lime, borderWidth: 2, shadowColor: DS.lime, shadowOpacity: 0.15, shadowRadius: 10, elevation: 4 }]}
+      onPress={onPress}>
       {/* Header row */}
       <View style={styles.cardHeader}>
         <View style={{ flex: 1 }}>
@@ -134,7 +135,7 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
           </>
         )}
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 
@@ -235,7 +236,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
 
             {/* Search */}
             <View style={styles.searchWrap}>
-              <Icon name="magnify" size={22} color={DS.lime} />
+              <Icon name="magnify" size={22} color={DS.textMuted} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Find a tournament..."
@@ -312,12 +313,14 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16,
   },
   ctaCard: {
-    backgroundColor: DS.surfaceHigh,
+    backgroundColor: DS.surface,
     borderRadius: 16,
     marginBottom: 24,
     marginHorizontal: 20,
     overflow: 'hidden',
-    flexDirection: 'row'
+    flexDirection: 'row',
+    borderWidth: 1, borderColor: DS.faint,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
   ctaAccent: {
     width: 4,
@@ -376,10 +379,10 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   createBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: DS.lime, borderRadius: 8,
-    paddingHorizontal: 14, paddingVertical: 10,
+    backgroundColor: DS.blueDeep, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 11,
   },
-  createBtnText: { fontSize: 12, fontWeight: '900', color: DS.onLime, letterSpacing: 0.5 },
+  createBtnText: { fontSize: 12, fontWeight: '900', color: DS.white, letterSpacing: 0.5 },
 
   /* Stats row */
   statsRow: {
@@ -395,9 +398,9 @@ const makeStyles = (DS) => StyleSheet.create({
   /* Search */
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)', marginHorizontal: 20, borderRadius: 16,
+    backgroundColor: DS.surface, marginHorizontal: 20, borderRadius: 12,
     paddingHorizontal: 16, paddingVertical: 14, marginBottom: 16,
-    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1, borderColor: DS.faint,
   },
   searchInput: { flex: 1, fontSize: 15, fontWeight: '500', color: DS.textPrimary },
 
@@ -420,8 +423,9 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Card */
   card: {
-    backgroundColor: DS.surfaceHigh, borderRadius: 14, overflow: 'hidden',
-    borderWidth: 1, borderColor: 'transparent',
+    backgroundColor: DS.surface, borderRadius: 16, overflow: 'hidden',
+    borderWidth: 1, borderColor: DS.faint,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
@@ -468,15 +472,16 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   slotsLeft: { fontSize: 12, color: DS.textMuted, fontWeight: '600', flex: 1 },
   joinBtn: {
-    backgroundColor: DS.lime, borderRadius: 8,
-    paddingHorizontal: 20, paddingVertical: 9,
+    backgroundColor: DS.blueDeep, borderRadius: 10,
+    paddingHorizontal: 20, paddingVertical: 12,
   },
-  joinBtnText: { fontSize: 13, fontWeight: '900', color: DS.onLime },
+  joinBtnText: { fontSize: 13, fontWeight: '900', color: DS.white },
   chipBtn: {
-    backgroundColor: DS.surfaceHighest, borderRadius: 8,
+    backgroundColor: 'transparent', borderRadius: 8,
+    borderWidth: 1.5, borderColor: DS.textPrimary,
     paddingHorizontal: 14, paddingVertical: 8,
   },
-  chipBtnText: { fontSize: 11, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.5 },
+  chipBtnText: { fontSize: 11, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.5 },
 
   /* Empty */
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },

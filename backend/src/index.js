@@ -35,6 +35,9 @@ import galleryRoutes from './routes/gallery.js';
 import pincodeRoutes from './routes/pincodes.js';
 
 const app = express();
+// Live-scoring API: never serve 304s — RN's fetch surfaces the empty 304 body
+// as "no data", blanking lists that actually have content.
+app.set('etag', false);
 
 app.use(cors());
 app.use(helmet());

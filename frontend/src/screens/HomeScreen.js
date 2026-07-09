@@ -231,7 +231,7 @@ export default function HomeScreen({ navigation }) {
               style={[styles.navTab, activeNavTab === i && styles.navTabActive]}
               onPress={() => handleNavTab(i)}
             >
-              <Icon name={tab.icon} size={18} color={activeNavTab === i ? DS.lime : DS.textMuted} />
+              <Icon name={tab.icon} size={18} color={activeNavTab === i ? DS.lime : DS.textVariant} />
               <Text style={[styles.navTabText, activeNavTab === i && styles.navTabTextActive]}>{tab.label}</Text>
             </TouchableOpacity>
           ))}
@@ -252,7 +252,7 @@ export default function HomeScreen({ navigation }) {
               <View>
                 {/* Start Match CTA */}
                 <AnimatedPulse>
-                  <View style={{ alignItems: 'center' }}>
+                  <View style={{ alignItems: 'stretch' }}>
                     <TouchableOpacity
                       style={styles.startMatchCTA}
                       onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
@@ -260,7 +260,7 @@ export default function HomeScreen({ navigation }) {
                     >
                       <View style={styles.startMatchLeft}>
                         <View style={styles.startMatchIconBox}>
-                          <Icon name={currentSport.icon} size={26} color={DS.blueDeep} />
+                          <Icon name={currentSport.icon} size={26} color={DS.white} />
                         </View>
                         <View>
                           <Text style={styles.startMatchTitle}>
@@ -294,7 +294,7 @@ export default function HomeScreen({ navigation }) {
                   )}
                 </View>
 
-                {/* Filter tabs */}
+                {/* Filter tabs + count on one line (reclaims a full row) */}
                 <View style={styles.filtersRow}>
                   {FILTERS.map(f => {
                     const active = status === f;
@@ -310,10 +310,6 @@ export default function HomeScreen({ navigation }) {
                       </TouchableOpacity>
                     );
                   })}
-                </View>
-
-                {/* Match count */}
-                <View style={styles.countRow}>
                   <Text style={styles.countText}>{filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''}</Text>
                 </View>
               </View>
@@ -337,7 +333,7 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.emptyTitle}>No matches yet</Text>
                 <Text style={styles.emptySub}>Start scoring your first match</Text>
                 <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('StartMatch')} activeOpacity={0.9}>
-                  <Icon name="play-circle" size={18} color={DS.bg} />
+                  <Icon name="play-circle" size={18} color={DS.white} />
                   <Text style={styles.emptyBtnText}>Start a Match</Text>
                 </TouchableOpacity>
               </View>
@@ -477,7 +473,7 @@ function LiveMatchCard({ match, sport, navigation, onShare }) {
 }
 
 const makeLcStyles = (DS) => StyleSheet.create({
-  card: { backgroundColor: DS.surfaceHigh, borderRadius: 20, marginBottom: 16 },
+  card: { backgroundColor: DS.surface, borderRadius: 20, marginBottom: 16 },
   cardHeader: { paddingHorizontal: 18, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: DS.surfaceHighest, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   livePill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: DS.live, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 2 },
@@ -536,7 +532,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
     shadowColor: DS.lime, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4,
     borderWidth: 1, borderColor: 'rgba(171,214,0,0.3)',
   },
-  navTabText: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
+  navTabText: { fontSize: 10, fontWeight: '700', color: DS.textVariant, letterSpacing: 0.5 },
   navTabTextActive: { color: DS.lime },
 
   // Feed
@@ -545,7 +541,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
 
   // Start Match CTA
   // My Cricket summary card
-  mcCard: { backgroundColor: DS.surfaceHigh, borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: DS.lime + '2E' },
+  mcCard: { backgroundColor: DS.surface, borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: DS.lime + '2E' },
   mcHeadRow: { flexDirection: 'row', alignItems: 'center' },
   mcAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
   mcAvatarTxt: { color: DS.bg, fontSize: 17, fontWeight: '900' },
@@ -561,13 +557,13 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   mcSportChipTxt: { color: DS.textVariant, fontSize: 12, fontWeight: '700' },
   mcSportChipTxtPrimary: { color: DS.bg },
   mcStat: { flex: 1, alignItems: 'center' },
-  mcStatVal: { color: DS.lime, fontSize: 18, fontWeight: '900' },
+  mcStatVal: { color: DS.lime, fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
   mcStatLbl: { color: DS.textMuted, fontSize: 10.5, fontWeight: '600', marginTop: 2, letterSpacing: 0.3 },
 
-  startMatchCTA: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, borderRadius: 20, paddingVertical: 14, paddingHorizontal: 24, marginBottom: 20, backgroundColor: DS.blueDeep, elevation: 10, shadowColor: DS.blueDeep, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, borderWidth: 1, borderColor: DS.border },
+  startMatchCTA: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 16, backgroundColor: DS.blueDeep, elevation: 8, shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
   startMatchLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  startMatchIconBox: { width: 48, height: 48, borderRadius: 24, backgroundColor: DS.white, alignItems: 'center', justifyContent: 'center', elevation: 3, shadowColor: DS.textPrimary, shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 3 } },
-  startMatchTitle: { fontSize: 17, fontWeight: '800', color: DS.onBlue, textTransform: 'uppercase', letterSpacing: 0.5 },
+  startMatchIconBox: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  startMatchTitle: { fontSize: 20, fontWeight: '800', color: DS.onBlue, textTransform: 'uppercase', letterSpacing: 0.5 },
   startMatchSub: { fontSize: 12, fontWeight: '600', color: DS.onBlue, marginTop: 2, letterSpacing: 0.3, opacity: 0.8 },
   startMatchRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   startMatchGo: { fontSize: 14, fontWeight: '800', color: DS.onBlue, letterSpacing: 1 },
@@ -575,30 +571,28 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   // Filters and Search
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: DS.surfaceHighest, marginBottom: 8,
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12,
-    borderWidth: 1, borderColor: DS.border,
+    backgroundColor: DS.surfaceHigh, marginBottom: 8,
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
   },
   searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary },
   filtersRow: {
-    flexDirection: 'row', gap: 6, paddingTop: 14, paddingBottom: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 14, paddingBottom: 10,
   },
   filterTab: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
     backgroundColor: 'transparent',
   },
   filterTabActive: {
     backgroundColor: DS.lime,
   },
   filterTabText: {
-    fontSize: 12, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8,
+    fontSize: 11, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.5,
   },
   filterTabTextActive: { color: DS.bg },
-  countRow: { paddingBottom: 16 },
-  countText: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
+  countText: { fontSize: 11, color: DS.textMuted, fontWeight: '600', marginLeft: 'auto', flexShrink: 0 },
 
   // Live matches rail
-  liveCard: { width: 210, backgroundColor: DS.surfaceLow, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: DS.surfaceHigh },
+  liveCard: { width: 210, backgroundColor: DS.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: DS.surfaceHigh },
   liveCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   liveCardTag: { fontSize: 9, fontWeight: '800', letterSpacing: 0.6, color: DS.lime },
   liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -616,23 +610,23 @@ const makeStyles = (DS, typography) => StyleSheet.create({
 
   // Sport Features grid
   featuresGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
-  featureCard: { width: (width - 48 - 10) / 2, backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 14, gap: 6 },
+  featureCard: { width: (width - 48 - 10) / 2, backgroundColor: DS.surface, borderRadius: 16, padding: 14, gap: 6 },
   featureIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.surfaceHighest },
   featureLabel: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
   featureDesc: { fontSize: 12, color: DS.textMuted, lineHeight: 16 },
 
   // Empty / loading states
-  loadingCard: { backgroundColor: DS.surfaceHigh, borderRadius: 20, padding: 40, alignItems: 'center', gap: 8, marginBottom: 16 },
+  loadingCard: { backgroundColor: DS.surface, borderRadius: 20, padding: 40, alignItems: 'center', gap: 8, marginBottom: 16 },
   loadingText: { fontSize: 14, fontWeight: '600', color: DS.textMuted },
-  emptyCard: { backgroundColor: DS.surfaceHigh, borderRadius: 20, padding: 40, alignItems: 'center', gap: 8, marginBottom: 16 },
+  emptyCard: { backgroundColor: DS.surface, borderRadius: 20, padding: 40, alignItems: 'center', gap: 8, marginBottom: 16 },
   emptyIconBox: { width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 4, backgroundColor: DS.surfaceHighest },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: DS.textVariant },
   emptySub: { fontSize: 13, color: DS.textMuted, textAlign: 'center' },
-  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 999, paddingHorizontal: 24, paddingVertical: 10, marginTop: 6, backgroundColor: DS.lime },
-  emptyBtnText: { fontSize: 14, fontWeight: '800', color: DS.onLime },
+  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 999, paddingHorizontal: 24, paddingVertical: 13, marginTop: 6, backgroundColor: DS.blueDeep },
+  emptyBtnText: { fontSize: 14, fontWeight: '800', color: DS.white },
 
   // Leaderboard
-  leaderCard: { backgroundColor: DS.surfaceHigh, borderRadius: 20, marginBottom: 20 },
+  leaderCard: { backgroundColor: DS.surface, borderRadius: 20, marginBottom: 20 },
   leaderRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 13, gap: 10 },
   leaderRowDivider: { backgroundColor: DS.surfaceHigh },
   leaderRank: { width: 28, height: 28, borderRadius: 8, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
@@ -645,7 +639,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   leaderRole: { fontSize: 12, fontWeight: '700', marginLeft: 4, color: DS.lime },
 
   // Guest scorer card
-  guestCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  guestCard: { backgroundColor: DS.surface, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   guestLeft: { flex: 1, gap: 4 },
   guestIconRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   guestTitle: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
@@ -656,7 +650,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
 
   // MORE sheet
   sheetOverlay: { flex: 1, backgroundColor: DS.overlay },
-  sheet: { backgroundColor: DS.surfaceLow, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, paddingBottom: 36 },
+  sheet: { backgroundColor: DS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, paddingBottom: 36 },
   sheetHandle: { width: 40, height: 4, backgroundColor: DS.surfaceHighest, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontSize: 18, fontWeight: '700', color: DS.textPrimary, marginBottom: 16 },
   moreGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },

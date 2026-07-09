@@ -4,6 +4,7 @@ import {
   ActivityIndicator, Modal, Alert, TextInput
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import HexAvatar from '../components/HexAvatar';
 import legendsApi from '../services/LegendsApi';
 import { getSport } from '../sports';
 
@@ -11,9 +12,23 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const TABS = ['Overview', 'Points Table', 'Schedule', 'Leaders'];
 
+const AVATAR_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#e91e63'];
+const avatarColor = (name) => {
+  let hash = 0;
+  for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+const captainOf = (team) => team?.captain?.name || team?.captainName || (team?.players && team.players[0]?.name) || 'TBD';
+const initials2 = (name) => {
+  const w = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (w.length === 0) return 'T';
+  if (w.length === 1) return w[0].slice(0, 2).toUpperCase();
+  return (w[0][0] + w[w.length - 1][0]).toUpperCase();
+};
+
 const makeStatusColors = (DS) => ({
-  upcoming: { bg: DS.surfaceHighest, text: DS.coral },
-  ongoing: { bg: '#1a2e1a', text: '#6ee76e' },
+  upcoming: { bg: DS.lime + '22', text: DS.lime },
+  ongoing: { bg: DS.lime + '22', text: DS.lime },
   completed: { bg: DS.surfaceHigh, text: DS.textMuted },
 });
 
@@ -21,11 +36,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const DS = useTheme().colors;
 
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Tournament',
-    });
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
   const styles = useThemedStyles(makeStyles);
   const STATUS_COLORS = makeStatusColors(DS);
@@ -293,7 +304,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
           { icon: 'currency-inr', label: 'Prize Pool', value: tournament.prizePool || 'TBD' },
         ].map(({ icon, label, value }) => (
           <View key={label} style={styles.infoCard}>
-            <Icon name={icon} size={20} color={DS.lime} />
+            <Icon name={icon} size={20} color={DS.blue} />
             <Text style={styles.infoLabel}>{label}</Text>
             <Text style={styles.infoValue}>{value || '—'}</Text>
           </View>
@@ -321,19 +332,27 @@ export default function TournamentDetailScreen({ route, navigation }) {
       {((tournament.teams || []).length > 0 || ['upcoming', 'ongoing'].includes(tournament.status)) && (
         <View style={styles.section}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Registered Teams</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Registered Teams</Text>
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{(tournament.teams || []).length}</Text>
+              </View>
+            </View>
             {['upcoming', 'ongoing'].includes(tournament.status) && (
               <TouchableOpacity style={styles.addBtn} onPress={() => setShowTeamPicker(true)}>
                 <Text style={styles.addBtnText}>+ Add Team</Text>
               </TouchableOpacity>
             )}
           </View>
-          {(tournament.teams || []).map(({ team, group }) => (
+          {(tournament.teams || []).slice(0, 5).map(({ team, group }) => (
             <View key={team.id} style={styles.teamRow}>
-              <View style={styles.teamAvatar}>
+              <HexAvatar size={38} color={avatarColor(team.name)}>
                 <Text style={styles.teamAvatarText}>{team.name?.charAt(0).toUpperCase()}</Text>
+              </HexAvatar>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.teamName}>{team.name}</Text>
+                <Text style={styles.teamCaptain}>Captain: {captainOf(team)}</Text>
               </View>
-              <Text style={styles.teamName}>{team.name}</Text>
               <View style={styles.groupBadge}>
                 <Text style={styles.groupText}>Grp {group}</Text>
               </View>
@@ -344,8 +363,43 @@ export default function TournamentDetailScreen({ route, navigation }) {
               )}
             </View>
           ))}
+          {(tournament.teams || []).length > 0 && (
+            <TouchableOpacity onPress={() => setShowTeamPicker(true)} style={{ paddingTop: 14, alignItems: 'center' }}>
+              <Text style={styles.viewAllText}>View All Registered Teams</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
+
+      {/* Tournament Media */}
+      <View style={styles.mediaCard}>
+        <View style={styles.mediaThumb}>
+          <Icon name="image-multiple" size={26} color={DS.white} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.mediaTitle}>Tournament Media</Text>
+          <Text style={styles.mediaSub}>Access photos, videos and highlights from previous years.</Text>
+          <View style={styles.mediaLinkRow}>
+            <Text style={styles.mediaLink}>Open Gallery</Text>
+            <Icon name="chevron-right" size={16} color={DS.blue} />
+          </View>
+        </View>
+      </View>
+
+      {/* Rules & Regulations */}
+      <View style={styles.mediaCard}>
+        <View style={[styles.mediaThumb, { backgroundColor: DS.blueDeep }]}>
+          <Icon name="file-document-outline" size={26} color={DS.white} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.mediaTitle}>Rules &amp; Regulations</Text>
+          <Text style={styles.mediaSub}>Read the official {tournament.format || 'T20'} rulebook for this tournament.</Text>
+          <View style={styles.mediaLinkRow}>
+            <Text style={styles.mediaLink}>Download PDF</Text>
+            <Icon name="download" size={15} color={DS.blue} />
+          </View>
+        </View>
+      </View>
     </ScrollView>
   );
 
@@ -374,7 +428,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
       return m.winnerTeamId === teamId ? 'W' : 'L';
     });
   };
-  const FORM_C = { W: DS.lime, L: DS.coral, T: DS.textMuted };
+  const FORM_C = { W: DS.success, L: DS.coral, T: DS.textMuted };
 
   const renderPointsTable = () => {
     const groups = {};
@@ -460,7 +514,8 @@ export default function TournamentDetailScreen({ route, navigation }) {
   };
 
   const renderFixture = (item, index) => {
-    const STATUS_C = { scheduled: DS.coral, live: '#ff4d4d', completed: '#6ee76e' };
+    // Red is reserved for LIVE; upcoming VS is neutral slate, completed FT is success.
+    const STATUS_C = { scheduled: DS.textVariant, live: DS.live, completed: DS.success };
     const completed = item.status === 'completed';
     const isLive = item.status === 'live';
     const bothKnown = !!item.team1?.id && !!item.team2?.id;
@@ -483,15 +538,27 @@ export default function TournamentDetailScreen({ route, navigation }) {
           )}
         </View>
         <View style={styles.fixtureTeams}>
-          <Text style={[styles.fixtureTeamName, win1 && styles.winnerName]} numberOfLines={1}>
-            {item.team1?.name || item.placeholder1 || 'TBD'}{completed && s1 != null ? `  ${s1}` : ''}
-          </Text>
-          <View style={[styles.vsChip, { backgroundColor: STATUS_C[item.status] || DS.coral }]}>
+          <View style={styles.fixtureTeamCol}>
+            <HexAvatar size={52} color={DS.surfaceHigh}>
+              <Text style={[styles.fixtureAvatarText, { color: DS.blue }]}>{initials2(item.team1?.name || item.placeholder1)}</Text>
+            </HexAvatar>
+            <Text style={[styles.fixtureTeamName, win1 && styles.winnerName]} numberOfLines={2}>
+              {item.team1?.name || item.placeholder1 || 'TBD'}
+            </Text>
+            {completed && s1 != null && <Text style={styles.fixtureScore}>{s1}</Text>}
+          </View>
+          <View style={[styles.vsChip, { backgroundColor: STATUS_C[item.status] || DS.textVariant }]}>
             <Text style={styles.vsText}>{completed ? 'FT' : isLive ? 'LIVE' : 'VS'}</Text>
           </View>
-          <Text style={[styles.fixtureTeamName, win2 && styles.winnerName]} numberOfLines={1}>
-            {completed && s2 != null ? `${s2}  ` : ''}{item.team2?.name || item.placeholder2 || 'TBD'}
-          </Text>
+          <View style={styles.fixtureTeamCol}>
+            <HexAvatar size={52} color={DS.surfaceHigh}>
+              <Text style={[styles.fixtureAvatarText, { color: DS.lime }]}>{initials2(item.team2?.name || item.placeholder2)}</Text>
+            </HexAvatar>
+            <Text style={[styles.fixtureTeamName, win2 && styles.winnerName]} numberOfLines={2}>
+              {item.team2?.name || item.placeholder2 || 'TBD'}
+            </Text>
+            {completed && s2 != null && <Text style={styles.fixtureScore}>{s2}</Text>}
+          </View>
         </View>
         {!!item.venue && (
           <View style={styles.venueRow}>
@@ -503,13 +570,13 @@ export default function TournamentDetailScreen({ route, navigation }) {
           <View style={styles.fixtureActions}>
             {isLive ? (
               <TouchableOpacity style={styles.startBtn} onPress={() => resumeFixtureMatch(item)} disabled={processing} activeOpacity={0.85}>
-                <Icon name="play-circle" size={15} color={DS.bg} />
+                <Icon name="play-circle" size={16} color={DS.white} />
                 <Text style={styles.startBtnText}>Resume Scoring</Text>
               </TouchableOpacity>
             ) : isCricket ? (
               <>
                 <TouchableOpacity style={styles.startBtn} onPress={() => startFixtureMatch(item)} disabled={processing} activeOpacity={0.85}>
-                  <Icon name="whistle-outline" size={15} color={DS.bg} />
+                  <Icon name="cricket" size={16} color={DS.white} />
                   <Text style={styles.startBtnText}>{processing ? 'Starting…' : 'Start Match & Score'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => openResult(item)} disabled={processing} activeOpacity={0.7}>
@@ -714,8 +781,12 @@ export default function TournamentDetailScreen({ route, navigation }) {
           <Icon name="arrow-left" size={22} color={DS.textPrimary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
+          <View style={styles.eyebrowRow}>
+            <Icon name="trophy-outline" size={14} color={DS.textMuted} />
+            <Text style={styles.eyebrowText}>TOURNAMENT DETAILS</Text>
+          </View>
           <Text style={styles.headerTitle} numberOfLines={1}>{tournament.name}</Text>
-          <View style={[styles.statusChip, { backgroundColor: statusColor.bg }]}>
+          <View style={[styles.statusChip, { backgroundColor: statusColor.bg, alignSelf: 'flex-start' }]}>
             <Text style={[styles.statusText, { color: statusColor.text }]}>{tournament.status?.toUpperCase()}</Text>
           </View>
         </View>
@@ -724,7 +795,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
       {/* Champion banner (once completed) */}
       {tournament.status === 'completed' && tournament.championId && (
         <View style={styles.championBanner}>
-          <Icon name="trophy" size={18} color={DS.bg} />
+          <Icon name="trophy" size={18} color="#fff" />
           <Text style={styles.championText}>
             Champions: {(tournament.teams || []).find(t => t.team?.id === tournament.championId)?.team?.name || 'TBD'}
           </Text>
@@ -744,6 +815,12 @@ export default function TournamentDetailScreen({ route, navigation }) {
       {activeTab === 'Points Table' && renderPointsTable()}
       {activeTab === 'Schedule' && renderSchedule()}
       {activeTab === 'Leaders' && renderLeaders()}
+
+      {['upcoming', 'ongoing'].includes(tournament.status) && (
+        <TouchableOpacity style={styles.fab} onPress={() => setShowTeamPicker(true)} activeOpacity={0.85}>
+          <Icon name="plus" size={28} color={DS.white} />
+        </TouchableOpacity>
+      )}
 
       {showTeamPicker && (
         <Modal transparent animationType="slide">
@@ -919,16 +996,18 @@ const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
   errorText: { fontSize: 18, fontWeight: '700', color: DS.coral, marginTop: 12 },
-  header: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceLow, paddingTop: 48, paddingBottom: 14, paddingHorizontal: 16, gap: 8 },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: DS.textPrimary },
-  statusChip: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginTop: 4 },
-  championBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.lime, marginHorizontal: 16, marginBottom: 8, paddingVertical: 10, borderRadius: 12 },
-  championText: { fontSize: 14, fontWeight: '800', color: DS.bg, letterSpacing: 0.3 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: DS.bg, paddingTop: 48, paddingBottom: 14, paddingHorizontal: 16, gap: 8 },
+  backBtn: { padding: 4, marginTop: 6 },
+  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
+  eyebrowText: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 1.2 },
+  headerTitle: { fontSize: 26, fontWeight: '900', color: DS.textPrimary, letterSpacing: -0.3 },
+  statusChip: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 8 },
+  championBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.success, marginHorizontal: 16, marginBottom: 8, paddingVertical: 10, borderRadius: 12 },
+  championText: { fontSize: 14, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
   leaderTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginBottom: 8, marginLeft: 4 },
   leaderTeam: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
   leaderSub: { fontSize: 10, color: DS.textMuted, marginTop: 2 },
-  leaderMain: { fontSize: 18, fontWeight: '800', color: DS.textPrimary, minWidth: 42, textAlign: 'right' },
+  leaderMain: { fontSize: 18, fontWeight: '800', color: DS.textPrimary, minWidth: 42, textAlign: 'right', fontVariant: ['tabular-nums'] },
   orangeLead: { borderLeftWidth: 3, borderLeftColor: '#ff8c1a' },
   purpleLead: { borderLeftWidth: 3, borderLeftColor: '#a855f7' },
   mvpCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: DS.lime, borderRadius: 14, padding: 14, marginBottom: 20 },
@@ -936,29 +1015,40 @@ const makeStyles = (DS) => StyleSheet.create({
   mvpName: { fontSize: 18, fontWeight: '800', color: DS.bg },
   mvpStat: { fontSize: 12, fontWeight: '700', color: DS.bg },
   statusText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  tabs: { flexDirection: 'row', backgroundColor: DS.surfaceLow },
+  tabs: { flexDirection: 'row', backgroundColor: DS.bg, borderBottomWidth: 1, borderBottomColor: DS.faint },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: DS.lime },
   tabText: { fontSize: 13, fontWeight: '600', color: DS.textMuted },
   tabTextActive: { color: DS.lime, fontWeight: '700' },
-  tabContent: { padding: 16, gap: 12 },
+  tabContent: { padding: 16, gap: 12, paddingBottom: 96 },
 
   // Overview
   infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  infoCard: { width: '47%', backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 12, alignItems: 'center' },
+  infoCard: { width: '47%', backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16, alignItems: 'center' },
   infoLabel: { fontSize: 11, color: DS.textMuted, marginTop: 4 },
   infoValue: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, marginTop: 2, textAlign: 'center' },
-  section: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16 },
+  section: { backgroundColor: DS.surface, borderRadius: 16, padding: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: DS.textPrimary, marginBottom: 10 },
   descText: { fontSize: 14, color: DS.textVariant, lineHeight: 20 },
   organizerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   organizerText: { fontSize: 14, fontWeight: '600', color: DS.textPrimary },
-  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
-  teamAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
-  teamAvatarText: { fontSize: 13, fontWeight: '700', color: DS.lime },
-  teamName: { flex: 1, fontSize: 14, fontWeight: '600', color: DS.textPrimary },
-  groupBadge: { backgroundColor: DS.surfaceHighest, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  groupText: { fontSize: 11, color: DS.lime, fontWeight: '700' },
+  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: DS.faint },
+  teamAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  teamAvatarText: { fontSize: 14, fontWeight: '800', color: DS.white },
+  teamName: { fontSize: 15, fontWeight: '700', color: DS.textPrimary },
+  teamCaptain: { fontSize: 12, color: DS.textMuted, marginTop: 2 },
+  groupBadge: { backgroundColor: DS.surfaceHigh, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  groupText: { fontSize: 11, color: DS.textVariant, fontWeight: '700' },
+  countBadge: { backgroundColor: DS.surfaceHigh, minWidth: 26, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, alignItems: 'center' },
+  countBadgeText: { fontSize: 12, fontWeight: '800', color: DS.textVariant },
+  viewAllText: { fontSize: 14, fontWeight: '700', color: DS.blue },
+  mediaCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 14, marginTop: 4 },
+  mediaThumb: { width: 72, height: 72, borderRadius: 12, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
+  mediaTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary },
+  mediaSub: { fontSize: 12, color: DS.textMuted, marginTop: 3, lineHeight: 17 },
+  mediaLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 8 },
+  mediaLink: { fontSize: 13, fontWeight: '700', color: DS.blue },
+  fab: { position: 'absolute', bottom: 24, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: DS.blueDeep, alignItems: 'center', justifyContent: 'center', elevation: 8, shadowColor: DS.blueDeep, shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
 
   // Points Table
   ptRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 4 },
@@ -970,7 +1060,7 @@ const makeStyles = (DS) => StyleSheet.create({
   ptAvatar: { width: 26, height: 26, borderRadius: 13, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
   ptAvatarText: { fontSize: 11, color: DS.lime, fontWeight: '700' },
   ptTeamName: { fontSize: 12, color: DS.textPrimary },
-  ptNum: { width: 36, textAlign: 'center', fontSize: 12, color: DS.textPrimary },
+  ptNum: { width: 36, textAlign: 'center', fontSize: 12, color: DS.textPrimary, fontVariant: ['tabular-nums'] },
   ptBold: { fontWeight: '700', color: DS.lime },
   ptRowQualified: { borderLeftWidth: 3, borderLeftColor: DS.lime },
   formRow: { flexDirection: 'row', gap: 3, marginTop: 3 },
@@ -997,30 +1087,34 @@ const makeStyles = (DS) => StyleSheet.create({
   roundSection: { marginBottom: 20, gap: 10 },
   roundHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   roundHeaderText: { fontSize: 14, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.3 },
-  fixtureCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16 },
-  fixtureMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  roundText: { fontSize: 11, color: DS.textMuted, fontWeight: '600' },
-  dateText: { fontSize: 11, color: DS.textMuted },
-  fixtureTeams: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  fixtureTeamName: { flex: 1, fontSize: 13, fontWeight: '700', color: DS.textPrimary, textAlign: 'center' },
-  winnerName: { color: DS.lime },
-  vsChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-  vsText: { fontSize: 10, fontWeight: '700', color: DS.bg },
+  fixtureCard: { backgroundColor: DS.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: DS.faint, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  fixtureMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: DS.faint },
+  roundText: { fontSize: 11, color: DS.textMuted, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
+  dateText: { fontSize: 11, color: DS.textVariant, fontWeight: '600' },
+  fixtureTeams: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 14 },
+  fixtureTeamCol: { flex: 1, alignItems: 'center', gap: 8 },
+  fixtureAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
+  fixtureAvatarText: { fontSize: 16, fontWeight: '900' },
+  fixtureTeamName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, textAlign: 'center' },
+  fixtureScore: { fontSize: 15, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
+  winnerName: { color: DS.success },
+  vsChip: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 6, marginTop: 16, transform: [{ rotate: '-12deg' }] },
+  vsText: { fontSize: 10, fontWeight: '900', color: DS.white },
   venueRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   venueText: { fontSize: 12, color: DS.textMuted },
   scoreCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 4 },
   scoreCtaText: { fontSize: 11, fontWeight: '700', color: DS.lime },
-  fixtureActions: { alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: DS.line },
-  startBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'stretch', backgroundColor: DS.lime, paddingVertical: 10, borderRadius: 12 },
-  startBtnText: { fontSize: 13, fontWeight: '800', color: DS.bg },
-  manualLink: { fontSize: 11, fontWeight: '600', color: DS.textMuted, textDecorationLine: 'underline' },
+  fixtureActions: { alignItems: 'center', gap: 10, marginTop: 0 },
+  startBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, alignSelf: 'stretch', backgroundColor: DS.blueDeep, paddingVertical: 14, borderRadius: 12 },
+  startBtnText: { fontSize: 14, fontWeight: '800', color: DS.white },
+  manualLink: { fontSize: 12, fontWeight: '700', color: DS.lime, textDecorationLine: 'underline' },
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   resultTeam: { flex: 1, fontSize: 14, fontWeight: '700', color: DS.textPrimary },
   resultScoreInput: { width: 64, backgroundColor: DS.surfaceLow, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 16, fontWeight: '800', color: DS.textPrimary },
   resultOversInput: { width: 48, backgroundColor: DS.surfaceLow, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13, color: DS.textPrimary },
   resultHint: { fontSize: 11, color: DS.textMuted, marginTop: 10 },
-  addBtn: { backgroundColor: DS.surfaceHigh, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: DS.line },
-  addBtnText: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
+  addBtn: { backgroundColor: DS.lime, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 12 },
+  addBtnText: { fontSize: 13, fontWeight: '800', color: DS.onLime },
   primaryBtn: { backgroundColor: DS.lime, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 16, marginTop: 20 },
   primaryBtnText: { fontSize: 14, fontWeight: '800', color: DS.bg },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },

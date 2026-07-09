@@ -85,7 +85,7 @@ export default function PavilionScreen({ navigation, route }) {
               onPress={() => handleTabPress(i)}
               activeOpacity={0.8}
             >
-              <Icon name={tab.icon} size={18} color={isActive ? DS.onBlue : DS.textMuted} />
+              <Icon name={tab.icon} size={18} color={isActive ? DS.lime : DS.textVariant} />
               <Text style={[styles.navTabText, isActive && styles.navTabTextActive]}>
                 {tab.label}
               </Text>
@@ -124,14 +124,15 @@ const makeStyles = (DS) => StyleSheet.create({
   brandBadgeText: { fontSize: 13, fontWeight: '800', color: DS.bg, letterSpacing: 0.8 },
   heroRight: { flexDirection: 'row', alignItems: 'center' },
   
-  navTabs: { flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: DS.surfaceLow },
+  navTabs: { flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: 'transparent' },
   navTab: { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 2, borderRadius: 14 },
   navTabActive: {
-    backgroundColor: DS.blueDeep,
-    shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6,
+    backgroundColor: DS.surfaceHighest,
+    shadowColor: DS.lime, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4,
+    borderWidth: 1, borderColor: 'rgba(171,214,0,0.3)',
   },
-  navTabText: { fontSize: 9, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
-  navTabTextActive: { color: DS.onBlue },
+  navTabText: { fontSize: 10, fontWeight: '700', color: DS.textVariant, letterSpacing: 0.5 },
+  navTabTextActive: { color: DS.lime },
   
   fab: {
     position: 'absolute',

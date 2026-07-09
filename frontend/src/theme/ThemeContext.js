@@ -71,46 +71,46 @@ const dark = {
 // ── LIGHT (Premium Sporty 2 - Vivid Match) ──────────────────────────────────
 const light = {
   mode: 'light',
-  bg: '#f4f6f8',         // Light gray background
-  surfaceLow: '#ffffff',
+  bg: '#f3f5f8',
+  surfaceLow: '#f6f8fa',
   surface: '#ffffff',
-  surfaceHigh: '#f0f2f5',
-  surfaceHighest: '#e4e7eb',
+  surfaceHigh: '#eef1f5',
+  surfaceHighest: '#e8ecf1',
   white: '#ffffff',
-  lime: '#ccff00',       // Radium Green (matches screenshot)
-  limeBright: '#d4ff33',
-  lime2: '#ccff00',
-  onLime: '#000000',     // Black text on neon green
+  lime: '#406900',       // Pitch grass green
+  limeBright: '#bdf37b',
+  lime2: '#447000',
+  onLime: '#ffffff',
   coral: '#e63946',
   wicketBg: 'rgba(230,57,70,0.12)',
   wicketText: '#e63946',
-  blue: '#3b5bdb',
-  blueDeep: '#0047ff',   // Bright Electric Blue (matches screenshot)
-  blueSoft: '#0047ff',
+  blue: '#305ce1',
+  blueDeep: '#0041c8',
+  blueSoft: '#305ce1',
   onBlue: '#ffffff',
-  textPrimary: '#111111', // Pitch black for high contrast
-  textVariant: '#555555', // Medium gray
-  textSecondary: '#555555',
-  textMuted: '#888888',
-  faint: '#d1d5db',
+  textPrimary: '#191c1e',
+  textVariant: '#434656',
+  textSecondary: '#434656',
+  textMuted: '#5d6070',
+  faint: '#d8dadc',
   onDark: '#ffffff',
   onDarkDim: '#e0e3e5',
   limeDark: '#447000',
-  live: '#e60000',       // Bright Red
-  danger: '#d32f2f',
-  dangerTxt: '#d32f2f',
+  live: '#ba1a1a',
+  danger: '#ba1a1a',
+  dangerTxt: '#ba1a1a',
   warn: '#f59e0b',
   success: '#10b981',
-  border: '#e5e7eb',     // Light border
-  line: '#e5e7eb',
+  border: '#c3c5d9',
+  line: '#c3c5d9',
   overlay: 'rgba(0,0,0,0.4)',
   navy0: '#ffffff',
-  navy1: '#f4f6f8',
-  navy2: '#f0f2f5',
+  navy1: '#f7f9fb',
+  navy2: '#f2f4f6',
   cell: '#ffffff',
-  cellHi: '#f4f6f8',
-  ink: '#111111',
-  inkDim: '#555555',
+  cellHi: '#f7f9fb',
+  ink: '#191c1e',
+  inkDim: '#434656',
 };
 
 export const PALETTES = { dark, light };
@@ -145,7 +145,7 @@ export function ThemeProvider({ children }) {
   const [pref, setPref] = useState('light');
   const [sysScheme, setSysScheme] = useState(() => Appearance.getColorScheme() || 'light');
 
-  // Restore the persisted preference on launch.
+  // Restore the persisted preference on launch (fresh installs default to light).
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((saved) => {
       if (saved === 'light' || saved === 'dark' || saved === 'system') setPref(saved);
@@ -193,8 +193,8 @@ export function useTheme() {
 
 /** Build (and memoise) a StyleSheet from the current palette. */
 export function useThemedStyles(factory) {
-  const { colors } = useContext(ThemeContext);
-  return useMemo(() => factory(colors), [factory, colors]);
+  const { colors, typography } = useContext(ThemeContext);
+  return useMemo(() => factory(colors, typography), [factory, colors, typography]);
 }
 
 /** Arena/Rummy palette — same theme but with the brighter lime accent. */

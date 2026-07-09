@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Animated } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import HexAvatar from '../components/HexAvatar';
 import legendsApi from '../services/LegendsApi';
 
 const MEDAL = ['#FFD700', '#C0C0C0', '#CD7F32'];
@@ -62,33 +63,44 @@ function initials(name) {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 }
 
+const AVATAR_RANK = (DS) => [DS.lime, '#434656', DS.blueDeep];
+const trendFor = (rank, DS) =>
+  rank === 0 ? { icon: 'trending-up', color: DS.success }
+  : rank === 2 ? { icon: 'trending-down', color: DS.coral }
+  : { icon: 'minus', color: DS.textMuted };
+
 function PlayerCard({ item, rank }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const isTop = rank < 3;
   const rankColor = isTop ? MEDAL[rank] : DS.border;
+  const avColor = AVATAR_RANK(DS)[rank] || DS.blue;
+  const trend = trendFor(rank, DS);
   return (
     <View style={[styles.card, isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 }]}>
       <View style={styles.cardHeader}>
-        <View style={[styles.rankBadge, { backgroundColor: isTop ? rankColor : DS.surfaceHighest, borderColor: isTop ? rankColor : DS.border }]}>
-          <Text style={[styles.rankText, isTop ? { color: '#000' } : { color: DS.textPrimary }]}>{rank + 1}</Text>
-        </View>
-        <View style={[styles.avatar, { backgroundColor: DS.lime }]}>
-          <Text style={[styles.avatarText, { color: DS.bg }]}>{initials(item.name)}</Text>
+        <View style={styles.avatarWrap}>
+          <HexAvatar size={52} color={avColor}>
+            <Text style={[styles.avatarText, { color: '#fff' }]}>{initials(item.name)}</Text>
+          </HexAvatar>
+          <View style={styles.rankBadge}>
+            <Text style={styles.rankText}>{rank + 1}</Text>
+          </View>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.cardName}>{item.name}</Text>
           <Text style={styles.cardSub}>{item.matches} matches</Text>
         </View>
+        <Icon name={trend.icon} size={22} color={trend.color} />
       </View>
       <View style={styles.statRow}>
         {[
-        { label: 'Runs', value: (item.runs || 0).toLocaleString(), icon: 'cricket', color: DS.lime },
-        { label: 'Avg', value: item.average, icon: 'numeric', color: DS.blue },
-        { label: 'SR', value: item.strikeRate, icon: 'lightning-bolt', color: DS.coral },
-        { label: '100s', value: item.centuries, icon: 'star-circle-outline', color: '#d97706' },
-        { label: 'Wkts', value: item.wickets, icon: 'weather-windy', color: '#34d399' }].
+        { label: 'Runs', value: (item.runs || 0).toLocaleString(), icon: 'cricket' },
+        { label: 'Avg', value: item.average, icon: 'numeric' },
+        { label: 'SR', value: item.strikeRate, icon: 'lightning-bolt' },
+        { label: '100s', value: item.centuries, icon: 'star-circle-outline' },
+        { label: 'Wkts', value: item.wickets, icon: 'weather-windy' }].
         map((s) =>
         <View key={s.label} style={styles.statItem}>
-            <Icon name={s.icon} size={16} color={s.color} />
+            <Icon name={s.icon} size={16} color={DS.blue} />
             <Text style={styles.statVal}>{s.value}</Text>
             <Text style={styles.statLbl}>{s.label}</Text>
           </View>
@@ -102,14 +114,17 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
   const pct = item.winRate;
   const isTop = rank < 3;
   const rankColor = isTop ? MEDAL[rank] : DS.border;
+  const avColor = AVATAR_RANK(DS)[rank] || DS.blue;
   return (
     <View style={[styles.card, isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 }]}>
       <View style={styles.cardHeader}>
-        <View style={[styles.rankBadge, { backgroundColor: isTop ? rankColor : DS.surfaceHighest, borderColor: isTop ? rankColor : DS.border }]}>
-          <Text style={[styles.rankText, isTop ? { color: '#000' } : { color: DS.textPrimary }]}>{rank + 1}</Text>
-        </View>
-        <View style={[styles.avatar, { backgroundColor: DS.blue }]}>
-          <Text style={[styles.avatarText, { color: DS.bg }]}>{initials(item.name)}</Text>
+        <View style={styles.avatarWrap}>
+          <HexAvatar size={52} color={avColor}>
+            <Text style={[styles.avatarText, { color: '#fff' }]}>{initials(item.name)}</Text>
+          </HexAvatar>
+          <View style={styles.rankBadge}>
+            <Text style={styles.rankText}>{rank + 1}</Text>
+          </View>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.cardName}>{item.name}</Text>
@@ -123,7 +138,7 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
 
       {/* Win/Loss bar */}
       <View style={styles.ratioBar}>
-        <View style={[styles.ratioFill, { flex: item.wins || 1, backgroundColor: '#34d399' }]}>
+        <View style={[styles.ratioFill, { flex: item.wins || 1, backgroundColor: DS.success }]}>
           <Text style={styles.ratioFillText}>{item.wins}W</Text>
         </View>
         <View style={[styles.ratioFill, { flex: item.losses || 1, backgroundColor: DS.live }]}>
@@ -133,7 +148,7 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
 
       <View style={styles.statRow}>
         {[
-        { label: 'Wins', value: item.wins, color: '#34d399' },
+        { label: 'Wins', value: item.wins, color: DS.success },
         { label: 'Losses', value: item.losses, color: DS.live },
         { label: 'Runs', value: (item.totalRuns || 0).toLocaleString(), color: DS.lime },
         { label: 'Wickets', value: item.totalWickets, color: DS.blue }].
@@ -237,7 +252,7 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
             ListHeaderComponent={
               <View>
                 <View style={styles.searchWrap}>
-                  <Icon name="magnify" size={22} color={DS.lime} />
+                  <Icon name="magnify" size={22} color={DS.textMuted} />
                   <TextInput
                     style={styles.searchInput}
                     placeholder={`Search ${tab.toLowerCase()}...`}
@@ -300,37 +315,39 @@ const makeStyles = (DS) => StyleSheet.create({
   /* Search */
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: DS.surfaceHighest, marginHorizontal: 16, borderRadius: 16,
+    backgroundColor: DS.surface, marginHorizontal: 16, borderRadius: 12,
     paddingHorizontal: 16, paddingVertical: 14, marginTop: 16,
-    borderWidth: 1, borderColor: DS.border,
+    borderWidth: 1, borderColor: DS.faint,
   },
   searchInput: { flex: 1, fontSize: 15, fontWeight: '500', color: DS.textPrimary },
 
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 14 },
 
   card: { 
-    backgroundColor: DS.surfaceHigh, borderRadius: 18,
+    backgroundColor: DS.surface, borderRadius: 16,
     borderWidth: 1, borderColor: DS.border,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, paddingBottom: 12 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, paddingBottom: 12 },
+  avatarWrap: { position: 'relative' },
   rankBadge: {
-    width: 26, height: 26, borderRadius: 13,
+    position: 'absolute', top: -4, left: -4,
+    width: 24, height: 24, borderRadius: 12,
     backgroundColor: DS.surfaceHighest,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: DS.border
+    borderWidth: 2, borderColor: DS.surface
   },
-  rankText: { fontSize: 11, fontWeight: '900' },
-  avatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 14, fontWeight: '900' },
+  rankText: { fontSize: 11, fontWeight: '900', color: DS.textVariant },
+  avatar: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 16, fontWeight: '900' },
   cardName: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
   cardSub: { fontSize: 12, color: DS.textMuted, marginTop: 2, fontWeight: '500' },
 
   winRatePill: {
-    backgroundColor: 'rgba(52,211,153,0.15)', borderRadius: 12,
+    backgroundColor: DS.success + '26', borderRadius: 12,
     paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center'
   },
-  winRatePillText: { fontSize: 16, fontWeight: '900', color: '#34d399' },
-  winRatePillSub: { fontSize: 9, color: '#34d399', fontWeight: '700' },
+  winRatePillText: { fontSize: 16, fontWeight: '900', color: DS.success, fontVariant: ['tabular-nums'] },
+  winRatePillSub: { fontSize: 9, color: DS.success, fontWeight: '700' },
 
   ratioBar: {
     flexDirection: 'row', height: 18, overflow: 'hidden',
@@ -346,12 +363,12 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: 'transparent', gap: 8,
     borderBottomLeftRadius: 18, borderBottomRightRadius: 18
   },
-  statItem: { 
+  statItem: {
     flex: 1, alignItems: 'center', gap: 4,
-    backgroundColor: DS.surfaceHighest,
+    backgroundColor: DS.surfaceHigh,
     paddingVertical: 10, borderRadius: 12,
-    borderWidth: 1, borderColor: DS.border
+    borderWidth: 1, borderColor: DS.faint
   },
-  statVal: { fontSize: 14, fontWeight: '900', color: DS.textPrimary },
+  statVal: { fontSize: 14, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
   statLbl: { fontSize: 9, color: DS.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }
 });

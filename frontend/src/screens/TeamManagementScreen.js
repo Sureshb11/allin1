@@ -13,6 +13,8 @@ import {
   Modal } from
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import HexAvatar from '../components/HexAvatar';
+import PressableScale from '../components/PressableScale';
 import legendsApi from '../services/LegendsApi';
 import { showToast } from '../components/Toast';
 import BrandLogo from "../components/BrandLogo";
@@ -173,14 +175,13 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     const isFollowed = followedIds.has(item.id);
     const mineTab = tab === 'mine';
     return (
-      <TouchableOpacity
+      <PressableScale
         style={styles.teamCard}
-        activeOpacity={0.85}
         onPress={() => mineTab ? setSelectedTeam(item) : navigation.navigate('TeamInsights', { teamId: item.id })}>
         <View style={styles.teamCardTop}>
-          <View style={[styles.teamAvatar, { backgroundColor: getAvatarColor(item.name) }]}>
+          <HexAvatar size={48} color={getAvatarColor(item.name)} style={{ marginRight: 14 }}>
             <Text style={styles.teamAvatarText}>{getInitials(item.name)}</Text>
-          </View>
+          </HexAvatar>
           <View style={styles.teamInfo}>
             <Text style={styles.teamName}>{item.name}</Text>
             <Text style={styles.teamSubtitle}>
@@ -207,7 +208,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
         </View>
         {item.matches > 0 && (
           <View style={styles.winRateBar}>
-            <View style={[styles.winRateFill, { width: `${(item.wins / item.matches) * 100}%`, backgroundColor: DS.lime }]} />
+            <View style={[styles.winRateFill, { width: `${(item.wins / item.matches) * 100}%`, backgroundColor: DS.success }]} />
             <View style={[styles.winRateFill, { width: `${(losses / item.matches) * 100}%`, backgroundColor: '#ef4444' }]} />
             <View style={[styles.winRateFill, { width: `${(draws / item.matches) * 100}%`, backgroundColor: DS.textMuted }]} />
           </View>
@@ -227,13 +228,13 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
             </TouchableOpacity>
           )}
           <TouchableOpacity
-            style={styles.actionChip}
+            style={styles.statsChip}
             onPress={() => navigation.navigate('TeamInsights', { teamId: item.id })}>
-            <Icon name="chart-line" size={14} color={DS.textVariant} />
-            <Text style={styles.actionChipText}>STATS</Text>
+            <Icon name="chart-line" size={14} color={DS.white} />
+            <Text style={[styles.actionChipText, { color: DS.white }]}>STATS</Text>
           </TouchableOpacity>
         </View>
-      </TouchableOpacity>);
+      </PressableScale>);
 
   };
 
@@ -473,7 +474,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
         ListHeaderComponent={
           <View>
             <View style={styles.searchWrap}>
-              <Icon name="magnify" size={22} color={DS.lime} />
+              <Icon name="magnify" size={22} color={DS.textMuted} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search teams..."
@@ -662,9 +663,9 @@ const makeStyles = (DS) => StyleSheet.create({
   /* Search */
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: DS.surfaceHighest, marginHorizontal: 20, borderRadius: 16,
+    backgroundColor: DS.surface, marginHorizontal: 20, borderRadius: 12,
     paddingHorizontal: 16, paddingVertical: 14, marginTop: 16, marginBottom: 8,
-    borderWidth: 1, borderColor: DS.border,
+    borderWidth: 1, borderColor: DS.faint,
   },
   searchInput: { flex: 1, fontSize: 15, fontWeight: '500', color: DS.textPrimary },
   fabWrap: { position: 'absolute', bottom: 24, right: 24, zIndex: 999 },
@@ -688,10 +689,13 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingBottom: 20
   },
   teamCard: {
-    backgroundColor: DS.surfaceHigh,
+    backgroundColor: DS.surface,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: DS.faint,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
   teamCardTop: {
     flexDirection: 'row',
@@ -730,15 +734,15 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   roleTag: {
     fontSize: 10,
-    fontWeight: '700',
-    color: DS.textMuted,
+    fontWeight: '800',
+    color: DS.blueDeep,
     letterSpacing: 1.5,
     marginTop: 4
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: DS.surfaceHighest,
+    backgroundColor: DS.surfaceHigh,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -751,7 +755,8 @@ const makeStyles = (DS) => StyleSheet.create({
   statNumber: {
     fontSize: 18,
     fontWeight: '800',
-    color: DS.textPrimary
+    color: DS.textPrimary,
+    fontVariant: ['tabular-nums']
   },
   statLabel: {
     fontSize: 11,
@@ -785,7 +790,19 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: DS.surfaceHighest,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: DS.faint,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6
+  },
+  statsChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: DS.blueDeep,
     paddingVertical: 10,
     borderRadius: 10,
     gap: 6
@@ -796,7 +813,7 @@ const makeStyles = (DS) => StyleSheet.create({
     color: DS.textVariant,
     letterSpacing: 0.8
   },
-  actionChipActive: { backgroundColor: DS.lime },
+  actionChipActive: { backgroundColor: DS.lime, borderColor: DS.lime },
 
   // Category tabs
   tabBar: {

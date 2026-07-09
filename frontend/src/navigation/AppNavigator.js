@@ -420,7 +420,7 @@ const AppNavigator = ({ route: appRoute }) => {
         const isFullScreen = ['Scoring', 'SportScoring'].includes(focusedRouteName);
         return {
           tabBarActiveTintColor: DS.lime,
-          tabBarInactiveTintColor: DS.textMuted,
+          tabBarInactiveTintColor: DS.textVariant,
           tabBarStyle: isFullScreen ? { height: 0, overflow: 'hidden', borderWidth: 0 } : {
             backgroundColor: DS.surfaceLow,
             borderTopWidth: 0,
