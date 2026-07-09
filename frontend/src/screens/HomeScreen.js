@@ -295,23 +295,6 @@ export default function HomeScreen({ navigation }) {
                   </View>
                 </AnimatedPulse>
 
-                {/* Search */}
-                <View style={styles.searchWrap}>
-                  <Icon name="magnify" size={18} color={DS.textMuted} />
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search teams, venue, type..."
-                    placeholderTextColor={DS.textMuted}
-                    value={query}
-                    onChangeText={setQuery}
-                  />
-                  {query.length > 0 && (
-                    <TouchableOpacity onPress={() => setQuery('')}>
-                      <Icon name="close-circle" size={16} color={DS.textMuted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
                 {/* Filter tabs + count on one line (reclaims a full row) */}
                 <View style={styles.filtersRow}>
                   {FILTERS.map(f => {
