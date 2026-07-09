@@ -21,6 +21,7 @@ import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo from '../components/BrandLogo';
+import { splitScore } from './MyMatchesScreen';
 
 const SW = Dimensions.get('window').width;
 const CARD_GAP = 12;
@@ -140,15 +141,20 @@ function CircleMatchCard({ match, onPress }) {
   const progress = batting && match.overs ? Math.min(batting.overs / match.overs, 1) : 0;
   const league = (match.matchType || 'T20').toUpperCase() + ' LEAGUE';
 
-  const Team = ({ t, muted }) => (
-    <View style={c.team}>
-      <View style={[c.teamAvatar, { backgroundColor: t.color }]}>
-        <Text style={c.teamAvatarTxt}>{t.short}</Text>
+  const Team = ({ t, muted }) => {
+    const { main, ov } = splitScore(t.score, match.overs);
+    return (
+      <View style={c.team}>
+        <View style={[c.teamAvatar, { backgroundColor: t.color }]}>
+          <Text style={c.teamAvatarTxt}>{t.short}</Text>
+        </View>
+        <Text style={c.teamName} numberOfLines={2}>{t.name}</Text>
+        <Text style={[c.teamScore, muted && c.teamScoreMuted]}>
+          {main}{ov ? <Text style={[c.teamScoreOvers, muted && c.teamScoreMuted]}> {ov}</Text> : null}
+        </Text>
       </View>
-      <Text style={c.teamName} numberOfLines={2}>{t.name}</Text>
-      <Text style={[c.teamScore, muted && c.teamScoreMuted]}>{(t.score || '—').replace(/\s*\(.*\)\s*/, '')}</Text>
-    </View>
-  );
+    );
+  };
 
   const content = (
     <TouchableOpacity activeOpacity={0.9} style={[c.card, (live || match.status === 'break') && c.cardLive, { minHeight: 290, justifyContent: 'space-between' }]} onPress={onPress}>
@@ -181,7 +187,7 @@ function CircleMatchCard({ match, onPress }) {
         {live || match.status === 'break' ? (
           <>
             <View style={c.metaRow}>
-              <Text style={c.metaMuted}>Overs: {batting?.overs != null ? batting.overs.toFixed(1) : '—'}</Text>
+              <Text style={c.metaMuted}>{match.overs ? `${match.overs} overs` : ''}</Text>
               {rr != null && <Text style={[c.metaRR, { color: isDark ? DS.lime : '#5a7302' }]}>RR: {rr.toFixed(1)}</Text>}
             </View>
             <View style={c.track}>
@@ -1044,6 +1050,7 @@ const makeC = (DS, TYPO) => StyleSheet.create({
   teamAvatarTxt: { fontFamily: TYPO.headline.fontFamily, color: '#ffffff', fontSize: 20, fontWeight: '900' },
   teamName: { fontFamily: TYPO.label.fontFamily, color: DS.textPrimary, fontSize: 14, fontWeight: '700', textAlign: 'center', lineHeight: 17 },
   teamScore: { fontFamily: TYPO.headline.fontFamily, color: DS.textPrimary, fontSize: 20, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  teamScoreOvers: { fontSize: 12, fontWeight: '700', color: DS.textMuted, fontVariant: ['tabular-nums'] },
   teamScoreMuted: { color: DS.textMuted },
   teamDivider: { width: 1, height: 56, backgroundColor: DS.line, marginHorizontal: 4 },
   vs: { fontFamily: TYPO.headline.fontFamily, color: DS.textMuted, fontSize: 16, fontWeight: '700', marginHorizontal: 4 },

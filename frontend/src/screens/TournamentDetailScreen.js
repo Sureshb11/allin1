@@ -523,6 +523,10 @@ export default function TournamentDetailScreen({ route, navigation }) {
     const isCricket = (tournament.sport || 'cricket') === 'cricket';
     const s1 = item.resultStats?.[item.team1?.id]?.scored;
     const s2 = item.resultStats?.[item.team2?.id]?.scored;
+    const ov1 = item.resultStats?.[item.team1?.id]?.oversFaced;
+    const ov2 = item.resultStats?.[item.team2?.id]?.oversFaced;
+    const totalOv = tournament.overs;
+    const oversLabel = (ov) => ov != null ? ` (${ov}${totalOv ? `/${totalOv}` : ''})` : (totalOv ? ` (${totalOv} ov)` : '');
     const win1 = completed && item.winnerTeamId && item.winnerTeamId === item.team1?.id;
     const win2 = completed && item.winnerTeamId && item.winnerTeamId === item.team2?.id;
     return (
@@ -545,7 +549,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
             <Text style={[styles.fixtureTeamName, win1 && styles.winnerName]} numberOfLines={2}>
               {item.team1?.name || item.placeholder1 || 'TBD'}
             </Text>
-            {completed && s1 != null && <Text style={styles.fixtureScore}>{s1}</Text>}
+            {completed && s1 != null && <Text style={styles.fixtureScore}>{s1}<Text style={styles.fixtureScoreOvers}>{oversLabel(ov1)}</Text></Text>}
           </View>
           <View style={[styles.vsChip, { backgroundColor: STATUS_C[item.status] || DS.textVariant }]}>
             <Text style={styles.vsText}>{completed ? 'FT' : isLive ? 'LIVE' : 'VS'}</Text>
@@ -557,7 +561,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
             <Text style={[styles.fixtureTeamName, win2 && styles.winnerName]} numberOfLines={2}>
               {item.team2?.name || item.placeholder2 || 'TBD'}
             </Text>
-            {completed && s2 != null && <Text style={styles.fixtureScore}>{s2}</Text>}
+            {completed && s2 != null && <Text style={styles.fixtureScore}>{s2}<Text style={styles.fixtureScoreOvers}>{oversLabel(ov2)}</Text></Text>}
           </View>
         </View>
         {!!item.venue && (
@@ -1097,6 +1101,7 @@ const makeStyles = (DS) => StyleSheet.create({
   fixtureAvatarText: { fontSize: 16, fontWeight: '900' },
   fixtureTeamName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, textAlign: 'center' },
   fixtureScore: { fontSize: 15, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
+  fixtureScoreOvers: { fontSize: 11, fontWeight: '700', color: DS.textMuted, fontVariant: ['tabular-nums'] },
   winnerName: { color: DS.success },
   vsChip: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 6, marginTop: 16, transform: [{ rotate: '-12deg' }] },
   vsText: { fontSize: 10, fontWeight: '900', color: DS.white },
