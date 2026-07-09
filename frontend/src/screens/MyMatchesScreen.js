@@ -12,6 +12,15 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 const TEAM_COLORS = ['#6366f1', '#f97316', '#06b6d4', '#ec4899', '#8b5cf6', '#14b8a6'];
 const getTeamColor = (name, idx) => TEAM_COLORS[(name || '').charCodeAt(0) % TEAM_COLORS.length] || TEAM_COLORS[idx % TEAM_COLORS.length];
 
+// Split a score into its runs part and an overs part so the overs can render
+// smaller: "217/4 (11.0)" + total 20 → { main: '217/4', ov: '(11.0/20)' }.
+export const splitScore = (score, overs) => {
+  if (!score || score === '-') return { main: score || '-', ov: '' };
+  const m = score.match(/^(.*?)\s*\(([\d.]+)\)\s*$/);
+  if (!m) return { main: score, ov: '' };
+  return { main: m[1].trim(), ov: `(${overs ? `${m[2]}/${overs}` : m[2]})` };
+};
+
 const makeStatusMeta = (DS) => ({
   live:      { color: DS.live,      bg: DS.live + '20',  label: 'LIVE', glow: DS.live },
   completed: { color: DS.success,   bg: DS.success + '1A', label: 'FINAL', glow: DS.success },
@@ -122,7 +131,10 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
                 </View>
               </View>
               <Text style={styles.teamNameVertical} numberOfLines={1}>{m.team1 || 'TBD'}</Text>
-              <Text style={styles.teamScoreVertical}>{m.score1 || '-'}</Text>
+              <Text style={styles.teamScoreVertical}>
+                {splitScore(m.score1, m.overs).main}
+                {splitScore(m.score1, m.overs).ov ? <Text style={styles.teamScoreOvers}> {splitScore(m.score1, m.overs).ov}</Text> : null}
+              </Text>
             </View>
 
             <View style={styles.vsVerticalBlock}>
@@ -136,7 +148,10 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
                 </View>
               </View>
               <Text style={styles.teamNameVertical} numberOfLines={1}>{m.team2 || 'TBD'}</Text>
-              <Text style={styles.teamScoreVertical}>{m.score2 || '-'}</Text>
+              <Text style={styles.teamScoreVertical}>
+                {splitScore(m.score2, m.overs).main}
+                {splitScore(m.score2, m.overs).ov ? <Text style={styles.teamScoreOvers}> {splitScore(m.score2, m.overs).ov}</Text> : null}
+              </Text>
             </View>
           </View>
 
@@ -538,6 +553,7 @@ const makeStyles = (DS) => StyleSheet.create({
   teamSideVertical: { alignItems: 'center', flex: 1, gap: 12 },
   teamNameVertical: { fontSize: 14, fontWeight: '700', color: DS.textPrimary, textAlign: 'center', minHeight: 20 },
   teamScoreVertical: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, textAlign: 'center', letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
+  teamScoreOvers: { fontSize: 13, fontWeight: '700', color: DS.textMuted, letterSpacing: 0, fontVariant: ['tabular-nums'] },
   vsVerticalBlock: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   vsTextVertical: { fontSize: 13, fontWeight: '900', color: DS.blueSoft, fontStyle: 'italic' },
   
