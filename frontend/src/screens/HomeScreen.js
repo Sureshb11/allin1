@@ -250,7 +250,12 @@ export default function HomeScreen({ navigation }) {
               onPress={() => handleNavTab(i)}
             >
               <Icon name={tab.icon} size={18} color={activeNavTab === i ? DS.lime : DS.textVariant} />
-              <Text style={[styles.navTabText, activeNavTab === i && styles.navTabTextActive]}>{tab.label}</Text>
+              <Text
+                style={[styles.navTabText, activeNavTab === i && styles.navTabTextActive]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >{tab.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
