@@ -585,11 +585,10 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Details row */
   detailsRow: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
-    paddingHorizontal: 16, paddingBottom: 10,
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
   },
   detailChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
+    flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: DS.surfaceLow, borderRadius: 8,
     borderWidth: 1, borderColor: DS.faint,
     paddingHorizontal: 8, paddingVertical: 4,
