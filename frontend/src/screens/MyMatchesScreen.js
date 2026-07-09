@@ -557,7 +557,7 @@ const makeStyles = (DS) => StyleSheet.create({
   statCardValBlue: { fontSize: 13, fontWeight: '900', color: DS.blue, fontVariant: ['tabular-nums'] },
   statCardValGreen: { fontSize: 13, fontWeight: '900', color: DS.success, fontVariant: ['tabular-nums'] },
   
-  actionBlock: { flexShrink: 0, justifyContent: 'center' },
+  actionBlock: { flexShrink: 0 },
 
   /* Teams */
   teamsRow: {
@@ -585,8 +585,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Details row */
   detailsRow: {
-    flex: 1, flexDirection: 'column', alignItems: 'flex-start',
-    justifyContent: 'space-between', gap: 6,
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
   },
   detailChip: {
     flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -598,7 +597,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Footer */
   cardFooter: {
-    flexDirection: 'row', alignItems: 'stretch',
+    flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingBottom: 16, gap: 10,
     borderTopWidth: 1, borderTopColor: DS.faint,
     paddingTop: 12,
