@@ -598,7 +598,8 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary },
   filtersRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 14, paddingBottom: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: 6, paddingTop: 14, paddingBottom: 10,
   },
   filterTab: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
