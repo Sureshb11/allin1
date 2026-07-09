@@ -236,7 +236,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
 
             {/* Search */}
             <View style={styles.searchWrap}>
-              <Icon name="magnify" size={22} color={DS.textMuted} />
+              <Icon name="magnify" size={18} color={DS.textMuted} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Find a tournament..."
@@ -397,12 +397,12 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Search */
   searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: DS.surface, marginHorizontal: 20, borderRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 14, marginBottom: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: DS.surface, marginHorizontal: 20, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 9, marginBottom: 14,
     borderWidth: 1, borderColor: DS.faint,
   },
-  searchInput: { flex: 1, fontSize: 15, fontWeight: '500', color: DS.textPrimary },
+  searchInput: { flex: 1, fontSize: 13, fontWeight: '500', color: DS.textPrimary, padding: 0 },
 
   /* Filters */
   filterRow: {
