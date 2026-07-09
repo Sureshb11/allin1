@@ -122,11 +122,6 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
         </View>
       </View>
 
-      {/* Progress bar */}
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${Math.min(progress * 100, 100)}%` }]} />
-      </View>
-
       {/* Footer: only Open tournaments show slots + JOIN */}
       {item.status === 'Open' && (
         <View style={styles.cardFooter}>
@@ -433,7 +428,7 @@ const makeStyles = (DS) => StyleSheet.create({
   /* Card body: left info column + right status/actions column */
   cardBody: {
     flexDirection: 'row', alignItems: 'flex-start',
-    padding: 16, paddingBottom: 8, gap: 12,
+    padding: 16, gap: 12,
   },
   cardBodyLeft: { flex: 1 },
   cardHeaderRight: { alignItems: 'flex-end', gap: 8 },
