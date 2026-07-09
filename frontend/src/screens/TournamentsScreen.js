@@ -96,6 +96,10 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
               <Text style={styles.cardStatText}>{item.prize}</Text>
             </View>
           </View>
+
+          {!!item.description && (
+            <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
+          )}
         </View>
 
         {/* Right column: status badge + stacked actions */}
@@ -117,10 +121,6 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
           )}
         </View>
       </View>
-
-      {!!item.description && (
-        <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
-      )}
 
       {/* Progress bar */}
       <View style={styles.progressTrack}>
@@ -460,8 +460,7 @@ const makeStyles = (DS) => StyleSheet.create({
   cardStatText: { fontSize: 12, color: DS.textVariant },
 
   cardDesc: {
-    fontSize: 13, color: DS.textMuted, lineHeight: 19,
-    paddingHorizontal: 16, paddingBottom: 10,
+    fontSize: 13, color: DS.textMuted, lineHeight: 19, paddingTop: 8,
   },
 
   /* Progress bar */
