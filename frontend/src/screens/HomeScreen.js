@@ -165,6 +165,24 @@ export default function HomeScreen({ navigation }) {
       });
   }, [liveMatches, status, query]);
 
+  // Per-filter match counts (query-aware) so each filter chip can show its own
+  // count as a badge — matching the Teams tab pattern.
+  const filterCounts = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const qMatch = (m) => {
+      if (!q) return true;
+      const t1 = typeof m.team1 === 'object' ? m.team1?.name : m.team1;
+      const t2 = typeof m.team2 === 'object' ? m.team2?.name : m.team2;
+      return [t1, t2, m.venue, m.matchType].join(' ').toLowerCase().includes(q);
+    };
+    const counts = {};
+    FILTERS.forEach((f) => {
+      const mapped = FILTER_STATUS_MAP[f];
+      counts[f] = liveMatches.filter(m => qMatch(m) && (mapped === 'all' || (m.status || '') === mapped)).length;
+    });
+    return counts;
+  }, [liveMatches, query]);
+
   const shareScore = async (match) => {
     const msg = `${match.team1} ${match.score1} vs ${match.team2} ${match.score2} — Live on Local Legends!`;
     await Share.share({ message: msg });
@@ -307,10 +325,14 @@ export default function HomeScreen({ navigation }) {
                         <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
                           {f.toUpperCase()}
                         </Text>
+                        {filterCounts[f] > 0 && (
+                          <View style={[styles.filterCount, active && styles.filterCountActive]}>
+                            <Text style={[styles.filterCountText, active && styles.filterCountTextActive]}>{filterCounts[f]}</Text>
+                          </View>
+                        )}
                       </TouchableOpacity>
                     );
                   })}
-                  <Text style={styles.countText}>{filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''}</Text>
                 </View>
               </View>
             }
@@ -579,6 +601,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 14, paddingBottom: 10,
   },
   filterTab: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
     backgroundColor: 'transparent',
   },
@@ -589,7 +612,13 @@ const makeStyles = (DS, typography) => StyleSheet.create({
     fontSize: 11, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.5,
   },
   filterTabTextActive: { color: DS.bg },
-  countText: { fontSize: 11, color: DS.textMuted, fontWeight: '600', marginLeft: 'auto', flexShrink: 0 },
+  filterCount: {
+    minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5,
+    backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center',
+  },
+  filterCountActive: { backgroundColor: 'rgba(0,0,0,0.18)' },
+  filterCountText: { fontSize: 10, fontWeight: '900', color: DS.textMuted },
+  filterCountTextActive: { color: DS.bg },
 
   // Live matches rail
   liveCard: { width: 210, backgroundColor: DS.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: DS.surfaceHigh },
