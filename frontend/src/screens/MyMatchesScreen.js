@@ -585,7 +585,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Details row */
   detailsRow: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1,
   },
   detailChip: {
     flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -597,7 +597,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Footer */
   cardFooter: {
-    flexDirection: 'row', alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 16, paddingBottom: 16, gap: 10,
     borderTopWidth: 1, borderTopColor: DS.faint,
     paddingTop: 12,
