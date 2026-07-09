@@ -117,8 +117,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
   const closeAwards = () => {
     setShowAwards(false);
-    // Back to the cricket feed (root of this stack) — the "home" screen.
-    if (navigation.canGoBack()) navigation.popToTop();
+    // Redirect to the Home feed (HomeTab → CricketFeed), regardless of which
+    // tab the scoring was launched from.
+    navigation.navigate('HomeTab', { screen: 'CricketFeed' });
   };
 
   useEffect(() => {
@@ -302,7 +303,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     const scoreStr = `${finalScore.runs}/${finalScore.wickets} (${finalScore.overs}.${finalScore.balls})`;
     await legendsApi.updateMatch(matchData.id, { status: 'completed', score2: scoreStr, result });
     computeMvp();
-    Alert.alert('Match Complete!', result);
+    // The MVP awards popup (fired by the matchComplete effect) now announces the
+    // result — no separate native alert needed.
   };
 
   // Player of the Match — simple all-round score (runs + 20·wickets) across both
