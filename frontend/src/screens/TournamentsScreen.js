@@ -62,45 +62,59 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
     <PressableScale
       style={[styles.card, isGold && { borderColor: DS.lime, borderWidth: 2, shadowColor: DS.lime, shadowOpacity: 0.15, shadowRadius: 10, elevation: 4 }]}
       onPress={onPress}>
-      {/* Header row */}
-      <View style={styles.cardHeader}>
-        <View style={{ flex: 1 }}>
+      {/* Body: info on the left, status + actions stacked top-right */}
+      <View style={styles.cardBody}>
+        <View style={styles.cardBodyLeft}>
           <Text style={styles.cardName} numberOfLines={2}>{item.name}</Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: statusColor + '1A' }]}>
-          <Text style={[styles.statusBadgeText, { color: statusColor }]}>
-            {item.status ? item.status.toUpperCase() : 'UPCOMING'}
-          </Text>
-        </View>
-      </View>
 
-      {/* Date & location */}
-      <View style={styles.cardMeta}>
-        <View style={styles.metaItem}>
-          <Icon name="calendar-range" size={13} color={DS.textMuted} />
-          <Text style={styles.metaText}>{item.startDate}</Text>
-        </View>
-        {!!item.location && (
-          <View style={styles.metaItem}>
-            <Icon name="map-marker-outline" size={13} color={DS.textMuted} />
-            <Text style={styles.metaText} numberOfLines={1}>{item.location}</Text>
+          {/* Date & location */}
+          <View style={styles.cardMeta}>
+            <View style={styles.metaItem}>
+              <Icon name="calendar-range" size={13} color={DS.textMuted} />
+              <Text style={styles.metaText}>{item.startDate}</Text>
+            </View>
+            {!!item.location && (
+              <View style={styles.metaItem}>
+                <Icon name="map-marker-outline" size={13} color={DS.textMuted} />
+                <Text style={styles.metaText} numberOfLines={1}>{item.location}</Text>
+              </View>
+            )}
           </View>
-        )}
-      </View>
 
-      {/* Stats row */}
-      <View style={styles.cardStatsRow}>
-        <View style={styles.cardStatItem}>
-          <Icon name="account-group-outline" size={14} color={DS.textMuted} />
-          <Text style={styles.cardStatText}>{item.teams}/{item.maxTeams} teams</Text>
+          {/* Stats row */}
+          <View style={styles.cardStatsRow}>
+            <View style={styles.cardStatItem}>
+              <Icon name="account-group-outline" size={14} color={DS.textMuted} />
+              <Text style={styles.cardStatText}>{item.teams}/{item.maxTeams} teams</Text>
+            </View>
+            <View style={styles.cardStatItem}>
+              <Icon name="cricket" size={14} color={DS.textMuted} />
+              <Text style={styles.cardStatText}>T20</Text>
+            </View>
+            <View style={styles.cardStatItem}>
+              <Icon name="currency-inr" size={14} color={DS.textMuted} />
+              <Text style={styles.cardStatText}>{item.prize}</Text>
+            </View>
+          </View>
         </View>
-        <View style={styles.cardStatItem}>
-          <Icon name="cricket" size={14} color={DS.textMuted} />
-          <Text style={styles.cardStatText}>T20</Text>
-        </View>
-        <View style={styles.cardStatItem}>
-          <Icon name="currency-inr" size={14} color={DS.textMuted} />
-          <Text style={styles.cardStatText}>{item.prize}</Text>
+
+        {/* Right column: status badge + stacked actions */}
+        <View style={styles.cardHeaderRight}>
+          <View style={[styles.statusBadge, { backgroundColor: statusColor + '1A' }]}>
+            <Text style={[styles.statusBadgeText, { color: statusColor }]}>
+              {item.status ? item.status.toUpperCase() : 'UPCOMING'}
+            </Text>
+          </View>
+          {item.status !== 'Open' && (
+            <View style={styles.headerActions}>
+              <TouchableOpacity style={styles.chipBtn} onPress={() => onOpen('Schedule', { bracket: true })}>
+                <Text style={styles.chipBtnText}>BRACKET</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.chipBtn} onPress={() => onOpen('Points Table')}>
+                <Text style={styles.chipBtnText}>STANDINGS</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
 
@@ -113,28 +127,17 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
         <View style={[styles.progressFill, { width: `${Math.min(progress * 100, 100)}%` }]} />
       </View>
 
-      {/* Footer */}
-      <View style={styles.cardFooter}>
-        {item.status === 'Open' ? (
-          <>
-            <Text style={styles.slotsLeft}>
-              {teamsLeft > 0 ? `${teamsLeft} slots left` : 'Full'}
-            </Text>
-            <TouchableOpacity style={styles.joinBtn} onPress={() => onJoin(item)}>
-              <Text style={styles.joinBtnText}>JOIN</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <TouchableOpacity style={styles.chipBtn} onPress={() => onOpen('Schedule', { bracket: true })}>
-              <Text style={styles.chipBtnText}>BRACKET</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.chipBtn} onPress={() => onOpen('Points Table')}>
-              <Text style={styles.chipBtnText}>STANDINGS</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
+      {/* Footer: only Open tournaments show slots + JOIN */}
+      {item.status === 'Open' && (
+        <View style={styles.cardFooter}>
+          <Text style={styles.slotsLeft}>
+            {teamsLeft > 0 ? `${teamsLeft} slots left` : 'Full'}
+          </Text>
+          <TouchableOpacity style={styles.joinBtn} onPress={() => onJoin(item)}>
+            <Text style={styles.joinBtnText}>JOIN</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </PressableScale>
   );
 }
@@ -427,26 +430,31 @@ const makeStyles = (DS) => StyleSheet.create({
     borderWidth: 1, borderColor: DS.faint,
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
-  cardHeader: {
-    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
-    padding: 16, paddingBottom: 4,
+  /* Card body: left info column + right status/actions column */
+  cardBody: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    padding: 16, paddingBottom: 8, gap: 12,
   },
+  cardBodyLeft: { flex: 1 },
+  cardHeaderRight: { alignItems: 'flex-end', gap: 8 },
+  headerActions: { alignItems: 'stretch', gap: 6 },
+
   cardName: { fontSize: 16, fontWeight: '800', color: DS.textPrimary, lineHeight: 22 },
   statusBadge: {
-    borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 10,
+    borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4,
   },
   statusBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
 
   /* Card meta */
   cardMeta: {
-    flexDirection: 'row', gap: 16, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingTop: 8, paddingBottom: 8,
   },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaText: { fontSize: 12, color: DS.textMuted },
 
   /* Card stats */
   cardStatsRow: {
-    flexDirection: 'row', gap: 16, paddingHorizontal: 16, paddingBottom: 10,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 12,
   },
   cardStatItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   cardStatText: { fontSize: 12, color: DS.textVariant },
@@ -477,9 +485,9 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   joinBtnText: { fontSize: 13, fontWeight: '900', color: DS.white },
   chipBtn: {
-    backgroundColor: 'transparent', borderRadius: 8,
+    backgroundColor: 'transparent', borderRadius: 8, alignItems: 'center',
     borderWidth: 1.5, borderColor: DS.textPrimary,
-    paddingHorizontal: 14, paddingVertical: 8,
+    paddingHorizontal: 14, paddingVertical: 7,
   },
   chipBtnText: { fontSize: 11, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.5 },
 
