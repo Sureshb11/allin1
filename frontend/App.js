@@ -1,6 +1,17 @@
 import React, {useState, useEffect} from 'react';
-import {StatusBar} from 'react-native';
+import {StatusBar, Text as RNText, TextInput as RNTextInput} from 'react-native';
 import 'react-native-gesture-handler';
+
+// Clamp global font scaling. A large system font ("Display size" / accessibility
+// large text) would otherwise enlarge every label while fixed-height cards, chips
+// and score rows stay put — causing text to overflow / overwrite on real devices.
+// Users can still enlarge text up to this cap; past it, layout integrity wins.
+// Applied once here so it covers every <Text>/<TextInput> app-wide.
+const MAX_FONT_SCALE = 1.2;
+RNText.defaultProps = RNText.defaultProps || {};
+RNText.defaultProps.maxFontSizeMultiplier = MAX_FONT_SCALE;
+RNTextInput.defaultProps = RNTextInput.defaultProps || {};
+RNTextInput.defaultProps.maxFontSizeMultiplier = MAX_FONT_SCALE;
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import AuthNavigator from './src/navigation/AuthNavigator';

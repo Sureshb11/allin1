@@ -27,7 +27,7 @@ export default function BrandLogo({
 
   return (
     <View style={[styles.headerBrand, style]}>
-      <Text style={[styles.brandText, { color: activeTextColor, fontSize: 20 * scale }]}>LOCAL</Text>
+      <Text allowFontScaling={false} style={[styles.brandText, { color: activeTextColor, fontSize: 20 * scale }]}>LOCAL</Text>
       <View style={[
         styles.brandBadge, 
         { 
@@ -43,7 +43,7 @@ export default function BrandLogo({
           color={activeBadgeTextColor} 
           style={{ marginRight: 3 * scale }} 
         />
-        <Text style={[styles.brandBadgeText, { color: activeBadgeTextColor, fontSize: 13 * scale }]}>LEGENDS</Text>
+        <Text allowFontScaling={false} style={[styles.brandBadgeText, { color: activeBadgeTextColor, fontSize: 13 * scale }]}>LEGENDS</Text>
       </View>
     </View>
   );

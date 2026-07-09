@@ -536,7 +536,7 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 20,
   },
   teamSideVertical: { alignItems: 'center', flex: 1, gap: 12 },
-  teamNameVertical: { fontSize: 14, fontWeight: '700', color: DS.textPrimary, textAlign: 'center', height: 20 },
+  teamNameVertical: { fontSize: 14, fontWeight: '700', color: DS.textPrimary, textAlign: 'center', minHeight: 20 },
   teamScoreVertical: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, textAlign: 'center', letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
   vsVerticalBlock: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   vsTextVertical: { fontSize: 13, fontWeight: '900', color: DS.blueSoft, fontStyle: 'italic' },
