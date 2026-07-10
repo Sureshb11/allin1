@@ -25,10 +25,10 @@ const HOLD_TICKS = 6;  // beat on the finished logo before the loop restarts
 // focused disc always shows a complete athlete, never a partial reveal.
 // (measured: first frame reaching 70% of the final alpha coverage.)
 const START_FRAME = {
-  badminton: 2, basketball: 0, boxing: 0, cricket: 10, football: 2,
-  handball: 0, hockey: 4, judo: 0, karate: 0, khokho: 1, pickleball: 2,
-  rummy: 1, skateboard: 0, squash: 0, tabletennis: 0, tennis: 0,
-  volleyball: 2, wrestling: 0,
+  badminton: 2, basketball: 0, boxing: 0, cricket: 0, football: 2,
+  handball: 0, hockey: 4, judo: 0, kabaddi: 0, karate: 0, khokho: 1,
+  pickleball: 2, rummy: 1, skateboard: 0, squash: 0, tabletennis: 0,
+  tennis: 0, volleyball: 2, wrestling: 0,
 };
 
 // pickleball & volleyball draw a moving swing-arc "swoosh" from the mid frames

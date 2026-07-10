@@ -39,11 +39,19 @@ export default function SportSwitcher({ navigation, current: currentOverride, va
     );
   };
 
+  // Profile → change sport: open the full Arena picker instead of the sheet.
+  // SportPicker lives on the RootStack (sibling of MainApp); selecting a sport
+  // there resets the stack into that sport, and back returns to the profile.
+  const openArenaPicker = () => {
+    const root = navigation?.getParent?.('RootStack') || navigation;
+    root?.navigate?.('SportPicker');
+  };
+
   return (
     <View>
       {variant === 'iconButton'
         ? (
-          <TouchableOpacity style={s.actionItem} activeOpacity={0.85} onPress={() => setOpen(true)}>
+          <TouchableOpacity style={s.actionItem} activeOpacity={0.85} onPress={openArenaPicker}>
             <View style={s.actionCircle}><Icon name={current.icon} size={22} color={C.lime} /></View>
             <Text style={s.actionLabel} numberOfLines={1}>Sport</Text>
           </TouchableOpacity>

@@ -9,6 +9,7 @@ import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
 import BrandLogo from "../components/BrandLogo";
 import MatchAwardsModal from "../components/MatchAwardsModal";
+import PlayerAvatar from "../components/PlayerAvatar";
 
 const { width } = Dimensions.get('window');
 
@@ -990,6 +991,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         <View style={styles.creasePanel}>
           <View style={styles.creaseRow}>
             <Icon name="chevron-right" size={16} color={DS.lime} />
+            {striker && <PlayerAvatar name={striker.name} avatarUrl={striker.avatarUrl} size={24} style={styles.creaseAvatar} />}
             <Text style={[styles.creaseName, styles.creaseStriker]} numberOfLines={1}>{striker?.name || 'Select batter'}</Text>
             <Text style={styles.creaseFig}>
               {striker ? (() => { const st = batStats[striker.id] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
@@ -1005,6 +1007,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
           <View style={[styles.creaseRow, styles.creaseRowDivider]}>
             <View style={{ width: 16 }} />
+            {nonStriker && <PlayerAvatar name={nonStriker.name} avatarUrl={nonStriker.avatarUrl} size={24} style={styles.creaseAvatar} />}
             <Text style={styles.creaseName} numberOfLines={1}>{nonStriker?.name || '—'}</Text>
             <Text style={styles.creaseFig}>
               {nonStriker ? (() => { const st = batStats[nonStriker.id] || { runs: 0, balls: 0 };
@@ -1014,6 +1017,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
           <View style={[styles.creaseRow, styles.creaseBowlerRow]}>
             <Icon name="cricket" size={14} color={DS.coral} />
+            {currentBowler && <PlayerAvatar name={currentBowler.name} avatarUrl={currentBowler.avatarUrl} size={24} style={styles.creaseAvatar} />}
             <Text style={styles.creaseName} numberOfLines={1}>{currentBowler?.name || 'Select bowler'}</Text>
             <Text style={styles.creaseFig}>{bowlerStats}</Text>
             <TouchableOpacity hitSlop={8} onPress={() => { setMustPickBowler(false); setShowBowlerModal(true); }}>
@@ -1637,6 +1641,7 @@ const makeStyles = (DS) => StyleSheet.create({
   // ── Crease panel — striker (lit) / non-striker / bowler ──
   creasePanel: { backgroundColor: DS.surfaceHigh, borderRadius: 16, marginHorizontal: 16, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 8 },
   creaseRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9 },
+  creaseAvatar: { marginLeft: -2 },
   creaseRowDivider: { paddingTop: 4 },
   creaseBowlerRow: { borderTopWidth: 1, borderTopColor: DS.line },
   creaseName: { flex: 1, fontSize: 18, fontWeight: '700', color: DS.textVariant },

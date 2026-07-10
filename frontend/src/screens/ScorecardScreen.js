@@ -10,6 +10,7 @@ import { captureRef } from 'react-native-view-shot';
 import RNShare from 'react-native-share';
 import legendsApi from '../services/LegendsApi';
 import BrandLogo from "../components/BrandLogo";
+import PlayerAvatar from "../components/PlayerAvatar";
 
 // Cricket dismissal notation: "b Bowler", "c Fielder b Bowler", "c & b Bowler",
 // "lbw b Bowler", "st Keeper b Bowler", "run out (Fielder)", "hit wicket b Bowler".
@@ -403,6 +404,7 @@ function InningsScorecard({ innings, index, squads }) {const DS = useTheme().col
     .filter((s) => s.teamId === innings.battingTeamId)
     .map((s) => ({ id: s.playerId, name: s.player?.name || 'Unknown' }));
   const nameById = Object.fromEntries((squads || []).map((s) => [s.playerId, s.player?.name || 'batter']));
+  const avatarById = Object.fromEntries((squads || []).map((s) => [s.playerId, s.player?.user?.avatarUrl || null]));
   const { batted, yetToBat } = computeBatting(innings, battingXI);
   const bowlers = computeBowling(innings);
   const extras = computeExtras(innings);
@@ -430,9 +432,12 @@ function InningsScorecard({ innings, index, squads }) {const DS = useTheme().col
       <TableHeader cols={['BATTER', 'R', 'B', '4s', '6s', 'SR']} />
       {batted.map((b, i) =>
       <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
-          <View style={[styles.cell, styles.nameCol]}>
-            <Text style={styles.batterName}>{b.name}</Text>
-            <Text style={b.out ? styles.howOut : styles.notOut}>{b.out ? b.howOut : 'not out'}</Text>
+          <View style={[styles.cell, styles.nameCol, styles.nameCell]}>
+            <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={24} style={styles.rowAvatar} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.batterName} numberOfLines={1}>{b.name}</Text>
+              <Text style={b.out ? styles.howOut : styles.notOut} numberOfLines={1}>{b.out ? b.howOut : 'not out'}</Text>
+            </View>
           </View>
           <Text style={[styles.cell, styles.numCol, b.runs >= 50 && styles.highlight]}>{b.runs}</Text>
           <Text style={[styles.cell, styles.numCol]}>{b.balls}</Text>
@@ -486,7 +491,10 @@ function InningsScorecard({ innings, index, squads }) {const DS = useTheme().col
       <TableHeader cols={['BOWLER', 'O', 'M', 'R', 'W', 'ECON']} />
       {bowlers.map((b, i) =>
       <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
-          <Text style={[styles.cell, styles.nameCol, styles.bowlerName]}>{b.name}</Text>
+          <View style={[styles.cell, styles.nameCol, styles.nameCell]}>
+            <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={24} style={styles.rowAvatar} />
+            <Text style={[styles.bowlerName, { flex: 1 }]} numberOfLines={1}>{b.name}</Text>
+          </View>
           <Text style={[styles.cell, styles.numCol]}>{b.overs}</Text>
           <Text style={[styles.cell, styles.numCol]}>{b.maidens}</Text>
           <Text style={[styles.cell, styles.numCol]}>{b.runs}</Text>
@@ -653,9 +661,7 @@ function LiveTab({ innings, squads, onViewAllOvers, totalOvers }) {const DS = us
 function PlayerRow({ name, role, avatarUrl }) {const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.squadRow}>
-      {avatarUrl
-        ? <Image source={{ uri: avatarUrl }} style={styles.squadAvatarImg} />
-        : <View style={styles.squadAvatar}><Text style={styles.squadAvatarText}>{(name || '?').charAt(0).toUpperCase()}</Text></View>}
+      <PlayerAvatar name={name} avatarUrl={avatarUrl} size={30} />
       <View style={{ flex: 1 }}>
         <Text style={styles.squadName} numberOfLines={1}>{name}</Text>
         {!!role && <Text style={styles.squadRole}>{role}</Text>}
@@ -1064,6 +1070,8 @@ const makeStyles = (DS) => StyleSheet.create({
   headerCell: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
   cell: { fontSize: 13, color: DS.textVariant },
   nameCol: { flex: 2.5 },
+  nameCell: { flexDirection: 'row', alignItems: 'center' },
+  rowAvatar: { marginRight: 8 },
   numCol: { flex: 1, textAlign: 'center' },
   batterName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
   bowlerName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },

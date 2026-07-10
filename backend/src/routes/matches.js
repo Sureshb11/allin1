@@ -484,7 +484,16 @@ router.get('/:id/live-state', async (req, res) => {
         battingTeam: true, bowlingTeam: true,
         oversData: {
           orderBy: { overNumber: 'desc' },
-          include: { bowler: true, balls: { orderBy: { ballNumber: 'desc' }, include: { batter: true, nonStriker: true } } },
+          include: {
+            bowler: { include: { user: { select: { avatarUrl: true } } } },
+            balls: {
+              orderBy: { ballNumber: 'desc' },
+              include: {
+                batter: { include: { user: { select: { avatarUrl: true } } } },
+                nonStriker: { include: { user: { select: { avatarUrl: true } } } },
+              },
+            },
+          },
         },
       },
     });
@@ -512,8 +521,8 @@ router.get('/:id/live-state', async (req, res) => {
 
     // Squads (playing XIs) split by the current inning's batting/bowling team,
     // so the resumed scorer keeps the same player pickers.
-    const squad = await prisma.matchPlayer.findMany({ where: { matchId: match.id }, include: { player: true } });
-    const xiFor = (teamId) => squad.filter((s) => s.teamId === teamId).map((s) => ({ id: s.player.id, name: s.player.name }));
+    const squad = await prisma.matchPlayer.findMany({ where: { matchId: match.id }, include: { player: { include: { user: { select: { avatarUrl: true } } } } } });
+    const xiFor = (teamId) => squad.filter((s) => s.teamId === teamId).map((s) => ({ id: s.player.id, name: s.player.name, avatarUrl: s.player.user?.avatarUrl || null }));
 
     // Notation for the balls already in the current over (to rebuild the log).
     const notate = (b) => b.extraType === 'wide' ? 'WD' : b.extraType === 'noBall' ? 'NB'
@@ -525,16 +534,16 @@ router.get('/:id/live-state', async (req, res) => {
     // in the squad) so it works even if the playing XI wasn't fully recorded.
     const creaseIds = [inning.strikerId, inning.nonStrikerId, inning.currentBowlerId].filter(Boolean);
     const creasePlayers = creaseIds.length
-      ? await prisma.player.findMany({ where: { id: { in: creaseIds } }, select: { id: true, name: true } })
+      ? await prisma.player.findMany({ where: { id: { in: creaseIds } }, select: { id: true, name: true, user: { select: { avatarUrl: true } } } })
       : [];
     const nameFor = (pid) => {
       if (!pid) return null;
       const p = creasePlayers.find((x) => x.id === pid) || squad.find((s) => s.player.id === pid)?.player;
-      return p ? { id: pid, name: p.name } : null;
+      return p ? { id: pid, name: p.name, avatarUrl: p.user?.avatarUrl || null } : null;
     };
-    const fbStriker = lastBall && !lastBall.isWicket ? { id: lastBall.batter.id, name: lastBall.batter.name } : null;
-    const fbNon = lastBall ? { id: lastBall.nonStriker.id, name: lastBall.nonStriker.name } : null;
-    const fbBowler = overComplete ? null : (curOver?.bowler ? { id: curOver.bowler.id, name: curOver.bowler.name } : null);
+    const fbStriker = lastBall && !lastBall.isWicket ? { id: lastBall.batter.id, name: lastBall.batter.name, avatarUrl: lastBall.batter.user?.avatarUrl || null } : null;
+    const fbNon = lastBall ? { id: lastBall.nonStriker.id, name: lastBall.nonStriker.name, avatarUrl: lastBall.nonStriker.user?.avatarUrl || null } : null;
+    const fbBowler = overComplete ? null : (curOver?.bowler ? { id: curOver.bowler.id, name: curOver.bowler.name, avatarUrl: curOver.bowler.user?.avatarUrl || null } : null);
     const creaseStriker = nameFor(inning.strikerId) || fbStriker;
     const creaseNonStriker = nameFor(inning.nonStrikerId) || fbNon;
     const creaseBowler = nameFor(inning.currentBowlerId) || fbBowler;
