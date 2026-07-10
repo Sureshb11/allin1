@@ -31,12 +31,12 @@ export const scoringDark = {
 };
 
 export const scoringLight = {
-  bg:          '#eef1f7',
+  bg:          '#f8fafc',   // off-white page (was grey #eef1f7)
   cLow:       '#ffffff',
-  cMid:       '#f4f6fb',
+  cMid:       '#fbfcfe',
   cHigh:      '#ffffff',
-  cHighest:   '#e9edf5',
-  bright:     '#dbe1ec',
+  cHighest:   '#eef1f6',
+  bright:     '#e6ebf2',
   onSurface:  '#12151c',
   onVariant:  '#33394a',
   muted:      '#525a68',

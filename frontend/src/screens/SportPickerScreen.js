@@ -20,6 +20,7 @@ import { useCurrentUser } from '../utils/currentUser';
 import SportIcon from '../components/SportIcon';
 import SportLogoIcon, { hasSportAnim } from '../components/SportLogoIcon';
 import { haptic } from '../utils/haptics';
+import { initSfx, playBatHit, releaseSfx } from '../utils/sfx';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { useTheme, useThemedStyles, useArenaColors } from '../theme/ThemeContext';
@@ -228,6 +229,66 @@ const SPORT_COLORS = {
   rummy: '#b7ff00',
 };
 
+// The sport colours above are neon — tuned for a dark stage. On the light
+// theme they'd be invisible, so darken to a readable ink while keeping the hue
+// (proportional RGB scale down to a target luminance). Lets the ARENA title
+// take on each sport's colour in both themes.
+function readableInk(hex) {
+  const h = hex.replace('#', '');
+  let r = parseInt(h.slice(0, 2), 16);
+  let g = parseInt(h.slice(2, 4), 16);
+  let b = parseInt(h.slice(4, 6), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const target = 0.42;
+  if (lum > target) {
+    const f = target / lum;
+    r = Math.round(r * f); g = Math.round(g * f); b = Math.round(b * f);
+  }
+  return `rgb(${r},${g},${b})`;
+}
+
+// ── ARENA flyby: a leather cricket ball + its motion streak (SVG, static —
+// movement/spin come from the Animated wrappers in the title block). ──────────
+const CricketBall = React.memo(function CricketBall({ size = 34 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 40 40">
+      <Defs>
+        <RadialGradient id="ballBody" cx="34%" cy="30%" r="72%">
+          <Stop offset="0" stopColor="#e8654f" />
+          <Stop offset="0.55" stopColor="#bf3524" />
+          <Stop offset="1" stopColor="#701a10" />
+        </RadialGradient>
+      </Defs>
+      <Circle cx={20} cy={20} r={18} fill="url(#ballBody)" stroke="#4d1109" strokeWidth={1} />
+      {/* seam stitches */}
+      <Path d="M6 14 Q20 7 34 14" stroke="#f4e6cd" strokeWidth={1.4} strokeDasharray="2 2.2" fill="none" strokeLinecap="round" />
+      <Path d="M6 26 Q20 33 34 26" stroke="#f4e6cd" strokeWidth={1.4} strokeDasharray="2 2.2" fill="none" strokeLinecap="round" />
+      {/* top-left sheen */}
+      <Circle cx={13} cy={12} r={4.5} fill="#ffffff" opacity={0.22} />
+    </Svg>
+  );
+});
+
+// Tapered streak — bright at the left (nearest the ball) fading right (behind
+// the leftward flight). Sits to the ball's trailing side.
+const BallTrail = React.memo(function BallTrail({ width = 92, height = 34 }) {
+  const mid = height / 2;
+  return (
+    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <Defs>
+        <LinearGradient id="ballTrail" x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor="#d84a34" stopOpacity={0.55} />
+          <Stop offset="1" stopColor="#d84a34" stopOpacity={0} />
+        </LinearGradient>
+      </Defs>
+      <Path
+        d={`M0 ${mid - 7} Q ${width * 0.5} ${mid - 3} ${width} ${mid - 0.6} L ${width} ${mid + 0.6} Q ${width * 0.5} ${mid + 3} 0 ${mid + 7} Z`}
+        fill="url(#ballTrail)"
+      />
+    </Svg>
+  );
+});
+
 // Open centred on the last-played sport (in-session; fresh launch → cricket).
 const initialArena = () => {
   const selId = getSelectedSport().sport?.id;
@@ -264,6 +325,10 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
   const flareAnim = useRef(new Animated.Value(1)).current;
   const glowOpacity = useRef(Animated.multiply(glowAnim, flareAnim)).current;
   const btnPulseAnim = useRef(new Animated.Value(1)).current;
+  // ARENA wordmark flourish: a cricket ball swoops across the title every few
+  // seconds (0→1 = one flight, then it holds off-screen until the next pass).
+  // The letters take a small impact wobble as the ball crosses centre.
+  const ballAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const breath = Animated.loop(Animated.sequence([
@@ -280,6 +345,38 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 
     return () => { breath.stop(); btnPulse.stop(); };
   }, [glowAnim, btnPulseAnim]);
+
+  // ARENA cricket-ball flyby + its "crack". Driven manually (not Animated.loop)
+  // so the bat-hit sound fires exactly as the ball reaches the middle of the word.
+  useEffect(() => {
+    const FLIGHT = 1150;   // ms for one pass across ARENA
+    const GAP = 2600;      // ms the ball waits off-screen between passes
+    let cancelled = false;
+    let gapTimer = null;
+    let hitTimer = null;
+
+    initSfx();
+
+    const runCycle = () => {
+      if (cancelled) return;
+      ballAnim.setValue(0);
+      // crack lands as the ball crosses centre (progress ≈ 0.5 with inOut easing)
+      hitTimer = setTimeout(() => { if (!cancelled) playBatHit(); }, FLIGHT * 0.5);
+      Animated.timing(ballAnim, {
+        toValue: 1, duration: FLIGHT, easing: Easing.inOut(Easing.cubic), useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished && !cancelled) gapTimer = setTimeout(runCycle, GAP);
+      });
+    };
+
+    gapTimer = setTimeout(runCycle, GAP);
+    return () => {
+      cancelled = true;
+      clearTimeout(gapTimer);
+      clearTimeout(hitTimer);
+      releaseSfx();
+    };
+  }, [ballAnim]);
 
   // Idle attract: after ~7s untouched, a random disc quietly plays its logo
   // for a beat — the cluster feels inhabited (Watch-style breathing gallery).
@@ -522,6 +619,8 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
   }), [panOff.x, panOff.y, cx, cy]);
 
   const moodColor = SPORT_COLORS[focus.id] || A.lime;
+  // ARENA title tint: the neon colour on dark, a readable darkened hue on light.
+  const moodInk = isDark ? moodColor : readableInk(moodColor);
 
   return (
     <View style={s.root}>
@@ -574,15 +673,42 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         ],
       }]}>
         <Text style={s.title1}>CHOOSE YOUR</Text>
-        <Text style={[
-          s.title2, 
-          { 
-            color: isDark ? moodColor : A.ink, 
-            textShadowColor: isDark ? moodColor + '40' : moodColor, 
-            textShadowOffset: {width: 0, height: isDark ? 4 : 3}, 
-            textShadowRadius: isDark ? 12 : 0 
-          }
-        ]}>ARENA</Text>
+        {/* ARENA + cricket-ball flyby, laid out together so the ball tracks the word. */}
+        <View style={s.arenaWrap}>
+          <Animated.Text style={[
+            s.title2,
+            {
+              color: moodInk,
+              textShadowColor: isDark ? moodColor + '40' : 'transparent',
+              textShadowOffset: { width: 0, height: isDark ? 4 : 0 },
+              textShadowRadius: isDark ? 12 : 0,
+              transform: [
+                // pop each time a new sport lands in focus (ties into the colour swap)
+                { scale: readoutAnim.interpolate({ inputRange: [0, 1], outputRange: [1.09, 1] }) },
+                // impact wobble as the ball crosses the middle of the word
+                { translateY: ballAnim.interpolate({ inputRange: [0, 0.44, 0.52, 0.62, 1], outputRange: [0, 0, 4, 0, 0] }) },
+                { rotateZ: ballAnim.interpolate({ inputRange: [0, 0.44, 0.5, 0.6, 1], outputRange: ['0deg', '0deg', '2.2deg', '-1.2deg', '0deg'] }) },
+              ],
+            }
+          ]}>ARENA</Animated.Text>
+          {/* Flying ball overlay — non-interactive, sits above the letters.
+              Outer view carries the flight path; the trail stays horizontal
+              while an inner view spins the leather. */}
+          <Animated.View pointerEvents="none" style={[s.ballLayer, {
+            opacity: ballAnim.interpolate({ inputRange: [0, 0.05, 0.9, 1], outputRange: [0, 1, 1, 0] }),
+            transform: [
+              { translateX: ballAnim.interpolate({ inputRange: [0, 1], outputRange: [160, -160] }) },
+              { translateY: ballAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [-26, 8, -14] }) },
+            ],
+          }]}>
+            <BallTrail width={92} height={34} />
+            <Animated.View style={{
+              transform: [{ rotate: ballAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-460deg'] }) }],
+            }}>
+              <CricketBall size={34} />
+            </Animated.View>
+          </Animated.View>
+        </View>
       </Animated.View>
 
       {/* ── HONEYCOMB ── */}
@@ -717,6 +843,13 @@ const makeS = (A) => StyleSheet.create({
   // scale contrast does the work, not colour or italics.
   title1: { fontSize: 11, fontWeight: '700', color: A.textMuted, letterSpacing: 4.5, marginBottom: 6 },
   title2: { fontSize: 48, fontWeight: '900', color: A.lime, letterSpacing: 2, lineHeight: 52 },
+  // Wraps ARENA so the flyby ball is anchored to the word.
+  arenaWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  // Ball + trail travel as one row (ball leads on the left, streak trails right).
+  ballLayer: {
+    position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
+    flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'center',
+  },
 
   grid: { flex: 1, overflow: 'hidden' },
 

@@ -27,13 +27,18 @@ export default function GradientButton({
   textStyle,
   iconRight = false,
   height = 54,
+  // 'lime' = the default athletic-green CTA. 'blue' follows the app's
+  // "solid blue = commit action" rule (Start / Score / View Summary), so the
+  // match-lifecycle screens stay on-theme instead of reading as all-green.
+  variant = 'lime',
 }) {
   const c = useTheme().colors;
   const [size, setSize] = useState({ w: 0, h: height });
 
-  const from = c.lime || '#abd600';
-  const to = c.limeBright || '#c4f82a';
-  const ink = c.onLime || '#12151c';
+  const blue = variant === 'blue';
+  const from = blue ? (c.blueDeep || '#0041c8') : (c.lime || '#abd600');
+  const to = blue ? (c.blueDeep || '#0041c8') : (c.limeBright || '#c4f82a');
+  const ink = blue ? (c.onBlue || '#ffffff') : (c.onLime || '#12151c');
 
   const IconEl = icon ? <Icon name={icon} size={20} color={ink} /> : null;
 

@@ -871,11 +871,11 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             <Text style={styles.scoreVsText}>VS</Text>
           </View>
           <View style={[styles.scoreTeam, { alignItems: 'flex-end' }]}>
-            <View style={[styles.scoreAvatar, { backgroundColor: DS.coral }]}>
+            <View style={[styles.scoreAvatar, { backgroundColor: DS.blue }]}>
               <Text style={styles.scoreAvatarText}>{t2[0]}</Text>
             </View>
             <Text style={[styles.scoreTeamName, { textAlign: 'right' }]} numberOfLines={1}>{t2}</Text>
-            <Text style={[styles.scoreValue, { textAlign: 'right' }]}>{match.score2 || '—'}</Text>
+            <Text style={[styles.scoreValue, { textAlign: 'right', color: DS.blue }]}>{match.score2 || '—'}</Text>
           </View>
         </View>
 
@@ -995,7 +995,7 @@ const makeStyles = (DS) => StyleSheet.create({
   scoreTeamName: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
   scoreValue: { fontSize: 20, fontWeight: '900', color: DS.lime },
   scoreVs: { paddingHorizontal: 12 },
-  scoreVsText: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 1 },
+  scoreVsText: { fontSize: 11, fontWeight: '800', color: DS.blue, letterSpacing: 1 },
 
   // Result
   resultBanner: {

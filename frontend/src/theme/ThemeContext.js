@@ -31,8 +31,8 @@ const dark = {
   surfaceHigh: '#2a2a2a',
   surfaceHighest: '#353534',
   white: '#ffffff',
-  lime: '#ccff00',      // Radium Green
-  limeBright: '#c3f400',
+  lime: '#c8e93c',      // Radium Green, softened for dark-mode readability (was #ccff00 — pure neon haloed against the near-black bg when used as text)
+  limeBright: '#cdf23c',  // Arena/Rummy accent — softened from pure #c3f400 but kept punchier than `lime`
   lime2: '#abd600',
   onLime: '#161e00',
   coral: '#ffb4ab',
@@ -54,9 +54,9 @@ const dark = {
   danger: '#ffb4ab',
   dangerTxt: '#ffb4ab',
   warn: '#ffb24a',
-  success: '#ccff00',
-  border: 'rgba(204,255,0,0.2)', // Radium Green 20%
-  line: 'rgba(204,255,0,0.1)',
+  success: '#c8e93c',
+  border: 'rgba(200,233,60,0.2)', // Radium Green (softened) 20%
+  line: 'rgba(200,233,60,0.1)',
   overlay: 'rgba(0,0,0,0.8)',
   // Arena fallback roles
   navy0: '#0e0e0e',
@@ -71,11 +71,13 @@ const dark = {
 // ── LIGHT (Premium Sporty 2 - Vivid Match) ──────────────────────────────────
 const light = {
   mode: 'light',
-  bg: '#f3f5f8',
-  surfaceLow: '#f6f8fa',
-  surface: '#ffffff',
-  surfaceHigh: '#eef1f5',
-  surfaceHighest: '#e8ecf1',
+  // Neutrals lifted from grey toward a soft off-white (not pure white) app-wide,
+  // keeping small tonal steps so white cards/controls still separate.
+  bg: '#f8fafc',            // page background (was grey #f3f5f8)
+  surfaceLow: '#fdfdff',    // sections / banners — near white
+  surface: '#ffffff',       // cards — pure white, still pops over the off-white bg
+  surfaceHigh: '#f9fbfd',   // chips / inputs / buttons — near-white (defined by their border)
+  surfaceHighest: '#f1f4f8',// avatars / deepest recess
   white: '#ffffff',
   lime: '#406900',       // Pitch grass green
   limeBright: '#bdf37b',
@@ -92,7 +94,7 @@ const light = {
   textVariant: '#434656',
   textSecondary: '#434656',
   textMuted: '#5d6070',
-  faint: '#d8dadc',
+  faint: '#e6e8ec',
   onDark: '#ffffff',
   onDarkDim: '#e0e3e5',
   limeDark: '#447000',
@@ -104,11 +106,11 @@ const light = {
   border: '#c3c5d9',
   line: '#c3c5d9',
   overlay: 'rgba(0,0,0,0.4)',
-  navy0: '#ffffff',
-  navy1: '#f7f9fb',
-  navy2: '#f2f4f6',
-  cell: '#ffffff',
-  cellHi: '#f7f9fb',
+  navy0: '#f8fafc',   // arena/rummy page bg — off-white to match the app (was pure #ffffff)
+  navy1: '#fdfdff',
+  navy2: '#f6f8fb',
+  cell: '#ffffff',    // arena cards / discs stay pure white so they pop
+  cellHi: '#fdfdff',
   ink: '#191c1e',
   inkDim: '#434656',
 };

@@ -634,8 +634,10 @@ const StartMatchScreen = ({ navigation, route }) => {
           </Text>
         )}
 
-        {/* ── CTA (signature blue-gradient) — start now or schedule ── */}
+        {/* ── CTA — solid blue "commit action" per the app colour rule
+             (matches Score / Start / View Summary), not the green gradient ── */}
         <GradientButton
+          variant="blue"
           label={scheduleAt ? 'SCHEDULE MATCH' : 'START SCORING'}
           icon={scheduleAt ? 'calendar-clock' : (sport.icon || 'whistle')}
           onPress={onCreate}
@@ -918,7 +920,7 @@ const makeS = (K) => StyleSheet.create({
   vsText: {
     fontSize: 13,
     fontWeight: '900',
-    color: K.lime,
+    color: K.blue,
     fontStyle: 'italic',
   },
 

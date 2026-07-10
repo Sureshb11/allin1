@@ -26,5 +26,14 @@ module.exports = {
         },
       },
     },
+    'react-native-sound': {
+      platforms: {
+        android: {
+          sourceDir: '../node_modules/react-native-sound/android',
+          packageImportPath: 'import com.zmxv.RNSound.SoundPackage;',
+          packageInstance: 'new SoundPackage()',
+        },
+      },
+    },
   },
 };
