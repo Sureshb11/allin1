@@ -50,8 +50,13 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
       const list = res.success && Array.isArray(res.data?.players)
         ? res.data.players : [];
       setPlayers(list);
-      // Auto-select all players (up to the squad max) so user just removes unavailable ones
-      setXI(list.slice(0, MAX_XI).map(p => ({ id: p.id, name: p.name, role: p.role })));
+      // Auto-select the full squad (up to the max) ONLY the first time this team is
+      // opened — i.e. when its XI is still empty. This component remounts on every
+      // team-tab switch (key={activeTeam}); without this guard it re-selected the
+      // whole roster each time, silently undoing the scorer's manual removals — so
+      // deselected players reappeared in the saved squad, the scorecard, and the
+      // live-scoring batter/bowler pickers.
+      setXI(prev => prev.length ? prev : list.slice(0, MAX_XI).map(p => ({ id: p.id, name: p.name, role: p.role })));
       setLoading(false);
     });
   }, [teamId]);

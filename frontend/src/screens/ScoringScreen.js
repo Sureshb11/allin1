@@ -83,6 +83,10 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [runOutSlot, setRunOutSlot] = useState('striker'); // which batter the run-out dismisses
   const [catchPrompt, setCatchPrompt] = useState(false);   // caught → who took the catch?
   const [newBatterFor, setNewBatterFor] = useState('striker'); // which crease slot the new batter fills
+  // A wicket on the LAST ball of an over: the ends change, but only AFTER the new
+  // batter walks in — so the not-out batter is on strike next over. We defer that
+  // swap until the replacement is picked (see the New Batsman modal).
+  const [pendingCreaseSwap, setPendingCreaseSwap] = useState(false);
   const [outBatters, setOutBatters] = useState([]);        // player IDs dismissed this innings (can't re-bat)
   const [squadAddFor, setSquadAddFor] = useState(null);    // 'bat' | 'bowl' → add-from-roster sheet
   const [roster, setRoster] = useState([]);                // the team's full roster for the add sheet
@@ -167,6 +171,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         battingTeamName: d.battingTeam, bowlingTeamName: d.bowlingTeam,
         battingXI: d.battingXI, bowlingXI: d.bowlingXI,
         battingTeamId: d.battingTeamId, bowlingTeamId: d.bowlingTeamId,
+        // team1/team2 identity is needed to map the batting score onto the correct
+        // summary field (score1 = team1, score2 = team2) on resume too.
+        team1Id: d.team1, team2Id: d.team2,
         firstInningId: d.inningId,
       });
       setIsInnings2(!!d.isInnings2);
@@ -302,7 +309,9 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     setShowBowlerModal(false); setMustPickBowler(false);
     setShowPlayerModal(false); setOverSummary(null);
     const scoreStr = `${finalScore.runs}/${finalScore.wickets} (${finalScore.overs}.${finalScore.balls})`;
-    await legendsApi.updateMatch(matchData.id, { status: 'completed', score2: scoreStr, result });
+    // The match ends during the 2nd innings, so battingTeamId is the chasing side —
+    // write its own summary field, not a hardcoded score2.
+    await legendsApi.updateMatch(matchData.id, { status: 'completed', [summaryFieldFor(battingTeamId)]: scoreStr, result });
     computeMvp();
     // The MVP awards popup (fired by the matchComplete effect) now announces the
     // result — no separate native alert needed.
@@ -356,6 +365,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     setStriker(prev.striker);
     setNonStriker(prev.nonStriker);
     setCurrentBowler(prev.bowler);
+    setPendingCreaseSwap(false);   // undoing the ball cancels any deferred end-of-over swap
     if (prev.batStats) setBatStats(prev.batStats);
     if (prev.bowlStats) setBowlStats(prev.bowlStats);
     if (prev.outBatters) setOutBatters(prev.outBatters);
@@ -363,9 +373,22 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     setShowPlayerModal(false);
     setShowBowlerModal(false);
     const s = `${prev.score.runs}/${prev.score.wickets} (${prev.score.overs}.${prev.score.balls})`;
-    if (!isInnings2) legendsApi.updateMatch(matchData.id, { score1: s });
+    syncMatchSummary(s);
     showToast('Last ball undone', 'success');
     setUndoing(false);
+  };
+
+  // The match summary is TEAM-indexed everywhere it's displayed: score1 = team1's
+  // score, score2 = team2's score (feed cards, scorecard header, teams tab). The
+  // scorer, however, works innings by innings. Writing "score1 for innings 1" is
+  // wrong whenever team2 bats first — its runs would land in score1 and show under
+  // team1. Map the BATTING team's score onto that team's own field instead.
+  const summaryFieldFor = (teamId) => (teamId && teamId === matchData?.team2Id ? 'score2' : 'score1');
+
+  // Keep the match summary in sync on every ball so watchers (and the scorer's own
+  // scorecard) always match the live score — for BOTH innings and the correct team.
+  const syncMatchSummary = (scoreStr) => {
+    legendsApi.updateMatch(matchData.id, { [summaryFieldFor(battingTeamId)]: scoreStr });
   };
 
   // addRuns = extra runs on a wide/no-ball/bye/leg-bye (e.g. wide+2, no-ball+4).
@@ -401,7 +424,14 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     if (value === 'out') haptic.warn(); else haptic.tick();
     let newScore = { ...currentScore };
     let newOver = [...currentOver];
-    const rotate = (n) => { if (n % 2 === 1) { const t = striker; setStriker(nonStriker); setNonStriker(t); } };
+    // Count strike changes (batsmen crossing on odd runs + changing ends at the end
+    // of an over) and apply the NET swap ONCE at the end. Doing each swap inline via
+    // setState collapsed two swaps into one — both read the same closure striker/
+    // nonStriker, so last-write-wins — which meant an odd run off the LAST ball of an
+    // over left the wrong batter on strike (cross + change-ends should cancel), and
+    // every following ball's runs were then credited to the wrong batter.
+    let strikeSwaps = 0;
+    const rotate = (n) => { if (n % 2 === 1) strikeSwaps += 1; };
 
     if (typeof value === 'number') {
       newScore.runs += value;
@@ -519,7 +549,10 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           return { ...prev, [currentBowler.id]: { ...c, maidens: c.maidens + (c.overRuns === 0 ? 1 : 0), overRuns: 0 } };
         });
       }
-      const t = striker;setStriker(nonStriker);setNonStriker(t);
+      // Change ends at the end of the over. For a normal ball this is applied via
+      // the net swap below; for a WICKET on the last ball the swap must wait until
+      // the new batter is in, so we defer it (applied in the New Batsman modal).
+      if (value === 'out') setPendingCreaseSwap(true); else strikeSwaps += 1;
       // Don't prompt for the next over's bowler if the innings/match just ended:
       // last over bowled, all out, or the chase (innings 2) is already won.
       const chaseWon = isInnings2 && newScore.runs >= target;
@@ -546,9 +579,13 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       st.n = 0;   // a legal delivery with no wicket breaks the streak (extras don't)
     }
 
+    // Net strike change for this ball (crossings + end-of-over), applied once so
+    // odd-run + over-end correctly cancels. Skipped when a wicket emptied the
+    // striker slot (strikeSwaps stays even there) so the new-batter pick governs.
+    if (strikeSwaps % 2 === 1) { setStriker(nonStriker); setNonStriker(striker); }
     setCurrentScore(newScore);
     const scoreStr = `${newScore.runs}/${newScore.wickets} (${newScore.overs}.${newScore.balls})`;
-    if (!isInnings2) legendsApi.updateMatch(matchData.id, { score1: scoreStr });
+    syncMatchSummary(scoreStr);
     if (isInnings2) checkWinCondition(newScore);
     if (!isInnings2 && (newScore.wickets >= 10 || newScore.overs >= totalOvers && newScore.balls === 0)) {
       finishInnings(newScore.wickets >= 10 ? 'All out' : 'Overs completed', newScore);
@@ -581,7 +618,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     if (!isInnings2) {
       setFirstInningsScore(score);
       const s1 = `${score.runs}/${score.wickets} (${score.overs}.${score.balls})`;
-      await legendsApi.updateMatch(matchData.id, { score1: s1 });
+      // battingTeamId is still the 1st-innings batting side here (the swap is below).
+      await legendsApi.updateMatch(matchData.id, { [summaryFieldFor(battingTeamId)]: s1 });
       const inn = await legendsApi.createInning(matchData.id, {
         battingTeamId: bowlingTeamId, bowlingTeamId: battingTeamId, targetScore: score.runs + 1,
       });
@@ -590,7 +628,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       setCurrentScore({ runs: 0, wickets: 0, overs: 0, balls: 0 });
       setCurrentOver([]); setBallCount(0); setOverSummary(null); setHistory([]);
       // Fresh innings → reset per-player figures + bowling spell tracking + dismissals.
-      setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setOutBatters([]); setRetiredBatters([]);
+      setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setOutBatters([]); setRetiredBatters([]); setPendingCreaseSwap(false);
       milestoneRef.current = { bat: {}, bowl: {}, streak: { id: null, n: 0 } };   // fresh milestones for the new innings
       setBattingTeamName(bowlingTeamName); setBowlingTeamName(battingTeamName);
       setBattingXI(bowlingXI); setBowlingXI(battingXI);
@@ -954,7 +992,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           <View style={{ flex: 1 }}>
             <Text style={styles.sbTeam} numberOfLines={1}>{battingTeamName || 'Batting'}</Text>
             <View style={styles.scoreRow}>
-              <Text style={styles.scoreMain}>{currentScore.runs}/{currentScore.wickets}</Text>
+              <Text style={styles.scoreMain}>{currentScore.runs}<Text style={styles.scoreWkts}>/{currentScore.wickets}</Text></Text>
               <Text style={styles.scoreOvers}> ({overStr})</Text>
             </View>
             <View style={styles.sbRates}>
@@ -989,11 +1027,11 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
         {/* ── CREASE PANEL — both batters + the bowler, like a real scoreboard ── */}
         <View style={styles.creasePanel}>
-          <View style={styles.creaseRow}>
+          <View style={[styles.creaseRow, styles.creaseStrikerRow]}>
             <Icon name="chevron-right" size={16} color={DS.lime} />
             {striker && <PlayerAvatar name={striker.name} avatarUrl={striker.avatarUrl} size={24} style={styles.creaseAvatar} />}
             <Text style={[styles.creaseName, styles.creaseStriker]} numberOfLines={1}>{striker?.name || 'Select batter'}</Text>
-            <Text style={styles.creaseFig}>
+            <Text style={[styles.creaseFig, styles.creaseFigLit]}>
               {striker ? (() => { const st = batStats[striker.id] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
                 return `${st.runs} (${st.balls})  ${st.fours}×4 ${st.sixes}×6`; })() : '—'}
             </Text>
@@ -1189,7 +1227,14 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
                 return (
                 <TouchableOpacity key={i} style={styles.playerOption}
                 onPress={() => {
-                  if (newBatterFor === 'nonstriker') setNonStriker(p); else setStriker(p);
+                  // Place the new batter in the dismissed slot, then apply any
+                  // deferred end-of-over swap — computed on locals and set once, so
+                  // chained setState calls can't clobber each other (which used to
+                  // drop the not-out batter and keep the dismissed one).
+                  let ns = striker, nn = nonStriker;
+                  if (newBatterFor === 'nonstriker') nn = p; else ns = p;
+                  if (pendingCreaseSwap) { const t = ns; ns = nn; nn = t; setPendingCreaseSwap(false); }
+                  setStriker(ns); setNonStriker(nn);
                   if (resuming) setRetiredBatters((prev) => prev.filter((r) => r.id !== p.id));
                   setShowPlayerModal(false); setNewBatterFor('striker');
                 }}>
@@ -1608,10 +1653,10 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // ── Scoreboard header — one floodlit panel: chrome + score + this-over ──
   scoreboard: {
-    backgroundColor: DS.surfaceLow, paddingTop: 44, paddingHorizontal: 16, paddingBottom: 12,
+    backgroundColor: DS.surfaceLow, paddingTop: 44, paddingHorizontal: 16, paddingBottom: 10,
     borderBottomWidth: 1, borderBottomColor: DS.line,
   },
-  sbChrome: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  sbChrome: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   sbBrand: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   sbBackBtn: { marginRight: 2, marginLeft: -4 },
   brandStar: { width: 22, height: 22, borderRadius: 6, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
@@ -1623,8 +1668,9 @@ const makeStyles = (DS) => StyleSheet.create({
   sbScoreRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   sbTeam: { fontSize: 12, fontWeight: '800', color: DS.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 },
   scoreRow: { flexDirection: 'row', alignItems: 'flex-end' },
-  scoreMain: { fontSize: 56, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1.5, lineHeight: 60 },
-  scoreOvers: { fontSize: 24, color: DS.textMuted, fontWeight: '700', marginBottom: 10, marginLeft: 4 },
+  scoreMain: { fontSize: 50, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1.5, lineHeight: 52 },
+  scoreWkts: { color: DS.textMuted },
+  scoreOvers: { fontSize: 20, color: DS.textMuted, fontWeight: '700', marginBottom: 8, marginLeft: 4 },
   sbRates: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 4 },
   sbRate: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
   sbRateNum: { color: DS.lime, fontWeight: '900' },
@@ -1636,22 +1682,26 @@ const makeStyles = (DS) => StyleSheet.create({
   resultPill: { marginTop: 8, backgroundColor: DS.lime, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4, alignSelf: 'flex-start' },
   resultText: { fontSize: 12, fontWeight: '800', color: DS.bg },
 
-  sbOverRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
+  sbOverRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
 
   // ── Crease panel — striker (lit) / non-striker / bowler ──
-  creasePanel: { backgroundColor: DS.surfaceHigh, borderRadius: 16, marginHorizontal: 16, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 8 },
-  creaseRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 9 },
+  creasePanel: { backgroundColor: DS.surfaceHigh, borderRadius: 16, marginHorizontal: 16, paddingHorizontal: 12, paddingVertical: 2, marginBottom: 6 },
+  creaseRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7 },
+  // On-strike batter is lifted with a faint lime wash + rounded ends so the eye
+  // lands on who's facing without reading names.
+  creaseStrikerRow: { backgroundColor: DS.lime + '14', borderRadius: 10, marginHorizontal: -6, paddingHorizontal: 6 },
   creaseAvatar: { marginLeft: -2 },
-  creaseRowDivider: { paddingTop: 4 },
+  creaseRowDivider: { paddingTop: 3 },
   creaseBowlerRow: { borderTopWidth: 1, borderTopColor: DS.line },
-  creaseName: { flex: 1, fontSize: 18, fontWeight: '700', color: DS.textVariant },
-  creaseStriker: { fontSize: 18, fontWeight: '900', color: DS.textPrimary },
-  creaseFig: { fontSize: 17, fontWeight: '800', color: DS.textMuted, marginRight: 4 },
+  creaseName: { flex: 1, fontSize: 16, fontWeight: '700', color: DS.textVariant },
+  creaseStriker: { fontSize: 16, fontWeight: '900', color: DS.textPrimary },
+  creaseFig: { fontSize: 14, fontWeight: '800', color: DS.textMuted, marginRight: 4 },
+  creaseFigLit: { color: DS.lime },
 
   // Extra action row
-  extraRow: { flexDirection: 'row', gap: 6, marginHorizontal: 16, marginBottom: 8 },
+  extraRow: { flexDirection: 'row', gap: 6, marginHorizontal: 16, marginBottom: 6 },
   extraBtn: {
-    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingVertical: 11,
+    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingVertical: 9,
     alignItems: 'center', justifyContent: 'center', gap: 2, borderWidth: 1, borderColor: DS.line,
   },
   extraBtnText: { fontSize: 11, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.3, textAlign: 'center' },
@@ -1659,7 +1709,7 @@ const makeStyles = (DS) => StyleSheet.create({
   // Full-width wicket button
   wicketBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    marginHorizontal: 16, marginBottom: 8, backgroundColor: DS.wicketBg, borderRadius: 16, paddingVertical: 16,
+    marginHorizontal: 16, marginBottom: 6, backgroundColor: DS.wicketBg, borderRadius: 16, paddingVertical: 14,
     borderWidth: 1, borderColor: DS.wicketText + '33',
   },
   wicketBtnText: { fontSize: 15, fontWeight: '900', color: DS.wicketText, letterSpacing: 2.5 },
@@ -1702,8 +1752,8 @@ const makeStyles = (DS) => StyleSheet.create({
   overSectionLabel: { fontSize: 18, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8 },
   freeHitPill: { backgroundColor: DS.limeBright, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'center', marginRight: 8 },
   freeHitText: { fontSize: 9, fontWeight: '900', color: DS.bg, letterSpacing: 0.8 },
-  overBalls: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  overBall: { width: 44, height: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  overBalls: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  overBall: { width: 38, height: 38, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   overBallEmpty: { backgroundColor: DS.surfaceHighest },
   overBallDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DS.surfaceHighest },
   overBallText: { fontSize: 18, fontWeight: '800' },

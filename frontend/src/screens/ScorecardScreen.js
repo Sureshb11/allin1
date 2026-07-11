@@ -399,7 +399,7 @@ function TableHeader({ cols }) {const styles = useThemedStyles(makeStyles);
 }
 
 // ── SCORECARD tab: batting + bowling tables, extras, fall of wickets ──────────
-function InningsScorecard({ innings, index, squads }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+function InningsScorecard({ innings, index, squads, expanded = true, collapsible = false, onToggle }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const battingXI = (squads || [])
     .filter((s) => s.teamId === innings.battingTeamId)
     .map((s) => ({ id: s.playerId, name: s.player?.name || 'Unknown' }));
@@ -411,97 +411,112 @@ function InningsScorecard({ innings, index, squads }) {const DS = useTheme().col
   const fow = computeFOW(innings, nameById);
   const label = index === 0 ? '1st' : '2nd';
 
+  const Header = collapsible ? TouchableOpacity : View;
+
   return (
     <View style={styles.inningsCard}>
-      {/* Batting section */}
-      <View style={styles.sectionHeaderRow}>
-        <View style={styles.sectionHeaderLeft}>
-          <View style={styles.inningsIndicator} />
-          <Text style={styles.sectionHeaderText}>
-            {(innings.battingTeam?.name || 'TEAM').toUpperCase()} BATTING
-          </Text>
+      {/* Team header — the whole banner toggles when there's more than one innings to compare */}
+      <Header activeOpacity={0.7} onPress={collapsible ? onToggle : undefined}>
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionHeaderLeft}>
+            <View style={styles.inningsIndicator} />
+            <Text style={styles.sectionHeaderText}>
+              {(innings.battingTeam?.name || 'TEAM').toUpperCase()}
+            </Text>
+          </View>
+          <Text style={styles.inningsLabel}>{label} Innings</Text>
         </View>
-        <Text style={styles.inningsLabel}>{label} Innings</Text>
-      </View>
 
-      <View style={styles.inningsScoreBanner}>
-        <Text style={styles.inningsScore}>{innings.totalRuns}/{innings.totalWickets}</Text>
-        <Text style={styles.inningsOvers}>({inningsOvers(innings)} ov)</Text>
-      </View>
+        <View style={styles.inningsScoreBanner}>
+          <Text style={styles.inningsScore}>{innings.totalRuns}/{innings.totalWickets}</Text>
+          <Text style={styles.inningsOvers}>({inningsOvers(innings)} ov)</Text>
+          {collapsible &&
+            <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={DS.textMuted} style={{ marginLeft: 'auto' }} />
+          }
+        </View>
+      </Header>
 
-      <TableHeader cols={['BATTER', 'R', 'B', '4s', '6s', 'SR']} />
-      {batted.map((b, i) =>
-      <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
-          <View style={[styles.cell, styles.nameCol, styles.nameCell]}>
-            <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={24} style={styles.rowAvatar} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.batterName} numberOfLines={1}>{b.name}</Text>
-              <Text style={b.out ? styles.howOut : styles.notOut} numberOfLines={1}>{b.out ? b.howOut : 'not out'}</Text>
+      {expanded &&
+        <>
+          <TableHeader cols={['BATTER', 'R', 'B', '4s', '6s', 'SR']} />
+          {batted.map((b, i) =>
+          <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
+              <View style={[styles.cell, styles.nameCol, styles.nameCell]}>
+                <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={24} style={styles.rowAvatar} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.batterName} numberOfLines={1}>{b.name}</Text>
+                  <Text style={b.out ? styles.howOut : styles.notOut} numberOfLines={1}>{b.out ? b.howOut : 'not out'}</Text>
+                </View>
+              </View>
+              <Text style={[styles.cell, styles.numCol, b.runs >= 50 && styles.highlight]}>{b.runs}</Text>
+              <Text style={[styles.cell, styles.numCol]}>{b.balls}</Text>
+              <Text style={[styles.cell, styles.numCol]}>{b.fours}</Text>
+              <Text style={[styles.cell, styles.numCol]}>{b.sixes}</Text>
+              <Text style={[styles.cell, styles.numCol]}>
+                {b.balls > 0 ? (b.runs / b.balls * 100).toFixed(0) : '0'}
+              </Text>
+            </View>
+          )}
+          {/* Extras + Total */}
+          <View style={styles.extrasRow}>
+            <Text style={styles.extrasLabel}>Extras</Text>
+            <Text style={styles.extrasDetail}>
+              (b {extras.byes}, lb {extras.legByes}, w {extras.wides}, nb {extras.noBalls}{extras.penalty ? `, p ${extras.penalty}` : ''})
+            </Text>
+            <Text style={styles.extrasVal}>{extras.total}</Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>TOTAL</Text>
+            <Text style={styles.totalDetail}>({inningsOvers(innings)} ov)</Text>
+            <Text style={styles.totalVal}>{innings.totalRuns}/{innings.totalWickets}</Text>
+          </View>
+
+          {yetToBat.length > 0 &&
+            <View style={styles.yetToBatRow}>
+              <Text style={styles.yetToBatLabel}>Yet to bat: </Text>
+              <Text style={styles.yetToBatNames}>{yetToBat.join(', ')}</Text>
+            </View>
+          }
+
+          {fow.length > 0 &&
+            <View style={styles.fowBox}>
+              <Text style={styles.fowTitle}>FALL OF WICKETS</Text>
+              <Text style={styles.fowText}>
+                {fow.map((f) => `${f.score}-${f.wkt} (${f.name}, ${f.over})`).join('   ')}
+              </Text>
+            </View>
+          }
+
+          {/* Bowling section */}
+          <View style={[styles.sectionHeaderRow, { marginTop: 18 }]}>
+            <View style={styles.sectionHeaderLeft}>
+              <View style={[styles.inningsIndicator, { backgroundColor: DS.coral }]} />
+              <Text style={styles.sectionHeaderText}>
+                {(innings.bowlingTeam?.name || 'TEAM').toUpperCase()} BOWLING
+              </Text>
             </View>
           </View>
-          <Text style={[styles.cell, styles.numCol, b.runs >= 50 && styles.highlight]}>{b.runs}</Text>
-          <Text style={[styles.cell, styles.numCol]}>{b.balls}</Text>
-          <Text style={[styles.cell, styles.numCol]}>{b.fours}</Text>
-          <Text style={[styles.cell, styles.numCol]}>{b.sixes}</Text>
-          <Text style={[styles.cell, styles.numCol]}>
-            {b.balls > 0 ? (b.runs / b.balls * 100).toFixed(0) : '0'}
-          </Text>
-        </View>
-      )}
-      {/* Extras + Total */}
-      <View style={styles.extrasRow}>
-        <Text style={styles.extrasLabel}>Extras</Text>
-        <Text style={styles.extrasDetail}>
-          (b {extras.byes}, lb {extras.legByes}, w {extras.wides}, nb {extras.noBalls}{extras.penalty ? `, p ${extras.penalty}` : ''})
-        </Text>
-        <Text style={styles.extrasVal}>{extras.total}</Text>
-      </View>
-      <View style={styles.totalRow}>
-        <Text style={styles.totalLabel}>TOTAL</Text>
-        <Text style={styles.totalDetail}>({inningsOvers(innings)} ov)</Text>
-        <Text style={styles.totalVal}>{innings.totalRuns}/{innings.totalWickets}</Text>
-      </View>
 
-      {yetToBat.length > 0 &&
-        <View style={styles.yetToBatRow}>
-          <Text style={styles.yetToBatLabel}>Yet to bat: </Text>
-          <Text style={styles.yetToBatNames}>{yetToBat.join(', ')}</Text>
-        </View>
-      }
+          <TableHeader cols={['BOWLER', 'O', 'M', 'R', 'W', 'ECON']} />
+          {bowlers.map((b, i) =>
+          <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
+              <View style={[styles.cell, styles.nameCol, styles.nameCell]}>
+                <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={24} style={styles.rowAvatar} />
+                <Text style={[styles.bowlerName, { flex: 1 }]} numberOfLines={1}>{b.name}</Text>
+              </View>
+              <Text style={[styles.cell, styles.numCol]}>{b.overs}</Text>
+              <Text style={[styles.cell, styles.numCol]}>{b.maidens}</Text>
+              <Text style={[styles.cell, styles.numCol]}>{b.runs}</Text>
+              <Text style={[styles.cell, styles.numCol, b.wickets >= 3 && styles.highlight]}>{b.wickets}</Text>
+              <Text style={[styles.cell, styles.numCol]}>{b.economy}</Text>
+            </View>
+          )}
 
-      {fow.length > 0 &&
-        <View style={styles.fowBox}>
-          <Text style={styles.fowTitle}>FALL OF WICKETS</Text>
-          <Text style={styles.fowText}>
-            {fow.map((f) => `${f.score}-${f.wkt} (${f.name}, ${f.over})`).join('   ')}
-          </Text>
-        </View>
-      }
-
-      {/* Bowling section */}
-      <View style={[styles.sectionHeaderRow, { marginTop: 18 }]}>
-        <View style={styles.sectionHeaderLeft}>
-          <View style={[styles.inningsIndicator, { backgroundColor: DS.coral }]} />
-          <Text style={styles.sectionHeaderText}>
-            {(innings.bowlingTeam?.name || 'TEAM').toUpperCase()} BOWLING
-          </Text>
-        </View>
-      </View>
-
-      <TableHeader cols={['BOWLER', 'O', 'M', 'R', 'W', 'ECON']} />
-      {bowlers.map((b, i) =>
-      <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
-          <View style={[styles.cell, styles.nameCol, styles.nameCell]}>
-            <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={24} style={styles.rowAvatar} />
-            <Text style={[styles.bowlerName, { flex: 1 }]} numberOfLines={1}>{b.name}</Text>
+          <View style={{ padding: 10 }}>
+            <ManhattanChart innings={innings} />
           </View>
-          <Text style={[styles.cell, styles.numCol]}>{b.overs}</Text>
-          <Text style={[styles.cell, styles.numCol]}>{b.maidens}</Text>
-          <Text style={[styles.cell, styles.numCol]}>{b.runs}</Text>
-          <Text style={[styles.cell, styles.numCol, b.wickets >= 3 && styles.highlight]}>{b.wickets}</Text>
-          <Text style={[styles.cell, styles.numCol]}>{b.economy}</Text>
-        </View>
-      )}
+        </>
+      }
     </View>);
 
 }
@@ -743,7 +758,8 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [inningsTab, setInningsTab] = useState(0);   // which innings/team scorecard to show
+  const [inningsTab, setInningsTab] = useState(0);   // which innings' overs to show (OVERS tab)
+  const [expandedInnings, setExpandedInnings] = useState(null); // which team's card is open (SCORECARD tab); null = default
   const [tab, setTab] = useState(null);              // active top tab; null until match first loads
   const shotRef = useRef(null);                      // capture target for "share as image"
 
@@ -833,32 +849,35 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const inningsList = match.innings || [];
   const selectedInnings = inningsList[inningsTab] || inningsList[0];
   const liveInnings = inningsList[inningsList.length - 1];   // currently-batting innings
+  // Accordion: default open = the most recent (currently-batting or last-completed) innings.
+  const effectiveExpanded = expandedInnings === null ? inningsList.length - 1 : expandedInnings;
 
   return (
     <View style={styles.container}>
-      {/* Brand bar */}
-      <View style={styles.brandBar}>
-        {navigation &&
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Icon name="arrow-left" size={22} color={DS.textPrimary} />
-          </TouchableOpacity>
-        }
-        <BrandLogo scale={0.75} />
-        {isLive
-          ? <View style={styles.liveBadge}><View style={styles.liveBadgeDot} /><Text style={styles.liveBadgeText}>LIVE</Text></View>
-          : <View style={{ width: 26 }} />}
-      </View>
-
-      {/* Match-center tab bar */}
-      <View style={styles.matchTabBar}>
-        {TABS.map((t) => {
-          const active = activeTab === t.key;
-          return (
-            <TouchableOpacity key={t.key} style={[styles.matchTab, active && styles.matchTabActive]} onPress={() => setTab(t.key)}>
-              <Text style={[styles.matchTabText, active && styles.matchTabTextActive]}>{t.label}</Text>
+      {/* Match-center header: back + match title + live badge, tabs directly below — one bar */}
+      <View style={styles.matchHeader}>
+        <View style={styles.matchHeaderTop}>
+          {navigation &&
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+              <Icon name="arrow-left" size={22} color={DS.textPrimary} />
             </TouchableOpacity>
-          );
-        })}
+          }
+          <Text style={styles.matchHeaderTitle} numberOfLines={1}>{t1} <Text style={styles.matchHeaderVs}>v</Text> {t2}</Text>
+          {isLive
+            ? <View style={styles.liveBadge}><View style={styles.liveBadgeDot} /><Text style={styles.liveBadgeText}>LIVE</Text></View>
+            : <View style={{ width: 26 }} />}
+        </View>
+
+        <View style={styles.matchTabBar}>
+          {TABS.map((t) => {
+            const active = activeTab === t.key;
+            return (
+              <TouchableOpacity key={t.key} style={[styles.matchTab, active && styles.matchTabActive]} onPress={() => setTab(t.key)}>
+                <Text style={[styles.matchTabText, active && styles.matchTabTextActive]}>{t.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 12 }}
@@ -904,7 +923,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
 
           {activeTab === 'live' && <LiveTab innings={liveInnings} squads={match.squads} totalOvers={match.overs} onViewAllOvers={() => setTab('overs')} />}
 
-          {(activeTab === 'scorecard' || activeTab === 'overs') && inningsList.length > 1 &&
+          {activeTab === 'overs' && inningsList.length > 1 &&
             <View style={styles.inningsTabs}>
               {inningsList.map((inn, i) => {
                 const active = inningsTab === i;
@@ -922,15 +941,22 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
           }
 
           {activeTab === 'scorecard' &&
-            (selectedInnings ? <InningsScorecard innings={selectedInnings} index={inningsList.indexOf(selectedInnings)} squads={match.squads} /> : <Text style={styles.emptyTabText}>No play yet.</Text>)}
-
-          {activeTab === 'scorecard' && selectedInnings &&
-            <ManhattanChart innings={selectedInnings} />
-          }
-
-          {activeTab === 'scorecard' && inningsList.length > 0 &&
-            <WormChart innings1={inningsList[0]} innings2={inningsList[1]} totalOvers={match.overs} />
-          }
+            (inningsList.length > 0 ?
+              <View style={{ gap: 12 }}>
+                {inningsList.map((inn, i) => (
+                  <InningsScorecard
+                    key={inn.id || i}
+                    innings={inn}
+                    index={i}
+                    squads={match.squads}
+                    expanded={inningsList.length === 1 || effectiveExpanded === i}
+                    collapsible={inningsList.length > 1}
+                    onToggle={() => setExpandedInnings(effectiveExpanded === i ? -1 : i)}
+                  />
+                ))}
+                <WormChart innings1={inningsList[0]} innings2={inningsList[1]} totalOvers={match.overs} />
+              </View>
+              : <Text style={styles.emptyTabText}>No play yet.</Text>)}
 
           {activeTab === 'overs' &&
             (selectedInnings ? <InningsOvers innings={selectedInnings} /> : <Text style={styles.emptyTabText}>No overs yet.</Text>)}
@@ -959,14 +985,18 @@ const makeStyles = (DS) => StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
   errorText: { fontSize: 16, color: DS.textMuted, marginTop: 12, fontWeight: '600' },
 
-  // Brand bar
-  brandBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16
+  // Match-center header — one bar: back/title/live row, tabs row directly under it
+  matchHeader: {
+    backgroundColor: DS.surfaceLow,
+    paddingTop: 52,
+    borderBottomWidth: 1, borderBottomColor: DS.line,
   },
-  brandText: {
-    fontSize: 13, fontWeight: '900', color: DS.lime, letterSpacing: 2
+  matchHeaderTop: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingBottom: 12, paddingHorizontal: 16,
   },
+  matchHeaderTitle: { flex: 1, fontSize: 15, fontWeight: '800', color: DS.textPrimary },
+  matchHeaderVs: { color: DS.textMuted, fontWeight: '700' },
   backBtn: { padding: 4 },
   liveBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -978,8 +1008,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // Match-center tab bar (INFO / LIVE / SCORECARD / SQUADS / OVERS)
   matchTabBar: {
-    flexDirection: 'row', backgroundColor: DS.surfaceLow,
-    borderBottomWidth: 1, borderBottomColor: DS.line,
+    flexDirection: 'row', backgroundColor: DS.surfaceHigh,
   },
   matchTab: {
     flex: 1, alignItems: 'center', paddingVertical: 12,
