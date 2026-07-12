@@ -166,6 +166,54 @@ function computePartnership(innings) {
   return { runs, balls: legalBalls };
 }
 
+// Powerplay: runs + wickets in the mandatory opening overs (T20 → 6, ODI → 10,
+// short formats → ~30%). Returns null until at least one ball of it is bowled.
+function computePowerplay(innings, totalOvers) {
+  const t = totalOvers || 20;
+  const ppOvers = t >= 40 ? 10 : t >= 20 ? 6 : Math.max(1, Math.ceil(t * 0.3));
+  let runs = 0, wkts = 0, seen = false;
+  (innings.oversData || []).forEach((over) => {
+    if (over.overNumber <= ppOvers) {
+      seen = true;
+      runs += (over.runs || 0) + (over.extras || 0);
+      wkts += (over.wickets || 0);
+    }
+  });
+  return seen ? { label: 'Mandatory', overs: `0.1 - ${ppOvers}.0`, runs, wkts } : null;
+}
+
+// Every partnership of the innings, in order: the two batters + each one's runs
+// (balls) contribution, and the stand's total runs (balls). Partnership runs
+// INCLUDE extras conceded while the pair was together; balls = legal balls faced.
+function computePartnerships(innings, nameById) {
+  const parts = [];
+  const fresh = () => ({ ids: [], names: {}, bat: {}, runs: 0, balls: 0 });
+  let cur = fresh();
+  const register = (id, name) => {
+    if (!id || cur.ids.includes(id)) return;
+    cur.ids.push(id);
+    cur.names[id] = name || nameById[id] || 'batter';
+    cur.bat[id] = { runs: 0, balls: 0 };
+  };
+  (innings.oversData || []).forEach((over) => {
+    (over.balls || []).forEach((b) => {
+      register(b.batterId, b.batter?.name);
+      register(b.nonStrikerId, b.nonStriker?.name);
+      const et = b.extraType;
+      const legal = !['wide', 'noBall', 'penalty', 'retired'].includes(et);
+      cur.runs += (b.runs || 0) + (b.extras || 0);
+      if (legal) cur.balls += 1;
+      if (b.batterId && cur.bat[b.batterId]) {
+        if (!et || et === 'noBall') cur.bat[b.batterId].runs += b.runs;   // runs off the bat
+        if (et !== 'wide' && et !== 'penalty' && et !== 'retired') cur.bat[b.batterId].balls += 1;
+      }
+      if (b.isWicket) { if (cur.ids.length) parts.push(cur); cur = fresh(); }
+    });
+  });
+  if (cur.ids.length && (cur.runs > 0 || cur.balls > 0)) parts.push(cur);   // unbroken stand
+  return parts;
+}
+
 // 2nd-innings chase math: runs still needed, balls left, required run rate, current
 // run rate, and a naive win-read for the chasing side. Only meaningful once a target
 // is set (innings 2). Returns null otherwise.
@@ -399,7 +447,7 @@ function TableHeader({ cols }) {const styles = useThemedStyles(makeStyles);
 }
 
 // ── SCORECARD tab: batting + bowling tables, extras, fall of wickets ──────────
-function InningsScorecard({ innings, index, squads, expanded = true, collapsible = false, onToggle }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+function InningsScorecard({ innings, index, squads, totalOvers, expanded = true, collapsible = false, onToggle }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const battingXI = (squads || [])
     .filter((s) => s.teamId === innings.battingTeamId)
     .map((s) => ({ id: s.playerId, name: s.player?.name || 'Unknown' }));
@@ -409,6 +457,8 @@ function InningsScorecard({ innings, index, squads, expanded = true, collapsible
   const bowlers = computeBowling(innings);
   const extras = computeExtras(innings);
   const fow = computeFOW(innings, nameById);
+  const powerplay = computePowerplay(innings, totalOvers);
+  const partnerships = computePartnerships(innings, nameById);
   const label = index === 0 ? '1st' : '2nd';
 
   const Header = collapsible ? TouchableOpacity : View;
@@ -511,6 +561,54 @@ function InningsScorecard({ innings, index, squads, expanded = true, collapsible
               <Text style={[styles.cell, styles.numCol]}>{b.economy}</Text>
             </View>
           )}
+
+          {/* Powerplay */}
+          {powerplay &&
+            <>
+              <View style={styles.subHeaderRow}>
+                <Text style={styles.subHeaderText}>POWERPLAY</Text>
+                <View style={styles.subHeaderCols}>
+                  <Text style={styles.ppColLabel}>Overs</Text>
+                  <Text style={styles.ppColLabel}>Runs</Text>
+                </View>
+              </View>
+              <View style={styles.ppRow}>
+                <Text style={styles.ppLabel}>{powerplay.label}</Text>
+                <View style={styles.subHeaderCols}>
+                  <Text style={styles.ppOvers}>{powerplay.overs}</Text>
+                  <Text style={styles.ppRuns}>{powerplay.runs}{powerplay.wkts ? `/${powerplay.wkts}` : ''}</Text>
+                </View>
+              </View>
+            </>
+          }
+
+          {/* Partnerships */}
+          {partnerships.length > 0 &&
+            <>
+              <View style={styles.subHeaderRow}>
+                <Text style={styles.subHeaderText}>PARTNERSHIPS</Text>
+              </View>
+              {partnerships.map((p, i) => {
+                const a = p.ids[0], b = p.ids[1];
+                const fig = (id) => id ? `${p.bat[id].runs}(${p.bat[id].balls})` : '';
+                return (
+                  <View key={i} style={[styles.pnrRow, i % 2 === 0 && styles.tableRowAlt]}>
+                    <View style={styles.pnrSide}>
+                      <Text style={styles.pnrName} numberOfLines={1}>{a ? p.names[a] : '—'}</Text>
+                      <Text style={styles.pnrFig}>{fig(a)}</Text>
+                    </View>
+                    <View style={styles.pnrMid}>
+                      <Text style={styles.pnrTotal}>{p.runs}({p.balls})</Text>
+                    </View>
+                    <View style={[styles.pnrSide, { justifyContent: 'flex-end' }]}>
+                      <Text style={styles.pnrFig}>{fig(b)}</Text>
+                      <Text style={[styles.pnrName, { textAlign: 'right' }]} numberOfLines={1}>{b ? p.names[b] : 'not out'}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </>
+          }
 
           <View style={{ padding: 10 }}>
             <ManhattanChart innings={innings} />
@@ -949,6 +1047,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
                     innings={inn}
                     index={i}
                     squads={match.squads}
+                    totalOvers={match.overs}
                     expanded={inningsList.length === 1 || effectiveExpanded === i}
                     collapsible={inningsList.length > 1}
                     onToggle={() => setExpandedInnings(effectiveExpanded === i ? -1 : i)}
@@ -1122,6 +1221,25 @@ const makeStyles = (DS) => StyleSheet.create({
   fowBox: { paddingHorizontal: 12, paddingTop: 10 },
   fowTitle: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 1, marginBottom: 4 },
   fowText: { fontSize: 11, color: DS.coral, lineHeight: 18 },
+
+  // Powerplay + Partnerships (SCORECARD tab)
+  subHeaderRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: DS.surfaceHighest, paddingHorizontal: 14, paddingVertical: 9, marginTop: 12,
+  },
+  subHeaderText: { fontSize: 12, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.6 },
+  subHeaderCols: { flexDirection: 'row', gap: 18 },
+  ppColLabel: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.4, minWidth: 44, textAlign: 'right' },
+  ppRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10 },
+  ppLabel: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
+  ppOvers: { fontSize: 12.5, color: DS.textVariant, minWidth: 44, textAlign: 'right' },
+  ppRuns: { fontSize: 12.5, fontWeight: '800', color: DS.textPrimary, minWidth: 44, textAlign: 'right' },
+  pnrRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 },
+  pnrSide: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pnrName: { fontSize: 12, fontWeight: '700', color: DS.textPrimary, flexShrink: 1 },
+  pnrFig: { fontSize: 11, fontWeight: '700', color: DS.textMuted },
+  pnrMid: { paddingHorizontal: 8 },
+  pnrTotal: { fontSize: 12, fontWeight: '900', color: DS.lime, minWidth: 52, textAlign: 'center' },
 
   // Over-by-over timeline (OVERS tab)
   overLine: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, gap: 8, borderTopWidth: 1, borderTopColor: DS.line },
