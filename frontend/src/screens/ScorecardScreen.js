@@ -492,7 +492,7 @@ function InningsScorecard({ innings, index, squads, totalOvers, expanded = true,
           {batted.map((b, i) =>
           <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
               <View style={[styles.cell, styles.nameCol, styles.nameCell]}>
-                <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={24} style={styles.rowAvatar} />
+                <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={20} style={styles.rowAvatar} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.batterName} numberOfLines={1}>{b.name}</Text>
                   <Text style={b.out ? styles.howOut : styles.notOut} numberOfLines={1}>{b.out ? b.howOut : 'not out'}</Text>
@@ -551,7 +551,7 @@ function InningsScorecard({ innings, index, squads, totalOvers, expanded = true,
           {bowlers.map((b, i) =>
           <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
               <View style={[styles.cell, styles.nameCol, styles.nameCell]}>
-                <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={24} style={styles.rowAvatar} />
+                <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={20} style={styles.rowAvatar} />
                 <Text style={[styles.bowlerName, { flex: 1 }]} numberOfLines={1}>{b.name}</Text>
               </View>
               <Text style={[styles.cell, styles.numCol]}>{b.overs}</Text>
@@ -1191,20 +1191,20 @@ const makeStyles = (DS) => StyleSheet.create({
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: DS.surfaceHighest,
-    paddingVertical: 8, paddingHorizontal: 12
+    paddingVertical: 6, paddingHorizontal: 10
   },
-  tableRow: { flexDirection: 'row', paddingVertical: 9, paddingHorizontal: 12 },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 7, paddingHorizontal: 10 },
   tableRowAlt: { backgroundColor: DS.surfaceHighest },
-  headerCell: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
-  cell: { fontSize: 13, color: DS.textVariant },
-  nameCol: { flex: 2.5 },
+  headerCell: { fontSize: 9.5, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.4 },
+  cell: { fontSize: 12, color: DS.textVariant },
+  nameCol: { flex: 2.7 },
   nameCell: { flexDirection: 'row', alignItems: 'center' },
-  rowAvatar: { marginRight: 8 },
+  rowAvatar: { marginRight: 6 },
   numCol: { flex: 1, textAlign: 'center' },
-  batterName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
-  bowlerName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
-  howOut: { fontSize: 10, color: DS.coral, marginTop: 1 },
-  notOut: { fontSize: 10, color: DS.lime, marginTop: 1 },
+  batterName: { fontSize: 12.5, fontWeight: '700', color: DS.textPrimary },
+  bowlerName: { fontSize: 12.5, fontWeight: '700', color: DS.textPrimary },
+  howOut: { fontSize: 9.5, color: DS.coral, marginTop: 1 },
+  notOut: { fontSize: 9.5, color: DS.lime, marginTop: 1 },
   highlight: { color: DS.lime, fontWeight: '800' },
   yetToBatRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingTop: 8 },
   yetToBatLabel: { fontSize: 11, fontWeight: '700', color: DS.textMuted },
