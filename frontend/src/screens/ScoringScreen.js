@@ -1,6 +1,6 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  View, Text, Image, StyleSheet, TouchableOpacity, ScrollView,
   Alert, Modal, Share, StatusBar, Dimensions, BackHandler } from
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -27,7 +27,7 @@ const { width } = Dimensions.get('window');
 
 
 
-export default function ScoringScreen({ route, navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const setup = useThemedStyles(makeSetup);
+export default function ScoringScreen({ route, navigation }) {const { colors: DS, isDark } = useTheme();const styles = useThemedStyles(makeStyles);const setup = useThemedStyles(makeSetup);
   const { match, resume, matchId: resumeId } = route.params || {};
   const [matchData, setMatchData] = useState(match || {});
 
@@ -105,6 +105,14 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   const [undoing, setUndoing] = useState(false);
   const savingRef = useRef(false);   // true while a ball is being persisted (debounces rapid taps)
   const milestoneRef = useRef({ bat: {}, bowl: {}, streak: { id: null, n: 0 } });   // announced milestones + hat-trick streak
+  const overScrollRef = useRef(null);   // "this over" tracker — auto-scrolled to the latest ball
+
+  // Keep the just-scored ball in view: once an over runs past 6 balls (wides/
+  // no-balls) or the strip overflows the header width, scroll to the end so the
+  // current delivery is always visible without a manual swipe.
+  useEffect(() => {
+    overScrollRef.current?.scrollToEnd({ animated: true });
+  }, [currentOver]);
 
   // When the match finishes, compute the MVP awards once and pop the winner
   // sheet for the scorer. Dismissing it redirects to the Home feed.
@@ -189,6 +197,17 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       setBowlStats(Object.fromEntries(
         Object.entries(d.bowlingFigures || {}).map(([id, f]) => [id, { ...f, overRuns: 0 }])
       ));
+      // Seed the milestone tracker with whatever's already been reached — a fresh
+      // mount's milestoneRef starts empty while batStats/bowlStats come back at
+      // their full accumulated totals, so without this every resume replays the
+      // "FIFTY!"/"HUNDRED!"/5-wicket-haul toast for any player already past the
+      // mark, dismissed or not.
+      milestoneRef.current.bat = Object.fromEntries(
+        Object.entries(d.battingFigures || {}).map(([id, f]) => [id, f.runs])
+      );
+      milestoneRef.current.bowl = Object.fromEntries(
+        Object.entries(d.bowlingFigures || {}).map(([id, f]) => [id, f.wickets])
+      );
       setOutBatters(d.dismissedBatters || []);   // dismissed players can't re-bat after resume
       // A batter is "known" only if the last ball wasn't a wicket; bowler only
       // if we're mid-over. Pre-fill what we know and, if anything's missing,
@@ -240,19 +259,31 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       const prev = milestoneRef.current.bat[id] || 0;
       const hit = s.runs >= 100 && prev < 100 ? 100 : (s.runs >= 50 && prev < 50 ? 50 : null);
       if (hit) { haptic.success(); showToast(`🎉 ${nameOf(id)} ${hit === 100 ? 'HUNDRED' : 'FIFTY'}! ${s.runs}(${s.balls})`, 'success', 2600); }
-      milestoneRef.current.bat[id] = s.runs;
+      // Track the HIGHEST runs ever seen, not the latest — an UNDO can drop
+      // s.runs back below 50 without un-announcing the milestone; if we stored
+      // the raw value here, re-crossing 50 on the same innings would re-fire
+      // the toast every time the scorer undoes and re-scores past it.
+      milestoneRef.current.bat[id] = Math.max(prev, s.runs);
     });
     Object.entries(bowlStats).forEach(([id, s]) => {
       const prev = milestoneRef.current.bowl[id] || 0;
       if (s.wickets >= 5 && prev < 5) { haptic.success(); showToast(`🔥 ${nameOf(id)} — 5-wicket haul!`, 'success', 2600); }
-      milestoneRef.current.bowl[id] = s.wickets;
+      milestoneRef.current.bowl[id] = Math.max(prev, s.wickets);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batStats, bowlStats]);
 
   const overStr = `${currentScore.overs}.${currentScore.balls}`;
   // Short team code for the compact header (e.g. "Mumbai Indians" → "MUM").
-  const shortCode = (n) => ((n || '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || '—');
+  // Multi-word/hyphenated names abbreviate to initials (e.g. "Deccan Vipers Inc"
+  // → "DVI", "D-Vigo-S" → "DVS"); a single word falls back to its first 3
+  // letters (e.g. "Mavericks" → "MAV"). Splits on any run of non-letters, so
+  // spaces, hyphens, underscores, etc. all count as word breaks.
+  const shortCode = (n) => {
+    const words = (n || '').split(/[^A-Za-z]+/).filter(Boolean);
+    if (words.length > 1) return words.map((w) => w[0]).join('').slice(0, 3).toUpperCase() || '—';
+    return (words[0] || '').slice(0, 3).toUpperCase() || '—';
+  };
   const totalOvers = parseInt(matchData.overs, 10) || 20;
   const maxOversPerBowler = Math.ceil(totalOvers / 5);   // T20 → 4, ODI → 10
   const target = isInnings2 ? firstInningsScore.runs + 1 : 0;
@@ -777,7 +808,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     else if (str.includes('wd') || str.includes('nb')) { bg = 'rgba(255,181,158,0.15)'; color = DS.coral; } // Wides, NBs
     else if (str.includes('b')) { bg = DS.surfaceHigh; color = DS.textVariant; } // Byes / Leg Byes
     else if (str.includes('4')) { bg = DS.blue + '33'; color = DS.blue + 'ff'; } // Fours
-    else if (str.includes('6')) { bg = DS.success + '26'; color = DS.success; } // Sixes
+    else if (str.includes('6')) { bg = DS.lime + '26'; color = DS.lime; } // Sixes
     else if (label === '0') { bg = DS.surfaceHighest; color = DS.textMuted; } // Dots
     else { bg = DS.surfaceHigh; color = DS.textPrimary; } // Normal runs
 
@@ -790,6 +821,17 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
   // Fill remaining balls as empty dots
   const filledOver = [...currentOver];
   while (filledOver.length < 6) filledOver.push(null);
+
+  // Display-only runs tally for the in-progress over (incl. extras) — derived
+  // from currentOver locally, same parsing as the end-of-over summary; never
+  // persisted, the server computes its own over totals.
+  const overRunsSoFar = currentOver.reduce((acc, b) => {
+    if (b === 'WD' || b === 'NB' || b === 'B' || b === 'LB') return acc + 1;
+    if (b === 'P5') return acc + 5;
+    if (b === '·' || b === 'W') return acc;
+    const n = parseInt(b, 10);   // '2wd','3nb','2b','3lb', or plain runs
+    return isNaN(n) ? acc : acc + n;
+  }, 0);
 
   // Real bowler figures: Overs - Maidens - Runs - Wickets (O-M-R-W).
   const bowlerStats = (() => {
@@ -805,7 +847,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     
     return (
       <View style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
 
         {/* Header */}
         <View style={setup.header}>
@@ -964,13 +1006,13 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
 
       {/* ── SCOREBOARD HEADER (compact top bar + score + this-over) ── */}
       <View style={styles.scoreboard}>
         <View style={styles.topBar}>
           <TouchableOpacity hitSlop={8} onPress={() => setShowExitModal(true)}>
-            <Icon name="chevron-left" size={24} color={DS.lime} />
+            <Icon name="chevron-left" size={24} color={DS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.topTeams} numberOfLines={1}>
             <Text style={styles.topTeamActive}>{shortCode(battingTeamName)}</Text>
@@ -984,7 +1026,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
             <Icon name="share-variant" size={16} color={DS.textVariant} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.topBarBtn} onPress={() => setShowSettings(true)}>
-            <Icon name="cog-outline" size={16} color={DS.lime} />
+            <Icon name="cog-outline" size={16} color={DS.textVariant} />
           </TouchableOpacity>
         </View>
 
@@ -994,34 +1036,40 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
             <Text style={styles.sbTeam} numberOfLines={1}>{battingTeamName || 'Batting'}</Text>
             <View style={styles.scoreRow}>
               <Text style={styles.scoreMain}>{currentScore.runs}<Text style={styles.scoreWkts}>/{currentScore.wickets}</Text></Text>
-              <Text style={styles.scoreOvers}> ({overStr})</Text>
-            </View>
-            <View style={styles.sbRates}>
-              <Text style={styles.sbRate}>CRR <Text style={styles.sbRateNumCrr}>{crr}</Text></Text>
-              {rrr ? <Text style={styles.sbRate}>RRR <Text style={styles.sbRateNumRrr}>{rrr}</Text></Text> : null}
-              <Text style={styles.sbScorecardLink}>Scorecard ›</Text>
+              <Text style={styles.scoreOvers}> ({overStr}/{totalOvers})</Text>
             </View>
             {matchComplete &&
               <View style={styles.resultPill}><Text style={styles.resultText}>{matchResult}</Text></View>}
           </View>
-          {isInnings2 && !matchComplete &&
-            <View style={styles.sbTarget}>
-              <Text style={styles.targetLabel}>NEED</Text>
-              <Text style={styles.sbNeedBig}>{need}</Text>
-              <Text style={styles.needText}>off {ballsLeft}</Text>
+          <View style={styles.sbRatesCol}>
+            <View style={styles.sbRates}>
+              <Text style={styles.sbRate}>CRR <Text style={styles.sbRateNumCrr}>{crr}</Text></Text>
+              {rrr ? <Text style={styles.sbRate}>RRR <Text style={styles.sbRateNumRrr}>{rrr}</Text></Text> : null}
             </View>
-          }
+            <Text style={styles.sbScorecardLink}>Scorecard ›</Text>
+            {isInnings2 && !matchComplete &&
+              <View style={styles.sbTarget}>
+                <Text style={styles.targetLabel}>NEED</Text>
+                <Text style={styles.sbNeedBig}>{need}</Text>
+                <Text style={styles.needText}>off {ballsLeft}</Text>
+              </View>
+            }
+          </View>
         </TouchableOpacity>
 
         <View style={styles.sbOverRow}>
           <Text style={styles.overLabel}>THIS OVER</Text>
+          {/* Display-only balls/runs tally for this over (incl. extras) — derived
+              from currentOver locally, never persisted; the server tracks legal
+              balls/overs itself. */}
+          <Text style={styles.overCount}>{currentOver.length} balls · {overRunsSoFar} runs</Text>
           {freeHit && <View style={styles.freeHitPill}><Text style={styles.freeHitText}>FREE HIT</Text></View>}
-          <View style={styles.overBalls}>
+          <ScrollView ref={overScrollRef} horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={styles.overBalls}>
             {filledOver.map((b, i) =>
             b !== null ? renderBallDot(b, i) :
             <View key={i} style={[styles.overBall, styles.overBallEmpty]}><View style={styles.overBallDot} /></View>
             )}
-          </View>
+          </ScrollView>
         </View>
       </View>
 
@@ -1030,7 +1078,6 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         {/* ── CREASE PANEL — both batters + the bowler, like a real scoreboard ── */}
         <View style={styles.creasePanel}>
           <View style={[styles.creaseRow, styles.creaseStrikerRow]}>
-            <Icon name="chevron-right" size={16} color={DS.lime} />
             {striker && <PlayerAvatar name={striker.name} avatarUrl={striker.avatarUrl} size={24} style={styles.creaseAvatar} />}
             <Text style={[styles.creaseName, styles.creaseStriker]} numberOfLines={1}>{striker?.name || 'Select batter'}</Text>
             <Text style={[styles.creaseFig, styles.creaseFigLit]}>
@@ -1046,7 +1093,6 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           </View>
 
           <View style={[styles.creaseRow, styles.creaseRowDivider]}>
-            <View style={{ width: 16 }} />
             {nonStriker && <PlayerAvatar name={nonStriker.name} avatarUrl={nonStriker.avatarUrl} size={24} style={styles.creaseAvatar} />}
             <Text style={styles.creaseName} numberOfLines={1}>{nonStriker?.name || '—'}</Text>
             <Text style={styles.creaseFig}>
@@ -1056,7 +1102,6 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
           </View>
 
           <View style={[styles.creaseRow, styles.creaseBowlerRow]}>
-            <Icon name="cricket" size={14} color={DS.coral} />
             {currentBowler && <PlayerAvatar name={currentBowler.name} avatarUrl={currentBowler.avatarUrl} size={24} style={styles.creaseAvatar} />}
             <Text style={styles.creaseName} numberOfLines={1}>{currentBowler?.name || 'Select bowler'}</Text>
             <Text style={styles.creaseFig}>{bowlerStats}</Text>
@@ -1115,7 +1160,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
                 <Text style={[styles.gridBtnNum, { color: DS.white }]}>4</Text><Text style={[styles.gridBtnLabel, { color: 'rgba(255,255,255,0.7)' }]}>FOUR</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.gridBtn, styles.gridBtnSix]} onPress={() => handleScore(6)}>
-                <Text style={[styles.gridBtnNum, { color: DS.success }]}>6</Text><Text style={[styles.gridBtnLabel, { color: DS.success }]}>SIX</Text>
+                <Text style={[styles.gridBtnNum, { color: DS.lime }]}>6</Text><Text style={[styles.gridBtnLabel, { color: DS.lime }]}>SIX</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1125,7 +1170,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         {!matchComplete &&
         <TouchableOpacity style={styles.wicketBtn}
           onPress={() => freeHit ? setRunOutPrompt(true) : setWicketPrompt(true)}>
-          <Icon name="alert-octagon" size={20} color={DS.onBlue} />
+          <Image source={require('../assets/icons/out.png')} style={[styles.wicketIcon, { tintColor: DS.onBlue }]} />
           <Text style={styles.wicketBtnText}>WICKET{freeHit ? ' (RUN OUT ONLY)' : ''}</Text>
         </TouchableOpacity>
         }
@@ -1674,7 +1719,8 @@ const makeStyles = (DS) => StyleSheet.create({
   scoreMain: { fontSize: 40, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1.2, lineHeight: 42 },
   scoreWkts: { color: DS.textMuted },
   scoreOvers: { fontSize: 16, color: DS.textMuted, fontWeight: '700', marginBottom: 5, marginLeft: 4 },
-  sbRates: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 3 },
+  sbRatesCol: { alignItems: 'flex-end', gap: 4, marginTop: 3 },
+  sbRates: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   sbRate: { fontSize: 11.5, fontWeight: '700', color: DS.textMuted },
   sbRateNumCrr: { color: DS.lime, fontWeight: '900' },
   sbRateNumRrr: { color: DS.coral, fontWeight: '900' },
@@ -1688,6 +1734,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   sbOverRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   overLabel: { fontSize: 9.5, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8 },
+  overCount: { fontSize: 9.5, fontWeight: '800', color: DS.textMuted },
 
   // ── Crease panel — striker (lit) / non-striker / bowler ──
   creasePanel: { backgroundColor: DS.surfaceHigh, borderRadius: 16, marginHorizontal: 16, paddingHorizontal: 12, paddingVertical: 2, marginBottom: 6 },
@@ -1717,6 +1764,7 @@ const makeStyles = (DS) => StyleSheet.create({
     marginHorizontal: 16, marginBottom: 6, backgroundColor: DS.coral, borderRadius: 15, paddingVertical: 13,
   },
   wicketBtnText: { fontSize: 13, fontWeight: '900', color: DS.onBlue, letterSpacing: 2 },
+  wicketIcon: { width: 22, height: 22, resizeMode: 'contain' },
 
   // Run chips (extra + runs sheet)
   runChips: { flexDirection: 'row', gap: 10, marginBottom: 8 },
@@ -1741,7 +1789,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   gridBtnDot: { backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.line },
   gridBtnFour: { backgroundColor: DS.blueDeep },
-  gridBtnSix: { backgroundColor: DS.success + '24', borderWidth: 1, borderColor: DS.success + '44' },
+  gridBtnSix: { backgroundColor: DS.lime + '24', borderWidth: 1, borderColor: DS.lime + '44' },
   gridBtnWide: { backgroundColor: 'rgba(255,181,158,0.1)' },
   gridBtnWicket: { backgroundColor: DS.wicketBg },
   gridBtnNum: { fontSize: 28, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1 },
@@ -1756,7 +1804,7 @@ const makeStyles = (DS) => StyleSheet.create({
   overSectionLabel: { fontSize: 18, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8 },
   freeHitPill: { backgroundColor: DS.limeBright, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'center', marginRight: 8 },
   freeHitText: { fontSize: 9, fontWeight: '900', color: DS.bg, letterSpacing: 0.8 },
-  overBalls: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  overBalls: { flexDirection: 'row', gap: 5 },
   overBall: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   overBallEmpty: { backgroundColor: DS.surfaceHighest, borderWidth: 1, borderColor: DS.line },
   overBallDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: DS.surfaceHighest },

@@ -19,6 +19,23 @@ import BrandLogo from '../components/BrandLogo';
 
 const { width } = Dimensions.get('window');
 
+// "X need 45 off 30 balls" for the current (2nd) innings — derived from the
+// latest inning's target/runs plus a legal-ball count from its ball log.
+// Non-cricket matches have no `innings` relation, so this quietly returns null.
+const chaseLine = (m) => {
+  const inn = (m.innings || [])[0];
+  if (!inn || inn.inningNumber !== 2 || !inn.targetScore) return null;
+  const need = Math.max(0, inn.targetScore - inn.totalRuns);
+  if (need <= 0) return null;
+  let legal = 0;
+  (inn.oversData || []).forEach((o) => (o.balls || []).forEach((b) => {
+    if (!['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)) legal += 1;
+  }));
+  const ballsLeft = Math.max(0, (m.overs || 20) * 6 - legal);
+  if (ballsLeft <= 0) return null;
+  return `${inn.battingTeam?.name || 'Chasing team'} need ${need} off ${ballsLeft} ball${ballsLeft !== 1 ? 's' : ''}`;
+};
+
 const MORE_ITEMS = [
   { label: 'Go Live',        icon: 'broadcast',                  screen: 'StreamingLanding', color: '#EF4444' },
   { label: 'News Feed',      icon: 'newspaper-variant-outline',  screen: 'NewsFeed',         color: '#3B82F6' },
@@ -111,6 +128,7 @@ export default function HomeScreen({ navigation }) {
           team2: typeof m.team2 === 'object' ? (m.team2?.name || 'Team 2') : String(m.team2 || 'Team 2'),
           score1: String(m.score1 || '—'), score2: String(m.score2 || '—'),
           status: String(m.status || 'scheduled'), matchType: String(m.matchType || 'T20'),
+          chase: chaseLine(m),
         })));
       }
       if (pl?.success) setPlayers(pl.data || []);
@@ -464,6 +482,8 @@ function LiveMatchCard({ match, sport, navigation, onShare }) {
           </View>
         </View>
 
+        {match.chase ? <Text style={lcStyles.chaseLine} numberOfLines={1}>🎯 {match.chase}</Text> : null}
+
         <View style={lcStyles.actions}>
           <TouchableOpacity
             style={lcStyles.actionBtn}
@@ -501,6 +521,7 @@ const makeLcStyles = (DS) => StyleSheet.create({
   scoreCenter: { flex: 1, alignItems: 'center', gap: 2 },
   scoreMain: { fontSize: 22, fontWeight: '900', color: DS.lime, letterSpacing: -0.5 },
   vsLabel: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
+  chaseLine: { fontSize: 12, fontWeight: '700', color: DS.textMuted, textAlign: 'center', marginBottom: 12 },
   actions: { flexDirection: 'row', gap: 10 },
   actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 14, paddingVertical: 14, backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   actionBtnText: { fontSize: 15, fontWeight: '800', color: DS.onLime },

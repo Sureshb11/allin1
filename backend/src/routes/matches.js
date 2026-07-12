@@ -143,7 +143,18 @@ router.get('/circle', authMiddleware, async (req, res) => {
 
     const matches = await prisma.match.findMany({
       where,
-      include: { team1: true, team2: true },
+      include: {
+        team1: true, team2: true,
+        // Just enough to compute a chase line ("NEED 45 off 30 balls") client-side
+        // for the current (2nd) innings — not the full ball-by-ball log.
+        innings: {
+          orderBy: { inningNumber: 'desc' }, take: 1,
+          include: {
+            battingTeam: true,
+            oversData: { select: { balls: { select: { extraType: true } } } },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
@@ -724,11 +735,36 @@ router.post('/:id/toss', authMiddleware, async (req, res) => {
           tossWinnerId: data.tossWinnerId,
           tossDecision: data.tossDecision,
           status: 'live',
+          // A toss (re)submission means innings are starting fresh from here —
+          // clear any score/result left over from an earlier attempt on this
+          // same match (e.g. a redo), otherwise a stale score1/score2 from the
+          // prior toss keeps showing on the Scorecard for a team that hasn't
+          // actually batted yet under the current toss.
+          score1: null, score2: null, result: null,
+          currentInnings: 1,
         },
       });
+      // A toss (re)submission means ball-by-ball play starts fresh from here too —
+      // wipe any overs/balls (and any 2nd+ innings) left over from an earlier
+      // attempt on this same match, not just relabel inning 1. Otherwise stale
+      // deliveries (with a different batting lineup) stay attached to inning 1
+      // and leak into the new scorecard alongside the real current batters.
+      const staleInnings = await tx.inning.findMany({ where: { matchId }, select: { id: true } });
+      const staleInningIds = staleInnings.map((i) => i.id);
+      if (staleInningIds.length) {
+        const staleOvers = await tx.over.findMany({ where: { inningId: { in: staleInningIds } }, select: { id: true } });
+        const staleOverIds = staleOvers.map((o) => o.id);
+        if (staleOverIds.length) await tx.ball.deleteMany({ where: { overId: { in: staleOverIds } } });
+        await tx.over.deleteMany({ where: { inningId: { in: staleInningIds } } });
+      }
+      await tx.inning.deleteMany({ where: { matchId, inningNumber: { not: 1 } } });
       await tx.inning.updateMany({
         where: { matchId, inningNumber: 1 },
-        data: { battingTeamId: data.battingTeamId, bowlingTeamId: data.bowlingTeamId },
+        data: {
+          battingTeamId: data.battingTeamId, bowlingTeamId: data.bowlingTeamId,
+          totalRuns: 0, totalWickets: 0, totalOvers: 0, extras: null,
+          strikerId: null, nonStrikerId: null, currentBowlerId: null,
+        },
       });
       if (data.squads?.length) {
         await tx.matchPlayer.deleteMany({ where: { matchId } });

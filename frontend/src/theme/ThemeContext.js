@@ -75,23 +75,23 @@ const dark = {
 // Arena honeycomb picker (useArenaColors) keeps its distinct lime-bright look.
 const light = {
   mode: 'light',
-  bg: '#f8f9fa',            // background
-  surfaceLow: '#f3f4f5',    // surface-container-low — sections / banners
+  bg: '#fcfcfd',            // background — barely off-white, not the grey f8f9fa
+  surfaceLow: '#fafbfc',    // surface-container-low — sections / banners
   surface: '#ffffff',       // surface-container-lowest — cards
-  surfaceHigh: '#edeeef',   // surface-container — chips / inputs / buttons
-  surfaceHighest: '#e1e3e4',// surface-container-highest / surface-variant — avatars / recess
+  surfaceHigh: '#f5f6f7',   // surface-container — chips / inputs / buttons
+  surfaceHighest: '#eef0f1',// surface-container-highest / surface-variant — avatars / recess
   white: '#ffffff',
-  lime: '#002f65',       // primary — main accent (Arena keeps its own lime via limeBright)
+  lime: '#406900',       // Pitch grass green (reverted — navy accent undone)
   limeBright: '#bdf37b',
-  lime2: '#1a4683',       // primary-container
-  onLime: '#ffffff',      // on-primary
+  lime2: '#447000',
+  onLime: '#ffffff',
   coral: '#b71422',       // secondary
   wicketBg: 'rgba(183,20,34,0.12)',
   wicketText: '#b71422',
-  blue: '#002f65',        // primary (mockup uses one navy for CRR/links/FOUR)
-  blueDeep: '#002f65',    // primary — FOUR button
-  blueSoft: '#90b6fa',    // on-primary-container
-  onBlue: '#ffffff',      // on-primary
+  blue: '#305ce1',        // reverted — navy accent undone
+  blueDeep: '#0041c8',    // reverted — navy accent undone
+  blueSoft: '#305ce1',    // reverted — navy accent undone
+  onBlue: '#ffffff',
   textPrimary: '#191c1d', // on-surface
   textVariant: '#434750', // on-surface-variant
   textSecondary: '#434750',
@@ -99,7 +99,7 @@ const light = {
   faint: '#e1e3e4',
   onDark: '#ffffff',
   onDarkDim: '#f0f1f2',
-  limeDark: '#001b3e',    // on-primary-fixed
+  limeDark: '#447000',    // reverted — navy accent undone
   live: '#e02020',        // live-red
   danger: '#ba1a1a',      // error
   dangerTxt: '#93000a',   // on-error-container

@@ -48,6 +48,22 @@ const timeAgo = (iso) => {
   return 'just now';
 };
 
+// "X need 45 off 30 balls" for the current (2nd) innings — derived from the
+// latest inning's target/runs plus a legal-ball count from its ball log.
+const chaseLine = (m) => {
+  const inn = (m.innings || [])[0];
+  if (!inn || inn.inningNumber !== 2 || !inn.targetScore) return null;
+  const need = Math.max(0, inn.targetScore - inn.totalRuns);
+  if (need <= 0) return null;
+  let legal = 0;
+  (inn.oversData || []).forEach((o) => (o.balls || []).forEach((b) => {
+    if (!['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)) legal += 1;
+  }));
+  const ballsLeft = Math.max(0, (m.overs || 20) * 6 - legal);
+  if (ballsLeft <= 0) return null;
+  return `${inn.battingTeam?.name || 'Chasing team'} need ${need} off ${ballsLeft} ball${ballsLeft !== 1 ? 's' : ''}`;
+};
+
 
 
 
@@ -180,6 +196,8 @@ function CircleMatchCard({ match, onPress }) {
           {live ? <View style={c.teamDivider} /> : <Text style={c.vs}>VS</Text>}
           <Team t={match.b} muted={!pb.runs} />
         </View>
+
+        {match.chase ? <Text style={c.chaseLine} numberOfLines={1}>🎯 {match.chase}</Text> : null}
       </View>
 
       <View style={{ justifyContent: 'flex-end' }}>
@@ -580,6 +598,10 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     a: { name: sideName(m.team1), short: initials(sideName(m.team1)), color: colorFor(sideName(m.team1)), score: m.score1 ?? '—', overs: '' },
     b: { name: sideName(m.team2), short: initials(sideName(m.team2)), color: colorFor(sideName(m.team2) + 'x'), score: m.score2 ?? '—', overs: '' },
     result: m.result || (m.status === 'completed' ? 'Completed' : m.status === 'live' ? 'In progress' : 'Tap to start'),
+    // Chase line ("X need 45 off 30 balls") for the current (2nd) innings — the
+    // toss is a static fact that belongs on the Scorecard's INFO tab only, not
+    // repeated on every card; this is the thing that's actually live/useful here.
+    chase: chaseLine(m),
     // raw fields needed to launch the toss → scoring flow for a scheduled match
     team1Id: m.team1Id, team2Id: m.team2Id,
     overs: m.overs, matchType: m.matchType,
@@ -1054,6 +1076,7 @@ const makeC = (DS, TYPO) => StyleSheet.create({
   teamScoreMuted: { color: DS.textMuted },
   teamDivider: { width: 1, height: 56, backgroundColor: DS.line, marginHorizontal: 4 },
   vs: { fontFamily: TYPO.headline.fontFamily, color: DS.textMuted, fontSize: 16, fontWeight: '700', marginHorizontal: 4 },
+  chaseLine: { fontSize: 11, fontWeight: '700', color: DS.textMuted, textAlign: 'center', marginBottom: 10 },
 
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   metaMuted: { fontFamily: TYPO.label.fontFamily, color: DS.textMuted, fontSize: 12, fontWeight: '700' },

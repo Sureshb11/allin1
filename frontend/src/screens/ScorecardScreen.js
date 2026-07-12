@@ -1,8 +1,10 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Share, Image, RefreshControl } from
+  ActivityIndicator, Share, Image, RefreshControl, Dimensions } from
 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
@@ -715,7 +717,7 @@ function LiveTab({ innings, squads, onViewAllOvers, totalOvers }) {const DS = us
             <Text style={styles.liveBoxOver}>Over {lastOver.overNumber}</Text>
             <Text style={styles.liveBoxScore}>{innings.totalRuns}-{innings.totalWickets}</Text>
           </View>
-          <View style={styles.liveBallRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.liveBallRow}>
             {lastOver.balls.map((b, i) => {
               const lbl = ballLabel(b);
               const isW = b.isWicket, isBoundary = !b.extraType && (b.runs === 4 || b.runs === 6);
@@ -726,7 +728,7 @@ function LiveTab({ innings, squads, onViewAllOvers, totalOvers }) {const DS = us
               );
             })}
             <Text style={styles.liveOverRuns}>({lastOverRuns} run{lastOverRuns !== 1 ? 's' : ''})</Text>
-          </View>
+          </ScrollView>
           <View style={styles.liveFigRow}>
             <View style={{ flex: 1 }}>
               {notOut.map((b) => (
@@ -860,6 +862,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const [expandedInnings, setExpandedInnings] = useState(null); // which team's card is open (SCORECARD tab); null = default
   const [tab, setTab] = useState(null);              // active top tab; null until match first loads
   const shotRef = useRef(null);                      // capture target for "share as image"
+  const pagerRef = useRef(null);                     // horizontal swipeable tab content
 
   useLayoutEffect(() => {
     // Hide the stack header — the branded bar below is the single header, giving the
@@ -913,6 +916,38 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     }
   };
 
+  const t1 = match?.team1?.name || 'Team 1';
+  const t2 = match?.team2?.name || 'Team 2';
+  const isLive = match?.status === 'live';
+  // Default tab: LIVE while the match is live, SCORECARD otherwise — but once the
+  // viewer taps a tab themselves, `tab` takes over and stays put across polls.
+  const activeTab = tab || (isLive ? 'live' : 'scorecard');
+  const TABS = [
+    { key: 'info', label: 'INFO' },
+    ...(isLive ? [{ key: 'live', label: 'LIVE' }] : []),
+    { key: 'scorecard', label: 'SCORECARD' },
+    { key: 'squads', label: 'SQUADS' },
+    { key: 'overs', label: 'OVERS' },
+    { key: 'highlights', label: 'HIGHLIGHTS' },
+  ];
+  const inningsList = match?.innings || [];
+  const selectedInnings = inningsList[inningsTab] || inningsList[0];
+  const liveInnings = inningsList[inningsList.length - 1];   // currently-batting innings
+  // Accordion: default open = the most recent (currently-batting or last-completed) innings.
+  const effectiveExpanded = expandedInnings === null ? inningsList.length - 1 : expandedInnings;
+  // "NEED X off Y balls" for the 2nd innings — shown across every tab; the toss
+  // (a fixed, non-changing fact) stays confined to the INFO tab only.
+  const chase = computeChase(liveInnings, match?.overs);
+
+  // Keep the swipeable pager in sync with the active tab — covers the initial
+  // default tab, a tab-bar tap, and (as a harmless no-op re-scroll) a swipe
+  // gesture, which updates `tab` directly via onMomentumScrollEnd below.
+  useEffect(() => {
+    const idx = TABS.findIndex((t) => t.key === activeTab);
+    if (idx >= 0) pagerRef.current?.scrollTo({ x: idx * SCREEN_WIDTH, y: 0, animated: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, isLive]);
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -930,26 +965,6 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
 
   }
 
-  const t1 = match.team1?.name || 'Team 1';
-  const t2 = match.team2?.name || 'Team 2';
-  const isLive = match.status === 'live';
-  // Default tab: LIVE while the match is live, SCORECARD otherwise — but once the
-  // viewer taps a tab themselves, `tab` takes over and stays put across polls.
-  const activeTab = tab || (isLive ? 'live' : 'scorecard');
-  const TABS = [
-    { key: 'info', label: 'INFO' },
-    ...(isLive ? [{ key: 'live', label: 'LIVE' }] : []),
-    { key: 'scorecard', label: 'SCORECARD' },
-    { key: 'squads', label: 'SQUADS' },
-    { key: 'overs', label: 'OVERS' },
-    { key: 'highlights', label: 'HIGHLIGHTS' },
-  ];
-  const inningsList = match.innings || [];
-  const selectedInnings = inningsList[inningsTab] || inningsList[0];
-  const liveInnings = inningsList[inningsList.length - 1];   // currently-batting innings
-  // Accordion: default open = the most recent (currently-batting or last-completed) innings.
-  const effectiveExpanded = expandedInnings === null ? inningsList.length - 1 : expandedInnings;
-
   return (
     <View style={styles.container}>
       {/* Match-center header: back + match title + live badge, tabs directly below — one bar */}
@@ -966,115 +981,145 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             : <View style={{ width: 26 }} />}
         </View>
 
-        <View style={styles.matchTabBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.matchTabBar}
+          contentContainerStyle={styles.matchTabBarContent}>
           {TABS.map((t) => {
             const active = activeTab === t.key;
             return (
               <TouchableOpacity key={t.key} style={[styles.matchTab, active && styles.matchTabActive]} onPress={() => setTab(t.key)}>
-                <Text style={[styles.matchTabText, active && styles.matchTabTextActive]}>{t.label}</Text>
+                <Text style={[styles.matchTabText, active && styles.matchTabTextActive]} numberOfLines={1}>{t.label}</Text>
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 12 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}>
-       <View ref={shotRef} collapsable={false} style={{ backgroundColor: DS.bg, paddingBottom: 12 }}>
-        {/* Compact score summary (both innings) — persistent context across every tab. */}
-        <View style={styles.scoreSummary}>
-          <View style={styles.scoreTeam}>
-            <View style={[styles.scoreAvatar, { backgroundColor: DS.lime }]}>
-              <Text style={styles.scoreAvatarText}>{t1[0]}</Text>
-            </View>
-            <Text style={styles.scoreTeamName} numberOfLines={1}>{t1}</Text>
-            <Text style={styles.scoreValue}>{match.score1 || '—'}</Text>
-          </View>
-          <View style={styles.scoreVs}>
-            <Text style={styles.scoreVsText}>VS</Text>
-          </View>
-          <View style={[styles.scoreTeam, { alignItems: 'flex-end' }]}>
-            <View style={[styles.scoreAvatar, { backgroundColor: DS.blue }]}>
-              <Text style={styles.scoreAvatarText}>{t2[0]}</Text>
-            </View>
-            <Text style={[styles.scoreTeamName, { textAlign: 'right' }]} numberOfLines={1}>{t2}</Text>
-            <Text style={[styles.scoreValue, { textAlign: 'right', color: DS.blue }]}>{match.score2 || '—'}</Text>
-          </View>
-        </View>
+      <View ref={shotRef} collapsable={false} style={{ flex: 1, backgroundColor: DS.bg }}>
+        {/* Chase line ("NEED X off Y balls") — every tab, while the toss (a fixed,
+            non-changing fact) stays confined to the INFO tab only. */}
+        {chase && chase.need > 0 &&
+          <Text style={[styles.tossSummaryLine, { marginTop: 12 }]} numberOfLines={1}>
+            🎯 {chase.teamName} need {chase.need} off {chase.ballsLeft} ball{chase.ballsLeft !== 1 ? 's' : ''}
+          </Text>
+        }
 
-        {/* Result — a fuller "match ended" flourish once the game is complete. */}
-        {match.result && match.status === 'completed' ?
-        <View style={styles.resultCard}>
-            <Icon name="trophy-variant" size={28} color={DS.lime} />
-            <Text style={styles.resultCardLabel}>MATCH COMPLETE</Text>
-            <Text style={styles.resultCardText}>{match.result}</Text>
-          </View>
-        : match.result ?
-        <View style={styles.resultBanner}>
-            <Icon name="trophy" size={16} color={DS.lime} />
-            <Text style={styles.resultBannerText}>{match.result}</Text>
-          </View>
-        : null}
-
-        <View style={styles.body}>
-          {activeTab === 'info' && <InfoTab match={match} />}
-
-          {activeTab === 'live' && <LiveTab innings={liveInnings} squads={match.squads} totalOvers={match.overs} onViewAllOvers={() => setTab('overs')} />}
-
-          {activeTab === 'overs' && inningsList.length > 1 &&
-            <View style={styles.inningsTabs}>
-              {inningsList.map((inn, i) => {
-                const active = inningsTab === i;
-                return (
-                  <TouchableOpacity key={inn.id || i} style={[styles.inningsTab, active && styles.inningsTabActive]}
-                    onPress={() => setInningsTab(i)}>
-                    <Text style={[styles.inningsTabText, active && styles.inningsTabTextActive]} numberOfLines={1}>
-                      {(inn.battingTeam?.name || `Innings ${i + 1}`).toUpperCase()}
-                    </Text>
-                    <Text style={[styles.inningsTabSub, active && { color: DS.bg }]}>{i === 0 ? '1st' : '2nd'} inns</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          }
-
-          {activeTab === 'scorecard' &&
-            (inningsList.length > 0 ?
-              <View style={{ gap: 12 }}>
-                {inningsList.map((inn, i) => (
-                  <InningsScorecard
-                    key={inn.id || i}
-                    innings={inn}
-                    index={i}
-                    squads={match.squads}
-                    totalOvers={match.overs}
-                    expanded={inningsList.length === 1 || effectiveExpanded === i}
-                    collapsible={inningsList.length > 1}
-                    onToggle={() => setExpandedInnings(effectiveExpanded === i ? -1 : i)}
-                  />
-                ))}
-                <WormChart innings1={inningsList[0]} innings2={inningsList[1]} totalOvers={match.overs} />
+        {/* Compact score summary (both innings) + result — LIVE tab only. */}
+        {activeTab === 'live' && <>
+          <View style={[styles.scoreSummary, { marginTop: 12 }]}>
+            <View style={styles.scoreTeam}>
+              <View style={[styles.scoreAvatar, { backgroundColor: DS.lime }]}>
+                <Text style={styles.scoreAvatarText}>{t1[0]}</Text>
               </View>
-              : <Text style={styles.emptyTabText}>No play yet.</Text>)}
+              <Text style={styles.scoreTeamName} numberOfLines={1}>{t1}</Text>
+              <Text style={styles.scoreValue}>{match.score1 || '—'}</Text>
+            </View>
+            <View style={styles.scoreVs}>
+              <Text style={styles.scoreVsText}>VS</Text>
+            </View>
+            <View style={[styles.scoreTeam, { alignItems: 'flex-end' }]}>
+              <View style={[styles.scoreAvatar, { backgroundColor: DS.blue }]}>
+                <Text style={styles.scoreAvatarText}>{t2[0]}</Text>
+              </View>
+              <Text style={[styles.scoreTeamName, { textAlign: 'right' }]} numberOfLines={1}>{t2}</Text>
+              <Text style={[styles.scoreValue, { textAlign: 'right', color: DS.blue }]}>{match.score2 || '—'}</Text>
+            </View>
+          </View>
 
-          {activeTab === 'overs' &&
-            (selectedInnings ? <InningsOvers innings={selectedInnings} /> : <Text style={styles.emptyTabText}>No overs yet.</Text>)}
+          {/* Result — a fuller "match ended" flourish once the game is complete. */}
+          {match.result && match.status === 'completed' ?
+          <View style={styles.resultCard}>
+              <Icon name="trophy-variant" size={28} color={DS.lime} />
+              <Text style={styles.resultCardLabel}>MATCH COMPLETE</Text>
+              <Text style={styles.resultCardText}>{match.result}</Text>
+            </View>
+          : match.result ?
+          <View style={styles.resultBanner}>
+              <Icon name="trophy" size={16} color={DS.lime} />
+              <Text style={styles.resultBannerText}>{match.result}</Text>
+            </View>
+          : null}
+        </>}
 
-          {activeTab === 'squads' && <SquadsTab match={match} />}
+        {/* Swipeable tab content — one page per tab, in sync with the tab bar above:
+            a tap scrolls the pager (see the useEffect on `activeTab`), and a swipe
+            here updates `tab` on scroll-end so the tab bar highlight follows along. */}
+        <ScrollView
+          ref={pagerRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1 }}
+          onMomentumScrollEnd={(e) => {
+            const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+            const key = TABS[idx]?.key;
+            if (key && key !== activeTab) setTab(key);
+          }}
+        >
+          {TABS.map((t) => (
+            <ScrollView key={t.key} style={{ width: SCREEN_WIDTH }} showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingTop: 12, paddingBottom: 12 }}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}>
+              <View style={styles.body}>
+                {t.key === 'info' && <InfoTab match={match} />}
 
-          {activeTab === 'highlights' && <HighlightsTab match={match} />}
-        </View>
-        <BrandLogo scale={0.75} />
-       </View>
+                {t.key === 'live' && <LiveTab innings={liveInnings} squads={match.squads} totalOvers={match.overs} onViewAllOvers={() => setTab('overs')} />}
 
-        {/* WhatsApp Share */}
-        <TouchableOpacity style={styles.shareBtn} onPress={shareScorecard}>
-          <Icon name="whatsapp" size={20} color={DS.white} />
-          <Text style={styles.shareBtnText}>Share Scorecard</Text>
-        </TouchableOpacity>
+                {t.key === 'overs' && inningsList.length > 1 &&
+                  <View style={styles.inningsTabs}>
+                    {inningsList.map((inn, i) => {
+                      const active = inningsTab === i;
+                      return (
+                        <TouchableOpacity key={inn.id || i} style={[styles.inningsTab, active && styles.inningsTabActive]}
+                          onPress={() => setInningsTab(i)}>
+                          <Text style={[styles.inningsTabText, active && styles.inningsTabTextActive]} numberOfLines={1}>
+                            {(inn.battingTeam?.name || `Innings ${i + 1}`).toUpperCase()}
+                          </Text>
+                          <Text style={[styles.inningsTabSub, active && { color: DS.bg }]}>{i === 0 ? '1st' : '2nd'} inns</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                }
 
-        <View style={{ height: 32 }} />
-      </ScrollView>
+                {t.key === 'scorecard' &&
+                  (inningsList.length > 0 ?
+                    <View style={{ gap: 12 }}>
+                      {inningsList.map((inn, i) => (
+                        <InningsScorecard
+                          key={inn.id || i}
+                          innings={inn}
+                          index={i}
+                          squads={match.squads}
+                          totalOvers={match.overs}
+                          expanded={inningsList.length === 1 || effectiveExpanded === i}
+                          collapsible={inningsList.length > 1}
+                          onToggle={() => setExpandedInnings(effectiveExpanded === i ? -1 : i)}
+                        />
+                      ))}
+                      <WormChart innings1={inningsList[0]} innings2={inningsList[1]} totalOvers={match.overs} />
+                    </View>
+                    : <Text style={styles.emptyTabText}>No play yet.</Text>)}
+
+                {t.key === 'overs' &&
+                  (selectedInnings ? <InningsOvers innings={selectedInnings} /> : <Text style={styles.emptyTabText}>No overs yet.</Text>)}
+
+                {t.key === 'squads' && <SquadsTab match={match} />}
+
+                {t.key === 'highlights' && <HighlightsTab match={match} />}
+              </View>
+              <BrandLogo scale={0.75} />
+
+              {/* WhatsApp Share */}
+              <TouchableOpacity style={styles.shareBtn} onPress={shareScorecard}>
+                <Icon name="whatsapp" size={20} color={DS.white} />
+                <Text style={styles.shareBtnText}>Share Scorecard</Text>
+              </TouchableOpacity>
+
+              <View style={{ height: 32 }} />
+            </ScrollView>
+          ))}
+        </ScrollView>
+      </View>
     </View>);
 
 }
@@ -1106,11 +1151,10 @@ const makeStyles = (DS) => StyleSheet.create({
   liveBadgeText: { fontSize: 10, fontWeight: '900', color: DS.live, letterSpacing: 0.6 },
 
   // Match-center tab bar (INFO / LIVE / SCORECARD / SQUADS / OVERS)
-  matchTabBar: {
-    flexDirection: 'row', backgroundColor: DS.surfaceHigh,
-  },
+  matchTabBar: { backgroundColor: DS.surfaceHigh },
+  matchTabBarContent: { flexDirection: 'row' },
   matchTab: {
-    flex: 1, alignItems: 'center', paddingVertical: 12,
+    alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16,
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   matchTabActive: { borderBottomColor: DS.lime },
@@ -1130,6 +1174,7 @@ const makeStyles = (DS) => StyleSheet.create({
   scoreValue: { fontSize: 20, fontWeight: '900', color: DS.lime },
   scoreVs: { paddingHorizontal: 12 },
   scoreVsText: { fontSize: 11, fontWeight: '800', color: DS.blue, letterSpacing: 1 },
+  tossSummaryLine: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, textAlign: 'center', marginTop: 8 },
 
   // Result
   resultBanner: {
@@ -1270,7 +1315,7 @@ const makeStyles = (DS) => StyleSheet.create({
   liveBoxHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   liveBoxOver: { fontSize: 14, fontWeight: '900', color: DS.textPrimary },
   liveBoxScore: { fontSize: 16, fontWeight: '900', color: DS.lime },
-  liveBallRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  liveBallRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveOverRuns: { fontSize: 11, color: DS.textMuted, marginLeft: 4 },
   liveFigRow: {
     flexDirection: 'row', justifyContent: 'space-between', gap: 10,
