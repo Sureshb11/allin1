@@ -3,7 +3,7 @@
  */
 
 import {AppRegistry, Text, TextInput, Platform} from 'react-native';
-// import './src/utils/applyLexendFont'; // Disabled: global font now follows system/theme
+import './src/utils/applyInterFont'; // Global font → Inter (SF-Pro-like) across all Text/TextInput
 import App from './App';
 
 // Lock text to the designed sizes so the OS "Font size" accessibility setting can't

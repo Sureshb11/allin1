@@ -578,6 +578,11 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [posting, setPosting] = useState(false);
   const scrollX = useRef(new Animated.Value(0)).current;
+  // Signatures of the last-applied server payloads. The 5s poll compares against
+  // these and only re-renders the (heavy, animated) feed when data actually
+  // changed — an unconditional setState every tick was re-rendering the whole
+  // match rail + posts constantly and locking up low-end devices.
+  const feedSig = useRef({ matches: '', activity: '', posts: '' });
 
   const mapPost = useCallback((po) => ({
     id: po.id,
@@ -634,18 +639,29 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       if (!m.date && !m.createdAt) return true;
       return new Date(m.date || m.createdAt) >= oneWeekAgo;
     });
-    setMatches(recentMatches.map(mapMatch));
-    setActivity(fr?.data || []);
-    // Merge, not replace: refresh like/comment counts + surface new posts, but
-    // keep already-loaded comment threads and the optimistic like highlight —
-    // so a background poll makes likes/comments populate live without flicker.
-    setPosts((prev) => {
-      const byId = Object.fromEntries(prev.map((p) => [p.id, p]));
-      return (pr?.data || []).map((sp) => {
-        const m = mapPost(sp), ex = byId[sp.id];
-        return ex ? { ...m, comments: ex.comments?.length ? ex.comments : m.comments } : m;
+    // Only update each slice of state when its server payload actually changed,
+    // so a no-op poll (the common case between balls/likes) doesn't re-render
+    // the whole feed. Signatures capture just the display-affecting fields.
+    const mSig = JSON.stringify(recentMatches.map(m => [m.id, m.score1, m.score2, m.status, m.result, m.currentInnings]));
+    if (mSig !== feedSig.current.matches) { feedSig.current.matches = mSig; setMatches(recentMatches.map(mapMatch)); }
+
+    const aSig = JSON.stringify((fr?.data || []).map(c => [c.id, c.likes, c.liked]));
+    if (aSig !== feedSig.current.activity) { feedSig.current.activity = aSig; setActivity(fr?.data || []); }
+
+    const pSig = JSON.stringify((pr?.data || []).map(p => [p.id, p.likes, p.liked, p.commentCount, p.text, p.mediaUrl]));
+    if (pSig !== feedSig.current.posts) {
+      feedSig.current.posts = pSig;
+      // Merge, not replace: refresh like/comment counts + surface new posts, but
+      // keep already-loaded comment threads and the optimistic like highlight —
+      // so a background poll makes likes/comments populate live without flicker.
+      setPosts((prev) => {
+        const byId = Object.fromEntries(prev.map((p) => [p.id, p]));
+        return (pr?.data || []).map((sp) => {
+          const m = mapPost(sp), ex = byId[sp.id];
+          return ex ? { ...m, comments: ex.comments?.length ? ex.comments : m.comments } : m;
+        });
       });
-    });
+    }
   }), [mapMatch, mapPost]);
 
   useFocusEffect(useCallback(() => {
