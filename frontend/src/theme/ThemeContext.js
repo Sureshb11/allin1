@@ -68,43 +68,45 @@ const dark = {
   inkDim: '#8e9379',
 };
 
-// ── LIGHT (Premium Sporty 2 - Vivid Match) ──────────────────────────────────
+// ── LIGHT (Material 3 — navy/red scoreboard palette) ────────────────────────
+// Ported from the live-scoring HTML mockup (Material 3 tonal palette:
+// primary navy #002f65, secondary red #b71422, boundary-green #009270 for
+// sixes). `limeBright`/`navy0-2`/`cell*`/`ink*` are left untouched so the
+// Arena honeycomb picker (useArenaColors) keeps its distinct lime-bright look.
 const light = {
   mode: 'light',
-  // Neutrals lifted from grey toward a soft off-white (not pure white) app-wide,
-  // keeping small tonal steps so white cards/controls still separate.
-  bg: '#f8fafc',            // page background (was grey #f3f5f8)
-  surfaceLow: '#fdfdff',    // sections / banners — near white
-  surface: '#ffffff',       // cards — pure white, still pops over the off-white bg
-  surfaceHigh: '#f9fbfd',   // chips / inputs / buttons — near-white (defined by their border)
-  surfaceHighest: '#f1f4f8',// avatars / deepest recess
+  bg: '#f8f9fa',            // background
+  surfaceLow: '#f3f4f5',    // surface-container-low — sections / banners
+  surface: '#ffffff',       // surface-container-lowest — cards
+  surfaceHigh: '#edeeef',   // surface-container — chips / inputs / buttons
+  surfaceHighest: '#e1e3e4',// surface-container-highest / surface-variant — avatars / recess
   white: '#ffffff',
-  lime: '#406900',       // Pitch grass green
+  lime: '#002f65',       // primary — main accent (Arena keeps its own lime via limeBright)
   limeBright: '#bdf37b',
-  lime2: '#447000',
-  onLime: '#ffffff',
-  coral: '#e63946',
-  wicketBg: 'rgba(230,57,70,0.12)',
-  wicketText: '#e63946',
-  blue: '#305ce1',
-  blueDeep: '#0041c8',
-  blueSoft: '#305ce1',
-  onBlue: '#ffffff',
-  textPrimary: '#191c1e',
-  textVariant: '#434656',
-  textSecondary: '#434656',
-  textMuted: '#5d6070',
-  faint: '#e6e8ec',
+  lime2: '#1a4683',       // primary-container
+  onLime: '#ffffff',      // on-primary
+  coral: '#b71422',       // secondary
+  wicketBg: 'rgba(183,20,34,0.12)',
+  wicketText: '#b71422',
+  blue: '#002f65',        // primary (mockup uses one navy for CRR/links/FOUR)
+  blueDeep: '#002f65',    // primary — FOUR button
+  blueSoft: '#90b6fa',    // on-primary-container
+  onBlue: '#ffffff',      // on-primary
+  textPrimary: '#191c1d', // on-surface
+  textVariant: '#434750', // on-surface-variant
+  textSecondary: '#434750',
+  textMuted: '#737781',   // outline
+  faint: '#e1e3e4',
   onDark: '#ffffff',
-  onDarkDim: '#e0e3e5',
-  limeDark: '#447000',
-  live: '#ba1a1a',
-  danger: '#ba1a1a',
-  dangerTxt: '#ba1a1a',
-  warn: '#f59e0b',
-  success: '#10b981',
-  border: '#c3c5d9',
-  line: '#c3c5d9',
+  onDarkDim: '#f0f1f2',
+  limeDark: '#001b3e',    // on-primary-fixed
+  live: '#e02020',        // live-red
+  danger: '#ba1a1a',      // error
+  dangerTxt: '#93000a',   // on-error-container
+  warn: '#ff4b2b',        // wicket-orange
+  success: '#009270',     // boundary-green — SIX
+  border: '#c3c6d1',      // outline-variant
+  line: '#c3c6d1',
   overlay: 'rgba(0,0,0,0.4)',
   navy0: '#f8fafc',   // arena/rummy page bg — off-white to match the app (was pure #ffffff)
   navy1: '#fdfdff',

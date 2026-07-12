@@ -777,7 +777,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
     else if (str.includes('wd') || str.includes('nb')) { bg = 'rgba(255,181,158,0.15)'; color = DS.coral; } // Wides, NBs
     else if (str.includes('b')) { bg = DS.surfaceHigh; color = DS.textVariant; } // Byes / Leg Byes
     else if (str.includes('4')) { bg = DS.blue + '33'; color = DS.blue + 'ff'; } // Fours
-    else if (str.includes('6')) { bg = DS.lime + '26'; color = DS.lime; } // Sixes
+    else if (str.includes('6')) { bg = DS.success + '26'; color = DS.success; } // Sixes
     else if (label === '0') { bg = DS.surfaceHighest; color = DS.textMuted; } // Dots
     else { bg = DS.surfaceHigh; color = DS.textPrimary; } // Normal runs
 
@@ -970,7 +970,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
       <View style={styles.scoreboard}>
         <View style={styles.topBar}>
           <TouchableOpacity hitSlop={8} onPress={() => setShowExitModal(true)}>
-            <Icon name="chevron-left" size={24} color={DS.textPrimary} />
+            <Icon name="chevron-left" size={24} color={DS.lime} />
           </TouchableOpacity>
           <Text style={styles.topTeams} numberOfLines={1}>
             <Text style={styles.topTeamActive}>{shortCode(battingTeamName)}</Text>
@@ -984,7 +984,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
             <Icon name="share-variant" size={16} color={DS.textVariant} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.topBarBtn} onPress={() => setShowSettings(true)}>
-            <Icon name="cog-outline" size={16} color={DS.textVariant} />
+            <Icon name="cog-outline" size={16} color={DS.lime} />
           </TouchableOpacity>
         </View>
 
@@ -997,8 +997,8 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
               <Text style={styles.scoreOvers}> ({overStr})</Text>
             </View>
             <View style={styles.sbRates}>
-              <Text style={styles.sbRate}>CRR <Text style={styles.sbRateNum}>{crr}</Text></Text>
-              {rrr ? <Text style={styles.sbRate}>RRR <Text style={styles.sbRateNum}>{rrr}</Text></Text> : null}
+              <Text style={styles.sbRate}>CRR <Text style={styles.sbRateNumCrr}>{crr}</Text></Text>
+              {rrr ? <Text style={styles.sbRate}>RRR <Text style={styles.sbRateNumRrr}>{rrr}</Text></Text> : null}
               <Text style={styles.sbScorecardLink}>Scorecard ›</Text>
             </View>
             {matchComplete &&
@@ -1115,7 +1115,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
                 <Text style={[styles.gridBtnNum, { color: DS.white }]}>4</Text><Text style={[styles.gridBtnLabel, { color: 'rgba(255,255,255,0.7)' }]}>FOUR</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.gridBtn, styles.gridBtnSix]} onPress={() => handleScore(6)}>
-                <Text style={[styles.gridBtnNum, { color: DS.lime }]}>6</Text><Text style={[styles.gridBtnLabel, { color: DS.lime }]}>SIX</Text>
+                <Text style={[styles.gridBtnNum, { color: DS.success }]}>6</Text><Text style={[styles.gridBtnLabel, { color: DS.success }]}>SIX</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1125,7 +1125,7 @@ export default function ScoringScreen({ route, navigation }) {const DS = useThem
         {!matchComplete &&
         <TouchableOpacity style={styles.wicketBtn}
           onPress={() => freeHit ? setRunOutPrompt(true) : setWicketPrompt(true)}>
-          <Icon name="alert-octagon" size={20} color={DS.wicketText} />
+          <Icon name="alert-octagon" size={20} color={DS.onBlue} />
           <Text style={styles.wicketBtnText}>WICKET{freeHit ? ' (RUN OUT ONLY)' : ''}</Text>
         </TouchableOpacity>
         }
@@ -1651,7 +1651,7 @@ const makeStyles = (DS) => StyleSheet.create({
   // and tab bar; the scoring grid flexes to take whatever's left.
   body: { flex: 1, paddingTop: 8 },
   topBarRight: { flexDirection: 'row', gap: 8 },
-  topBarBtn: { width: 32, height: 32, borderRadius: 9, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
+  topBarBtn: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
 
   // ── Scoreboard header — compact top bar + score + this-over ──
   scoreboard: {
@@ -1676,7 +1676,8 @@ const makeStyles = (DS) => StyleSheet.create({
   scoreOvers: { fontSize: 16, color: DS.textMuted, fontWeight: '700', marginBottom: 5, marginLeft: 4 },
   sbRates: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 3 },
   sbRate: { fontSize: 11.5, fontWeight: '700', color: DS.textMuted },
-  sbRateNum: { color: DS.lime, fontWeight: '900' },
+  sbRateNumCrr: { color: DS.lime, fontWeight: '900' },
+  sbRateNumRrr: { color: DS.coral, fontWeight: '900' },
   sbScorecardLink: { fontSize: 11.5, fontWeight: '800', color: DS.blue },
   sbTarget: { alignItems: 'flex-end', backgroundColor: DS.wicketBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, minWidth: 78 },
   targetLabel: { fontSize: 9.5, fontWeight: '900', color: DS.coral, letterSpacing: 0.8 },
@@ -1713,10 +1714,9 @@ const makeStyles = (DS) => StyleSheet.create({
   // Full-width wicket button
   wicketBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    marginHorizontal: 16, marginBottom: 6, backgroundColor: DS.wicketBg, borderRadius: 15, paddingVertical: 13,
-    borderWidth: 1, borderColor: DS.wicketText + '33',
+    marginHorizontal: 16, marginBottom: 6, backgroundColor: DS.coral, borderRadius: 15, paddingVertical: 13,
   },
-  wicketBtnText: { fontSize: 13, fontWeight: '900', color: DS.wicketText, letterSpacing: 2 },
+  wicketBtnText: { fontSize: 13, fontWeight: '900', color: DS.onBlue, letterSpacing: 2 },
 
   // Run chips (extra + runs sheet)
   runChips: { flexDirection: 'row', gap: 10, marginBottom: 8 },
@@ -1741,7 +1741,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   gridBtnDot: { backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.line },
   gridBtnFour: { backgroundColor: DS.blueDeep },
-  gridBtnSix: { backgroundColor: DS.lime + '24', borderWidth: 1, borderColor: DS.lime + '44' },
+  gridBtnSix: { backgroundColor: DS.success + '24', borderWidth: 1, borderColor: DS.success + '44' },
   gridBtnWide: { backgroundColor: 'rgba(255,181,158,0.1)' },
   gridBtnWicket: { backgroundColor: DS.wicketBg },
   gridBtnNum: { fontSize: 28, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1 },
@@ -1758,7 +1758,7 @@ const makeStyles = (DS) => StyleSheet.create({
   freeHitText: { fontSize: 9, fontWeight: '900', color: DS.bg, letterSpacing: 0.8 },
   overBalls: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   overBall: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  overBallEmpty: { backgroundColor: DS.surfaceHighest },
+  overBallEmpty: { backgroundColor: DS.surfaceHighest, borderWidth: 1, borderColor: DS.line },
   overBallDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: DS.surfaceHighest },
   overBallText: { fontSize: 14, fontWeight: '800' },
 
