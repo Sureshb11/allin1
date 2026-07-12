@@ -208,7 +208,12 @@ function CircleMatchCard({ match, onPress }) {
           <Team t={match.b} muted={!pb.runs} />
         </View>
 
-        {match.chase ? <Text style={c.chaseLine} numberOfLines={1}>🎯 {match.chase}</Text> : null}
+        {match.chase ? (
+          <View style={c.chaseRow}>
+            <Icon name="target" size={11} color={DS.coral} />
+            <Text style={c.chaseLine} numberOfLines={1}>{match.chase}</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={{ justifyContent: 'flex-end' }}>
@@ -1087,7 +1092,8 @@ const makeC = (DS, TYPO) => StyleSheet.create({
   teamScoreMuted: { color: DS.textMuted },
   teamDivider: { width: 1, height: 56, backgroundColor: DS.line, marginHorizontal: 4 },
   vs: { fontFamily: TYPO.headline.fontFamily, color: DS.textMuted, fontSize: 16, fontWeight: '700', marginHorizontal: 4 },
-  chaseLine: { fontSize: 11, fontWeight: '700', color: DS.textMuted, textAlign: 'center', marginBottom: 10 },
+  chaseRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 10 },
+  chaseLine: { fontSize: 11, fontWeight: '700', color: DS.textMuted, textAlign: 'center' },
 
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   metaMuted: { fontFamily: TYPO.label.fontFamily, color: DS.textMuted, fontSize: 12, fontWeight: '700' },

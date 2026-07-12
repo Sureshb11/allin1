@@ -500,7 +500,12 @@ function LiveMatchCard({ match, sport, navigation, onShare }) {
           </View>
         </View>
 
-        {match.chase ? <Text style={lcStyles.chaseLine} numberOfLines={1}>🎯 {match.chase}</Text> : null}
+        {match.chase ? (
+          <View style={lcStyles.chaseRow}>
+            <Icon name="target" size={12} color={DS.coral} />
+            <Text style={lcStyles.chaseLine} numberOfLines={1}>{match.chase}</Text>
+          </View>
+        ) : null}
 
         <View style={lcStyles.actions}>
           <TouchableOpacity
@@ -539,7 +544,8 @@ const makeLcStyles = (DS) => StyleSheet.create({
   scoreCenter: { flex: 1, alignItems: 'center', gap: 2 },
   scoreMain: { fontSize: 22, fontWeight: '900', color: DS.lime, letterSpacing: -0.5 },
   vsLabel: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
-  chaseLine: { fontSize: 12, fontWeight: '700', color: DS.textMuted, textAlign: 'center', marginBottom: 12 },
+  chaseRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 12 },
+  chaseLine: { fontSize: 12, fontWeight: '700', color: DS.textMuted, textAlign: 'center' },
   actions: { flexDirection: 'row', gap: 10 },
   actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 14, paddingVertical: 14, backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   actionBtnText: { fontSize: 15, fontWeight: '800', color: DS.onLime },

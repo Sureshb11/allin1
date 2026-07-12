@@ -15,6 +15,17 @@ import { haptic } from '../utils/haptics';
 import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
 
+// Cheap display-signature of a match — everything the screen actually renders
+// off. Two snapshots with the same signature are visually identical, so we can
+// skip re-rendering when a poll returns unchanged data.
+function matchSig(m) {
+  if (!m) return '';
+  let balls = 0;
+  const inns = m.innings || [];
+  for (const inn of inns) for (const o of (inn.oversData || [])) balls += (o.balls || []).length;
+  return `${m.status}|${m.result}|${m.score1}|${m.score2}|${m.currentInnings}|${inns.length}|${balls}`;
+}
+
 // The most-recent delivery across the whole match (last innings → last over →
 // last ball) + its "big moment" kind, so a live watcher can be shown a FOUR!/
 // SIX!/WICKET! flourish when a new one lands between polls.
@@ -37,33 +48,78 @@ function latestBall(match) {
   return null;
 }
 
-// Full-screen FOUR!/SIX!/WICKET! flourish for live watchers — springs in, holds,
-// fades out, then calls onDone to clear itself.
+const AnimatedIcon = Animated.createAnimatedComponent(Icon);
+
+// Per-kind celebration config: wording + the badge icon (colour comes from the
+// theme at render time).
+const CELEB_CFG = {
+  wicket: { label: 'WICKET!', sub: 'OUT', icon: 'alert-octagon' },
+  six:    { label: 'SIX!',    sub: 'MAXIMUM',  icon: 'fire' },
+  four:   { label: 'FOUR!',   sub: 'BOUNDARY', icon: 'cricket' },
+};
+
+// A single confetti sparkle flung from centre — climbs + drifts + spins + fades,
+// all on the native driver so it stays buttery even if JS is briefly busy.
+function Confetti({ drive, seed, color }) {
+  const translateY = drive.interpolate({ inputRange: [0, 1], outputRange: [0, -seed.rise] });
+  const translateX = drive.interpolate({ inputRange: [0, 1], outputRange: [0, seed.drift] });
+  const rotate = drive.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${seed.spin}deg`] });
+  const scale = drive.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0.2, 1, 0.8] });
+  const opacity = drive.interpolate({ inputRange: [0, 0.15, 0.75, 1], outputRange: [0, 1, 1, 0] });
+  return (
+    <AnimatedIcon name="star-four-points" size={seed.size} color={color}
+      style={{ position: 'absolute', opacity, transform: [{ translateX }, { translateY }, { rotate }, { scale }] }} />
+  );
+}
+
+// Full-screen FOUR!/SIX!/WICKET! flourish for live watchers: a colour wash, a
+// burst of confetti, and a bold badge that springs + wobbles in, holds, then
+// fades — after which onDone clears it.
 function CelebrationOverlay({ celebration, onDone, DS }) {
-  const anim = useRef(new Animated.Value(0)).current;
+  const drive = useRef(new Animated.Value(0)).current;    // 0 in · 1 hold · 2 out
+  const burst = useRef(new Animated.Value(0)).current;    // 0→1 confetti flight
+  // Stable per-mount random confetti trajectories.
+  const seeds = useRef(Array.from({ length: 14 }, () => ({
+    drift: (Math.random() * 2 - 1) * 150,
+    rise: 150 + Math.random() * 200,
+    spin: (Math.random() * 2 - 1) * 90,
+    size: 22 + Math.random() * 18,
+    lane: Math.random(),
+  }))).current;
+
   useEffect(() => {
     if (!celebration) return;
-    anim.setValue(0);
-    Animated.sequence([
-      Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 5, tension: 70 }),
-      Animated.delay(1100),
-      Animated.timing(anim, { toValue: 2, duration: 320, useNativeDriver: true }),
+    drive.setValue(0); burst.setValue(0);
+    Animated.parallel([
+      Animated.sequence([
+        Animated.spring(drive, { toValue: 1, useNativeDriver: true, friction: 5, tension: 90 }),
+        Animated.delay(1200),
+        Animated.timing(drive, { toValue: 2, duration: 360, useNativeDriver: true }),
+      ]),
+      Animated.timing(burst, { toValue: 1, duration: 1600, useNativeDriver: true }),
     ]).start(({ finished }) => { if (finished) onDone(); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [celebration]);
+
   if (!celebration) return null;
-  const cfg = celebration.kind === 'wicket'
-    ? { label: 'WICKET!', sub: 'OUT', bg: DS.wicketText, fg: DS.white }
-    : celebration.kind === 'six'
-    ? { label: 'SIX!', sub: 'MAXIMUM', bg: DS.success || DS.lime, fg: DS.white }
-    : { label: 'FOUR!', sub: 'BOUNDARY', bg: DS.blue, fg: DS.white };
-  const scale = anim.interpolate({ inputRange: [0, 1, 2], outputRange: [0.3, 1, 1.18] });
-  const opacity = anim.interpolate({ inputRange: [0, 1, 2], outputRange: [0, 1, 0] });
+  const color = celebration.kind === 'wicket' ? DS.wicketText
+    : celebration.kind === 'six' ? (DS.success || DS.lime) : DS.blue;
+  const cfg = CELEB_CFG[celebration.kind] || CELEB_CFG.four;
+  const scale = drive.interpolate({ inputRange: [0, 1, 2], outputRange: [0.2, 1, 1.25] });
+  const rotate = drive.interpolate({ inputRange: [0, 1, 2], outputRange: ['-10deg', '0deg', '5deg'] });
+  const opacity = drive.interpolate({ inputRange: [0, 1, 2], outputRange: [0, 1, 0] });
+  const washOpacity = drive.interpolate({ inputRange: [0, 1, 2], outputRange: [0, 0.16, 0] });
+
   return (
     <Animated.View pointerEvents="none" style={[celebStyles.overlay, { opacity }]}>
-      <Animated.View style={[celebStyles.badge, { backgroundColor: cfg.bg, transform: [{ scale }] }]}>
-        <Text style={[celebStyles.badgeLabel, { color: cfg.fg }]}>{cfg.label}</Text>
-        <Text style={[celebStyles.badgeSub, { color: cfg.fg }]}>{cfg.sub}</Text>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: color, opacity: washOpacity }]} />
+      {seeds.map((seed, i) => (
+        <Confetti key={i} drive={burst} seed={seed} color={color} />
+      ))}
+      <Animated.View style={[celebStyles.badge, { backgroundColor: color, transform: [{ scale }, { rotate }] }]}>
+        <Icon name={cfg.icon} size={44} color="#ffffff" style={{ marginBottom: 4 }} />
+        <Text style={celebStyles.badgeLabel}>{cfg.label}</Text>
+        <Text style={celebStyles.badgeSub}>{cfg.sub}</Text>
       </Animated.View>
     </Animated.View>
   );
@@ -72,11 +128,11 @@ function CelebrationOverlay({ celebration, onDone, DS }) {
 const celebStyles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', zIndex: 50 },
   badge: {
-    paddingHorizontal: 44, paddingVertical: 30, borderRadius: 28, alignItems: 'center',
-    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 12,
+    paddingHorizontal: 48, paddingVertical: 28, borderRadius: 30, alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 14,
   },
-  badgeLabel: { fontSize: 46, fontWeight: '900', letterSpacing: -1 },
-  badgeSub: { fontSize: 13, fontWeight: '800', letterSpacing: 3, marginTop: 2, opacity: 0.85 },
+  badgeLabel: { fontSize: 48, fontWeight: '900', letterSpacing: -1, color: '#ffffff' },
+  badgeSub: { fontSize: 13, fontWeight: '800', letterSpacing: 3, marginTop: 2, color: '#ffffff', opacity: 0.9 },
 });
 
 // Cricket dismissal notation: "b Bowler", "c Fielder b Bowler", "c & b Bowler",
@@ -957,7 +1013,13 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const loadScorecard = useCallback((showSpinner = false) => {
     if (showSpinner) setLoading(true);
     return legendsApi.getScorecard(matchId)
-      .then((res) => { if (res.success) setMatch(res.data); })
+      .then((res) => {
+        // Skip the state update (and the whole re-render of every mounted tab)
+        // when the polled data is unchanged. Most 6s polls return an identical
+        // snapshot — swapping in a fresh object each time forced a heavy full
+        // re-render on every tick and was freezing the live-watch screen.
+        if (res.success) setMatch((prev) => (matchSig(prev) === matchSig(res.data) ? prev : res.data));
+      })
       .finally(() => setLoading(false));
   }, [matchId]);
 
@@ -1014,6 +1076,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     { key: 'overs', label: 'OVERS' },
     { key: 'highlights', label: 'HIGHLIGHTS' },
   ];
+  const activeIndex = Math.max(0, TABS.findIndex((t) => t.key === activeTab));
   const inningsList = match?.innings || [];
   const selectedInnings = inningsList[inningsTab] || inningsList[0];
   const liveInnings = inningsList[inningsList.length - 1];   // currently-batting innings
@@ -1083,9 +1146,12 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
         {/* Chase line ("NEED X off Y balls") — every tab, while the toss (a fixed,
             non-changing fact) stays confined to the INFO tab only. */}
         {chase && chase.need > 0 &&
-          <Text style={[styles.tossSummaryLine, { marginTop: 12 }]} numberOfLines={1}>
-            🎯 {chase.teamName} need {chase.need} off {chase.ballsLeft} ball{chase.ballsLeft !== 1 ? 's' : ''}
-          </Text>
+          <View style={styles.chaseRow}>
+            <Icon name="target" size={13} color={DS.coral} />
+            <Text style={styles.tossSummaryLine} numberOfLines={1}>
+              {chase.teamName} need {chase.need} off {chase.ballsLeft} ball{chase.ballsLeft !== 1 ? 's' : ''}
+            </Text>
+          </View>
         }
 
         {/* Compact score summary (both innings) + result — LIVE tab only. */}
@@ -1140,10 +1206,18 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             if (key && key !== activeTab) setTab(key);
           }}
         >
-          {TABS.map((t) => (
+          {TABS.map((t, ti) => {
+            // Windowing: only the active tab and its immediate neighbours build
+            // their (heavy) content. Off-screen tabs render an empty page of the
+            // right width so the pager geometry is intact but a poll doesn't
+            // re-render every tab's tables/charts at once. Swiping to a neighbour
+            // shows content instantly; a far tap fills in when it becomes active.
+            const near = Math.abs(ti - activeIndex) <= 1;
+            return (
             <ScrollView key={t.key} style={{ width: SCREEN_WIDTH }} showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingTop: 12, paddingBottom: 12 }}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}>
+              {near && <>
               <View style={styles.body}>
                 {t.key === 'info' && <InfoTab match={match} />}
 
@@ -1201,8 +1275,10 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
               </TouchableOpacity>
 
               <View style={{ height: 32 }} />
+              </>}
             </ScrollView>
-          ))}
+          );
+          })}
         </ScrollView>
       </View>
     </View>);
@@ -1259,7 +1335,8 @@ const makeStyles = (DS) => StyleSheet.create({
   scoreValue: { fontSize: 20, fontWeight: '900', color: DS.lime },
   scoreVs: { paddingHorizontal: 12 },
   scoreVsText: { fontSize: 11, fontWeight: '800', color: DS.blue, letterSpacing: 1 },
-  tossSummaryLine: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, textAlign: 'center', marginTop: 8 },
+  chaseRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 12 },
+  tossSummaryLine: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, textAlign: 'center' },
 
   // Result
   resultBanner: {
