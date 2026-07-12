@@ -1038,6 +1038,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <Text style={styles.scoreMain}>{currentScore.runs}<Text style={styles.scoreWkts}>/{currentScore.wickets}</Text></Text>
               <Text style={styles.scoreOvers}> ({overStr}/{totalOvers})</Text>
             </View>
+            {isInnings2 && !matchComplete &&
+              <Text style={styles.sbTargetText} numberOfLines={1}>
+                {battingTeamName || 'Batting'} need <Text style={styles.sbTargetNum}>{need}</Text> run{need !== 1 ? 's' : ''} off <Text style={styles.sbTargetNum}>{ballsLeft}</Text> ball{ballsLeft !== 1 ? 's' : ''}
+              </Text>
+            }
             {matchComplete &&
               <View style={styles.resultPill}><Text style={styles.resultText}>{matchResult}</Text></View>}
           </View>
@@ -1047,13 +1052,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               {rrr ? <Text style={styles.sbRate}>RRR <Text style={styles.sbRateNumRrr}>{rrr}</Text></Text> : null}
             </View>
             <Text style={styles.sbScorecardLink}>Scorecard ›</Text>
-            {isInnings2 && !matchComplete &&
-              <View style={styles.sbTarget}>
-                <Text style={styles.targetLabel}>NEED</Text>
-                <Text style={styles.sbNeedBig}>{need}</Text>
-                <Text style={styles.needText}>off {ballsLeft}</Text>
-              </View>
-            }
           </View>
         </TouchableOpacity>
 
@@ -1725,10 +1723,8 @@ const makeStyles = (DS) => StyleSheet.create({
   sbRateNumCrr: { color: DS.lime, fontWeight: '900' },
   sbRateNumRrr: { color: DS.coral, fontWeight: '900' },
   sbScorecardLink: { fontSize: 11.5, fontWeight: '800', color: DS.blue },
-  sbTarget: { alignItems: 'flex-end', backgroundColor: DS.wicketBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, minWidth: 78 },
-  targetLabel: { fontSize: 9.5, fontWeight: '900', color: DS.coral, letterSpacing: 0.8 },
-  sbNeedBig: { fontSize: 26, fontWeight: '900', color: DS.coral, lineHeight: 30, marginTop: 1 },
-  needText: { fontSize: 11, color: DS.coral, fontWeight: '600' },
+  sbTargetText: { fontSize: 13, fontWeight: '600', color: DS.coral, marginTop: 4 },
+  sbTargetNum: { fontWeight: '900', color: DS.coral },
   resultPill: { marginTop: 8, backgroundColor: DS.lime, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4, alignSelf: 'flex-start' },
   resultText: { fontSize: 12, fontWeight: '800', color: DS.bg },
 

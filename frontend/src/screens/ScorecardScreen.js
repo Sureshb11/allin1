@@ -1,7 +1,7 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Share, Image, RefreshControl, Dimensions } from
+  ActivityIndicator, Share, Image, RefreshControl, Dimensions, Animated } from
 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -11,8 +11,73 @@ import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 import RNShare from 'react-native-share';
 import legendsApi from '../services/LegendsApi';
+import { haptic } from '../utils/haptics';
 import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
+
+// The most-recent delivery across the whole match (last innings → last over →
+// last ball) + its "big moment" kind, so a live watcher can be shown a FOUR!/
+// SIX!/WICKET! flourish when a new one lands between polls.
+function latestBall(match) {
+  const inns = match?.innings || [];
+  for (let i = inns.length - 1; i >= 0; i--) {
+    const overs = inns[i].oversData || [];
+    for (let o = overs.length - 1; o >= 0; o--) {
+      const balls = overs[o].balls || [];
+      if (balls.length) {
+        const b = balls[balls.length - 1];
+        let kind = null;
+        if (b.isWicket) kind = 'wicket';
+        else if (!b.extraType && b.runs === 6) kind = 'six';
+        else if (!b.extraType && b.runs === 4) kind = 'four';
+        return { id: b.id, kind };
+      }
+    }
+  }
+  return null;
+}
+
+// Full-screen FOUR!/SIX!/WICKET! flourish for live watchers — springs in, holds,
+// fades out, then calls onDone to clear itself.
+function CelebrationOverlay({ celebration, onDone, DS }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!celebration) return;
+    anim.setValue(0);
+    Animated.sequence([
+      Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 5, tension: 70 }),
+      Animated.delay(1100),
+      Animated.timing(anim, { toValue: 2, duration: 320, useNativeDriver: true }),
+    ]).start(({ finished }) => { if (finished) onDone(); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [celebration]);
+  if (!celebration) return null;
+  const cfg = celebration.kind === 'wicket'
+    ? { label: 'WICKET!', sub: 'OUT', bg: DS.wicketText, fg: DS.white }
+    : celebration.kind === 'six'
+    ? { label: 'SIX!', sub: 'MAXIMUM', bg: DS.success || DS.lime, fg: DS.white }
+    : { label: 'FOUR!', sub: 'BOUNDARY', bg: DS.blue, fg: DS.white };
+  const scale = anim.interpolate({ inputRange: [0, 1, 2], outputRange: [0.3, 1, 1.18] });
+  const opacity = anim.interpolate({ inputRange: [0, 1, 2], outputRange: [0, 1, 0] });
+  return (
+    <Animated.View pointerEvents="none" style={[celebStyles.overlay, { opacity }]}>
+      <Animated.View style={[celebStyles.badge, { backgroundColor: cfg.bg, transform: [{ scale }] }]}>
+        <Text style={[celebStyles.badgeLabel, { color: cfg.fg }]}>{cfg.label}</Text>
+        <Text style={[celebStyles.badgeSub, { color: cfg.fg }]}>{cfg.sub}</Text>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+const celebStyles = StyleSheet.create({
+  overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', zIndex: 50 },
+  badge: {
+    paddingHorizontal: 44, paddingVertical: 30, borderRadius: 28, alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 12,
+  },
+  badgeLabel: { fontSize: 46, fontWeight: '900', letterSpacing: -1 },
+  badgeSub: { fontSize: 13, fontWeight: '800', letterSpacing: 3, marginTop: 2, opacity: 0.85 },
+});
 
 // Cricket dismissal notation: "b Bowler", "c Fielder b Bowler", "c & b Bowler",
 // "lbw b Bowler", "st Keeper b Bowler", "run out (Fielder)", "hit wicket b Bowler".
@@ -863,6 +928,25 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const [tab, setTab] = useState(null);              // active top tab; null until match first loads
   const shotRef = useRef(null);                      // capture target for "share as image"
   const pagerRef = useRef(null);                     // horizontal swipeable tab content
+  const [celebration, setCelebration] = useState(null); // {kind,id} FOUR/SIX/WICKET flourish
+  const lastBallRef = useRef(null);                  // last delivery id seen (celebration baseline)
+
+  // Detect a new boundary/wicket between polls and pop the celebration overlay.
+  // The first observation only sets the baseline — we never replay the ball that
+  // had already happened when the watcher opened the screen.
+  useEffect(() => {
+    if (!match) return;
+    const lb = latestBall(match);
+    if (!lb) return;
+    if (lastBallRef.current === null) { lastBallRef.current = lb.id; return; }
+    if (lb.id !== lastBallRef.current) {
+      lastBallRef.current = lb.id;
+      if (lb.kind && match.status === 'live') {
+        setCelebration({ kind: lb.kind, id: lb.id });
+        if (lb.kind === 'wicket') haptic.warn(); else haptic.success();
+      }
+    }
+  }, [match]);
 
   useLayoutEffect(() => {
     // Hide the stack header — the branded bar below is the single header, giving the
@@ -967,6 +1051,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
 
   return (
     <View style={styles.container}>
+      <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} DS={DS} />
       {/* Match-center header: back + match title + live badge, tabs directly below — one bar */}
       <View style={styles.matchHeader}>
         <View style={styles.matchHeaderTop}>

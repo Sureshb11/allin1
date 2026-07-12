@@ -19,21 +19,39 @@ import BrandLogo from '../components/BrandLogo';
 
 const { width } = Dimensions.get('window');
 
-// "X need 45 off 30 balls" for the current (2nd) innings — derived from the
-// latest inning's target/runs plus a legal-ball count from its ball log.
-// Non-cricket matches have no `innings` relation, so this quietly returns null.
+// "X need 45 off 30 balls" for a live 2nd-innings chase. Derived purely from
+// fields the /circle API already returns (score strings + toss + currentInnings),
+// so it needs no extra backend data:
+//   • who batted first  = toss winner if they chose bat, else the other team
+//   • target            = first team's runs + 1 (from their score string)
+//   • need / balls left  = from the chasing team's score string + total overs
+// Returns null for non-cricket, 1st innings, finished chases, or missing toss.
+const nameOf = (t) => (typeof t === 'object' ? (t?.name || 'Team') : String(t || 'Team'));
+const parseScoreStr = (s) => {
+  if (!s || typeof s !== 'string') return { runs: null, overs: null };
+  const m = s.match(/(\d+)\s*\/?\s*\d*\s*(?:\(([\d.]+)\))?/);
+  if (!m) return { runs: null, overs: null };
+  return { runs: m[1] != null ? +m[1] : null, overs: m[2] != null ? +m[2] : null };
+};
 const chaseLine = (m) => {
-  const inn = (m.innings || [])[0];
-  if (!inn || inn.inningNumber !== 2 || !inn.targetScore) return null;
-  const need = Math.max(0, inn.targetScore - inn.totalRuns);
+  if (String(m.status) !== 'live' || (m.currentInnings || 1) < 2) return null;
+  if (!m.tossWinnerId || !m.team1Id || !m.team2Id) return null;
+  const other = (id) => (id === m.team1Id ? m.team2Id : m.team1Id);
+  const firstId = m.tossDecision === 'bat' ? m.tossWinnerId : other(m.tossWinnerId);
+  const chaseId = other(firstId);
+  const first = parseScoreStr(firstId === m.team1Id ? m.score1 : m.score2);
+  const chase = parseScoreStr(chaseId === m.team1Id ? m.score1 : m.score2);
+  if (first.runs == null) return null;
+  const need = Math.max(0, first.runs + 1 - (chase.runs || 0));
   if (need <= 0) return null;
-  let legal = 0;
-  (inn.oversData || []).forEach((o) => (o.balls || []).forEach((b) => {
-    if (!['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)) legal += 1;
-  }));
-  const ballsLeft = Math.max(0, (m.overs || 20) * 6 - legal);
+  // Overs are "O.B" notation (10.3 = 10 overs, 3 balls) → total balls bowled.
+  const ov = chase.overs || 0;
+  const whole = Math.floor(ov);
+  const ballsBowled = whole * 6 + Math.round((ov - whole) * 10);
+  const ballsLeft = Math.max(0, (m.overs || 20) * 6 - ballsBowled);
   if (ballsLeft <= 0) return null;
-  return `${inn.battingTeam?.name || 'Chasing team'} need ${need} off ${ballsLeft} ball${ballsLeft !== 1 ? 's' : ''}`;
+  const chaseName = nameOf(chaseId === m.team1Id ? m.team1 : m.team2);
+  return `${chaseName} need ${need} off ${ballsLeft} ball${ballsLeft !== 1 ? 's' : ''}`;
 };
 
 const MORE_ITEMS = [
