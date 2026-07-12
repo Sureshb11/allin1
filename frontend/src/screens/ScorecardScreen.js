@@ -117,7 +117,9 @@ function CelebrationOverlay({ celebration, onDone, DS }) {
         <Confetti key={i} drive={burst} seed={seed} color={color} />
       ))}
       <Animated.View style={[celebStyles.badge, { backgroundColor: color, transform: [{ scale }, { rotate }] }]}>
-        <Icon name={cfg.icon} size={44} color="#ffffff" style={{ marginBottom: 4 }} />
+        {celebration.kind === 'wicket'
+          ? <Image source={require('../assets/icons/out.png')} style={celebStyles.badgeUmpire} />
+          : <Icon name={cfg.icon} size={44} color="#ffffff" style={{ marginBottom: 4 }} />}
         <Text style={celebStyles.badgeLabel}>{cfg.label}</Text>
         <Text style={celebStyles.badgeSub}>{cfg.sub}</Text>
       </Animated.View>
@@ -133,6 +135,7 @@ const celebStyles = StyleSheet.create({
   },
   badgeLabel: { fontSize: 48, fontWeight: '900', letterSpacing: -1, color: '#ffffff' },
   badgeSub: { fontSize: 13, fontWeight: '800', letterSpacing: 3, marginTop: 2, color: '#ffffff', opacity: 0.9 },
+  badgeUmpire: { width: 44, height: 44, marginBottom: 4, tintColor: '#ffffff', resizeMode: 'contain' },
 });
 
 // Cricket dismissal notation: "b Bowler", "c Fielder b Bowler", "c & b Bowler",
@@ -1200,6 +1203,11 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           style={{ flex: 1 }}
+          // Render already scrolled to the active page from the very first frame —
+          // without this, the ScrollView paints at x=0 (the INFO page) for a beat
+          // before the sync effect's animated scrollTo catches up, so a first-time
+          // viewer briefly sees INFO's content under the LIVE tab's highlight.
+          contentOffset={{ x: activeIndex * SCREEN_WIDTH, y: 0 }}
           onMomentumScrollEnd={(e) => {
             const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
             const key = TABS[idx]?.key;
