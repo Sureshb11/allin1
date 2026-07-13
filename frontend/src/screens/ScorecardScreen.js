@@ -827,7 +827,7 @@ function summaryStatLine(p) {
 // ── SUMMARY tab (completed matches only): Player of the Match, Fighter, Best
 // Batter/Bowler/Fielder, and the full MVP-ranked order — computed server-side
 // from the same MVP algorithm the scorer's post-match awards popup uses.
-function SummaryTab({ matchId }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [loading, setLoading] = useState(true);
   const [awards, setAwards] = useState(null);
 
@@ -839,19 +839,28 @@ function SummaryTab({ matchId }) {const DS = useTheme().colors;const styles = us
     return () => { alive = false; };
   }, [matchId]);
 
+  // Player photo lookup by name — awards carry names only, so match them against
+  // the squad records (which include each player's avatar).
+  const avatarFor = React.useMemo(() => {
+    const map = {};
+    (match?.squads || []).forEach((s) => { if (s.player?.name) map[s.player.name] = s.player.user?.avatarUrl || null; });
+    return (name) => map[name] || null;
+  }, [match]);
+
   if (loading) return <ActivityIndicator color={DS.lime} style={{ marginTop: 40 }} />;
   if (!awards) return <Text style={styles.emptyTabText}>Awards not available for this match.</Text>;
 
   const motm = awards.manOfMatch;
   const fighter = awards.fighter;
-  const minor = [
-    { key: 'bat', label: 'Best Batter', icon: 'cricket', color: DS.blue, p: awards.bestBatter },
-    { key: 'bowl', label: 'Best Bowler', icon: 'bowling', color: DS.success || DS.lime, p: awards.bestBowler },
-    { key: 'field', label: 'Best Fielder', icon: 'hand-back-right', color: DS.lime, p: awards.bestFielder },
-  ].filter((x) => x.p);
+  const awardRows = [
+    fighter && { key: 'fighter', label: 'Fighter of the Match', icon: 'arm-flex', color: DS.warn || DS.coral, p: fighter },
+    awards.bestBatter && { key: 'bat', label: 'Best Batter', icon: 'cricket', color: DS.blue, p: awards.bestBatter },
+    awards.bestBowler && { key: 'bowl', label: 'Best Bowler', icon: 'bowling', color: DS.success || DS.lime, p: awards.bestBowler },
+    awards.bestFielder && { key: 'field', label: 'Best Fielder', icon: 'hand-back-right', color: DS.lime, p: awards.bestFielder },
+  ].filter(Boolean);
   const mvpOrder = awards.mvp || [];
 
-  if (!motm && !fighter && minor.length === 0) {
+  if (!motm && awardRows.length === 0) {
     return <Text style={styles.emptyTabText}>No award data for this match.</Text>;
   }
 
@@ -864,8 +873,9 @@ function SummaryTab({ matchId }) {const DS = useTheme().colors;const styles = us
             <Text style={styles.summaryHeroBadgeTxt}>PLAYER OF THE MATCH</Text>
           </View>
           <View style={styles.summaryHeroRow}>
-            <HexAvatar size={52} color={DS.lime}><Text style={styles.summaryHeroInit}>{summaryInitials(motm.name)}</Text></HexAvatar>
-            <View style={{ flex: 1, marginLeft: 12 }}>
+            {/* Big profile pic */}
+            <HexAvatar size={72} color={DS.lime} uri={avatarFor(motm.name)}><Text style={styles.summaryHeroInit}>{summaryInitials(motm.name)}</Text></HexAvatar>
+            <View style={{ flex: 1, marginLeft: 14 }}>
               <Text style={styles.summaryHeroName} numberOfLines={1}>{motm.name}</Text>
               <Text style={styles.summaryHeroTeam} numberOfLines={1}>{motm.teamName}</Text>
               {!!summaryStatLine(motm) && <Text style={styles.summaryHeroStat} numberOfLines={1}>{summaryStatLine(motm)}</Text>}
@@ -878,27 +888,15 @@ function SummaryTab({ matchId }) {const DS = useTheme().colors;const styles = us
         </View>
       }
 
-      {fighter &&
-        <View style={[styles.summaryAwardRow, { borderColor: (DS.warn || DS.coral) + '55' }]}>
-          <View style={[styles.summaryAwardIcon, { backgroundColor: (DS.warn || DS.coral) + '22' }]}>
-            <Icon name="arm-flex" size={17} color={DS.warn || DS.coral} />
-          </View>
+      {/* Fighter + Best Batter/Bowler/Fielder — smaller profile pic than the MotM */}
+      {awardRows.map(({ key, label, icon, color, p }) => (
+        <View key={key} style={[styles.summaryAwardRow, key === 'fighter' && { borderColor: color + '55' }]}>
+          <HexAvatar size={46} color={color} uri={avatarFor(p.name)}><Text style={styles.summaryAwardInit}>{summaryInitials(p.name)}</Text></HexAvatar>
           <View style={{ flex: 1 }}>
-            <Text style={styles.summaryAwardLabel}>FIGHTER OF THE MATCH</Text>
-            <Text style={styles.summaryAwardName} numberOfLines={1}>{fighter.name} <Text style={styles.summaryAwardTeam}>· {fighter.teamName}</Text></Text>
-            {!!summaryStatLine(fighter) && <Text style={styles.summaryAwardStat} numberOfLines={1}>{summaryStatLine(fighter)}</Text>}
-          </View>
-          <Text style={styles.summaryAwardMvp}>{fighter.total}</Text>
-        </View>
-      }
-
-      {minor.map(({ key, label, icon, color, p }) => (
-        <View key={key} style={styles.summaryAwardRow}>
-          <View style={[styles.summaryAwardIcon, { backgroundColor: color + '22' }]}>
-            <Icon name={icon} size={17} color={color} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.summaryAwardLabel}>{label.toUpperCase()}</Text>
+            <View style={styles.summaryAwardLabelRow}>
+              <Icon name={icon} size={12} color={color} />
+              <Text style={styles.summaryAwardLabel}>{label.toUpperCase()}</Text>
+            </View>
             <Text style={styles.summaryAwardName} numberOfLines={1}>{p.name} <Text style={styles.summaryAwardTeam}>· {p.teamName}</Text></Text>
             {!!summaryStatLine(p) && <Text style={styles.summaryAwardStat} numberOfLines={1}>{summaryStatLine(p)}</Text>}
           </View>
@@ -917,6 +915,7 @@ function SummaryTab({ matchId }) {const DS = useTheme().colors;const styles = us
           {mvpOrder.map((p, i) => (
             <View key={i} style={[styles.mvpRankRow, i === 0 && { borderTopWidth: 0 }]}>
               <Text style={styles.mvpRank}>{i + 1}</Text>
+              <HexAvatar size={30} color={DS.surfaceHighest} uri={avatarFor(p.name)}><Text style={styles.mvpRankInit}>{summaryInitials(p.name)}</Text></HexAvatar>
               <View style={{ flex: 1 }}>
                 <Text style={styles.mvpRankName} numberOfLines={1}>{p.name}</Text>
                 <Text style={styles.mvpRankTeam} numberOfLines={1}>{p.teamName}</Text>
@@ -1530,7 +1529,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
                 {t.key === 'overs' &&
                   (selectedInnings ? <InningsOvers innings={selectedInnings} /> : <Text style={styles.emptyTabText}>No overs yet.</Text>)}
 
-                {t.key === 'summary' && <SummaryTab matchId={matchId} />}
+                {t.key === 'summary' && <SummaryTab matchId={matchId} match={match} />}
 
                 {t.key === 'squads' && <SquadsTab match={match} />}
 
@@ -1825,15 +1824,17 @@ const makeStyles = (DS) => StyleSheet.create({
   summaryMvpLbl: { fontSize: 9, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.5 },
 
   summaryAwardRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: DS.surfaceHigh, borderRadius: 14, borderWidth: 1, borderColor: DS.line, padding: 12 },
-  summaryAwardIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  summaryAwardInit: { fontSize: 14, fontWeight: '900', color: '#ffffff' },
+  summaryAwardLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   summaryAwardLabel: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.5 },
   summaryAwardName: { fontSize: 13.5, fontWeight: '800', color: DS.textPrimary, marginTop: 1 },
   summaryAwardTeam: { fontSize: 12, fontWeight: '600', color: DS.textMuted },
   summaryAwardStat: { fontSize: 11.5, fontWeight: '600', color: DS.textVariant, marginTop: 2 },
   summaryAwardMvp: { fontSize: 15, fontWeight: '900', color: DS.lime },
 
-  mvpRankRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: 1, borderTopColor: DS.line },
-  mvpRank: { width: 20, fontSize: 13, fontWeight: '900', color: DS.textMuted, textAlign: 'center' },
+  mvpRankRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 9, borderTopWidth: 1, borderTopColor: DS.line },
+  mvpRank: { width: 18, fontSize: 13, fontWeight: '900', color: DS.textMuted, textAlign: 'center' },
+  mvpRankInit: { fontSize: 11, fontWeight: '900', color: DS.textPrimary },
   mvpRankName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
   mvpRankTeam: { fontSize: 11, fontWeight: '600', color: DS.textMuted },
   mvpRankVal: { fontSize: 14, fontWeight: '900', color: DS.lime },
