@@ -16,6 +16,7 @@ import TournamentsScreen from './TournamentsScreen';
 import StatisticsScreen from './StatisticsScreen';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo from '../components/BrandLogo';
+import HexAvatar from '../components/HexAvatar';
 
 const { width } = Dimensions.get('window');
 
@@ -478,9 +479,9 @@ function LiveMatchCard({ match, sport, navigation, onShare }) {
       <View style={lcStyles.cardBody}>
         <View style={lcStyles.teamsRow}>
           <View style={lcStyles.teamCol}>
-            <View style={[lcStyles.teamAvatar, { backgroundColor: DS.surfaceHighest }]}>
+            <HexAvatar size={44} color={DS.surfaceHighest}>
               <Text style={lcStyles.teamInitial}>{match.team1.charAt(0).toUpperCase()}</Text>
-            </View>
+            </HexAvatar>
             <Text style={lcStyles.teamName} numberOfLines={1}>{match.team1}</Text>
           </View>
           <View style={lcStyles.scoreCenter}>
@@ -493,9 +494,9 @@ function LiveMatchCard({ match, sport, navigation, onShare }) {
             </Text>
           </View>
           <View style={[lcStyles.teamCol, { alignItems: 'flex-end' }]}>
-            <View style={[lcStyles.teamAvatar, { backgroundColor: DS.surfaceHighest }]}>
+            <HexAvatar size={44} color={DS.surfaceHighest}>
               <Text style={lcStyles.teamInitial}>{match.team2.charAt(0).toUpperCase()}</Text>
-            </View>
+            </HexAvatar>
             <Text style={lcStyles.teamName} numberOfLines={1}>{match.team2}</Text>
           </View>
         </View>

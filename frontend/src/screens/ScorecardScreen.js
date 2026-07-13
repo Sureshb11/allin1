@@ -7,13 +7,14 @@ import {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
+import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 import RNShare from 'react-native-share';
 import legendsApi from '../services/LegendsApi';
 import { haptic } from '../utils/haptics';
 import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
+import HexAvatar from "../components/HexAvatar";
 
 // Cheap display-signature of a match — everything the screen actually renders
 // off. Two snapshots with the same signature are visually identical, so we can
@@ -424,10 +425,14 @@ function buildCommentary(innings) {
 // in ScoringScreen: only a bowler-credited wicket (not run-out/retired) extends a
 // bowler's streak; any other legal, non-wicket ball resets it; wides/no-balls and
 // non-credited wickets leave the streak untouched.
+// Notable moments grouped BY INNINGS. Each group is the innings' events
+// (boundaries, milestones, wickets, hat-tricks, five-fors) newest-first.
 function computeHighlights(match) {
-  const highlights = [];
+  const groups = [];
   (match.innings || []).forEach((innings, inningIdx) => {
-    const inningsLabel = inningIdx === 0 ? '1st Inns' : '2nd Inns';
+    const inningsLabel = inningIdx === 0 ? '1st Innings' : '2nd Innings';
+    const teamName = innings.battingTeam?.name || '';
+    const items = [];
     const batterRuns = {};
     const bowlerWkts = {};
     let streakBowlerId = null, streakCount = 0;
@@ -440,37 +445,45 @@ function computeHighlights(match) {
         if (isLegal) legalInOver += 1;
         const label = `${over.overNumber - 1}.${legalInOver}`;
         const batterName = ball.batter?.name || 'Batter';
+        const offBat = !et || et === 'noBall';   // runs credited to the bat
+
+        // Boundaries — a four or six off the bat.
+        if (ball.batterId && offBat && !ball.isWicket) {
+          if (ball.runs === 6) items.push({ key: `${ball.id}-6`, inningsLabel, label, icon: 'fire', kind: 'six', text: `SIX! ${batterName} clears the rope` });
+          else if (ball.runs === 4) items.push({ key: `${ball.id}-4`, inningsLabel, label, icon: 'cricket', kind: 'four', text: `FOUR! ${batterName} finds the boundary` });
+        }
 
         // Batter milestone — runs off the bat only, same rule as computeBatting.
-        if (ball.batterId && (!et || et === 'noBall')) {
+        if (ball.batterId && offBat) {
           const before = batterRuns[ball.batterId] || 0;
           const after = before + ball.runs;
           batterRuns[ball.batterId] = after;
           if (before < 100 && after >= 100) {
-            highlights.push({ key: `${over.id}-${ball.batterId}-100`, inningsLabel, label, icon: 'trophy', text: `HUNDRED! ${batterName} brings up the century` });
+            items.push({ key: `${over.id}-${ball.batterId}-100`, inningsLabel, label, icon: 'trophy', kind: 'milestone', text: `HUNDRED! ${batterName} brings up the century` });
           } else if (before < 50 && after >= 50) {
-            highlights.push({ key: `${over.id}-${ball.batterId}-50`, inningsLabel, label, icon: 'star', text: `FIFTY! ${batterName} reaches 50` });
+            items.push({ key: `${over.id}-${ball.batterId}-50`, inningsLabel, label, icon: 'star', kind: 'milestone', text: `FIFTY! ${batterName} reaches 50` });
           }
         }
 
         if (ball.isWicket) {
-          highlights.push({ key: `${over.id}-${ball.batterId}-w`, inningsLabel, label, icon: 'alert-octagon', text: `WICKET! ${batterName} ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}` });
+          items.push({ key: `${over.id}-${ball.batterId}-w`, inningsLabel, label, icon: 'alert-octagon', kind: 'wicket', text: `WICKET! ${batterName} ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}` });
           const wt = String(ball.wicketType || '').toLowerCase().replace(/\s/g, '');
           const bowlerCredited = wt !== 'runout' && wt !== 'retired' && wt !== 'retiredout' && wt !== 'retiredhurt';
           if (bowlerCredited) {
             streakCount = streakBowlerId === over.bowlerId ? streakCount + 1 : 1;
             streakBowlerId = over.bowlerId;
             bowlerWkts[over.bowlerId] = (bowlerWkts[over.bowlerId] || 0) + 1;
-            if (streakCount === 3) highlights.push({ key: `${over.id}-${over.bowlerId}-hat`, inningsLabel, label, icon: 'cricket', text: `HAT-TRICK! ${bowlerName} takes three wickets in a row` });
-            if (bowlerWkts[over.bowlerId] === 5) highlights.push({ key: `${over.id}-${over.bowlerId}-5w`, inningsLabel, label, icon: 'cricket', text: `FIVE-WICKET HAUL! ${bowlerName} completes a five-for` });
+            if (streakCount === 3) items.push({ key: `${over.id}-${over.bowlerId}-hat`, inningsLabel, label, icon: 'cricket', kind: 'milestone', text: `HAT-TRICK! ${bowlerName} takes three wickets in a row` });
+            if (bowlerWkts[over.bowlerId] === 5) items.push({ key: `${over.id}-${over.bowlerId}-5w`, inningsLabel, label, icon: 'cricket', kind: 'milestone', text: `FIVE-WICKET HAUL! ${bowlerName} completes a five-for` });
           }
         } else if (isLegal) {
           streakCount = 0; streakBowlerId = null;   // a non-wicket legal ball breaks the streak
         }
       });
     });
+    if (items.length) groups.push({ label: inningsLabel, teamName, items: items.reverse() });
   });
-  return highlights.reverse();
+  return groups;
 }
 
 // Cumulative team score at each over boundary — the points a worm/Manhattan
@@ -522,41 +535,6 @@ function WormChart({ innings1, innings2, totalOvers }) {const DS = useTheme().co
             <Text style={styles.wormLegendText} numberOfLines={1}>{innings2.battingTeam?.name || 'Team 2'} · {innings2.totalRuns}/{innings2.totalWickets}</Text>
           </View>
         }
-      </View>
-    </View>
-  );
-}
-
-// Manhattan — per-over runs as bars, with a red cap on overs that had a wicket.
-// The other half of the standard cricket graphs view, for a single innings.
-function ManhattanChart({ innings }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
-  const overs = [...(innings?.oversData || [])].sort((a, b) => a.overNumber - b.overNumber);
-  if (overs.length < 1) return null;
-  const bars = overs.map((o) => ({
-    over: o.overNumber,
-    runs: (o.runs || 0) + (o.extras || 0),
-    wickets: (o.balls || []).filter((b) => b.isWicket).length,
-  }));
-  const W = 320, H = 130, PAD = 16;
-  const maxRuns = Math.max(...bars.map((b) => b.runs), 6);
-  const slot = (W - PAD * 2) / bars.length;
-  const bw = Math.max(3, Math.min(18, slot * 0.7));
-
-  return (
-    <View style={styles.wormCard}>
-      <Text style={styles.wormTitle}>MANHATTAN · {(innings.battingTeam?.name || '').toUpperCase()}</Text>
-      <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
-        <Line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke={DS.line} strokeWidth={1} />
-        {bars.map((b, i) => {
-          const h = (b.runs / maxRuns) * (H - PAD * 2);
-          const x = PAD + i * slot + (slot - bw) / 2;
-          const y = H - PAD - h;
-          return <Rect key={i} x={x} y={y} width={bw} height={Math.max(0, h)} rx={2} fill={b.wickets > 0 ? DS.live : DS.lime} />;
-        })}
-      </Svg>
-      <View style={styles.wormLegendRow}>
-        <View style={styles.wormLegendItem}><View style={[styles.wormDot, { backgroundColor: DS.lime }]} /><Text style={styles.wormLegendText}>Runs / over</Text></View>
-        <View style={styles.wormLegendItem}><View style={[styles.wormDot, { backgroundColor: DS.live }]} /><Text style={styles.wormLegendText}>Over with wicket</Text></View>
       </View>
     </View>
   );
@@ -620,8 +598,12 @@ function InningsScorecard({ innings, index, squads, totalOvers, expanded = true,
               <View style={[styles.cell, styles.nameCol, styles.nameCell]}>
                 <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={20} style={styles.rowAvatar} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.batterName} numberOfLines={1}>{b.name}</Text>
-                  <Text style={b.out ? styles.howOut : styles.notOut} numberOfLines={1}>{b.out ? b.howOut : 'not out'}</Text>
+                  <View style={styles.batterNameRow}>
+                    <Text style={[styles.batterName, { flexShrink: 1 }]} numberOfLines={2}>{b.name}</Text>
+                    {!b.out && b.id === innings.strikerId &&
+                      <Icon name="star" size={11} color={DS.lime} style={{ marginLeft: 3 }} />}
+                  </View>
+                  <Text style={b.out ? styles.howOut : styles.notOut} numberOfLines={2}>{b.out ? b.howOut : 'not out'}</Text>
                 </View>
               </View>
               <Text style={[styles.cell, styles.numCol, b.runs >= 50 && styles.highlight]}>{b.runs}</Text>
@@ -678,7 +660,7 @@ function InningsScorecard({ innings, index, squads, totalOvers, expanded = true,
           <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
               <View style={[styles.cell, styles.nameCol, styles.nameCell]}>
                 <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={20} style={styles.rowAvatar} />
-                <Text style={[styles.bowlerName, { flex: 1 }]} numberOfLines={1}>{b.name}</Text>
+                <Text style={[styles.bowlerName, { flex: 1 }]} numberOfLines={2}>{b.name}</Text>
               </View>
               <Text style={[styles.cell, styles.numCol]}>{b.overs}</Text>
               <Text style={[styles.cell, styles.numCol]}>{b.maidens}</Text>
@@ -736,9 +718,6 @@ function InningsScorecard({ innings, index, squads, totalOvers, expanded = true,
             </>
           }
 
-          <View style={{ padding: 10 }}>
-            <ManhattanChart innings={innings} />
-          </View>
         </>
       }
     </View>);
@@ -776,21 +755,43 @@ function InningsOvers({ innings }) {const DS = useTheme().colors;const styles = 
 
 // ── HIGHLIGHTS tab: wickets, fifties/hundreds, 5-for and hat-tricks, whole match ─
 function HighlightsTab({ match }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
-  const highlights = computeHighlights(match);
-  if (!highlights.length) return <Text style={styles.emptyTabText}>No notable moments yet.</Text>;
+  const groups = computeHighlights(match);
+  // Which innings groups are collapsed (by label). Default: all expanded.
+  const [collapsed, setCollapsed] = useState({});
+  if (!groups.length) return <Text style={styles.emptyTabText}>No notable moments yet.</Text>;
+  const toggle = (label) => setCollapsed((c) => ({ ...c, [label]: !c[label] }));
+  // Per-kind accent: wicket = red, six = boundary-green, four = blue, else lime.
+  const iconColor = (kind) => kind === 'wicket' ? DS.live
+    : kind === 'six' ? (DS.success || DS.lime)
+    : kind === 'four' ? DS.blue : DS.lime;
   return (
-    <View style={styles.inningsCard}>
-      {highlights.map((h, i) => (
-        <View key={h.key} style={[styles.highlightRow, i === 0 && { borderTopWidth: 0 }]}>
-          <View style={styles.highlightIconWrap}>
-            <Icon name={h.icon} size={16} color={h.icon === 'alert-octagon' ? DS.live : DS.lime} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.highlightText}>{h.text}</Text>
-            <Text style={styles.highlightMeta}>{h.inningsLabel} · Ov {h.label}</Text>
-          </View>
+    <View style={{ gap: 12 }}>
+      {groups.map((g) => {
+        const open = !collapsed[g.label];
+        return (
+        <View key={g.label} style={styles.inningsCard}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => toggle(g.label)} style={styles.sectionHeaderRow}>
+            <View style={styles.sectionHeaderLeft}>
+              <View style={styles.inningsIndicator} />
+              <Text style={styles.sectionHeaderText}>{g.teamName ? g.teamName.toUpperCase() : g.label.toUpperCase()}</Text>
+            </View>
+            <Text style={styles.inningsLabel}>{g.label}</Text>
+            <Icon name={open ? 'chevron-up' : 'chevron-down'} size={20} color={DS.textMuted} style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
+          {open && g.items.map((h, i) => (
+            <View key={h.key} style={[styles.highlightRow, i === 0 && { borderTopWidth: 0 }]}>
+              <View style={styles.highlightIconWrap}>
+                <Icon name={h.icon} size={16} color={iconColor(h.kind)} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.highlightText}>{h.text}</Text>
+                <Text style={styles.highlightMeta}>Ov {h.label}</Text>
+              </View>
+            </View>
+          ))}
         </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -799,7 +800,6 @@ function HighlightsTab({ match }) {const DS = useTheme().colors;const styles = u
 function LiveTab({ innings, squads, onViewAllOvers, totalOvers }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [expanded, setExpanded] = useState(false);
   if (!innings) return <Text style={styles.emptyTabText}>Play hasn't started yet.</Text>;
-  const chase = computeChase(innings, totalOvers);
 
   const battingXI = (squads || [])
     .filter((s) => s.teamId === innings.battingTeamId)
@@ -816,25 +816,9 @@ function LiveTab({ innings, squads, onViewAllOvers, totalOvers }) {const DS = us
 
   return (
     <View style={{ gap: 12 }}>
-      {chase && chase.need > 0 &&
-        <View style={styles.chaseBox}>
-          <Text style={styles.chaseHeadline}>
-            {chase.teamName} need <Text style={styles.chaseNeed}>{chase.need}</Text> off <Text style={styles.chaseNeed}>{chase.ballsLeft}</Text> ball{chase.ballsLeft !== 1 ? 's' : ''}
-          </Text>
-          <View style={styles.chaseRatesRow}>
-            <Text style={styles.chaseRate}>CRR <Text style={styles.chaseRateNum}>{chase.crr.toFixed(2)}</Text></Text>
-            <Text style={styles.chaseRate}>RRR <Text style={styles.chaseRateNum}>{chase.rrr === Infinity ? '—' : chase.rrr.toFixed(2)}</Text></Text>
-            <Text style={styles.chaseRate}>{chase.wktsLeft} wkt{chase.wktsLeft !== 1 ? 's' : ''} left</Text>
-          </View>
-          <View style={styles.winBarTrack}>
-            <View style={[styles.winBarFill, { width: `${chase.chaseWin}%` }]} />
-          </View>
-          <View style={styles.winLabelRow}>
-            <Text style={styles.winLabel}>{chase.teamName} {chase.chaseWin}%</Text>
-            <Text style={styles.winLabelMuted}>win probability</Text>
-          </View>
-        </View>
-      }
+      {/* Team scores + chase + win probability now live in the combined card above
+          (rendered by ScorecardScreen on the LIVE tab), so LiveTab starts with the
+          current-over box and commentary. */}
       {lastOver &&
         <View style={styles.liveBox}>
           <View style={styles.liveBoxHead}>
@@ -856,7 +840,9 @@ function LiveTab({ innings, squads, onViewAllOvers, totalOvers }) {const DS = us
           <View style={styles.liveFigRow}>
             <View style={{ flex: 1 }}>
               {notOut.map((b) => (
-                <Text key={b.id} style={styles.liveFigText} numberOfLines={1}>{b.name}  <Text style={styles.liveFigNum}>{b.runs}({b.balls})</Text></Text>
+                <Text key={b.id} style={styles.liveFigText} numberOfLines={1}>
+                  {b.name}{b.id === innings.strikerId ? <Text style={styles.strikerStar}> ★</Text> : ''}  <Text style={styles.liveFigNum}>{b.runs}({b.balls})</Text>
+                </Text>
               ))}
             </View>
             {currentBowler &&
@@ -1088,6 +1074,9 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   // "NEED X off Y balls" for the 2nd innings — shown across every tab; the toss
   // (a fixed, non-changing fact) stays confined to the INFO tab only.
   const chase = computeChase(liveInnings, match?.overs);
+  // Split the win probability onto the two team columns (chasing team = chaseWin).
+  const t1Win = chase ? (chase.teamName === t1 ? chase.chaseWin : 100 - chase.chaseWin) : 50;
+  const t2Win = 100 - t1Win;
 
   // Keep the swipeable pager in sync with the active tab — covers the initial
   // default tab, a tab-bar tap, and (as a harmless no-op re-scroll) a swipe
@@ -1146,9 +1135,10 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
       </View>
 
       <View ref={shotRef} collapsable={false} style={{ flex: 1, backgroundColor: DS.bg }}>
-        {/* Chase line ("NEED X off Y balls") — every tab, while the toss (a fixed,
-            non-changing fact) stays confined to the INFO tab only. */}
-        {chase && chase.need > 0 &&
+        {/* Chase line ("NEED X off Y balls") — non-live tabs only; on the LIVE tab
+            it lives inside the combined score/win card below. The toss (a fixed
+            fact) stays confined to the INFO tab. */}
+        {chase && chase.need > 0 && activeTab !== 'live' &&
           <View style={styles.chaseRow}>
             <Icon name="target" size={13} color={DS.coral} />
             <Text style={styles.tossSummaryLine} numberOfLines={1}>
@@ -1157,42 +1147,54 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
           </View>
         }
 
-        {/* Compact score summary (both innings) + result — LIVE tab only. */}
-        {activeTab === 'live' && <>
-          <View style={[styles.scoreSummary, { marginTop: 12 }]}>
-            <View style={styles.scoreTeam}>
-              <View style={[styles.scoreAvatar, { backgroundColor: DS.lime }]}>
-                <Text style={styles.scoreAvatarText}>{t1[0]}</Text>
+        {/* LIVE tab — one compact card: both team scores + chase + win probability. */}
+        {activeTab === 'live' &&
+          <View style={styles.liveTopCard}>
+            <View style={styles.liveScoreRow}>
+              <View style={styles.scoreTeam}>
+                <HexAvatar size={34} color={DS.lime}><Text style={styles.scoreAvatarText}>{t1[0]}</Text></HexAvatar>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.scoreTeamName} numberOfLines={1}>{t1}</Text>
+                  <Text style={styles.scoreValue} numberOfLines={1}>{match.score1 || '—'}</Text>
+                </View>
               </View>
-              <Text style={styles.scoreTeamName} numberOfLines={1}>{t1}</Text>
-              <Text style={styles.scoreValue}>{match.score1 || '—'}</Text>
-            </View>
-            <View style={styles.scoreVs}>
-              <Text style={styles.scoreVsText}>VS</Text>
-            </View>
-            <View style={[styles.scoreTeam, { alignItems: 'flex-end' }]}>
-              <View style={[styles.scoreAvatar, { backgroundColor: DS.blue }]}>
-                <Text style={styles.scoreAvatarText}>{t2[0]}</Text>
+              <View style={styles.scoreVs}><Text style={styles.scoreVsText}>VS</Text></View>
+              <View style={[styles.scoreTeam, styles.scoreTeamRight]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.scoreTeamName, { textAlign: 'right' }]} numberOfLines={1}>{t2}</Text>
+                  <Text style={[styles.scoreValue, styles.scoreValueRight]} numberOfLines={1}>{match.score2 || '—'}</Text>
+                </View>
+                <HexAvatar size={34} color={DS.blue}><Text style={styles.scoreAvatarText}>{t2[0]}</Text></HexAvatar>
               </View>
-              <Text style={[styles.scoreTeamName, { textAlign: 'right' }]} numberOfLines={1}>{t2}</Text>
-              <Text style={[styles.scoreValue, { textAlign: 'right', color: DS.blue }]}>{match.score2 || '—'}</Text>
             </View>
-          </View>
 
-          {/* Result — a fuller "match ended" flourish once the game is complete. */}
-          {match.result && match.status === 'completed' ?
-          <View style={styles.resultCard}>
-              <Icon name="trophy-variant" size={28} color={DS.lime} />
-              <Text style={styles.resultCardLabel}>MATCH COMPLETE</Text>
-              <Text style={styles.resultCardText}>{match.result}</Text>
-            </View>
-          : match.result ?
-          <View style={styles.resultBanner}>
-              <Icon name="trophy" size={16} color={DS.lime} />
-              <Text style={styles.resultBannerText}>{match.result}</Text>
-            </View>
-          : null}
-        </>}
+            {chase && chase.need > 0 && !match.result &&
+              <View style={styles.liveChaseWrap}>
+                <Text style={styles.liveChaseHeadline} numberOfLines={1}>
+                  {chase.teamName} need <Text style={styles.chaseNeed}>{chase.need}</Text> off <Text style={styles.chaseNeed}>{chase.ballsLeft}</Text> ball{chase.ballsLeft !== 1 ? 's' : ''}
+                </Text>
+                <View style={styles.winBarSplit}>
+                  <View style={{ width: `${t1Win}%`, backgroundColor: DS.lime }} />
+                  <View style={{ width: `${t2Win}%`, backgroundColor: DS.blue }} />
+                </View>
+                <View style={styles.winLabelRow}>
+                  <Text style={[styles.winPct, { color: DS.lime }]}>{t1Win}%</Text>
+                  <Text style={styles.liveRates} numberOfLines={1}>
+                    CRR <Text style={styles.chaseRateNum}>{chase.crr.toFixed(2)}</Text>   RRR <Text style={styles.chaseRateNum}>{chase.rrr === Infinity ? '—' : chase.rrr.toFixed(2)}</Text>   {chase.wktsLeft} wkt{chase.wktsLeft !== 1 ? 's' : ''}
+                  </Text>
+                  <Text style={[styles.winPct, { color: DS.blue }]}>{t2Win}%</Text>
+                </View>
+              </View>
+            }
+
+            {match.result &&
+              <View style={styles.liveResultPill}>
+                <Icon name={match.status === 'completed' ? 'trophy-variant' : 'trophy'} size={15} color={DS.lime} />
+                <Text style={styles.liveResultText} numberOfLines={2}>{match.result}</Text>
+              </View>
+            }
+          </View>
+        }
 
         {/* Swipeable tab content — one page per tab, in sync with the tab bar above:
             a tap scrolls the pager (see the useEffect on `activeTab`), and a swipe
@@ -1336,13 +1338,15 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.surfaceHigh, marginHorizontal: 16,
     borderRadius: 14, padding: 16
   },
-  scoreTeam: { flex: 1, alignItems: 'flex-start', gap: 4 },
+  scoreTeam: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  scoreTeamRight: { justifyContent: 'flex-end' },
   scoreAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  scoreAvatarText: { fontSize: 15, fontWeight: '900', color: DS.bg },
-  scoreTeamName: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
-  scoreValue: { fontSize: 20, fontWeight: '900', color: DS.lime },
-  scoreVs: { paddingHorizontal: 12 },
-  scoreVsText: { fontSize: 11, fontWeight: '800', color: DS.blue, letterSpacing: 1 },
+  scoreAvatarText: { fontSize: 14, fontWeight: '900', color: '#ffffff' },
+  scoreTeamName: { fontSize: 11, color: DS.textMuted, fontWeight: '700' },
+  scoreValue: { fontSize: 19, fontWeight: '900', color: DS.lime, letterSpacing: -0.3 },
+  scoreValueRight: { textAlign: 'right', color: DS.blue },
+  scoreVs: { paddingHorizontal: 8 },
+  scoreVsText: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 1 },
   chaseRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 12 },
   tossSummaryLine: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, textAlign: 'center' },
 
@@ -1412,11 +1416,15 @@ const makeStyles = (DS) => StyleSheet.create({
   tableRowAlt: { backgroundColor: DS.surfaceHighest },
   headerCell: { fontSize: 9.5, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.4 },
   cell: { fontSize: 12, color: DS.textVariant },
-  nameCol: { flex: 2.7 },
+  // Name column takes ALL remaining width; the stat columns are fixed-narrow
+  // (they only ever hold 1–4 chars) so full player names fit without truncation.
+  nameCol: { flex: 1, minWidth: 0 },
   nameCell: { flexDirection: 'row', alignItems: 'center' },
   rowAvatar: { marginRight: 6 },
-  numCol: { flex: 1, textAlign: 'center' },
+  numCol: { width: 32, textAlign: 'center' },
   batterName: { fontSize: 12.5, fontWeight: '700', color: DS.textPrimary },
+  batterNameRow: { flexDirection: 'row', alignItems: 'center' },
+  strikerStar: { color: DS.lime, fontWeight: '900' },
   bowlerName: { fontSize: 12.5, fontWeight: '700', color: DS.textPrimary },
   howOut: { fontSize: 9.5, color: DS.coral, marginTop: 1 },
   notOut: { fontSize: 9.5, color: DS.lime, marginTop: 1 },
@@ -1480,6 +1488,17 @@ const makeStyles = (DS) => StyleSheet.create({
   winLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   winLabel: { fontSize: 12, fontWeight: '800', color: DS.textPrimary },
   winLabelMuted: { fontSize: 10, color: DS.textMuted, fontWeight: '600' },
+
+  // Combined LIVE-tab card: scores + chase + win probability, minimal + enhanced.
+  liveTopCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, marginHorizontal: 16, marginTop: 10, padding: 12, gap: 10 },
+  liveScoreRow: { flexDirection: 'row', alignItems: 'center' },
+  liveChaseWrap: { gap: 6, borderTopWidth: 1, borderTopColor: DS.line, paddingTop: 10 },
+  liveChaseHeadline: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, textAlign: 'center' },
+  winBarSplit: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: DS.surfaceHighest },
+  winPct: { fontSize: 12, fontWeight: '900' },
+  liveRates: { flex: 1, fontSize: 11, color: DS.textMuted, fontWeight: '600', textAlign: 'center' },
+  liveResultPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderTopWidth: 1, borderTopColor: DS.line, paddingTop: 12 },
+  liveResultText: { fontSize: 13, fontWeight: '800', color: DS.textPrimary, flexShrink: 1, textAlign: 'center' },
 
   liveBox: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 14, gap: 10 },
   liveBoxHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

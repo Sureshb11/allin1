@@ -21,6 +21,7 @@ import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo from '../components/BrandLogo';
+import HexAvatar from '../components/HexAvatar';
 import { splitScore } from './MyMatchesScreen';
 
 const SW = Dimensions.get('window').width;
@@ -172,9 +173,9 @@ function CircleMatchCard({ match, onPress }) {
     const { main, ov } = splitScore(t.score, match.overs);
     return (
       <View style={c.team}>
-        <View style={[c.teamAvatar, { backgroundColor: t.color }]}>
+        <HexAvatar size={50} color={t.color}>
           <Text style={c.teamAvatarTxt}>{t.short}</Text>
-        </View>
+        </HexAvatar>
         <Text style={c.teamName} numberOfLines={2}>{t.name}</Text>
         <Text style={[c.teamScore, muted && c.teamScoreMuted]}>
           {main}{ov ? <Text style={[c.teamScoreOvers, muted && c.teamScoreMuted]}> {ov}</Text> : null}
