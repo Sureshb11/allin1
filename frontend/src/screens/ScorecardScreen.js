@@ -453,6 +453,11 @@ function ballCommentary(ball, bowlerName) {
 
 // Ball-by-ball commentary for a whole innings, newest ball first.
 function buildCommentary(innings) {
+  // An "End of over N" summary is threaded into the feed right after that over's
+  // last ball, so each completed over's total/batsmen/bowler shows inline in the
+  // ball-by-ball — no separate list needed.
+  const overEndByNum = {};
+  computeOverEndSummaries(innings).forEach((o) => { overEndByNum[o.over] = o; });
   const lines = [];
   (innings.oversData || []).forEach((over) => {
     const bowlerName = over.bowler?.name || 'Bowler';
@@ -461,6 +466,7 @@ function buildCommentary(innings) {
       const isLegal = !['wide', 'noBall', 'penalty', 'retired'].includes(ball.extraType);
       if (isLegal) legalInOver += 1;
       lines.push({
+        type: 'ball',
         key: `${over.id}-${idx}`,
         label: `${over.overNumber - 1}.${legalInOver}`,
         text: ballCommentary(ball, bowlerName),
@@ -468,6 +474,8 @@ function buildCommentary(innings) {
         isBoundary: !ball.extraType && (ball.runs === 4 || ball.runs === 6),
       });
     });
+    const oe = overEndByNum[over.overNumber];
+    if (oe) lines.push({ type: 'overend', key: `oe-${over.overNumber}`, data: oe });
   });
   return lines.reverse();
 }
@@ -919,7 +927,6 @@ function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
   const commentary = buildCommentary(innings);
   const lastOverRuns = lastOver ? lastOver.runs + lastOver.extras : 0;
   const partnership = computePartnership(innings);
-  const overEnds = computeOverEndSummaries(innings);
 
   return (
     <View style={{ gap: 12 }}>
@@ -962,44 +969,33 @@ function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
         </View>
       }
 
-      {/* End-of-over summary for every completed over: total + batsmen + bowler. */}
-      {overEnds.length > 0 &&
-        <View style={styles.inningsCard}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.sectionHeaderLeft}>
-              <View style={styles.inningsIndicator} />
-              <Text style={styles.sectionHeaderText}>OVER BY OVER</Text>
-            </View>
-          </View>
-          {overEnds.map((o) => (
-            <View key={o.over} style={styles.overEndRow}>
+      <View style={styles.commentaryBox}>
+        {commentary.slice(0, 60).map((line) => (
+          line.type === 'overend' ? (
+            <View key={line.key} style={styles.commentaryOverEnd}>
               <View style={styles.overEndHead}>
-                <Text style={styles.overEndTitle}>End of over {o.over}</Text>
-                <Text style={styles.overEndTotal}>{o.total}</Text>
+                <Text style={styles.overEndTitle}>End of over {line.data.over}</Text>
+                <Text style={styles.overEndTotal}>{line.data.total}</Text>
               </View>
               <View style={styles.overEndLine}>
                 <Icon name="cricket" size={12} color={DS.lime} />
                 <Text style={styles.overEndSub} numberOfLines={1}>
-                  {o.bat.map((b) => `${b.name} ${b.runs}(${b.balls})`).join('   ')}
+                  {line.data.bat.map((b) => `${b.name} ${b.runs}(${b.balls})`).join('   ')}
                 </Text>
               </View>
               <View style={styles.overEndLine}>
                 <Icon name="bowling" size={12} color={DS.coral} />
-                <Text style={styles.overEndSub} numberOfLines={1}>{o.bowler.name} {o.bowler.fig}</Text>
+                <Text style={styles.overEndSub} numberOfLines={1}>{line.data.bowler.name} {line.data.bowler.fig}</Text>
               </View>
             </View>
-          ))}
-        </View>
-      }
-
-      <View style={styles.commentaryBox}>
-        {commentary.slice(0, 40).map((line) => (
-          <View key={line.key} style={styles.commentaryRow}>
-            <Text style={[styles.commentaryLabel, line.isWicket && { color: DS.live }]}>{line.label}</Text>
-            <Text style={[styles.commentaryText, line.isWicket && { fontWeight: '800', color: DS.textPrimary }, line.isBoundary && { color: DS.lime, fontWeight: '700' }]}>
-              {line.text}
-            </Text>
-          </View>
+          ) : (
+            <View key={line.key} style={styles.commentaryRow}>
+              <Text style={[styles.commentaryLabel, line.isWicket && { color: DS.live }]}>{line.label}</Text>
+              <Text style={[styles.commentaryText, line.isWicket && { fontWeight: '800', color: DS.textPrimary }, line.isBoundary && { color: DS.lime, fontWeight: '700' }]}>
+                {line.text}
+              </Text>
+            </View>
+          )
         ))}
       </View>
     </View>
@@ -1660,7 +1656,9 @@ const makeStyles = (DS) => StyleSheet.create({
   liveSummaryText: { fontSize: 12, color: DS.textMuted, lineHeight: 18 },
 
   // LIVE tab: end-of-over summaries
-  overEndRow: { paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: DS.line, gap: 4 },
+  // End-of-over summary block, threaded inline into the ball-by-ball feed — a
+  // tinted band so it reads as a divider between overs.
+  commentaryOverEnd: { backgroundColor: DS.surfaceHighest, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: DS.line, gap: 4 },
   overEndHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   overEndTitle: { fontSize: 12.5, fontWeight: '800', color: DS.textPrimary },
   overEndTotal: { fontSize: 13, fontWeight: '900', color: DS.lime },
