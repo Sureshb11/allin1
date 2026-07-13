@@ -45,7 +45,7 @@ function OverEndBanner({ data, onDone, DS }) {
   const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [-60, 0] });
   return (
     <Animated.View pointerEvents="none" style={[overEndBannerStyles.wrap, { opacity: anim, transform: [{ translateY }] }]}>
-      <View style={[overEndBannerStyles.card, { backgroundColor: DS.surfaceHigh, borderLeftColor: DS.lime }]}>
+      <View style={[overEndBannerStyles.card, { backgroundColor: DS.surface, borderLeftColor: DS.lime }]}>
         <Text style={[overEndBannerStyles.title, { color: DS.textPrimary }]} numberOfLines={1}>
           END OF OVER {data.over}  ·  <Text style={{ color: DS.lime }}>{data.total}</Text>
         </Text>
@@ -1603,7 +1603,7 @@ const makeStyles = (DS) => StyleSheet.create({
   liveBadgeText: { fontSize: 10, fontWeight: '900', color: DS.live, letterSpacing: 0.6 },
 
   // Match-center tab bar (INFO / LIVE / SCORECARD / SQUADS / OVERS)
-  matchTabBar: { backgroundColor: DS.surfaceHigh },
+  matchTabBar: { backgroundColor: DS.surface },
   matchTabBarContent: { flexDirection: 'row' },
   matchTab: {
     alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16,
@@ -1616,7 +1616,7 @@ const makeStyles = (DS) => StyleSheet.create({
   // Score summary
   scoreSummary: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: DS.surfaceHigh, marginHorizontal: 16,
+    backgroundColor: DS.surface, marginHorizontal: 16,
     borderRadius: 14, padding: 16
   },
   scoreTeam: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -1663,7 +1663,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // Innings card
   inningsCard: {
-    backgroundColor: DS.surfaceHigh, borderRadius: 14, overflow: 'hidden',
+    backgroundColor: DS.surface, borderRadius: 14, overflow: 'hidden',
     paddingBottom: 8
   },
 
@@ -1758,7 +1758,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // LIVE tab: current-over box
   // Chase strip (2nd-innings LIVE tab)
-  chaseBox: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 14, gap: 10, borderLeftWidth: 4, borderLeftColor: DS.lime },
+  chaseBox: { backgroundColor: DS.surface, borderRadius: 14, padding: 14, gap: 10, borderLeftWidth: 4, borderLeftColor: DS.lime },
   chaseHeadline: { fontSize: 15, fontWeight: '700', color: DS.textPrimary },
   chaseNeed: { fontWeight: '900', color: DS.lime },
   chaseRatesRow: { flexDirection: 'row', gap: 16, flexWrap: 'wrap' },
@@ -1771,7 +1771,7 @@ const makeStyles = (DS) => StyleSheet.create({
   winLabelMuted: { fontSize: 10, color: DS.textMuted, fontWeight: '600' },
 
   // Combined LIVE-tab card: scores + chase + win probability, minimal + enhanced.
-  liveTopCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, marginHorizontal: 16, marginTop: 10, padding: 12, gap: 10 },
+  liveTopCard: { backgroundColor: DS.surface, borderRadius: 16, marginHorizontal: 16, marginTop: 10, padding: 12, gap: 10 },
   liveScoreRow: { flexDirection: 'row', alignItems: 'center' },
   liveChaseWrap: { gap: 6, borderTopWidth: 1, borderTopColor: DS.line, paddingTop: 10 },
   liveChaseHeadline: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, textAlign: 'center' },
@@ -1781,7 +1781,7 @@ const makeStyles = (DS) => StyleSheet.create({
   liveResultPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderTopWidth: 1, borderTopColor: DS.line, paddingTop: 12 },
   liveResultText: { fontSize: 13, fontWeight: '800', color: DS.textPrimary, flexShrink: 1, textAlign: 'center' },
 
-  liveBox: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 14, gap: 10 },
+  liveBox: { backgroundColor: DS.surface, borderRadius: 14, padding: 14, gap: 10 },
   liveBoxHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   liveBoxOver: { fontSize: 14, fontWeight: '900', color: DS.textPrimary },
   liveBoxScore: { fontSize: 16, fontWeight: '900', color: DS.lime },
@@ -1809,14 +1809,14 @@ const makeStyles = (DS) => StyleSheet.create({
   overEndSub: { flex: 1, fontSize: 11.5, color: DS.textVariant, fontWeight: '600' },
 
   // LIVE tab: ball-by-ball commentary
-  commentaryBox: { backgroundColor: DS.surfaceHigh, borderRadius: 14, paddingVertical: 4 },
+  commentaryBox: { backgroundColor: DS.surface, borderRadius: 14, paddingVertical: 4 },
   commentaryRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: DS.line },
   commentaryLabel: { fontSize: 12, fontWeight: '800', color: DS.textMuted, width: 34 },
   commentaryText: { flex: 1, fontSize: 13, color: DS.textVariant, lineHeight: 19 },
 
   // SQUADS tab
   squadsGrid: { flexDirection: 'row', gap: 14 },
-  squadCol: { flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 12, gap: 2 },
+  squadCol: { flex: 1, backgroundColor: DS.surface, borderRadius: 14, padding: 12, gap: 2 },
   squadTeamName: { fontSize: 13, fontWeight: '900', color: DS.textPrimary, marginBottom: 6 },
   squadSectionLabel: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8, marginBottom: 4 },
   squadRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
@@ -1833,7 +1833,7 @@ const makeStyles = (DS) => StyleSheet.create({
   highlightMeta: { fontSize: 10, color: DS.textMuted, marginTop: 2, fontWeight: '600' },
 
   // SUMMARY tab (completed matches): match summary + Player of the Match hero + awards + MVP
-  summaryMatchCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 14, gap: 10 },
+  summaryMatchCard: { backgroundColor: DS.surface, borderRadius: 16, padding: 14, gap: 10 },
   summaryTeamLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   summaryTeamInit: { fontSize: 13, fontWeight: '900', color: '#ffffff' },
   summaryTeamNm: { flex: 1, fontSize: 14, fontWeight: '800', color: DS.textPrimary },
@@ -1852,7 +1852,7 @@ const makeStyles = (DS) => StyleSheet.create({
   summaryMvpVal: { fontSize: 17, fontWeight: '900', color: DS.lime },
   summaryMvpLbl: { fontSize: 9, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.5 },
 
-  summaryAwardRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: DS.surfaceHigh, borderRadius: 14, borderWidth: 1, borderColor: DS.line, padding: 12 },
+  summaryAwardRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: DS.surface, borderRadius: 14, borderWidth: 1, borderColor: DS.line, padding: 12 },
   summaryAwardInit: { fontSize: 14, fontWeight: '900', color: '#ffffff' },
   summaryAwardLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   summaryAwardLabel: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.5 },
@@ -1869,7 +1869,7 @@ const makeStyles = (DS) => StyleSheet.create({
   mvpRankVal: { fontSize: 14, fontWeight: '900', color: DS.lime },
 
   // Run-rate worm graph (SCORECARD tab)
-  wormCard: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 14, gap: 8 },
+  wormCard: { backgroundColor: DS.surface, borderRadius: 14, padding: 14, gap: 8 },
   wormTitle: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 1 },
   wormLegendRow: { flexDirection: 'row', gap: 16 },
   wormLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },

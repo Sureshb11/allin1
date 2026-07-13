@@ -75,11 +75,11 @@ const dark = {
 // Arena honeycomb picker (useArenaColors) keeps its distinct lime-bright look.
 const light = {
   mode: 'light',
-  bg: '#fcfcfd',            // background — barely off-white, not the grey f8f9fa
+  bg: '#f1f3f6',            // page background — light grey so white cards read as white
   surfaceLow: '#fafbfc',    // surface-container-low — sections / banners
-  surface: '#ffffff',       // surface-container-lowest — cards
+  surface: '#ffffff',       // surface-container-lowest — cards (white)
   surfaceHigh: '#f5f6f7',   // surface-container — chips / inputs / buttons
-  surfaceHighest: '#eef0f1',// surface-container-highest / surface-variant — avatars / recess
+  surfaceHighest: '#eaedf1',// surface-container-highest — header bands / recess / avatars
   white: '#ffffff',
   lime: '#406900',       // Pitch grass green (reverted — navy accent undone)
   limeBright: '#bdf37b',
