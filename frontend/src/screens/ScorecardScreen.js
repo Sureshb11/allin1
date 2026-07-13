@@ -803,16 +803,16 @@ function computeOverEndSummaries(innings) {
   const overs = [...(innings?.oversData || [])].sort((a, b) => a.overNumber - b.overNumber);
   const legalIn = (over) => (over.balls || []).filter((b) => !['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)).length;
   const batRuns = {}, batBalls = {}, batName = {};
-  const bowl = {};
+  const bowl = {};   // bowlerId -> cumulative { name, balls, runs, wkts, maidens }
   let runningRuns = 0, runningWkts = 0;
   const out = [];
   for (const over of overs) {
     const bId = over.bowlerId;
-    if (!bowl[bId]) bowl[bId] = { name: over.bowler?.name || 'Bowler', balls: 0, runs: 0, wkts: 0 };
+    if (!bowl[bId]) bowl[bId] = { name: over.bowler?.name || 'Bowler', balls: 0, runs: 0, wkts: 0, maidens: 0 };
     // Team total from the stored per-over aggregates (authoritative).
     runningRuns += (over.runs || 0) + (over.extras || 0);
     runningWkts += (over.wickets || 0);
-    let lastStriker = null, lastNon = null;
+    let lastStriker = null, lastNon = null, overCharged = 0, overLegal = 0;
     for (const b of (over.balls || [])) {
       const et = b.extraType;
       if (b.batterId) {
@@ -828,20 +828,23 @@ function computeOverEndSummaries(innings) {
       else if (et === 'bye' || et === 'legBye') legal = true;
       else if (et === 'penalty' || et === 'retired') charged = 0;
       else { charged = b.runs; legal = true; }
-      bowl[bId].runs += charged;
-      if (legal) bowl[bId].balls += 1;
+      bowl[bId].runs += charged; overCharged += charged;
+      if (legal) { bowl[bId].balls += 1; overLegal += 1; }
       if (b.isWicket) {
         const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
         if (wt !== 'runout' && wt !== 'retired') bowl[bId].wkts += 1;
       }
       lastStriker = b.batterId; lastNon = b.nonStrikerId;
     }
+    if (overLegal >= 6 && overCharged === 0) bowl[bId].maidens += 1;
     if (legalIn(over) >= 6) {   // completed over only
+      const bw = bowl[bId];
       out.push({
         over: over.overNumber,
         total: `${runningRuns}/${runningWkts}`,
         bat: [lastStriker, lastNon].filter(Boolean).map((id) => ({ name: batName[id] || 'Batter', runs: batRuns[id] || 0, balls: batBalls[id] || 0 })),
-        bowler: { name: bowl[bId].name, fig: `${bowl[bId].wkts}-${bowl[bId].runs} (${Math.floor(bowl[bId].balls / 6)}.${bowl[bId].balls % 6})` },
+        // Standard O-M-R-W bowling figures, matching the format used across the app.
+        bowler: { name: bw.name, fig: `${Math.floor(bw.balls / 6)}.${bw.balls % 6}-${bw.maidens}-${bw.runs}-${bw.wkts}` },
       });
     }
   }
