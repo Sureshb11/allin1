@@ -166,6 +166,15 @@ export function computeAwards(match) {
     }
   }
 
+  // Seed EVERY squad player (both XIs, incl. 12th man / subs) so the MVP order
+  // lists all of them — even those with 0 contribution (didn't bat/bowl/field).
+  const teamNameFor = (tid) =>
+    tid === match.team1?.id ? match.team1?.name :
+    tid === match.team2?.id ? match.team2?.name : undefined;
+  for (const mp of match.squads || []) {
+    reg(mp.playerId, mp.player?.name, mp.teamId, teamNameFor(mp.teamId));
+  }
+
   // ── Totals, ranking, winner ──
   const list = Object.values(players)
     .map((p) => ({ ...p, total: p.bat + p.bowl + p.field }))
@@ -219,7 +228,7 @@ export function computeAwards(match) {
     bestBatter: out(bestBat),
     bestBowler: out(bestBowl),
     bestFielder: out(bestField),
-    mvp: list.slice(0, 5).map(out),
+    mvp: list.map(out),   // full ranked order — every squad player
     winnerTeamId,
   };
 }
