@@ -16,6 +16,58 @@ import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
 import HexAvatar from "../components/HexAvatar";
 
+// Latest COMPLETED over of the current (last) innings — used to pop an
+// auto-dismissing banner the moment a live watcher's poll picks up a newly
+// finished over. Forward-declared call to computeOverEndSummaries below is
+// safe: function declarations are hoisted.
+function latestOverEnd(match) {
+  const inns = match?.innings || [];
+  const innings = inns[inns.length - 1];
+  if (!innings) return null;
+  return computeOverEndSummaries(innings)[0] || null;   // newest first
+}
+
+// Slide-down banner for a just-completed over: total + both batsmen + bowler
+// figures. Springs in, holds a few seconds, fades out, then calls onDone.
+function OverEndBanner({ data, onDone, DS }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!data) return;
+    anim.setValue(0);
+    Animated.sequence([
+      Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 8, tension: 80 }),
+      Animated.delay(3200),
+      Animated.timing(anim, { toValue: 0, duration: 260, useNativeDriver: true }),
+    ]).start(({ finished }) => { if (finished) onDone(); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+  if (!data) return null;
+  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [-60, 0] });
+  return (
+    <Animated.View pointerEvents="none" style={[overEndBannerStyles.wrap, { opacity: anim, transform: [{ translateY }] }]}>
+      <View style={[overEndBannerStyles.card, { backgroundColor: DS.surfaceHigh, borderLeftColor: DS.lime }]}>
+        <Text style={[overEndBannerStyles.title, { color: DS.textPrimary }]} numberOfLines={1}>
+          END OF OVER {data.over}  ·  <Text style={{ color: DS.lime }}>{data.total}</Text>
+        </Text>
+        <Text style={[overEndBannerStyles.sub, { color: DS.textVariant }]} numberOfLines={1}>
+          {data.bat.map((b) => `${b.name} ${b.runs}(${b.balls})`).join('   ')}
+        </Text>
+        <Text style={[overEndBannerStyles.sub, { color: DS.coral }]} numberOfLines={1}>{data.bowler.name} {data.bowler.fig}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+const overEndBannerStyles = StyleSheet.create({
+  wrap: { position: 'absolute', top: 148, left: 16, right: 16, zIndex: 60, alignItems: 'center' },
+  card: {
+    width: '100%', borderRadius: 14, borderLeftWidth: 4, padding: 12, gap: 3,
+    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 10,
+  },
+  title: { fontSize: 13.5, fontWeight: '900' },
+  sub: { fontSize: 12, fontWeight: '700' },
+});
+
 // Cheap display-signature of a match — everything the screen actually renders
 // off. Two snapshots with the same signature are visually identical, so we can
 // skip re-rendering when a poll returns unchanged data.
@@ -1047,6 +1099,8 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const pagerRef = useRef(null);                     // horizontal swipeable tab content
   const [celebration, setCelebration] = useState(null); // {kind,id} FOUR/SIX/WICKET flourish
   const lastBallRef = useRef(null);                  // last delivery id seen (celebration baseline)
+  const [overEndBanner, setOverEndBanner] = useState(null); // end-of-over summary popup
+  const lastOverEndRef = useRef(null);                // last completed-over number seen
 
   // Detect a new boundary/wicket between polls and pop the celebration overlay.
   // The first observation only sets the baseline — we never replay the ball that
@@ -1062,6 +1116,21 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
         setCelebration({ kind: lb.kind, id: lb.id });
         if (lb.kind === 'wicket') haptic.warn(); else haptic.success();
       }
+    }
+  }, [match]);
+
+  // Detect a newly-completed over between polls and pop the end-of-over banner
+  // (total + both batsmen + bowler figures) automatically, instead of the
+  // watcher having to open the LIVE tab and scroll to find it. Same
+  // first-observation-is-just-a-baseline rule as the ball detector above.
+  useEffect(() => {
+    if (!match) return;
+    const oe = latestOverEnd(match);
+    if (!oe) return;
+    if (lastOverEndRef.current === null) { lastOverEndRef.current = oe.over; return; }
+    if (oe.over !== lastOverEndRef.current) {
+      lastOverEndRef.current = oe.over;
+      if (match.status === 'live') { setOverEndBanner(oe); haptic.tick(); }
     }
   }, [match]);
 
@@ -1179,6 +1248,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   return (
     <View style={styles.container}>
       <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} DS={DS} />
+      <OverEndBanner data={overEndBanner} onDone={() => setOverEndBanner(null)} DS={DS} />
       {/* Match-center header: back + match title + live badge, tabs directly below — one bar */}
       <View style={styles.matchHeader}>
         <View style={styles.matchHeaderTop}>
