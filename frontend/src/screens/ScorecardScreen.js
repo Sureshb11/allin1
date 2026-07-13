@@ -859,6 +859,8 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
     awards.bestFielder && { key: 'field', label: 'Best Fielder', icon: 'hand-back-right', color: DS.lime, p: awards.bestFielder },
   ].filter(Boolean);
   const mvpOrder = awards.mvp || [];
+  const t1 = match?.team1?.name || 'Team 1';
+  const t2 = match?.team2?.name || 'Team 2';
 
   if (!motm && awardRows.length === 0) {
     return <Text style={styles.emptyTabText}>No award data for this match.</Text>;
@@ -866,6 +868,26 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
 
   return (
     <View style={{ gap: 12 }}>
+      {/* Match summary — both teams' scores/overs + result. */}
+      <View style={styles.summaryMatchCard}>
+        <View style={styles.summaryTeamLine}>
+          <HexAvatar size={30} color={DS.lime}><Text style={styles.summaryTeamInit}>{t1[0]}</Text></HexAvatar>
+          <Text style={styles.summaryTeamNm} numberOfLines={1}>{t1}</Text>
+          <Text style={styles.summaryTeamSc}>{match?.score1 || '—'}</Text>
+        </View>
+        <View style={styles.summaryTeamLine}>
+          <HexAvatar size={30} color={DS.blue}><Text style={styles.summaryTeamInit}>{t2[0]}</Text></HexAvatar>
+          <Text style={styles.summaryTeamNm} numberOfLines={1}>{t2}</Text>
+          <Text style={[styles.summaryTeamSc, { color: DS.blue }]}>{match?.score2 || '—'}</Text>
+        </View>
+        {!!match?.result &&
+          <View style={styles.summaryResultBanner}>
+            <Icon name="trophy-variant" size={15} color={DS.lime} />
+            <Text style={styles.summaryResultTxt} numberOfLines={2}>{match.result}</Text>
+          </View>
+        }
+      </View>
+
       {motm &&
         <View style={styles.summaryHero}>
           <View style={styles.summaryHeroBadge}>
@@ -909,7 +931,7 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionHeaderLeft}>
               <View style={styles.inningsIndicator} />
-              <Text style={styles.sectionHeaderText}>MVP ORDER</Text>
+              <Text style={styles.sectionHeaderText}>MVP</Text>
             </View>
           </View>
           {mvpOrder.map((p, i) => (
@@ -1810,7 +1832,14 @@ const makeStyles = (DS) => StyleSheet.create({
   highlightText: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
   highlightMeta: { fontSize: 10, color: DS.textMuted, marginTop: 2, fontWeight: '600' },
 
-  // SUMMARY tab (completed matches): Player of the Match hero + awards + MVP order
+  // SUMMARY tab (completed matches): match summary + Player of the Match hero + awards + MVP
+  summaryMatchCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 14, gap: 10 },
+  summaryTeamLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  summaryTeamInit: { fontSize: 13, fontWeight: '900', color: '#ffffff' },
+  summaryTeamNm: { flex: 1, fontSize: 14, fontWeight: '800', color: DS.textPrimary },
+  summaryTeamSc: { fontSize: 16, fontWeight: '900', color: DS.lime, fontVariant: ['tabular-nums'] },
+  summaryResultBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderTopWidth: 1, borderTopColor: DS.line, paddingTop: 10 },
+  summaryResultTxt: { fontSize: 13, fontWeight: '800', color: DS.textPrimary, flexShrink: 1, textAlign: 'center' },
   summaryHero: { backgroundColor: DS.lime + '18', borderRadius: 16, borderWidth: 1, borderColor: DS.lime + '40', padding: 14, gap: 10 },
   summaryHeroBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: DS.lime, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   summaryHeroBadgeTxt: { fontSize: 10, fontWeight: '900', color: DS.onLime, letterSpacing: 0.6 },
