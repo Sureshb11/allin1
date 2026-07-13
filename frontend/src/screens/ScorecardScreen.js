@@ -796,9 +796,60 @@ function HighlightsTab({ match }) {const DS = useTheme().colors;const styles = u
   );
 }
 
+// End-of-over summary for every COMPLETED over: the team total at that point +
+// the two batsmen at the crease (runs/balls) + the over's bowler figures.
+// Newest over first. The in-progress current over is skipped (it isn't "ended").
+function computeOverEndSummaries(innings) {
+  const overs = [...(innings?.oversData || [])].sort((a, b) => a.overNumber - b.overNumber);
+  const legalIn = (over) => (over.balls || []).filter((b) => !['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)).length;
+  const batRuns = {}, batBalls = {}, batName = {};
+  const bowl = {};
+  let runningRuns = 0, runningWkts = 0;
+  const out = [];
+  for (const over of overs) {
+    const bId = over.bowlerId;
+    if (!bowl[bId]) bowl[bId] = { name: over.bowler?.name || 'Bowler', balls: 0, runs: 0, wkts: 0 };
+    // Team total from the stored per-over aggregates (authoritative).
+    runningRuns += (over.runs || 0) + (over.extras || 0);
+    runningWkts += (over.wickets || 0);
+    let lastStriker = null, lastNon = null;
+    for (const b of (over.balls || [])) {
+      const et = b.extraType;
+      if (b.batterId) {
+        batName[b.batterId] = b.batter?.name || 'Batter';
+        if (et !== 'wide' && et !== 'penalty' && et !== 'retired') batBalls[b.batterId] = (batBalls[b.batterId] || 0) + 1;
+        if (!et || et === 'noBall') batRuns[b.batterId] = (batRuns[b.batterId] || 0) + b.runs;
+      }
+      if (b.nonStrikerId) batName[b.nonStrikerId] = b.nonStriker?.name || batName[b.nonStrikerId] || 'Batter';
+      // Bowler figures — charged runs (byes/leg-byes excluded), legal balls, wickets.
+      let charged = 0, legal = false;
+      if (et === 'wide') charged = b.extras;
+      else if (et === 'noBall') charged = b.runs + b.extras;
+      else if (et === 'bye' || et === 'legBye') legal = true;
+      else if (et === 'penalty' || et === 'retired') charged = 0;
+      else { charged = b.runs; legal = true; }
+      bowl[bId].runs += charged;
+      if (legal) bowl[bId].balls += 1;
+      if (b.isWicket) {
+        const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
+        if (wt !== 'runout' && wt !== 'retired') bowl[bId].wkts += 1;
+      }
+      lastStriker = b.batterId; lastNon = b.nonStrikerId;
+    }
+    if (legalIn(over) >= 6) {   // completed over only
+      out.push({
+        over: over.overNumber,
+        total: `${runningRuns}/${runningWkts}`,
+        bat: [lastStriker, lastNon].filter(Boolean).map((id) => ({ name: batName[id] || 'Batter', runs: batRuns[id] || 0, balls: batBalls[id] || 0 })),
+        bowler: { name: bowl[bId].name, fig: `${bowl[bId].wkts}-${bowl[bId].runs} (${Math.floor(bowl[bId].balls / 6)}.${bowl[bId].balls % 6})` },
+      });
+    }
+  }
+  return out.reverse();
+}
+
 // ── LIVE tab: current-over box + reverse-chronological ball commentary ───────
-function LiveTab({ innings, squads, onViewAllOvers, totalOvers }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
-  const [expanded, setExpanded] = useState(false);
+function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   if (!innings) return <Text style={styles.emptyTabText}>Play hasn't started yet.</Text>;
 
   const battingXI = (squads || [])
@@ -813,6 +864,7 @@ function LiveTab({ innings, squads, onViewAllOvers, totalOvers }) {const DS = us
   const commentary = buildCommentary(innings);
   const lastOverRuns = lastOver ? lastOver.runs + lastOver.extras : 0;
   const partnership = computePartnership(innings);
+  const overEnds = computeOverEndSummaries(innings);
 
   return (
     <View style={{ gap: 12 }}>
@@ -852,19 +904,36 @@ function LiveTab({ innings, squads, onViewAllOvers, totalOvers }) {const DS = us
           <Text style={styles.partnershipText}>
             Partnership: <Text style={styles.liveFigNum}>{partnership.runs}({partnership.balls})</Text>
           </Text>
-          <View style={styles.liveBoxLinks}>
-            <TouchableOpacity onPress={() => setExpanded((x) => !x)}>
-              <Text style={styles.liveLinkText}>Over Summary {expanded ? '▲' : '▼'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onViewAllOvers}>
-              <Text style={styles.liveLinkText}>View all overs ›</Text>
-            </TouchableOpacity>
+        </View>
+      }
+
+      {/* End-of-over summary for every completed over: total + batsmen + bowler. */}
+      {overEnds.length > 0 &&
+        <View style={styles.inningsCard}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionHeaderLeft}>
+              <View style={styles.inningsIndicator} />
+              <Text style={styles.sectionHeaderText}>OVER BY OVER</Text>
+            </View>
           </View>
-          {expanded &&
-            <Text style={styles.liveSummaryText}>
-              {currentBowler?.name || 'Bowler'} conceded {lastOverRuns} run{lastOverRuns !== 1 ? 's' : ''} in over {lastOver.overNumber}.
-            </Text>
-          }
+          {overEnds.map((o) => (
+            <View key={o.over} style={styles.overEndRow}>
+              <View style={styles.overEndHead}>
+                <Text style={styles.overEndTitle}>End of over {o.over}</Text>
+                <Text style={styles.overEndTotal}>{o.total}</Text>
+              </View>
+              <View style={styles.overEndLine}>
+                <Icon name="cricket" size={12} color={DS.lime} />
+                <Text style={styles.overEndSub} numberOfLines={1}>
+                  {o.bat.map((b) => `${b.name} ${b.runs}(${b.balls})`).join('   ')}
+                </Text>
+              </View>
+              <View style={styles.overEndLine}>
+                <Icon name="bowling" size={12} color={DS.coral} />
+                <Text style={styles.overEndSub} numberOfLines={1}>{o.bowler.name} {o.bowler.fig}</Text>
+              </View>
+            </View>
+          ))}
         </View>
       }
 
@@ -1231,7 +1300,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
               <View style={styles.body}>
                 {t.key === 'info' && <InfoTab match={match} />}
 
-                {t.key === 'live' && <LiveTab innings={liveInnings} squads={match.squads} totalOvers={match.overs} onViewAllOvers={() => setTab('overs')} />}
+                {t.key === 'live' && <LiveTab innings={liveInnings} squads={match.squads} totalOvers={match.overs} />}
 
                 {t.key === 'overs' && inningsList.length > 1 &&
                   <View style={styles.inningsTabs}>
@@ -1516,6 +1585,14 @@ const makeStyles = (DS) => StyleSheet.create({
   liveBoxLinks: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   liveLinkText: { fontSize: 12, fontWeight: '700', color: DS.blue },
   liveSummaryText: { fontSize: 12, color: DS.textMuted, lineHeight: 18 },
+
+  // LIVE tab: end-of-over summaries
+  overEndRow: { paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: DS.line, gap: 4 },
+  overEndHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  overEndTitle: { fontSize: 12.5, fontWeight: '800', color: DS.textPrimary },
+  overEndTotal: { fontSize: 13, fontWeight: '900', color: DS.lime },
+  overEndLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  overEndSub: { flex: 1, fontSize: 11.5, color: DS.textVariant, fontWeight: '600' },
 
   // LIVE tab: ball-by-ball commentary
   commentaryBox: { backgroundColor: DS.surfaceHigh, borderRadius: 14, paddingVertical: 4 },
