@@ -129,9 +129,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
 
   const closeAwards = () => {
     setShowAwards(false);
-    // Redirect to the Home feed (HomeTab → CricketFeed), regardless of which
-    // tab the scoring was launched from.
-    navigation.navigate('HomeTab', { screen: 'CricketFeed' });
+    // Match's over → Home feed with a CLEAN stack. A fresh Toss & Play match
+    // leaves StartMatch → TossLineup → Scoring stacked here; a plain navigate/back
+    // would drop the user onto the create/schedule screen. Reset wipes that trail.
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'CricketFeed' }],
+    });
   };
 
   useEffect(() => {

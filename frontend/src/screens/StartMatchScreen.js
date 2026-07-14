@@ -324,7 +324,12 @@ const StartMatchScreen = ({ navigation, route }) => {
       // My Matches (its START button) when it's time.
       if (scheduleAt) {
         showToast('Match scheduled ✓', 'success');
-        navigation.navigate('MyMatches');
+        // Back to the Home feed with a clean stack — don't leave the create form
+        // (or push a separate matches page) behind it.
+        navigation.reset({
+          index: 0,
+          routes: [{ name: sport.id === 'cricket' ? 'CricketFeed' : 'SportFeed' }],
+        });
         return;
       }
 

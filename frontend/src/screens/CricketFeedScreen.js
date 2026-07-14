@@ -26,7 +26,9 @@ import { splitScore } from './MyMatchesScreen';
 
 const SW = Dimensions.get('window').width;
 const CARD_GAP = 12;
-const MATCH_CARD_W = Math.round(SW - 56);
+// Carousel card width — leave ~44px of the screen on each side so the previous
+// and next match peek in a cover-flow style (centre card shown in full).
+const MATCH_CARD_W = Math.round(SW - 90);
 
 // Parse a cricket score string like "217/4 (11.0)" → { runs, wkts, overs }.
 const parseScore = (s) => {
@@ -749,6 +751,10 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       return;
     }
     if (mt.status !== 'scheduled') { navigation.navigate('Scorecard', { matchId: mt.id }); return; }
+    // Only the assigned scorer (creator by default) can start a scheduled match;
+    // everyone else just views its info. The backend's toss/score endpoints reject
+    // non-scorers too, so this keeps the UI honest instead of dead-ending on a 403.
+    if (!mt.isScorer) { navigation.navigate('Scorecard', { matchId: mt.id }); return; }
     let firstInningId;
     const innRes = await legendsApi.getMatchInnings(mt.id);
     if (innRes.success && innRes.data?.length) firstInningId = innRes.data[0].id;
@@ -828,24 +834,29 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
             index * MATCH_CARD_W,
             (index + 1) * MATCH_CARD_W,
           ];
+          // Centre card sits full-size and opaque; neighbours shrink + fade a touch
+          // and tilt slightly for a subtle cover-flow depth (kept readable, not edge-on).
           const scale = scrollX.interpolate({
             inputRange,
-            outputRange: [0.75, 1, 0.75],
+            outputRange: [0.86, 1, 0.86],
             extrapolate: 'clamp',
           });
           const opacity = scrollX.interpolate({
             inputRange,
-            outputRange: [0.5, 1, 0.5],
+            outputRange: [0.55, 1, 0.55],
             extrapolate: 'clamp',
           });
           const rotateY = scrollX.interpolate({
             inputRange,
-            outputRange: ['60deg', '0deg', '-60deg'],
+            outputRange: ['32deg', '0deg', '-32deg'],
             extrapolate: 'clamp',
           });
+          // Nudge each neighbour outward toward the screen edge to counter the inward
+          // foreshortening from the rotation + scale, so its slanted near edge stays
+          // clearly visible (a readable, tilted cover-flow peek — not edge-on).
           const translateX = scrollX.interpolate({
             inputRange,
-            outputRange: [-55, 0, 55],
+            outputRange: [-28, 0, 28],
             extrapolate: 'clamp',
           });
           const zIndex = scrollX.interpolate({
@@ -854,17 +865,17 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
             extrapolate: 'clamp',
           });
           return (
-            <Animated.View style={{ 
-              width: MATCH_CARD_W, 
+            <Animated.View style={{
+              width: MATCH_CARD_W,
               opacity,
               zIndex,
               elevation: zIndex,
               transform: [
-                { perspective: 800 },
+                { perspective: 1000 },
                 { translateX },
                 { scale },
-                { rotateY }
-              ] 
+                { rotateY },
+              ],
             }}>
               <CircleMatchCard match={item} onPress={() => openCircleMatch(item)} />
             </Animated.View>

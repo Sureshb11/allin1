@@ -176,7 +176,10 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
             </View>
 
             <View style={styles.actionBlock}>
-              {m.status === 'scheduled' ? (
+              {/* Only the assigned scorer (creator by default) can start/score a match.
+                  Everyone else just views the match info — see [[assertScorer]] on the
+                  backend, which rejects scoring from non-scorers too. */}
+              {m.status === 'scheduled' && isScorer ? (
                 <TouchableOpacity onPress={() => onStart(m)} style={[styles.scoreBtn, styles.startBtn]}>
                   <Icon name="play" size={13} color={DS.onBlue} />
                   <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>START MATCH</Text>
@@ -188,8 +191,8 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity onPress={onPress} style={styles.scoreBtn}>
-                  <Icon name="play" size={14} color={DS.white} />
-                  <Text style={styles.scoreBtnText}>SCORE</Text>
+                  <Icon name={isScorer ? 'play' : 'information-outline'} size={14} color={DS.white} />
+                  <Text style={styles.scoreBtnText}>{isScorer ? 'SCORE' : 'MATCH INFO'}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -201,6 +204,7 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
 }
 
 export const FILTERS = ['all', 'live', 'upcoming', 'completed'];
+const FILTER_ICONS = { all: 'view-grid', live: 'circle-slice-8', upcoming: 'calendar-clock', completed: 'check-circle' };
 export const FILTER_STATUS_MAP = { all: 'all', live: 'live', upcoming: 'scheduled', completed: 'completed' };
 
 export default function MyMatchesScreen({ navigation }) {
@@ -213,7 +217,10 @@ export default function MyMatchesScreen({ navigation }) {
   const [loading, setLoading]   = useState(true);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: true, headerBackVisible: true, headerTitle: 'My Matches' });
+    // Hide the native stack header — this screen has its own branded top bar
+    // (logo + Toss & Play + search). Showing both stacked a duplicate "My Matches"
+    // header above it. Back lives in the brand bar instead.
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   const loadMatches = async () => {
@@ -274,7 +281,12 @@ export default function MyMatchesScreen({ navigation }) {
     return (
       <View style={styles.container}>
         <View style={styles.brandBar}>
-          <View style={styles.brandLeft}><BrandLogo scale={0.8} /></View>
+          <View style={styles.brandLeft}>
+            <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Icon name="arrow-left" size={22} color={DS.textPrimary} />
+            </TouchableOpacity>
+            <BrandLogo scale={0.8} />
+          </View>
           <View style={styles.profileIcon}><Icon name="account" size={18} color={DS.textPrimary} /></View>
         </View>
       {/* Toss & Play Banner */}
@@ -303,6 +315,9 @@ export default function MyMatchesScreen({ navigation }) {
       {/* Brand bar */}
       <View style={styles.brandBar}>
         <View style={styles.brandLeft}>
+          <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Icon name="arrow-left" size={22} color={DS.textPrimary} />
+          </TouchableOpacity>
           <BrandLogo scale={0.8} />
         </View>
         <View style={styles.profileIcon}>
@@ -342,12 +357,12 @@ export default function MyMatchesScreen({ navigation }) {
         )}
       </View>
 
-      {/* Filter tabs */}
+      {/* Filter tabs — app-standard X-style: icon-only, the selected filter shows
+          its name (green) with an underline. */}
       <View style={styles.filtersRow}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContainer}>
-          {FILTERS.map((f, i) => {
+          {FILTERS.map((f) => {
             const active = status === f;
-            const dotColor = f === 'live' ? DS.live : f === 'upcoming' ? DS.blue : null;
             return (
               <TouchableOpacity
                 key={f}
@@ -355,10 +370,8 @@ export default function MyMatchesScreen({ navigation }) {
                 onPress={() => setStatus(f)}
                 activeOpacity={0.8}
               >
-                {dotColor && <View style={[styles.tabDot, { backgroundColor: dotColor }]} />}
-                <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
-                  {f.toUpperCase()}
-                </Text>
+                <Icon name={FILTER_ICONS[f]} size={16} color={active ? DS.lime : DS.textMuted} />
+                {active && <Text style={styles.filterTabTextActive}>{f.toUpperCase()}</Text>}
               </TouchableOpacity>
             );
           })}
@@ -473,27 +486,26 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary, fontWeight: '500' },
 
-  /* Filter tabs */
+  /* Filter tabs — X-style (icon + underline on the selected one) */
   filtersRow: {
-    paddingTop: 16, paddingBottom: 8,
+    paddingTop: 10, paddingBottom: 4,
   },
   filtersContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 12,
+    paddingHorizontal: 12,
+    gap: 4,
+    alignItems: 'center',
   },
   filterTab: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 10, paddingHorizontal: 18, borderRadius: 24,
-    backgroundColor: DS.surface,
-    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 9,
+    borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
-  filterTabActive: { backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
-  filterTabText: {
-    fontSize: 12, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8,
+  filterTabActive: { borderBottomColor: DS.lime },
+  filterTabTextActive: {
+    fontSize: 12, color: DS.lime, fontWeight: '800',
+    textTransform: 'uppercase', letterSpacing: 0.5, includeFontPadding: false,
   },
-  filterTabTextActive: { color: DS.bg, fontWeight: '900' },
-  tabDot: { width: 8, height: 8, borderRadius: 4, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 2, shadowOffset: { width: 0, height: 1 } },
 
   /* Count */
   countRow: { paddingHorizontal: 16, paddingBottom: 6 },
