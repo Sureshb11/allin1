@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useLayoutEffect, useRef } from 'react';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
+import { useHideTabBarOnScroll } from "../components/AutoHideTabBar";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, Animated } from 'react-native';
 import Svg, { Polyline, Polygon, Circle, Line, Text as SvgText } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -83,7 +84,7 @@ const FIELDING_STATS = (s, DS) => [
 { label: 'Stumpings', value: s.stumpings ?? 0, color: DS.coral }];
 
 
-export default function MyPerformanceScreen({ navigation, inline }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+export default function MyPerformanceScreen({ navigation, inline }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();
   const [stats, setStats] = useState(null);
   const [tab, setTab] = useState('batting');
   const [loading, setLoading] = useState(true);
@@ -113,7 +114,7 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
   const chartColor = tab === 'batting' ? DS.lime : tab === 'bowling' ? DS.coral : DS.blue;
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} {...hideTabBar}>
       {/* Hero */}
       {!inline && (
         <View style={styles.hero}>

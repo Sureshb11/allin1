@@ -116,7 +116,7 @@ const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   hero: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: DS.surfaceLow, paddingTop: 48, paddingBottom: 10, paddingHorizontal: 16,
+    backgroundColor: DS.surfaceLow, paddingTop: 16, paddingBottom: 10, paddingHorizontal: 16,
   },
   heroLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandText: { fontSize: 20, fontWeight: '800', color: DS.textPrimary, letterSpacing: 1.5 },

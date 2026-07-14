@@ -6,6 +6,7 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createStackNavigator} from '@react-navigation/stack';
 import {getFocusedRouteNameFromRoute} from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import { TabBarVisibilityProvider, AutoHideTabBar } from '../components/AutoHideTabBar';
 
 import HomeScreen from '../screens/HomeScreen';
 import CricketFeedScreen from '../screens/CricketFeedScreen';
@@ -414,7 +415,9 @@ const AppNavigator = ({ route: appRoute }) => {
   const sportIcon = initialSport?.icon || 'cricket';
 
   return (
+    <TabBarVisibilityProvider>
     <Tab.Navigator
+      tabBar={(props) => <AutoHideTabBar {...props} />}
       screenOptions={({ route, navigation }) => {
         const focusedRouteName = getFocusedRouteNameFromRoute(route);
         const isFullScreen = ['Scoring', 'SportScoring'].includes(focusedRouteName);
@@ -460,6 +463,7 @@ const AppNavigator = ({ route: appRoute }) => {
         initialParams={{ initialSport, initialFormat }}
       />
     </Tab.Navigator>
+    </TabBarVisibilityProvider>
   );
 };
 

@@ -22,6 +22,7 @@ import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo from '../components/BrandLogo';
 import HexAvatar from '../components/HexAvatar';
+import { useHideTabBarOnScroll } from '../components/AutoHideTabBar';
 import { splitScore } from './MyMatchesScreen';
 
 const SW = Dimensions.get('window').width;
@@ -568,7 +569,7 @@ function CommentsSheet({ post, onClose, onAdd }) {const DS = useTheme().colors;c
 }
 
 // ── Screen ──────────────────────────────────────────────────────────────────
-export default function CricketFeedScreen({ navigation }) {const { colors: DS, isDark } = useTheme();const s = useThemedStyles(makeS);
+export default function CricketFeedScreen({ navigation }) {const { colors: DS, isDark } = useTheme();const s = useThemedStyles(makeS);const hideTabBar = useHideTabBarOnScroll();
   const meUser = useCurrentUser();
   const [posts, setPosts] = useState([]);
   const [matches, setMatches] = useState([]);
@@ -934,6 +935,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       </View>
 
       <FlatList
+        {...hideTabBar}
         data={posts}
         keyExtractor={(it) => it.id}
         ListHeaderComponent={renderHeader}
