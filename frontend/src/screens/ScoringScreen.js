@@ -1,7 +1,8 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, Image, StyleSheet, TouchableOpacity, ScrollView,
-  Alert, Modal, Share, StatusBar, Dimensions, BackHandler } from
+  Alert, Modal, Share, StatusBar, Dimensions, BackHandler,
+  Animated, PanResponder } from
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -65,7 +66,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const awardsFetched = useRef(false);
   const [currentInningId, setCurrentInningId] = useState('');
   const [ballCount, setBallCount] = useState(0);
-  const [overSummary, setOverSummary] = useState(null);
   const [scoringReady, setScoringReady] = useState(false);
   // Bowling spell tracking → per-bowler over limit + no consecutive overs.
   const [bowlerOvers, setBowlerOvers] = useState({});      // bowlerId -> overs bowled
@@ -97,6 +97,21 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const [mvp, setMvp] = useState(null);                    // Player of the Match (computed on completion)
   const [showSettings, setShowSettings] = useState(false); // top-bar settings sheet (End Innings/Match lives here)
   const [showExitModal, setShowExitModal] = useState(false);
+  // Swipe-down-to-dismiss for the Pause/Leave drawer: drag the top of the sheet
+  // down past a threshold (or flick) to close; otherwise it springs back.
+  const exitDragY = useRef(new Animated.Value(0)).current;
+  const closeExitDrawer = () => {
+    Animated.timing(exitDragY, { toValue: 600, duration: 180, useNativeDriver: true })
+      .start(() => { setShowExitModal(false); exitDragY.setValue(0); });
+  };
+  const exitPan = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+    onPanResponderMove: (_, g) => { if (g.dy > 0) exitDragY.setValue(g.dy); },
+    onPanResponderRelease: (_, g) => {
+      if (g.dy > 120 || g.vy > 0.8) closeExitDrawer();
+      else Animated.spring(exitDragY, { toValue: 0, useNativeDriver: true }).start();
+    },
+  })).current;
   const [transferPrompt, setTransferPrompt] = useState(false);   // transfer-scorer sheet
   const [transferCandidates, setTransferCandidates] = useState([]);
   const [endPrompt, setEndPrompt] = useState(false);       // reason picker before ending innings/match
@@ -231,12 +246,16 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // ── Prevent accidental exit
   useEffect(() => {
     const backAction = () => {
+      // The Scorecard is pushed on top of this screen; while it's up, this
+      // listener is still mounted underneath. Don't hijack its back press —
+      // let it fall through so the Scorecard pops back here as expected.
+      if (!navigation.isFocused()) return false;
       setShowExitModal(true);
       return true;
     };
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, []);
+  }, [navigation]);
 
   // Persist the crease whenever it changes (opening pick, strike rotation, new
   // batter, new bowler) so a back-out + resume restores the exact pair/bowler and
@@ -291,9 +310,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const totalOvers = parseInt(matchData.overs, 10) || 20;
   const maxOversPerBowler = Math.ceil(totalOvers / 5);   // T20 → 4, ODI → 10
   // "Change Bowler" is only valid mid-over: scoring live, a bowler is set, and the
-  // over isn't already complete (overSummary is shown once 6 legal balls are done,
-  // when the next-over flow picks the bowler instead).
-  const canChangeBowler = scoringReady && !matchComplete && !overSummary && !!currentBowler;
+  // next-over bowler pick isn't already up (the modal auto-opens at over's end).
+  const canChangeBowler = scoringReady && !matchComplete && !mustPickBowler && !!currentBowler;
   const target = isInnings2 ? firstInningsScore.runs + 1 : 0;
   const need = isInnings2 ? Math.max(0, target - currentScore.runs) : 0;
   const ballsLeft = isInnings2 ? Math.max(1, totalOvers * 6 - (currentScore.overs * 6 + currentScore.balls)) : 1;
@@ -347,7 +365,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     setMatchResult(result);
     // Match's over — never leave the bowler picker (or any prompt) hanging.
     setShowBowlerModal(false); setMustPickBowler(false);
-    setShowPlayerModal(false); setOverSummary(null);
+    setShowPlayerModal(false);
     const scoreStr = `${finalScore.runs}/${finalScore.wickets} (${finalScore.overs}.${finalScore.balls})`;
     // The match ends during the 2nd innings, so battingTeamId is the chasing side —
     // write its own summary field, not a hardcoded score2.
@@ -409,7 +427,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     if (prev.batStats) setBatStats(prev.batStats);
     if (prev.bowlStats) setBowlStats(prev.bowlStats);
     if (prev.outBatters) setOutBatters(prev.outBatters);
-    setOverSummary(null);
     setShowPlayerModal(false);
     setShowBowlerModal(false);
     const s = `${prev.score.runs}/${prev.score.wickets} (${prev.score.overs}.${prev.score.balls})`;
@@ -553,26 +570,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     }
 
     if (newScore.balls >= 6) {
-      // Build over summary before reset
-      const isExtra = (b) => /wd|nb|^b$|lb|WD|NB|LB|P5/i.test(b) || b === 'B';
-      const overRuns = newOver.reduce((acc, b) => {
-        if (b === 'WD' || b === 'NB' || b === 'B' || b === 'LB') return acc + 1;
-        if (b === 'P5') return acc + 5;
-        if (b === '·') return acc;
-        const n = parseInt(b);                    // '2wd','3nb','2b','3lb', or plain runs
-        return isNaN(n) ? acc : acc + n;
-      }, 0);
-      const overWickets = newOver.filter((b) => b === 'W').length;
-      const overExtras = newOver.filter(isExtra).length;
-      setOverSummary({
-        overNum: newScore.overs + 1,
-        runs: overRuns,
-        wickets: overWickets,
-        extras: overExtras,
-        bowler: currentBowler?.name || '',
-        balls: [...newOver]
-      });
-
       newScore.overs += 1;
       newScore.balls = 0;
       setCurrentOver([]);
@@ -666,7 +663,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       setIsInnings2(true);
       setCurrentInningId(inn.success ? inn.data.id : '');
       setCurrentScore({ runs: 0, wickets: 0, overs: 0, balls: 0 });
-      setCurrentOver([]); setBallCount(0); setOverSummary(null); setHistory([]);
+      setCurrentOver([]); setBallCount(0); setHistory([]);
       // Fresh innings → reset per-player figures + bowling spell tracking + dismissals.
       setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setOutBatters([]); setRetiredBatters([]); setPendingCreaseSwap(false);
       milestoneRef.current = { bat: {}, bowl: {}, streak: { id: null, n: 0 } };   // fresh milestones for the new innings
@@ -1198,34 +1195,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         </TouchableOpacity>
         }
 
-        {/* ── OVER SUMMARY + COMPLETE OVER ── */}
-        {overSummary &&
-        <View style={styles.summaryRow}>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Over {overSummary.overNum} Summary</Text>
-              <Text style={styles.summaryBowler}>Bowler: {overSummary.bowler} yielded {overSummary.runs} runs.</Text>
-              <View style={styles.summaryStats}>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryStatLabel}>RUNS</Text>
-                  <Text style={styles.summaryStatVal}>{overSummary.runs}</Text>
-                </View>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryStatLabel}>WICKETS</Text>
-                  <Text style={styles.summaryStatVal}>{overSummary.wickets}</Text>
-                </View>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryStatLabel}>EXTRAS</Text>
-                  <Text style={styles.summaryStatVal}>{overSummary.extras}</Text>
-                </View>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.completeOverBtn} onPress={() => {setOverSummary(null);setMustPickBowler(true);setShowBowlerModal(true);}}>
-              <Icon name="check-circle" size={28} color={DS.bg} />
-              <Text style={styles.completeOverText}>NEXT{'\n'}OVER</Text>
-            </TouchableOpacity>
-          </View>
-        }
-
         {/* END INNINGS / MATCH now lives in the ⚙ settings sheet (top-right),
             gated behind a reason picker. */}
 
@@ -1260,11 +1229,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
 
       </View>
 
-      <Modal visible={showExitModal} transparent animationType="slide">
+      <Modal visible={showExitModal} transparent animationType="slide" onRequestClose={() => setShowExitModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Pause / Leave Match?</Text>
+          <Animated.View style={[styles.modalSheet, { transform: [{ translateY: exitDragY }] }]}>
+            <View {...exitPan.panHandlers}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitle}>Pause / Leave Match?</Text>
+            </View>
             <ScrollView>
               {['Raining', 'Break', 'Lunch', 'End of Day', 'Match Abandoned'].map((reason, i) => (
                 <TouchableOpacity key={i} style={styles.playerOption} onPress={() => {
@@ -1276,10 +1247,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               ))}
               <TouchableOpacity style={[styles.playerOption, { borderTopWidth: 1, borderTopColor: DS.line }]} onPress={() => setShowExitModal(false)}>
                 <Icon name="close" size={20} color={DS.textMuted} />
-                <Text style={[styles.playerName, { flex: 1, color: DS.textMuted }]}>Mistake / Cancel</Text>
+                <Text style={[styles.playerName, { flex: 1, color: DS.textMuted }]}>Cancel</Text>
               </TouchableOpacity>
             </ScrollView>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -1851,21 +1822,6 @@ const makeStyles = (DS) => StyleSheet.create({
   momentumLabels: { flexDirection: 'row', justifyContent: 'space-between' },
   momentumLabelLeft: { fontSize: 9, fontWeight: '700', color: DS.lime, letterSpacing: 0.8 },
   momentumLabelRight: { fontSize: 9, fontWeight: '700', color: DS.coral, letterSpacing: 0.8 },
-
-  // Over summary + complete button
-  summaryRow: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 10 },
-  summaryCard: { flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 14 },
-  summaryTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginBottom: 4 },
-  summaryBowler: { fontSize: 12, color: DS.textMuted, marginBottom: 10 },
-  summaryStats: { flexDirection: 'row', gap: 16 },
-  summaryStat: {},
-  summaryStatLabel: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.8 },
-  summaryStatVal: { fontSize: 20, fontWeight: '900', color: DS.textPrimary },
-  completeOverBtn: {
-    width: 90, backgroundColor: DS.lime, borderRadius: 16,
-    alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12
-  },
-  completeOverText: { fontSize: 11, fontWeight: '900', color: DS.bg, textAlign: 'center', letterSpacing: 0.5 },
 
   // Settings sheet / end-reason rows
   settingRow: {

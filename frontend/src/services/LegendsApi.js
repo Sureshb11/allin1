@@ -1155,6 +1155,45 @@ class LegendsApi {
     }
   }
 
+  // Tournament — a team owner requests to join (creates a pending request)
+  async requestToJoinTournament(tournamentId, teamId, group = 'A') {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/join-requests`, { method: 'POST', body: { teamId, group } });
+      return { success: true, data: json.entry };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Tournament — pending join requests (organiser only)
+  async getTournamentJoinRequests(tournamentId) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/join-requests`);
+      return { success: true, data: json.requests || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Tournament — approve / reject a pending request (organiser only)
+  async approveJoinRequest(tournamentId, teamId) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/join-requests/${teamId}/approve`, { method: 'POST' });
+      return { success: true, data: json.entry };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async rejectJoinRequest(tournamentId, teamId) {
+    try {
+      await this.request(`/tournaments/${tournamentId}/join-requests/${teamId}/reject`, { method: 'POST' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Tournament — add fixture
   async addTournamentFixture(tournamentId, fixtureData) {
     try {

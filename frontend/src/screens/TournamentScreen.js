@@ -24,6 +24,9 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
   // Opened via the "Create Tournament" route → start with the form open.
   const [showCreateForm, setShowCreateForm] = useState(route?.params?.openCreate ?? true);
   const [creating, setCreating] = useState(false);
+  // The logged-in user is the organiser of anything they create — stamped onto the
+  // tournament so it shows in the Overview's "Organizer" section.
+  const [organizerName, setOrganizerName] = useState('');
   const [form, setForm] = useState({ name: '', format: 'T20', overs: '20', ballType: 'Leather', venue: '', prizePool: '', maxTeams: '' });
 
   useLayoutEffect(() => {
@@ -34,7 +37,18 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
     });
   }, [navigation]);
 
-  useEffect(() => {loadTournaments();}, []);
+  useEffect(() => {loadTournaments(); loadOrganizer();}, []);
+
+  const loadOrganizer = async () => {
+    try {
+      const res = await legendsApi.getMe();
+      if (res.success) {
+        const u = res.data?.user, p = res.data?.player;
+        const name = `${u?.firstName || ''} ${u?.lastName || ''}`.trim() || p?.name || '';
+        if (name) setOrganizerName(name);
+      }
+    } catch (e) {}
+  };
 
   const loadTournaments = async () => {
     try {
@@ -55,6 +69,7 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
         venue: form.venue.trim() || undefined,
         prizePool: form.prizePool.trim() || undefined,
         maxTeams: form.maxTeams ? parseInt(form.maxTeams, 10) : undefined,
+        organizer: organizerName || undefined,
         status: 'upcoming'
       });
       if (res.success) {

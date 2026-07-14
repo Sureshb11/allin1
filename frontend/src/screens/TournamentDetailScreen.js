@@ -43,8 +43,11 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const [activeTab, setActiveTab] = useState(TABS.includes(route.params?.initialTab) ? route.params.initialTab : 'Overview');
   const [loading, setLoading] = useState(true);
   const [showTeamPicker, setShowTeamPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState('add'); // 'add' (organiser) | 'join' (participant request)
   const [selectedTeamIds, setSelectedTeamIds] = useState(new Set());
   const [myTeams, setMyTeams] = useState([]);
+  const [myUserId, setMyUserId] = useState(null);      // to decide organiser vs participant
+  const [joinRequests, setJoinRequests] = useState([]); // pending requests (organiser view)
   const [processing, setProcessing] = useState(false);
   const [showAutoScheduleModal, setShowAutoScheduleModal] = useState(false);
   const [scheduleFormat, setScheduleFormat] = useState('classic_t20');
@@ -71,11 +74,12 @@ export default function TournamentDetailScreen({ route, navigation }) {
 
   useEffect(() => {
     const load = async () => {
-      const [tRes, stRes, ptRes, schRes] = await Promise.all([
+      const [tRes, stRes, ptRes, schRes, meRes] = await Promise.all([
         legendsApi.getTournament(tournamentId),
         legendsApi.getTournamentStandings(tournamentId),   // Module 2 computed table
         legendsApi.getTournamentPointsTable(tournamentId), // fallback (older API)
         legendsApi.getTournamentSchedule(tournamentId),
+        legendsApi.getMe(),                                // to tell organiser from participant
       ]);
       if (tRes.success) setTournament(tRes.data);
       // Prefer the computed standings; fall back to the legacy points table.
@@ -83,9 +87,20 @@ export default function TournamentDetailScreen({ route, navigation }) {
       else if (ptRes.success) setPointsTable(ptRes.data);
       if (schRes.success) setSchedule(schRes.data);
 
+      const myId = meRes.success ? meRes.data?.user?.id : null;
+      setMyUserId(myId);
+
       // Sport isolation: only offer same-sport teams for this tournament.
       const myTeamsRes = await legendsApi.getTeams(tRes.success ? tRes.data.sport : undefined);
       if (myTeamsRes.success) setMyTeams(myTeamsRes.data);
+
+      // Organiser (creator, or any legacy tournament with no recorded organiser)
+      // sees the pending join requests to approve/reject.
+      const t = tRes.success ? tRes.data : null;
+      if (t && (!t.organizerId || t.organizerId === myId)) {
+        const jr = await legendsApi.getTournamentJoinRequests(tournamentId);
+        if (jr.success) setJoinRequests(jr.data);
+      }
 
       setLoading(false);
     };
@@ -118,24 +133,60 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const handleRegisterSelectedTeams = async () => {
     if (selectedTeamIds.size === 0) return;
     setProcessing(true);
-    
+
     // Filter out teams already in the tournament
     const existingIds = new Set((tournament?.teams || []).map(t => t.team.id));
-    const toRegister = [...selectedTeamIds].filter(id => !existingIds.has(id));
+    const toSubmit = [...selectedTeamIds].filter(id => !existingIds.has(id));
 
     let successCount = 0;
-    for (const teamId of toRegister) {
-      const res = await legendsApi.registerTeamInTournament(tournamentId, teamId);
-      if (res.success) successCount++;
+    let lastError = '';
+    for (const teamId of toSubmit) {
+      // Organiser adds directly (approved); a participant sends a join request (pending).
+      const res = pickerMode === 'join'
+        ? await legendsApi.requestToJoinTournament(tournamentId, teamId)
+        : await legendsApi.registerTeamInTournament(tournamentId, teamId);
+      if (res.success) successCount++; else lastError = res.error || lastError;
     }
 
-    if (successCount > 0) {
+    // Organiser-added teams show up in the approved list immediately; requests don't.
+    if (successCount > 0 && pickerMode === 'add') {
       const tRes = await legendsApi.getTournament(tournamentId);
       if (tRes.success) setTournament(tRes.data);
     }
-    
+
     setShowTeamPicker(false);
     setSelectedTeamIds(new Set());
+    setProcessing(false);
+    if (pickerMode === 'join' && successCount > 0) {
+      alert(`Request sent to the organiser for ${successCount} team${successCount !== 1 ? 's' : ''}. You'll be notified when it's approved.`);
+    } else if (successCount === 0 && lastError) {
+      alert(lastError);
+    }
+  };
+
+  const reloadRequests = async () => {
+    const jr = await legendsApi.getTournamentJoinRequests(tournamentId);
+    if (jr.success) setJoinRequests(jr.data);
+  };
+
+  const handleApproveRequest = async (teamId) => {
+    setProcessing(true);
+    const res = await legendsApi.approveJoinRequest(tournamentId, teamId);
+    if (res.success) {
+      await reloadRequests();
+      const tRes = await legendsApi.getTournament(tournamentId);
+      if (tRes.success) setTournament(tRes.data);
+    } else {
+      alert(res.error || 'Failed to approve');
+    }
+    setProcessing(false);
+  };
+
+  const handleRejectRequest = async (teamId) => {
+    setProcessing(true);
+    const res = await legendsApi.rejectJoinRequest(tournamentId, teamId);
+    if (res.success) await reloadRequests();
+    else alert(res.error || 'Failed to reject');
     setProcessing(false);
   };
 
@@ -287,6 +338,12 @@ export default function TournamentDetailScreen({ route, navigation }) {
 
   const statusColor = STATUS_COLORS[tournament.status] || STATUS_COLORS.upcoming;
 
+  // Only the creator manages the tournament. Legacy tournaments with no recorded
+  // organiser stay open (matches the backend's fallback) so old data isn't locked out.
+  const isOrganizer = !tournament.organizerId || (!!myUserId && tournament.organizerId === myUserId);
+  // A participant can only request with a team they own.
+  const myOwnedTeams = myTeams.filter(t => t.ownerId && t.ownerId === myUserId);
+
   const renderOverview = () => (
     <ScrollView contentContainerStyle={styles.tabContent}>
       {/* Info Grid */}
@@ -335,9 +392,15 @@ export default function TournamentDetailScreen({ route, navigation }) {
               </View>
             </View>
             {['upcoming', 'ongoing'].includes(tournament.status) && (
-              <TouchableOpacity style={styles.addBtn} onPress={() => setShowTeamPicker(true)}>
-                <Text style={styles.addBtnText}>+ Add Team</Text>
-              </TouchableOpacity>
+              isOrganizer ? (
+                <TouchableOpacity style={styles.addBtn} onPress={() => { setPickerMode('add'); setShowTeamPicker(true); }}>
+                  <Text style={styles.addBtnText}>+ Add Team</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.addBtn} onPress={() => { setPickerMode('join'); setShowTeamPicker(true); }}>
+                  <Text style={styles.addBtnText}>Request to Join</Text>
+                </TouchableOpacity>
+              )
             )}
           </View>
           {(tournament.teams || []).slice(0, 5).map(({ team, group }) => (
@@ -352,18 +415,48 @@ export default function TournamentDetailScreen({ route, navigation }) {
               <View style={styles.groupBadge}>
                 <Text style={styles.groupText}>Grp {group}</Text>
               </View>
-              {['upcoming', 'ongoing'].includes(tournament.status) && (
+              {isOrganizer && ['upcoming', 'ongoing'].includes(tournament.status) && (
                 <TouchableOpacity onPress={() => handleRemoveTeam(team.id)} disabled={processing} style={{ marginLeft: 12 }}>
                   <Icon name="trash-can-outline" size={20} color={DS.coral} />
                 </TouchableOpacity>
               )}
             </View>
           ))}
-          {(tournament.teams || []).length > 0 && (
-            <TouchableOpacity onPress={() => setShowTeamPicker(true)} style={{ paddingTop: 14, alignItems: 'center' }}>
-              <Text style={styles.viewAllText}>View All Registered Teams</Text>
+          {(tournament.teams || []).length > 0 && ['upcoming', 'ongoing'].includes(tournament.status) && (
+            <TouchableOpacity onPress={() => { setPickerMode(isOrganizer ? 'add' : 'join'); setShowTeamPicker(true); }} style={{ paddingTop: 14, alignItems: 'center' }}>
+              <Text style={styles.viewAllText}>{isOrganizer ? 'Add More Teams' : 'Request to Join'}</Text>
             </TouchableOpacity>
           )}
+        </View>
+      )}
+
+      {/* Pending Join Requests — organiser only */}
+      {isOrganizer && joinRequests.length > 0 && (
+        <View style={styles.section}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Pending Requests</Text>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{joinRequests.length}</Text>
+            </View>
+          </View>
+          {joinRequests.map(({ team }) => (
+            <View key={team.id} style={styles.teamRow}>
+              <HexAvatar size={38} color={avatarColor(team.name)}>
+                <Text style={styles.teamAvatarText}>{team.name?.charAt(0).toUpperCase()}</Text>
+              </HexAvatar>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.teamName}>{team.name}</Text>
+                <Text style={styles.teamCaptain}>Captain: {captainOf(team)}</Text>
+              </View>
+              <TouchableOpacity onPress={() => handleApproveRequest(team.id)} disabled={processing} style={styles.approveBtn}>
+                <Icon name="check" size={16} color={DS.bg} />
+                <Text style={styles.approveBtnText}>Approve</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleRejectRequest(team.id)} disabled={processing} style={{ marginLeft: 10 }}>
+                <Icon name="close-circle-outline" size={22} color={DS.coral} />
+              </TouchableOpacity>
+            </View>
+          ))}
         </View>
       )}
 
@@ -515,7 +608,8 @@ export default function TournamentDetailScreen({ route, navigation }) {
     const completed = item.status === 'completed';
     const isLive = item.status === 'live';
     const bothKnown = !!item.team1?.id && !!item.team2?.id;
-    const actionable = bothKnown && !completed && ['upcoming', 'ongoing'].includes(tournament.status);
+    // Only the organiser can start/score/record fixtures.
+    const actionable = isOrganizer && bothKnown && !completed && ['upcoming', 'ongoing'].includes(tournament.status);
     const isCricket = (tournament.sport || 'cricket') === 'cricket';
     const s1 = item.resultStats?.[item.team1?.id]?.scored;
     const s2 = item.resultStats?.[item.team2?.id]?.scored;
@@ -601,7 +695,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
         <View style={styles.empty}>
           <Icon name="calendar-blank-outline" size={36} color={DS.textMuted} />
           <Text style={styles.emptyText}>No fixtures scheduled</Text>
-          {['upcoming', 'ongoing'].includes(tournament.status) && (tournament.teams || []).length >= 2 && (
+          {isOrganizer && ['upcoming', 'ongoing'].includes(tournament.status) && (tournament.teams || []).length >= 2 && (
             <TouchableOpacity style={styles.primaryBtn} onPress={() => setShowAutoScheduleModal(true)} disabled={processing}>
               <Text style={styles.primaryBtnText}>{processing ? 'Scheduling...' : 'Auto-Generate Schedule'}</Text>
             </TouchableOpacity>
@@ -828,23 +922,32 @@ export default function TournamentDetailScreen({ route, navigation }) {
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
-                  Select Teams {tournament?.maxTeams ? `(${(tournament?.teams || []).length + selectedTeamIds.size}/${tournament.maxTeams})` : ''}
+                  {pickerMode === 'join' ? 'Request to Join' : 'Select Teams'} {pickerMode === 'add' && tournament?.maxTeams ? `(${(tournament?.teams || []).length + selectedTeamIds.size}/${tournament.maxTeams})` : ''}
                 </Text>
                 <TouchableOpacity onPress={() => setShowTeamPicker(false)}>
                   <Icon name="close" size={24} color={DS.textPrimary} />
                 </TouchableOpacity>
               </View>
-              {myTeams.length === 0 ? (
-                <Text style={styles.emptyText}>No teams available.</Text>
-              ) : (
+              {pickerMode === 'join' && (
+                <Text style={[styles.emptyText, { textAlign: 'left', marginBottom: 8 }]}>
+                  Pick a team you own to request entry. The organiser approves it before you're in.
+                </Text>
+              )}
+              {(() => {
+                // Organiser adds any same-sport team; a participant may only request with a team they own.
+                const pickable = pickerMode === 'join' ? myOwnedTeams : myTeams;
+                if (pickable.length === 0) {
+                  return <Text style={styles.emptyText}>{pickerMode === 'join' ? "You don't own any teams for this sport." : 'No teams available.'}</Text>;
+                }
+                return (
                 <>
                   <ScrollView>
-                    {myTeams.map(t => {
+                    {pickable.map(t => {
                       const isRegistered = (tournament?.teams || []).some(rt => rt.team.id === t.id);
                       const isSelected = selectedTeamIds.has(t.id);
                       return (
-                        <TouchableOpacity key={t.id} style={[styles.teamSelectRow, isRegistered && { opacity: 0.5 }]} 
-                                          onPress={() => !isRegistered && toggleTeamSelection(t.id)} 
+                        <TouchableOpacity key={t.id} style={[styles.teamSelectRow, isRegistered && { opacity: 0.5 }]}
+                                          onPress={() => !isRegistered && toggleTeamSelection(t.id)}
                                           disabled={processing || isRegistered}>
                           <View style={styles.teamAvatar}><Text style={styles.teamAvatarText}>{t.name?.charAt(0).toUpperCase()}</Text></View>
                           <Text style={styles.teamSelectName}>{t.name} {isRegistered ? '(Registered)' : ''}</Text>
@@ -855,16 +958,21 @@ export default function TournamentDetailScreen({ route, navigation }) {
                       );
                     })}
                   </ScrollView>
-                  <TouchableOpacity 
-                    style={[styles.primaryBtn, { marginTop: 16 }, selectedTeamIds.size === 0 && { opacity: 0.5 }]} 
-                    onPress={handleRegisterSelectedTeams} 
+                  <TouchableOpacity
+                    style={[styles.primaryBtn, { marginTop: 16 }, selectedTeamIds.size === 0 && { opacity: 0.5 }]}
+                    onPress={handleRegisterSelectedTeams}
                     disabled={processing || selectedTeamIds.size === 0}>
                     <Text style={styles.primaryBtnText}>
-                      {processing ? 'Registering...' : `Register ${selectedTeamIds.size} Team${selectedTeamIds.size !== 1 ? 's' : ''}`}
+                      {processing
+                        ? (pickerMode === 'join' ? 'Sending…' : 'Registering...')
+                        : pickerMode === 'join'
+                          ? `Request to Join (${selectedTeamIds.size})`
+                          : `Register ${selectedTeamIds.size} Team${selectedTeamIds.size !== 1 ? 's' : ''}`}
                     </Text>
                   </TouchableOpacity>
                 </>
-              )}
+                );
+              })()}
             </View>
           </View>
         </Modal>
@@ -1116,6 +1224,8 @@ const makeStyles = (DS) => StyleSheet.create({
   resultHint: { fontSize: 11, color: DS.textMuted, marginTop: 10 },
   addBtn: { backgroundColor: DS.lime, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 12 },
   addBtnText: { fontSize: 13, fontWeight: '800', color: DS.onLime },
+  approveBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: DS.lime, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 },
+  approveBtnText: { fontSize: 12, fontWeight: '800', color: DS.onLime },
   primaryBtn: { backgroundColor: DS.lime, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 16, marginTop: 20 },
   primaryBtnText: { fontSize: 14, fontWeight: '800', color: DS.bg },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },

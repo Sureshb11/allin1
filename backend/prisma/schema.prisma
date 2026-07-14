@@ -352,7 +352,8 @@ model Tournament {
   maxTeams    Int?
   prizePool   String?
   description String?
-  organizer   String?
+  organizer   String?  // organiser's display name (shown in the Overview)
+  organizerId String?  // the user who created it — gates every admin action
   sport       String   @default("cricket")
   championId  String?  // winning team once the tournament completes
 
@@ -613,6 +614,7 @@ model TournamentTeam {
   nrr          Float      @default(0)
   stats        Json?      // {nrr} | {goalDifference, goalsFor} | {pointDifference}
   group        String     @default("A")
+  status       String     @default("approved")  // approved (in) | pending (join request awaiting organiser)
 
   @@unique([tournamentId, teamId])
 }

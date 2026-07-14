@@ -4,10 +4,28 @@ import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
 import { computeStandings } from '../lib/standings.js';
 import { applyTournamentResult } from '../lib/tournamentResult.js';
-import { notifyTeams, notifyAllParticipants, safeNotify } from '../lib/notify.js';
+import { notifyTeams, notifyUsers, notifyAllParticipants, safeNotify } from '../lib/notify.js';
 import { tournamentLeaderboard } from '../lib/leaderboard.js';
 
 const router = Router();
+
+// Gate for organiser-only actions. Runs AFTER authMiddleware (needs req.user).
+// Legacy tournaments created before ownership tracking have no organizerId — those
+// stay open so existing data isn't bricked; everything created now is locked down.
+async function requireOrganizer(req, res, next) {
+  try {
+    const t = await prisma.tournament.findUnique({
+      where: { id: req.params.id }, select: { organizerId: true },
+    });
+    if (!t) return res.status(404).json({ error: 'Tournament not found' });
+    if (t.organizerId && t.organizerId !== req.user.sub) {
+      return res.status(403).json({ error: 'Only the organiser can do this' });
+    }
+    next();
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+}
 
 // ── Module 2: computed standings (points engine + per-sport tiebreakers) ─────
 // Replaces the client-computed points table: this derives points + NRR/GD from
@@ -38,7 +56,7 @@ const ResultSchema = z.object({
   resultKind:   z.enum(['win', 'draw', 'tie', 'noResult']).default('win'),
   stats:        z.record(z.any()).optional(),
 });
-router.post('/:id/result', authMiddleware, async (req, res) => {
+router.post('/:id/result', authMiddleware, requireOrganizer, async (req, res) => {
   try {
     const d = ResultSchema.parse(req.body);
     const { standings, resolved } = await applyTournamentResult(req.params.id, d);
@@ -52,7 +70,7 @@ router.post('/:id/result', authMiddleware, async (req, res) => {
 // goes 'live'; its result auto-populates when that match completes (see the
 // match-completion hook in routes/matches.js). Sport-safe: the Match was created
 // with the tournament's sport + same-sport teams, so the link can't cross sports.
-router.put('/:id/fixtures/:tmId/match', authMiddleware, async (req, res) => {
+router.put('/:id/fixtures/:tmId/match', authMiddleware, requireOrganizer, async (req, res) => {
   try {
     const { matchId } = req.body;
     if (!matchId) return res.status(400).json({ error: 'matchId required' });
@@ -82,7 +100,7 @@ const PhaseSchema = z.object({
   order: z.number().int().default(0),
   config: z.any().optional(),
 });
-router.post('/:id/phases', authMiddleware, async (req, res) => {
+router.post('/:id/phases', authMiddleware, requireOrganizer, async (req, res) => {
   try {
     const d = PhaseSchema.parse(req.body);
     const phase = await prisma.tournamentPhase.create({
@@ -121,7 +139,8 @@ router.get('/', async (req, res) => {
   if (status) where.status = String(status);
   const tournaments = await prisma.tournament.findMany({
     where,
-    include: { teams: { include: { team: true } } },
+    // Only approved teams count in the list view (pending join requests are hidden).
+    include: { teams: { where: { status: 'approved' }, include: { team: true } } },
     orderBy: { createdAt: 'desc' },
   });
   res.json({ tournaments });
@@ -131,7 +150,9 @@ router.get('/:id', async (req, res) => {
   const tournament = await prisma.tournament.findUnique({
     where: { id: req.params.id },
     include: {
-      teams:   { include: { team: true }, orderBy: { points: 'desc' } },
+      // Registered teams = approved only; pending join requests load via
+      // GET /:id/join-requests (organiser-gated).
+      teams:   { where: { status: 'approved' }, include: { team: true }, orderBy: { points: 'desc' } },
       matches: { orderBy: { scheduledAt: 'asc' } },
     },
   });
@@ -143,7 +164,7 @@ router.get('/:id', async (req, res) => {
 router.get('/:id/points-table', async (req, res) => {
   try {
     const rows = await prisma.tournamentTeam.findMany({
-      where: { tournamentId: req.params.id },
+      where: { tournamentId: req.params.id, status: 'approved' },
       include: { team: true },
       orderBy: [{ points: 'desc' }, { nrr: 'desc' }],
     });
@@ -176,7 +197,7 @@ router.get('/:id/schedule', async (req, res) => {
 });
 
 // Register a team in the tournament
-router.post('/:id/teams', authMiddleware, async (req, res) => {
+router.post('/:id/teams', authMiddleware, requireOrganizer, async (req, res) => {
   try {
     const { teamId, group = 'A' } = req.body;
     if (!teamId) return res.status(400).json({ error: 'teamId required' });
@@ -190,8 +211,12 @@ router.post('/:id/teams', authMiddleware, async (req, res) => {
     if (team.sport !== tournament.sport) {
       return res.status(400).json({ error: `Sport mismatch: ${team.name} is a ${team.sport} team but ${tournament.name} is a ${tournament.sport} tournament.` });
     }
-    const entry = await prisma.tournamentTeam.create({
-      data: { tournamentId: req.params.id, teamId, group },
+    // Organiser adds a team directly → it's in (approved). If a join request for
+    // this team is already pending, approve it rather than colliding on the unique.
+    const entry = await prisma.tournamentTeam.upsert({
+      where: { tournamentId_teamId: { tournamentId: req.params.id, teamId } },
+      update: { status: 'approved' },
+      create: { tournamentId: req.params.id, teamId, group, status: 'approved' },
       include: { team: true },
     });
 
@@ -204,13 +229,93 @@ router.post('/:id/teams', authMiddleware, async (req, res) => {
     }));
     res.status(201).json({ entry });
   } catch (e) {
-    if (e.code === 'P2002') return res.status(409).json({ error: 'Team already registered' });
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// ── Join requests ────────────────────────────────────────────────────────────
+// A team OWNER asks to enter their team → creates a PENDING entry the organiser
+// must approve. Any logged-in user may request, but only with a team they own.
+router.post('/:id/join-requests', authMiddleware, async (req, res) => {
+  try {
+    const { teamId, group = 'A' } = req.body;
+    if (!teamId) return res.status(400).json({ error: 'teamId required' });
+    const [tournament, team] = await Promise.all([
+      prisma.tournament.findUnique({ where: { id: req.params.id }, select: { sport: true, name: true, organizerId: true } }),
+      prisma.team.findUnique({ where: { id: teamId }, select: { sport: true, name: true, ownerId: true } }),
+    ]);
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    if (team.ownerId !== req.user.sub) return res.status(403).json({ error: 'You can only request with a team you own' });
+    if (team.sport !== tournament.sport) {
+      return res.status(400).json({ error: `Sport mismatch: ${team.name} is a ${team.sport} team but ${tournament.name} is a ${tournament.sport} tournament.` });
+    }
+    const entry = await prisma.tournamentTeam.create({
+      data: { tournamentId: req.params.id, teamId, group, status: 'pending' },
+      include: { team: true },
+    });
+    // Ping the organiser that a team wants in.
+    if (tournament.organizerId) {
+      await safeNotify(() => notifyUsers([tournament.organizerId], {
+        title: 'New join request',
+        message: `${team.name} has requested to join ${tournament.name}.`,
+        data: { tournamentId: req.params.id },
+      }));
+    }
+    res.status(201).json({ entry });
+  } catch (e) {
+    if (e.code === 'P2002') return res.status(409).json({ error: 'This team already requested or is registered' });
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// List pending join requests (organiser only).
+router.get('/:id/join-requests', authMiddleware, requireOrganizer, async (req, res) => {
+  try {
+    const requests = await prisma.tournamentTeam.findMany({
+      where: { tournamentId: req.params.id, status: 'pending' },
+      include: { team: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json({ requests });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Approve a pending request → the team is now in.
+router.post('/:id/join-requests/:teamId/approve', authMiddleware, requireOrganizer, async (req, res) => {
+  try {
+    const entry = await prisma.tournamentTeam.update({
+      where: { tournamentId_teamId: { tournamentId: req.params.id, teamId: req.params.teamId } },
+      data: { status: 'approved' },
+      include: { team: true },
+    });
+    await safeNotify(() => notifyTeams([req.params.teamId], {
+      title: 'Join request approved',
+      message: `${entry.team?.name || 'Your team'} is now in the tournament.`,
+      data: { tournamentId: req.params.id },
+    }));
+    res.json({ entry });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Reject a pending request → remove the entry.
+router.post('/:id/join-requests/:teamId/reject', authMiddleware, requireOrganizer, async (req, res) => {
+  try {
+    await prisma.tournamentTeam.delete({
+      where: { tournamentId_teamId: { tournamentId: req.params.id, teamId: req.params.teamId } },
+    });
+    res.json({ success: true });
+  } catch (e) {
     res.status(400).json({ error: e.message });
   }
 });
 
 // Remove a team from the tournament
-router.delete('/:id/teams/:teamId', authMiddleware, async (req, res) => {
+router.delete('/:id/teams/:teamId', authMiddleware, requireOrganizer, async (req, res) => {
   try {
     await prisma.tournamentTeam.delete({
       where: {
@@ -227,7 +332,7 @@ router.delete('/:id/teams/:teamId', authMiddleware, async (req, res) => {
 });
 
 // Add fixture (optionally as a phase/series leg)
-router.post('/:id/schedule', authMiddleware, async (req, res) => {
+router.post('/:id/schedule', authMiddleware, requireOrganizer, async (req, res) => {
   try {
     const { team1Id, team2Id, scheduledAt, venue, round, phaseId, seriesId, leg } = req.body;
     const match = await prisma.tournamentMatch.create({
@@ -248,7 +353,7 @@ router.post('/:id/schedule', authMiddleware, async (req, res) => {
 });
 
 // Auto-schedule (Specialized Formats)
-router.post('/:id/auto-schedule', authMiddleware, async (req, res) => {
+router.post('/:id/auto-schedule', authMiddleware, requireOrganizer, async (req, res) => {
   try {
     const { format = 'classic_t20', autoSplit = true } = req.body;
     
@@ -608,7 +713,7 @@ router.post('/:id/auto-schedule', authMiddleware, async (req, res) => {
 });
 
 // Update points row after a match result
-router.put('/:id/points-table/:teamId', authMiddleware, async (req, res) => {
+router.put('/:id/points-table/:teamId', authMiddleware, requireOrganizer, async (req, res) => {
   try {
     const data = req.body;
     const row = await prisma.tournamentTeam.update({
@@ -638,10 +743,11 @@ const TournamentSchema = z.object({
   sport:       z.string().optional(),   // was dropped → every tournament saved as cricket
 });
 
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const data = TournamentSchema.parse(req.body);
-    const t = await prisma.tournament.create({ data });
+    // Stamp the creator as organiser — this id gates every admin action later.
+    const t = await prisma.tournament.create({ data: { ...data, organizerId: req.user.sub } });
     res.status(201).json({ tournament: t });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -649,7 +755,7 @@ router.post('/', async (req, res) => {
 });
 
 // Assign groups manually
-router.put('/:id/assign-groups', authMiddleware, async (req, res) => {
+router.put('/:id/assign-groups', authMiddleware, requireOrganizer, async (req, res) => {
   try {
     const { assignments } = req.body; // array of { id: tournamentTeamId, group: string }
     if (!assignments || !Array.isArray(assignments)) {
@@ -672,7 +778,7 @@ router.put('/:id/assign-groups', authMiddleware, async (req, res) => {
 
 // Update a tournament (whitelisted fields) — powers the "Start" button
 // (upcoming → ongoing) and completing/rescheduling from the app.
-router.put('/:id', async (req, res) => {
+router.put('/:id', authMiddleware, requireOrganizer, async (req, res) => {
   try {
     const { status, startDate, endDate, venue, prizePool, maxTeams } = req.body;
     const t = await prisma.tournament.update({

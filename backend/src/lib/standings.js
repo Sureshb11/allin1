@@ -38,7 +38,7 @@ export async function computeStandings(tournamentId) {
   const S = cfg?.rules?.standings || { win: 3, draw: 1, loss: 0, tiebreakers: ['points', 'headToHead'] };
 
   const entries = await prisma.tournamentTeam.findMany({
-    where: { tournamentId }, include: { team: true },
+    where: { tournamentId, status: 'approved' }, include: { team: true },
   });
   const rows = {};
   for (const e of entries) {
