@@ -8,6 +8,7 @@ import legendsApi from '../services/LegendsApi';
 
 /* ── Design System ── */
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import BrandLogo from "../components/BrandLogo";
 import PressableScale from '../components/PressableScale';
 
@@ -141,6 +142,8 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
 const TournamentsScreen = ({ navigation, inline }) => {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
+  const hideTabBar = useHideTabBarOnScroll();
+  const tabClear = useTabBarClearance();
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -223,9 +226,10 @@ const TournamentsScreen = ({ navigation, inline }) => {
 
       {/* Moved fixed items to ListHeaderComponent */}
       <FlatList
+        {...hideTabBar}
         data={filtered}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
         ListHeaderComponent={

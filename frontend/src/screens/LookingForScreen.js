@@ -9,7 +9,7 @@ import { getSelectedSport } from '../utils/selectedSport';
 import { useCurrentUser } from '../utils/currentUser';
 
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import { useHideTabBarOnScroll } from '../components/AutoHideTabBar';
+import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import BrandLogo from "../components/BrandLogo";
 
 // ── Shimmer Skeleton ────────────────────────────────────────────────────────
@@ -133,6 +133,7 @@ export default function LookingForScreen({ navigation, route, inline }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const hideTabBar = useHideTabBarOnScroll();
+  const tabClear = useTabBarClearance();
   const TYPE_CHIP_COLORS = makeTypeChipColors(DS);
   // Optional deep-link category (e.g. from the search screen's "Looking for" list).
   const initialType = FILTER_TYPES.includes(route?.params?.initialType) ? route.params.initialType : 'all';
@@ -484,7 +485,7 @@ export default function LookingForScreen({ navigation, route, inline }) {
           extraData={[connections, myId]}
           keyExtractor={i => i.id}
           renderItem={renderPost}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}
           ListFooterComponent={
             <TouchableOpacity style={styles.ctaCard} onPress={() => setShowCreate(true)} activeOpacity={0.8}>

@@ -9,6 +9,7 @@ import legendsApi from '../services/LegendsApi';
 import BrandLogo from '../components/BrandLogo';
 import HexAvatar from '../components/HexAvatar';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 
 // Single-accent: team avatars are the deep green (white initials read on it),
 // matching the hexagons on the home feed.
@@ -210,6 +211,8 @@ export const FILTER_STATUS_MAP = { all: 'all', live: 'live', upcoming: 'schedule
 export default function MyMatchesScreen({ navigation }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
+  const hideTabBar = useHideTabBarOnScroll();
+  const tabClear = useTabBarClearance();
   const [query, setQuery]       = useState('');
   const [status, setStatus]     = useState('all');
   const [matches, setMatches]   = useState([]);
@@ -384,9 +387,10 @@ export default function MyMatchesScreen({ navigation }) {
       </View>
 
       <FlatList
+        {...hideTabBar}
         data={filtered}
         keyExtractor={(item, i) => item.id || String(i)}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

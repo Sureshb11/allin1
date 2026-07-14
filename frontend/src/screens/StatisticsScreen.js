@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
-import { useHideTabBarOnScroll } from "../components/AutoHideTabBar";
+import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Animated } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
@@ -164,7 +164,7 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
 
 }
 
-export default function StatisticsScreen({ navigation, inline }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();
+export default function StatisticsScreen({ navigation, inline }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
   const [tab, setTab] = useState('Players');
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -250,7 +250,7 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
             data={data}
             renderItem={renderCard}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}
             ListHeaderComponent={
               <View>
                 <View style={styles.searchWrap}>

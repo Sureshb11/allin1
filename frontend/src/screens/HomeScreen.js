@@ -563,7 +563,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   },
 
   // Header
-  header: { flexDirection: 'column', paddingTop: 48, paddingBottom: 10, paddingHorizontal: 16, backgroundColor: 'transparent' },
+  header: { flexDirection: 'column', paddingTop: 16, paddingBottom: 10, paddingHorizontal: 16, backgroundColor: 'transparent' },
   headerRow1: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   headerBtn: { padding: 6, flexShrink: 0 },
   headerBrand: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },

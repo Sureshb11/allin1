@@ -7,9 +7,8 @@
 //   3. In each scrollable screen, spread useHideTabBarOnScroll() onto the
 //      ScrollView/FlatList (composes with an existing onScroll via combineScroll).
 import React, { createContext, useContext, useRef, useCallback, useEffect } from 'react';
-import { Animated } from 'react-native';
-import { BottomTabBar } from '@react-navigation/bottom-tabs';
-import { useTheme } from '../theme/ThemeContext';
+import { Animated, StyleSheet } from 'react-native';
+import { BottomTabBar, BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 
 const Ctx = createContext(null);
 
@@ -58,6 +57,12 @@ export const useHideTabBarOnScroll = () => {
   return { onScroll: ctx.onScroll, scrollEventThrottle: 16 };
 };
 
+// The tab bar floats over content (so it can fully slide away and reclaim the
+// space). Pad the bottom of scrollable content by this so the last items aren't
+// stuck behind the bar while it's shown. Returns the bar's real height (0 if
+// outside a tab navigator).
+export const useTabBarClearance = () => useContext(BottomTabBarHeightContext) || 0;
+
 // Force the bar back into view (e.g. from a tabPress listener).
 export const useTabBarReveal = () => useContext(Ctx)?.reveal || (() => {});
 
@@ -69,7 +74,6 @@ export const combineScroll = (hideProps, ownOnScroll) => ({
 });
 
 export const AutoHideTabBar = (props) => {
-  const { colors: DS } = useTheme();
   const ctx = useContext(Ctx);
   const translateY = ctx?.translateY;
 
@@ -80,13 +84,21 @@ export const AutoHideTabBar = (props) => {
     if (prevIdx.current !== idx) { prevIdx.current = idx; ctx?.reveal(); }
   }, [idx, ctx]);
 
+  // Absolutely positioned so it doesn't reserve a layout slot — when it slides
+  // down the scene fills the space instead of leaving a blank bar behind.
   return (
     <Animated.View
       onLayout={(e) => ctx?.setBarHeight(e.nativeEvent.layout.height)}
-      // Match the scene background so the strip the bar vacates blends in.
-      style={{ backgroundColor: DS.bg, transform: translateY ? [{ translateY }] : [] }}
+      style={[
+        styles.floatingBar,
+        { transform: translateY ? [{ translateY }] : [] },
+      ]}
     >
       <BottomTabBar {...props} />
     </Animated.View>
   );
 };
+
+const styles = StyleSheet.create({
+  floatingBar: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+});

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Dimens
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Defs, RadialGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import { useHideTabBarOnScroll } from '../components/AutoHideTabBar';
+import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 
 const { width } = Dimensions.get('window');
 
@@ -24,6 +24,7 @@ export default function MyCricketScreen({ navigation }) {
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const hideTabBar = useHideTabBarOnScroll();
+  const tabClear = useTabBarClearance();
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -66,7 +67,7 @@ export default function MyCricketScreen({ navigation }) {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} {...hideTabBar}>
+      <ScrollView showsVerticalScrollIndicator={false} {...hideTabBar} contentContainerStyle={{ paddingBottom: tabClear }}>
         <View style={styles.grid}>
           {TILES.map(t => {
             const color = t.color === 'lime' ? DS.lime : t.color;
