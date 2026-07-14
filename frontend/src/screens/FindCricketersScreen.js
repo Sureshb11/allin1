@@ -45,7 +45,8 @@ const ROLE_META = {
   'Doubles': { short: 'DBL', color: '#b7c4ff' }
 };
 
-const PALETTE = ['#2d7a3a', '#b45309', '#7c3aed', '#b91c1c', '#0d7c8f', '#1a5fa8', '#c2490d', '#0f766e', '#9333ea', '#be185d', '#4d7c0f', '#a16207'];
+// Single-accent: all avatars are the deep green (white initials read on both themes).
+const PALETTE = ['#0a5227'];
 
 // Map a backend role string to one of the sport's filter buckets.
 const roleBucket = (role = '', sport) => {

@@ -7,10 +7,12 @@ import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import BrandLogo from '../components/BrandLogo';
+import HexAvatar from '../components/HexAvatar';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-const TEAM_COLORS = ['#6366f1', '#f97316', '#06b6d4', '#ec4899', '#8b5cf6', '#14b8a6'];
-const getTeamColor = (name, idx) => TEAM_COLORS[(name || '').charCodeAt(0) % TEAM_COLORS.length] || TEAM_COLORS[idx % TEAM_COLORS.length];
+// Single-accent: team avatars are the deep green (white initials read on it),
+// matching the hexagons on the home feed.
+const getTeamColor = () => '#0a5227';
 
 // Split a score into its runs part and an overs part so the overs can render
 // smaller: "217/4 (11.0)" + total 20 → { main: '217/4', ov: '(11.0/20)' }.
@@ -125,11 +127,9 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
 
           <View style={styles.teamsVerticalRow}>
             <View style={styles.teamSideVertical}>
-              <View style={[styles.teamAvatarContainer, { shadowColor: t1Color }]}>
-                <View style={[styles.teamAvatar, { backgroundColor: t1Color }]}>
-                  <Text style={styles.teamAvatarText}>{t1Init}</Text>
-                </View>
-              </View>
+              <HexAvatar size={36} color={t1Color}>
+                <Text style={styles.teamAvatarText}>{t1Init}</Text>
+              </HexAvatar>
               <Text style={styles.teamNameVertical} numberOfLines={1}>{m.team1 || 'TBD'}</Text>
               <Text style={styles.teamScoreVertical}>
                 {splitScore(m.score1, m.overs).main}
@@ -142,11 +142,9 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
             </View>
 
             <View style={styles.teamSideVertical}>
-              <View style={[styles.teamAvatarContainer, { shadowColor: t2Color }]}>
-                <View style={[styles.teamAvatar, { backgroundColor: t2Color }]}>
-                  <Text style={styles.teamAvatarText}>{t2Init}</Text>
-                </View>
-              </View>
+              <HexAvatar size={36} color={t2Color}>
+                <Text style={styles.teamAvatarText}>{t2Init}</Text>
+              </HexAvatar>
               <Text style={styles.teamNameVertical} numberOfLines={1}>{m.team2 || 'TBD'}</Text>
               <Text style={styles.teamScoreVertical}>
                 {splitScore(m.score2, m.overs).main}
@@ -502,7 +500,7 @@ const makeStyles = (DS) => StyleSheet.create({
   countText: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
 
   /* List */
-  list: { padding: 16, paddingTop: 4, gap: 14 },
+  list: { padding: 16, paddingTop: 4, gap: 10 },
 
   /* Card */
   card: {
@@ -512,7 +510,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4,
+    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 2,
   },
   statusPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -548,18 +546,18 @@ const makeStyles = (DS) => StyleSheet.create({
 
   teamsVerticalRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 20,
+    paddingHorizontal: 16, paddingVertical: 8,
   },
-  teamSideVertical: { alignItems: 'center', flex: 1, gap: 12 },
-  teamNameVertical: { fontSize: 14, fontWeight: '700', color: DS.textPrimary, textAlign: 'center', minHeight: 20 },
-  teamScoreVertical: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, textAlign: 'center', letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
-  teamScoreOvers: { fontSize: 13, fontWeight: '700', color: DS.textMuted, letterSpacing: 0, fontVariant: ['tabular-nums'] },
+  teamSideVertical: { alignItems: 'center', flex: 1, gap: 6 },
+  teamNameVertical: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, textAlign: 'center', minHeight: 17 },
+  teamScoreVertical: { fontSize: 20, fontWeight: '900', color: DS.textPrimary, textAlign: 'center', letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
+  teamScoreOvers: { fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 0, fontVariant: ['tabular-nums'] },
   vsVerticalBlock: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   vsTextVertical: { fontSize: 13, fontWeight: '900', color: DS.blueSoft, fontStyle: 'italic' },
   
   resultBanner: {
-    backgroundColor: DS.success + '14', paddingVertical: 12, paddingHorizontal: 16,
-    alignItems: 'center', marginHorizontal: 16, borderRadius: 8, marginBottom: 16,
+    backgroundColor: DS.success + '14', paddingVertical: 7, paddingHorizontal: 14,
+    alignItems: 'center', marginHorizontal: 16, borderRadius: 8, marginBottom: 12,
   },
   resultBannerText: { fontSize: 13, fontWeight: '800', color: DS.success },
 
@@ -586,10 +584,10 @@ const makeStyles = (DS) => StyleSheet.create({
     shadowOpacity: 0.5, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 4,
   },
   teamAvatar: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 30, height: 30, borderRadius: 15,
     alignItems: 'center', justifyContent: 'center',
   },
-  teamAvatarText: { fontSize: 14, fontWeight: '900', color: DS.white },
+  teamAvatarText: { fontSize: 12, fontWeight: '900', color: DS.white },
   teamInfo: { flex: 1, gap: 2 },
   teamInfoRight: { flex: 1, gap: 2, alignItems: 'flex-end' },
   teamName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
@@ -614,16 +612,16 @@ const makeStyles = (DS) => StyleSheet.create({
   /* Footer */
   cardFooter: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 16, paddingBottom: 16, gap: 10,
+    paddingHorizontal: 16, paddingBottom: 12, gap: 10,
     borderTopWidth: 1, borderTopColor: DS.faint,
-    paddingTop: 12,
+    paddingTop: 10,
   },
   resultWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   resultText: { flex: 1, fontSize: 12, fontWeight: '600', color: DS.lime },
   scoreBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: DS.blueDeep, borderRadius: 12,
-    paddingHorizontal: 18, paddingVertical: 12,
+    paddingHorizontal: 14, paddingVertical: 9,
   },
   scoreBtnText: { fontSize: 13, fontWeight: '800', color: DS.white },
   startBtn: { backgroundColor: DS.blueDeep },   // scheduled → solid-blue START

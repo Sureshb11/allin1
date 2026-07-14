@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated
+  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -75,7 +75,9 @@ const SUBTYPE_LABEL = {
 };
 
 // Full filter list shown as chips — mirrors the search page's "Looking for" section.
-const FILTER_TYPES = ['all', 'player', 'team', 'umpire', 'scorer', 'coach', 'opponent', 'teamtourn', 'tournament', 'ground', 'commentator'];
+// Match-focused filters first; the officiating/support roles (umpire, scorer,
+// coach, commentator) sit at the end.
+const FILTER_TYPES = ['all', 'player', 'team', 'opponent', 'ground', 'teamtourn', 'tournament', 'umpire', 'scorer', 'coach', 'commentator'];
 
 const TYPE_LABELS = {
   all: 'All', player: 'Player', team: 'Team', umpire: 'Umpire', scorer: 'Scorer', coach: 'Coach',
@@ -83,17 +85,17 @@ const TYPE_LABELS = {
 };
 
 const TYPE_ICONS = {
-  all: 'view-list',
-  player: 'account-outline',
-  team: 'account-group',
-  umpire: 'whistle',
-  scorer: 'scoreboard-outline',
-  coach: 'school-outline',
-  opponent: 'sword-cross',
-  teamtourn: 'account-multiple-plus-outline',
-  tournament: 'trophy-outline',
-  ground: 'stadium',
-  commentator: 'account-voice',
+  all: 'format-list-bulleted',        // every listing
+  player: 'account-outline',          // a person
+  team: 'account-group-outline',      // a group of players
+  umpire: 'whistle',                  // umpire's whistle
+  scorer: 'clipboard-text-outline',   // keeps the scorebook
+  coach: 'account-tie-outline',       // coach / mentor
+  opponent: 'sword-cross',            // a fixture / rival to play
+  teamtourn: 'account-multiple-plus-outline', // teams joining a tournament
+  tournament: 'trophy-outline',       // the tournament itself
+  ground: 'stadium',                  // a venue to play at
+  commentator: 'microphone-outline',  // speaks / commentates
 };
 
 const makeTypeChipColors = (DS) => ({
@@ -139,6 +141,28 @@ export default function LookingForScreen({ navigation, route, inline }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeType, setActiveType] = useState(initialType);
+  // Swipe the listings left/right to step through the filter tabs. A ref mirrors
+  // the current filter so the (once-created) responder never reads a stale value,
+  // and the filter row auto-scrolls the newly-active chip into view.
+  const activeTypeRef = useRef(activeType);
+  activeTypeRef.current = activeType;
+  const filterRowRef = useRef(null);
+  const stepFilter = useCallback((dir) => {
+    const idx = FILTER_TYPES.indexOf(activeTypeRef.current);
+    const next = idx + dir;
+    if (next < 0 || next >= FILTER_TYPES.length) return;
+    setActiveType(FILTER_TYPES[next]);
+    // Keep the active chip visible in the horizontal filter row.
+    filterRowRef.current?.scrollTo({ x: Math.max(0, next * 64 - 48), animated: true });
+  }, []);
+  const swipe = useRef(PanResponder.create({
+    // Only claim clearly-horizontal drags; vertical drags fall through to the list.
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4,
+    onPanResponderRelease: (_, g) => {
+      if (g.dx <= -45) stepFilter(1);        // swipe left → next filter
+      else if (g.dx >= 45) stepFilter(-1);   // swipe right → previous filter
+    },
+  })).current;
   const [query, setQuery] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
@@ -433,21 +457,22 @@ export default function LookingForScreen({ navigation, route, inline }) {
       </View>
 
       {/* Filter Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
+      <ScrollView ref={filterRowRef} horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
         {FILTER_TYPES.map(t => (
           <TouchableOpacity
             key={t}
             style={[styles.tab, activeType === t && styles.tabActive]}
             onPress={() => setActiveType(t)}
           >
-            <Icon name={TYPE_ICONS[t]} size={14} color={activeType === t ? DS.onLime : DS.textVariant} />
-            <Text style={[styles.tabText, activeType === t && styles.tabTextActive]}>
-              {TYPE_LABELS[t] || t}
-            </Text>
+            {/* X-style: only the selected filter shows its name (green + underline). */}
+            <Icon name={TYPE_ICONS[t]} size={16} color={activeType === t ? DS.lime : DS.textMuted} />
+            {activeType === t &&
+              <Text style={styles.tabTextActive}>{TYPE_LABELS[t] || t}</Text>}
           </TouchableOpacity>
         ))}
       </ScrollView>
 
+      <View style={{ flex: 1 }} {...swipe.panHandlers}>
       {loading ? (
         <ScoutSkeleton DS={DS} />
       ) : (
@@ -480,6 +505,7 @@ export default function LookingForScreen({ navigation, route, inline }) {
           }
         />
       )}
+      </View>
 
       {/* Create Modal */}
       <Modal visible={showCreate} animationType="slide" transparent>
@@ -657,32 +683,31 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Filter tabs */
   tabs: { backgroundColor: DS.bg, flexGrow: 0, flexShrink: 0 },
-  tabsContent: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, alignItems: 'center' },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint },
-  tabActive: { backgroundColor: DS.lime, borderColor: DS.lime },
-  tabText: { fontSize: 12, color: DS.textVariant, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, includeFontPadding: false },
-  tabTextActive: { color: DS.onLime },
+  tabsContent: { paddingHorizontal: 12, paddingVertical: 4, gap: 4, alignItems: 'center' },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabActive: { borderBottomColor: DS.lime },
+  tabTextActive: { fontSize: 12, color: DS.lime, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, includeFontPadding: false },
 
   /* List */
-  list: { padding: 16, gap: 14, paddingBottom: 32 },
+  list: { padding: 16, gap: 10, paddingBottom: 28 },
 
   /* Card */
   card: { backgroundColor: DS.surface, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: DS.faint, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
-  cardImageArea: { height: 56, overflow: 'hidden' },
-  cardBody: { padding: 14, paddingTop: 12 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  cardImageArea: { height: 40, overflow: "hidden" },
+  cardBody: { padding: 12, paddingTop: 10 },
+  cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   typeText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   closeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   closeBtnText: { fontSize: 11, color: DS.success, fontWeight: '700' },
   filledBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: DS.surfaceHigh, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: DS.faint },
   filledBadgeText: { fontSize: 10, color: DS.textMuted, fontWeight: '800', letterSpacing: 0.8 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: DS.textPrimary, marginBottom: 4 },
-  cardDesc: { fontSize: 13, color: DS.textVariant, marginBottom: 10, lineHeight: 18 },
-  cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 12 },
+  cardTitle: { fontSize: 15, fontWeight: "700", color: DS.textPrimary, marginBottom: 3 },
+  cardDesc: { fontSize: 13, color: DS.textVariant, marginBottom: 8, lineHeight: 18 },
+  cardMeta: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 10 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { fontSize: 12, color: DS.textMuted },
-  connectBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.blueDeep, borderRadius: 10, paddingVertical: 11, marginTop: 2 },
+  connectBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: DS.blueDeep, borderRadius: 10, paddingVertical: 9, marginTop: 2 },
   connectBtnText: { fontSize: 13, fontWeight: '800', color: DS.white, letterSpacing: 1 },
   chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.blueDeep, borderRadius: 10, paddingVertical: 12 },
   chatBtnText: { fontSize: 13, fontWeight: '800', color: DS.white, letterSpacing: 0.5 },

@@ -140,13 +140,8 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     toUpperCase();
   };
 
-  const getAvatarColor = (name) => {
-    let hash = 0;
-    for (let i = 0; i < (name || '').length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-  };
+  // Single-accent: all avatars are the deep green (white initials read on both themes).
+  const getAvatarColor = () => '#0a5227';
 
   const getRoleColor = (role) => {
     switch ((role || '').toLowerCase()) {
@@ -179,7 +174,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
         style={styles.teamCard}
         onPress={() => mineTab ? setSelectedTeam(item) : navigation.navigate('TeamInsights', { teamId: item.id })}>
         <View style={styles.teamCardTop}>
-          <HexAvatar size={48} color={getAvatarColor(item.name)} style={{ marginRight: 14 }}>
+          <HexAvatar size={40} color={getAvatarColor(item.name)} style={{ marginRight: 10 }}>
             <Text style={styles.teamAvatarText}>{getInitials(item.name)}</Text>
           </HexAvatar>
           <View style={styles.teamInfo}>
@@ -685,22 +680,22 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   // Team list
   teamsList: {
-    paddingHorizontal: 20,
-    paddingBottom: 20
+    paddingHorizontal: 16,
+    paddingBottom: 16
   },
   teamCard: {
     backgroundColor: DS.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: DS.faint,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
   teamCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14
+    marginBottom: 10
   },
   teamAvatar: {
     width: 48,
@@ -719,7 +714,7 @@ const makeStyles = (DS) => StyleSheet.create({
     flex: 1
   },
   teamName: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '700',
     color: DS.textPrimary,
     marginBottom: 2
@@ -744,16 +739,16 @@ const makeStyles = (DS) => StyleSheet.create({
     alignItems: 'center',
     backgroundColor: DS.surfaceHigh,
     borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginBottom: 12
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    marginBottom: 10
   },
   statBlock: {
     flex: 1,
     alignItems: 'center'
   },
   statNumber: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
     color: DS.textPrimary,
     fontVariant: ['tabular-nums']
@@ -774,7 +769,7 @@ const makeStyles = (DS) => StyleSheet.create({
     height: 4,
     borderRadius: 2,
     overflow: 'hidden',
-    marginBottom: 14,
+    marginBottom: 10,
     marginHorizontal: 16,
     backgroundColor: DS.surfaceHighest,
   },
@@ -793,7 +788,7 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: DS.faint,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 10,
     gap: 6
   },
@@ -803,7 +798,7 @@ const makeStyles = (DS) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: DS.blueDeep,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 10,
     gap: 6
   },

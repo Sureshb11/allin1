@@ -417,7 +417,7 @@ const makeStyles = (DS) => StyleSheet.create({
   filterTextActive: { color: DS.bg },
 
   /* List */
-  list: { paddingHorizontal: 20, gap: 14, paddingBottom: 32 },
+  list: { paddingHorizontal: 16, gap: 10, paddingBottom: 28 },
 
   /* Card */
   card: {
@@ -426,10 +426,7 @@ const makeStyles = (DS) => StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2,
   },
   /* Card body: left info column + right status/actions column */
-  cardBody: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    padding: 16, gap: 12,
-  },
+  cardBody: { flexDirection: "row", alignItems: "flex-start", padding: 12, gap: 10 },
   cardBodyLeft: { flex: 1 },
   cardHeaderRight: { alignItems: 'flex-end', gap: 8 },
   headerActions: { alignItems: 'stretch', gap: 6 },

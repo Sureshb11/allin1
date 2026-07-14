@@ -9,6 +9,7 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
+import com.facebook.react.common.assets.ReactFontManager
 import com.facebook.soloader.SoLoader
 class MainApplication : Application(), ReactApplication {
 
@@ -32,6 +33,12 @@ class MainApplication : Application(), ReactApplication {
 
     override fun onCreate() {
         super.onCreate()
+        // Register the Selawik font family (res/font/selawik.xml) so JS `fontFamily:
+        // 'selawik'` resolves with full 100–900 weight support (Selawik is the open,
+        // metric-compatible twin of Segoe UI). res/font XML fonts are NOT auto-resolved
+        // by RN — they must be registered here, else text falls back to the system
+        // font, giving a non-uniform look app-wide.
+        ReactFontManager.getInstance().addCustomFont(this, "selawik", R.font.selawik)
         SoLoader.init(this, false)
         if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
             // If you opted-in for the New Architecture, we load the native entry point for this app.

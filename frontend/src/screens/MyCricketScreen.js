@@ -6,15 +6,17 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
+// Single-accent launcher: every tile uses the green accent (resolved from the
+// theme via the 'lime' keyword) instead of a rainbow of per-tile hues.
 const TILES = [
-  { icon: 'cricket',       label: 'My Matches',   sub: 'View all matches',        screen: 'MyMatches',      color: 'lime'     },
-  { icon: 'trophy',        label: 'Tournaments',   sub: 'Join & track',            screen: 'Tournaments',    color: '#f59e0b'  },
-  { icon: 'account-group', label: 'My Teams',      sub: 'Manage squads',           screen: 'TeamManagement', color: '#3b82f6'  },
-  { icon: 'chart-bar',     label: 'Statistics',    sub: 'Player & team stats',     screen: 'Statistics',     color: '#a855f7'  },
-  { icon: 'video-outline', label: 'Highlights',    sub: 'Watch & analyse',         screen: 'VideoAnalysis',  color: '#d97706'  },
-  { icon: 'chart-line',    label: 'My Performance',sub: 'Batting & bowling',       screen: 'MyPerformance',  color: '#22c55e'  },
-  { icon: 'telescope',     label: 'Looking For',   sub: 'Find players & teams',    screen: 'LookingFor',     color: '#f97316'  },
-  { icon: 'teach',         label: 'Coaching',      sub: 'Book a coach',            screen: 'Coaching',       color: '#ef4444'  },
+  { icon: 'cricket',       label: 'My Matches',   sub: 'View all matches',        screen: 'MyMatches',      color: 'lime' },
+  { icon: 'trophy',        label: 'Tournaments',   sub: 'Join & track',            screen: 'Tournaments',    color: 'lime' },
+  { icon: 'account-group', label: 'My Teams',      sub: 'Manage squads',           screen: 'TeamManagement', color: 'lime' },
+  { icon: 'chart-bar',     label: 'Statistics',    sub: 'Player & team stats',     screen: 'Statistics',     color: 'lime' },
+  { icon: 'video-outline', label: 'Highlights',    sub: 'Watch & analyse',         screen: 'VideoAnalysis',  color: 'lime' },
+  { icon: 'chart-line',    label: 'My Performance',sub: 'Batting & bowling',       screen: 'MyPerformance',  color: 'lime' },
+  { icon: 'telescope',     label: 'Looking For',   sub: 'Find players & teams',    screen: 'LookingFor',     color: 'lime' },
+  { icon: 'teach',         label: 'Coaching',      sub: 'Book a coach',            screen: 'Coaching',       color: 'lime' },
 ];
 
 export default function MyCricketScreen({ navigation }) {
@@ -40,8 +42,8 @@ export default function MyCricketScreen({ navigation }) {
                 <Stop offset="100%" stopColor={DS.lime} stopOpacity="0" />
               </RadialGradient>
               <RadialGradient id="grad2" cx="100%" cy="100%" r="60%" fx="100%" fy="100%">
-                <Stop offset="0%" stopColor="#3b82f6" stopOpacity="1" />
-                <Stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                <Stop offset="0%" stopColor={DS.lime} stopOpacity="1" />
+                <Stop offset="100%" stopColor={DS.lime} stopOpacity="0" />
               </RadialGradient>
             </Defs>
             <Rect x="0" y="0" width="100%" height="100%" fill="url(#grad1)" />

@@ -22,115 +22,122 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'theme:mode';
 
-// ── DARK (Premium Sporty 1) ─────────────────────────────────────────────────
+// ── DARK (night) — ONE green accent, neutral surfaces, red = semantic only ────
+// Single-accent system: green carries every action/highlight, red means only
+// wicket/live/danger, blue is gone, and all surfaces are neutral (no green haze
+// on borders). Mirrors the light theme so the app is consistent in both.
 const dark = {
   mode: 'dark',
-  bg: '#131313',
-  surfaceLow: '#1c1b1b',
-  surface: '#201f1f',
-  surfaceHigh: '#2a2a2a',
-  surfaceHighest: '#353534',
+  bg: '#0f1214',
+  surfaceLow: '#14181b',
+  surface: '#181c1f',
+  surfaceHigh: '#202529',
+  surfaceHighest: '#262c31',
   white: '#ffffff',
-  lime: '#c8e93c',      // Radium Green, softened for dark-mode readability (was #ccff00 — pure neon haloed against the near-black bg when used as text)
-  limeBright: '#cdf23c',  // Arena/Rummy accent — softened from pure #c3f400 but kept punchier than `lime`
-  lime2: '#abd600',
-  onLime: '#161e00',
-  coral: '#ffb4ab',
-  wicketBg: 'rgba(255,180,171,0.16)',
-  wicketText: '#ffb4ab',
-  blue: '#b6c4ff',
-  blueDeep: '#0055ff',  
-  blueSoft: '#b6c4ff',
-  onBlue: '#ffffff',
-  textPrimary: '#e5e2e1',
-  textVariant: '#c4c9ac',
-  textSecondary: '#c4c9ac',
-  textMuted: '#8e9379',
-  faint: '#353534',
-  onDark: '#e5e2e1',
-  onDarkDim: '#c4c9ac',
-  limeDark: '#3c4d00',
-  live: '#ffb4ab',
-  danger: '#ffb4ab',
-  dangerTxt: '#ffb4ab',
-  warn: '#ffb24a',
-  success: '#c8e93c',
-  border: 'rgba(200,233,60,0.2)', // Radium Green (softened) 20%
-  line: 'rgba(200,233,60,0.1)',
+  lime: '#3ecf6e',        // THE accent — bright green (8.45:1 on the dark card)
+  limeBright: '#3ecf6e',
+  lime2: '#3ecf6e',
+  onLime: '#06210f',      // dark ink reads on the bright-green accent
+  coral: '#ff5b52',       // semantic red — wicket / danger / live
+  wicketBg: 'rgba(255,91,82,0.16)',
+  wicketText: '#ff5b52',
+  blue: '#3ecf6e',        // blue removed → folds into the single green accent
+  blueDeep: '#3ecf6e',
+  blueSoft: '#3ecf6e',
+  onBlue: '#06210f',
+  textPrimary: '#eaeced',
+  textVariant: '#a3a9ae',
+  textSecondary: '#a3a9ae',
+  textMuted: '#767c82',
+  faint: '#262c31',
+  onDark: '#eaeced',
+  onDarkDim: '#a3a9ae',
+  limeDark: '#17331f',
+  live: '#ff5b52',
+  danger: '#ff5b52',
+  dangerTxt: '#ff5b52',
+  warn: '#ff5b52',
+  success: '#3ecf6e',
+  border: '#2a2f34',
+  line: '#2a2f34',
   overlay: 'rgba(0,0,0,0.8)',
-  // Arena fallback roles
-  navy0: '#0e0e0e',
-  navy1: '#131313',
-  navy2: '#1c1b1b',
-  cell: '#201f1f',
-  cellHi: '#2a2a2a',
-  ink: '#e5e2e1',
-  inkDim: '#8e9379',
+  // Arena fallback roles (neutral now)
+  navy0: '#0f1214',
+  navy1: '#14181b',
+  navy2: '#181c1f',
+  cell: '#181c1f',
+  cellHi: '#202529',
+  ink: '#eaeced',
+  inkDim: '#767c82',
 };
 
-// ── LIGHT (Material 3 — navy/red scoreboard palette) ────────────────────────
-// Ported from the live-scoring HTML mockup (Material 3 tonal palette:
-// primary navy #002f65, secondary red #b71422, boundary-green #009270 for
-// sixes). `limeBright`/`navy0-2`/`cell*`/`ink*` are left untouched so the
-// Arena honeycomb picker (useArenaColors) keeps its distinct lime-bright look.
+// ── LIGHT (outdoor / day) — ONE deep-green accent, pure white, red = semantic ─
+// Tuned for SUNLIGHT: near-black text, pure-white cards separated by a hairline
+// + soft shadow (no grey fills, which wash out under glare), deep-green accent at
+// 9.35:1 on white (AAA). Blue removed entirely; green is the only accent colour.
 const light = {
   mode: 'light',
-  bg: '#f1f3f6',            // page background — light grey so white cards read as white
-  surfaceLow: '#fafbfc',    // surface-container-low — sections / banners
-  surface: '#ffffff',       // surface-container-lowest — cards (white)
-  surfaceHigh: '#f5f6f7',   // surface-container — chips / inputs / buttons
-  surfaceHighest: '#eaedf1',// surface-container-highest — header bands / recess / avatars
+  bg: '#ffffff',            // pure white page
+  surfaceLow: '#ffffff',    // sections / banners
+  surface: '#ffffff',       // cards
+  surfaceHigh: '#f0f2f3',   // chips / inputs / buttons — faint fill, defined by its border
+  surfaceHighest: '#e8ebee',// header bands / recess / avatars
   white: '#ffffff',
-  lime: '#406900',       // Pitch grass green (reverted — navy accent undone)
-  limeBright: '#bdf37b',
-  lime2: '#447000',
+  lime: '#0a5227',       // THE accent — deep pitch green, 9.35:1 on white (AAA)
+  limeBright: '#0a5227',
+  lime2: '#0a5227',
   onLime: '#ffffff',
-  coral: '#b71422',       // secondary
-  wicketBg: 'rgba(183,20,34,0.12)',
-  wicketText: '#b71422',
-  blue: '#305ce1',        // reverted — navy accent undone
-  blueDeep: '#0041c8',    // reverted — navy accent undone
-  blueSoft: '#305ce1',    // reverted — navy accent undone
+  coral: '#c62828',       // semantic red — wicket / danger / live
+  wicketBg: 'rgba(198,40,40,0.10)',
+  wicketText: '#c62828',
+  blue: '#0a5227',        // blue removed → folds into the single green accent
+  blueDeep: '#0a5227',
+  blueSoft: '#0a5227',
   onBlue: '#ffffff',
-  textPrimary: '#191c1d', // on-surface
-  textVariant: '#434750', // on-surface-variant
-  textSecondary: '#434750',
-  textMuted: '#737781',   // outline
-  faint: '#e1e3e4',
+  textPrimary: '#131619', // near-black — survives glare
+  textVariant: '#464c52',
+  textSecondary: '#464c52',
+  textMuted: '#727880',
+  faint: '#e8ebee',
   onDark: '#ffffff',
-  onDarkDim: '#f0f1f2',
-  limeDark: '#447000',    // reverted — navy accent undone
-  live: '#e02020',        // live-red
-  danger: '#ba1a1a',      // error
-  dangerTxt: '#93000a',   // on-error-container
-  warn: '#ff4b2b',        // wicket-orange
-  success: '#009270',     // boundary-green — SIX
-  border: '#c3c6d1',      // outline-variant
-  line: '#c3c6d1',
+  onDarkDim: '#eef0f2',
+  limeDark: '#0a5227',
+  live: '#c62828',
+  danger: '#c62828',
+  dangerTxt: '#c62828',
+  warn: '#c62828',
+  success: '#0a5227',     // boundary / six → the accent green
+  border: '#d7dbdf',
+  line: '#d7dbdf',
   overlay: 'rgba(0,0,0,0.4)',
-  navy0: '#f8fafc',   // arena/rummy page bg — off-white to match the app (was pure #ffffff)
-  navy1: '#fdfdff',
-  navy2: '#f6f8fb',
-  cell: '#ffffff',    // arena cards / discs stay pure white so they pop
-  cellHi: '#fdfdff',
-  ink: '#191c1e',
-  inkDim: '#434656',
+  navy0: '#ffffff',   // arena/rummy surfaces — neutral white now
+  navy1: '#ffffff',
+  navy2: '#ffffff',
+  cell: '#ffffff',
+  cellHi: '#f0f2f3',
+  ink: '#131619',
+  inkDim: '#727880',
 };
 
 export const PALETTES = { dark, light };
 
+// Segoe UI look via Selawik — the app-wide font is injected natively (the RN
+// Text/TextInput patch maps `Selawik` → the Android `selawik` res/font family and
+// the iOS "Selawik" family). Only the Regular face is bundled/registered now —
+// every weight resolves to the same flat weight everywhere; hierarchy comes
+// from font SIZE, not boldness, so display/headline/body/label are uniform.
 export const typographyDark = {
-  display: { fontFamily: 'Anybody', fontWeight: '800' },
-  headline: { fontFamily: 'Anybody', fontWeight: '700' },
-  body: { fontFamily: 'Lexend', fontWeight: '400' },
-  label: { fontFamily: 'Lexend', fontWeight: '600' },
+  display: { fontFamily: 'Selawik', fontWeight: '400' },
+  headline: { fontFamily: 'Selawik', fontWeight: '400' },
+  body: { fontFamily: 'Selawik', fontWeight: '400' },
+  label: { fontFamily: 'Selawik', fontWeight: '400' },
 };
 
 export const typographyLight = {
-  display: { fontFamily: 'Hanken Grotesk', fontWeight: '800' },
-  headline: { fontFamily: 'Hanken Grotesk', fontWeight: '700' },
-  body: { fontFamily: 'Inter', fontWeight: '400' },
-  label: { fontFamily: 'Hanken Grotesk', fontWeight: '600' },
+  display: { fontFamily: 'Selawik', fontWeight: '400' },
+  headline: { fontFamily: 'Selawik', fontWeight: '400' },
+  body: { fontFamily: 'Selawik', fontWeight: '400' },
+  label: { fontFamily: 'Selawik', fontWeight: '400' },
 };
 
 const ThemeContext = createContext({

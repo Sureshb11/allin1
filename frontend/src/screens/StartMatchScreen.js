@@ -25,8 +25,8 @@ const makeK = (c) => ({
   surfaceTop:   c.surfaceHighest,
   lime:         c.lime,
   limeDim:      c.lime + '30',
-  blue:         '#3b82f6',
-  blueDim:      '#3b82f620',
+  blue:         c.lime,          // single-accent: "blue" folds into the green accent
+  blueDim:      c.lime + '20',
   text:         c.textPrimary,
   textVariant:  c.textVariant,
   textMuted:    c.textMuted,

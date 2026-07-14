@@ -1071,11 +1071,11 @@ function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
       {/* Team scores + chase + win probability now live in the combined card above
           (rendered by ScorecardScreen on the LIVE tab), so LiveTab starts with the
           current-over box and commentary. */}
-      {lastOver &&
+      {lastOver ? (
         <View style={styles.liveBox}>
           <View style={styles.liveBoxHead}>
             <Text style={styles.liveBoxOver}>Over {lastOver.overNumber}</Text>
-            <Text style={styles.liveBoxScore}>{innings.totalRuns}-{innings.totalWickets}</Text>
+            <Text style={styles.liveBoxScore}>{innings.totalRuns || 0}-{innings.totalWickets || 0}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.liveBallRow}>
             {lastOver.balls.map((b, i) => {
@@ -1093,19 +1093,26 @@ function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
             <View style={{ flex: 1 }}>
               {notOut.map((b) => (
                 <Text key={b.id} style={styles.liveFigText} numberOfLines={1}>
-                  {b.name}{b.id === innings.strikerId ? <Text style={styles.strikerStar}> ★</Text> : ''}  <Text style={styles.liveFigNum}>{b.runs}({b.balls})</Text>
+                  {b.name}
+                  {b.id === innings.strikerId ? <Text style={styles.strikerStar}> ★</Text> : null}
+                  {'  '}
+                  <Text style={styles.liveFigNum}>{b.runs}({b.balls})</Text>
                 </Text>
               ))}
             </View>
-            {currentBowler &&
-              <Text style={styles.liveFigText} numberOfLines={1}>{currentBowler.name}  <Text style={styles.liveFigNum}>{currentBowler.wickets}-{currentBowler.runs} ({currentBowler.overs})</Text></Text>
-            }
+            {currentBowler ? (
+              <Text style={styles.liveFigText} numberOfLines={1}>
+                {currentBowler.name}
+                {'  '}
+                <Text style={styles.liveFigNum}>{currentBowler.wickets}-{currentBowler.runs} ({currentBowler.overs})</Text>
+              </Text>
+            ) : null}
           </View>
           <Text style={styles.partnershipText}>
             Partnership: <Text style={styles.liveFigNum}>{partnership.runs}({partnership.balls})</Text>
           </Text>
         </View>
-      }
+      ) : null}
 
       <View style={styles.commentaryBox}>
         {commentary.slice(0, 60).map((line) => (
@@ -1118,19 +1125,21 @@ function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
               <View style={styles.overEndLine}>
                 <Icon name="cricket" size={12} color={DS.lime} />
                 <Text style={styles.overEndSub} numberOfLines={1}>
-                  {line.data.bat.map((b) => `${b.name} ${b.runs}(${b.balls})`).join('   ')}
+                  {(line.data.bat || []).map((b) => `${b.name} ${b.runs}(${b.balls})`).join('   ')}
                 </Text>
               </View>
               <View style={styles.overEndLine}>
                 <Icon name="bowling" size={12} color={DS.coral} />
-                <Text style={styles.overEndSub} numberOfLines={1}>{line.data.bowler.name} {line.data.bowler.fig}</Text>
+                <Text style={styles.overEndSub} numberOfLines={1}>
+                  {line.data.bowler?.name || ''} {line.data.bowler?.fig || ''}
+                </Text>
               </View>
             </View>
           ) : (
             <View key={line.key} style={styles.commentaryRow}>
-              <Text style={[styles.commentaryLabel, line.isWicket && { color: DS.live }]}>{line.label}</Text>
+              <Text style={[styles.commentaryLabel, line.isWicket && { color: DS.live }]}>{line.label || ''}</Text>
               <Text style={[styles.commentaryText, line.isWicket && { fontWeight: '800', color: DS.textPrimary }, line.isBoundary && { color: DS.lime, fontWeight: '700' }]}>
-                {line.text}
+                {line.text || ''}
               </Text>
             </View>
           )
@@ -1231,6 +1240,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const [tab, setTab] = useState(null);              // active top tab; null until match first loads
   const shotRef = useRef(null);                      // capture target for "share as image"
   const pagerRef = useRef(null);                     // horizontal swipeable tab content
+  const swipingRef = useRef(false);                  // true while a finger swipe drives the pager
   const [celebration, setCelebration] = useState(null); // {kind,id} FOUR/SIX/WICKET flourish
   const lastBallRef = useRef(null);                  // last delivery id seen (celebration baseline)
   const [overEndBanner, setOverEndBanner] = useState(null); // end-of-over summary popup
@@ -1335,13 +1345,13 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   // the viewer taps a tab themselves, `tab` takes over and stays put across polls.
   const activeTab = tab || (isLive ? 'live' : isCompleted ? 'summary' : 'scorecard');
   const TABS = [
-    { key: 'info', label: 'INFO' },
-    ...(isLive ? [{ key: 'live', label: 'LIVE' }] : []),
-    ...(isCompleted ? [{ key: 'summary', label: 'SUMMARY' }] : []),
-    { key: 'scorecard', label: 'SCORECARD' },
-    { key: 'squads', label: 'SQUADS' },
-    { key: 'overs', label: 'OVERS' },
-    { key: 'highlights', label: 'HIGHLIGHTS' },
+    { key: 'info', label: 'INFO', icon: 'information-outline' },
+    ...(isLive ? [{ key: 'live', label: 'LIVE', icon: 'access-point' }] : []),
+    ...(isCompleted ? [{ key: 'summary', label: 'OVERVIEW', icon: 'view-dashboard-outline' }] : []),
+    { key: 'scorecard', label: 'SCORECARD', icon: 'clipboard-text-outline' },
+    { key: 'squads', label: 'SQUADS', icon: 'account-group-outline' },
+    { key: 'overs', label: 'OVERS', icon: 'cricket' },
+    { key: 'highlights', label: 'HIGHLIGHTS', icon: 'star-outline' },
   ];
   const activeIndex = Math.max(0, TABS.findIndex((t) => t.key === activeTab));
   const inningsList = match?.innings || [];
@@ -1356,10 +1366,12 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const t1Win = chase ? (chase.teamName === t1 ? chase.chaseWin : 100 - chase.chaseWin) : 50;
   const t2Win = 100 - t1Win;
 
-  // Keep the swipeable pager in sync with the active tab — covers the initial
-  // default tab, a tab-bar tap, and (as a harmless no-op re-scroll) a swipe
-  // gesture, which updates `tab` directly via onMomentumScrollEnd below.
+  // Keep the swipeable pager in sync with the active tab for the initial default
+  // and tab-bar taps. Skip it while a finger swipe is driving the pager — issuing
+  // an animated scrollTo mid-gesture fights the native paging and causes a stutter
+  // (the swipe already lands on the right page and updates `tab` on its own).
   useEffect(() => {
+    if (swipingRef.current) return;
     const idx = TABS.findIndex((t) => t.key === activeTab);
     if (idx >= 0) pagerRef.current?.scrollTo({ x: idx * SCREEN_WIDTH, y: 0, animated: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1404,9 +1416,14 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
           contentContainerStyle={styles.matchTabBarContent}>
           {TABS.map((t) => {
             const active = activeTab === t.key;
+            const color = active ? DS.lime : DS.textMuted;
             return (
-              <TouchableOpacity key={t.key} style={[styles.matchTab, active && styles.matchTabActive]} onPress={() => setTab(t.key)}>
-                <Text style={[styles.matchTabText, active && styles.matchTabTextActive]} numberOfLines={1}>{t.label}</Text>
+              // X/Twitter-style: only the selected tab shows its name; the rest are icon-only.
+              <TouchableOpacity key={t.key} style={[styles.matchTab, active && styles.matchTabActive]}
+                onPress={() => setTab(t.key)}>
+                <Icon name={t.icon} size={19} color={color} />
+                {active &&
+                  <Text style={[styles.matchTabText, styles.matchTabTextActive]} numberOfLines={1}>{t.label}</Text>}
               </TouchableOpacity>
             );
           })}
@@ -1489,7 +1506,21 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
           // before the sync effect's animated scrollTo catches up, so a first-time
           // viewer briefly sees INFO's content under the LIVE tab's highlight.
           contentOffset={{ x: activeIndex * SCREEN_WIDTH, y: 0 }}
+          onScrollBeginDrag={() => { swipingRef.current = true; }}
+          // As the finger drags past a page's centre, move the active tab so the
+          // bar's highlight + label track the swipe in real time (feels connected),
+          // not just at the end. The effect above is guarded so this doesn't
+          // trigger a competing programmatic scroll.
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            if (!swipingRef.current) return;
+            const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+            const key = TABS[idx]?.key;
+            if (key && key !== activeTab) setTab(key);
+          }}
+          onScrollEndDrag={() => { swipingRef.current = false; }}
           onMomentumScrollEnd={(e) => {
+            swipingRef.current = false;
             const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
             const key = TABS[idx]?.key;
             if (key && key !== activeTab) setTab(key);
@@ -1602,11 +1633,11 @@ const makeStyles = (DS) => StyleSheet.create({
   liveBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DS.live },
   liveBadgeText: { fontSize: 10, fontWeight: '900', color: DS.live, letterSpacing: 0.6 },
 
-  // Match-center tab bar (INFO / LIVE / SCORECARD / SQUADS / OVERS)
+  // Match-center tab bar — X-style: only the selected tab shows its name.
   matchTabBar: { backgroundColor: DS.surface },
-  matchTabBarContent: { flexDirection: 'row' },
+  matchTabBarContent: { flexDirection: 'row', flexGrow: 1, justifyContent: 'space-around', alignItems: 'center' },
   matchTab: {
-    alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 14,
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   matchTabActive: { borderBottomColor: DS.lime },
@@ -1833,40 +1864,42 @@ const makeStyles = (DS) => StyleSheet.create({
   highlightMeta: { fontSize: 10, color: DS.textMuted, marginTop: 2, fontWeight: '600' },
 
   // SUMMARY tab (completed matches): match summary + Player of the Match hero + awards + MVP
+  // SUMMARY tab — light/thin Inter aesthetic: big display text in Light (300),
+  // body in Regular (400), small labels/initials just legible (600).
   summaryMatchCard: { backgroundColor: DS.surface, borderRadius: 16, padding: 14, gap: 10 },
   summaryTeamLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  summaryTeamInit: { fontSize: 13, fontWeight: '900', color: '#ffffff' },
-  summaryTeamNm: { flex: 1, fontSize: 14, fontWeight: '800', color: DS.textPrimary },
-  summaryTeamSc: { fontSize: 16, fontWeight: '900', color: DS.lime, fontVariant: ['tabular-nums'] },
+  summaryTeamInit: { fontSize: 13, fontWeight: '600', color: '#ffffff' },
+  summaryTeamNm: { flex: 1, fontSize: 14, fontWeight: '400', color: DS.textPrimary },
+  summaryTeamSc: { fontSize: 18, fontWeight: '300', color: DS.lime, fontVariant: ['tabular-nums'] },
   summaryResultBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderTopWidth: 1, borderTopColor: DS.line, paddingTop: 10 },
-  summaryResultTxt: { fontSize: 13, fontWeight: '800', color: DS.textPrimary, flexShrink: 1, textAlign: 'center' },
+  summaryResultTxt: { fontSize: 13, fontWeight: '400', color: DS.textPrimary, flexShrink: 1, textAlign: 'center' },
   summaryHero: { backgroundColor: DS.lime + '18', borderRadius: 16, borderWidth: 1, borderColor: DS.lime + '40', padding: 14, gap: 10 },
   summaryHeroBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: DS.lime, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  summaryHeroBadgeTxt: { fontSize: 10, fontWeight: '900', color: DS.onLime, letterSpacing: 0.6 },
+  summaryHeroBadgeTxt: { fontSize: 10, fontWeight: '600', color: DS.onLime, letterSpacing: 0.6 },
   summaryHeroRow: { flexDirection: 'row', alignItems: 'center' },
-  summaryHeroInit: { fontSize: 18, fontWeight: '900', color: '#ffffff' },
-  summaryHeroName: { fontSize: 17, fontWeight: '900', color: DS.textPrimary },
-  summaryHeroTeam: { fontSize: 12, fontWeight: '700', color: DS.textMuted, marginTop: 1 },
-  summaryHeroStat: { fontSize: 12, fontWeight: '600', color: DS.textVariant, marginTop: 3 },
+  summaryHeroInit: { fontSize: 18, fontWeight: '600', color: '#ffffff' },
+  summaryHeroName: { fontSize: 19, fontWeight: '300', color: DS.textPrimary },
+  summaryHeroTeam: { fontSize: 12, fontWeight: '400', color: DS.textMuted, marginTop: 1 },
+  summaryHeroStat: { fontSize: 12, fontWeight: '400', color: DS.textVariant, marginTop: 3 },
   summaryMvpPill: { alignItems: 'center', backgroundColor: DS.surface, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
-  summaryMvpVal: { fontSize: 17, fontWeight: '900', color: DS.lime },
-  summaryMvpLbl: { fontSize: 9, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.5 },
+  summaryMvpVal: { fontSize: 19, fontWeight: '300', color: DS.lime },
+  summaryMvpLbl: { fontSize: 9, fontWeight: '600', color: DS.textMuted, letterSpacing: 0.5 },
 
   summaryAwardRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: DS.surface, borderRadius: 14, borderWidth: 1, borderColor: DS.line, padding: 12 },
-  summaryAwardInit: { fontSize: 14, fontWeight: '900', color: '#ffffff' },
+  summaryAwardInit: { fontSize: 14, fontWeight: '600', color: '#ffffff' },
   summaryAwardLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  summaryAwardLabel: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.5 },
-  summaryAwardName: { fontSize: 13.5, fontWeight: '800', color: DS.textPrimary, marginTop: 1 },
-  summaryAwardTeam: { fontSize: 12, fontWeight: '600', color: DS.textMuted },
-  summaryAwardStat: { fontSize: 11.5, fontWeight: '600', color: DS.textVariant, marginTop: 2 },
-  summaryAwardMvp: { fontSize: 15, fontWeight: '900', color: DS.lime },
+  summaryAwardLabel: { fontSize: 10, fontWeight: '600', color: DS.textMuted, letterSpacing: 0.5 },
+  summaryAwardName: { fontSize: 14, fontWeight: '400', color: DS.textPrimary, marginTop: 1 },
+  summaryAwardTeam: { fontSize: 12, fontWeight: '400', color: DS.textMuted },
+  summaryAwardStat: { fontSize: 11.5, fontWeight: '400', color: DS.textVariant, marginTop: 2 },
+  summaryAwardMvp: { fontSize: 16, fontWeight: '300', color: DS.lime },
 
   mvpRankRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 9, borderTopWidth: 1, borderTopColor: DS.line },
-  mvpRank: { width: 18, fontSize: 13, fontWeight: '900', color: DS.textMuted, textAlign: 'center' },
-  mvpRankInit: { fontSize: 11, fontWeight: '900', color: DS.textPrimary },
-  mvpRankName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
-  mvpRankTeam: { fontSize: 11, fontWeight: '600', color: DS.textMuted },
-  mvpRankVal: { fontSize: 14, fontWeight: '900', color: DS.lime },
+  mvpRank: { width: 18, fontSize: 13, fontWeight: '400', color: DS.textMuted, textAlign: 'center' },
+  mvpRankInit: { fontSize: 11, fontWeight: '600', color: DS.textPrimary },
+  mvpRankName: { fontSize: 13, fontWeight: '400', color: DS.textPrimary },
+  mvpRankTeam: { fontSize: 11, fontWeight: '400', color: DS.textMuted },
+  mvpRankVal: { fontSize: 15, fontWeight: '300', color: DS.lime },
 
   // Run-rate worm graph (SCORECARD tab)
   wormCard: { backgroundColor: DS.surface, borderRadius: 14, padding: 14, gap: 8 },

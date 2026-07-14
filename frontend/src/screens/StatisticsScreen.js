@@ -78,7 +78,7 @@ function PlayerCard({ item, rank }) {const DS = useTheme().colors;const styles =
     <View style={[styles.card, isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 }]}>
       <View style={styles.cardHeader}>
         <View style={styles.avatarWrap}>
-          <HexAvatar size={52} color={avColor}>
+          <HexAvatar size={42} color={avColor}>
             <Text style={[styles.avatarText, { color: '#fff' }]}>{initials(item.name)}</Text>
           </HexAvatar>
           <View style={styles.rankBadge}>
@@ -119,7 +119,7 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
     <View style={[styles.card, isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 }]}>
       <View style={styles.cardHeader}>
         <View style={styles.avatarWrap}>
-          <HexAvatar size={52} color={avColor}>
+          <HexAvatar size={42} color={avColor}>
             <Text style={[styles.avatarText, { color: '#fff' }]}>{initials(item.name)}</Text>
           </HexAvatar>
           <View style={styles.rankBadge}>
@@ -321,13 +321,13 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 13, fontWeight: '500', color: DS.textPrimary, padding: 0 },
 
-  list: { paddingHorizontal: 16, paddingBottom: 24, gap: 14 },
+  list: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
 
   card: { 
     backgroundColor: DS.surface, borderRadius: 16,
     borderWidth: 1, borderColor: DS.border,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, paddingBottom: 12 },
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, paddingBottom: 8 },
   avatarWrap: { position: 'relative' },
   rankBadge: {
     position: 'absolute', top: -4, left: -4,
@@ -339,7 +339,7 @@ const makeStyles = (DS) => StyleSheet.create({
   rankText: { fontSize: 11, fontWeight: '900', color: DS.textVariant },
   avatar: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 16, fontWeight: '900' },
-  cardName: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
+  cardName: { fontSize: 15, fontWeight: '800', color: DS.textPrimary },
   cardSub: { fontSize: 12, color: DS.textMuted, marginTop: 2, fontWeight: '500' },
 
   winRatePill: {
@@ -350,7 +350,7 @@ const makeStyles = (DS) => StyleSheet.create({
   winRatePillSub: { fontSize: 9, color: DS.success, fontWeight: '700' },
 
   ratioBar: {
-    flexDirection: 'row', height: 18, overflow: 'hidden',
+    flexDirection: 'row', height: 14, overflow: 'hidden',
     marginHorizontal: 16, marginBottom: 8, borderRadius: 9,
     borderWidth: 1, borderColor: DS.border
   },
@@ -359,14 +359,14 @@ const makeStyles = (DS) => StyleSheet.create({
 
   statRow: {
     flexDirection: 'row', justifyContent: 'space-between',
-    paddingVertical: 12, paddingHorizontal: 12,
+    paddingVertical: 8, paddingHorizontal: 10,
     backgroundColor: 'transparent', gap: 8,
     borderBottomLeftRadius: 18, borderBottomRightRadius: 18
   },
   statItem: {
     flex: 1, alignItems: 'center', gap: 4,
     backgroundColor: DS.surfaceHigh,
-    paddingVertical: 10, borderRadius: 12,
+    paddingVertical: 8, borderRadius: 12,
     borderWidth: 1, borderColor: DS.faint
   },
   statVal: { fontSize: 14, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },

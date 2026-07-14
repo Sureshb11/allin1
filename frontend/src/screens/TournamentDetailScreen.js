@@ -12,12 +12,8 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const TABS = ['Overview', 'Points Table', 'Schedule', 'Leaders'];
 
-const AVATAR_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#e91e63'];
-const avatarColor = (name) => {
-  let hash = 0;
-  for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-};
+// Single-accent: all avatars are the deep green (white initials read on both themes).
+const avatarColor = () => '#0a5227';
 const captainOf = (team) => team?.captain?.name || team?.captainName || (team?.players && team.players[0]?.name) || 'TBD';
 const initials2 = (name) => {
   const w = (name || '').trim().split(/\s+/).filter(Boolean);

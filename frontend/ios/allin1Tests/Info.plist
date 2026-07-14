@@ -22,15 +22,7 @@
 	<string>1</string>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Lexend-Regular.ttf</string>
-		<string>Lexend-SemiBold.ttf</string>
-		<string>Lexend-Black.ttf</string>
-		<string>Lexend-ExtraBold.ttf</string>
-		<string>Lexend-ExtraLight.ttf</string>
-		<string>Lexend-Thin.ttf</string>
-		<string>Lexend-Light.ttf</string>
-		<string>Lexend-Medium.ttf</string>
-		<string>Lexend-Bold.ttf</string>
+		<string>Selawik-Regular.ttf</string>
 		<string>Fontisto.ttf</string>
 		<string>Octicons.ttf</string>
 		<string>Feather.ttf</string>

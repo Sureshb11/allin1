@@ -39,8 +39,9 @@ const parseScore = (s) => {
 // ── helpers (map real API data → the feed's render shapes) ──────────────────
 const sideName = (t) => (typeof t === 'object' ? (t?.name || 'Team') : String(t || 'Team'));
 const initials = (n) => n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-const AV_COLORS = ['#2d7a3a', '#1a5fa8', '#7c3aed', '#b45309', '#b91c1c', '#0d7c8f', '#c2490d'];
-const colorFor = (s) => AV_COLORS[((s || '?').charCodeAt(0) || 0) % AV_COLORS.length];
+// Single-accent: every avatar uses the deep green (white initials read on it in
+// both light and dark). Was a per-name rainbow palette.
+const colorFor = () => '#0a5227';
 const timeAgo = (iso) => {
   if (!iso) return '';
   const sec = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
@@ -173,7 +174,7 @@ function CircleMatchCard({ match, onPress }) {
     const { main, ov } = splitScore(t.score, match.overs);
     return (
       <View style={c.team}>
-        <HexAvatar size={50} color={t.color}>
+        <HexAvatar size={40} color={t.color}>
           <Text style={c.teamAvatarTxt}>{t.short}</Text>
         </HexAvatar>
         <Text style={c.teamName} numberOfLines={2}>{t.name}</Text>
@@ -185,7 +186,7 @@ function CircleMatchCard({ match, onPress }) {
   };
 
   const content = (
-    <TouchableOpacity activeOpacity={0.9} style={[c.card, (live || match.status === 'break') && c.cardLive, { minHeight: 290, justifyContent: 'space-between' }]} onPress={onPress}>
+    <TouchableOpacity activeOpacity={0.9} style={[c.card, (live || match.status === 'break') && c.cardLive, { minHeight: 244, justifyContent: 'space-between' }]} onPress={onPress}>
       <View>
         {/* header row */}
         <View style={c.head}>
@@ -801,7 +802,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       {/* From Your Circle rail */}
       <View style={s.sectionHead}>
         <Text style={s.sectionTitle}>From Your Circle</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('MyMatches')}>
+        <TouchableOpacity onPress={() => navigation.navigate('MyCricketTab', { screen: 'Home' })}>
           <Text style={s.seeAll}>See all</Text>
         </TouchableOpacity>
       </View>
@@ -1083,13 +1084,13 @@ const makeH = (DS) => StyleSheet.create({
 
 const makeC = (DS, TYPO) => StyleSheet.create({
   card: {
-    width: MATCH_CARD_W, backgroundColor: DS.surface, borderRadius: 16, padding: 18,
+    width: MATCH_CARD_W, backgroundColor: DS.surface, borderRadius: 14, padding: 13,
     borderWidth: 1, borderColor: DS.line,
-    shadowColor: '#000', shadowOpacity: DS.mode === 'dark' ? 0.3 : 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3,
+    shadowColor: '#000', shadowOpacity: DS.mode === 'dark' ? 0.3 : 0.07, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 3,
   },
   cardLive: { borderWidth: 1.5, borderColor: DS.blueDeep + (DS.mode === 'dark' ? '55' : '33') },
 
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: DS.live },
   liveTxt: { fontFamily: TYPO.label.fontFamily, color: DS.live, fontSize: 12, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase' },
@@ -1099,29 +1100,31 @@ const makeC = (DS, TYPO) => StyleSheet.create({
   leaguePillTxt: { fontFamily: TYPO.label.fontFamily, color: DS.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: -0.5, textTransform: 'uppercase' },
   leaguePillTxtLive: { color: DS.onBlue },
 
-  teamsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  team: { flex: 1, alignItems: 'center', gap: 8 },
-  teamAvatar: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 },
-  teamAvatarTxt: { fontFamily: TYPO.headline.fontFamily, color: '#ffffff', fontSize: 20, fontWeight: '900' },
-  teamName: { fontFamily: TYPO.label.fontFamily, color: DS.textPrimary, fontSize: 14, fontWeight: '700', textAlign: 'center', lineHeight: 17 },
-  teamScore: { fontFamily: TYPO.headline.fontFamily, color: DS.textPrimary, fontSize: 20, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  teamScoreOvers: { fontSize: 12, fontWeight: '700', color: DS.textMuted, fontVariant: ['tabular-nums'] },
+  teamsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  team: { flex: 1, alignItems: 'center', gap: 6 },
+  teamAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 },
+  teamAvatarTxt: { fontFamily: TYPO.headline.fontFamily, color: '#ffffff', fontSize: 15, fontWeight: '900' },
+  teamName: { fontFamily: TYPO.label.fontFamily, color: DS.textPrimary, fontSize: 13, fontWeight: '700', textAlign: 'center', lineHeight: 16 },
+  teamScore: { fontFamily: TYPO.headline.fontFamily, color: DS.textPrimary, fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  teamScoreOvers: { fontSize: 11, fontWeight: '700', color: DS.textMuted, fontVariant: ['tabular-nums'] },
   teamScoreMuted: { color: DS.textMuted },
-  teamDivider: { width: 1, height: 56, backgroundColor: DS.line, marginHorizontal: 4 },
-  vs: { fontFamily: TYPO.headline.fontFamily, color: DS.textMuted, fontSize: 16, fontWeight: '700', marginHorizontal: 4 },
+  teamDivider: { width: 1, height: 46, backgroundColor: DS.line, marginHorizontal: 4 },
+  vs: { fontFamily: TYPO.headline.fontFamily, color: DS.textMuted, fontSize: 14, fontWeight: '700', marginHorizontal: 4 },
   chaseRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 10 },
   chaseLine: { fontSize: 11, fontWeight: '700', color: DS.textMuted, textAlign: 'center' },
 
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   metaMuted: { fontFamily: TYPO.label.fontFamily, color: DS.textMuted, fontSize: 12, fontWeight: '700' },
   metaRR: { fontFamily: TYPO.label.fontFamily, fontSize: 12, fontWeight: '700' },
-  track: { height: 6, backgroundColor: DS.surfaceHigh, borderRadius: 3, overflow: 'hidden', marginBottom: 16 },
-  fill: { height: 6, backgroundColor: DS.lime, borderRadius: 3, shadowColor: DS.lime, shadowOpacity: 0.6, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
+  track: { height: 5, backgroundColor: DS.surfaceHigh, borderRadius: 3, overflow: 'hidden', marginBottom: 12 },
+  fill: { height: 5, backgroundColor: DS.lime, borderRadius: 3, shadowColor: DS.lime, shadowOpacity: 0.6, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
 
-  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: DS.blueDeep, height: 44, borderRadius: 10, shadowColor: DS.blueDeep, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  primaryBtnTxt: { fontFamily: TYPO.label.fontFamily, color: DS.onBlue, fontSize: 14, fontWeight: '700', letterSpacing: 0.8 },
-  resultBanner: { backgroundColor: DS.surfaceHighest, borderWidth: 1, borderColor: DS.lime + '44', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 10, alignItems: 'center', marginBottom: 14 },
-  resultBannerTxt: { fontFamily: TYPO.label.fontFamily, color: DS.lime, fontSize: 13, fontWeight: '800', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 },
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: DS.blueDeep, height: 40, borderRadius: 10, shadowColor: DS.blueDeep, shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
+  primaryBtnTxt: { fontFamily: TYPO.label.fontFamily, color: DS.onBlue, fontSize: 13, fontWeight: '700', letterSpacing: 0.8 },
+  // Same style as My Cricket → Matches: soft green-tint fill, green bold text,
+  // sentence case (no uppercase) — e.g. "D-Vigo-S XI won by 5 wickets".
+  resultBanner: { backgroundColor: DS.success + '14', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 14, alignItems: 'center', marginBottom: 10 },
+  resultBannerTxt: { fontFamily: TYPO.label.fontFamily, color: DS.success, fontSize: 13, fontWeight: '800', textAlign: 'center' },
 });
 
 const makeM = (DS) => StyleSheet.create({

@@ -392,7 +392,9 @@ export default function TossLineupScreen({ route, navigation }) {
   const setXIs    = [setTeam1XI, setTeam2XI];
   const teamAvail = [team1Avail, team2Avail];
   const setAvails = [setTeam1Avail, setTeam2Avail];
-  const teamColor = [K.lime, '#4fc3f7'];
+  // Two teams distinguished by green accent vs. a neutral — not a second hue
+  // (single-accent system: green is the only brand colour).
+  const teamColor = [K.lime, K.textMuted];
 
   return (
     <View style={s.root}>

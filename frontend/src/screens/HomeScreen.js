@@ -582,7 +582,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
 
   // Nav tabs
   navTabs: { flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: 'transparent' },
-  navTab: { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 2, borderRadius: 14 },
+  navTab: { flex: 1, alignItems: 'center', paddingVertical: 6, gap: 2, borderRadius: 14 },
   navTabActive: {
     backgroundColor: DS.surfaceHighest,
     shadowColor: DS.lime, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4,
@@ -616,7 +616,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   mcStatVal: { color: DS.lime, fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
   mcStatLbl: { color: DS.textMuted, fontSize: 10.5, fontWeight: '600', marginTop: 2, letterSpacing: 0.3 },
 
-  startMatchCTA: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 16, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 16, backgroundColor: DS.blueDeep, elevation: 8, shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
+  startMatchCTA: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 16, paddingVertical: 11, paddingHorizontal: 18, marginBottom: 12, backgroundColor: DS.blueDeep, elevation: 8, shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
   startMatchLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   startMatchIconBox: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   startMatchTitle: { fontSize: 20, fontWeight: '800', color: DS.onBlue, textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -628,7 +628,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: DS.surfaceHigh, marginBottom: 8,
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
+    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 11,
   },
   searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary },
   filtersRow: {

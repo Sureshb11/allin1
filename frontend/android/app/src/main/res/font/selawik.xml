@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Every weight bucket resolves to the SAME Selawik Regular face, on purpose.
+  Screens across the app set a mix of fontWeight values (300 for a "light"
+  aesthetic in one tab, 900 for punchy headings elsewhere) — bucketing those to
+  different faces made the app look inconsistently bold/thin from screen to
+  screen. Collapsing every weight to Regular gives one flat, uniform weight
+  everywhere; hierarchy is still carried by font SIZE (headings stay larger).
+-->
+<font-family xmlns:android="http://schemas.android.com/apk/res/android"
+             xmlns:app="http://schemas.android.com/apk/res-auto">
+    <font android:fontStyle="normal" android:fontWeight="100" android:font="@font/selawik_regular" app:fontStyle="normal" app:fontWeight="100" app:font="@font/selawik_regular" />
+    <font android:fontStyle="normal" android:fontWeight="200" android:font="@font/selawik_regular" app:fontStyle="normal" app:fontWeight="200" app:font="@font/selawik_regular" />
+    <font android:fontStyle="normal" android:fontWeight="300" android:font="@font/selawik_regular" app:fontStyle="normal" app:fontWeight="300" app:font="@font/selawik_regular" />
+    <font android:fontStyle="normal" android:fontWeight="400" android:font="@font/selawik_regular" app:fontStyle="normal" app:fontWeight="400" app:font="@font/selawik_regular" />
+    <font android:fontStyle="normal" android:fontWeight="500" android:font="@font/selawik_regular" app:fontStyle="normal" app:fontWeight="500" app:font="@font/selawik_regular" />
+    <font android:fontStyle="normal" android:fontWeight="600" android:font="@font/selawik_regular" app:fontStyle="normal" app:fontWeight="600" app:font="@font/selawik_regular" />
+    <font android:fontStyle="normal" android:fontWeight="700" android:font="@font/selawik_regular" app:fontStyle="normal" app:fontWeight="700" app:font="@font/selawik_regular" />
+    <font android:fontStyle="normal" android:fontWeight="800" android:font="@font/selawik_regular" app:fontStyle="normal" app:fontWeight="800" app:font="@font/selawik_regular" />
+    <font android:fontStyle="normal" android:fontWeight="900" android:font="@font/selawik_regular" app:fontStyle="normal" app:fontWeight="900" app:font="@font/selawik_regular" />
+</font-family>

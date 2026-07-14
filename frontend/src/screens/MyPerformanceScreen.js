@@ -188,15 +188,12 @@ const makeStyles = (DS) => StyleSheet.create({
   tabBtnActive: { backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   tabBtnText: { fontWeight: '700', fontSize: 13, color: DS.textMuted },
   tabBtnTextActive: { color: DS.bg },
-  body: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
+  body: { paddingHorizontal: 16, paddingBottom: 28, gap: 10 },
   bentoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  bentoCard: {
-    width: '47%', borderRadius: 16,
-    padding: 14
-  },
-  bentoVal: { fontSize: 26, fontWeight: '900', color: DS.textPrimary, marginBottom: 4 },
+  bentoCard: { width: "47%", borderRadius: 14, padding: 11 },
+  bentoVal: { fontSize: 22, fontWeight: '900', color: DS.textPrimary, marginBottom: 4 },
   bentoLbl: { fontSize: 11, fontWeight: '600', color: DS.textMuted },
-  chartCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16 },
-  chartTitle: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, marginBottom: 12 },
+  chartCard: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 13 },
+  chartTitle: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, marginBottom: 10 },
   emptyText: { fontSize: 16, color: DS.textVariant, marginTop: 12, fontWeight: '600' }
 });
