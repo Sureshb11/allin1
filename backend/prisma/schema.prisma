@@ -126,6 +126,7 @@ model Player {
   oversBowled  Over[]
   ballsFaced   Ball[] @relation("facingBatter")
   ballsNonStriker Ball[] @relation("nonStriker")
+  ballsBowled  Ball[] @relation("ballBowler")
 
   @@index([sport])
   @@index([userId])
@@ -252,6 +253,10 @@ model Ball {
   batterId        String
   nonStriker      Player   @relation("nonStriker", fields: [nonStrikerId], references: [id])
   nonStrikerId    String
+  // Per-delivery bowler — supports shared overs (a bowler change mid-over). Nullable
+  // for back-compat: balls recorded before this column fall back to Over.bowlerId.
+  bowler          Player?  @relation("ballBowler", fields: [bowlerId], references: [id])
+  bowlerId        String?
   runs            Int      @default(0)
   extras          Int      @default(0)
   extraType       String?  // wide | noBall | bye | legBye | penalty
@@ -262,6 +267,7 @@ model Ball {
 
   @@index([overId])
   @@index([batterId])
+  @@index([bowlerId])
   @@index([dismissedPlayerId])
 }
 

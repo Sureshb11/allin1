@@ -257,29 +257,41 @@ router.put('/:id/score', authMiddleware, async (req, res) => {
     // NOT count), then roll to a new over. We do NOT trust the client's overNumber:
     // rapid taps during the async save repeat a stale overNumber, which was piling
     // many balls into one over (overs of 8–12 balls). The server owns the boundary.
-    const legalCount = (o) => (o ? o.balls.filter((b) => !['wide', 'noBall', 'retired'].includes(b.extraType)).length : 0);
+    const isLegal = (b) => !['wide', 'noBall', 'retired'].includes(b.extraType);
+    const legalCount = (o) => (o ? o.balls.filter(isLegal).length : 0);
     const latest = await prisma.over.findFirst({
       where: { inningId: data.inningId },
       orderBy: { overNumber: 'desc' },
-      include: { balls: { select: { extraType: true } } },
+      include: { balls: { orderBy: { ballNumber: 'asc' }, select: { extraType: true, bowlerId: true } } },
     });
 
     let over;
     if (latest && legalCount(latest) < 6) {
-      over = latest;                       // current over still in progress → append
+      over = latest;                       // current over still in progress → append.
+                                           // A mid-over bowler change is simply a ball
+                                           // with a different bowlerId in the same over.
     } else {
       // A new over starts → enforce the bowling laws (spell limit + no consecutive).
       const matchRow = await prisma.match.findUnique({ where: { id: req.params.id }, select: { overs: true } });
       const maxOvers = Math.ceil((matchRow?.overs || 20) / 5);   // T20 → 4, ODI → 10
       const priorOvers = await prisma.over.findMany({
         where: { inningId: data.inningId },
-        include: { balls: { select: { extraType: true } } },
+        include: { balls: { select: { extraType: true, bowlerId: true } } },
       });
-      const completedByBowler = priorOvers.filter((o) => o.bowlerId === data.bowlerId && legalCount(o) >= 6).length;
-      if (completedByBowler >= maxOvers) {
+      // Spell limit counted by ACTUAL deliveries bowled (shared overs split per bowler),
+      // not by whole-over ownership. Per-ball bowlerId falls back to the over's bowler.
+      let legalByBowler = 0;
+      priorOvers.forEach((o) => o.balls.forEach((b) => {
+        if (isLegal(b) && (b.bowlerId || o.bowlerId) === data.bowlerId) legalByBowler += 1;
+      }));
+      if (Math.floor(legalByBowler / 6) >= maxOvers) {
         return res.status(409).json({ error: `A bowler can bowl at most ${maxOvers} overs in this match.`, code: 'BOWLER_OVER_LIMIT' });
       }
-      if (latest && latest.bowlerId === data.bowlerId) {   // latest is the just-completed over
+      // No consecutive overs: the bowler of the LAST delivery of the previous over
+      // can't open the next one (covers shared overs, not just Over.bowlerId).
+      const lastBall = latest?.balls?.length ? latest.balls[latest.balls.length - 1] : null;
+      const prevBowler = (lastBall && lastBall.bowlerId) || latest?.bowlerId;
+      if (prevBowler && prevBowler === data.bowlerId) {
         return res.status(409).json({ error: 'A bowler cannot bowl two overs in a row.', code: 'BOWLER_CONSECUTIVE' });
       }
       over = await prisma.over.create({
@@ -298,6 +310,7 @@ router.put('/:id/score', authMiddleware, async (req, res) => {
         ballNumber: ballsInOver + 1,
         batterId: data.batterId,
         nonStrikerId: data.nonStrikerId,
+        bowlerId: data.bowlerId || undefined,   // per-delivery bowler (shared overs)
         runs: data.runs,
         extras: data.extras,
         extraType: data.extraType,
@@ -502,6 +515,7 @@ router.get('/:id/live-state', async (req, res) => {
               include: {
                 batter: { include: { user: { select: { avatarUrl: true } } } },
                 nonStriker: { include: { user: { select: { avatarUrl: true } } } },
+                bowler: { include: { user: { select: { avatarUrl: true } } } },
               },
             },
           },
@@ -511,17 +525,27 @@ router.get('/:id/live-state', async (req, res) => {
     const inning = innings[innings.length - 1];
     if (!inning) return res.json({ sport: 'cricket', status: match.status, resumable: false });
 
-    const legalIn = (over) => (over.balls || []).filter((b) => !['wide', 'noBall', 'retired'].includes(b.extraType)).length;
-    // Per-bowler completed overs (6 legal balls) → enforces the spell limit on
-    // resume; lastOverBowlerId powers the no-consecutive-overs rule.
-    const bowlerOvers = {};
+    const legalB = (b) => !['wide', 'noBall', 'retired'].includes(b.extraType);
+    const legalIn = (over) => (over.balls || []).filter(legalB).length;
+    // Per-bowler completed overs from ACTUAL deliveries (shared overs count per
+    // bowler = legal balls / 6) → enforces the spell limit on resume;
+    // lastOverBowlerId (the last delivery's bowler) powers the no-consecutive rule.
+    const bowlerLegalBalls = {};
     let lastOverBowlerId = null;
     for (const ov of [...inning.oversData].sort((a, b) => a.overNumber - b.overNumber)) {
-      if (legalIn(ov) >= 6) {
-        bowlerOvers[ov.bowlerId] = (bowlerOvers[ov.bowlerId] || 0) + 1;
-        lastOverBowlerId = ov.bowlerId;
+      const complete = legalIn(ov) >= 6;
+      for (const b of (ov.balls || [])) {
+        const bId = b.bowlerId || ov.bowlerId;
+        if (bId && legalB(b)) bowlerLegalBalls[bId] = (bowlerLegalBalls[bId] || 0) + 1;
+      }
+      if (complete && ov.balls?.length) {
+        const last = [...ov.balls].sort((a, b) => a.ballNumber - b.ballNumber).slice(-1)[0];
+        lastOverBowlerId = (last && last.bowlerId) || ov.bowlerId;
       }
     }
+    const bowlerOvers = Object.fromEntries(
+      Object.entries(bowlerLegalBalls).map(([id, n]) => [id, Math.floor(n / 6)])
+    );
 
     const curOver = inning.oversData[0];               // latest over of the current inning
     const lastBall = curOver?.balls[0];                // most recent delivery
@@ -564,12 +588,13 @@ router.get('/:id/live-state', async (req, res) => {
     // byes/penalty aren't charged. A maiden = a completed over with 0 charged runs.
     const battingFigures = {};
     const bowlingFigures = {};
+    const ensureBowler = (id) => { if (id && !bowlingFigures[id]) bowlingFigures[id] = { balls: 0, runs: 0, wickets: 0, maidens: 0 }; };
     const dismissedBatters = new Set();   // players out this innings → can't re-bat
     for (const ov of inning.oversData) {
-      const bId = ov.bowlerId;
-      if (!bowlingFigures[bId]) bowlingFigures[bId] = { balls: 0, runs: 0, wickets: 0, maidens: 0 };
       let overCharged = 0, overLegal = 0;
+      const overBowlers = new Set();      // distinct bowlers in this over (for maidens)
       for (const b of ov.balls) {
+        const bId = b.bowlerId || ov.bowlerId;   // per-delivery bowler (shared overs)
         const et = b.extraType;
         if (b.batterId) {
           if (!battingFigures[b.batterId]) battingFigures[b.batterId] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
@@ -588,15 +613,22 @@ router.get('/:id/live-state', async (req, res) => {
         else { charged = b.runs; legal = true; }                  // normal delivery / wicket
         overCharged += charged;
         if (legal) overLegal += 1;
-        bowlingFigures[bId].runs += charged;
-        if (legal) bowlingFigures[bId].balls += 1;
-        if (b.isWicket) {
-          const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
-          if (wt !== 'runout' && wt !== 'retired') bowlingFigures[bId].wickets += 1;
-          if (b.dismissedPlayerId) dismissedBatters.add(b.dismissedPlayerId);
+        if (bId) {
+          ensureBowler(bId);
+          overBowlers.add(bId);
+          bowlingFigures[bId].runs += charged;
+          if (legal) bowlingFigures[bId].balls += 1;
+          if (b.isWicket) {
+            const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
+            if (wt !== 'runout' && wt !== 'retired') bowlingFigures[bId].wickets += 1;
+          }
         }
+        if (b.isWicket && b.dismissedPlayerId) dismissedBatters.add(b.dismissedPlayerId);
       }
-      if (overLegal >= 6 && overCharged === 0) bowlingFigures[bId].maidens += 1;
+      // A maiden needs one bowler to bowl the whole (6-legal) over for 0 charged runs.
+      if (overLegal >= 6 && overCharged === 0 && overBowlers.size === 1) {
+        bowlingFigures[[...overBowlers][0]].maidens += 1;
+      }
     }
 
     res.json({
@@ -657,7 +689,7 @@ router.get('/:id/scorecard', async (req, res) => {
               include: {
                 bowler: true,
                 balls: {
-                  include: { batter: true, nonStriker: true },
+                  include: { batter: true, nonStriker: true, bowler: { select: { id: true, name: true } } },
                   orderBy: { ballNumber: 'asc' }
                 }
               },
@@ -845,7 +877,7 @@ router.get('/:id/insights', async (req, res) => {
             oversData: {
               include: {
                 bowler: true,
-                balls: { include: { batter: true }, orderBy: { ballNumber: 'asc' } },
+                balls: { include: { batter: true, bowler: true }, orderBy: { ballNumber: 'asc' } },
               },
               orderBy: { overNumber: 'asc' },
             },
@@ -875,21 +907,35 @@ router.get('/:id/insights', async (req, res) => {
         .sort((a, b) => b.runs - a.runs)
         .map(b => ({ ...b, strikeRate: b.balls > 0 ? +((b.runs / b.balls) * 100).toFixed(2) : 0 }));
 
+      // Per-DELIVERY bowler (shared overs split correctly), falling back to the
+      // over's bowler for legacy balls with no bowlerId.
       const bowlerMap = {};
       for (const over of inning.oversData) {
-        const id = over.bowlerId;
-        if (!bowlerMap[id]) bowlerMap[id] = { player: over.bowler, overs: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 };
-        bowlerMap[id].overs++;
-        bowlerMap[id].runs += over.runs + over.extras;
-        bowlerMap[id].wickets += over.wickets;
         for (const ball of over.balls) {
-          if (ball.extraType === 'wide') bowlerMap[id].wides++;
-          if (ball.extraType === 'noBall') bowlerMap[id].noBalls++;
+          const id = ball.bowlerId || over.bowlerId;
+          if (!id) continue;
+          if (!bowlerMap[id]) bowlerMap[id] = { player: ball.bowler || over.bowler, balls: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 };
+          const et = ball.extraType;
+          let charged = 0, legal = false;
+          if (et === 'wide') { charged = ball.extras; bowlerMap[id].wides++; }
+          else if (et === 'noBall') { charged = ball.runs + ball.extras; bowlerMap[id].noBalls++; }
+          else if (et === 'bye' || et === 'legBye') legal = true;
+          else if (et === 'penalty' || et === 'retired') charged = 0;
+          else { charged = ball.runs; legal = true; }
+          bowlerMap[id].runs += charged;
+          if (legal) bowlerMap[id].balls++;
+          if (ball.isWicket) {
+            const wt = String(ball.wicketType || '').toLowerCase().replace(/\s/g, '');
+            if (wt !== 'runout' && wt !== 'retired') bowlerMap[id].wickets++;
+          }
         }
       }
       const bowling = Object.values(bowlerMap)
         .sort((a, b) => b.wickets - a.wickets || a.runs - b.runs)
-        .map(b => ({ ...b, economy: b.overs > 0 ? +(b.runs / b.overs).toFixed(2) : 0 }));
+        .map(b => {
+          const oversNum = b.balls / 6;
+          return { ...b, overs: +oversNum.toFixed(1), oversStr: `${Math.floor(b.balls / 6)}.${b.balls % 6}`, economy: b.balls > 0 ? +(b.runs / oversNum).toFixed(2) : 0 };
+        });
 
       const extras = { wides: 0, noBalls: 0, byes: 0, legByes: 0 };
       for (const ball of allBalls) {

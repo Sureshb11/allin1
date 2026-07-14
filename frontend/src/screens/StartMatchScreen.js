@@ -12,6 +12,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { getStartFormat as getSportFormat } from '../sports/start';
 import { getSport } from '../sports';
 import GradientButton from '../components/GradientButton';
+import HexAvatar from '../components/HexAvatar';
 import { showToast } from '../components/Toast';
 
 /* ─── Kinetic Athlete Design Tokens ─────────────────────── */
@@ -438,9 +439,9 @@ const StartMatchScreen = ({ navigation, route }) => {
             <Text style={s.teamRoleTag}>{indiv ? 'PLAYER 1' : 'TEAM A'}</Text>
             {team1 ? (
               <>
-                <View style={[s.teamCardAvatar, { backgroundColor: K.lime }]}>
+                <HexAvatar size={48} color={K.lime}>
                   <Text style={s.teamCardInitial}>{team1.name.charAt(0).toUpperCase()}</Text>
-                </View>
+                </HexAvatar>
                 <Text style={s.teamCardName} numberOfLines={2}>{team1.name}</Text>
                 <TouchableOpacity
                   style={s.teamCardChange}
@@ -452,9 +453,9 @@ const StartMatchScreen = ({ navigation, route }) => {
               </>
             ) : (
               <>
-                <View style={s.teamCardEmpty}>
-                  <Icon name="camera-plus-outline" size={24} color={K.textMuted} />
-                </View>
+                <HexAvatar size={48} color={K.surfaceHigh}>
+                  <Icon name="plus" size={22} color={K.textMuted} />
+                </HexAvatar>
                 <Text style={s.teamCardPlaceholder}>Select Team</Text>
                 <Text style={s.teamCardAction}>Tap to add</Text>
               </>
@@ -477,9 +478,9 @@ const StartMatchScreen = ({ navigation, route }) => {
             <Text style={s.teamRoleTag}>{indiv ? 'PLAYER 2' : 'TEAM B'}</Text>
             {team2 ? (
               <>
-                <View style={[s.teamCardAvatar, s.teamCardAvatarAway, { backgroundColor: K.blue }]}>
+                <HexAvatar size={48} color={K.lime}>
                   <Text style={s.teamCardInitial}>{team2.name.charAt(0).toUpperCase()}</Text>
-                </View>
+                </HexAvatar>
                 <Text style={s.teamCardName} numberOfLines={2}>{team2.name}</Text>
                 <TouchableOpacity
                   style={s.teamCardChange}
@@ -491,9 +492,9 @@ const StartMatchScreen = ({ navigation, route }) => {
               </>
             ) : (
               <>
-                <View style={s.teamCardEmpty}>
-                  <Icon name="camera-plus-outline" size={24} color={K.textMuted} />
-                </View>
+                <HexAvatar size={48} color={K.surfaceHigh}>
+                  <Icon name="plus" size={22} color={K.textMuted} />
+                </HexAvatar>
                 <Text style={s.teamCardPlaceholder}>Select Team</Text>
                 <Text style={s.teamCardAction}>Tap to add</Text>
               </>
@@ -695,7 +696,7 @@ const StartMatchScreen = ({ navigation, route }) => {
 /* ─── Styles ─────────────────────────────────────────────── */
 const makeS = (K) => StyleSheet.create({
   root: { flex: 1, backgroundColor: K.bg },
-  scroll: { padding: 16, paddingBottom: 24 },
+  scroll: { padding: 16, paddingBottom: 20 },
 
   /* ── Top area ──────────────────────────────── */
   topLabel: {
@@ -732,8 +733,8 @@ const makeS = (K) => StyleSheet.create({
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 12,
+    marginBottom: 6,
     gap: 10,
   },
   sectionNumBadge: {
@@ -767,7 +768,7 @@ const makeS = (K) => StyleSheet.create({
   formatCard: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 16,
     backgroundColor: K.surfaceLow,
     gap: 8,
@@ -813,9 +814,9 @@ const makeS = (K) => StyleSheet.create({
     backgroundColor: 'transparent',
     borderRadius: 20,
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
     paddingHorizontal: 8,
-    minHeight: 140,
+    minHeight: 112,
     justifyContent: 'center',
     gap: 8,
   },
@@ -845,12 +846,12 @@ const makeS = (K) => StyleSheet.create({
     shadowColor: K.blue,
   },
   teamCardInitial: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '800',
     color: K.black,
   },
   teamCardName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: K.text,
     textAlign: 'center',

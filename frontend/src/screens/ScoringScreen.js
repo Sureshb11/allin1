@@ -286,6 +286,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   };
   const totalOvers = parseInt(matchData.overs, 10) || 20;
   const maxOversPerBowler = Math.ceil(totalOvers / 5);   // T20 → 4, ODI → 10
+  // "Change Bowler" is only valid mid-over: scoring live, a bowler is set, and the
+  // over isn't already complete (overSummary is shown once 6 legal balls are done,
+  // when the next-over flow picks the bowler instead).
+  const canChangeBowler = scoringReady && !matchComplete && !overSummary && !!currentBowler;
   const target = isInnings2 ? firstInningsScore.runs + 1 : 0;
   const need = isInnings2 ? Math.max(0, target - currentScore.runs) : 0;
   const ballsLeft = isInnings2 ? Math.max(1, totalOvers * 6 - (currentScore.overs * 6 + currentScore.balls)) : 1;
@@ -1076,6 +1080,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         {/* ── CREASE PANEL — both batters + the bowler, like a real scoreboard ── */}
         <View style={styles.creasePanel}>
           <View style={[styles.creaseRow, styles.creaseStrikerRow]}>
+            {/* On-strike marker: the striker's row is starred + bold. */}
+            <Icon name="star" size={14} color={DS.lime} style={{ marginRight: 1 }} />
             {striker && <PlayerAvatar name={striker.name} avatarUrl={striker.avatarUrl} size={24} style={styles.creaseAvatar} />}
             <Text style={[styles.creaseName, styles.creaseStriker]} numberOfLines={1}>{striker?.name || 'Select batter'}</Text>
             <Text style={[styles.creaseFig, styles.creaseFigLit]}>
@@ -1091,6 +1097,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           </View>
 
           <View style={[styles.creaseRow, styles.creaseRowDivider]}>
+            <View style={{ width: 15 }} />
             {nonStriker && <PlayerAvatar name={nonStriker.name} avatarUrl={nonStriker.avatarUrl} size={24} style={styles.creaseAvatar} />}
             <Text style={styles.creaseName} numberOfLines={1}>{nonStriker?.name || '—'}</Text>
             <Text style={styles.creaseFig}>
@@ -1100,6 +1107,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           </View>
 
           <View style={[styles.creaseRow, styles.creaseBowlerRow]}>
+            <View style={{ width: 15 }} />
             {currentBowler && <PlayerAvatar name={currentBowler.name} avatarUrl={currentBowler.avatarUrl} size={24} style={styles.creaseAvatar} />}
             <Text style={styles.creaseName} numberOfLines={1}>{currentBowler?.name || 'Select bowler'}</Text>
             <Text style={styles.creaseFig}>{bowlerStats}</Text>
@@ -1173,6 +1181,19 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         </TouchableOpacity>
         }
 
+        {/* ── CHANGE BOWLER — always visible; enabled only while an over is in
+            progress (disabled once 6 legal balls are done — the next-over flow
+            picks the new bowler then). Continues the SAME over with the pick. ── */}
+        {!matchComplete &&
+        <TouchableOpacity
+          style={[styles.changeBowlerBtn, !canChangeBowler && styles.changeBowlerBtnDisabled]}
+          disabled={!canChangeBowler}
+          onPress={() => { setMustPickBowler(false); setShowBowlerModal(true); }}>
+          <Icon name="sync" size={16} color={canChangeBowler ? DS.lime : DS.textMuted} />
+          <Text style={[styles.changeBowlerText, !canChangeBowler && { color: DS.textMuted }]}>CHANGE BOWLER</Text>
+        </TouchableOpacity>
+        }
+
         {/* ── OVER SUMMARY + COMPLETE OVER ── */}
         {overSummary &&
         <View style={styles.summaryRow}>
@@ -1196,7 +1217,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             </View>
             <TouchableOpacity style={styles.completeOverBtn} onPress={() => {setOverSummary(null);setMustPickBowler(true);setShowBowlerModal(true);}}>
               <Icon name="check-circle" size={28} color={DS.bg} />
-              <Text style={styles.completeOverText}>COMPLETE{'\n'}OVER</Text>
+              <Text style={styles.completeOverText}>NEXT{'\n'}OVER</Text>
             </TouchableOpacity>
           </View>
         }
@@ -1316,10 +1337,14 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             </Text>
             <ScrollView>
               {(() => {
-                // Auto-list only eligible bowlers: exclude whoever bowled the last
-                // over (no consecutive overs) and anyone who has maxed their spell.
+                // Only eligible bowlers, and anyone at their spell limit is excluded.
+                // New over (mustPickBowler): exclude whoever bowled the last over
+                // (no consecutive overs). Mid-over change: exclude the CURRENT bowler
+                // (can't pick the same one) — consecutive-over rule doesn't apply
+                // because it's the same over continuing.
                 const eligible = bowlingXI.filter((p) =>
-                  p.id !== lastOverBowlerId && (bowlerOvers[p.id] || 0) < maxOversPerBowler);
+                  (bowlerOvers[p.id] || 0) < maxOversPerBowler &&
+                  (mustPickBowler ? p.id !== lastOverBowlerId : p.id !== currentBowler?.id));
                 if (eligible.length === 0) {
                   return <Text style={[styles.modalSub, { textAlign: 'center', marginVertical: 16 }]}>No eligible bowlers left.</Text>;
                 }
@@ -1761,6 +1786,15 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   wicketBtnText: { fontSize: 13, fontWeight: '900', color: DS.onBlue, letterSpacing: 2 },
   wicketIcon: { width: 22, height: 22, resizeMode: 'contain' },
+
+  // Change Bowler — slim secondary button under WICKET, always shown.
+  changeBowlerBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    marginHorizontal: 16, marginBottom: 6, paddingVertical: 10, borderRadius: 12,
+    backgroundColor: DS.lime + '14', borderWidth: 1, borderColor: DS.lime + '44',
+  },
+  changeBowlerBtnDisabled: { backgroundColor: DS.surfaceHigh, borderColor: DS.line },
+  changeBowlerText: { fontSize: 12, fontWeight: '900', color: DS.lime, letterSpacing: 1.5 },
 
   // Run chips (extra + runs sheet)
   runChips: { flexDirection: 'row', gap: 10, marginBottom: 8 },

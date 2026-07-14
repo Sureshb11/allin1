@@ -233,7 +233,7 @@ function computeBatting(innings, battingXI) {
         }
       }
       if (ball.isWicket && ball.dismissedPlayerId) {
-        dis[ball.dismissedPlayerId] = formatDismissal(ball.wicketType, ball.wicketAssists, over.bowler?.name);
+        dis[ball.dismissedPlayerId] = formatDismissal(ball.wicketType, ball.wicketAssists, ball.bowler?.name || over.bowler?.name);
       }
     });
   });
@@ -263,11 +263,16 @@ function computeBatting(innings, battingXI) {
 function computeBowling(innings) {
   const map = {};
   const order = [];
+  // Per-DELIVERY bowler so a shared over splits correctly. Falls back to the over's
+  // bowler for legacy balls recorded before per-ball bowlers existed.
   (innings.oversData || []).forEach((over) => {
-    const id = over.bowlerId;
-    if (!map[id]) { map[id] = { id, name: over.bowler?.name || 'Unknown', legalBalls: 0, runs: 0, wickets: 0, maidens: 0 }; order.push(id); }
     let overRuns = 0, overLegal = 0;
+    const overBowlers = new Set();
     (over.balls || []).forEach((b) => {
+      const id = b.bowlerId || over.bowlerId;
+      if (!id) return;
+      if (!map[id]) { map[id] = { id, name: b.bowler?.name || over.bowler?.name || 'Unknown', legalBalls: 0, runs: 0, wickets: 0, maidens: 0 }; order.push(id); }
+      overBowlers.add(id);
       const et = b.extraType;
       let charged = 0, legal = false;
       if (et === 'wide') charged = b.extras;
@@ -282,7 +287,8 @@ function computeBowling(innings) {
         if (wt !== 'runout' && wt !== 'retired') map[id].wickets += 1;
       }
     });
-    if (overLegal >= 6 && overRuns === 0) map[id].maidens += 1;
+    // A maiden requires one bowler to bowl the whole 6-legal over for 0 runs.
+    if (overLegal >= 6 && overRuns === 0 && overBowlers.size === 1) map[[...overBowlers][0]].maidens += 1;
   });
   return order.map((id) => {
     const b = map[id];
@@ -460,9 +466,10 @@ function buildCommentary(innings) {
   computeOverEndSummaries(innings).forEach((o) => { overEndByNum[o.over] = o; });
   const lines = [];
   (innings.oversData || []).forEach((over) => {
-    const bowlerName = over.bowler?.name || 'Bowler';
     let legalInOver = 0;
     (over.balls || []).forEach((ball, idx) => {
+      // The bowler for THIS delivery (shared overs), falling back to the over's.
+      const bowlerName = ball.bowler?.name || over.bowler?.name || 'Bowler';
       const isLegal = !['wide', 'noBall', 'penalty', 'retired'].includes(ball.extraType);
       if (isLegal) legalInOver += 1;
       lines.push({
@@ -497,9 +504,10 @@ function computeHighlights(match) {
     const bowlerWkts = {};
     let streakBowlerId = null, streakCount = 0;
     (innings.oversData || []).forEach((over) => {
-      const bowlerName = over.bowler?.name || 'Bowler';
       let legalInOver = 0;
       (over.balls || []).forEach((ball) => {
+        const bowlerId = ball.bowlerId || over.bowlerId;   // per-delivery bowler
+        const bowlerName = ball.bowler?.name || over.bowler?.name || 'Bowler';
         const et = ball.extraType;
         const isLegal = !['wide', 'noBall', 'penalty', 'retired'].includes(et);
         if (isLegal) legalInOver += 1;
@@ -530,11 +538,11 @@ function computeHighlights(match) {
           const wt = String(ball.wicketType || '').toLowerCase().replace(/\s/g, '');
           const bowlerCredited = wt !== 'runout' && wt !== 'retired' && wt !== 'retiredout' && wt !== 'retiredhurt';
           if (bowlerCredited) {
-            streakCount = streakBowlerId === over.bowlerId ? streakCount + 1 : 1;
-            streakBowlerId = over.bowlerId;
-            bowlerWkts[over.bowlerId] = (bowlerWkts[over.bowlerId] || 0) + 1;
-            if (streakCount === 3) items.push({ key: `${over.id}-${over.bowlerId}-hat`, inningsLabel, label, icon: 'cricket', kind: 'milestone', text: `HAT-TRICK! ${bowlerName} takes three wickets in a row` });
-            if (bowlerWkts[over.bowlerId] === 5) items.push({ key: `${over.id}-${over.bowlerId}-5w`, inningsLabel, label, icon: 'cricket', kind: 'milestone', text: `FIVE-WICKET HAUL! ${bowlerName} completes a five-for` });
+            streakCount = streakBowlerId === bowlerId ? streakCount + 1 : 1;
+            streakBowlerId = bowlerId;
+            bowlerWkts[bowlerId] = (bowlerWkts[bowlerId] || 0) + 1;
+            if (streakCount === 3) items.push({ key: `${over.id}-${bowlerId}-hat`, inningsLabel, label, icon: 'cricket', kind: 'milestone', text: `HAT-TRICK! ${bowlerName} takes three wickets in a row` });
+            if (bowlerWkts[bowlerId] === 5) items.push({ key: `${over.id}-${bowlerId}-5w`, inningsLabel, label, icon: 'cricket', kind: 'milestone', text: `FIVE-WICKET HAUL! ${bowlerName} completes a five-for` });
           }
         } else if (isLegal) {
           streakCount = 0; streakBowlerId = null;   // a non-wicket legal ball breaks the streak
@@ -790,11 +798,37 @@ function InningsOvers({ innings }) {const DS = useTheme().colors;const styles = 
   if (!overs.length) {
     return <Text style={styles.emptyTabText}>No overs bowled yet.</Text>;
   }
+  // Bowlers who bowled this over, in order, with their delivery counts — so a
+  // shared over lists both (e.g. "Bumrah – 2 balls · Siraj – 4 balls").
+  const overBowlers = (ov) => {
+    const seq = [], idx = {};
+    (ov.balls || []).forEach((b) => {
+      const id = b.bowlerId || ov.bowlerId;
+      if (id == null) return;
+      if (!(id in idx)) { idx[id] = seq.length; seq.push({ id, name: b.bowler?.name || ov.bowler?.name || 'Bowler', balls: 0 }); }
+      seq[idx[id]].balls += 1;
+    });
+    return seq;
+  };
   return (
     <View style={styles.inningsCard}>
-      {overs.map((ov) => (
-        <View key={ov.id} style={styles.overLine}>
-          <Text style={styles.overLineNum}>Ov {ov.overNumber}</Text>
+      {overs.map((ov) => {
+        const bwl = overBowlers(ov);
+        const shared = bwl.length > 1;
+        return (
+        <View key={ov.id} style={styles.overBlock}>
+          <View style={styles.overBlockHead}>
+            <Text style={styles.overLineNum}>Over {ov.overNumber}</Text>
+            {!shared && bwl[0] && <Text style={styles.overBowlerSingle} numberOfLines={1}>{bwl[0].name}</Text>}
+            <Text style={styles.overBlockRuns}>{ov.runs + ov.extras} run{(ov.runs + ov.extras) !== 1 ? 's' : ''}</Text>
+          </View>
+          {shared &&
+            <View style={styles.overShared}>
+              {bwl.map((x) => (
+                <Text key={x.id} style={styles.overSharedItem}>• {x.name} – {x.balls} ball{x.balls !== 1 ? 's' : ''}</Text>
+              ))}
+            </View>
+          }
           <View style={styles.overLineBalls}>
             {(ov.balls || []).map((b, i) => {
               const lbl = ballLabel(b);
@@ -806,9 +840,9 @@ function InningsOvers({ innings }) {const DS = useTheme().colors;const styles = 
               );
             })}
           </View>
-          <Text style={styles.overLineRuns}>{ov.runs + ov.extras}</Text>
         </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -1005,13 +1039,18 @@ function computeOverEndSummaries(innings) {
   let runningRuns = 0, runningWkts = 0;
   const out = [];
   for (const over of overs) {
-    const bId = over.bowlerId;
-    if (!bowl[bId]) bowl[bId] = { name: over.bowler?.name || 'Bowler', balls: 0, runs: 0, wkts: 0, maidens: 0 };
     // Team total from the stored per-over aggregates (authoritative).
     runningRuns += (over.runs || 0) + (over.extras || 0);
     runningWkts += (over.wickets || 0);
     let lastStriker = null, lastNon = null, overCharged = 0, overLegal = 0;
+    let lastBowlerId = over.bowlerId;
+    const overBowlers = new Set();
     for (const b of (over.balls || [])) {
+      const bId = b.bowlerId || over.bowlerId;   // per-delivery bowler (shared overs)
+      if (bId) {
+        if (!bowl[bId]) bowl[bId] = { name: b.bowler?.name || over.bowler?.name || 'Bowler', balls: 0, runs: 0, wkts: 0, maidens: 0 };
+        overBowlers.add(bId); lastBowlerId = bId;
+      }
       const et = b.extraType;
       if (b.batterId) {
         batName[b.batterId] = b.batter?.name || 'Batter';
@@ -1026,17 +1065,21 @@ function computeOverEndSummaries(innings) {
       else if (et === 'bye' || et === 'legBye') legal = true;
       else if (et === 'penalty' || et === 'retired') charged = 0;
       else { charged = b.runs; legal = true; }
-      bowl[bId].runs += charged; overCharged += charged;
-      if (legal) { bowl[bId].balls += 1; overLegal += 1; }
-      if (b.isWicket) {
-        const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
-        if (wt !== 'runout' && wt !== 'retired') bowl[bId].wkts += 1;
+      if (bId) {
+        bowl[bId].runs += charged;
+        if (legal) bowl[bId].balls += 1;
+        if (b.isWicket) {
+          const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
+          if (wt !== 'runout' && wt !== 'retired') bowl[bId].wkts += 1;
+        }
       }
+      overCharged += charged;
+      if (legal) overLegal += 1;
       lastStriker = b.batterId; lastNon = b.nonStrikerId;
     }
-    if (overLegal >= 6 && overCharged === 0) bowl[bId].maidens += 1;
+    if (overLegal >= 6 && overCharged === 0 && overBowlers.size === 1) bowl[[...overBowlers][0]].maidens += 1;
     if (legalIn(over) >= 6) {   // completed over only
-      const bw = bowl[bId];
+      const bw = bowl[lastBowlerId] || { name: 'Bowler', balls: 0, maidens: 0, runs: 0, wkts: 0 };
       out.push({
         over: over.overNumber,
         total: `${runningRuns}/${runningWkts}`,
@@ -1061,7 +1104,10 @@ function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
   const overs = [...(innings.oversData || [])].sort((a, b) => a.overNumber - b.overNumber);
   const lastOver = overs[overs.length - 1];
   const notOut = batted.filter((b) => !b.out).slice(-2);
-  const currentBowler = lastOver ? bowlers.find((b) => b.id === lastOver.bowlerId) : null;
+  // Current bowler = whoever bowled the LAST delivery (shared overs), not the over's.
+  const lastBall = lastOver?.balls?.length ? lastOver.balls[lastOver.balls.length - 1] : null;
+  const currentBowlerId = (lastBall && lastBall.bowlerId) || lastOver?.bowlerId;
+  const currentBowler = currentBowlerId ? bowlers.find((b) => b.id === currentBowlerId) : null;
   const commentary = buildCommentary(innings);
   const lastOverRuns = lastOver ? lastOver.runs + lastOver.extras : 0;
   const partnership = computePartnership(innings);
@@ -1778,9 +1824,16 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // Over-by-over timeline (OVERS tab)
   overLine: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, gap: 8, borderTopWidth: 1, borderTopColor: DS.line },
-  overLineNum: { fontSize: 11, fontWeight: '800', color: DS.textMuted, width: 40 },
-  overLineBalls: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  overLineNum: { fontSize: 12, fontWeight: '800', color: DS.textPrimary },
+  overLineBalls: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   overLineRuns: { fontSize: 13, fontWeight: '900', color: DS.textPrimary, width: 26, textAlign: 'right' },
+  // OVERS tab — one block per over (header + optional shared-bowler list + chips)
+  overBlock: { paddingHorizontal: 12, paddingVertical: 9, borderTopWidth: 1, borderTopColor: DS.line, gap: 7 },
+  overBlockHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  overBowlerSingle: { flex: 1, fontSize: 12, fontWeight: '600', color: DS.textVariant },
+  overBlockRuns: { marginLeft: 'auto', fontSize: 12.5, fontWeight: '800', color: DS.lime },
+  overShared: { gap: 2, paddingLeft: 2 },
+  overSharedItem: { fontSize: 12, fontWeight: '600', color: DS.textVariant },
   ballChip: { minWidth: 22, paddingHorizontal: 5, paddingVertical: 3, borderRadius: 6, backgroundColor: DS.surfaceHigh, alignItems: 'center' },
   ballChipW: { backgroundColor: DS.live },
   ballChipBoundary: { backgroundColor: DS.lime },
