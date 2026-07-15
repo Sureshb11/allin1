@@ -11,6 +11,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AnimatedCricketBall from '../components/CricketBall/AnimatedBall';
+import WicketVideo from '../components/CricketBall/WicketVideo';
 
 const GROUNDS = [
   { id: 'stadium',  label: 'Stadium',  bg: '#0a0e18', ink: '#e8ecf8', mut: '#8b93a8', card: '#12182a' },
@@ -20,6 +21,7 @@ const GROUNDS = [
 
 export default function BallLabScreen({ navigation }) {
   const [g, setG] = useState(GROUNDS[0]);
+  const [wicket, setWicket] = useState(false);
   const s = makeStyles(g);
 
   return (
@@ -48,6 +50,10 @@ export default function BallLabScreen({ navigation }) {
         <View style={s.hero}>
           <AnimatedCricketBall size={180} />
           <Text style={s.heroHint}>ball floats · ring is static — tap for spin</Text>
+          <TouchableOpacity style={s.wicketBtn} onPress={() => setWicket(true)}>
+            <Icon name="movie-play-outline" size={15} color="#ff6b6b" />
+            <Text style={s.wicketBtnTxt}>PREVIEW WICKET VIDEO</Text>
+          </TouchableOpacity>
         </View>
 
         {/* the sizes the app will actually use */}
@@ -71,6 +77,7 @@ export default function BallLabScreen({ navigation }) {
         <Text style={s.note}>Phase 2 adds: rotation illusion · red⇄white morph · float + live shadow.
           Judge only the leather, seam and shading here.</Text>
       </ScrollView>
+      <WicketVideo visible={wicket} onDone={() => setWicket(false)} />
     </View>
   );
 }
@@ -88,6 +95,10 @@ const makeStyles = (g) => StyleSheet.create({
   body: { padding: 18, paddingBottom: 60 },
   hero: { alignItems: 'center', paddingVertical: 34 },
   heroHint: { fontSize: 11, fontWeight: '600', color: g.mut, marginTop: 14, letterSpacing: 0.4 },
+  wicketBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18,
+    borderWidth: 1, borderColor: '#ff6b6b55', backgroundColor: '#ff6b6b14' },
+  wicketBtnTxt: { fontSize: 11, fontWeight: '800', letterSpacing: 1, color: '#ff6b6b' },
   capt: { fontSize: 10, fontWeight: '800', letterSpacing: 1.6, color: g.mut, marginTop: 18, marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'flex-end', gap: 28 },
   cell: { alignItems: 'center', gap: 6 },

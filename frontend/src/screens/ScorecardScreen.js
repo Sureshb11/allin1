@@ -16,6 +16,7 @@ import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
 import HexAvatar from "../components/HexAvatar";
 import LiveBall from "../components/CricketBall/LiveBall";
+import WicketVideo from "../components/CricketBall/WicketVideo";
 import { useDockLock } from "../components/AutoHideTabBar";
 
 // Latest COMPLETED over of the current (last) innings — used to pop an
@@ -1294,6 +1295,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const [overEndBanner, setOverEndBanner] = useState(null); // end-of-over summary popup
   const lastOverEndRef = useRef(null);                // last completed-over number seen
   const [ballEvent, setBallEvent] = useState(null);  // spectator LiveBall reaction {type,id}
+  const [wicketVideo, setWicketVideo] = useState(false); // cinematic WICKET clip (with sound)
   const [linger, setLinger] = useState(false);       // keep the ball up for the finish ceremony
   const prevStatusRef = useRef(null);                // live→completed transition detector
   const prevInnsRef = useRef(null);                  // innings-count change detector
@@ -1336,11 +1338,15 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     if (lb.id !== lastBallRef.current) {
       lastBallRef.current = lb.id;
       if (match.status === 'live') {
-        // every delivery nudges the LiveBall; boundaries/wickets get the overlay too
+        // every delivery nudges the LiveBall; boundaries/wickets get an overlay too
         setBallEvent({ type: lb.kind || 'run', id: lb.id });
-        if (lb.kind) {
+        if (lb.kind === 'wicket') {
+          // WICKET gets the full cinematic video (with sound) instead of the card
+          setWicketVideo(true);
+          haptic.warn();
+        } else if (lb.kind) {
           setCelebration({ kind: lb.kind, id: lb.id });
-          if (lb.kind === 'wicket') haptic.warn(); else haptic.success();
+          haptic.success();
         }
       }
     }
@@ -1700,6 +1706,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             .map((t) => ({ key: t.key, icon: t.icon, label: t.label, onPress: () => setTab(t.key) }))}
         />
       )}
+      <WicketVideo visible={wicketVideo} onDone={() => setWicketVideo(false)} />
     </View>);
 
 }
