@@ -7,6 +7,7 @@ import {createStackNavigator} from '@react-navigation/stack';
 import {getFocusedRouteNameFromRoute} from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { TabBarVisibilityProvider, AutoHideTabBar } from '../components/AutoHideTabBar';
+import GlassDock from '../components/GlassDock';
 
 import HomeScreen from '../screens/HomeScreen';
 import CricketFeedScreen from '../screens/CricketFeedScreen';
@@ -38,6 +39,7 @@ import TossLineupScreen from '../screens/TossLineupScreen';
 import SportScoringScreen from '../screens/SportScoringScreen';
 import MyMatchesScreen from '../screens/MyMatchesScreen';
 import ScorecardScreen from '../screens/ScorecardScreen';
+import BallLabScreen from '../screens/BallLabScreen';
 import ClubProfileScreen from '../screens/ClubProfileScreen';
 import EditPlayerProfileScreen from '../screens/EditPlayerProfileScreen';
 import EditTeamProfileScreen from '../screens/EditTeamProfileScreen';
@@ -299,8 +301,8 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
         headerTitleStyle: {color: DS.textPrimary},
       }}
     />
-    <Stack.Screen 
-      name="Scorecard" 
+    <Stack.Screen
+      name="Scorecard"
       component={ScorecardScreen}
       options={{
         title: 'Scorecard',
@@ -308,6 +310,12 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
         headerTitleStyle: {color: DS.textPrimary},
         headerTintColor: DS.textPrimary,
       }}
+    />
+    {/* Dev workbench for the signature cricket ball (long-press the feed logo) */}
+    <Stack.Screen
+      name="BallLab"
+      component={BallLabScreen}
+      options={{ headerShown: false }}
     />
     <Stack.Screen 
       name="ClubProfile" 
@@ -417,49 +425,30 @@ const AppNavigator = ({ route: appRoute }) => {
   return (
     <TabBarVisibilityProvider>
     <Tab.Navigator
-      tabBar={(props) => <AutoHideTabBar {...props} />}
-      screenOptions={({ route, navigation }) => {
-        const focusedRouteName = getFocusedRouteNameFromRoute(route);
-        const isFullScreen = ['Scoring', 'SportScoring'].includes(focusedRouteName);
-        return {
-          tabBarActiveTintColor: DS.lime,
-          tabBarInactiveTintColor: DS.textVariant,
-          tabBarStyle: isFullScreen ? { height: 0, overflow: 'hidden', borderWidth: 0 } : {
-            backgroundColor: DS.surfaceLow,
-            borderTopWidth: 0,
-            elevation: 0,
-            height: 58,
-            paddingBottom: 6,
-          },
-          headerShown: false,
-          tabBarIcon: ({ color, size, focused }) => {
-              const map = {
-              HomeTab: 'home-variant',
-              MyCricketTab: sportIcon,
-              PavilionTab: 'stadium',
-            };
-            const name = map[route.name] || 'apps';
-            return <Icon name={name} size={22} color={color} />;
-          },
-        };
-      }}
+      // The GlassDock (floating capsule + signature cricket ball) replaces the
+      // old bottom tab bar, inside the same auto-hide shell so scroll-hide and
+      // clearance keep working. It hides itself on full-screen scoring routes.
+      tabBar={(props) => (
+        <AutoHideTabBar {...props} render={(p) => (
+          <GlassDock {...p} sportIcon={sportIcon}
+            homeRoute={(initialSport?.id || 'cricket') === 'cricket' ? 'CricketFeed' : 'SportFeed'} />
+        )} />
+      )}
+      screenOptions={{ headerShown: false }}
     >
       <Tab.Screen
         name="HomeTab"
         component={HomeStack}
-        options={{ tabBarLabel: 'Home' }}
         initialParams={{ initialSport, initialFormat }}
       />
       <Tab.Screen
         name="MyCricketTab"
         component={MyCricketStack}
-        options={{ tabBarLabel: `My ${sportName}` }}
         initialParams={{ initialSport, initialFormat }}
       />
       <Tab.Screen
         name="PavilionTab"
         component={PavilionStack}
-        options={{ tabBarLabel: 'Pavilion' }}
         initialParams={{ initialSport, initialFormat }}
       />
     </Tab.Navigator>

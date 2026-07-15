@@ -73,7 +73,9 @@ export const combineScroll = (hideProps, ownOnScroll) => ({
   onScroll: (e) => { hideProps.onScroll?.(e); ownOnScroll?.(e); },
 });
 
-export const AutoHideTabBar = (props) => {
+// Pass `render` to draw a custom bar (e.g. the GlassDock) inside the same
+// auto-hiding shell; without it the stock BottomTabBar renders.
+export const AutoHideTabBar = ({ render, ...props }) => {
   const ctx = useContext(Ctx);
   const translateY = ctx?.translateY;
 
@@ -94,7 +96,7 @@ export const AutoHideTabBar = (props) => {
         { transform: translateY ? [{ translateY }] : [] },
       ]}
     >
-      <BottomTabBar {...props} />
+      {render ? render(props) : <BottomTabBar {...props} />}
     </Animated.View>
   );
 };

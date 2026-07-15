@@ -916,7 +916,11 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
 
       {/* top bar */}
       <View style={s.topBar}>
-        <BrandLogo />
+        {/* dev-only: long-press the logo to open the ball workbench */}
+        <TouchableOpacity activeOpacity={1} disabled={!__DEV__}
+          onLongPress={() => navigation.navigate('BallLab')}>
+          <BrandLogo />
+        </TouchableOpacity>
         <View style={s.topActions}>
           <TouchableOpacity hitSlop={8} onPress={() => setComposeOpen(true)}>
             <Icon name="plus-box-outline" size={24} color={DS.textPrimary} />
