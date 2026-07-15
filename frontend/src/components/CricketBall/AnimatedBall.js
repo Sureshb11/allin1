@@ -16,21 +16,28 @@
 // All animation is transform-only with useNativeDriver; loops pause when the
 // app is backgrounded.
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { View, Image, Animated, Easing, Pressable, AppState } from 'react-native';
 import haptic from '../../utils/haptics';
 
-const BALL = require('../../../assets/ball/ball_layer.png');
-const RING = require('../../../assets/ball/ring_layer.png');
+// Green edition — the app-accent version of the signature composition
+// (sources: assets/ball/ball_green.png + ring_green.png).
+const BALL = require('../../../assets/ball/ball_layer_green.png');
+const RING = require('../../../assets/ball/ring_layer_green.png');
 
-// Ring geometry (fractions of ring_layer.png):
-const RING_AR   = 256 / 875;   // height / width
-const RING_CY   = 0.457;       // ellipse centre line within the image
-const CORE_FRAC = 783 / 875;   // bright core width / image width
-// Reference calibration: ring core ≈ 0.973 × ball diameter.
+// Ring geometry (fractions of ring_layer_green.png, 1229×386):
+const RING_AR   = 386 / 1229;   // height / width
+const RING_CY   = 0.482;        // main ellipse centre line within the image
+const CORE_FRAC = 1038 / 1229;  // main bright-ring width / image width
+// Calibration (from the reference render): ring core ≈ 0.973 × ball diameter.
 const RING_SCALE = 0.973 / CORE_FRAC;
 
-export default function AnimatedCricketBall({ size = 64, onPress, style }) {
+/**
+ * spinOnTap: play the full compress→360°→spring on tap (default). LiveBall
+ * turns this off — its tap opens the radial menu with just a soft press.
+ * ref.react(type): match reactions — 'run' | 'four' | 'six' | 'wicket' | 'over'.
+ */
+export default forwardRef(function AnimatedCricketBall({ size = 64, onPress, spinOnTap = true, style }, ref) {
   const ringW = size * RING_SCALE;
   const ringH = ringW * RING_AR;
   const W = Math.max(size, ringW);
@@ -43,6 +50,7 @@ export default function AnimatedCricketBall({ size = 64, onPress, style }) {
   const float = useRef(new Animated.Value(0)).current;
   const press = useRef(new Animated.Value(1)).current;
   const rot   = useRef(new Animated.Value(0)).current;
+  const shake = useRef(new Animated.Value(0)).current;   // wicket wobble (-1..1)
   const loop  = useRef(null);
 
   const startLoop = () => {
@@ -63,22 +71,61 @@ export default function AnimatedCricketBall({ size = 64, onPress, style }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── motion vocabulary (shared by tap + match reactions) ──
+  const bounce = (dip = 0.92, peak = 1.06) => Animated.sequence([
+    Animated.spring(press, { toValue: dip,  speed: 40, bounciness: 0,  useNativeDriver: true }),
+    Animated.spring(press, { toValue: peak, speed: 20, bounciness: 7,  useNativeDriver: true }),
+    Animated.spring(press, { toValue: 1,    speed: 14, bounciness: 11, useNativeDriver: true }),
+  ]);
+  const doSpin = (duration = 380) => {
+    rot.setValue(0);
+    return Animated.timing(rot, { toValue: 1, duration, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+  };
+  const doShake = () => {
+    shake.setValue(0);
+    return Animated.sequence([
+      Animated.timing(shake, { toValue: 1,    duration: 55, useNativeDriver: true }),
+      Animated.timing(shake, { toValue: -1,   duration: 90, useNativeDriver: true }),
+      Animated.timing(shake, { toValue: 0.55, duration: 80, useNativeDriver: true }),
+      Animated.timing(shake, { toValue: 0,    duration: 70, useNativeDriver: true }),
+    ]);
+  };
+
+  // Match reactions (Phase 4 · spectator mode) — subtle by design: they support
+  // the app's celebration overlays, never compete with them.
+  useImperativeHandle(ref, () => ({
+    react(type) {
+      switch (type) {
+        case 'four':   Animated.parallel([doSpin(430), bounce(0.95, 1.05)]).start(); break;
+        case 'six':    Animated.parallel([doSpin(620), bounce(0.88, 1.12)]).start(); break;
+        case 'wicket': doShake().start(); haptic.warn?.(); break;
+        case 'over':   bounce(0.96, 1.05).start(); break;
+        case 'run':
+        default:       bounce(0.97, 1.03).start(); break;
+      }
+    },
+  }));
+
   const onTap = () => {
     haptic.tick?.();
-    rot.setValue(0);
-    Animated.sequence([
-      Animated.spring(press, { toValue: 0.88, speed: 40, bounciness: 0, useNativeDriver: true }),
-      Animated.parallel([
-        Animated.timing(rot,   { toValue: 1, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.spring(press, { toValue: 1.06, speed: 20, bounciness: 6, useNativeDriver: true }),
-      ]),
-      Animated.spring(press, { toValue: 1, speed: 14, bounciness: 12, useNativeDriver: true }),
-    ]).start();
+    if (spinOnTap) {
+      Animated.sequence([
+        Animated.spring(press, { toValue: 0.88, speed: 40, bounciness: 0, useNativeDriver: true }),
+        Animated.parallel([
+          doSpin(380),
+          Animated.spring(press, { toValue: 1.06, speed: 20, bounciness: 6, useNativeDriver: true }),
+        ]),
+        Animated.spring(press, { toValue: 1, speed: 14, bounciness: 12, useNativeDriver: true }),
+      ]).start();
+    } else {
+      bounce(0.93, 1.03).start();
+    }
     onPress?.();
   };
 
   const ballY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -floatAmp] });
   const spin  = rot.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const wob   = shake.interpolate({ inputRange: [-1, 1], outputRange: ['-8deg', '8deg'] });
 
   return (
     <Pressable onPress={onTap} style={[{ width: W, height: H }, style]}
@@ -90,7 +137,7 @@ export default function AnimatedCricketBall({ size = 64, onPress, style }) {
       <Animated.Image
         source={BALL}
         style={{ position: 'absolute', left: ballLeft, top: 0, width: size, height: size,
-                 transform: [{ translateY: ballY }, { scale: press }, { rotate: spin }] }}
+                 transform: [{ translateY: ballY }, { scale: press }, { rotate: spin }, { rotate: wob }] }}
       />
       {/* static ring — front (lower) arc clipped in front of the ball's foot */}
       <View pointerEvents="none"
@@ -101,4 +148,4 @@ export default function AnimatedCricketBall({ size = 64, onPress, style }) {
       </View>
     </Pressable>
   );
-}
+});

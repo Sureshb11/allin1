@@ -17,13 +17,17 @@ export const TabBarVisibilityProvider = ({ children }) => {
   const barHeight = useRef(90);   // updated from the bar's real height on layout
   const shown = useRef(true);
   const lastY = useRef(0);
+  const locked = useRef(false);   // spectator mode: dock held hidden, scroll can't reveal
 
-  const animateTo = useCallback((show) => {
+  const animateTo = useCallback((show, force = false) => {
+    if (locked.current && show && !force) return;   // stay hidden while locked
     if (shown.current === show) return;
     shown.current = show;
     Animated.timing(translateY, {
-      toValue: show ? 0 : barHeight.current,
-      duration: 220,
+      // +44 clears the dock ball's overhang (it floats above the capsule via a
+      // negative margin, which layout — and so barHeight — doesn't include).
+      toValue: show ? 0 : barHeight.current + 44,
+      duration: show ? 260 : 600,   // slide-away is the slow, cinematic one (spec: 600-800ms)
       useNativeDriver: true,
     }).start();
   }, [translateY]);
@@ -43,8 +47,14 @@ export const TabBarVisibilityProvider = ({ children }) => {
   const setBarHeight = useCallback((h) => { if (h) barHeight.current = h; }, []);
   const reveal = useCallback(() => animateTo(true), [animateTo]);
 
+  // Live spectator mode: lock the dock away / release it back.
+  const lockHidden = useCallback((lock) => {
+    locked.current = lock;
+    animateTo(!lock, true);
+  }, [animateTo]);
+
   return (
-    <Ctx.Provider value={{ translateY, onScroll, setBarHeight, reveal }}>
+    <Ctx.Provider value={{ translateY, onScroll, setBarHeight, reveal, lockHidden }}>
       {children}
     </Ctx.Provider>
   );
@@ -65,6 +75,10 @@ export const useTabBarClearance = () => useContext(BottomTabBarHeightContext) ||
 
 // Force the bar back into view (e.g. from a tabPress listener).
 export const useTabBarReveal = () => useContext(Ctx)?.reveal || (() => {});
+
+// Live spectator mode: lockDock(true) slides the dock away (600ms) and keeps
+// it hidden — scrolling can't reveal it — until lockDock(false).
+export const useDockLock = () => useContext(Ctx)?.lockHidden || (() => {});
 
 // Merge the auto-hide handler with a screen's own onScroll (e.g. an
 // Animated.event) so both run on every scroll frame.

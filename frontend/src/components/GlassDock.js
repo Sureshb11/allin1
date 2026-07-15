@@ -17,8 +17,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/ThemeContext';
 import AnimatedCricketBall from './CricketBall/AnimatedBall';
 
-const BLUE = '#00AEEF';
-const FULLSCREEN = ['Scoring', 'SportScoring'];
+const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab'];
 
 export default function GlassDock({ state, navigation, sportIcon = 'cricket', homeRoute = 'CricketFeed' }) {
   const { colors: DS, isDark } = useTheme();
@@ -43,6 +42,8 @@ export default function GlassDock({ state, navigation, sportIcon = 'cricket', ho
   const goProfile   = () => navigation.navigate('HomeTab', { screen: 'Profile' });
   const startMatch  = () => navigation.navigate('HomeTab', { screen: 'StartMatch' });
 
+  // Selection colour = the app's single green accent (dark #3ecf6e / light #0a5227)
+  const accent = DS.lime;
   const s = makeStyles(isDark, DS);
 
   const Item = ({ id, icon, onPress, label }) => {
@@ -51,8 +52,8 @@ export default function GlassDock({ state, navigation, sportIcon = 'cricket', ho
       <TouchableOpacity
         onPress={onPress} style={s.item} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
         accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: on }}>
-        <Icon name={icon} size={25} color={on ? BLUE : (isDark ? '#8b93a8' : DS.textMuted)} />
-        <View style={[s.dot, on && s.dotOn]} />
+        <Icon name={icon} size={25} color={on ? accent : (isDark ? '#8b93a8' : DS.textMuted)} />
+        <View style={[s.dot, on && { backgroundColor: accent }]} />
       </TouchableOpacity>
     );
   };
@@ -86,7 +87,6 @@ const makeStyles = (isDark, DS) => StyleSheet.create({
   },
   item: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 4, height: 4, borderRadius: 2, marginTop: 3, backgroundColor: 'transparent' },
-  dotOn: { backgroundColor: BLUE },
   ballSlot: { width: 68, alignItems: 'center' },
   ballLift: { marginTop: -30 },
 });

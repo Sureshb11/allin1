@@ -15,6 +15,8 @@ import { haptic } from '../utils/haptics';
 import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
 import HexAvatar from "../components/HexAvatar";
+import LiveBall from "../components/CricketBall/LiveBall";
+import { useDockLock } from "../components/AutoHideTabBar";
 
 // Latest COMPLETED over of the current (last) innings — used to pop an
 // auto-dismissing banner the moment a live watcher's poll picks up a newly
@@ -1291,6 +1293,15 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const lastBallRef = useRef(null);                  // last delivery id seen (celebration baseline)
   const [overEndBanner, setOverEndBanner] = useState(null); // end-of-over summary popup
   const lastOverEndRef = useRef(null);                // last completed-over number seen
+  const [ballEvent, setBallEvent] = useState(null);  // spectator LiveBall reaction {type,id}
+
+  // Spectator mode: while watching a LIVE match, the dock slides away and the
+  // signature ball becomes the only persistent element (released on blur/end).
+  const lockDock = useDockLock();
+  useFocusEffect(useCallback(() => {
+    lockDock(match?.status === 'live');
+    return () => lockDock(false);
+  }, [match?.status, lockDock]));
 
   // Detect a new boundary/wicket between polls and pop the celebration overlay.
   // The first observation only sets the baseline — we never replay the ball that
@@ -1302,9 +1313,13 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     if (lastBallRef.current === null) { lastBallRef.current = lb.id; return; }
     if (lb.id !== lastBallRef.current) {
       lastBallRef.current = lb.id;
-      if (lb.kind && match.status === 'live') {
-        setCelebration({ kind: lb.kind, id: lb.id });
-        if (lb.kind === 'wicket') haptic.warn(); else haptic.success();
+      if (match.status === 'live') {
+        // every delivery nudges the LiveBall; boundaries/wickets get the overlay too
+        setBallEvent({ type: lb.kind || 'run', id: lb.id });
+        if (lb.kind) {
+          setCelebration({ kind: lb.kind, id: lb.id });
+          if (lb.kind === 'wicket') haptic.warn(); else haptic.success();
+        }
       }
     }
   }, [match]);
@@ -1320,7 +1335,10 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     if (lastOverEndRef.current === null) { lastOverEndRef.current = oe.over; return; }
     if (oe.over !== lastOverEndRef.current) {
       lastOverEndRef.current = oe.over;
-      if (match.status === 'live') { setOverEndBanner(oe); haptic.tick(); }
+      if (match.status === 'live') {
+        setOverEndBanner(oe); haptic.tick();
+        setBallEvent({ type: 'over', id: `over-${oe.over}` });   // LiveBall bounce
+      }
     }
   }, [match]);
 
@@ -1649,6 +1667,17 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
           })}
         </ScrollView>
       </View>
+
+      {/* Phase 4 — live spectator companion: dock is locked away, the ball
+          persists bottom-centre, reacts to every delivery and opens the
+          radial quick menu (jumps between the tabs above). */}
+      {match?.status === 'live' && (
+        <LiveBall
+          event={ballEvent}
+          menuItems={TABS.filter((t) => ['live', 'scorecard', 'overs', 'highlights', 'info'].includes(t.key))
+            .map((t) => ({ key: t.key, icon: t.icon, label: t.label, onPress: () => setTab(t.key) }))}
+        />
+      )}
     </View>);
 
 }
