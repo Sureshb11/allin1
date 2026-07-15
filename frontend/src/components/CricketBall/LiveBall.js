@@ -22,11 +22,13 @@ import AnimatedCricketBall from './AnimatedBall';
 import haptic from '../../utils/haptics';
 
 const EVENT_COLORS = {
-  run:    '#3ecf6e',
-  four:   '#00AEEF',
-  six:    '#f5c968',
-  wicket: '#ff4d4d',
-  over:   '#9be7ff',
+  run:      '#3ecf6e',
+  four:     '#00AEEF',
+  six:      '#f5c968',
+  wicket:   '#ff4d4d',
+  over:     '#9be7ff',
+  innings:  '#7de2ff',   // big cool ring as the sides swap
+  finished: '#ffd873',   // golden trophy ring
 };
 
 export default function LiveBall({ event, menuItems = [], size = 56 }) {
@@ -42,8 +44,9 @@ export default function LiveBall({ event, menuItems = [], size = 56 }) {
     ballRef.current?.react(event.type);
     setRippleColor(EVENT_COLORS[event.type] || EVENT_COLORS.run);
     ripple.setValue(0);
+    const big = event.type === 'six' || event.type === 'innings' || event.type === 'finished';
     Animated.timing(ripple, {
-      toValue: 1, duration: event.type === 'six' ? 900 : 620,
+      toValue: 1, duration: big ? 1000 : 620,
       easing: Easing.out(Easing.quad), useNativeDriver: true,
     }).start();
     // eslint-disable-next-line react-hooks/exhaustive-deps

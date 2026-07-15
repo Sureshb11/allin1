@@ -17,7 +17,7 @@
 // app is backgrounded.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { View, Image, Animated, Easing, Pressable, AppState } from 'react-native';
+import { View, Image, Animated, Easing, Pressable, AppState, AccessibilityInfo } from 'react-native';
 import haptic from '../../utils/haptics';
 
 // Green edition — the app-accent version of the signature composition
@@ -64,9 +64,13 @@ export default forwardRef(function AnimatedCricketBall({ size = 64, onPress, spi
   const stopLoop = () => { loop.current?.stop(); loop.current = null; };
 
   useEffect(() => {
-    startLoop();
+    let reduced = false;
+    // Respect the system reduce-motion setting: no idle float (reactions are
+    // brief and user-initiated, so they stay).
+    AccessibilityInfo.isReduceMotionEnabled?.().then((r) => { reduced = !!r; if (!reduced) startLoop(); })
+      .catch(() => startLoop());
     const sub = AppState.addEventListener('change', (s) =>
-      s === 'active' ? startLoop() : stopLoop());
+      s === 'active' && !reduced ? startLoop() : stopLoop());
     return () => { sub.remove(); stopLoop(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -96,12 +100,16 @@ export default forwardRef(function AnimatedCricketBall({ size = 64, onPress, spi
   useImperativeHandle(ref, () => ({
     react(type) {
       switch (type) {
-        case 'four':   Animated.parallel([doSpin(430), bounce(0.95, 1.05)]).start(); break;
-        case 'six':    Animated.parallel([doSpin(620), bounce(0.88, 1.12)]).start(); break;
-        case 'wicket': doShake().start(); haptic.warn?.(); break;
-        case 'over':   bounce(0.96, 1.05).start(); break;
+        case 'four':     Animated.parallel([doSpin(430), bounce(0.95, 1.05)]).start(); break;
+        case 'six':      Animated.parallel([doSpin(620), bounce(0.88, 1.12)]).start(); break;
+        case 'wicket':   doShake().start(); haptic.warn?.(); break;
+        case 'over':     bounce(0.96, 1.05).start(); break;
+        // innings break: one fast cinematic spin as the sides swap
+        case 'innings':  Animated.parallel([doSpin(520), bounce(0.9, 1.1)]).start(); haptic.success?.(); break;
+        // match finished: a slow, dignified bow before the dock returns
+        case 'finished': Animated.sequence([bounce(0.94, 1.08), Animated.delay(180), bounce(0.98, 1.03)]).start(); haptic.success?.(); break;
         case 'run':
-        default:       bounce(0.97, 1.03).start(); break;
+        default:         bounce(0.97, 1.03).start(); break;
       }
     },
   }));

@@ -1294,6 +1294,9 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const [overEndBanner, setOverEndBanner] = useState(null); // end-of-over summary popup
   const lastOverEndRef = useRef(null);                // last completed-over number seen
   const [ballEvent, setBallEvent] = useState(null);  // spectator LiveBall reaction {type,id}
+  const [linger, setLinger] = useState(false);       // keep the ball up for the finish ceremony
+  const prevStatusRef = useRef(null);                // live→completed transition detector
+  const prevInnsRef = useRef(null);                  // innings-count change detector
 
   // Spectator mode: while watching a LIVE match, the dock slides away and the
   // signature ball becomes the only persistent element (released on blur/end).
@@ -1302,6 +1305,25 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     lockDock(match?.status === 'live');
     return () => lockDock(false);
   }, [match?.status, lockDock]));
+
+  // Ceremony moments (poster spec): innings break → one fast spin + big ring;
+  // match finished → golden trophy ripple, ball lingers a beat, dock returns.
+  useEffect(() => {
+    if (!match) return;
+    const inns = match.innings?.length || 0;
+    if (prevInnsRef.current !== null && inns > prevInnsRef.current && match.status === 'live') {
+      setBallEvent({ type: 'innings', id: `innings-${inns}` });
+    }
+    prevInnsRef.current = inns;
+    const wasLive = prevStatusRef.current === 'live';
+    prevStatusRef.current = match.status;
+    if (wasLive && match.status === 'completed') {
+      setBallEvent({ type: 'finished', id: 'match-finished' });
+      setLinger(true);
+      const t = setTimeout(() => setLinger(false), 2600);
+      return () => clearTimeout(t);
+    }
+  }, [match]);
 
   // Detect a new boundary/wicket between polls and pop the celebration overlay.
   // The first observation only sets the baseline — we never replay the ball that
@@ -1671,7 +1693,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
       {/* Phase 4 — live spectator companion: dock is locked away, the ball
           persists bottom-centre, reacts to every delivery and opens the
           radial quick menu (jumps between the tabs above). */}
-      {match?.status === 'live' && (
+      {(match?.status === 'live' || linger) && (
         <LiveBall
           event={ballEvent}
           menuItems={TABS.filter((t) => ['live', 'scorecard', 'overs', 'highlights', 'info'].includes(t.key))
