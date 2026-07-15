@@ -14,6 +14,7 @@ import { getSport } from '../sports';
 import GradientButton from '../components/GradientButton';
 import HexAvatar from '../components/HexAvatar';
 import { showToast } from '../components/Toast';
+import { useTabBarClearance } from '../components/AutoHideTabBar';
 
 /* ─── Kinetic Athlete Design Tokens ─────────────────────── */
 // Themed palette factory (faithful in dark; adapts to light). `black` is the
@@ -233,6 +234,7 @@ const StartMatchScreen = ({ navigation, route }) => {
   const { colors: c, isDark } = useTheme();
   const K = useMemo(() => makeK(c), [c]);
   const s = useMemo(() => makeS(K), [K]);
+  const tabClear = useTabBarClearance();   // keep CREATE clear of the floating dock
   const sport = route.params?.sport || { id: 'cricket', name: 'Cricket', icon: 'cricket' };
   const sportDef = getSport(sport.id);
   const indiv = !!sportDef?.individual;          // 1v1 sports → "Player" not "Team"
@@ -393,7 +395,7 @@ const StartMatchScreen = ({ navigation, route }) => {
     <View style={s.root}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={K.bg} />
       <Animated.ScrollView
-        contentContainerStyle={s.scroll}
+        contentContainerStyle={[s.scroll, { paddingBottom: tabClear + 64 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
