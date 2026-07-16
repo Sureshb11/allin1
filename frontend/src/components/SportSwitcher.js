@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import HexAvatar from './HexAvatar';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { SPORTS } from '../sports/dashboard';
@@ -52,7 +53,9 @@ export default function SportSwitcher({ navigation, current: currentOverride, va
       {variant === 'iconButton'
         ? (
           <TouchableOpacity style={s.actionItem} activeOpacity={0.85} onPress={openArenaPicker}>
-            <View style={s.actionCircle}><Icon name={current.icon} size={22} color={C.lime} /></View>
+            <HexAvatar size={52} color={C.surfaceLow}>
+              <Icon name={current.icon} size={22} color={C.lime} />
+            </HexAvatar>
             <Text style={s.actionLabel} numberOfLines={1}>Sport</Text>
           </TouchableOpacity>
         )
@@ -100,10 +103,6 @@ export default function SportSwitcher({ navigation, current: currentOverride, va
 const makeStyles = (C) => StyleSheet.create({
   // Icon-button variant (Profile action bar) — matches ProfileScreen's ActionIcon.
   actionItem: { alignItems: 'center', gap: 6, width: 64 },
-  actionCircle: {
-    width: 52, height: 52, borderRadius: 26, backgroundColor: C.surfaceLow,
-    alignItems: 'center', justifyContent: 'center',
-  },
   actionLabel: { fontSize: 11, fontWeight: '700', color: C.textVariant },
 
   label: { color: C.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 8 },

@@ -1,34 +1,68 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, Share, ActivityIndicator, Image,
+  Alert, Share, ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { pickAndUploadImage } from '../utils/imageUpload';
 import { setCurrentAvatar, clearCurrentUser } from '../utils/currentUser';
 import legendsApi from '../services/LegendsApi';
 import SportSwitcher from '../components/SportSwitcher';
+import HexAvatar from '../components/HexAvatar';
+import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { getSelectedSport } from '../utils/selectedSport';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 // Sport-aware profile stats: which stored-stat fields to surface per sport (first 4
 // present are shown). Anything not listed falls back to DEFAULT_FIELDS.
+// Third element = accent: the career OUTPUT a player is judged on (runs, wickets,
+// goals) reads lime; context (matches) and rates (strike rate) stay plain. This
+// used to be positional (`i >= 2`), which accented whichever fields happened to
+// land 3rd and 4th.
 const SPORT_STAT_FIELDS = {
-  cricket:  [['matches', 'Matches'], ['runs', 'Runs'], ['wickets', 'Wickets'], ['strikeRate', 'Strike Rate'], ['average', 'Average'], ['momCount', 'MOM']],
-  football: [['matches', 'Matches'], ['goals', 'Goals'], ['assists', 'Assists'], ['cleanSheets', 'Clean Sheets'], ['saves', 'Saves']],
+  cricket:  [['matches', 'Matches'], ['runs', 'Runs', true], ['wickets', 'Wickets', true], ['strikeRate', 'Strike Rate']],
+  football: [['matches', 'Matches'], ['goals', 'Goals', true], ['assists', 'Assists', true], ['cleanSheets', 'Clean Sheets']],
 };
-const DEFAULT_STAT_FIELDS = [['matches', 'Matches'], ['events', 'Events'], ['fights', 'Fights'], ['wins', 'Wins'], ['titles', 'Titles'], ['ko', 'KO'], ['goals', 'Goals']];
+const DEFAULT_STAT_FIELDS = [['matches', 'Matches'], ['events', 'Events'], ['fights', 'Fights'], ['wins', 'Wins', true], ['titles', 'Titles', true], ['ko', 'KO'], ['goals', 'Goals']];
+
+// Career detail, grouped. The API already computes all of this from the
+// ball-by-ball data (see backend getUserStats) — the profile just never asked
+// for it, which is why the screen sat half empty. Only fields the API actually
+// returns are rendered, so a player with no bowling gets no BOWLING block.
+const SPORT_STAT_GROUPS = {
+  cricket: [
+    { title: 'BATTING', fields: [
+      ['highestScore', 'Highest'], ['average', 'Average'], ['halfCenturies', '50s'],
+      ['centuries', '100s'], ['fours', '4s'], ['sixes', '6s'],
+      ['notOuts', 'Not Outs'], ['ballsFaced', 'Balls Faced'],
+    ] },
+    { title: 'BOWLING', fields: [
+      ['bestBowling', 'Best'], ['economy', 'Economy'], ['bowlingAverage', 'Average'],
+      ['fiveWickets', '5W Hauls'], ['oversBowled', 'Overs'], ['runsConceded', 'Runs Given'],
+    ] },
+  ],
+};
+
+// A stat is worth showing if the API returned a real value. Not a plain
+// `typeof === 'number'` check: oversBowled ("3.2") and bestBowling ("3/12") are
+// strings, and bowlingAverage is null until the player takes a wicket.
+const hasStat = (v) => v !== null && v !== undefined && v !== '' && !Number.isNaN(v);
 
 
 export default function ProfileScreen({ navigation }) {
   const { colors: DS, pref, setMode, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const hideTabBar = useHideTabBarOnScroll();
+  const tabClear = useTabBarClearance();
   const toggleTheme = () => setMode(isDark ? 'light' : 'dark');
 
-  // Compact circular action button (Share / Edit / Theme in the action bar).
+  // Hex action button (Share / Edit / Theme in the action bar) — the Arena
+  // honeycomb motif, same as the avatar and the app's other hex tiles.
   const ActionIcon = ({ icon, label, color, onPress }) => (
     <TouchableOpacity style={styles.actionItem} activeOpacity={0.85} onPress={onPress}>
-      <View style={styles.actionCircle}><Icon name={icon} size={22} color={color || DS.lime} /></View>
+      <HexAvatar size={52} color={DS.surfaceLow}>
+        <Icon name={icon} size={22} color={color || DS.lime} />
+      </HexAvatar>
       <Text style={styles.actionLabel} numberOfLines={1}>{label}</Text>
     </TouchableOpacity>
   );
@@ -126,36 +160,48 @@ export default function ProfileScreen({ navigation }) {
   const statCards = statFields
     .filter(([k]) => typeof stats[k] === 'number')
     .slice(0, 4)
-    .map(([k, label]) => ({ label, value: stats[k] }));
+    .map(([k, label, accent]) => ({ label, value: stats[k], accent: !!accent }));
+
+  // Career detail blocks — only groups with at least one real value render.
+  const statGroups = (SPORT_STAT_GROUPS[sport.id] || [])
+    .map((g) => ({
+      title: g.title,
+      items: g.fields.filter(([k]) => hasStat(stats[k])).map(([k, label]) => ({ label, value: stats[k] })),
+    }))
+    .filter((g) => g.items.length > 0);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}
+      {...hideTabBar} contentContainerStyle={{ paddingBottom: tabClear }}>
       {/* Hero Header */}
       <View style={styles.hero}>
         <View style={styles.heroInner}>
-          {/* Avatar */}
+          {/* Avatar — hexagon, carrying the Arena honeycomb motif */}
           <View style={styles.avatarWrap}>
-            {profile.avatarUrl
-              ? <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />
-              : <View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>}
+            <HexAvatar size={72} uri={profile.avatarUrl || undefined} color={DS.surfaceHighest}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </HexAvatar>
             {stats.momCount > 0 && (
               <View style={styles.momBadge}>
-                <Icon name="star" size={10} color={DS.bg} />
+                <Icon name="star" size={9} color={DS.bg} />
+                <Text style={styles.momBadgeText}>{stats.momCount}</Text>
               </View>
             )}
           </View>
 
           <View style={styles.heroInfo}>
             <Text style={styles.heroName}>{displayName}</Text>
-            {!!profile.phone && <Text style={styles.heroPhone}>{profile.phone}</Text>}
             <Text style={styles.heroRole}>{profile.role || 'Player'}</Text>
+            {!!profile.phone && <Text style={styles.heroPhone}>{profile.phone}</Text>}
             <View style={styles.heroPills}>
-              <View style={styles.membershipPill}>
-                <Icon name="star-circle" size={11} color={isPremium ? DS.lime : DS.textMuted} />
-                <Text style={[styles.membershipText, isPremium && { color: DS.lime }]}>
-                  {isPremium ? 'Premium User' : 'Free Plan'}
-                </Text>
-              </View>
+              {/* Only Premium earns a badge — "Free Plan" was a label for the
+                  absence of a thing, which just told players what they lack. */}
+              {isPremium && (
+                <View style={styles.membershipPill}>
+                  <Icon name="star-circle" size={11} color={DS.lime} />
+                  <Text style={[styles.membershipText, { color: DS.lime }]}>Premium</Text>
+                </View>
+              )}
               {profile.teamName && (
                 <View style={styles.teamPill}>
                   <Icon name="shield" size={10} color={DS.lime} />
@@ -169,22 +215,40 @@ export default function ProfileScreen({ navigation }) {
         {/* Bento Stats Grid — sport-aware */}
         {statCards.length > 0 && (
           <View style={styles.bentoGrid}>
-            {statCards.map((c, i) => (
-              <BentoStat key={c.label} label={c.label} value={c.value} accent={i >= 2} />
+            {statCards.map((c) => (
+              <BentoStat key={c.label} label={c.label} value={c.value} accent={c.accent} />
             ))}
           </View>
         )}
       </View>
 
       <View style={styles.body}>
+        {/* Career detail — the numbers the API already computes per delivery */}
+        {statGroups.map((g) => (
+          <View key={g.title} style={styles.section}>
+            <Text style={styles.sectionTitle}>{g.title}</Text>
+            <View style={styles.statWrap}>
+              {g.items.map((it) => (
+                <View key={it.label} style={styles.statCell}>
+                  <Text style={styles.statCellValue}>{it.value}</Text>
+                  <Text style={styles.statCellLabel} numberOfLines={1}>{it.label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
+
         {/* Recent Form */}
         {recentForm.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>RECENT FORM</Text>
             {recentForm.map((match, i) => (
               <View key={i} style={styles.formRow}>
+                {/* result is null for a tie (or an unparseable result string) —
+                    that's neither a win nor a loss, so it reads neutral. */}
                 <View style={[styles.resultDot, {
-                  backgroundColor: match.result === 'W' ? DS.lime : DS.live,
+                  backgroundColor: match.result === 'W' ? DS.lime
+                    : match.result === 'L' ? DS.live : DS.textMuted,
                 }]} />
                 <View style={styles.formInfo}>
                   <Text style={styles.formOpponent} numberOfLines={1}>
@@ -203,8 +267,9 @@ export default function ProfileScreen({ navigation }) {
                   </View>
                 )}
                 <Text style={[styles.formResult, {
-                  color: match.result === 'W' ? DS.lime : DS.live,
-                }]}>{match.result === 'W' ? 'Won' : 'Lost'}</Text>
+                  color: match.result === 'W' ? DS.lime
+                    : match.result === 'L' ? DS.live : DS.textMuted,
+                }]}>{match.result === 'W' ? 'Won' : match.result === 'L' ? 'Lost' : 'Tied'}</Text>
               </View>
             ))}
           </View>
@@ -225,9 +290,10 @@ export default function ProfileScreen({ navigation }) {
 
 
 
-        {/* Logout */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Icon name="logout" size={18} color={DS.live} />
+        {/* Logout — a quiet text link. It used to be the boldest card on a
+            screen about your career; a destructive action shouldn't anchor it. */}
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
+          <Icon name="logout" size={15} color={DS.textMuted} />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </View>
@@ -243,22 +309,24 @@ const makeStyles = (DS) => StyleSheet.create({
   hero: { backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 20, paddingHorizontal: 16 },
   heroInner: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
   avatarWrap: { position: 'relative' },
-  avatar: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: DS.surfaceHighest,
-    alignItems: 'center', justifyContent: 'center',
-  },
   avatarText: { fontSize: 24, fontWeight: '900', color: DS.lime },
+  // MOM count rides the hexagon's lower-right flat edge (a hexagon's corners sit
+  // inside its box, so this tucks against the shape rather than floating off it).
   momBadge: {
-    position: 'absolute', bottom: 0, right: 0,
-    width: 18, height: 18, borderRadius: 9,
+    position: 'absolute', bottom: 2, right: -2,
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    paddingHorizontal: 5, height: 18, borderRadius: 9,
     backgroundColor: DS.lime,
-    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: DS.surfaceLow,
+    justifyContent: 'center',
   },
+  momBadgeText: { fontSize: 10, fontWeight: '900', color: DS.bg },
   heroInfo: { flex: 1, gap: 2 },
   heroName: { fontSize: 22, fontWeight: '800', color: DS.textPrimary },
-  heroPhone: { fontSize: 13, color: DS.textVariant, marginTop: 1 },
-  heroRole: { fontSize: 13, color: DS.textMuted, marginTop: 1 },
+  // Role leads (it's who you are here); the phone number is account admin, not
+  // identity, so it drops to the quietest line rather than sitting under the name.
+  heroRole: { fontSize: 13, color: DS.textVariant, marginTop: 2, fontWeight: '600' },
+  heroPhone: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
   heroPills: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   membershipPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -302,11 +370,14 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.surfaceHigh, borderRadius: 18, paddingVertical: 16, paddingHorizontal: 8,
   },
   actionItem: { alignItems: 'center', gap: 6, width: 64 },
-  actionCircle: {
-    width: 52, height: 52, borderRadius: 26, backgroundColor: DS.surfaceLow,
-    alignItems: 'center', justifyContent: 'center',
-  },
   actionLabel: { fontSize: 11, fontWeight: '700', color: DS.textVariant },
+
+  // Career detail grid — 4-up, wrapping, so a block sizes to whatever the API
+  // returned rather than assuming a fixed field count.
+  statWrap: { flexDirection: 'row', flexWrap: 'wrap' },
+  statCell: { width: '25%', alignItems: 'center', paddingVertical: 8 },
+  statCellValue: { fontSize: 17, fontWeight: '800', color: DS.textPrimary },
+  statCellLabel: { fontSize: 10, color: DS.textMuted, marginTop: 2, textAlign: 'center' },
 
   // Recent form
   section: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16, gap: 8 },
@@ -374,9 +445,8 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // Logout
   logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: DS.surfaceHigh, borderRadius: 16,
-    paddingVertical: 14, marginBottom: 24,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 14, marginTop: 4, marginBottom: 24,
   },
-  logoutText: { fontSize: 15, fontWeight: '700', color: DS.live },
+  logoutText: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
 });

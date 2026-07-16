@@ -63,7 +63,7 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
   // ── Real cricket career numbers, computed from the ball-by-ball data ──────
   // Batting: every ball this player faced. Bowling: every ball in overs they
   // bowled. Overrides the static stats JSON whenever real deliveries exist.
-  const [batBalls, dismissals, bowlBalls, xiMatches] = await Promise.all([
+  const [batBalls, dismissals, bowlBalls, xiMatches, momCount] = await Promise.all([
     prisma.ball.findMany({
       where: { batterId: player.id },
       select: { runs: true, extraType: true, over: { select: { inningId: true } } },
@@ -74,6 +74,8 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
       select: { runs: true, extras: true, extraType: true, isWicket: true, wicketType: true, over: { select: { inningId: true } } },
     }),
     prisma.matchPlayer.count({ where: { playerId: player.id } }),
+    // Career Player-of-the-Match count — the profile's star badge reads this.
+    prisma.matchMVP.count({ where: { playerId: player.id } }),
   ]);
 
   const computed = {};
@@ -122,6 +124,74 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
   }
   if (xiMatches) computed.matches = xiMatches;
 
+  // ── Recent form: the player's last 5 completed matches ────────────────────
+  // The profile has always had a RECENT FORM section, but nothing ever sent
+  // this field, so it could never render. Win/loss comes from Match.result,
+  // which is free text ("<Team> won by 42 runs") — so we match it against the
+  // player's own team name rather than inventing a column. A tie (or an
+  // unparseable result) yields result: null, which the client renders neutrally.
+  const formRows = await prisma.matchPlayer.findMany({
+    where: { playerId: player.id, match: { status: 'completed' } },
+    orderBy: { match: { startTime: 'desc' } },
+    take: 5,
+    include: {
+      team:  { select: { name: true } },
+      match: { select: {
+        id: true, result: true, startTime: true,
+        team1: { select: { name: true } },
+        team2: { select: { name: true } },
+      } },
+    },
+  });
+
+  let recentForm = [];
+  if (formRows.length) {
+    const formMatchIds = formRows.map((r) => r.matchId);
+    const [fBat, fBowl, moms] = await Promise.all([
+      prisma.ball.findMany({
+        where: { batterId: player.id, over: { inning: { matchId: { in: formMatchIds } } } },
+        select: { runs: true, over: { select: { inning: { select: { matchId: true } } } } },
+      }),
+      prisma.ball.findMany({
+        where: { over: { bowlerId: player.id, inning: { matchId: { in: formMatchIds } } } },
+        select: { isWicket: true, wicketType: true, over: { select: { inning: { select: { matchId: true } } } } },
+      }),
+      // Player-of-the-match awards this player won in these matches.
+      prisma.matchMVP.findMany({
+        where: { playerId: player.id, matchId: { in: formMatchIds } },
+        select: { matchId: true },
+      }),
+    ]);
+    const momIds = new Set(moms.map((m) => m.matchId));
+    const runsBy = {}, wktsBy = {};
+    for (const b of fBat) {
+      const id = b.over.inning.matchId;
+      runsBy[id] = (runsBy[id] || 0) + b.runs;
+    }
+    for (const b of fBowl) {
+      if (!b.isWicket || b.wicketType === 'runOut') continue;   // run-outs aren't the bowler's
+      const id = b.over.inning.matchId;
+      wktsBy[id] = (wktsBy[id] || 0) + 1;
+    }
+    recentForm = formRows.map((r) => {
+      const m = r.match;
+      const mine = r.team?.name || '';
+      const opponent = m.team1?.name === mine ? m.team2?.name : m.team1?.name;
+      const res = m.result || '';
+      let result = null;
+      if (mine && res.startsWith(mine)) result = 'W';
+      else if (res && !/tie/i.test(res)) result = 'L';
+      return {
+        matchId: m.id,
+        opponent: opponent || 'Unknown',
+        result,
+        runs: runsBy[m.id] ?? null,
+        wickets: wktsBy[m.id] ?? null,
+        isMOM: momIds.has(m.id),
+      };
+    });
+  }
+
   const stats = {
     ...base,
     ...s,                                   // pass through any sport-specific fields (goals, assists, …)
@@ -129,6 +199,8 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
     average: s.average ?? s.battingAverage ?? 0,
     ...computed,                            // real ball-derived numbers win
     seasonMatches,
+    momCount,
+    recentForm,
   };
   res.json({ stats, sport: player.sport, role: player.role, team: player.team?.name || null, linked: true });
 });
