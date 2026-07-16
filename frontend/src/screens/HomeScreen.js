@@ -3,7 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   RefreshControl, Modal, Share, Dimensions, StatusBar, Animated, Alert,
-  FlatList, TextInput, Image
+  FlatList, TextInput
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -271,7 +271,7 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
               <TouchableOpacity style={[styles.headerBtn, { paddingLeft: 10 }]} onPress={() => navigation.navigate('Profile')}>
                 {meUser?.avatarUrl ? (
-                  <Image source={{ uri: meUser.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
+                  <HexAvatar size={24} uri={meUser.avatarUrl} />
                 ) : (
                   <Icon name="account-circle-outline" size={24} color={DS.textVariant} />
                 )}

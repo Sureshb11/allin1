@@ -112,7 +112,11 @@ function FeedSkeleton({ DS }) {
       {[0, 1, 2].map((i) => (
         <View key={i} style={{ backgroundColor: DS.surface, borderRadius: 16, padding: 14, gap: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Animated.View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: DS.surfaceHigh, opacity }} />
+            {/* Hexagon, so the placeholder is the shape of the avatar that
+                replaces it — a circle here popped into a hexagon on load. */}
+            <Animated.View style={{ opacity }}>
+              <HexAvatar size={42} color={DS.surfaceHigh} />
+            </Animated.View>
             <View style={{ flex: 1, gap: 6 }}>
               <Bar w={120} h={12} />
               <Bar w={80} h={10} />
@@ -133,14 +137,23 @@ function FeedSkeleton({ DS }) {
 }
 
 // ── Small building blocks ───────────────────────────────────────────────────
+// Hexagon, like every other avatar in the app (leaderboards, team badges, the
+// profile) — the Arena honeycomb motif. The feed was the last place still
+// drawing circles.
+//
+// The lime `ring` can't be a border: borderWidth follows the View's box, so on a
+// hexagon it would draw a square-ish outline around the shape. Instead a lime
+// hexagon sits behind a slightly smaller one, and the 2px it peeks out reads as
+// an outline that actually follows the silhouette.
 function Avatar({ initial, color, size = 40, ring = false, uri = null }) {const DS = useTheme().colors;
-  const base = { width: size, height: size, borderRadius: size / 2 };
-  const ringStyle = ring && { borderWidth: 2, borderColor: DS.lime };
-  if (uri) return <Image source={{ uri }} style={[base, ringStyle]} />;
-  return (
-    <View style={[base, { backgroundColor: color, alignItems: 'center', justifyContent: 'center' }, ringStyle]}>
-      <Text style={{ color: DS.white, fontWeight: '800', fontSize: size * 0.4 }}>{initial}</Text>
-    </View>);
+  const inner = size - (ring ? 4 : 0);
+  const face = (
+    <HexAvatar size={inner} color={color} uri={uri || undefined}>
+      <Text style={{ color: DS.white, fontWeight: '800', fontSize: inner * 0.4 }}>{initial}</Text>
+    </HexAvatar>
+  );
+  if (!ring) return face;
+  return <HexAvatar size={size} color={DS.lime}>{face}</HexAvatar>;
 }
 
 const LiveDot = () => {
@@ -930,7 +943,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
           </TouchableOpacity>
           <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Profile')}>
             {meUser?.avatarUrl ? (
-              <Image source={{ uri: meUser.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
+              <HexAvatar size={24} uri={meUser.avatarUrl} />
             ) : (
               <Icon name="account-circle-outline" size={24} color={DS.textPrimary} />
             )}
