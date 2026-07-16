@@ -5,6 +5,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 
 function StatCard({ icon, label, value, color }) {
   const DS = useTheme().colors;
@@ -38,6 +39,8 @@ const makeFormColors = (DS) => ({ W: DS.success, L: DS.live, T: '#f59e0b' });
 export default function TeamInsightsScreen({ route, navigation }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
+  const hideTabBar = useHideTabBarOnScroll();
+  const tabClear = useTabBarClearance();
   const FORM_COLORS = makeFormColors(DS);
   const { teamId } = route.params || {};
   const [data, setData] = useState(null);
@@ -91,7 +94,8 @@ export default function TeamInsightsScreen({ route, navigation }) {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView {...hideTabBar}
+        contentContainerStyle={[styles.content, { paddingBottom: 16 + tabClear }]}>
         <View style={styles.statsRow}>
           <StatCard icon="trophy" label="Wins" value={stats?.won} color={DS.success} />
           <StatCard icon="close-circle-outline" label="Losses" value={stats?.lost} color={DS.live} />

@@ -10,6 +10,7 @@ import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { SPORTS, getDashboard } from '../sports/dashboard';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { MatchCard, FILTERS, FILTER_STATUS_MAP } from './MyMatchesScreen';
 import TeamManagementScreen from './TeamManagementScreen';
 import TournamentsScreen from './TournamentsScreen';
@@ -103,6 +104,8 @@ export default function HomeScreen({ navigation }) {
   const { colors: DS, mode, isDark, typography } = useTheme();
   const styles = useMemo(() => makeStyles(DS, typography), [DS, typography]);
   const lcStyles = useThemedStyles(makeLcStyles);
+  const hideTabBar = useHideTabBarOnScroll();
+  const tabClear = useTabBarClearance();
   const meUser = useCurrentUser();
   const [liveMatches, setLiveMatches] = useState([]);
   const [players, setPlayers]         = useState([]);
@@ -303,11 +306,12 @@ export default function HomeScreen({ navigation }) {
         {activeNavTab === 0 && (
           <FlatList
             style={styles.feed}
-            contentContainerStyle={styles.feedContent}
+            contentContainerStyle={[styles.feedContent, { paddingBottom: 16 + tabClear }]}
             data={filteredMatches}
             keyExtractor={(item, i) => item.id || String(i)}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
             showsVerticalScrollIndicator={false}
+            {...hideTabBar}
             ListHeaderComponent={
               <View>
                 {/* Start Match CTA */}

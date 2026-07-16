@@ -16,7 +16,7 @@ import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
 import HexAvatar from "../components/HexAvatar";
 import LiveBall from "../components/CricketBall/LiveBall";
-import { useDockLock } from "../components/AutoHideTabBar";
+import { useDockLock, useHideTabBarOnScroll } from "../components/AutoHideTabBar";
 
 // Latest COMPLETED over of the current (last) innings — used to pop an
 // auto-dismissing banner the moment a live watcher's poll picks up a newly
@@ -1306,6 +1306,10 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     return () => lockDock(false);
   }, [match?.status, lockDock]));
 
+  // On a non-live match the dock is unlocked, so the tab pages hide it on scroll
+  // like every other screen. While live it stays locked away regardless.
+  const hideTabBar = useHideTabBarOnScroll();
+
   // Ceremony moments (poster spec): innings break → one fast spin + big ring;
   // match finished → golden trophy ripple, ball lingers a beat, dock returns.
   useEffect(() => {
@@ -1624,6 +1628,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             const near = Math.abs(ti - activeIndex) <= 1;
             return (
             <ScrollView key={t.key} style={{ width: SCREEN_WIDTH }} showsVerticalScrollIndicator={false}
+              {...hideTabBar}
               contentContainerStyle={{ paddingTop: 12, paddingBottom: 12 }}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}>
               {near && <>

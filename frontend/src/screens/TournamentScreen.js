@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert, A
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import GradientButton from '../components/GradientButton';
+import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { showToast } from '../components/Toast';
 
 
@@ -19,6 +20,8 @@ import { showToast } from '../components/Toast';
 
 
 const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+  const hideTabBar = useHideTabBarOnScroll();
+  const tabClear = useTabBarClearance();
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   // Opened via the "Create Tournament" route → start with the form open.
@@ -191,7 +194,8 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={DS.lime} /></View> :
 
       <FlatList data={tournaments} renderItem={renderTournament} keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.tournamentsList}
+      {...hideTabBar}
+      contentContainerStyle={[styles.tournamentsList, { paddingBottom: 15 + tabClear }]}
       ListEmptyComponent={<View style={{ alignItems: 'center', paddingTop: 60 }}><Text style={{ fontSize: 16, color: DS.textMuted }}>No tournaments yet</Text></View>} />
 
       }

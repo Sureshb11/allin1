@@ -18,6 +18,7 @@ import PressableScale from '../components/PressableScale';
 import legendsApi from '../services/LegendsApi';
 import { showToast } from '../components/Toast';
 import BrandLogo from "../components/BrandLogo";
+import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 
 
 
@@ -48,6 +49,8 @@ const AnimatedPulse = ({ children, style }) => {
 };
 
 const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+  const hideTabBar = useHideTabBarOnScroll();
+  const tabClear = useTabBarClearance();
   const [tab, setTab] = useState('mine');   // mine | opponents | followed
   const [categorized, setCategorized] = useState({ mine: [], opponents: [], followed: [] });
   const [followedIds, setFollowedIds] = useState(new Set());
@@ -336,7 +339,8 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
           <View style={styles.headerSpacer} />
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}
+          {...hideTabBar} contentContainerStyle={{ paddingBottom: tabClear }}>
           <View style={styles.teamStatsCard}>
             <Text style={styles.sectionTitle}>Team Statistics</Text>
             <View style={styles.detailStatsRow}>
@@ -464,7 +468,8 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
         data={categorized[tab].filter(t => t.name.toLowerCase().includes(teamSearchQuery.toLowerCase()))}
         renderItem={renderTeam}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.teamsList}
+        {...hideTabBar}
+        contentContainerStyle={[styles.teamsList, { paddingBottom: tabClear }]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>

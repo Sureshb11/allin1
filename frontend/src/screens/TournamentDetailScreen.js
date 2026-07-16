@@ -9,6 +9,7 @@ import legendsApi from '../services/LegendsApi';
 import { getSport } from '../sports';
 
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { useHideTabBarOnScroll } from '../components/AutoHideTabBar';
 
 const TABS = ['Overview', 'Points Table', 'Schedule', 'Leaders'];
 
@@ -30,6 +31,7 @@ const makeStatusColors = (DS) => ({
 
 export default function TournamentDetailScreen({ route, navigation }) {
   const DS = useTheme().colors;
+  const hideTabBar = useHideTabBarOnScroll();
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -345,7 +347,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const myOwnedTeams = myTeams.filter(t => t.ownerId && t.ownerId === myUserId);
 
   const renderOverview = () => (
-    <ScrollView contentContainerStyle={styles.tabContent}>
+    <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
       {/* Info Grid */}
       <View style={styles.infoGrid}>
         {[
@@ -533,7 +535,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
     const qualifyN = 2;
 
     return (
-      <ScrollView contentContainerStyle={styles.tabContent}>
+      <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
         {pointsTable.length === 0 ? (
           <View style={styles.empty}>
             <Icon name="table-large" size={36} color={DS.textMuted} />
@@ -735,7 +737,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
       );
     }
     return (
-      <ScrollView contentContainerStyle={styles.tabContent}>
+      <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
         {toggle}
         {rounds.map((r) => {
           const done = byRound[r].every(({ f }) => f.status === 'completed');
@@ -844,7 +846,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
       </View>
     );
     return (
-      <ScrollView contentContainerStyle={styles.tabContent}>
+      <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
         {mvp[0] && (
           <View style={styles.mvpCard}>
             <Icon name="star-circle" size={22} color={DS.bg} />
