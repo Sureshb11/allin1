@@ -620,6 +620,15 @@ model TournamentTeam {
   group        String     @default("A")
   status       String     @default("approved")  // approved (in) | pending (join request awaiting organiser)
 
+  // Who asked to join. Null when the organiser added the team directly (no
+  // request was made) and on every row that predates this column. The organiser
+  // needs this to know who they're talking to — the request itself only ever
+  // recorded which TEAM asked, never which person.
+  requestedById String?
+  // Direct room between the requester and the organiser, created lazily on the
+  // first message so a request nobody discusses doesn't leave an empty room.
+  chatRoomId    String?
+
   @@unique([tournamentId, teamId])
 }
 

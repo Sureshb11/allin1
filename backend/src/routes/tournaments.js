@@ -263,7 +263,7 @@ router.post('/:id/join-requests', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: `Sport mismatch: ${team.name} is a ${team.sport} team but ${tournament.name} is a ${tournament.sport} tournament.` });
     }
     const entry = await prisma.tournamentTeam.create({
-      data: { tournamentId: req.params.id, teamId, group, status: 'pending' },
+      data: { tournamentId: req.params.id, teamId, group, status: 'pending', requestedById: req.user.sub },
       include: { team: true },
     });
     // Ping the organiser that a team wants in.
@@ -296,12 +296,90 @@ router.get('/:id/join-requests', authMiddleware, requireOrganizer, async (req, r
   try {
     const requests = await prisma.tournamentTeam.findMany({
       where: { tournamentId: req.params.id, status: 'pending' },
-      include: { team: true },
+      include: { team: { include: { players: { select: { id: true } } } } },
       orderBy: { createdAt: 'asc' },
     });
-    res.json({ requests });
+    // Resolve the requester to a name the organiser can actually recognise —
+    // an id tells them nothing about who they're approving or replying to.
+    // Rows created before requestedById existed (and organiser-added teams)
+    // have none, so the client must tolerate a null requester.
+    const ids = [...new Set(requests.map((r) => r.requestedById).filter(Boolean))];
+    const users = ids.length
+      ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true, phone: true } })
+      : [];
+    const byId = Object.fromEntries(users.map((u) => [u.id, u]));
+    res.json({
+      requests: requests.map((r) => {
+        const u = r.requestedById ? byId[r.requestedById] : null;
+        return {
+          ...r,
+          squadSize: r.team?.players?.length || 0,
+          requester: u ? { id: u.id, name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.phone } : null,
+        };
+      }),
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// The caller's own entries for this tournament (requester side). GET
+// /join-requests is organiser-gated, so without this a requester couldn't see
+// their own pending status — or reach the chat they're half of.
+router.get('/:id/my-requests', authMiddleware, async (req, res) => {
+  try {
+    const rows = await prisma.tournamentTeam.findMany({
+      where: { tournamentId: req.params.id, requestedById: req.user.sub },
+      include: { team: { select: { id: true, name: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json({ requests: rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Open (or start) the conversation about a join request. Either party may call
+// it; the room is created on first use so requests nobody discusses don't leave
+// empty rooms behind. Mirrors the LookingFor connect→chat pattern.
+router.post('/:id/join-requests/:teamId/chat', authMiddleware, async (req, res) => {
+  try {
+    const entry = await prisma.tournamentTeam.findUnique({
+      where: { tournamentId_teamId: { tournamentId: req.params.id, teamId: req.params.teamId } },
+      include: {
+        team: { select: { name: true } },
+        tournament: { select: { name: true, organizerId: true } },
+      },
+    });
+    if (!entry) return res.status(404).json({ error: 'Request not found' });
+
+    const uid = req.user.sub;
+    const organizerId = entry.tournament?.organizerId;
+    const requesterId = entry.requestedById;
+    // Nobody to talk to: the organiser added this team directly, or the row
+    // predates requestedById. Say so plainly rather than opening an empty room.
+    if (!requesterId) return res.status(400).json({ error: 'This team was added by the organiser, so there is no request to discuss.' });
+    if (!organizerId) return res.status(400).json({ error: 'This tournament has no organiser to contact.' });
+    if (uid !== requesterId && uid !== organizerId) {
+      return res.status(403).json({ error: 'Only the organiser and the requester can open this chat.' });
+    }
+    // The organiser requesting with their own team would put one user in a
+    // two-person room talking to themselves.
+    if (requesterId === organizerId) return res.status(400).json({ error: 'You organise this tournament.' });
+
+    if (entry.chatRoomId) return res.json({ chatRoomId: entry.chatRoomId, name: `${entry.team?.name} · ${entry.tournament?.name}` });
+
+    const room = await prisma.chatRoom.create({
+      data: {
+        name: `${entry.team?.name || 'Team'} · ${entry.tournament?.name || 'Tournament'}`,
+        type: 'direct',
+        members: { create: [{ userId: organizerId }, { userId: requesterId }] },
+      },
+    });
+    await prisma.tournamentTeam.update({ where: { id: entry.id }, data: { chatRoomId: room.id } });
+    res.status(201).json({ chatRoomId: room.id, name: room.name });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
 
@@ -327,9 +405,24 @@ router.post('/:id/join-requests/:teamId/approve', authMiddleware, requireOrganiz
 // Reject a pending request → remove the entry.
 router.post('/:id/join-requests/:teamId/reject', authMiddleware, requireOrganizer, async (req, res) => {
   try {
-    await prisma.tournamentTeam.delete({
+    // Read before deleting: the row is the only record of who asked, and a
+    // decline used to notify nobody at all — the requester just watched their
+    // request vanish. The chat room survives, so the reason stays readable.
+    const entry = await prisma.tournamentTeam.findUnique({
       where: { tournamentId_teamId: { tournamentId: req.params.id, teamId: req.params.teamId } },
+      include: { team: { select: { name: true } }, tournament: { select: { name: true } } },
     });
+    if (!entry) return res.status(404).json({ error: 'Request not found' });
+
+    await prisma.tournamentTeam.delete({ where: { id: entry.id } });
+
+    if (entry.requestedById) {
+      await safeNotify(() => notifyUsers([entry.requestedById], {
+        title: 'Join request declined',
+        message: `${entry.team?.name || 'Your team'} wasn't added to ${entry.tournament?.name || 'the tournament'}.`,
+        data: { tournamentId: req.params.id },
+      }));
+    }
     res.json({ success: true });
   } catch (e) {
     res.status(400).json({ error: e.message });

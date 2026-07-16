@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
+import { showToast } from '../components/Toast';
 import legendsApi from '../services/LegendsApi';
 import { getSport } from '../sports';
 
@@ -50,6 +51,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const [myTeams, setMyTeams] = useState([]);
   const [myUserId, setMyUserId] = useState(null);      // to decide organiser vs participant
   const [joinRequests, setJoinRequests] = useState([]); // pending requests (organiser view)
+  const [myRequests, setMyRequests] = useState([]);     // the caller's own requests (requester view)
   const [processing, setProcessing] = useState(false);
   const [showAutoScheduleModal, setShowAutoScheduleModal] = useState(false);
   const [scheduleFormat, setScheduleFormat] = useState('classic_t20');
@@ -102,6 +104,11 @@ export default function TournamentDetailScreen({ route, navigation }) {
       if (t && (!t.organizerId || t.organizerId === myId)) {
         const jr = await legendsApi.getTournamentJoinRequests(tournamentId);
         if (jr.success) setJoinRequests(jr.data);
+      } else {
+        // Participant side: their own pending requests, so they can see the
+        // status and reach the chat they're half of.
+        const mine = await legendsApi.getMyJoinRequests(tournamentId);
+        if (mine.success) setMyRequests(mine.data);
       }
 
       setLoading(false);
@@ -190,6 +197,19 @@ export default function TournamentDetailScreen({ route, navigation }) {
     if (res.success) await reloadRequests();
     else alert(res.error || 'Failed to reject');
     setProcessing(false);
+  };
+
+  // Open the requester↔organiser conversation. The room is created server-side
+  // on first use, so this works the same whether or not they've talked before.
+  const openRequestChat = async (teamId, teamName) => {
+    setProcessing(true);
+    const res = await legendsApi.openJoinRequestChat(tournamentId, teamId);
+    setProcessing(false);
+    if (res.success && res.data?.chatRoomId) {
+      navigation.navigate('Chat', { chatId: res.data.chatRoomId, chatName: res.data.name || teamName || 'Chat' });
+    } else {
+      showToast(res.error || 'Could not open the chat', 'error');
+    }
   };
 
   const handleRemoveTeam = async (teamId) => {
@@ -447,22 +467,72 @@ export default function TournamentDetailScreen({ route, navigation }) {
               <Text style={styles.countBadgeText}>{joinRequests.length}</Text>
             </View>
           </View>
-          {joinRequests.map(({ team }) => (
-            <View key={team.id} style={styles.teamRow}>
-              <HexAvatar size={38} color={avatarColor(team.name)}>
-                <Text style={styles.teamAvatarText}>{team.name?.charAt(0).toUpperCase()}</Text>
-              </HexAvatar>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.teamName}>{team.name}</Text>
-                <Text style={styles.teamCaptain}>Captain: {captainOf(team)}</Text>
+          {joinRequests.map(({ team, requester, squadSize }) => (
+            <View key={team.id} style={styles.requestCard}>
+              <View style={styles.teamRow}>
+                <HexAvatar size={38} color={avatarColor(team.name)}>
+                  <Text style={styles.teamAvatarText}>{team.name?.charAt(0).toUpperCase()}</Text>
+                </HexAvatar>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.teamName}>{team.name}</Text>
+                  {/* Who you're actually approving. Older requests predate the
+                      requester being recorded, so fall back to the captain. */}
+                  <Text style={styles.teamCaptain} numberOfLines={1}>
+                    {requester?.name
+                      ? `Requested by ${requester.name}`
+                      : `Captain: ${captainOf(team)}`}
+                    {squadSize ? ` · ${squadSize} players` : ''}
+                  </Text>
+                </View>
               </View>
-              <TouchableOpacity onPress={() => handleApproveRequest(team.id)} disabled={processing} style={styles.approveBtn}>
-                <Icon name="check" size={16} color={DS.bg} />
-                <Text style={styles.approveBtnText}>Approve</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleRejectRequest(team.id)} disabled={processing} style={{ marginLeft: 10 }}>
-                <Icon name="close-circle-outline" size={22} color={DS.coral} />
-              </TouchableOpacity>
+              <View style={styles.requestActions}>
+                {/* Ask before you decide — the whole point of the chat. */}
+                <TouchableOpacity onPress={() => openRequestChat(team.id, team.name)}
+                                  disabled={processing || !requester}
+                                  style={[styles.msgBtn, !requester && { opacity: 0.4 }]}>
+                  <Icon name="message-text-outline" size={15} color={DS.textPrimary} />
+                  <Text style={styles.msgBtnText}>Message</Text>
+                </TouchableOpacity>
+                <View style={{ flex: 1 }} />
+                <TouchableOpacity onPress={() => handleRejectRequest(team.id)} disabled={processing} style={styles.rejectBtn}>
+                  <Text style={styles.rejectBtnText}>Decline</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleApproveRequest(team.id)} disabled={processing} style={styles.approveBtn}>
+                  <Icon name="check" size={16} color={DS.bg} />
+                  <Text style={styles.approveBtnText}>Approve</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Your pending request — participant side. Mirrors the organiser's card
+          so both halves of the conversation can reach the same room. */}
+      {!isOrganizer && myRequests.filter(r => r.status === 'pending').length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Your Request</Text>
+          {myRequests.filter(r => r.status === 'pending').map((r) => (
+            <View key={r.id} style={styles.requestCard}>
+              <View style={styles.teamRow}>
+                <HexAvatar size={38} color={avatarColor(r.team?.name || '')}>
+                  <Text style={styles.teamAvatarText}>{r.team?.name?.charAt(0).toUpperCase()}</Text>
+                </HexAvatar>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.teamName}>{r.team?.name}</Text>
+                  <Text style={styles.teamCaptain}>Waiting for the organiser to approve</Text>
+                </View>
+                <View style={styles.pendingPill}>
+                  <Text style={styles.pendingPillText}>PENDING</Text>
+                </View>
+              </View>
+              <View style={styles.requestActions}>
+                <TouchableOpacity onPress={() => openRequestChat(r.team?.id, r.team?.name)}
+                                  disabled={processing} style={styles.msgBtn}>
+                  <Icon name="message-text-outline" size={15} color={DS.textPrimary} />
+                  <Text style={styles.msgBtnText}>Message organiser</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ))}
         </View>
@@ -1236,6 +1306,23 @@ const makeStyles = (DS) => StyleSheet.create({
   addBtnText: { fontSize: 13, fontWeight: '800', color: DS.onLime },
   approveBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: DS.lime, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 },
   approveBtnText: { fontSize: 12, fontWeight: '800', color: DS.onLime },
+
+  // Join-request card: the team row plus its own action strip, so Message /
+  // Decline / Approve get real hit targets instead of being crammed inline.
+  requestCard: { marginBottom: 4 },
+  requestActions: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, paddingBottom: 4 },
+  msgBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10,
+    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border,
+  },
+  msgBtnText: { fontSize: 12, fontWeight: '700', color: DS.textPrimary },
+  // Decline is a quiet text button: it shouldn't carry the same visual weight
+  // as Approve on a card whose default outcome is letting the team in.
+  rejectBtn: { paddingHorizontal: 10, paddingVertical: 7 },
+  rejectBtnText: { fontSize: 12, fontWeight: '700', color: DS.coral },
+  pendingPill: { backgroundColor: DS.surfaceHigh, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  pendingPillText: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8 },
   primaryBtn: { backgroundColor: DS.lime, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 16, marginTop: 20 },
   primaryBtnText: { fontSize: 14, fontWeight: '800', color: DS.bg },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },

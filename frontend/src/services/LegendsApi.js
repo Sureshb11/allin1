@@ -1185,6 +1185,28 @@ class LegendsApi {
     }
   }
 
+  // The caller's own join requests for a tournament (the requester's side —
+  // /join-requests is organiser-only).
+  async getMyJoinRequests(tournamentId) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/my-requests`);
+      return { success: true, data: json.requests || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  // Open (or start) the requester↔organiser conversation about a request.
+  // Returns { chatRoomId, name } for navigating to the shared Chat screen.
+  async openJoinRequestChat(tournamentId, teamId) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/join-requests/${teamId}/chat`, { method: 'POST' });
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   async rejectJoinRequest(tournamentId, teamId) {
     try {
       await this.request(`/tournaments/${tournamentId}/join-requests/${teamId}/reject`, { method: 'POST' });
