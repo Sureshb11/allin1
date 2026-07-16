@@ -5,6 +5,7 @@ import { useTheme, useThemedStyles } from "../theme/ThemeContext"; // SplashScre
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { BRAND_TAGLINE } from './BrandLogo';
 
 
 
@@ -22,10 +23,13 @@ export default function SplashScreen() {const C = useTheme().colors;const s = us
 
   return (
     <View style={s.root}>
-      <Animated.View style={[s.row, style]}>
-        <View style={s.logoBox}><Icon name="star-four-points" size={20} color={C.bg} /></View>
-        <Text style={s.local}>LOCAL</Text>
-        <View style={s.badge}><Text style={s.badgeTxt}>LEGENDS</Text></View>
+      <Animated.View style={[{ alignItems: 'center' }, style]}>
+        <View style={s.row}>
+          <View style={s.logoBox}><Icon name="star-four-points" size={20} color={C.bg} /></View>
+          <Text style={s.local}>LOCAL</Text>
+          <View style={s.badge}><Text style={s.badgeTxt}>LEGENDS</Text></View>
+        </View>
+        <Text style={s.tagline}>{BRAND_TAGLINE}</Text>
       </Animated.View>
       <ActivityIndicator color={C.lime} style={{ marginTop: 28 }} />
     </View>);
@@ -38,5 +42,9 @@ const makeS = (C) => StyleSheet.create({
   logoBox: { width: 40, height: 40, borderRadius: 11, backgroundColor: C.lime, alignItems: 'center', justifyContent: 'center' },
   local: { fontSize: 22, fontWeight: '900', color: C.ink, letterSpacing: 2.5 },
   badge: { backgroundColor: C.lime, borderRadius: 7, paddingHorizontal: 10, paddingVertical: 3 },
-  badgeTxt: { fontSize: 16, fontWeight: '900', color: C.bg, letterSpacing: 1.5 }
+  badgeTxt: { fontSize: 16, fontWeight: '900', color: C.bg, letterSpacing: 1.5 },
+  tagline: {
+    fontSize: 11, fontWeight: '700', color: C.ink, opacity: 0.55,
+    letterSpacing: 2.6, textTransform: 'uppercase', marginTop: 12,
+  }
 });

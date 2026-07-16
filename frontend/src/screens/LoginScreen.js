@@ -132,7 +132,7 @@ export default function LoginScreen({ navigation }) {const { colors: DS, isDark 
 
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {/* Brand */}
-        <BrandLogo style={{ paddingHorizontal: 24, paddingTop: 56, paddingBottom: 8 }} scale={1.2} />
+        <BrandLogo tagline style={{ paddingHorizontal: 24, paddingTop: 56, paddingBottom: 8 }} scale={1.2} />
 
         {/* Hero */}
         <View style={s.hero}>

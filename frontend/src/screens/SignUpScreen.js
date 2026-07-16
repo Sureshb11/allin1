@@ -4,6 +4,7 @@ import {
   ScrollView, StatusBar } from
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { BRAND_TAGLINE } from '../components/BrandLogo';
 
 
 
@@ -94,6 +95,7 @@ export default function SignUpScreen({ navigation }) {const DS = useTheme().colo
           <Text style={s.titleLine1}>JOIN THE</Text>
           <Text style={s.titleLine2}>TEAM</Text>
           <View style={s.titleBar} />
+          <Text style={s.tagline}>{BRAND_TAGLINE}</Text>
         </View>
 
         {/* ── NAME INPUT ── */}
@@ -204,6 +206,10 @@ const makeS = (DS) => StyleSheet.create({
   titleLine1: { fontSize: 52, fontWeight: '900', color: DS.textPrimary, letterSpacing: -2, lineHeight: 56 },
   titleLine2: { fontSize: 52, fontWeight: '900', color: DS.lime, letterSpacing: -2, lineHeight: 56, fontStyle: 'italic' },
   titleBar: { width: 80, height: 4, backgroundColor: DS.lime, borderRadius: 2, marginTop: 8 },
+  tagline: {
+    fontSize: 11, fontWeight: '700', color: DS.textMuted,
+    letterSpacing: 2.4, textTransform: 'uppercase', marginTop: 14,
+  },
 
   // Input
   inputWrap: { marginBottom: 28 },

@@ -20,7 +20,7 @@ import legendsApi from '../services/LegendsApi';
 import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
-import BrandLogo from '../components/BrandLogo';
+import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import HexAvatar from '../components/HexAvatar';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { splitScore } from './MyMatchesScreen';
@@ -752,7 +752,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
 
   const sharePost = useCallback(async (post) => {
     try {
-      await Share.share({ message: `${post.author.name} on Local Legends:\n\n"${post.caption}"` });
+      await Share.share({ message: `${post.author.name} on ${BRAND_NAME}:\n\n"${post.caption}"\n\n${BRAND_TAGLINE}` });
     } catch (e) {/* user dismissed */}
   }, []);
 

@@ -16,7 +16,7 @@ import TeamManagementScreen from './TeamManagementScreen';
 import TournamentsScreen from './TournamentsScreen';
 import StatisticsScreen from './StatisticsScreen';
 import { useCurrentUser } from '../utils/currentUser';
-import BrandLogo from '../components/BrandLogo';
+import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import HexAvatar from '../components/HexAvatar';
 
 const { width } = Dimensions.get('window');
@@ -224,7 +224,7 @@ export default function HomeScreen({ navigation }) {
   }, [liveMatches, query]);
 
   const shareScore = async (match) => {
-    const msg = `${match.team1} ${match.score1} vs ${match.team2} ${match.score2} — Live on Local Legends!`;
+    const msg = `${match.team1} ${match.score1} vs ${match.team2} ${match.score2} — Live on ${BRAND_NAME}\n${BRAND_TAGLINE}`;
     await Share.share({ message: msg });
   };
 

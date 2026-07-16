@@ -24,7 +24,7 @@ import Skeleton from '../components/Skeleton';
 import GradientButton from '../components/GradientButton';
 import MomentumMeter from '../components/MomentumMeter';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import BrandLogo from "../components/BrandLogo";
+import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from "../components/BrandLogo";
 
 const DEFAULT_COPY = { live: 'Live Now', results: 'Results & Fixtures', community: 'From the Community', compose: 'Share a moment' };
 
@@ -239,7 +239,7 @@ export default function SportFeedScreen({ navigation }) {
     }
   };
 
-  const onShare = (p) => Share.share({ message: `${p.authorName} on Local Legends:\n\n"${p.text}"` }).catch(() => {});
+  const onShare = (p) => Share.share({ message: `${p.authorName} on ${BRAND_NAME}:\n\n"${p.text}"\n\n${BRAND_TAGLINE}` }).catch(() => {});
   const openComments = async (post) => {
     setActiveComments(post); setComments([]);
     const res = await legendsApi.getComments(post.id);

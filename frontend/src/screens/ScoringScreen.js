@@ -10,6 +10,7 @@ import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
 import MatchAwardsModal from "../components/MatchAwardsModal";
 import PlayerAvatar from "../components/PlayerAvatar";
+import { BRAND_NAME, BRAND_TAGLINE } from "../components/BrandLogo";
 
 const { width } = Dimensions.get('window');
 
@@ -780,7 +781,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   };
 
   const shareScore = async () => {
-    const msg = `${battingTeamName} ${currentScore.runs}/${currentScore.wickets} (${overStr}) — scoring live on Local Legends!`;
+    const msg = `${battingTeamName} ${currentScore.runs}/${currentScore.wickets} (${overStr}) — scoring live on ${BRAND_NAME}\n${BRAND_TAGLINE}`;
     await Share.share({ message: msg });
   };
 

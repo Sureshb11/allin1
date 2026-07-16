@@ -9,6 +9,7 @@ import { setCurrentAvatar, clearCurrentUser } from '../utils/currentUser';
 import legendsApi from '../services/LegendsApi';
 import SportSwitcher from '../components/SportSwitcher';
 import HexAvatar from '../components/HexAvatar';
+import { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { getSelectedSport } from '../utils/selectedSport';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -117,9 +118,9 @@ export default function ProfileScreen({ navigation }) {
       .join(' | ');
     try {
       await Share.share({
-        message: `🏆 ${name} on Local Legends · ${sp.name}\n` +
+        message: `🏆 ${name} on ${BRAND_NAME} · ${sp.name}\n` +
           (line ? `📊 ${line}\n` : '') +
-          `Track ${sp.name} on the Local Legends app!`,
+          `${BRAND_NAME} — ${BRAND_TAGLINE}`,
       });
     } catch {}
   };
