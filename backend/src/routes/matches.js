@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { authMiddleware, optionalAuth } from '../lib/auth.js';
+import { authMiddleware } from '../lib/auth.js';
 import { validateSquad, applySubstitution } from '../lib/roster.js';
 import { checkMatchMilestones } from '../lib/milestones.js';
 import { pushMatchResultCard } from '../lib/feed.js';
@@ -45,17 +45,35 @@ router.get('/:id/awards', async (req, res) => {
 });
 
 // ── Scorer access control ─────────────────────────────────────────────────────
-// Every scoring-mutation route must call this before writing. If the match has no
-// scorer yet (created without auth, or predates this feature), the first person to
-// write claims it — otherwise only the assigned scorer may proceed. Returns null
-// (and has already sent the response) when the caller should stop; otherwise
-// returns the match row so callers don't have to re-fetch it.
+// Every scoring-mutation route must call this before writing: only the assigned
+// scorer (the creator, by default) may proceed. Returns null (and has already
+// sent the response) when the caller should stop; otherwise returns the match
+// row so callers don't have to re-fetch it.
+//
+// Ownerless matches: new matches always get a scorer (POST / requires auth), so
+// scorerId is only null on legacy rows created before that. Those are claimable
+// by the first writer — a deliberate, narrow escape hatch so old matches stay
+// scoreable. It is NOT a general "first come, first served" rule: it must never
+// apply to a match that already has an owner.
 async function assertScorer(req, res, matchId) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) { res.status(404).json({ error: 'Match not found' }); return null; }
   if (!req.user?.sub) { res.status(401).json({ error: 'Login required to score this match' }); return null; }
   if (!match.scorerId) {
-    await prisma.match.update({ where: { id: matchId }, data: { scorerId: req.user.sub } });
+    // Legacy claim: guard with a conditional update so two racing writers can't
+    // both believe they won (updateMany matches only while scorerId is still null).
+    const claimed = await prisma.match.updateMany({
+      where: { id: matchId, scorerId: null },
+      data: { scorerId: req.user.sub },
+    });
+    if (claimed.count === 0) {
+      // someone claimed it first — re-read and fall through to the owner check
+      const fresh = await prisma.match.findUnique({ where: { id: matchId }, select: { scorerId: true } });
+      if (fresh?.scorerId !== req.user.sub) {
+        res.status(403).json({ error: 'Only the assigned scorer can score this match', code: 'NOT_SCORER' });
+        return null;
+      }
+    }
     match.scorerId = req.user.sub;
     return match;
   }
@@ -179,7 +197,9 @@ const MatchSchema = z.object({
   sport: z.string().default('cricket'),
 });
 
-router.post('/', optionalAuth, async (req, res) => {
+// Creating a match requires login: the creator becomes the match's scorer, so an
+// anonymous create would leave it ownerless and claimable by whoever scored first.
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const data = MatchSchema.parse(req.body);
 
@@ -200,8 +220,9 @@ router.post('/', optionalAuth, async (req, res) => {
     }
 
     // The creating user is the default scorer (can later transfer scoring rights).
+    // authMiddleware guarantees req.user, so this is never null for new matches.
     const match = await prisma.match.create({
-      data: { ...data, currentInnings: 1, scorerId: req.user?.sub || null }
+      data: { ...data, currentInnings: 1, scorerId: req.user.sub }
     });
 
     if (data.sport === 'cricket') {

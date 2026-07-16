@@ -29,10 +29,11 @@ import { applyServerConfigs } from './src/sports/scoring';
 
 const Stack = createStackNavigator();
 
-// ⚙️ DEV ONLY — bypass the login/OTP screens and start straight on the sport
-// picker so you can develop & test the in-app flows without signing in.
-// Set this back to `false` to re-enable the OTP auth screen before release.
-const DEV_BYPASS_LOGIN = true;
+// ⚙️ DEV ONLY — bypass the login/OTP screens and start straight on the app so
+// you can develop & test in-app flows without signing in.
+// Flip the right-hand side to `true` for local work; the `__DEV__` guard means
+// it can NEVER reach a release build (this shipped enabled once — hence the guard).
+const DEV_BYPASS_LOGIN = __DEV__ && false;
 
 const Root = () => {
   const { colors, isDark } = useTheme();
