@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Animated, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import legendsApi from '../services/LegendsApi';
@@ -66,29 +66,56 @@ function initials(name) {
 
 const AVATAR_RANK = (DS) => [DS.lime, '#434656', DS.blueDeep];
 
-// ── Ranking order ────────────────────────────────────────────────────────────
-// The list used to render in whatever order the API returned (DB insertion
-// order) with rank = array index, so a player with 0 runs and 1 match could sit
-// at #1 wearing the gold medal. Rank by what the card actually shows.
-// Players: runs first (this is a run-scoring leaderboard), then average, then
-// wickets as a tiebreak so a pure bowler isn't stranded below empty profiles.
-const rankPlayers = (a, b) =>
-  (b.runs || 0) - (a.runs || 0) ||
-  (b.average || 0) - (a.average || 0) ||
-  (b.wickets || 0) - (a.wickets || 0) ||
-  a.name.localeCompare(b.name);
+// ── Boards ───────────────────────────────────────────────────────────────────
+// One "Rankings" screen was really a batting board with a generic name: it
+// ranked by runs only, so the league's leading wicket-taker sat at #6 and its
+// most economical bowler at #79, even though the card shows a WKTS column.
+// Each board picks its own metric, and only shows players who actually did that
+// thing — a batting list padded with bowlers who never faced a ball is noise.
+//
+// `qualify` guards the rate boards. Averages and economy are ratios, so a tiny
+// sample produces nonsense standings (185 runs off a single dismissal; a 0.00
+// economy from a 3-ball spell). The threshold is surfaced in the UI rather than
+// hidden, so the table explains itself.
+const PLAYER_BOARDS = [
+  { id: 'runs',    label: 'Runs',    icon: 'cricket',
+    value: (s) => s.runs || 0, better: 'high',
+    qualify: (s) => (s.ballsFaced || 0) > 0 },
+  { id: 'wickets', label: 'Wickets', icon: 'weather-windy',
+    value: (s) => s.wickets || 0, better: 'high',
+    qualify: (s) => (s.ballsBowled || 0) > 0 },
+  { id: 'average', label: 'Average', icon: 'numeric',
+    value: (s) => s.average || 0, better: 'high',
+    qualify: (s) => (s.innings || 0) >= 3, note: 'min 3 innings' },
+  { id: 'economy', label: 'Economy', icon: 'lightning-bolt',
+    value: (s) => s.economy ?? Infinity, better: 'low',
+    qualify: (s) => (s.ballsBowled || 0) >= 12, note: 'min 2 overs' },
+];
 
-// Teams: wins first, THEN win rate. Ranking by rate alone puts a team that won
-// its only game (100%) above one that went 3-2 over a season, which isn't a
-// league table — it's a rounding artefact of a tiny sample. Wins are the thing
-// actually earned; rate breaks ties between equal records.
-const rankTeams = (a, b) =>
-  (b.wins || 0) - (a.wins || 0) ||
-  (b.winRate || 0) - (a.winRate || 0) ||
-  (b.matches || 0) - (a.matches || 0) ||
-  a.name.localeCompare(b.name);
+const TEAM_BOARDS = [
+  // Wins before win rate on purpose: rate alone puts a team that won its only
+  // game (100%) above one that went 3-2 across a season — a small-sample
+  // artefact, not a league table.
+  { id: 'wins',    label: 'Wins',    icon: 'trophy',
+    value: (s) => s.wins || 0, better: 'high',
+    qualify: (s) => (s.matches || 0) > 0 },
+  { id: 'winRate', label: 'Win %',   icon: 'percent',
+    value: (s) => s.winRate || 0, better: 'high',
+    qualify: (s) => (s.matches || 0) >= 3, note: 'min 3 matches' },
+  { id: 'runs',    label: 'Runs',    icon: 'cricket',
+    value: (s) => s.totalRuns || 0, better: 'high',
+    qualify: (s) => (s.matches || 0) > 0 },
+];
 
-function PlayerCard({ item, rank }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+// Sort by the board's metric, then by volume so a bigger body of work breaks
+// ties, then by name so the order is stable between renders.
+const sortFor = (board) => (a, b) => {
+  const av = board.value(a), bv = board.value(b);
+  const diff = board.better === 'low' ? av - bv : bv - av;
+  return diff || (b.matches || 0) - (a.matches || 0) || a.name.localeCompare(b.name);
+};
+
+function PlayerCard({ item, rank, board }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const isTop = rank < 3;
   const rankColor = isTop ? MEDAL[rank] : DS.border;
   const avColor = AVATAR_RANK(DS)[rank] || DS.blue;
@@ -110,10 +137,16 @@ function PlayerCard({ item, rank }) {const DS = useTheme().colors;const styles =
       </View>
       <View style={styles.statRow}>
         {[
+        // "100s" lived here and read 0 for everyone — nothing computed it, and
+        // even now that it's real, nobody in the data has passed 86. Highest
+        // score carries actual information in the same slot today, and the
+        // economy board needs a bowling rate to look at.
         { label: 'Runs', value: (item.runs || 0).toLocaleString(), icon: 'cricket' },
         { label: 'Avg', value: item.average, icon: 'numeric' },
         { label: 'SR', value: item.strikeRate, icon: 'lightning-bolt' },
-        { label: '100s', value: item.centuries, icon: 'star-circle-outline' },
+        board.id === 'wickets' || board.id === 'economy'
+          ? { label: 'Econ', value: item.economy ?? '—', icon: 'gauge' }
+          : { label: 'HS', value: item.highestScore ?? '—', icon: 'star-circle-outline' },
         { label: 'Wkts', value: item.wickets, icon: 'weather-windy' }].
         map((s) =>
         <View key={s.label} style={styles.statItem}>
@@ -182,10 +215,12 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
 
 export default function StatisticsScreen({ navigation, inline }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
   const [tab, setTab] = useState('Players');
+  const [boardId, setBoardId] = useState(PLAYER_BOARDS[0].id);
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const boardBarRef = useRef(null);
 
   useLayoutEffect(() => {
     if (!inline) {
@@ -219,16 +254,19 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
     return () => { alive = false; };
   }, []);
 
-  // Rank first and stamp the standing onto each row, THEN filter — a player's
-  // rank is their standing on the leaderboard, not their position in your search
-  // results, so searching "Rohit" must show his real number, not #1.
+  // Qualify → rank → stamp the standing → then filter by search. The standing is
+  // fixed before searching, so looking up a name shows that player's real rank
+  // rather than renumbering them to #1.
+  const boards = tab === 'Players' ? PLAYER_BOARDS : TEAM_BOARDS;
+  const board = boards.find((b) => b.id === boardId) || boards[0];
   const rawData = tab === 'Players' ? players : teams;
-  const ranked = [...rawData]
-    .sort(tab === 'Players' ? rankPlayers : rankTeams)
+  const ranked = rawData
+    .filter(board.qualify)
+    .sort(sortFor(board))
     .map((item, i) => ({ ...item, standing: i }));
   const data = ranked.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
   const renderCard = tab === 'Players' ?
-  ({ item }) => <PlayerCard item={item} rank={item.standing} /> :
+  ({ item }) => <PlayerCard item={item} rank={item.standing} board={board} /> :
   ({ item }) => <TeamCard item={item} rank={item.standing} />;
 
   const listAnim = useRef(new Animated.Value(1)).current;
@@ -237,7 +275,21 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
     if (tab === newTab) return;
     Animated.timing(listAnim, { toValue: 0, duration: 100, useNativeDriver: true }).start(() => {
       setTab(newTab);
+      // Players and Teams have different boards, so a held-over id (e.g.
+      // 'economy') would fall back to the first board silently. Reset explicitly,
+      // and rewind the chip strip — it keeps its scroll offset across tabs, which
+      // left the (now-selected) first chip clipped off the left edge.
+      setBoardId((newTab === 'Players' ? PLAYER_BOARDS : TEAM_BOARDS)[0].id);
+      boardBarRef.current?.scrollTo({ x: 0, animated: false });
       Animated.timing(listAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+    });
+  };
+
+  const handleBoardChange = (id) => {
+    if (id === boardId) return;
+    Animated.timing(listAnim, { toValue: 0, duration: 90, useNativeDriver: true }).start(() => {
+      setBoardId(id);
+      Animated.timing(listAnim, { toValue: 1, duration: 140, useNativeDriver: true }).start();
     });
   };
 
@@ -299,6 +351,27 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
                   </TouchableOpacity>
                 )}
                 </View>
+                {/* Board selector — what this leaderboard is actually ranking */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                  ref={boardBarRef}
+                  contentContainerStyle={styles.boardBar}>
+                  {boards.map((b) => {
+                    const on = b.id === board.id;
+                    return (
+                      <TouchableOpacity key={b.id} activeOpacity={0.85}
+                        style={[styles.boardChip, on && styles.boardChipActive]}
+                        onPress={() => handleBoardChange(b.id)}>
+                        <Icon name={b.icon} size={13} color={on ? DS.bg : DS.textMuted} />
+                        <Text style={[styles.boardChipText, on && styles.boardChipTextActive]}>{b.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+                {/* State the qualification instead of quietly dropping people */}
+                <Text style={styles.boardMeta}>
+                  {data.length} ranked by {board.label.toLowerCase()}
+                  {board.note ? ` · ${board.note}` : ''}
+                </Text>
               </View>
             }
             ListEmptyComponent={
@@ -335,6 +408,18 @@ const makeStyles = (DS) => StyleSheet.create({
   tabBtnActive: { backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   tabBtnText: { fontWeight: '700', fontSize: 13, color: DS.textMuted },
   tabBtnTextActive: { color: DS.bg },
+
+  // Board selector
+  boardBar: { paddingHorizontal: 16, gap: 8, paddingBottom: 2 },
+  boardChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
+    backgroundColor: DS.surfaceLow, borderWidth: 1, borderColor: DS.border,
+  },
+  boardChipActive: { backgroundColor: DS.lime, borderColor: DS.lime },
+  boardChipText: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
+  boardChipTextActive: { color: DS.bg },
+  boardMeta: { fontSize: 11, color: DS.textMuted, marginHorizontal: 16, marginTop: 8, marginBottom: 10 },
 
   /* Search */
   searchWrap: {

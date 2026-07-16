@@ -11,13 +11,16 @@ router.get('/', async (req, res) => {
   if (sport) where.sport = String(sport);
   if (teamId) where.teamId = String(teamId);
   if (userId) where.userId = String(userId);
-  const players = await prisma.player.findMany({ where, include: { team: true }, take: 100 });
+  // take: 100 used to silently truncate the Rankings leaderboard — the 101st
+  // player simply didn't exist. 500 is still a guard against an unbounded scan
+  // but is far past the point where a local league's board stays honest.
+  const players = await prisma.player.findMany({ where, include: { team: true }, take: 500 });
 
   // Attach REAL cricket numbers computed from the scoring data, so the
   // Statistics leaderboard reflects actual matches instead of the static
   // stats JSON (which nothing updates). Cheap: batting from one Ball groupBy,
   // bowling from the per-over aggregates the scorer already maintains.
-  const [batAgg, disAgg, bowlAgg, mpAgg, inningAgg] = await Promise.all([
+  const [batAgg, disAgg, bowlAgg, mpAgg, inningAgg, legalAgg] = await Promise.all([
     prisma.ball.groupBy({ by: ['batterId'], _sum: { runs: true }, _count: { _all: true } }),
     prisma.ball.groupBy({ by: ['dismissedPlayerId'], _count: { _all: true }, where: { dismissedPlayerId: { not: null } } }),
     prisma.over.groupBy({ by: ['bowlerId'], _sum: { runs: true, extras: true, wickets: true }, _count: { _all: true } }),
@@ -27,11 +30,28 @@ router.get('/', async (req, res) => {
     // forever. A century is per INNINGS, and groupBy can't reach through
     // Over → Inning, so group by over and fold overs into their innings below.
     prisma.ball.groupBy({ by: ['batterId', 'overId'], _sum: { runs: true } }),
+    // Legal deliveries per over → real overs bowled. The economy below used to
+    // divide by the NUMBER OF OVER ROWS, so a bowler who sent down 3 balls was
+    // charged for a full over and their economy read better than it was (and
+    // disagreed with the profile screen, which counts legal balls). Wides and
+    // no-balls don't advance the over.
+    prisma.ball.groupBy({
+      by: ['overId'], _count: { _all: true },
+      where: { OR: [{ extraType: null }, { extraType: { notIn: ['wide', 'noBall'] } }] },
+    }),
   ]);
 
-  // overId → inningId, so the per-over sums above can be folded into knocks.
-  const overRows = await prisma.over.findMany({ select: { id: true, inningId: true } });
+  // overId → inningId / bowlerId, so the per-over sums above can be folded into
+  // knocks and into each bowler's real ball count.
+  const overRows = await prisma.over.findMany({ select: { id: true, inningId: true, bowlerId: true } });
   const inningOf = Object.fromEntries(overRows.map((o) => [o.id, o.inningId]));
+  const bowlerOf = Object.fromEntries(overRows.map((o) => [o.id, o.bowlerId]));
+  const legalBy = {};                     // bowlerId → legal balls bowled
+  for (const g of legalAgg) {
+    const bid = bowlerOf[g.overId];
+    if (!bid) continue;
+    legalBy[bid] = (legalBy[bid] || 0) + g._count._all;
+  }
   const knock = {};                       // batterId → { inningId → runs }
   for (const g of inningAgg) {
     const inn = inningOf[g.overId];
@@ -57,12 +77,20 @@ router.get('/', async (req, res) => {
       computed.centuries     = scores.filter((r) => r >= 100).length;
       computed.halfCenturies = scores.filter((r) => r >= 50 && r < 100).length;
       computed.highestScore  = scores.length ? Math.max(...scores) : 0;
+      // Innings batted + balls faced: the leaderboard needs these to qualify
+      // rate stats, so one 185-run knock with a single dismissal can't top the
+      // averages table over a full season.
+      computed.innings   = scores.length;
+      computed.ballsFaced = faced;
     }
     if (w) {
       const conceded = (w._sum.runs || 0) + (w._sum.extras || 0);
-      const overs = w._count._all;
-      computed.wickets = w._sum.wickets || 0;
-      computed.economy = overs ? +(conceded / overs).toFixed(2) : 0;
+      const legal = legalBy[p.id] || 0;
+      computed.wickets      = w._sum.wickets || 0;
+      computed.runsConceded = conceded;
+      computed.ballsBowled  = legal;
+      computed.oversBowled  = `${Math.floor(legal / 6)}.${legal % 6}`;
+      computed.economy      = legal ? +(conceded / (legal / 6)).toFixed(2) : 0;
     }
     if (mp[p.id]) computed.matches = mp[p.id];
     return { ...p, stats: { ...(p.stats || {}), ...computed } };
