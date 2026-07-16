@@ -16,6 +16,7 @@ import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
 import HexAvatar from "../components/HexAvatar";
 import LiveBall from "../components/CricketBall/LiveBall";
+import WicketVideo from "../components/CricketBall/WicketVideo";
 import { useDockLock } from "../components/AutoHideTabBar";
 
 // Latest COMPLETED over of the current (last) innings — used to pop an
@@ -1294,6 +1295,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const [overEndBanner, setOverEndBanner] = useState(null); // end-of-over summary popup
   const lastOverEndRef = useRef(null);                // last completed-over number seen
   const [ballEvent, setBallEvent] = useState(null);  // spectator LiveBall reaction {type,id}
+  const [wicketVideo, setWicketVideo] = useState(null); // delivery id playing the WICKET clip
   const [linger, setLinger] = useState(false);       // keep the ball up for the finish ceremony
   const prevStatusRef = useRef(null);                // live→completed transition detector
   const prevInnsRef = useRef(null);                  // innings-count change detector
@@ -1336,15 +1338,21 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     if (lb.id !== lastBallRef.current) {
       lastBallRef.current = lb.id;
       if (match.status === 'live') {
-        // every delivery nudges the LiveBall; boundaries/wickets get an overlay too
-        setBallEvent({ type: lb.kind || 'run', id: lb.id });
         if (lb.kind === 'wicket') {
-          // WICKET: the spectator ball itself shatters in place (LiveBall plays
-          // the keyed clip from the 'wicket' event above) — no full-screen takeover.
+          // WICKET: the signature clip (assets/ball/ball_wicket.mp4) takes the
+          // screen. It is framed as a tight close-up — the ball runs off every
+          // edge — so it cannot be keyed into the in-place sprites the way the
+          // original clip was; full-screen is the only way it can carry the
+          // moment. The ball is left idle rather than also shattering behind it.
+          setWicketVideo(lb.id);
           haptic.warn();
-        } else if (lb.kind) {
-          setCelebration({ kind: lb.kind, id: lb.id });
-          haptic.success();
+        } else {
+          // every other delivery nudges the LiveBall; boundaries get an overlay too
+          setBallEvent({ type: lb.kind || 'run', id: lb.id });
+          if (lb.kind) {
+            setCelebration({ kind: lb.kind, id: lb.id });
+            haptic.success();
+          }
         }
       }
     }
@@ -1704,6 +1712,13 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             .map((t) => ({ key: t.key, icon: t.icon, label: t.label, onPress: () => setTab(t.key) }))}
         />
       )}
+
+      {/* WICKET clip — last child so it sits above the LiveBall companion and
+          the celebration overlays on both platforms. Keyed on the delivery so
+          two wickets in quick succession remount the player and replay it,
+          rather than the second one finding the source already loaded. */}
+      <WicketVideo key={wicketVideo || 'idle'} visible={!!wicketVideo}
+        onDone={() => setWicketVideo(null)} />
     </View>);
 
 }
