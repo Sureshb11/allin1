@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware, optionalAuth } from '../lib/auth.js';
+import { notifyUsers, safeNotify } from '../lib/notify.js';
 
 const router = Router();
 
@@ -55,7 +56,41 @@ router.get('/connections', authMiddleware, async (req, res) => {
   }
 });
 
-// Poster accepts/declines a request. Accept spins up a direct chat room.
+// Get-or-create the room for a connection. Callable at ANY status: the room
+// used to exist only after an accept, so a poster couldn't ask a single
+// question before committing — which is exactly when they most want to.
+async function roomFor(conn) {
+  if (conn.chatRoomId) return conn.chatRoomId;
+  const listing = await prisma.lookingFor.findUnique({ where: { id: conn.listingId }, select: { title: true } });
+  const room = await prisma.chatRoom.create({
+    data: {
+      name: listing?.title || 'Scout chat',
+      type: 'direct',
+      members: { create: [{ userId: conn.posterId }, { userId: conn.requesterId }] },
+    },
+  });
+  await prisma.lookingForConnection.update({ where: { id: conn.id }, data: { chatRoomId: room.id } });
+  return room.id;
+}
+
+// Open (or start) the conversation about a connection — either party, any
+// status. Created lazily so requests nobody discusses leave no empty rooms.
+router.post('/connections/:id/chat', authMiddleware, async (req, res) => {
+  try {
+    const me = req.user.sub;
+    const conn = await prisma.lookingForConnection.findUnique({ where: { id: req.params.id } });
+    if (!conn) return res.status(404).json({ error: 'Request not found' });
+    if (conn.posterId !== me && conn.requesterId !== me) {
+      return res.status(403).json({ error: 'Only the two people in this request can open it.' });
+    }
+    const listing = await prisma.lookingFor.findUnique({ where: { id: conn.listingId }, select: { title: true } });
+    res.json({ chatRoomId: await roomFor(conn), name: listing?.title || 'Scout chat' });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Poster accepts/declines a request.
 router.put('/connections/:id', authMiddleware, async (req, res) => {
   try {
     const me = req.user.sub;
@@ -63,23 +98,28 @@ router.put('/connections/:id', authMiddleware, async (req, res) => {
     const conn = await prisma.lookingForConnection.findUnique({ where: { id: req.params.id } });
     if (!conn) return res.status(404).json({ error: 'Request not found' });
     if (conn.posterId !== me) return res.status(403).json({ error: 'Only the poster can respond' });
+
+    const listing = await prisma.lookingFor.findUnique({ where: { id: conn.listingId }, select: { title: true } });
+    const title = listing?.title || 'your listing';
+
     if (action === 'decline') {
       const updated = await prisma.lookingForConnection.update({ where: { id: conn.id }, data: { status: 'declined' } });
+      // A decline told the requester nothing — they just watched it sit there.
+      await safeNotify(() => notifyUsers([conn.requesterId], {
+        title: 'Request declined',
+        message: `Your request on "${title}" wasn't accepted.`,
+        data: { listingId: conn.listingId },
+      }));
       return res.json({ connection: updated });
     }
-    let chatRoomId = conn.chatRoomId;
-    if (!chatRoomId) {
-      const listing = await prisma.lookingFor.findUnique({ where: { id: conn.listingId } });
-      const room = await prisma.chatRoom.create({
-        data: {
-          name: listing?.title || 'Scout chat',
-          type: 'direct',
-          members: { create: [{ userId: conn.posterId }, { userId: conn.requesterId }] },
-        },
-      });
-      chatRoomId = room.id;
-    }
+
+    const chatRoomId = await roomFor(conn);
     const updated = await prisma.lookingForConnection.update({ where: { id: conn.id }, data: { status: 'accepted', chatRoomId } });
+    await safeNotify(() => notifyUsers([conn.requesterId], {
+      title: 'Request accepted',
+      message: `You're connected on "${title}" — you can chat now.`,
+      data: { listingId: conn.listingId },
+    }));
     res.json({ connection: updated });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -93,11 +133,26 @@ router.post('/:id/connect', authMiddleware, async (req, res) => {
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
     if (!listing.postedById) return res.status(400).json({ error: 'This listing has no owner' });
     if (listing.postedById === req.user.sub) return res.status(400).json({ error: 'Cannot connect to your own listing' });
+    const key = { listingId_requesterId: { listingId: listing.id, requesterId: req.user.sub } };
+    // Check first, so the notify below fires only on a genuinely new request —
+    // the upsert is a no-op on repeat taps and re-pinging would just be noise.
+    const existing = await prisma.lookingForConnection.findUnique({ where: key });
     const conn = await prisma.lookingForConnection.upsert({
-      where: { listingId_requesterId: { listingId: listing.id, requesterId: req.user.sub } },
+      where: key,
       update: {},
       create: { listingId: listing.id, requesterId: req.user.sub, posterId: listing.postedById, status: 'pending' },
     });
+    // The poster was never told anyone wanted in — a listing could sit with
+    // requests on it indefinitely while they had no reason to open the screen.
+    if (!existing) {
+      const me = await prisma.user.findUnique({ where: { id: req.user.sub }, select: { firstName: true, lastName: true } });
+      const who = me ? `${me.firstName || ''} ${me.lastName || ''}`.trim() || 'Someone' : 'Someone';
+      await safeNotify(() => notifyUsers([listing.postedById], {
+        title: 'New request',
+        message: `${who} wants to connect on "${listing.title || 'your listing'}".`,
+        data: { listingId: listing.id },
+      }));
+    }
     res.status(201).json({ connection: conn });
   } catch (e) {
     res.status(400).json({ error: e.message });

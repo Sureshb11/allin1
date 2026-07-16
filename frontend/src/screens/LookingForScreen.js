@@ -4,6 +4,7 @@ import {
   TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { showToast } from '../components/Toast';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { useCurrentUser } from '../utils/currentUser';
@@ -244,6 +245,19 @@ export default function LookingForScreen({ navigation, route, inline }) {
     if (chatRoomId) navigation.navigate('Chat', { chatId: chatRoomId, chatName: name || 'Chat' });
   };
 
+  // Open the conversation for a request that hasn't been answered yet. The room
+  // is created server-side on first use, so this works before an accept — which
+  // is exactly when there's something to ask.
+  const openRequestChat = async (connId, name) => {
+    const res = await legendsApi.openLookingForChat(connId);
+    if (res.success && res.data?.chatRoomId) {
+      navigation.navigate('Chat', { chatId: res.data.chatRoomId, chatName: res.data.name || name || 'Chat' });
+      loadConnections();   // pick up the chatRoomId now the room exists
+    } else {
+      showToast(res.error || 'Could not open the chat', 'error');
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([load(activeType), loadConnections()]);
@@ -364,6 +378,11 @@ export default function LookingForScreen({ navigation, route, inline }) {
                     <View key={r.id} style={styles.reqRow}>
                       <Icon name="account-clock-outline" size={18} color={DS.blueDeep} />
                       <Text style={styles.reqName} numberOfLines={1}>{r.requesterName} wants to connect</Text>
+                      {/* Ask before committing — chat used to appear only after
+                          you'd already accepted. */}
+                      <TouchableOpacity style={styles.askBtn} onPress={() => openRequestChat(r.id, r.requesterName)}>
+                        <Icon name="message-text-outline" size={15} color={DS.textPrimary} />
+                      </TouchableOpacity>
                       <TouchableOpacity style={styles.acceptBtn} onPress={() => handleRespond(r.id, 'accept')}>
                         <Text style={styles.acceptBtnText}>Accept</Text>
                       </TouchableOpacity>
@@ -392,10 +411,16 @@ export default function LookingForScreen({ navigation, route, inline }) {
               );
             }
             if (myReq?.status === 'pending') {
+              // Was a dead end — you could only wait. Now you can make your case.
               return (
-                <View style={styles.requestedBtn}>
-                  <Icon name="clock-outline" size={15} color={DS.textMuted} />
-                  <Text style={styles.requestedText}>Request sent · waiting to accept</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={[styles.requestedBtn, { flex: 1 }]}>
+                    <Icon name="clock-outline" size={15} color={DS.textMuted} />
+                    <Text style={styles.requestedText}>Request sent · waiting to accept</Text>
+                  </View>
+                  <TouchableOpacity style={styles.askBtn} onPress={() => openRequestChat(myReq.id, item.posterName || 'Poster')}>
+                    <Icon name="message-text-outline" size={15} color={DS.textPrimary} />
+                  </TouchableOpacity>
                 </View>
               );
             }
@@ -720,6 +745,13 @@ const makeStyles = (DS) => StyleSheet.create({
   noReq: { fontSize: 12, color: DS.textMuted, fontStyle: 'italic', paddingVertical: 6 },
   reqRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: DS.faint },
   reqName: { flex: 1, fontSize: 13, fontWeight: '700', color: DS.textPrimary },
+  // "Ask a question" — sits next to Accept/Decline, and next to the requester's
+  // own pending pill. Neutral, so it doesn't compete with Accept.
+  askBtn: {
+    width: 38, height: 38, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: DS.surface, borderWidth: 1, borderColor: DS.faint,
+  },
   acceptBtn: { backgroundColor: DS.blueDeep, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 },
   acceptBtnText: { fontSize: 12, fontWeight: '800', color: DS.white },
   declineBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: DS.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: DS.faint },

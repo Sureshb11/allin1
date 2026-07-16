@@ -1315,6 +1315,17 @@ class LegendsApi {
     }
   }
 
+  // Open (or start) the chat about a connect request — either party, at any
+  // status. The room used to exist only after an accept.
+  async openLookingForChat(connectionId) {
+    try {
+      const json = await this.request(`/looking-for/connections/${connectionId}/chat`, { method: 'POST' });
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Coaching
   async getCoaches(filters = {}) {
     try {
