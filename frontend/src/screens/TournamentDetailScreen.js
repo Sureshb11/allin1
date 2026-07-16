@@ -942,7 +942,9 @@ export default function TournamentDetailScreen({ route, navigation }) {
                 </Text>
               )}
               {(() => {
-                // Organiser adds any same-sport team; a participant may only request with a team they own.
+                // Organiser adds any same-sport team directly (approved on the
+                // spot); a participant requests with a team they own or play for,
+                // and the organiser approves each request individually.
                 const pickable = pickerMode === 'join' ? myEntryTeams : myTeams;
                 if (pickable.length === 0) {
                   return <Text style={styles.emptyText}>{pickerMode === 'join' ? "You're not in any teams for this sport yet." : 'No teams available.'}</Text>;
