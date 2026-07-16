@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AnimatedCricketBall from './AnimatedBall';
+import WicketBall from './WicketBall';
 import haptic from '../../utils/haptics';
 
 const EVENT_COLORS = {
@@ -37,10 +38,19 @@ export default function LiveBall({ event, menuItems = [], size = 56 }) {
   const menuA  = useRef(new Animated.Value(0)).current;
   const ripple = useRef(new Animated.Value(0)).current;
   const [rippleColor, setRippleColor] = useState(EVENT_COLORS.run);
+  // WICKET → the ball itself becomes the shatter clip (in place, no backdrop).
+  // wicketKey both restarts the sequence and marks it as playing (null = idle).
+  const [wicketKey, setWicketKey] = useState(null);
 
   // ── match reactions ──
   useEffect(() => {
     if (!event?.id) return;
+    if (event.type === 'wicket') {
+      // hand the moment to the inline clip; skip the ball's little shake + the
+      // red ripple — the shatter animation carries its own drama.
+      setWicketKey(event.id);
+      return;
+    }
     ballRef.current?.react(event.type);
     setRippleColor(EVENT_COLORS[event.type] || EVENT_COLORS.run);
     ripple.setValue(0);
@@ -110,9 +120,14 @@ export default function LiveBall({ event, menuItems = [], size = 56 }) {
             transform: [{ scale: rippleScale }],
           }]} />
 
-        {/* the companion itself */}
-        <AnimatedCricketBall ref={ballRef} size={size} spinOnTap={false}
-          onPress={() => toggle(!open)} />
+        {/* the companion itself — the shatter clip takes its place on a wicket,
+            then hands back to the live ball when the sequence ends */}
+        {wicketKey != null ? (
+          <WicketBall size={size} playKey={wicketKey} onDone={() => setWicketKey(null)} />
+        ) : (
+          <AnimatedCricketBall ref={ballRef} size={size} spinOnTap={false}
+            onPress={() => toggle(!open)} />
+        )}
       </View>
     </View>
   );
