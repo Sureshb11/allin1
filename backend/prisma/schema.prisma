@@ -143,6 +143,9 @@ model Match {
   team2Id         String
   status          String   // scheduled | live | completed
   scorerId        String?  // user id allowed to score it (creator by default; transferable)
+  createdBy       String?  // user id who created the match — set once, never changes.
+                           // scorerId starts equal to it but can be handed to someone
+                           // else, so this is the durable record of who made the match.
   score1          String?
   score2          String?
   venue           String?
@@ -163,6 +166,7 @@ model Match {
 
   @@index([sport, status])
   @@index([startTime])
+  @@index([createdBy])
 }
 
 // Generic sport scoring event

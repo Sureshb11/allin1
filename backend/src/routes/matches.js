@@ -219,10 +219,11 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: `Sport mismatch: a ${data.sport} match needs two ${data.sport} teams (got ${t1.name}: ${t1.sport}, ${t2.name}: ${t2.sport}).` });
     }
 
-    // The creating user is the default scorer (can later transfer scoring rights).
-    // authMiddleware guarantees req.user, so this is never null for new matches.
+    // The creating user is recorded twice on purpose: createdBy is the permanent
+    // record of who made the match, scorerId is the live scoring right and can be
+    // transferred away later. authMiddleware guarantees req.user here.
     const match = await prisma.match.create({
-      data: { ...data, currentInnings: 1, scorerId: req.user.sub }
+      data: { ...data, currentInnings: 1, scorerId: req.user.sub, createdBy: req.user.sub }
     });
 
     if (data.sport === 'cricket') {
