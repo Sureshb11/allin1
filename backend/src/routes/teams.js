@@ -13,7 +13,64 @@ router.get('/', async (req, res) => {
     where: sport ? { sport: String(sport) } : {},
     include: { players: true },
   });
-  res.json({ teams });
+
+  // Attach REAL records computed from completed matches. Team.stats is a JSON
+  // column that nothing ever writes, so it came back null and the Rankings
+  // leaderboard rendered every team as 0 matches / 0 wins / 0% — the same
+  // problem /players already solved for batting and bowling.
+  //
+  // Win/loss comes from Match.result, which is free text ("<Team> won by 42
+  // runs"), so it's matched against the team's own name. Anything that doesn't
+  // name a winner (a tie, or a completed match with no result string) counts as
+  // played but neither won nor lost.
+  const ids = teams.map((t) => t.id);
+  const [played, battedAgg, bowledAgg] = ids.length ? await Promise.all([
+    prisma.match.findMany({
+      where: {
+        status: 'completed',
+        OR: [{ team1Id: { in: ids } }, { team2Id: { in: ids } }],
+      },
+      select: { team1Id: true, team2Id: true, result: true },
+    }),
+    // Runs scored = every innings this team batted. Wickets taken = the wickets
+    // that fell in innings it bowled. The card has always had RUNS and WICKETS
+    // columns; with stats null they rendered 0 for everyone.
+    prisma.inning.groupBy({ by: ['battingTeamId'], _sum: { totalRuns: true }, where: { battingTeamId: { in: ids } } }),
+    prisma.inning.groupBy({ by: ['bowlingTeamId'], _sum: { totalWickets: true }, where: { bowlingTeamId: { in: ids } } }),
+  ]) : [[], [], []];
+
+  const runsFor = Object.fromEntries(battedAgg.map((a) => [a.battingTeamId, a._sum.totalRuns || 0]));
+  const wktsFor = Object.fromEntries(bowledAgg.map((a) => [a.bowlingTeamId, a._sum.totalWickets || 0]));
+
+  const byName = Object.fromEntries(teams.map((t) => [t.id, t.name]));
+  const rec = {};
+  for (const id of ids) rec[id] = { matches: 0, wins: 0, losses: 0 };
+  for (const m of played) {
+    const res = m.result || '';
+    for (const id of [m.team1Id, m.team2Id]) {
+      if (!rec[id]) continue;                       // opponent outside this sport scope
+      rec[id].matches += 1;
+      const name = byName[id];
+      if (!res || /tie/i.test(res)) continue;       // played, but no winner
+      if (name && res.startsWith(name)) rec[id].wins += 1;
+      else rec[id].losses += 1;
+    }
+  }
+
+  const enriched = teams.map((t) => {
+    const r = rec[t.id];
+    return { ...t, stats: {
+      ...(t.stats || {}),
+      matches: r.matches,
+      wins: r.wins,
+      losses: r.losses,
+      winRate: r.matches ? Math.round((r.wins / r.matches) * 100) : 0,
+      totalRuns: runsFor[t.id] || 0,
+      totalWickets: wktsFor[t.id] || 0,
+    } };
+  });
+
+  res.json({ teams: enriched });
 });
 
 // Teams grouped for the logged-in user: My Teams / Opponents / Followed.

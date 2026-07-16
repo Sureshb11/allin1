@@ -65,16 +65,33 @@ function initials(name) {
 }
 
 const AVATAR_RANK = (DS) => [DS.lime, '#434656', DS.blueDeep];
-const trendFor = (rank, DS) =>
-  rank === 0 ? { icon: 'trending-up', color: DS.success }
-  : rank === 2 ? { icon: 'trending-down', color: DS.coral }
-  : { icon: 'minus', color: DS.textMuted };
+
+// ── Ranking order ────────────────────────────────────────────────────────────
+// The list used to render in whatever order the API returned (DB insertion
+// order) with rank = array index, so a player with 0 runs and 1 match could sit
+// at #1 wearing the gold medal. Rank by what the card actually shows.
+// Players: runs first (this is a run-scoring leaderboard), then average, then
+// wickets as a tiebreak so a pure bowler isn't stranded below empty profiles.
+const rankPlayers = (a, b) =>
+  (b.runs || 0) - (a.runs || 0) ||
+  (b.average || 0) - (a.average || 0) ||
+  (b.wickets || 0) - (a.wickets || 0) ||
+  a.name.localeCompare(b.name);
+
+// Teams: wins first, THEN win rate. Ranking by rate alone puts a team that won
+// its only game (100%) above one that went 3-2 over a season, which isn't a
+// league table — it's a rounding artefact of a tiny sample. Wins are the thing
+// actually earned; rate breaks ties between equal records.
+const rankTeams = (a, b) =>
+  (b.wins || 0) - (a.wins || 0) ||
+  (b.winRate || 0) - (a.winRate || 0) ||
+  (b.matches || 0) - (a.matches || 0) ||
+  a.name.localeCompare(b.name);
 
 function PlayerCard({ item, rank }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const isTop = rank < 3;
   const rankColor = isTop ? MEDAL[rank] : DS.border;
   const avColor = AVATAR_RANK(DS)[rank] || DS.blue;
-  const trend = trendFor(rank, DS);
   return (
     <View style={[styles.card, isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 }]}>
       <View style={styles.cardHeader}>
@@ -90,7 +107,6 @@ function PlayerCard({ item, rank }) {const DS = useTheme().colors;const styles =
           <Text style={styles.cardName}>{item.name}</Text>
           <Text style={styles.cardSub}>{item.matches} matches</Text>
         </View>
-        <Icon name={trend.icon} size={22} color={trend.color} />
       </View>
       <View style={styles.statRow}>
         {[
@@ -203,11 +219,17 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
     return () => { alive = false; };
   }, []);
 
+  // Rank first and stamp the standing onto each row, THEN filter — a player's
+  // rank is their standing on the leaderboard, not their position in your search
+  // results, so searching "Rohit" must show his real number, not #1.
   const rawData = tab === 'Players' ? players : teams;
-  const data = rawData.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const ranked = [...rawData]
+    .sort(tab === 'Players' ? rankPlayers : rankTeams)
+    .map((item, i) => ({ ...item, standing: i }));
+  const data = ranked.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
   const renderCard = tab === 'Players' ?
-  ({ item, index }) => <PlayerCard item={item} rank={index} /> :
-  ({ item, index }) => <TeamCard item={item} rank={index} />;
+  ({ item }) => <PlayerCard item={item} rank={item.standing} /> :
+  ({ item }) => <TeamCard item={item} rank={item.standing} />;
 
   const listAnim = useRef(new Animated.Value(1)).current;
 

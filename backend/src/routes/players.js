@@ -17,12 +17,28 @@ router.get('/', async (req, res) => {
   // Statistics leaderboard reflects actual matches instead of the static
   // stats JSON (which nothing updates). Cheap: batting from one Ball groupBy,
   // bowling from the per-over aggregates the scorer already maintains.
-  const [batAgg, disAgg, bowlAgg, mpAgg] = await Promise.all([
+  const [batAgg, disAgg, bowlAgg, mpAgg, inningAgg] = await Promise.all([
     prisma.ball.groupBy({ by: ['batterId'], _sum: { runs: true }, _count: { _all: true } }),
     prisma.ball.groupBy({ by: ['dismissedPlayerId'], _count: { _all: true }, where: { dismissedPlayerId: { not: null } } }),
     prisma.over.groupBy({ by: ['bowlerId'], _sum: { runs: true, extras: true, wickets: true }, _count: { _all: true } }),
     prisma.matchPlayer.groupBy({ by: ['playerId'], _count: { _all: true } }),
+    // Per-innings run totals → hundreds. The leaderboard has always shown a
+    // "100s" column, but nothing computed it, so it read 0 for every player
+    // forever. A century is per INNINGS, and groupBy can't reach through
+    // Over → Inning, so group by over and fold overs into their innings below.
+    prisma.ball.groupBy({ by: ['batterId', 'overId'], _sum: { runs: true } }),
   ]);
+
+  // overId → inningId, so the per-over sums above can be folded into knocks.
+  const overRows = await prisma.over.findMany({ select: { id: true, inningId: true } });
+  const inningOf = Object.fromEntries(overRows.map((o) => [o.id, o.inningId]));
+  const knock = {};                       // batterId → { inningId → runs }
+  for (const g of inningAgg) {
+    const inn = inningOf[g.overId];
+    if (!inn) continue;
+    (knock[g.batterId] = knock[g.batterId] || {});
+    knock[g.batterId][inn] = (knock[g.batterId][inn] || 0) + (g._sum.runs || 0);
+  }
   const bat  = Object.fromEntries(batAgg.map((a) => [a.batterId, a]));
   const dis  = Object.fromEntries(disAgg.map((a) => [a.dismissedPlayerId, a._count._all]));
   const bowl = Object.fromEntries(bowlAgg.map((a) => [a.bowlerId, a]));
@@ -37,6 +53,10 @@ router.get('/', async (req, res) => {
       computed.runs = runs;
       computed.strikeRate = faced ? +(runs / faced * 100).toFixed(1) : 0;
       computed.average = outs ? +(runs / outs).toFixed(1) : runs;
+      const scores = Object.values(knock[p.id] || {});
+      computed.centuries     = scores.filter((r) => r >= 100).length;
+      computed.halfCenturies = scores.filter((r) => r >= 50 && r < 100).length;
+      computed.highestScore  = scores.length ? Math.max(...scores) : 0;
     }
     if (w) {
       const conceded = (w._sum.runs || 0) + (w._sum.extras || 0);
