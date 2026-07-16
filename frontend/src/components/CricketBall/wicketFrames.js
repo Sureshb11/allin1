@@ -16,13 +16,12 @@
 // preview plays; it cannot be keyed into these sprites. These frames come from
 // the original 8s clip, now kept outside the app at "ball animation/wicket.mp4".
 //
-// Re-cut with scripts/build_wicket_frames.py, then regenerate the require()
-// manifest below. That script is tuned to the original clip (it keys a
-// (16,16,21) background and crops x=280..1000 of a 1280x720 frame), and its
-// SRC still points at the removed assets/ball/wicket.mp4 — repoint it at the
-// archived copy before running. Any replacement clip must keep the ball small
-// enough to leave margin for the ring and the spark burst, on a flat dark
-// background, or it cannot be keyed into a usable sprite.
+// Re-cut with scripts/build_wicket_frames.py (which also cuts the FOUR/SIX
+// sequences — see fourFrames.js / sixFrames.js), then regenerate the
+// require() manifest below and re-measure the geometry constants. Any
+// replacement clip must keep the ball small enough to leave margin for the
+// ring and the spark burst, on a flat dark background, or it cannot be keyed
+// into a usable sprite.
 // ─────────────────────────────────────────────────────────────────────────────
 export const WICKET_FRAMES = [
   require('../../../assets/ball/wicket_frames/w00.png'),
@@ -100,7 +99,12 @@ export const WICKET_FRAMES = [
   require('../../../assets/ball/wicket_frames/w72.png'),
 ];
 
-export const WICKET_FPS = 24;
-// canvas edge / ball diameter, and ball-centre fraction down the canvas
-export const WICKET_CANVAS_PER_BALL = 720 / 410;
-export const WICKET_BALL_CENTER_FRAC_Y = 0.5542;
+// Playback rate. The clip was shot at 24fps; it plays slower than source so
+// the shatter is readable as a moment rather than a flash (73 frames ≈ 6s).
+export const WICKET_FPS = 12;
+// canvas edge / ball diameter, and ball-centre fraction down the canvas.
+// Measured on the hand-off frames (w00/w72): ball equator 96px of the 200px
+// canvas, centre at y≈104 — so the animated ball renders at exactly the
+// static ball's size when the canvas is scaled by 200/96.
+export const WICKET_CANVAS_PER_BALL = 200 / 96;
+export const WICKET_BALL_CENTER_FRAC_Y = 0.52;

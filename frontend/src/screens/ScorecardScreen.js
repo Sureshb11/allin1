@@ -1336,14 +1336,13 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     if (lb.id !== lastBallRef.current) {
       lastBallRef.current = lb.id;
       if (match.status === 'live') {
-        // every delivery nudges the LiveBall; boundaries/wickets get an overlay too
+        // every delivery nudges the LiveBall
         setBallEvent({ type: lb.kind || 'run', id: lb.id });
         if (lb.kind === 'wicket') {
-          // WICKET: the spectator ball itself shatters in place (LiveBall plays
-          // the keyed clip from the 'wicket' event above) — no full-screen takeover.
+          // WICKET/FOUR/SIX: the spectator ball itself plays the matching keyed
+          // clip in place (LiveBall handles the event) — no full-screen overlay.
           haptic.warn();
         } else if (lb.kind) {
-          setCelebration({ kind: lb.kind, id: lb.id });
           haptic.success();
         }
       }

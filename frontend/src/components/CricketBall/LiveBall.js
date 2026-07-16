@@ -19,8 +19,18 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AnimatedCricketBall from './AnimatedBall';
-import WicketBall from './WicketBall';
+import WicketBall, { WICKET_CLIP } from './WicketBall';
+import { FOUR_FRAMES, FOUR_FPS, FOUR_CANVAS_PER_BALL, FOUR_BALL_CENTER_FRAC_Y } from './fourFrames';
+import { SIX_FRAMES, SIX_FPS, SIX_CANVAS_PER_BALL, SIX_BALL_CENTER_FRAC_Y } from './sixFrames';
 import haptic from '../../utils/haptics';
+
+// Big moments where the ball itself becomes the celebration: the matching
+// keyed clip plays in place of the static ball (see WicketBall).
+const EVENT_CLIPS = {
+  wicket: WICKET_CLIP,
+  four: { frames: FOUR_FRAMES, fps: FOUR_FPS, canvasPerBall: FOUR_CANVAS_PER_BALL, centerFracY: FOUR_BALL_CENTER_FRAC_Y },
+  six:  { frames: SIX_FRAMES,  fps: SIX_FPS,  canvasPerBall: SIX_CANVAS_PER_BALL,  centerFracY: SIX_BALL_CENTER_FRAC_Y },
+};
 
 const EVENT_COLORS = {
   run:      '#3ecf6e',
@@ -38,17 +48,18 @@ export default function LiveBall({ event, menuItems = [], size = 56 }) {
   const menuA  = useRef(new Animated.Value(0)).current;
   const ripple = useRef(new Animated.Value(0)).current;
   const [rippleColor, setRippleColor] = useState(EVENT_COLORS.run);
-  // WICKET → the ball itself becomes the shatter clip (in place, no backdrop).
-  // wicketKey both restarts the sequence and marks it as playing (null = idle).
-  const [wicketKey, setWicketKey] = useState(null);
+  // WICKET/FOUR/SIX → the ball itself becomes the clip (in place, no backdrop).
+  // playing = { key, clip }; key restarts the sequence (null = idle ball).
+  const [playing, setPlaying] = useState(null);
 
   // ── match reactions ──
   useEffect(() => {
     if (!event?.id) return;
-    if (event.type === 'wicket') {
+    const clip = EVENT_CLIPS[event.type];
+    if (clip) {
       // hand the moment to the inline clip; skip the ball's little shake + the
-      // red ripple — the shatter animation carries its own drama.
-      setWicketKey(event.id);
+      // ripple — the animation carries its own drama.
+      setPlaying({ key: event.id, clip });
       return;
     }
     ballRef.current?.react(event.type);
@@ -120,10 +131,11 @@ export default function LiveBall({ event, menuItems = [], size = 56 }) {
             transform: [{ scale: rippleScale }],
           }]} />
 
-        {/* the companion itself — the shatter clip takes its place on a wicket,
-            then hands back to the live ball when the sequence ends */}
-        {wicketKey != null ? (
-          <WicketBall size={size} playKey={wicketKey} onDone={() => setWicketKey(null)} />
+        {/* the companion itself — the event clip takes its place on a
+            wicket/four/six, then hands back when the sequence ends */}
+        {playing != null ? (
+          <WicketBall size={size} playKey={playing.key} clip={playing.clip}
+            onDone={() => setPlaying(null)} />
         ) : (
           <AnimatedCricketBall ref={ballRef} size={size} spinOnTap={false}
             onPress={() => toggle(!open)} />

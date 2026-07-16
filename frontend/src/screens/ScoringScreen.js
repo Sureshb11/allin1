@@ -325,7 +325,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // Throws if the server rejects the ball (e.g. 403 — not the assigned scorer) so
   // callers stop mutating local state instead of silently drifting from the server.
   const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true, dismissedId = null, catcher = null) => {
-    if (!currentInningId || !striker || !nonStriker || !currentBowler) return;
+    // Never skip the save silently: the local score would keep advancing (and
+    // syncMatchSummary would keep updating the headline score) while the
+    // ball-by-ball record stops — spectators then see totals move with no
+    // deliveries behind them. Throw so handleScore alerts and doesn't apply
+    // the ball locally.
+    if (!striker || !nonStriker) throw new Error('Pick the new batsman before scoring the next ball');
+    if (!currentInningId || !currentBowler) throw new Error('Match state is still loading — try again in a moment');
     const overNumber = currentScore.overs + 1;
     const newBallCount = countsAsBall ? ballCount + 1 : ballCount;
     if (countsAsBall) setBallCount(newBallCount);
@@ -459,6 +465,14 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // over (8–12 ball overs). Real scoring is seconds apart, so this only drops
     // accidental double-taps.
     if (savingRef.current) return;
+    // A wicket empties a batter slot until the replacement is picked. Don't score
+    // the next ball into a missing batter (persistBall would refuse anyway) —
+    // reopen the New Batsman picker instead.
+    if (!striker || !nonStriker) {
+      setNewBatterFor(!striker ? 'striker' : 'nonstriker');
+      setShowPlayerModal(true);
+      return;
+    }
     // Guard the FIRST ball of an over (any path, incl. resume/setup picks): if the
     // bowler is over their spell limit or would bowl consecutive overs, silently
     // reopen the (eligible-only) bowler picker — no popup.
