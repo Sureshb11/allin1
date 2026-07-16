@@ -1,13 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// WicketVideo — full-screen WICKET moment (assets/ball/wicket.mp4, 8s, with
-// sound). Plays once when a wicket falls on the live spectator screen;
-// tap anywhere to skip, auto-dismisses on end (or on any playback error).
+// WicketVideo — full-screen WICKET moment (assets/ball/ball_wicket.mp4, 5.5s,
+// with sound). The live spectator screen no longer uses this (it plays the
+// inline WicketBall instead); it survives as the Ball Lab preview.
+// Tap anywhere to skip, auto-dismisses on end (or on any playback error).
 // ─────────────────────────────────────────────────────────────────────────────
 import React from 'react';
 import { View, StyleSheet, TouchableWithoutFeedback } from 'react-native';
 import Video from 'react-native-video';
 
-const SRC = require('../../../assets/ball/wicket.mp4');
+const SRC = require('../../../assets/ball/ball_wicket.mp4');
 
 export default function WicketVideo({ visible, onDone }) {
   if (!visible) return null;
@@ -36,5 +37,5 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     zIndex: 999, elevation: 999,
   },
-  video: { width: '100%', aspectRatio: 16 / 9 },
+  video: { width: '100%', aspectRatio: 1 },
 });

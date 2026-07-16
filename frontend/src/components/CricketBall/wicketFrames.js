@@ -1,16 +1,28 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // wicketFrames — the WICKET moment as a transparent PNG sequence.
 //
-// Extracted from assets/ball/wicket.mp4 (the signature ball shattering in a
-// red spark burst with a WICKET flash, then reforming). The dark video
-// background is keyed to alpha so the clip drops straight onto the live
-// screen with NO backdrop — it simply replaces the spectator ball in place.
+// Extracted from the original 8s 1280x720 wicket clip (the signature ball
+// shattering in a red spark burst with a WICKET flash, then reforming). The
+// dark video background is keyed to alpha so the clip drops straight onto the
+// live screen with NO backdrop — it simply replaces the spectator ball in place.
 //
 // 73 frames, played at 24fps (~3s), starting and ending on the idle ball so
 // the swap in/out of the static ball is seamless. Geometry (for WicketBall):
 //   source frame 200x200, ball centred, diameter = 410/720 of the canvas,
 //   ball-centre at y-fraction 0.554 from the top.
-// Regenerate with scripts/build_wicket_frames.py after replacing the clip.
+//
+// Source clip: NOT assets/ball/ball_wicket.mp4 — that is a later, tight-cropped
+// close-up (256x256, ball bleeding off every edge) that only the Ball Lab video
+// preview plays; it cannot be keyed into these sprites. These frames come from
+// the original 8s clip, now kept outside the app at "ball animation/wicket.mp4".
+//
+// Re-cut with scripts/build_wicket_frames.py, then regenerate the require()
+// manifest below. That script is tuned to the original clip (it keys a
+// (16,16,21) background and crops x=280..1000 of a 1280x720 frame), and its
+// SRC still points at the removed assets/ball/wicket.mp4 — repoint it at the
+// archived copy before running. Any replacement clip must keep the ball small
+// enough to leave margin for the ring and the spark burst, on a flat dark
+// background, or it cannot be keyed into a usable sprite.
 // ─────────────────────────────────────────────────────────────────────────────
 export const WICKET_FRAMES = [
   require('../../../assets/ball/wicket_frames/w00.png'),
