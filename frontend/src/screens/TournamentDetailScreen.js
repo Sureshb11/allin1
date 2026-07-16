@@ -343,8 +343,14 @@ export default function TournamentDetailScreen({ route, navigation }) {
   // Only the creator manages the tournament. Legacy tournaments with no recorded
   // organiser stay open (matches the backend's fallback) so old data isn't locked out.
   const isOrganizer = !tournament.organizerId || (!!myUserId && tournament.organizerId === myUserId);
-  // A participant can only request with a team they own.
-  const myOwnedTeams = myTeams.filter(t => t.ownerId && t.ownerId === myUserId);
+  // Teams this user can enter: ones they own, OR ones they play for. This used
+  // to be owner-only, which contradicted the app's own "My Teams" (owned OR
+  // played for) — a player saw their team listed as theirs on one screen and was
+  // told they owned none on this one. The organiser approves either way.
+  const myEntryTeams = myTeams.filter(t =>
+    (t.ownerId && t.ownerId === myUserId) ||
+    (t.players || []).some(p => p.userId && p.userId === myUserId)
+  );
 
   const renderOverview = () => (
     <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
@@ -932,14 +938,14 @@ export default function TournamentDetailScreen({ route, navigation }) {
               </View>
               {pickerMode === 'join' && (
                 <Text style={[styles.emptyText, { textAlign: 'left', marginBottom: 8 }]}>
-                  Pick a team you own to request entry. The organiser approves it before you're in.
+                  Pick one of your teams to request entry. The organiser approves it before you're in.
                 </Text>
               )}
               {(() => {
                 // Organiser adds any same-sport team; a participant may only request with a team they own.
-                const pickable = pickerMode === 'join' ? myOwnedTeams : myTeams;
+                const pickable = pickerMode === 'join' ? myEntryTeams : myTeams;
                 if (pickable.length === 0) {
-                  return <Text style={styles.emptyText}>{pickerMode === 'join' ? "You don't own any teams for this sport." : 'No teams available.'}</Text>;
+                  return <Text style={styles.emptyText}>{pickerMode === 'join' ? "You're not in any teams for this sport yet." : 'No teams available.'}</Text>;
                 }
                 return (
                 <>

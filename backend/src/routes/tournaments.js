@@ -242,11 +242,23 @@ router.post('/:id/join-requests', authMiddleware, async (req, res) => {
     if (!teamId) return res.status(400).json({ error: 'teamId required' });
     const [tournament, team] = await Promise.all([
       prisma.tournament.findUnique({ where: { id: req.params.id }, select: { sport: true, name: true, organizerId: true } }),
-      prisma.team.findUnique({ where: { id: teamId }, select: { sport: true, name: true, ownerId: true } }),
+      prisma.team.findUnique({
+        where: { id: teamId },
+        select: { sport: true, name: true, ownerId: true, players: { select: { userId: true } } },
+      }),
     ]);
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
     if (!team) return res.status(404).json({ error: 'Team not found' });
-    if (team.ownerId !== req.user.sub) return res.status(403).json({ error: 'You can only request with a team you own' });
+    // Anyone in the team may ask — owner or player. This used to be owner-only,
+    // which contradicted the app's own definition of "my teams" (/categorized =
+    // owned OR played for): a player saw their team listed as theirs and was
+    // then told they owned none. The organiser approves either way, so a request
+    // commits nobody. The owner is notified below when it wasn't them.
+    const isOwner  = team.ownerId === req.user.sub;
+    const isMember = team.players.some((p) => p.userId === req.user.sub);
+    if (!isOwner && !isMember) {
+      return res.status(403).json({ error: 'You can only request with a team you play for' });
+    }
     if (team.sport !== tournament.sport) {
       return res.status(400).json({ error: `Sport mismatch: ${team.name} is a ${team.sport} team but ${tournament.name} is a ${tournament.sport} tournament.` });
     }
@@ -259,6 +271,16 @@ router.post('/:id/join-requests', authMiddleware, async (req, res) => {
       await safeNotify(() => notifyUsers([tournament.organizerId], {
         title: 'New join request',
         message: `${team.name} has requested to join ${tournament.name}.`,
+        data: { tournamentId: req.params.id },
+      }));
+    }
+    // A player entered the owner's team — tell the owner, so entries can't
+    // happen in their name without their knowledge. Skipped when the owner is
+    // the requester, or is the organiser (they were just notified above).
+    if (team.ownerId && !isOwner && team.ownerId !== tournament.organizerId) {
+      await safeNotify(() => notifyUsers([team.ownerId], {
+        title: 'Your team requested to join',
+        message: `${team.name} has been entered into ${tournament.name} by a team member. The organiser will approve it.`,
         data: { tournamentId: req.params.id },
       }));
     }
