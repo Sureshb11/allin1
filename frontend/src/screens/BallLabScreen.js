@@ -11,6 +11,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AnimatedCricketBall from '../components/CricketBall/AnimatedBall';
+import WicketBall from '../components/CricketBall/WicketBall';
 import WicketVideo from '../components/CricketBall/WicketVideo';
 
 const GROUNDS = [
@@ -22,6 +23,11 @@ const GROUNDS = [
 export default function BallLabScreen({ navigation }) {
   const [g, setG] = useState(GROUNDS[0]);
   const [wicket, setWicket] = useState(false);
+  // inline WICKET preview — the real spectator moment (ball shatters in place).
+  // wkKey (re)starts the clip; wkPlaying swaps the static ball for it.
+  const [wkKey, setWkKey] = useState(0);
+  const [wkPlaying, setWkPlaying] = useState(false);
+  const playInlineWicket = () => { setWkPlaying(true); setWkKey((k) => k + 1); };
   const s = makeStyles(g);
 
   return (
@@ -55,6 +61,19 @@ export default function BallLabScreen({ navigation }) {
             <Text style={s.wicketBtnTxt}>PREVIEW WICKET VIDEO</Text>
           </TouchableOpacity>
         </View>
+
+        {/* inline WICKET — exactly what the live spectator screen plays: the
+            spectator-size ball (56) shatters in place, transparent, no backdrop */}
+        <Text style={s.capt}>WICKET · INLINE (LIVE SCREEN · 56)</Text>
+        <View style={s.wkStage}>
+          {wkPlaying
+            ? <WicketBall size={56} playKey={wkKey} onDone={() => setWkPlaying(false)} />
+            : <AnimatedCricketBall size={56} />}
+        </View>
+        <TouchableOpacity style={[s.wicketBtn, s.wkInlineBtn]} onPress={playInlineWicket}>
+          <Icon name="cricket" size={15} color="#ff6b6b" />
+          <Text style={s.wicketBtnTxt}>{wkPlaying ? 'PLAYING…' : 'PLAY WICKET (INLINE)'}</Text>
+        </TouchableOpacity>
 
         {/* the sizes the app will actually use */}
         <Text style={s.capt}>DOCK · 64  —  SPECTATOR · 56  —  INLINE · 36</Text>
@@ -99,6 +118,8 @@ const makeStyles = (g) => StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18,
     borderWidth: 1, borderColor: '#ff6b6b55', backgroundColor: '#ff6b6b14' },
   wicketBtnTxt: { fontSize: 11, fontWeight: '800', letterSpacing: 1, color: '#ff6b6b' },
+  wkStage: { height: 150, alignItems: 'center', justifyContent: 'center' },
+  wkInlineBtn: { alignSelf: 'center', marginTop: 10 },
   capt: { fontSize: 10, fontWeight: '800', letterSpacing: 1.6, color: g.mut, marginTop: 18, marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'flex-end', gap: 28 },
   cell: { alignItems: 'center', gap: 6 },
