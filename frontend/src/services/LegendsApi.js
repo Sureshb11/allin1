@@ -801,6 +801,17 @@ class LegendsApi {
     }
   }
 
+  // Open (or create) the team's group chat. Returns { chatRoomId, name } for
+  // navigating to the shared Chat screen. Team members only.
+  async openTeamChat(teamId) {
+    try {
+      const json = await this.request(`/teams/${teamId}/chat`, { method: 'POST' });
+      return { success: true, chatRoomId: json.chatRoomId, name: json.name };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Request to join a team (creates a pending request for admins to approve).
   async requestToJoinTeam(teamId, note) {
     try {
