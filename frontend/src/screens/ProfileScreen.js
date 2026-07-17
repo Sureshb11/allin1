@@ -11,7 +11,7 @@ import AppHeader from '../components/AppHeader';
 import { setCurrentAvatar, clearCurrentUser } from '../utils/currentUser';
 import legendsApi from '../services/LegendsApi';
 import SportSwitcher from '../components/SportSwitcher';
-import HexAvatar from '../components/HexAvatar';
+
 import { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { getSelectedSport } from '../utils/selectedSport';
@@ -63,10 +63,10 @@ export default function ProfileScreen({ navigation }) {
   // Hex action button (Share / Edit / Theme in the action bar) — the Arena
   // honeycomb motif, same as the avatar and the app's other hex tiles.
   const ActionIcon = ({ icon, label, color, onPress }) => (
-    <TouchableOpacity style={styles.actionItem} activeOpacity={0.85} onPress={onPress}>
-      <HexAvatar size={52} color={DS.surfaceLow}>
-        <Icon name={icon} size={22} color={color || DS.lime} />
-      </HexAvatar>
+    <TouchableOpacity style={styles.actionItem} activeOpacity={0.7} onPress={onPress}>
+      <View style={styles.actionIconWrap}>
+        <Icon name={icon} size={24} color={color || DS.lime} />
+      </View>
       <Text style={styles.actionLabel} numberOfLines={1}>{label}</Text>
     </TouchableOpacity>
   );
@@ -87,11 +87,14 @@ export default function ProfileScreen({ navigation }) {
     </View>
   );
 
+  const uploadRef = useRef(false);
+
   useEffect(() => {
     loadProfile();
   }, []);
 
   const loadProfile = async () => {
+    if (uploadRef.current) return;
     try {
       const [profileRes, statsRes] = await Promise.all([
         legendsApi.getUserProfile(),
@@ -105,8 +108,6 @@ export default function ProfileScreen({ navigation }) {
       setLoading(false);
     }
   };
-
-
 
   const shareProfile = async () => {
     const sp = getSelectedSport().sport || { name: 'Cricket' };
@@ -144,26 +145,40 @@ export default function ProfileScreen({ navigation }) {
 
   const handleAvatarPress = async () => {
     try {
+      uploadRef.current = true;
       const result = await pickAndUploadImage();
       if (result && result.url) {
         setProfile(prev => ({ ...prev, avatarUrl: result.url }));
         setCurrentAvatar(result.url);
-        await legendsApi.updateUserProfile({ avatarUrl: result.url });
+        const upRes = await legendsApi.updateUserProfile({ avatarUrl: result.url });
+        if (upRes.success && upRes.data) {
+          setProfile(upRes.data);
+        }
       }
     } catch (e) {
       console.log('Upload error', e);
+    } finally {
+      uploadRef.current = false;
+      loadProfile();
     }
   };
 
   const handleCoverPress = async () => {
     try {
-      const result = await pickAndUploadImage();
+      uploadRef.current = true;
+      const result = await pickAndUploadImage('avatars'); // use avatars folder for compression
       if (result && result.url) {
         setProfile(prev => ({ ...prev, coverUrl: result.url }));
-        await legendsApi.updateUserProfile({ coverUrl: result.url });
+        const upRes = await legendsApi.updateUserProfile({ coverUrl: result.url });
+        if (upRes.success && upRes.data) {
+          setProfile(upRes.data);
+        }
       }
     } catch (e) {
       console.log('Upload error', e);
+    } finally {
+      uploadRef.current = false;
+      loadProfile();
     }
   };
 
@@ -356,7 +371,7 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
-const makeStyles = (DS) => StyleSheet.create({
+const makeStyles = (DS, typo, radii, shadows) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
 
@@ -418,7 +433,9 @@ const makeStyles = (DS) => StyleSheet.create({
   bentoGrid: { flexDirection: 'row', gap: 8 },
   bentoCard: {
     flex: 1, backgroundColor: DS.surfaceHigh,
-    borderRadius: 12, padding: 12, alignItems: 'center',
+    borderRadius: radii?.md || 16, padding: 12, alignItems: 'center',
+    borderWidth: 1, borderColor: DS.border,
+    ...(shadows?.sm || {}),
   },
   bentoCardAccent: { backgroundColor: DS.surfaceHighest },
   bentoValue: { fontSize: 22, fontWeight: '900', color: DS.textPrimary },
@@ -440,9 +457,17 @@ const makeStyles = (DS) => StyleSheet.create({
   // Icon action bar (Share · Edit · Sport · Theme)
   actionBar: {
     flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-start',
-    backgroundColor: DS.surfaceHigh, borderRadius: 18, paddingVertical: 16, paddingHorizontal: 8,
+    backgroundColor: DS.surfaceHigh, borderRadius: radii?.lg || 24, paddingVertical: 16, paddingHorizontal: 8,
+    borderWidth: 1, borderColor: DS.border,
+    ...(shadows?.sm || {}),
   },
   actionItem: { alignItems: 'center', gap: 6, width: 64 },
+  actionIconWrap: {
+    width: 52, height: 52, borderRadius: radii?.pill || 999,
+    backgroundColor: DS.surfaceLow,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: DS.border,
+  },
   actionLabel: { fontSize: 11, fontWeight: '700', color: DS.textVariant },
 
   // Career detail grid — 4-up, wrapping, so a block sizes to whatever the API
@@ -453,7 +478,7 @@ const makeStyles = (DS) => StyleSheet.create({
   statCellLabel: { fontSize: 10, color: DS.textMuted, marginTop: 2, textAlign: 'center' },
 
   // Recent form
-  section: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16, gap: 8 },
+  section: { backgroundColor: DS.surfaceHigh, borderRadius: radii?.md || 16, padding: 16, gap: 8, borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}) },
   galleryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   galleryImg: { width: 88, height: 88, borderRadius: 10, backgroundColor: DS.surfaceLow },
   galleryAdd: { width: 88, height: 88, borderRadius: 10, borderWidth: 1.5, borderColor: DS.lime, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 2 },
@@ -491,7 +516,7 @@ const makeStyles = (DS) => StyleSheet.create({
   quickBtnText: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
 
   // Appearance
-  appearanceCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16, gap: 12 },
+  appearanceCard: { backgroundColor: DS.surfaceHigh, borderRadius: radii?.md || 16, padding: 16, gap: 12, borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}) },
   appearanceHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   appearanceTitle: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
   segment: { flexDirection: 'row', backgroundColor: DS.surfaceLow, borderRadius: 12, padding: 4, gap: 4 },
@@ -505,7 +530,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // Menu
   sportSwitchWrap: { marginHorizontal: 16, marginBottom: 16 },
-  menuCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16 },
+  menuCard: { backgroundColor: DS.surfaceHigh, borderRadius: radii?.md || 16, borderWidth: 1, borderColor: DS.border, overflow: 'hidden', ...(shadows?.sm || {}) },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 16 },
   menuItemDivider: { backgroundColor: DS.surfaceHigh },
   menuLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },

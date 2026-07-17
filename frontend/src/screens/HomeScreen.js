@@ -512,8 +512,8 @@ function LiveMatchCard({ match, sport, navigation, onShare }) {
   );
 }
 
-const makeLcStyles = (DS) => StyleSheet.create({
-  card: { backgroundColor: DS.surface, borderRadius: 20, marginBottom: 16 },
+const makeLcStyles = (DS, typography, radii, shadows) => StyleSheet.create({
+  card: { backgroundColor: DS.surface, borderRadius: radii?.lg || 20, marginBottom: 16, borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}) },
   cardHeader: { paddingHorizontal: 18, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: DS.surfaceHighest, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   livePill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: DS.live, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 2 },
@@ -540,7 +540,7 @@ const makeLcStyles = (DS) => StyleSheet.create({
   actionBtnTextWhatsApp: { fontSize: 14, fontWeight: '700', color: DS.white },
 });
 
-const makeStyles = (DS, typography) => StyleSheet.create({
+const makeStyles = (DS, typography, radii, shadows) => StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.bg },
 
   // Top Bar
@@ -572,7 +572,8 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   navTabActive: {
     backgroundColor: DS.surfaceHighest,
     shadowColor: DS.lime, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4,
-    borderWidth: 1, borderColor: 'rgba(171,214,0,0.3)',
+    borderWidth: 1, borderColor: DS.border,
+    borderRadius: radii?.pill || 14,
   },
   navTabText: { fontSize: 10, fontWeight: '700', color: DS.textVariant, letterSpacing: 0.5 },
   navTabTextActive: { color: DS.lime },
@@ -583,7 +584,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
 
   // Start Match CTA
   // My Cricket summary card
-  mcCard: { backgroundColor: DS.surface, borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: DS.lime + '2E' },
+  mcCard: { backgroundColor: DS.surface, borderRadius: radii?.lg || 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}) },
   mcHeadRow: { flexDirection: 'row', alignItems: 'center' },
   mcAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
   mcAvatarTxt: { color: DS.bg, fontSize: 17, fontWeight: '900' },
@@ -602,7 +603,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   mcStatVal: { color: DS.lime, fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
   mcStatLbl: { color: DS.textMuted, fontSize: 10.5, fontWeight: '600', marginTop: 2, letterSpacing: 0.3 },
 
-  startMatchCTA: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 16, paddingVertical: 11, paddingHorizontal: 18, marginBottom: 12, backgroundColor: DS.blueDeep, elevation: 8, shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
+  startMatchCTA: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radii?.lg || 16, paddingVertical: 11, paddingHorizontal: 18, marginBottom: 12, backgroundColor: DS.blueDeep, elevation: 8, shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
   startMatchLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   startMatchIconBox: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   startMatchTitle: { fontSize: 20, fontWeight: '800', color: DS.onBlue, textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -642,7 +643,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   filterCountTextActive: { color: DS.bg },
 
   // Live matches rail
-  liveCard: { width: 210, backgroundColor: DS.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: DS.surfaceHigh },
+  liveCard: { width: 210, backgroundColor: DS.surface, borderRadius: radii?.md || 16, padding: 14, borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}) },
   liveCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   liveCardTag: { fontSize: 9, fontWeight: '800', letterSpacing: 0.6, color: DS.lime },
   liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -660,7 +661,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
 
   // Sport Features grid
   featuresGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
-  featureCard: { width: (width - 48 - 10) / 2, backgroundColor: DS.surface, borderRadius: 16, padding: 14, gap: 6 },
+  featureCard: { width: (width - 48 - 10) / 2, backgroundColor: DS.surface, borderRadius: radii?.md || 16, padding: 14, gap: 6, borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}) },
   featureIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.surfaceHighest },
   featureLabel: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
   featureDesc: { fontSize: 12, color: DS.textMuted, lineHeight: 16 },
@@ -676,7 +677,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   emptyBtnText: { fontSize: 14, fontWeight: '800', color: DS.white },
 
   // Leaderboard
-  leaderCard: { backgroundColor: DS.surface, borderRadius: 20, marginBottom: 20 },
+  leaderCard: { backgroundColor: DS.surface, borderRadius: radii?.lg || 20, marginBottom: 20, borderWidth: 1, borderColor: DS.border, overflow: 'hidden', ...(shadows?.sm || {}) },
   leaderRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 13, gap: 10 },
   leaderRowDivider: { backgroundColor: DS.surfaceHigh },
   leaderRank: { width: 28, height: 28, borderRadius: 8, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
@@ -689,7 +690,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   leaderRole: { fontSize: 12, fontWeight: '700', marginLeft: 4, color: DS.lime },
 
   // Guest scorer card
-  guestCard: { backgroundColor: DS.surface, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  guestCard: { backgroundColor: DS.surface, borderRadius: radii?.md || 16, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}) },
   guestLeft: { flex: 1, gap: 4 },
   guestIconRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   guestTitle: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
@@ -700,7 +701,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
 
   // MORE sheet
   sheetOverlay: { flex: 1, backgroundColor: DS.overlay },
-  sheet: { backgroundColor: DS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, paddingBottom: 36 },
+  sheet: { backgroundColor: DS.surface, borderTopLeftRadius: radii?.lg || 24, borderTopRightRadius: radii?.lg || 24, padding: 16, paddingBottom: 36, borderWidth: 1, borderColor: DS.border, ...(shadows?.md || {}) },
   sheetHandle: { width: 40, height: 4, backgroundColor: DS.surfaceHighest, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontSize: 18, fontWeight: '700', color: DS.textPrimary, marginBottom: 16 },
   moreGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },

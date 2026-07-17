@@ -12,7 +12,7 @@ export default function AppHeader({ onComposePress, showCompose = false, hidePro
   const meUser = useCurrentUser();
 
   return (
-    <View style={[styles.topBar, { borderBottomColor: DS.line }]}>
+    <View style={[styles.topBar, { borderBottomColor: DS.border, backgroundColor: DS.surfaceLow }]}>
       {/* Brand Logo - Matches Feeds screen */}
       <TouchableOpacity 
         activeOpacity={1} 

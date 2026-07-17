@@ -140,10 +140,25 @@ export const typographyLight = {
   label: { fontFamily: 'Selawik', fontWeight: '400' },
 };
 
+export const radii = {
+  sm: 8,
+  md: 16,
+  lg: 24,
+  pill: 999,
+};
+
+export const shadows = {
+  sm: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  md: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 4 },
+  lg: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 8 },
+};
+
 const ThemeContext = createContext({
   mode: 'light',
   pref: 'system',
   colors: light,
+  radii,
+  shadows,
   typography: typographyLight,
   isDark: false,
   setMode: () => {},
@@ -189,6 +204,8 @@ export function ThemeProvider({ children }) {
     mode,
     pref,
     colors: PALETTES[mode],
+    radii,
+    shadows,
     typography: mode === 'dark' ? typographyDark : typographyLight,
     isDark: mode === 'dark',
     setMode,
@@ -204,8 +221,8 @@ export function useTheme() {
 
 /** Build (and memoise) a StyleSheet from the current palette. */
 export function useThemedStyles(factory) {
-  const { colors, typography } = useContext(ThemeContext);
-  return useMemo(() => factory(colors, typography), [factory, colors, typography]);
+  const { colors, typography, radii, shadows } = useContext(ThemeContext);
+  return useMemo(() => factory(colors, typography, radii, shadows), [factory, colors, typography, radii, shadows]);
 }
 
 /** Arena/Rummy palette — same theme but with the brighter lime accent. */
