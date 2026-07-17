@@ -65,6 +65,19 @@ router.get('/rooms/:roomId/messages', authMiddleware, async (req, res) => {
       orderBy: { createdAt: 'asc' },
       take: 100,
     });
+    // Reading the room marks it read, so unread badges elsewhere clear on their
+    // own. The client polls this endpoint every couple of seconds, so only write
+    // when it can change something: the initial open (no `after`), or a poll
+    // that actually returned new messages. Otherwise every idle poll would be a
+    // pointless round-trip to the database.
+    // updateMany (not update) so a non-member reading a room they aren't in is a
+    // no-op rather than an error.
+    if (!after || messages.length) {
+      await prisma.chatMember.updateMany({
+        where: { chatRoomId: req.params.roomId, userId: req.user.sub },
+        data: { lastReadAt: new Date() },
+      });
+    }
     res.json({ messages });
   } catch (e) {
     res.status(500).json({ error: e.message });

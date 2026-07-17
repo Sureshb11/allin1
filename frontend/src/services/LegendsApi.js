@@ -1156,9 +1156,9 @@ class LegendsApi {
   }
 
   // Tournament — a team owner requests to join (creates a pending request)
-  async requestToJoinTournament(tournamentId, teamId, group = 'A') {
+  async requestToJoinTournament(tournamentId, teamId, group = 'A', note = null) {
     try {
-      const json = await this.request(`/tournaments/${tournamentId}/join-requests`, { method: 'POST', body: { teamId, group } });
+      const json = await this.request(`/tournaments/${tournamentId}/join-requests`, { method: 'POST', body: { teamId, group, note } });
       return { success: true, data: json.entry };
     } catch (error) {
       return { success: false, error: error.message };

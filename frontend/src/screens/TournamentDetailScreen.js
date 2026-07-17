@@ -52,6 +52,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const [myUserId, setMyUserId] = useState(null);      // to decide organiser vs participant
   const [joinRequests, setJoinRequests] = useState([]); // pending requests (organiser view)
   const [myRequests, setMyRequests] = useState([]);     // the caller's own requests (requester view)
+  const [requestNote, setRequestNote] = useState('');   // one-line pitch sent with a join request
   const [processing, setProcessing] = useState(false);
   const [showAutoScheduleModal, setShowAutoScheduleModal] = useState(false);
   const [scheduleFormat, setScheduleFormat] = useState('classic_t20');
@@ -152,7 +153,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
     for (const teamId of toSubmit) {
       // Organiser adds directly (approved); a participant sends a join request (pending).
       const res = pickerMode === 'join'
-        ? await legendsApi.requestToJoinTournament(tournamentId, teamId)
+        ? await legendsApi.requestToJoinTournament(tournamentId, teamId, 'A', requestNote)
         : await legendsApi.registerTeamInTournament(tournamentId, teamId);
       if (res.success) successCount++; else lastError = res.error || lastError;
     }
@@ -467,7 +468,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
               <Text style={styles.countBadgeText}>{joinRequests.length}</Text>
             </View>
           </View>
-          {joinRequests.map(({ team, requester, squadSize }) => (
+          {joinRequests.map(({ team, requester, squadSize, record, unread, requestNote: note }) => (
             <View key={team.id} style={styles.requestCard}>
               <View style={styles.teamRow}>
                 <HexAvatar size={38} color={avatarColor(team.name)}>
@@ -483,8 +484,15 @@ export default function TournamentDetailScreen({ route, navigation }) {
                       : `Captain: ${captainOf(team)}`}
                     {squadSize ? ` · ${squadSize} players` : ''}
                   </Text>
+                  {/* Their record, so you can judge without having to ask. */}
+                  {record?.matches > 0 && (
+                    <Text style={styles.teamRecord}>
+                      {record.wins}W–{record.losses}L in {record.matches} · {Math.round((record.wins / record.matches) * 100)}% win
+                    </Text>
+                  )}
                 </View>
               </View>
+              {!!note && <Text style={styles.requestNote} numberOfLines={3}>“{note}”</Text>}
               <View style={styles.requestActions}>
                 {/* Ask before you decide — the whole point of the chat. */}
                 <TouchableOpacity onPress={() => openRequestChat(team.id, team.name)}
@@ -492,6 +500,11 @@ export default function TournamentDetailScreen({ route, navigation }) {
                                   style={[styles.msgBtn, !requester && { opacity: 0.4 }]}>
                   <Icon name="message-text-outline" size={15} color={DS.textPrimary} />
                   <Text style={styles.msgBtnText}>Message</Text>
+                  {unread > 0 && (
+                    <View style={styles.unreadDot}>
+                      <Text style={styles.unreadDotText}>{unread > 9 ? '9+' : unread}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
                 <View style={{ flex: 1 }} />
                 <TouchableOpacity onPress={() => handleRejectRequest(team.id)} disabled={processing} style={styles.rejectBtn}>
@@ -1019,25 +1032,47 @@ export default function TournamentDetailScreen({ route, navigation }) {
                 if (pickable.length === 0) {
                   return <Text style={styles.emptyText}>{pickerMode === 'join' ? "You're not in any teams for this sport yet." : 'No teams available.'}</Text>;
                 }
+                // Teams the caller has already asked about. The tournament
+                // payload only carries APPROVED teams, so a pending request was
+                // invisible here: you could tap Request again and get an error
+                // toast instead of seeing the row disabled.
+                const pendingIds = new Set(myRequests.filter(r => r.status === 'pending').map(r => r.team?.id));
                 return (
                 <>
                   <ScrollView>
                     {pickable.map(t => {
                       const isRegistered = (tournament?.teams || []).some(rt => rt.team.id === t.id);
+                      const isPending = pickerMode === 'join' && pendingIds.has(t.id);
+                      const blocked = isRegistered || isPending;
                       const isSelected = selectedTeamIds.has(t.id);
                       return (
-                        <TouchableOpacity key={t.id} style={[styles.teamSelectRow, isRegistered && { opacity: 0.5 }]}
-                                          onPress={() => !isRegistered && toggleTeamSelection(t.id)}
-                                          disabled={processing || isRegistered}>
+                        <TouchableOpacity key={t.id} style={[styles.teamSelectRow, blocked && { opacity: 0.5 }]}
+                                          onPress={() => !blocked && toggleTeamSelection(t.id)}
+                                          disabled={processing || blocked}>
                           <View style={styles.teamAvatar}><Text style={styles.teamAvatarText}>{t.name?.charAt(0).toUpperCase()}</Text></View>
-                          <Text style={styles.teamSelectName}>{t.name} {isRegistered ? '(Registered)' : ''}</Text>
+                          <Text style={styles.teamSelectName}>
+                            {t.name} {isRegistered ? '(Registered)' : isPending ? '(Requested)' : ''}
+                          </Text>
                           <View style={{ flex: 1 }} />
                           {isSelected && <Icon name="check-circle" size={20} color={DS.lime} />}
-                          {!isSelected && !isRegistered && <Icon name="circle-outline" size={20} color={DS.textMuted} />}
+                          {!isSelected && !blocked && <Icon name="circle-outline" size={20} color={DS.textMuted} />}
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
+                  {/* A line of context, so the organiser doesn't have to open a
+                      chat just to find out who you are. */}
+                  {pickerMode === 'join' && (
+                    <TextInput
+                      style={styles.noteInput}
+                      placeholder="Add a note for the organiser (optional)"
+                      placeholderTextColor={DS.textMuted}
+                      value={requestNote}
+                      onChangeText={setRequestNote}
+                      maxLength={280}
+                      multiline
+                    />
+                  )}
                   <TouchableOpacity
                     style={[styles.primaryBtn, { marginTop: 16 }, selectedTeamIds.size === 0 && { opacity: 0.5 }]}
                     onPress={handleRegisterSelectedTeams}
@@ -1311,6 +1346,25 @@ const makeStyles = (DS) => StyleSheet.create({
   // Decline / Approve get real hit targets instead of being crammed inline.
   requestCard: { marginBottom: 4 },
   requestActions: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, paddingBottom: 4 },
+  teamRecord: { fontSize: 11, color: DS.textMuted, marginTop: 2 },
+  // The requester's own words — quoted and indented so it reads as theirs,
+  // not as UI copy.
+  requestNote: {
+    fontSize: 12, color: DS.textVariant, fontStyle: 'italic',
+    marginTop: 8, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: DS.border,
+  },
+  noteInput: {
+    marginTop: 12, minHeight: 44, maxHeight: 88,
+    backgroundColor: DS.surfaceLow, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 13, color: DS.textPrimary,
+    borderWidth: 1, borderColor: DS.border, textAlignVertical: 'top',
+  },
+  unreadDot: {
+    minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4,
+    backgroundColor: DS.live, alignItems: 'center', justifyContent: 'center', marginLeft: 2,
+  },
+  unreadDotText: { fontSize: 9, fontWeight: '900', color: DS.white },
   msgBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10,

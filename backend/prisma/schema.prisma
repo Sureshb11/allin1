@@ -464,6 +464,10 @@ model ChatMember {
   user       User     @relation(fields: [userId], references: [id])
   userId     String
   joinedAt   DateTime @default(now())
+  // When this member last opened the room. Null = never, so everything counts
+  // as unread. Drives the unread dot — without it there's no way to know a
+  // reply landed without opening the chat.
+  lastReadAt DateTime?
 
   @@unique([chatRoomId, userId])
 }
@@ -628,6 +632,9 @@ model TournamentTeam {
   // Direct room between the requester and the organiser, created lazily on the
   // first message so a request nobody discusses doesn't leave an empty room.
   chatRoomId    String?
+  // One line the requester sends with the request ("we're free weekends"), so
+  // the organiser has context without having to open a chat and ask.
+  requestNote   String?
 
   @@unique([tournamentId, teamId])
 }

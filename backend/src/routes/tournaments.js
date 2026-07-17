@@ -238,7 +238,7 @@ router.post('/:id/teams', authMiddleware, requireOrganizer, async (req, res) => 
 // must approve. Any logged-in user may request, but only with a team they own.
 router.post('/:id/join-requests', authMiddleware, async (req, res) => {
   try {
-    const { teamId, group = 'A' } = req.body;
+    const { teamId, group = 'A', note } = req.body;
     if (!teamId) return res.status(400).json({ error: 'teamId required' });
     const [tournament, team] = await Promise.all([
       prisma.tournament.findUnique({ where: { id: req.params.id }, select: { sport: true, name: true, organizerId: true } }),
@@ -263,7 +263,11 @@ router.post('/:id/join-requests', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: `Sport mismatch: ${team.name} is a ${team.sport} team but ${tournament.name} is a ${tournament.sport} tournament.` });
     }
     const entry = await prisma.tournamentTeam.create({
-      data: { tournamentId: req.params.id, teamId, group, status: 'pending', requestedById: req.user.sub },
+      data: {
+        tournamentId: req.params.id, teamId, group, status: 'pending', requestedById: req.user.sub,
+        // Trimmed and capped: it's a one-line pitch on a card, not a document.
+        requestNote: typeof note === 'string' && note.trim() ? note.trim().slice(0, 280) : null,
+      },
       include: { team: true },
     });
     // Ping the organiser that a team wants in.
@@ -304,16 +308,64 @@ router.get('/:id/join-requests', authMiddleware, requireOrganizer, async (req, r
     // Rows created before requestedById existed (and organiser-added teams)
     // have none, so the client must tolerate a null requester.
     const ids = [...new Set(requests.map((r) => r.requestedById).filter(Boolean))];
-    const users = ids.length
-      ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true, phone: true } })
-      : [];
+    const teamIds = requests.map((r) => r.teamId);
+    const roomIds = requests.map((r) => r.chatRoomId).filter(Boolean);
+
+    const [users, played, myMemberships] = await Promise.all([
+      ids.length
+        ? prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true, phone: true } })
+        : [],
+      // The team's record, so the organiser can judge without asking. Same
+      // derivation as GET /teams: Match.result is free text, matched against the
+      // team's own name; a tie counts as played but neither won nor lost.
+      teamIds.length
+        ? prisma.match.findMany({
+            where: { status: 'completed', OR: [{ team1Id: { in: teamIds } }, { team2Id: { in: teamIds } }] },
+            select: { team1Id: true, team2Id: true, result: true },
+          })
+        : [],
+      // Unread replies waiting for the organiser in each request's room.
+      roomIds.length
+        ? prisma.chatMember.findMany({ where: { chatRoomId: { in: roomIds }, userId: req.user.sub }, select: { chatRoomId: true, lastReadAt: true } })
+        : [],
+    ]);
+
     const byId = Object.fromEntries(users.map((u) => [u.id, u]));
+    const nameOfTeam = Object.fromEntries(requests.map((r) => [r.teamId, r.team?.name]));
+    const rec = {};
+    for (const id of teamIds) rec[id] = { matches: 0, wins: 0, losses: 0 };
+    for (const m of played) {
+      for (const id of [m.team1Id, m.team2Id]) {
+        if (!rec[id]) continue;
+        rec[id].matches += 1;
+        const res2 = m.result || '';
+        if (!res2 || /tie/i.test(res2)) continue;
+        if (nameOfTeam[id] && res2.startsWith(nameOfTeam[id])) rec[id].wins += 1;
+        else rec[id].losses += 1;
+      }
+    }
+
+    const readBy = Object.fromEntries(myMemberships.map((m) => [m.chatRoomId, m.lastReadAt]));
+    const unreadCounts = await Promise.all(requests.map((r) => {
+      if (!r.chatRoomId) return 0;
+      const since = readBy[r.chatRoomId];
+      return prisma.chatMessage.count({
+        where: {
+          chatRoomId: r.chatRoomId,
+          senderId: { not: req.user.sub },              // your own messages aren't unread
+          ...(since ? { createdAt: { gt: since } } : {}),
+        },
+      });
+    }));
+
     res.json({
-      requests: requests.map((r) => {
+      requests: requests.map((r, i) => {
         const u = r.requestedById ? byId[r.requestedById] : null;
         return {
           ...r,
           squadSize: r.team?.players?.length || 0,
+          record: rec[r.teamId],
+          unread: unreadCounts[i] || 0,
           requester: u ? { id: u.id, name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.phone } : null,
         };
       }),
