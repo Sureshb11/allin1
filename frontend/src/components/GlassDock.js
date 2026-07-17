@@ -19,10 +19,11 @@
 // on full-screen scoring routes (same rule the old bar used).
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/ThemeContext';
+import { useCurrentUser } from '../utils/currentUser';
 import AnimatedCricketBall from './CricketBall/AnimatedBall';
 import StadiumLightsIcon from './StadiumLightsIcon';
 
@@ -32,6 +33,7 @@ export default function GlassDock({
   state, navigation, sportIcon = 'cricket', sportName = 'My Cricket', homeRoute = 'CricketFeed',
 }) {
   const { colors: DS, isDark } = useTheme();
+  const me = useCurrentUser();          // logged-in user → "You" tab avatar
 
   const tabRoute = state.routes[state.index];
   const deep = tabRoute.state?.routes?.[tabRoute.state.index]?.name;
@@ -117,7 +119,10 @@ export default function GlassDock({
         </View>
         <Item id="pavilion"  glyph={(c) => <StadiumLightsIcon size={23} color={c} />}
               onPress={goTab('PavilionTab', 'Pavilion')} label="Pavilion" />
-        <Item id="profile"   icon="account-circle"      onPress={goProfile}                        label="You" />
+        <Item id="profile"   onPress={goProfile}                        label="You"
+              glyph={(c) => (me?.avatarUrl
+                ? <Image source={{ uri: me.avatarUrl }} style={[s.avatar, { borderColor: c }]} />
+                : <Icon name="account-circle" size={23} color={c} />)} />
       </View>
     </View>
   );
@@ -146,6 +151,8 @@ const makeStyles = (isDark, DS) => StyleSheet.create({
   label: { fontSize: 10.5, marginTop: 3, letterSpacing: 0.2, fontWeight: '500' },
   labelOn: { fontWeight: '700' },
   dot: { width: 4, height: 4, borderRadius: 2, marginTop: 3, backgroundColor: 'transparent' },
+  // "You" tab avatar — ring takes the current tint (green when selected).
+  avatar: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.6, backgroundColor: DS.surfaceHigh },
   ballSlot: { width: 68, alignItems: 'center' },
   ballLift: { marginTop: -30 },
 });
