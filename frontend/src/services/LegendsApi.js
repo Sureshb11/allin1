@@ -771,6 +771,26 @@ class LegendsApi {
     }
   }
 
+  // Match photos — added from a finished match, fanned out to both teams'
+  // galleries so they show up on each team's profile.
+  async getMatchPhotos(matchId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/photos`);
+      return { success: true, data: json.photos || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  async addMatchPhoto(matchId, { url, caption } = {}) {
+    try {
+      const json = await this.request(`/matches/${matchId}/photos`, { method: 'POST', body: { url, caption } });
+      return { success: true, data: json.photos || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Club Management
   async getClubs() {
     try {

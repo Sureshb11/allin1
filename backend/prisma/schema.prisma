@@ -322,9 +322,11 @@ model GalleryPhoto {
   caption   String?
   userId    String?
   teamId    String?
+  matchId   String?                    // set when the photo was added from a match
 
   @@index([userId, createdAt])
   @@index([teamId, createdAt])
+  @@index([matchId])
 }
 
 model Badge {

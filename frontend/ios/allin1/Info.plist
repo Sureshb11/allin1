@@ -33,6 +33,10 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take photos to add to your match and team galleries.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose photos to add to your profile, match and team galleries.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Selawik-Regular.ttf</string>

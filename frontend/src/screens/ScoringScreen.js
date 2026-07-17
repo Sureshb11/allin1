@@ -8,6 +8,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
+import MatchPhotos from '../components/MatchPhotos';
 import MatchAwardsModal from "../components/MatchAwardsModal";
 import PlayerAvatar from "../components/PlayerAvatar";
 import { BRAND_NAME, BRAND_TAGLINE } from "../components/BrandLogo";
@@ -1280,6 +1281,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <Icon name="whatsapp" size={18} color={DS.white} />
               <Text style={[styles.completeBtnText, { color: DS.white }]}>SHARE SCORE</Text>
             </TouchableOpacity>
+            <MatchPhotos matchId={matchData?.id} style={{ marginTop: 10 }} />
           </View>
         }
 
