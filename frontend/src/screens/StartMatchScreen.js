@@ -274,7 +274,11 @@ const StartMatchScreen = ({ navigation, route }) => {
   }, [fadeAnim, slideAnim]);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: true, headerBackVisible: true, headerTitle: 'Start Match' });
+    // No nav header: it read "Start Match" directly above this screen's own
+    // "CREATE NEW MATCH" headline — the same thing twice, costing the top third
+    // of the screen. The back arrow moves into the body (as on TournamentDetail),
+    // so losing the header doesn't strand anyone.
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   const [team2, setTeam2]       = useState(null);
@@ -400,9 +404,14 @@ const StartMatchScreen = ({ navigation, route }) => {
         keyboardShouldPersistTaps="handled"
         style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
       >
-        {/* ── Top label + Headline ────────────────── */}
-        <View style={s.topLabel}>
-          <Text style={s.topLabelText}>{(sport.name || 'New').toUpperCase()} · NEW SESSION</Text>
+        {/* ── Back + Top label + Headline ─────────── */}
+        <View style={s.topRow}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} hitSlop={10}>
+            <Icon name="arrow-left" size={22} color={K.text} />
+          </TouchableOpacity>
+          <View style={s.topLabel}>
+            <Text style={s.topLabelText}>{(sport.name || 'New').toUpperCase()} · NEW SESSION</Text>
+          </View>
         </View>
         <Text style={s.headline}>CREATE NEW MATCH</Text>
         <Text style={s.subheadline}>
@@ -706,14 +715,16 @@ const makeS = (K) => StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 20 },
 
   /* ── Top area ──────────────────────────────── */
+  // Back sits on the label's row: with the nav header gone this is the only way
+  // out, so it has to be visible without scrolling.
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, marginBottom: 12 },
+  backBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', marginLeft: -6 },
   topLabel: {
     alignSelf: 'flex-start',
     backgroundColor: K.limeDim,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    marginTop: 8,
-    marginBottom: 12,
   },
   topLabelText: {
     fontSize: 11,
