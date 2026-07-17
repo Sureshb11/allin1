@@ -346,6 +346,66 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Open (or create) the team's group chat. Any current member — the owner, an
+// admin, or a linked player (Player.userId = caller) — may open it. The room is
+// created on first use, and its membership is synced to the team's CURRENT
+// linked members every time it's opened: anyone added since last time is
+// invited in, anyone no longer on the team (and not the owner) is removed, so
+// access always matches the roster. Mirrors the join-request chat pattern.
+router.post('/:id/chat', authMiddleware, async (req, res) => {
+  try {
+    const teamId = req.params.id;
+    const uid = req.user.sub;
+    const team = await prisma.team.findUnique({ where: { id: teamId } });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+
+    const linkedPlayers = await prisma.player.findMany({
+      where: { teamId, userId: { not: null } }, select: { userId: true },
+    });
+    const memberIds = new Set(linkedPlayers.map((p) => p.userId));
+    if (team.ownerId) memberIds.add(team.ownerId);
+    if (!memberIds.has(uid)) {
+      return res.status(403).json({ error: 'Only team members can open the team chat' });
+    }
+
+    let roomId = team.chatRoomId;
+    if (roomId) {
+      const existing = await prisma.chatRoom.findUnique({ where: { id: roomId } });
+      if (!existing) roomId = null;   // was deleted out from under us — recreate below
+    }
+
+    if (!roomId) {
+      const room = await prisma.chatRoom.create({
+        data: {
+          name: `${team.name} · Team Chat`,
+          type: 'team',
+          members: { create: [...memberIds].map((userId) => ({ userId })) },
+        },
+      });
+      roomId = room.id;
+      await prisma.team.update({ where: { id: teamId }, data: { chatRoomId: roomId } });
+    } else {
+      // Sync membership: add anyone new, drop anyone who's no longer on the team.
+      const current = await prisma.chatMember.findMany({ where: { chatRoomId: roomId }, select: { userId: true } });
+      const currentIds = new Set(current.map((m) => m.userId));
+      const toAdd = [...memberIds].filter((id) => !currentIds.has(id));
+      const toRemove = [...currentIds].filter((id) => !memberIds.has(id));
+      if (toAdd.length) {
+        await prisma.chatMember.createMany({
+          data: toAdd.map((userId) => ({ chatRoomId: roomId, userId })), skipDuplicates: true,
+        });
+      }
+      if (toRemove.length) {
+        await prisma.chatMember.deleteMany({ where: { chatRoomId: roomId, userId: { in: toRemove } } });
+      }
+    }
+
+    res.json({ chatRoomId: roomId, name: `${team.name} · Team Chat` });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // Promote or demote a member as a team admin. Only an existing admin may do this.
 // The owner is always an admin (their status can't be toggled here).
 router.put('/:id/members/:playerId/admin', authMiddleware, async (req, res) => {

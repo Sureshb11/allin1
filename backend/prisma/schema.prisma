@@ -84,6 +84,7 @@ model Team {
   awards         Json?                      // [{ title, year?, note? }] — honours the admin adds
   foundedYear    Int?
   sport          String   @default("cricket")
+  chatRoomId     String?                    // the team's group chat (created on first open)
   ownerId        String?                    // the user who created/owns this team
   owner            User?          @relation("ownedTeams", fields: [ownerId], references: [id])
   players          Player[]

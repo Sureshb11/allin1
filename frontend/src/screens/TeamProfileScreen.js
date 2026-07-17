@@ -62,6 +62,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const [manageMember, setManageMember] = useState(null);
   const [manageForm, setManageForm] = useState({ role: '', jersey: '', isCaptain: false, isViceCaptain: false });
   const [savingMember, setSavingMember] = useState(false);
+  const [openingChat, setOpeningChat] = useState(false);
 
   const team = data?.team;
   // Admin rights come from the server: the owner plus any promoted member. This
@@ -86,6 +87,8 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const joinStatus = data?.viewerJoinStatus || 'none';
   const isOwner = joinStatus === 'owner';
   const isOutsider = joinStatus !== 'member' && joinStatus !== 'owner' && !isAdmin;
+  // Team chat is for people ON the team — owner, admin, or a plain linked member.
+  const canChat = isOwner || isAdmin || joinStatus === 'member';
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: true, headerBackVisible: true, headerTitle: 'Team Profile' });
@@ -293,6 +296,15 @@ const TeamProfileScreen = ({ navigation, route }) => {
     else showToast(res.error || 'Failed', 'error');
   };
 
+  const openTeamChat = async () => {
+    if (openingChat) return;
+    setOpeningChat(true);
+    const res = await legendsApi.openTeamChat(teamId);
+    setOpeningChat(false);
+    if (res.success) navigation.navigate('Chat', { chatId: res.chatRoomId, chatName: res.name });
+    else showToast(res.error || 'Could not open team chat', 'error');
+  };
+
   if (loading) {
     return <View style={[styles.container, styles.center]}><ActivityIndicator size="large" color={DS.lime} /></View>;
   }
@@ -345,12 +357,19 @@ const TeamProfileScreen = ({ navigation, route }) => {
           </Text>
         </View>
 
-        {isAdmin && (
-          <TouchableOpacity style={styles.editProfileBtn} onPress={() => navigation.navigate('EditTeamProfile', { teamId })}>
-            <Icon name="pencil" size={14} color={DS.lime} />
-            <Text style={styles.editProfileTxt}>Edit</Text>
-          </TouchableOpacity>
-        )}
+        <View style={styles.identityActions}>
+          {canChat && (
+            <TouchableOpacity style={styles.chatBtn} onPress={openTeamChat} disabled={openingChat}>
+              {openingChat ? <ActivityIndicator size="small" color={DS.lime} /> : <Icon name="chat-outline" size={18} color={DS.lime} />}
+            </TouchableOpacity>
+          )}
+          {isAdmin && (
+            <TouchableOpacity style={styles.editProfileBtn} onPress={() => navigation.navigate('EditTeamProfile', { teamId })}>
+              <Icon name="pencil" size={14} color={DS.lime} />
+              <Text style={styles.editProfileTxt}>Edit</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {team.bio ? <Text style={styles.bio}>{team.bio}</Text> : null}
@@ -855,8 +874,13 @@ const makeStyles = (DS) => StyleSheet.create({
   identityText: { flex: 1, marginLeft: 12, marginBottom: 4 },
   teamName: { fontSize: 21, fontWeight: '900', color: DS.textPrimary },
   teamMeta: { fontSize: 13, color: DS.textMuted, marginTop: 2 },
+  identityActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  chatBtn: {
+    width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: DS.lime,
+  },
   editProfileBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
     borderWidth: 1, borderColor: DS.lime, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
   },
   editProfileTxt: { color: DS.lime, fontSize: 12, fontWeight: '800' },
