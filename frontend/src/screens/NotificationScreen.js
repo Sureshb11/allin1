@@ -76,9 +76,11 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
         style={[styles.notificationCard, !item.read && styles.unreadNotification]}
         onPress={() => {
           if (!item.read) markAsRead(item.id);
-          // Deep-link: tournament notifications carry { tournamentId }.
+          // Deep-link on whatever id the payload carries. A notification that
+          // goes nowhere when tapped is worse than none — it looks broken.
           if (item.data?.tournamentId) navigation.navigate('TournamentDetail', { tournamentId: item.data.tournamentId });
           else if (item.data?.matchId) navigation.navigate('Scorecard', { matchId: item.data.matchId });
+          else if (item.data?.listingId) navigation.navigate('LookingFor');
           else if (item.type === 'achievement') navigation.navigate('BadgeDetail');
         }}>
         <View style={styles.notificationContent}>
