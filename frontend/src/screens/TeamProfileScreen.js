@@ -18,7 +18,7 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import React, { useState, useEffect, useCallback, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, TextInput, TouchableOpacity,
-  ActivityIndicator, Modal, Dimensions, Alert,
+  ActivityIndicator, Modal, Dimensions, Alert, Switch,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -58,6 +58,10 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const [followerCount, setFollowerCount] = useState(0);
   const [insights, setInsights] = useState(null);
   const [joining, setJoining] = useState(false);
+  // Member-management modal (role, jersey, captaincy + admin/owner/remove)
+  const [manageMember, setManageMember] = useState(null);
+  const [manageForm, setManageForm] = useState({ role: '', jersey: '', isCaptain: false, isViceCaptain: false });
+  const [savingMember, setSavingMember] = useState(false);
 
   const team = data?.team;
   // Admin rights come from the server: the owner plus any promoted member. This
@@ -168,6 +172,28 @@ const TeamProfileScreen = ({ navigation, route }) => {
   };
 
   const openMember = (m) => navigation.navigate('PlayerInsights', { playerId: m.id });
+
+  const openManage = (m) => {
+    setManageForm({
+      role: m.role || '', jersey: m.jerseyNumber != null ? String(m.jerseyNumber) : '',
+      isCaptain: !!m.isCaptain, isViceCaptain: !!m.isViceCaptain,
+    });
+    setManageMember(m);
+  };
+  const closeManage = () => setManageMember(null);
+
+  const saveMember = async () => {
+    setSavingMember(true);
+    const res = await legendsApi.updatePlayer(manageMember.id, {
+      role: manageForm.role.trim() || undefined,
+      jerseyNumber: manageForm.jersey === '' ? null : parseInt(manageForm.jersey, 10),
+      isCaptain: manageForm.isCaptain,
+      isViceCaptain: manageForm.isViceCaptain,
+    });
+    setSavingMember(false);
+    if (res.success) { closeManage(); await load(); showToast('Member updated.', 'success'); }
+    else showToast(res.error || 'Failed to save', 'error');
+  };
 
   const transferOwner = (m) => {
     Alert.alert(
@@ -377,10 +403,10 @@ const TeamProfileScreen = ({ navigation, route }) => {
           <SquadTab
             members={data.members || []} isAdmin={isAdmin} styles={styles} DS={DS}
             newMember={newMember} setNewMember={setNewMember} addMember={addMember}
-            addingMember={addingMember} removeMember={removeMember} setMemberAdmin={setMemberAdmin}
+            addingMember={addingMember}
             canLeave={!!myMembership && !myMembership.isOwner} onLeave={leaveTeam}
             joinRequests={data.joinRequests || []} onApprove={approveJoin} onReject={rejectJoin}
-            onOpenMember={openMember} isOwner={isOwner} onTransfer={transferOwner} onDelete={deleteTeam} />
+            onOpenMember={openMember} isOwner={isOwner} onManage={openManage} onDelete={deleteTeam} />
         )}
         {tab === 'matches' && (
           <MatchesTab matches={data.recentMatches || []} teamId={teamId} navigation={navigation} styles={styles} DS={DS} />
@@ -428,6 +454,81 @@ const TeamProfileScreen = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
+
+      {/* ── Manage-member modal (role, jersey, captaincy + admin/owner/remove) ── */}
+      <Modal visible={!!manageMember} transparent animationType="fade" onRequestClose={closeManage}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{manageMember?.name}</Text>
+
+            <Text style={styles.fieldLabel}>Role</Text>
+            {isCricket && (
+              <View style={styles.chipWrap}>
+                {['Batter', 'Bowler', 'All-rounder', 'Keeper'].map((r) => (
+                  <TouchableOpacity key={r} onPress={() => setManageForm((f) => ({ ...f, role: r }))}
+                    style={[styles.roleChip, manageForm.role === r && styles.roleChipOn]}>
+                    <Text style={[styles.roleChipTxt, manageForm.role === r && styles.roleChipTxtOn]}>{r}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <TextInput style={styles.modalInput} placeholder="Role" placeholderTextColor={DS.textMuted}
+              value={manageForm.role} onChangeText={(t) => setManageForm((f) => ({ ...f, role: t }))} />
+
+            <Text style={styles.fieldLabel}>Jersey number</Text>
+            <TextInput style={styles.modalInput} placeholder="e.g. 7" placeholderTextColor={DS.textMuted}
+              keyboardType="number-pad" maxLength={3} value={manageForm.jersey}
+              onChangeText={(t) => setManageForm((f) => ({ ...f, jersey: t.replace(/[^0-9]/g, '') }))} />
+
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLbl}>Captain</Text>
+              <Switch value={manageForm.isCaptain} trackColor={{ true: DS.lime }}
+                onValueChange={(v) => setManageForm((f) => ({ ...f, isCaptain: v, isViceCaptain: v ? false : f.isViceCaptain }))} />
+            </View>
+            <View style={styles.toggleRow}>
+              <Text style={styles.toggleLbl}>Vice-captain</Text>
+              <Switch value={manageForm.isViceCaptain} trackColor={{ true: DS.lime }}
+                onValueChange={(v) => setManageForm((f) => ({ ...f, isViceCaptain: v, isCaptain: v ? false : f.isCaptain }))} />
+            </View>
+
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={styles.modalCancel} onPress={closeManage}>
+                <Text style={styles.modalCancelTxt}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirm} onPress={saveMember} disabled={savingMember}>
+                {savingMember ? <ActivityIndicator size="small" color={DS.bg} /> : <Text style={styles.modalConfirmTxt}>Save</Text>}
+              </TouchableOpacity>
+            </View>
+
+            {/* Secondary admin actions */}
+            {manageMember && (
+              <View style={styles.manageActions}>
+                {!manageMember.isOwner && !!manageMember.userId && (
+                  <TouchableOpacity style={styles.manageAction}
+                    onPress={() => { const m = manageMember; closeManage(); setMemberAdmin(m, !m.isAdmin); }}>
+                    <Icon name={manageMember.isAdmin ? 'shield-off-outline' : 'shield-account-outline'} size={18} color={DS.textPrimary} />
+                    <Text style={styles.manageActionTxt}>{manageMember.isAdmin ? 'Remove admin' : 'Make admin'}</Text>
+                  </TouchableOpacity>
+                )}
+                {isOwner && !manageMember.isOwner && !!manageMember.userId && (
+                  <TouchableOpacity style={styles.manageAction}
+                    onPress={() => { const m = manageMember; closeManage(); transferOwner(m); }}>
+                    <Icon name="crown-outline" size={18} color={DS.lime} />
+                    <Text style={styles.manageActionTxt}>Make owner</Text>
+                  </TouchableOpacity>
+                )}
+                {!manageMember.isOwner && (
+                  <TouchableOpacity style={styles.manageAction}
+                    onPress={() => { const m = manageMember; closeManage(); removeMember(m); }}>
+                    <Icon name="account-remove-outline" size={18} color={DS.danger} />
+                    <Text style={[styles.manageActionTxt, { color: DS.danger }]}>Remove from team</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -440,7 +541,7 @@ const Stat = ({ label, value, styles }) => (
   </View>
 );
 
-const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMember, addingMember, removeMember, setMemberAdmin, canLeave, onLeave, joinRequests, onApprove, onReject, onOpenMember, isOwner, onTransfer, onDelete }) => (
+const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMember, addingMember, canLeave, onLeave, joinRequests, onApprove, onReject, onOpenMember, isOwner, onManage, onDelete }) => (
   <View>
     {/* Pending join requests — admins only. */}
     {isAdmin && joinRequests.length > 0 && (
@@ -478,48 +579,37 @@ const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMe
       </View>
     )}
     {members.length === 0 && <Text style={styles.emptyTxt}>No members yet.</Text>}
-    {members.map((m) => {
-      // Owner/admin badge; owner can't be edited. Promote/demote is offered to
-      // admins for linked members that aren't the owner.
-      const canPromote = isAdmin && !m.isOwner && !!m.userId;
-      return (
-        <View key={m.id} style={styles.memberRow}>
-          <TouchableOpacity style={styles.memberMain} onPress={() => onOpenMember(m)} activeOpacity={0.7}>
-            <View style={styles.memberAvatar}><Text style={styles.memberInitial}>{initials(m.name)}</Text></View>
-            <View style={{ flex: 1 }}>
-              <View style={styles.memberNameRow}>
-                <Text style={styles.memberName}>{m.name}</Text>
-                {m.isOwner
-                  ? <View style={styles.roleBadge}><Text style={styles.roleBadgeTxt}>OWNER</Text></View>
-                  : m.isAdmin
-                    ? <View style={styles.roleBadge}><Text style={styles.roleBadgeTxt}>ADMIN</Text></View>
-                    : null}
-              </View>
-              <Text style={styles.memberRole}>{m.role || 'Player'}</Text>
+    {members.map((m) => (
+      <View key={m.id} style={styles.memberRow}>
+        <TouchableOpacity style={styles.memberMain} onPress={() => onOpenMember(m)} activeOpacity={0.7}>
+          <View style={styles.memberAvatar}>
+            <Text style={styles.memberInitial}>{initials(m.name)}</Text>
+            {m.jerseyNumber != null && (
+              <View style={styles.jerseyBadge}><Text style={styles.jerseyTxt}>{m.jerseyNumber}</Text></View>
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={styles.memberNameRow}>
+              <Text style={styles.memberName}>{m.name}</Text>
+              {m.isCaptain && <View style={styles.capBadge}><Text style={styles.capTxt}>C</Text></View>}
+              {m.isViceCaptain && <View style={styles.viceBadge}><Text style={styles.viceTxt}>VC</Text></View>}
+              {m.isOwner
+                ? <View style={styles.roleBadge}><Text style={styles.roleBadgeTxt}>OWNER</Text></View>
+                : m.isAdmin
+                  ? <View style={styles.roleBadge}><Text style={styles.roleBadgeTxt}>ADMIN</Text></View>
+                  : null}
             </View>
+            <Text style={styles.memberRole}>{m.role || 'Player'}</Text>
+          </View>
+        </TouchableOpacity>
+        {isAdmin && (
+          <TouchableOpacity onPress={() => onManage(m)}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} style={styles.memberAction}>
+            <Icon name="pencil-outline" size={19} color={DS.textMuted} />
           </TouchableOpacity>
-          {isOwner && !m.isOwner && !!m.userId && (
-            <TouchableOpacity onPress={() => onTransfer(m)}
-              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} style={styles.memberAction}>
-              <Icon name="crown-outline" size={20} color={DS.lime} />
-            </TouchableOpacity>
-          )}
-          {canPromote && (
-            <TouchableOpacity onPress={() => setMemberAdmin(m, !m.isAdmin)}
-              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} style={styles.memberAction}>
-              <Icon name={m.isAdmin ? 'shield-off-outline' : 'shield-account-outline'}
-                size={21} color={m.isAdmin ? DS.textMuted : DS.lime} />
-            </TouchableOpacity>
-          )}
-          {isAdmin && !m.isOwner && (
-            <TouchableOpacity onPress={() => removeMember(m)}
-              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} style={styles.memberAction}>
-              <Icon name="close-circle-outline" size={22} color={DS.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-      );
-    })}
+        )}
+      </View>
+    ))}
     {canLeave && (
       <TouchableOpacity style={styles.leaveBtn} onPress={onLeave}>
         <Icon name="exit-run" size={18} color={DS.danger} />
@@ -833,6 +923,15 @@ const makeStyles = (DS) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
   memberInitial: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  jerseyBadge: {
+    position: 'absolute', bottom: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 3,
+    backgroundColor: DS.surfaceHighest, borderWidth: 1.5, borderColor: DS.bg, alignItems: 'center', justifyContent: 'center',
+  },
+  jerseyTxt: { fontSize: 9.5, fontWeight: '900', color: DS.textPrimary },
+  capBadge: { width: 18, height: 18, borderRadius: 9, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
+  capTxt: { fontSize: 10, fontWeight: '900', color: DS.bg },
+  viceBadge: { paddingHorizontal: 5, height: 18, borderRadius: 9, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
+  viceTxt: { fontSize: 9, fontWeight: '900', color: DS.lime },
   memberNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   memberName: { color: DS.textPrimary, fontSize: 15, fontWeight: '600' },
   memberRole: { color: DS.textMuted, fontSize: 12, marginTop: 2 },
@@ -928,8 +1027,19 @@ const makeStyles = (DS) => StyleSheet.create({
   modalBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 4 },
   modalCancel: { paddingHorizontal: 18, paddingVertical: 11, borderRadius: 10, backgroundColor: DS.surfaceHighest },
   modalCancelTxt: { color: DS.textMuted, fontWeight: '700', fontSize: 14 },
-  modalConfirm: { paddingHorizontal: 20, paddingVertical: 11, borderRadius: 10, backgroundColor: DS.lime },
+  modalConfirm: { paddingHorizontal: 20, paddingVertical: 11, borderRadius: 10, backgroundColor: DS.lime, minWidth: 76, alignItems: 'center' },
   modalConfirmTxt: { color: DS.bg, fontWeight: '800', fontSize: 14 },
+  fieldLabel: { fontSize: 12, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: 8, marginTop: 4 },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  roleChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, backgroundColor: DS.surfaceLow, borderWidth: 1, borderColor: DS.faint },
+  roleChipOn: { backgroundColor: DS.lime, borderColor: DS.lime },
+  roleChipTxt: { fontSize: 12.5, fontWeight: '700', color: DS.textVariant },
+  roleChipTxtOn: { color: DS.bg },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
+  toggleLbl: { fontSize: 15, fontWeight: '600', color: DS.textPrimary },
+  manageActions: { borderTopWidth: 1, borderTopColor: DS.faint, marginTop: 14, paddingTop: 8 },
+  manageAction: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  manageActionTxt: { fontSize: 15, fontWeight: '600', color: DS.textPrimary },
 });
 
 export default TeamProfileScreen;

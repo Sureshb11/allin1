@@ -139,6 +139,9 @@ model Player {
   user      User?    @relation(fields: [userId], references: [id])
   userId    String?
   isAdmin   Boolean  @default(false)   // team admin: can manage the team like the owner
+  jerseyNumber  Int?                    // shirt number within the team
+  isCaptain     Boolean @default(false) // team captain (one per team)
+  isViceCaptain Boolean @default(false) // vice-captain (one per team)
   stats     Json?
 
   matchPlayers MatchPlayer[]

@@ -482,7 +482,14 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
       ...p,
       isAdmin: !!p.isAdmin || (!!team.ownerId && p.userId === team.ownerId),
       isOwner: !!team.ownerId && p.userId === team.ownerId,
-    }));
+    })).sort((a, b) => {
+      // Captain first, then vice-captain, then by shirt number, then name.
+      const rank = (m) => (m.isCaptain ? 0 : m.isViceCaptain ? 1 : 2);
+      if (rank(a) !== rank(b)) return rank(a) - rank(b);
+      const ja = a.jerseyNumber ?? 9999, jb = b.jerseyNumber ?? 9999;
+      if (ja !== jb) return ja - jb;
+      return (a.name || '').localeCompare(b.name || '');
+    });
     const viewerId = req.user.sub;
     const viewerIsAdmin = await isTeamAdmin(teamId, viewerId);
 

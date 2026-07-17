@@ -741,6 +741,16 @@ class LegendsApi {
     }
   }
 
+  // Edit a squad member — role, jersey number, captain/vice-captain (admin only).
+  async updatePlayer(playerId, data) {
+    try {
+      const json = await this.request(`/players/${playerId}`, { method: 'PUT', body: data });
+      return { success: true, data: json.player };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Remove a player from a team's squad (team admin only).
   async deletePlayer(playerId) {
     try {
