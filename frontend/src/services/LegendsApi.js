@@ -771,6 +771,35 @@ class LegendsApi {
     }
   }
 
+  // Request to join a team (creates a pending request for admins to approve).
+  async requestToJoinTeam(teamId, note) {
+    try {
+      await this.request(`/teams/${teamId}/join-requests`, { method: 'POST', body: { note } });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Approve / reject a pending join request (team admins only).
+  async approveTeamJoinRequest(teamId, userId) {
+    try {
+      await this.request(`/teams/${teamId}/join-requests/${userId}/approve`, { method: 'POST' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async rejectTeamJoinRequest(teamId, userId) {
+    try {
+      await this.request(`/teams/${teamId}/join-requests/${userId}/reject`, { method: 'POST' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Match photos — added from a finished match, fanned out to both teams'
   // galleries so they show up on each team's profile.
   async getMatchPhotos(matchId) {

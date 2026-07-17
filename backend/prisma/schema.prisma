@@ -99,6 +99,22 @@ model Team {
   @@index([ownerId])
 }
 
+// A user's request to join a team. Admins approve (→ creates a Player linked to
+// the user) or reject. One row per user+team; re-requesting resets it to pending.
+model TeamJoinRequest {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  teamId    String
+  userId    String
+  status    String   @default("pending")   // pending | approved | rejected
+  note      String?
+
+  @@unique([teamId, userId])
+  @@index([teamId, status])
+  @@index([userId])
+}
+
 // A user following a team (the "Followed" category in Teams).
 model TeamFollow {
   id        String   @id @default(cuid())

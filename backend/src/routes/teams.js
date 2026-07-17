@@ -204,6 +204,68 @@ router.post('/:id/leave', authMiddleware, async (req, res) => {
   }
 });
 
+// Request to join a team. Anyone signed in who isn't already the owner or a
+// member can ask; re-requesting after a rejection resets it to pending.
+router.post('/:id/join-requests', authMiddleware, async (req, res) => {
+  try {
+    const teamId = req.params.id;
+    const uid = req.user.sub;
+    const team = await prisma.team.findUnique({ where: { id: teamId }, select: { ownerId: true } });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    if (team.ownerId === uid) return res.status(400).json({ error: 'You already own this team' });
+    const already = await prisma.player.findFirst({ where: { teamId, userId: uid }, select: { id: true } });
+    if (already) return res.status(400).json({ error: 'You are already a member' });
+
+    const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 300) : null;
+    const request = await prisma.teamJoinRequest.upsert({
+      where: { teamId_userId: { teamId, userId: uid } },
+      create: { teamId, userId: uid, note, status: 'pending' },
+      update: { note, status: 'pending' },
+    });
+    res.status(201).json({ request });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Approve a join request → adds the requester as a player on the team. Admin only.
+router.post('/:id/join-requests/:userId/approve', authMiddleware, async (req, res) => {
+  try {
+    const { id: teamId, userId } = req.params;
+    if (!(await isTeamAdmin(teamId, req.user.sub))) {
+      return res.status(403).json({ error: 'Only a team admin can approve requests' });
+    }
+    const reqRow = await prisma.teamJoinRequest.findUnique({ where: { teamId_userId: { teamId, userId } } });
+    if (!reqRow) return res.status(404).json({ error: 'Request not found' });
+
+    const team = await prisma.team.findUnique({ where: { id: teamId }, select: { sport: true } });
+    const existing = await prisma.player.findFirst({ where: { teamId, userId } });
+    if (!existing) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });
+      const name = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Player';
+      await prisma.player.create({ data: { name, role: 'Player', teamId, userId, sport: team?.sport || 'cricket' } });
+    }
+    await prisma.teamJoinRequest.update({ where: { teamId_userId: { teamId, userId } }, data: { status: 'approved' } });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Reject a join request. Admin only.
+router.post('/:id/join-requests/:userId/reject', authMiddleware, async (req, res) => {
+  try {
+    const { id: teamId, userId } = req.params;
+    if (!(await isTeamAdmin(teamId, req.user.sub))) {
+      return res.status(403).json({ error: 'Only a team admin can reject requests' });
+    }
+    await prisma.teamJoinRequest.updateMany({ where: { teamId, userId }, data: { status: 'rejected' } });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // Edit a team — any team admin (owner or a promoted member) may change its
 // profile, logo, cover, achievements and awards. Legacy teams with no recorded
 // owner stay editable by anyone signed in, and get claimed by the first editor.
@@ -441,10 +503,50 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
       where: { teamId }, orderBy: { createdAt: 'desc' }, take: 60,
     });
 
+    // Followers + the viewer's relationship to the team (member / owner / a
+    // pending or rejected join request / none), so the UI can show the right CTA.
+    const [followerCount, viewerFollow, viewerRequest] = await Promise.all([
+      prisma.teamFollow.count({ where: { teamId } }),
+      prisma.teamFollow.findUnique({ where: { userId_teamId: { userId: viewerId, teamId } } }).catch(() => null),
+      prisma.teamJoinRequest.findUnique({ where: { teamId_userId: { teamId, userId: viewerId } } }).catch(() => null),
+    ]);
+    const isMember = membersWithRole.some((m) => m.userId === viewerId);
+    const viewerJoinStatus = membersWithRole.find((m) => m.userId === viewerId)?.isOwner
+      ? 'owner'
+      : isMember ? 'member'
+      : (viewerRequest?.status || 'none');   // pending | rejected | none
+
+    // Pending join requests (admins only) — with requester name/avatar for the list.
+    let joinRequests = [];
+    if (viewerIsAdmin) {
+      const pending = await prisma.teamJoinRequest.findMany({
+        where: { teamId, status: 'pending' }, orderBy: { createdAt: 'asc' },
+      });
+      if (pending.length) {
+        const users = await prisma.user.findMany({
+          where: { id: { in: pending.map((p) => p.userId) } },
+          select: { id: true, firstName: true, lastName: true, avatarUrl: true, city: true },
+        });
+        const byId = Object.fromEntries(users.map((u) => [u.id, u]));
+        joinRequests = pending.map((p) => {
+          const u = byId[p.userId] || {};
+          return {
+            userId: p.userId, note: p.note, createdAt: p.createdAt,
+            name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Player',
+            avatarUrl: u.avatarUrl || null, city: u.city || null,
+          };
+        });
+      }
+    }
+
     res.json({
       team,
       members: membersWithRole,
       viewerIsAdmin,
+      followerCount,
+      viewerIsFollowing: !!viewerFollow,
+      viewerJoinStatus,
+      joinRequests,
       recentMatches,
       stats,
       leaderboard: leaderboard.slice(0, 10),

@@ -53,6 +53,11 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const [addingMember, setAddingMember] = useState(false);
   const [awardModal, setAwardModal] = useState(false);
   const [award, setAward] = useState({ title: '', year: '', note: '' });
+  // Follow + insights + join state
+  const [following, setFollowing] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [insights, setInsights] = useState(null);
+  const [joining, setJoining] = useState(false);
 
   const team = data?.team;
   // Admin rights come from the server: the owner plus any promoted member. This
@@ -69,10 +74,13 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const tabs = [
     ['squad', 'Squad', 'account-group'],
     ['matches', 'Matches', sportIcon],
+    ['form', 'Form', 'chart-line'],
     ['standings', 'Standings', 'trophy-variant'],
     ['honours', 'Honours', 'medal'],
     ['gallery', 'Gallery', 'image-multiple'],
   ];
+  const joinStatus = data?.viewerJoinStatus || 'none';
+  const isOutsider = joinStatus !== 'member' && joinStatus !== 'owner' && !isAdmin;
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: true, headerBackVisible: true, headerTitle: 'Team Profile' });
@@ -80,12 +88,22 @@ const TeamProfileScreen = ({ navigation, route }) => {
 
   const load = useCallback(async () => {
     const res = await legendsApi.getTeamProfile(teamId);
-    if (res.success) setData(res.data);
-    else showToast(res.error || 'Could not load team', 'error');
+    if (res.success) {
+      setData(res.data);
+      setFollowing(!!res.data.viewerIsFollowing);
+      setFollowerCount(res.data.followerCount || 0);
+    } else showToast(res.error || 'Could not load team', 'error');
     setLoading(false);
   }, [teamId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Lazy-load form + top performers the first time the Form tab is opened.
+  useEffect(() => {
+    if (tab === 'form' && !insights && teamId) {
+      legendsApi.getTeamInsights(teamId).then((r) => { if (r.success) setInsights(r.data); });
+    }
+  }, [tab, insights, teamId]);
 
   // ── Admin actions ──────────────────────────────────────────────────────────
   const changeImage = async (field) => {
@@ -115,6 +133,40 @@ const TeamProfileScreen = ({ navigation, route }) => {
     if (res.success) { await load(); showToast(`${player.name} removed.`, 'success'); }
     else showToast(res.error || 'Failed to remove', 'error');
   };
+
+  const toggleFollow = async () => {
+    const next = !following;
+    setFollowing(next);
+    setFollowerCount((c) => Math.max(0, c + (next ? 1 : -1)));
+    const res = next ? await legendsApi.followTeam(teamId) : await legendsApi.unfollowTeam(teamId);
+    if (!res.success) {   // revert on failure
+      setFollowing(!next);
+      setFollowerCount((c) => Math.max(0, c + (next ? -1 : 1)));
+      showToast(res.error || 'Could not update', 'error');
+    }
+  };
+
+  const requestJoin = async () => {
+    setJoining(true);
+    const res = await legendsApi.requestToJoinTeam(teamId);
+    setJoining(false);
+    if (res.success) { await load(); showToast('Request sent to the team admins.', 'success'); }
+    else showToast(res.error || 'Could not send request', 'error');
+  };
+
+  const approveJoin = async (userId, name) => {
+    const res = await legendsApi.approveTeamJoinRequest(teamId, userId);
+    if (res.success) { await load(); showToast(`${name} added to the team.`, 'success'); }
+    else showToast(res.error || 'Failed', 'error');
+  };
+
+  const rejectJoin = async (userId) => {
+    const res = await legendsApi.rejectTeamJoinRequest(teamId, userId);
+    if (res.success) await load();
+    else showToast(res.error || 'Failed', 'error');
+  };
+
+  const openMember = (m) => navigation.navigate('PlayerInsights', { playerId: m.id });
 
   const setMemberAdmin = async (player, makeAdmin) => {
     const res = await legendsApi.setTeamMemberAdmin(teamId, player.id, makeAdmin);
@@ -226,6 +278,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
           <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
           <Text style={styles.teamMeta} numberOfLines={1}>
             {[team.city, team.homeGround].filter(Boolean).join(' · ') || (team.sport || 'cricket')}
+            {`  ·  ${followerCount} follower${followerCount === 1 ? '' : 's'}`}
           </Text>
         </View>
 
@@ -238,6 +291,27 @@ const TeamProfileScreen = ({ navigation, route }) => {
       </View>
 
       {team.bio ? <Text style={styles.bio}>{team.bio}</Text> : null}
+
+      {/* ── Follow / Request-to-join (for people not on the team) ── */}
+      {isOutsider && (
+        <View style={styles.ctaRow}>
+          <TouchableOpacity style={[styles.ctaBtn, following && styles.ctaBtnActive]} onPress={toggleFollow}>
+            <Icon name={following ? 'heart' : 'heart-outline'} size={16} color={following ? DS.bg : DS.lime} />
+            <Text style={[styles.ctaTxt, following && { color: DS.bg }]}>{following ? 'Following' : 'Follow'}</Text>
+          </TouchableOpacity>
+          {joinStatus === 'pending' ? (
+            <View style={[styles.ctaBtn, styles.ctaBtnMuted]}>
+              <Icon name="clock-outline" size={16} color={DS.textMuted} />
+              <Text style={[styles.ctaTxt, { color: DS.textMuted }]}>Requested</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.ctaBtnPrimary} onPress={requestJoin} disabled={joining}>
+              {joining ? <ActivityIndicator size="small" color={DS.bg} />
+                : <><Icon name="account-plus" size={16} color={DS.bg} /><Text style={[styles.ctaTxt, { color: DS.bg }]}>Request to Join</Text></>}
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* ── Stats strip ── */}
       <View style={styles.statStrip}>
@@ -267,10 +341,15 @@ const TeamProfileScreen = ({ navigation, route }) => {
             members={data.members || []} isAdmin={isAdmin} styles={styles} DS={DS}
             newMember={newMember} setNewMember={setNewMember} addMember={addMember}
             addingMember={addingMember} removeMember={removeMember} setMemberAdmin={setMemberAdmin}
-            canLeave={!!myMembership && !myMembership.isOwner} onLeave={leaveTeam} />
+            canLeave={!!myMembership && !myMembership.isOwner} onLeave={leaveTeam}
+            joinRequests={data.joinRequests || []} onApprove={approveJoin} onReject={rejectJoin}
+            onOpenMember={openMember} />
         )}
         {tab === 'matches' && (
           <MatchesTab matches={data.recentMatches || []} teamId={teamId} navigation={navigation} styles={styles} DS={DS} />
+        )}
+        {tab === 'form' && (
+          <FormTab insights={insights} isCricket={isCricket} styles={styles} DS={DS} />
         )}
         {tab === 'standings' && (
           <StandingsTab rows={data.leaderboard || []} styles={styles} DS={DS} />
@@ -324,8 +403,33 @@ const Stat = ({ label, value, styles }) => (
   </View>
 );
 
-const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMember, addingMember, removeMember, setMemberAdmin, canLeave, onLeave }) => (
+const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMember, addingMember, removeMember, setMemberAdmin, canLeave, onLeave, joinRequests, onApprove, onReject, onOpenMember }) => (
   <View>
+    {/* Pending join requests — admins only. */}
+    {isAdmin && joinRequests.length > 0 && (
+      <View style={styles.reqBox}>
+        <Text style={styles.blockLabel}>Join Requests ({joinRequests.length})</Text>
+        {joinRequests.map((r) => (
+          <View key={r.userId} style={styles.reqRow}>
+            <View style={styles.memberAvatar}>
+              {r.avatarUrl ? <Image source={{ uri: r.avatarUrl }} style={styles.reqAvatarImg} />
+                : <Text style={styles.memberInitial}>{initials(r.name)}</Text>}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.memberName}>{r.name}</Text>
+              {r.city ? <Text style={styles.memberRole}>{r.city}</Text> : null}
+            </View>
+            <TouchableOpacity style={styles.reqApprove} onPress={() => onApprove(r.userId, r.name)}>
+              <Icon name="check" size={18} color={DS.bg} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.reqReject} onPress={() => onReject(r.userId)}>
+              <Icon name="close" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
+          </View>
+        ))}
+      </View>
+    )}
+
     {isAdmin && (
       <View style={styles.addRow}>
         <TextInput style={styles.addInput} placeholder="Add member by name"
@@ -343,18 +447,20 @@ const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMe
       const canPromote = isAdmin && !m.isOwner && !!m.userId;
       return (
         <View key={m.id} style={styles.memberRow}>
-          <View style={styles.memberAvatar}><Text style={styles.memberInitial}>{initials(m.name)}</Text></View>
-          <View style={{ flex: 1 }}>
-            <View style={styles.memberNameRow}>
-              <Text style={styles.memberName}>{m.name}</Text>
-              {m.isOwner
-                ? <View style={styles.roleBadge}><Text style={styles.roleBadgeTxt}>OWNER</Text></View>
-                : m.isAdmin
-                  ? <View style={styles.roleBadge}><Text style={styles.roleBadgeTxt}>ADMIN</Text></View>
-                  : null}
+          <TouchableOpacity style={styles.memberMain} onPress={() => onOpenMember(m)} activeOpacity={0.7}>
+            <View style={styles.memberAvatar}><Text style={styles.memberInitial}>{initials(m.name)}</Text></View>
+            <View style={{ flex: 1 }}>
+              <View style={styles.memberNameRow}>
+                <Text style={styles.memberName}>{m.name}</Text>
+                {m.isOwner
+                  ? <View style={styles.roleBadge}><Text style={styles.roleBadgeTxt}>OWNER</Text></View>
+                  : m.isAdmin
+                    ? <View style={styles.roleBadge}><Text style={styles.roleBadgeTxt}>ADMIN</Text></View>
+                    : null}
+              </View>
+              <Text style={styles.memberRole}>{m.role || 'Player'}</Text>
             </View>
-            <Text style={styles.memberRole}>{m.role || 'Player'}</Text>
-          </View>
+          </TouchableOpacity>
           {canPromote && (
             <TouchableOpacity onPress={() => setMemberAdmin(m, !m.isAdmin)}
               hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} style={styles.memberAction}>
@@ -379,6 +485,55 @@ const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMe
     )}
   </View>
 );
+
+const FormTab = ({ insights, isCricket, styles, DS }) => {
+  if (!insights) return <ActivityIndicator color={DS.lime} style={{ marginTop: 24 }} />;
+  const form = insights.form || [];
+  const batters = insights.topBatters || [];
+  const bowlers = insights.topBowlers || [];
+  return (
+    <View>
+      <Text style={styles.blockLabel}>Recent Form</Text>
+      {form.length === 0 ? <Text style={styles.emptyTxt}>No completed matches yet.</Text> : (
+        <View style={styles.formRow}>
+          {form.map((f, i) => (
+            <View key={i} style={[styles.formPill, { backgroundColor: f.result === 'W' ? DS.success : DS.danger }]}>
+              <Text style={styles.formPillTxt}>{f.result}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {isCricket ? (
+        <>
+          {batters.length > 0 && (
+            <>
+              <Text style={[styles.blockLabel, { marginTop: 22 }]}>Top Batters</Text>
+              {batters.map((b, i) => (
+                <View key={i} style={styles.perfRow}>
+                  <Text style={styles.perfName} numberOfLines={1}>{b.player?.name || 'Player'}</Text>
+                  <Text style={styles.perfVal}>{b.runs} runs</Text>
+                </View>
+              ))}
+            </>
+          )}
+          {bowlers.length > 0 && (
+            <>
+              <Text style={[styles.blockLabel, { marginTop: 22 }]}>Top Bowlers</Text>
+              {bowlers.map((b, i) => (
+                <View key={i} style={styles.perfRow}>
+                  <Text style={styles.perfName} numberOfLines={1}>{b.player?.name || 'Player'}</Text>
+                  <Text style={styles.perfVal}>{b.wickets} wkts</Text>
+                </View>
+              ))}
+            </>
+          )}
+        </>
+      ) : (
+        <Text style={[styles.emptyTxt, { marginTop: 16 }]}>Player leaderboards are available for cricket.</Text>
+      )}
+    </View>
+  );
+};
 
 const MatchesTab = ({ matches, teamId, navigation, styles, DS }) => {
   if (matches.length === 0) return <Text style={styles.emptyTxt}>No matches yet.</Text>;
@@ -546,6 +701,19 @@ const makeStyles = (DS) => StyleSheet.create({
   editProfileTxt: { color: DS.lime, fontSize: 12, fontWeight: '800' },
   bio: { color: DS.textVariant, fontSize: 14, lineHeight: 20, paddingHorizontal: 16, marginTop: 12 },
 
+  ctaRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginTop: 14 },
+  ctaBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 11, borderRadius: 12, borderWidth: 1, borderColor: DS.lime,
+  },
+  ctaBtnActive: { backgroundColor: DS.lime },
+  ctaBtnMuted: { borderColor: DS.faint, backgroundColor: DS.surfaceHigh },
+  ctaBtnPrimary: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 11, borderRadius: 12, backgroundColor: DS.lime,
+  },
+  ctaTxt: { fontSize: 13.5, fontWeight: '800', color: DS.lime },
+
   statStrip: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surface,
     marginHorizontal: 16, marginTop: 16, borderRadius: 14, paddingVertical: 14,
@@ -570,6 +738,15 @@ const makeStyles = (DS) => StyleSheet.create({
   emptyTxt: { color: DS.textMuted, fontSize: 14, paddingVertical: 24, textAlign: 'center' },
 
   // Squad
+  memberMain: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  reqBox: {
+    backgroundColor: DS.surface, borderRadius: 14, padding: 14, marginBottom: 16,
+    borderWidth: 1, borderColor: DS.faint,
+  },
+  reqRow: { flexDirection: 'row', alignItems: 'center', paddingTop: 12 },
+  reqAvatarImg: { width: 40, height: 40, borderRadius: 20 },
+  reqApprove: { width: 34, height: 34, borderRadius: 17, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+  reqReject: { width: 34, height: 34, borderRadius: 17, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   addRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   addInput: {
     flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11,
@@ -610,6 +787,17 @@ const makeStyles = (DS) => StyleSheet.create({
   matchOpp: { color: DS.textPrimary, fontSize: 15, fontWeight: '700' },
   matchMeta: { color: DS.textMuted, fontSize: 12, marginTop: 2 },
   matchScore: { color: DS.textPrimary, fontSize: 13, fontWeight: '700', marginLeft: 8 },
+
+  // Form / performers
+  formRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  formPill: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  formPillTxt: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  perfRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: DS.faint,
+  },
+  perfName: { color: DS.textPrimary, fontSize: 14.5, fontWeight: '600', flex: 1, marginRight: 12 },
+  perfVal: { color: DS.lime, fontSize: 14, fontWeight: '800' },
 
   // Standings
   tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: DS.faint },
