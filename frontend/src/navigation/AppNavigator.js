@@ -43,6 +43,7 @@ import BallLabScreen from '../screens/BallLabScreen';
 import ClubProfileScreen from '../screens/ClubProfileScreen';
 import EditPlayerProfileScreen from '../screens/EditPlayerProfileScreen';
 import EditTeamProfileScreen from '../screens/EditTeamProfileScreen';
+import TeamProfileScreen from '../screens/TeamProfileScreen';
 import CreateProductScreen from '../screens/CreateProductScreen';
 import ProductDetailScreen from '../screens/ProductDetailScreen';
 import TournamentsScreen from '../screens/TournamentsScreen';
@@ -337,11 +338,21 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
         headerTintColor: DS.textPrimary,
       }}
     />
-    <Stack.Screen 
-      name="EditTeamProfile" 
+    <Stack.Screen
+      name="EditTeamProfile"
       component={EditTeamProfileScreen}
       options={{
         title: 'Edit Team Profile',
+        headerStyle: {backgroundColor: DS.surfaceLow},
+        headerTitleStyle: {color: DS.textPrimary},
+        headerTintColor: DS.textPrimary,
+      }}
+    />
+    <Stack.Screen
+      name="TeamProfile"
+      component={TeamProfileScreen}
+      options={{
+        title: 'Team Profile',
         headerStyle: {backgroundColor: DS.surfaceLow},
         headerTitleStyle: {color: DS.textPrimary},
         headerTintColor: DS.textPrimary,

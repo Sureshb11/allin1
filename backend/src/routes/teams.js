@@ -125,17 +125,25 @@ router.get('/:id', async (req, res) => {
   res.json({ team });
 });
 
+const AwardSchema = z.object({
+  title: z.string().min(1),
+  year: z.union([z.string(), z.number()]).optional(),
+  note: z.string().optional(),
+});
+
 const TeamSchema = z.object({
   name: z.string().min(1),
   sport: z.string().optional(),
   city: z.string().optional(),
   logoUrl: z.string().url().optional(),
+  coverUrl: z.string().url().optional(),
   state: z.string().optional(),
   country: z.string().optional(),
   homeGround: z.string().optional(),
   colors: z.string().optional(),
   bio: z.string().optional(),
   achievements: z.string().optional(),
+  awards: z.array(AwardSchema).optional(),
   foundedYear: z.number().int().optional(),
 });
 
@@ -173,9 +181,19 @@ router.delete('/:id/follow', authMiddleware, async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+// Edit a team — only the team admin (owner) may change its profile. Legacy teams
+// created before ownership was recorded (ownerId null) stay editable by anyone
+// signed in, and get claimed by the first editor.
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
+    const existing = await prisma.team.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'Team not found' });
+    const uid = req.user.sub;
+    if (existing.ownerId && existing.ownerId !== uid) {
+      return res.status(403).json({ error: 'Only the team admin can edit this team' });
+    }
     const data = TeamSchema.partial().parse(req.body);
+    if (!existing.ownerId) data.ownerId = uid;   // claim an unowned legacy team
     const team = await prisma.team.update({
       where: { id: req.params.id },
       data,
@@ -274,6 +292,101 @@ router.get('/:id/insights', async (req, res) => {
       form,
       topBatters,
       topBowlers,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Full team-profile payload for the Team Profile screen — one round-trip that
+// bundles everything the screen shows: the team, its squad, recent matches, a
+// win/loss record, a same-sport leaderboard (with this team's rank), the photo
+// gallery, and the admin-entered achievements + awards.
+router.get('/:id/profile', async (req, res) => {
+  try {
+    const teamId = req.params.id;
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      include: { players: true },
+    });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+
+    // Recent matches (any status), newest first.
+    const recentMatches = await prisma.match.findMany({
+      where: { OR: [{ team1Id: teamId }, { team2Id: teamId }] },
+      include: { team1: true, team2: true },
+      orderBy: [{ startTime: 'desc' }, { createdAt: 'desc' }],
+      take: 10,
+    });
+
+    // Same-sport teams → compute a leaderboard from completed matches (wins from
+    // Match.result, which names the winning team). Mirrors the logic in GET /.
+    const sportTeams = await prisma.team.findMany({
+      where: { sport: team.sport }, select: { id: true, name: true, logoUrl: true },
+    });
+    const ids = sportTeams.map((t) => t.id);
+    const [played, battedAgg, bowledAgg] = ids.length ? await Promise.all([
+      prisma.match.findMany({
+        where: { status: 'completed', OR: [{ team1Id: { in: ids } }, { team2Id: { in: ids } }] },
+        select: { team1Id: true, team2Id: true, result: true },
+      }),
+      prisma.inning.groupBy({ by: ['battingTeamId'], _sum: { totalRuns: true }, where: { battingTeamId: { in: ids } } }),
+      prisma.inning.groupBy({ by: ['bowlingTeamId'], _sum: { totalWickets: true }, where: { bowlingTeamId: { in: ids } } }),
+    ]) : [[], [], []];
+
+    const runsFor = Object.fromEntries(battedAgg.map((a) => [a.battingTeamId, a._sum.totalRuns || 0]));
+    const wktsFor = Object.fromEntries(bowledAgg.map((a) => [a.bowlingTeamId, a._sum.totalWickets || 0]));
+    const byName = Object.fromEntries(sportTeams.map((t) => [t.id, t.name]));
+    const rec = {};
+    for (const id of ids) rec[id] = { matches: 0, wins: 0, losses: 0 };
+    for (const m of played) {
+      for (const id of [m.team1Id, m.team2Id]) {
+        if (!rec[id]) continue;
+        rec[id].matches += 1;
+        const res2 = m.result || '';
+        const name = byName[id];
+        if (!res2 || /tie/i.test(res2)) continue;
+        if (name && res2.startsWith(name)) rec[id].wins += 1;
+        else rec[id].losses += 1;
+      }
+    }
+
+    const leaderboard = sportTeams
+      .map((t) => {
+        const r = rec[t.id];
+        return {
+          id: t.id, name: t.name, logoUrl: t.logoUrl,
+          matches: r.matches, wins: r.wins, losses: r.losses,
+          winRate: r.matches ? Math.round((r.wins / r.matches) * 100) : 0,
+          isCurrent: t.id === teamId,
+        };
+      })
+      .sort((a, b) => b.wins - a.wins || b.winRate - a.winRate || a.name.localeCompare(b.name))
+      .map((row, i) => ({ ...row, rank: i + 1 }));
+
+    const mine = rec[teamId] || { matches: 0, wins: 0, losses: 0 };
+    const stats = {
+      matches: mine.matches, wins: mine.wins, losses: mine.losses,
+      winRate: mine.matches ? Math.round((mine.wins / mine.matches) * 100) : 0,
+      totalRuns: runsFor[teamId] || 0,
+      totalWickets: wktsFor[teamId] || 0,
+      rank: (leaderboard.find((l) => l.isCurrent) || {}).rank || null,
+      squadSize: team.players.length,
+    };
+
+    const gallery = await prisma.galleryPhoto.findMany({
+      where: { teamId }, orderBy: { createdAt: 'desc' }, take: 60,
+    });
+
+    res.json({
+      team,
+      members: team.players,
+      recentMatches,
+      stats,
+      leaderboard: leaderboard.slice(0, 10),
+      gallery,
+      achievements: team.achievements || '',
+      awards: Array.isArray(team.awards) ? team.awards : [],
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

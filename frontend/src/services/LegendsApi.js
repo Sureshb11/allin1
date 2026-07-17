@@ -730,6 +730,27 @@ class LegendsApi {
     }
   }
 
+  // Full team-profile bundle for the Team Profile screen: team, members, recent
+  // matches, stats, same-sport leaderboard, gallery, achievements + awards.
+  async getTeamProfile(teamId) {
+    try {
+      const json = await this.request(`/teams/${teamId}/profile`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Remove a player from a team's squad (team admin only).
+  async deletePlayer(playerId) {
+    try {
+      await this.request(`/players/${playerId}`, { method: 'DELETE' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Club Management
   async getClubs() {
     try {

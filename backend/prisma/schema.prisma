@@ -73,13 +73,15 @@ model Team {
   id             String   @id @default(cuid())
   name           String
   city           String?
-  logoUrl        String?
+  logoUrl        String?                    // team logo (Vercel Blob URL)
+  coverUrl       String?                    // team banner / cover photo (Vercel Blob URL)
   state          String?
   country        String?
   homeGround     String?
   colors         String?
   bio            String?
   achievements   String?
+  awards         Json?                      // [{ title, year?, note? }] — honours the admin adds
   foundedYear    Int?
   sport          String   @default("cricket")
   ownerId        String?                    // the user who created/owns this team
