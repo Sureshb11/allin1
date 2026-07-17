@@ -6,6 +6,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Colors, Spacing, Radius } from '../theme';
 import legendsApi from '../services/LegendsApi';
+import MatchPhotos from '../components/MatchPhotos';
 import { useScoringColors, useScoringStyles } from '../theme/scoringTokens';
 import { useTheme } from '../theme/ThemeContext';
 import { getScoringConfig, cnt, pts, decideWinner } from '../sports/scoring';
@@ -392,6 +393,9 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
           <Icon name="trophy" size={18} color={DS.bg} />
           <Text style={s.genWinnerTxt}>{winnerName} win{winnerReason ? ` · ${winnerReason}` : ''}</Text>
         </View>
+      }
+      {matchOver && match?.id &&
+        <MatchPhotos matchId={match.id} style={{ marginHorizontal: 16, marginTop: 12 }} />
       }
       <View style={[s.genScoreSection, { backgroundColor: cfg.color + '14', borderBottomColor: cfg.color }]}>
         <View style={s.genScoreTeam}>

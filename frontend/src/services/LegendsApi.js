@@ -730,6 +730,126 @@ class LegendsApi {
     }
   }
 
+  // Full team-profile bundle for the Team Profile screen: team, members, recent
+  // matches, stats, same-sport leaderboard, gallery, achievements + awards.
+  async getTeamProfile(teamId) {
+    try {
+      const json = await this.request(`/teams/${teamId}/profile`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Edit a squad member — role, jersey number, captain/vice-captain (admin only).
+  async updatePlayer(playerId, data) {
+    try {
+      const json = await this.request(`/players/${playerId}`, { method: 'PUT', body: data });
+      return { success: true, data: json.player };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Remove a player from a team's squad (team admin only).
+  async deletePlayer(playerId) {
+    try {
+      await this.request(`/players/${playerId}`, { method: 'DELETE' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Leave a team — the current user removes themselves from a team's squad.
+  async leaveTeam(teamId) {
+    try {
+      await this.request(`/teams/${teamId}/leave`, { method: 'POST' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Promote/demote a member as a team admin (team admins only).
+  async setTeamMemberAdmin(teamId, playerId, isAdmin) {
+    try {
+      await this.request(`/teams/${teamId}/members/${playerId}/admin`, { method: 'PUT', body: { isAdmin } });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Transfer team ownership to another member (owner only).
+  async transferTeamOwner(teamId, userId) {
+    try {
+      await this.request(`/teams/${teamId}/transfer-owner`, { method: 'POST', body: { userId } });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Delete a team (owner only; refused if it has match history).
+  async deleteTeam(teamId) {
+    try {
+      await this.request(`/teams/${teamId}`, { method: 'DELETE' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Request to join a team (creates a pending request for admins to approve).
+  async requestToJoinTeam(teamId, note) {
+    try {
+      await this.request(`/teams/${teamId}/join-requests`, { method: 'POST', body: { note } });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Approve / reject a pending join request (team admins only).
+  async approveTeamJoinRequest(teamId, userId) {
+    try {
+      await this.request(`/teams/${teamId}/join-requests/${userId}/approve`, { method: 'POST' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async rejectTeamJoinRequest(teamId, userId) {
+    try {
+      await this.request(`/teams/${teamId}/join-requests/${userId}/reject`, { method: 'POST' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Match photos — added from a finished match, fanned out to both teams'
+  // galleries so they show up on each team's profile.
+  async getMatchPhotos(matchId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/photos`);
+      return { success: true, data: json.photos || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
+  async addMatchPhoto(matchId, { url, caption } = {}) {
+    try {
+      const json = await this.request(`/matches/${matchId}/photos`, { method: 'POST', body: { url, caption } });
+      return { success: true, data: json.photos || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Club Management
   async getClubs() {
     try {

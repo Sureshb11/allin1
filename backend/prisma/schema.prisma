@@ -73,13 +73,15 @@ model Team {
   id             String   @id @default(cuid())
   name           String
   city           String?
-  logoUrl        String?
+  logoUrl        String?                    // team logo (Vercel Blob URL)
+  coverUrl       String?                    // team banner / cover photo (Vercel Blob URL)
   state          String?
   country        String?
   homeGround     String?
   colors         String?
   bio            String?
   achievements   String?
+  awards         Json?                      // [{ title, year?, note? }] — honours the admin adds
   foundedYear    Int?
   sport          String   @default("cricket")
   ownerId        String?                    // the user who created/owns this team
@@ -95,6 +97,22 @@ model Team {
 
   @@index([sport])
   @@index([ownerId])
+}
+
+// A user's request to join a team. Admins approve (→ creates a Player linked to
+// the user) or reject. One row per user+team; re-requesting resets it to pending.
+model TeamJoinRequest {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  teamId    String
+  userId    String
+  status    String   @default("pending")   // pending | approved | rejected
+  note      String?
+
+  @@unique([teamId, userId])
+  @@index([teamId, status])
+  @@index([userId])
 }
 
 // A user following a team (the "Followed" category in Teams).
@@ -120,6 +138,10 @@ model Player {
   teamId    String?
   user      User?    @relation(fields: [userId], references: [id])
   userId    String?
+  isAdmin   Boolean  @default(false)   // team admin: can manage the team like the owner
+  jerseyNumber  Int?                    // shirt number within the team
+  isCaptain     Boolean @default(false) // team captain (one per team)
+  isViceCaptain Boolean @default(false) // vice-captain (one per team)
   stats     Json?
 
   matchPlayers MatchPlayer[]
@@ -319,9 +341,11 @@ model GalleryPhoto {
   caption   String?
   userId    String?
   teamId    String?
+  matchId   String?                    // set when the photo was added from a match
 
   @@index([userId, createdAt])
   @@index([teamId, createdAt])
+  @@index([matchId])
 }
 
 model Badge {

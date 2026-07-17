@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { authMiddleware } from '../lib/auth.js';
+import { isTeamAdmin } from '../lib/teamAuth.js';
 
 const router = Router();
 
@@ -119,6 +121,66 @@ router.post('/', async (req, res) => {
     const data = PlayerSchema.parse(req.body);
     const player = await prisma.player.create({ data });
     res.status(201).json({ player });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Edit a squad member's details — role, shirt number and captaincy. Team admins
+// only. Captain / vice-captain are singular per team, so setting one clears it
+// from every other member on the same team.
+const EditPlayerSchema = z.object({
+  role: z.string().min(1).optional(),
+  jerseyNumber: z.number().int().min(0).max(999).nullable().optional(),
+  isCaptain: z.boolean().optional(),
+  isViceCaptain: z.boolean().optional(),
+});
+
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const player = await prisma.player.findUnique({ where: { id: req.params.id } });
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+    if (player.teamId && !(await isTeamAdmin(player.teamId, req.user.sub))) {
+      return res.status(403).json({ error: 'Only a team admin can edit members' });
+    }
+    const data = EditPlayerSchema.parse(req.body);
+
+    const ops = [];
+    // A captain / vice-captain is unique per team — demote the current holder first.
+    if (data.isCaptain === true && player.teamId) {
+      ops.push(prisma.player.updateMany({
+        where: { teamId: player.teamId, isCaptain: true, NOT: { id: player.id } },
+        data: { isCaptain: false },
+      }));
+    }
+    if (data.isViceCaptain === true && player.teamId) {
+      ops.push(prisma.player.updateMany({
+        where: { teamId: player.teamId, isViceCaptain: true, NOT: { id: player.id } },
+        data: { isViceCaptain: false },
+      }));
+    }
+    ops.push(prisma.player.update({ where: { id: player.id }, data }));
+    const [updated] = (await prisma.$transaction(ops)).slice(-1);
+    res.json({ player: updated });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Remove a player from their team's squad. Any team admin (owner or promoted
+// member) may do this. The player is detached (teamId → null) rather than
+// hard-deleted, so any match/scoring history that references them stays intact.
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    const player = await prisma.player.findUnique({
+      where: { id: req.params.id }, include: { team: true },
+    });
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+    if (player.teamId && !(await isTeamAdmin(player.teamId, req.user.sub))) {
+      return res.status(403).json({ error: 'Only a team admin can remove members' });
+    }
+    await prisma.player.update({ where: { id: req.params.id }, data: { teamId: null, isAdmin: false } });
+    res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

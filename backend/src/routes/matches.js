@@ -885,6 +885,59 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// GET /matches/:id/photos → photos captured for this match, newest first.
+router.get('/:id/photos', async (req, res) => {
+  try {
+    const photos = await prisma.galleryPhoto.findMany({
+      where: { matchId: req.params.id },
+      orderBy: { createdAt: 'desc' },
+      take: 60,
+    });
+    res.json({ photos });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /matches/:id/photos  { url, caption? }
+// Add a match photo. It's stored once per team that played, so it shows up in
+// BOTH teams' galleries automatically. Open to anyone involved in the match —
+// the scorer/creator, or a member of either side — since match photos are
+// collaborative (this is intentionally NOT gated on team-admin like the team
+// gallery is). Returns the created photo rows.
+router.post('/:id/photos', authMiddleware, async (req, res) => {
+  try {
+    const { url, caption } = req.body || {};
+    if (!url) return res.status(400).json({ error: 'url required' });
+    const uid = req.user.sub;
+    const match = await prisma.match.findUnique({ where: { id: req.params.id } });
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+
+    const isParticipant =
+      match.scorerId === uid ||
+      match.createdBy === uid ||
+      !!(await prisma.player.findFirst({
+        where: { userId: uid, teamId: { in: [match.team1Id, match.team2Id] } },
+        select: { id: true },
+      }));
+    if (!isParticipant) {
+      return res.status(403).json({ error: 'Only people involved in the match can add photos' });
+    }
+
+    // One row per team so the photo lands in each team's gallery.
+    const teamIds = [...new Set([match.team1Id, match.team2Id].filter(Boolean))];
+    const photos = [];
+    for (const teamId of teamIds) {
+      photos.push(await prisma.galleryPhoto.create({
+        data: { url, caption: caption || null, teamId, matchId: match.id, userId: null },
+      }));
+    }
+    res.status(201).json({ photos });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.get('/:id/insights', async (req, res) => {
   try {
     const match = await prisma.match.findUnique({

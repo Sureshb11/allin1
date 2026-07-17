@@ -175,7 +175,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     return (
       <PressableScale
         style={styles.teamCard}
-        onPress={() => mineTab ? setSelectedTeam(item) : navigation.navigate('TeamInsights', { teamId: item.id })}>
+        onPress={() => mineTab ? navigation.navigate('TeamProfile', { teamId: item.id }) : navigation.navigate('TeamInsights', { teamId: item.id })}>
         <View style={styles.teamCardTop}>
           <HexAvatar size={40} color={getAvatarColor(item.name)} style={{ marginRight: 10 }}>
             <Text style={styles.teamAvatarText}>{getInitials(item.name)}</Text>
