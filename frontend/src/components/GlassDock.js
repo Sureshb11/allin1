@@ -24,6 +24,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/ThemeContext';
 import AnimatedCricketBall from './CricketBall/AnimatedBall';
+import StadiumLightsIcon from './StadiumLightsIcon';
 
 const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab'];
 
@@ -61,7 +62,9 @@ export default function GlassDock({
   // <Rect> aren't reliable across react-native-svg versions — pixels are).
   const [size, setSize] = useState({ w: 0, h: 0 });
 
-  const Item = ({ id, icon, onPress, label }) => {
+  // `glyph` renders a custom icon (given the current tint) in place of the
+  // named MaterialCommunityIcons glyph — used for the floodlit stadium.
+  const Item = ({ id, icon, glyph, onPress, label }) => {
     const on = active === id;
     const tint = on ? accent : idle;
     return (
@@ -69,7 +72,7 @@ export default function GlassDock({
         onPress={onPress} style={s.item} hitSlop={{ top: 8, bottom: 4, left: 4, right: 4 }}
         activeOpacity={0.7}
         accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: on }}>
-        <Icon name={icon} size={23} color={tint} />
+        {glyph ? glyph(tint) : <Icon name={icon} size={23} color={tint} />}
         <Text numberOfLines={1} style={[s.label, { color: tint }, on && s.labelOn]}>{label}</Text>
         <View style={[s.dot, on && { backgroundColor: accent }]} />
       </TouchableOpacity>
@@ -112,7 +115,8 @@ export default function GlassDock({
             <AnimatedCricketBall size={52} onPress={startMatch} />
           </View>
         </View>
-        <Item id="pavilion"  icon="stadium"             onPress={goTab('PavilionTab', 'Pavilion')} label="Pavilion" />
+        <Item id="pavilion"  glyph={(c) => <StadiumLightsIcon size={23} color={c} />}
+              onPress={goTab('PavilionTab', 'Pavilion')} label="Pavilion" />
         <Item id="profile"   icon="account-circle"      onPress={goProfile}                        label="You" />
       </View>
     </View>
