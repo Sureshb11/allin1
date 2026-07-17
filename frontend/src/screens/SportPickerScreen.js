@@ -563,27 +563,32 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 
       {/* ── TOP BAR ── */}
       <View style={s.topBar}>
-        <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-          <Svg width={22} height={22} viewBox="0 0 22 22" fill="none">
-            <Path d="M14 4 7 11l7 7" stroke={A.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </TouchableOpacity>
-        <BrandLogo scale={0.8} textColor={A.ink} />
-        <TouchableOpacity
-          style={[s.avatar, { marginRight: 8 }]}
-          activeOpacity={0.8}
-          onPress={toggle}
-        >
-          <Icon name={isDark ? 'white-balance-sunny' : 'weather-night'} size={18} color={A.ink} />
-        </TouchableOpacity>
-        {/* Just the user's photo — display only, no navigation on tap. */}
-        <View style={s.avatar}>
-          {me?.avatarUrl
-            ? <Image source={{ uri: me.avatarUrl }} style={s.avatarImg} />
-            : <Svg width={20} height={20} viewBox="0 0 20 20" fill={A.inkDim}>
-                <Path d="M10 3.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Z" />
-                <Path d="M3.5 18a6.5 6.5 0 0 1 13 0Z" />
-              </Svg>}
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+            <Svg width={22} height={22} viewBox="0 0 22 22" fill="none">
+              <Path d="M14 4 7 11l7 7" stroke={A.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </TouchableOpacity>
+          <BrandLogo scale={0.8} textColor={A.ink} />
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity
+            style={[s.avatar, { marginRight: 8 }]}
+            activeOpacity={0.8}
+            onPress={toggle}
+          >
+            <Icon name={isDark ? 'white-balance-sunny' : 'weather-night'} size={18} color={A.ink} />
+          </TouchableOpacity>
+          {/* Just the user's photo — display only, no navigation on tap. */}
+          <View style={s.avatar}>
+            {me?.avatarUrl
+              ? <Image source={{ uri: me.avatarUrl }} style={s.avatarImg} />
+              : <Svg width={20} height={20} viewBox="0 0 20 20" fill={A.inkDim}>
+                  <Path d="M10 3.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Z" />
+                  <Path d="M3.5 18a6.5 6.5 0 0 1 13 0Z" />
+                </Svg>}
+          </View>
         </View>
       </View>
 

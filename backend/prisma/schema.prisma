@@ -21,6 +21,7 @@ model User {
   firstName    String
   lastName     String
   avatarUrl    String?
+  coverUrl     String? // user cover photo (Vercel Blob URL)
   bio          String?
   city         String?
   district     String?

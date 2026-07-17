@@ -5,6 +5,7 @@ import {
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { useCurrentUser } from '../utils/currentUser';
 
 
 
@@ -45,13 +46,17 @@ function ChatBubble({ item }) {const styles = useThemedStyles(makeStyles);
       <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
         {!mine && <Text style={styles.senderName}>{getSenderName(item)}</Text>}
         <Text style={[styles.msgText, mine && styles.msgTextMine]}>{item.text}</Text>
-        <Text style={[styles.msgTime, mine && styles.msgTimeMine]}>{getTime(item)}</Text>
+        <View style={styles.timeRow}>
+          <Text style={[styles.msgTime, mine && styles.msgTimeMine]}>{getTime(item)}</Text>
+          {mine && <Icon name="check-all" size={12} color="rgba(15,19,31,0.5)" style={{ marginLeft: 4 }} />}
+        </View>
       </View>
     </View>);
 
 }
 
 const ChatScreen = ({ route, navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+  const me = useCurrentUser();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const { chatId, chatName = 'Team Chat' } = route.params || {};
@@ -61,11 +66,9 @@ const ChatScreen = ({ route, navigation }) => {const DS = useTheme().colors;cons
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: chatName || 'Chat',
+      headerShown: false,
     });
-  }, [navigation, chatName]);
+  }, [navigation]);
 
   useEffect(() => {
     loadMessages();
@@ -77,7 +80,7 @@ const ChatScreen = ({ route, navigation }) => {const DS = useTheme().colors;cons
     if (!chatId) { setMessages([]); return; }
     const res = await legendsApi.getChatMessages(chatId);
     if (res.success && res.data.length > 0) {
-      const mapped = res.data.map((m) => ({ ...m, isMine: false }));
+      const mapped = res.data.map((m) => ({ ...m, isMine: m.sender?.id === me?.id }));
       setMessages(mapped);
       lastTimestampRef.current = mapped[mapped.length - 1].createdAt;
     }
@@ -87,8 +90,12 @@ const ChatScreen = ({ route, navigation }) => {const DS = useTheme().colors;cons
     if (!chatId) return;
     const res = await legendsApi.getChatMessages(chatId, lastTimestampRef.current);
     if (res.success && res.data.length > 0) {
-      const mapped = res.data.map((m) => ({ ...m, isMine: false }));
-      setMessages((prev) => [...prev, ...mapped]);
+      const mapped = res.data.map((m) => ({ ...m, isMine: m.sender?.id === me?.id }));
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const filtered = mapped.filter(m => !existingIds.has(m.id));
+        return [...prev, ...filtered];
+      });
       lastTimestampRef.current = mapped[mapped.length - 1].createdAt;
     }
   };
@@ -138,10 +145,17 @@ const ChatScreen = ({ route, navigation }) => {const DS = useTheme().colors;cons
         ref={listRef}
         data={messages}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.msgList}
+        contentContainerStyle={[styles.msgList, messages.length === 0 && { flex: 1, justifyContent: 'center' }]}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         renderItem={({ item }) => <ChatBubble item={item} />}
-        showsVerticalScrollIndicator={false} />
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Icon name="message-text-outline" size={48} color={DS.surfaceHighest} />
+            <Text style={styles.emptyStateTitle}>No messages yet</Text>
+            <Text style={styles.emptyStateSub}>Send a message to start the conversation!</Text>
+          </View>
+        } />
       
 
       {/* Input bar */}
@@ -172,7 +186,9 @@ const makeStyles = (DS) => StyleSheet.create({
 
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16
+    backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16,
+    borderBottomWidth: 1, borderBottomColor: DS.surfaceHigh,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 4, zIndex: 10
   },
   backBtn: { padding: 4 },
   chatAvatarWrap: {
@@ -183,7 +199,7 @@ const makeStyles = (DS) => StyleSheet.create({
   heroSub: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
   heroAction: { padding: 4 },
 
-  msgList: { padding: 16, gap: 12, paddingBottom: 8 },
+  msgList: { padding: 16, gap: 14, paddingBottom: 20 },
 
   bubbleWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   bubbleWrapMine: { flexDirection: 'row-reverse' },
@@ -193,23 +209,30 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   avatarText: { fontSize: 11, fontWeight: '900', color: DS.lime },
   bubble: {
-    maxWidth: '78%', borderRadius: 16, padding: 12
+    maxWidth: '78%', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.15, shadowRadius: 2, elevation: 1.5,
   },
   bubbleMine: {
     backgroundColor: DS.lime, borderBottomRightRadius: 4
   },
   bubbleOther: {
-    backgroundColor: DS.surfaceHigh, borderBottomLeftRadius: 4
+    backgroundColor: DS.surfaceHigh, borderBottomLeftRadius: 4,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)'
   },
   senderName: { fontSize: 11, fontWeight: '800', color: DS.lime, marginBottom: 4 },
-  msgText: { fontSize: 15, color: DS.textPrimary, lineHeight: 20 },
+  msgText: { fontSize: 15, color: DS.textPrimary, lineHeight: 22 },
   msgTextMine: { color: DS.bg },
-  msgTime: { fontSize: 10, color: DS.textMuted, marginTop: 4, textAlign: 'right' },
+  timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4 },
+  msgTime: { fontSize: 10, color: DS.textMuted },
   msgTimeMine: { color: 'rgba(15,19,31,0.5)' },
+
+  emptyState: { alignItems: 'center', justifyContent: 'center', padding: 32 },
+  emptyStateTitle: { fontSize: 16, fontWeight: '700', color: DS.textPrimary, marginTop: 16, marginBottom: 6 },
+  emptyStateSub: { fontSize: 13, color: DS.textMuted, textAlign: 'center' },
 
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
-    backgroundColor: DS.surfaceLow, padding: 16
+    backgroundColor: DS.surfaceLow, padding: 16, paddingBottom: Platform.OS === 'ios' ? 24 : 16
   },
   textInput: {
     flex: 1, borderRadius: 24,

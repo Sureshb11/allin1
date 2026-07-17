@@ -415,6 +415,9 @@ const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="Home" 
 // "Pavilion" tab - same stack, opens on Pavilion screen
 const PavilionStack = (props) => <HomeStack {...props} initialRouteName="Pavilion" />;
 
+// "Profile" tab - same stack, opens on Profile screen
+const ProfileStack = (props) => <HomeStack {...props} initialRouteName="Profile" />;
+
 
 
 const AppNavigator = ({ route: appRoute }) => {
@@ -460,6 +463,11 @@ const AppNavigator = ({ route: appRoute }) => {
       <Tab.Screen
         name="PavilionTab"
         component={PavilionStack}
+        initialParams={{ initialSport, initialFormat }}
+      />
+      <Tab.Screen
+        name="ProfileTab"
+        component={ProfileStack}
         initialParams={{ initialSport, initialFormat }}
       />
     </Tab.Navigator>

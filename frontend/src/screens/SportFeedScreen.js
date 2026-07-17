@@ -273,7 +273,7 @@ export default function SportFeedScreen({ navigation }) {
           <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Notification')}>
             <Icon name="bell-outline" size={22} color={D.ink} />
           </TouchableOpacity>
-          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Profile')} style={{ marginLeft: 6 }}>
+          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('ProfileTab')} style={{ marginLeft: 6 }}>
             {meUser?.avatarUrl ? (
               <Image source={{ uri: meUser.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
             ) : (

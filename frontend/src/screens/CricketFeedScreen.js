@@ -21,6 +21,7 @@ import { haptic } from '../utils/haptics';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
+import AppHeader from '../components/AppHeader';
 import HexAvatar from '../components/HexAvatar';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { splitScore } from './MyMatchesScreen';
@@ -928,28 +929,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
 
       {/* top bar */}
-      <View style={s.topBar}>
-        {/* dev-only: long-press the logo to open the ball workbench */}
-        <TouchableOpacity activeOpacity={1} disabled={!__DEV__}
-          onLongPress={() => navigation.navigate('BallLab')}>
-          <BrandLogo />
-        </TouchableOpacity>
-        <View style={s.topActions}>
-          <TouchableOpacity hitSlop={8} onPress={() => setComposeOpen(true)}>
-            <Icon name="plus-box-outline" size={24} color={DS.textPrimary} />
-          </TouchableOpacity>
-          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Notification')}>
-            <Icon name="bell-outline" size={22} color={DS.textPrimary} />
-          </TouchableOpacity>
-          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Profile')}>
-            {meUser?.avatarUrl ? (
-              <HexAvatar size={24} uri={meUser.avatarUrl} />
-            ) : (
-              <Icon name="account-circle-outline" size={24} color={DS.textPrimary} />
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+      <AppHeader showCompose onComposePress={() => setComposeOpen(true)} />
 
       <FlatList
         {...hideTabBar}

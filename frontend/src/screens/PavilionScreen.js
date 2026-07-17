@@ -7,6 +7,7 @@ import MyPerformanceScreen from './MyPerformanceScreen';
 import StatisticsScreen from './StatisticsScreen';
 import LookingForScreen from './LookingForScreen';
 import { useCurrentUser } from '../utils/currentUser';
+import AppHeader from '../components/AppHeader';
 
 const TABS = [
   { label: 'My Stats', icon: 'chart-line',  component: MyPerformanceScreen },
@@ -52,27 +53,7 @@ export default function PavilionScreen({ navigation, route }) {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
       
       {/* ── HEADER ──────────────────────── */}
-      <View style={styles.hero}>
-        <View style={styles.heroLeft}>
-          <Text style={styles.brandText}>LOCAL</Text>
-          <View style={styles.brandBadge}>
-            <Icon name="star-four-points" size={10} color={DS.bg} style={{ marginRight: 3 }} />
-            <Text style={styles.brandBadgeText}>LEGENDS</Text>
-          </View>
-        </View>
-        <View style={styles.heroRight}>
-          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Notification')}>
-            <Icon name="bell-outline" size={22} color={DS.textPrimary} />
-          </TouchableOpacity>
-          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Profile')} style={{ marginLeft: 16 }}>
-            {meUser?.avatarUrl ? (
-              <Image source={{ uri: meUser.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
-            ) : (
-              <Icon name="account-circle-outline" size={24} color={DS.textPrimary} />
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+      <AppHeader />
 
       {/* ── NAV TABS ──────────────────────── */}
       <View style={styles.navTabs}>
@@ -124,7 +105,7 @@ const makeStyles = (DS) => StyleSheet.create({
   brandBadgeText: { fontSize: 13, fontWeight: '800', color: DS.bg, letterSpacing: 0.8 },
   heroRight: { flexDirection: 'row', alignItems: 'center' },
   
-  navTabs: { flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: 'transparent' },
+  navTabs: { flexDirection: 'row', paddingTop: 12, paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: 'transparent' },
   navTab: { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 2, borderRadius: 14 },
   navTabActive: {
     backgroundColor: DS.surfaceHighest,

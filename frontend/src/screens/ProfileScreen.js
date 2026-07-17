@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, Share, ActivityIndicator,
+  Alert, Share, ActivityIndicator, Image
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { pickAndUploadImage } from '../utils/imageUpload';
+import { useNavigation } from '@react-navigation/native';
+import { useCurrentUser } from '../utils/currentUser';
+import AppHeader from '../components/AppHeader';
 import { setCurrentAvatar, clearCurrentUser } from '../utils/currentUser';
 import legendsApi from '../services/LegendsApi';
 import SportSwitcher from '../components/SportSwitcher';
@@ -73,9 +76,7 @@ export default function ProfileScreen({ navigation }) {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Profile',
+      headerShown: false,
     });
   }, [navigation]);
 
@@ -141,6 +142,31 @@ export default function ProfileScreen({ navigation }) {
     ]);
   };
 
+  const handleAvatarPress = async () => {
+    try {
+      const result = await pickAndUploadImage();
+      if (result && result.url) {
+        setProfile(prev => ({ ...prev, avatarUrl: result.url }));
+        setCurrentAvatar(result.url);
+        await legendsApi.updateUserProfile({ avatarUrl: result.url });
+      }
+    } catch (e) {
+      console.log('Upload error', e);
+    }
+  };
+
+  const handleCoverPress = async () => {
+    try {
+      const result = await pickAndUploadImage();
+      if (result && result.url) {
+        setProfile(prev => ({ ...prev, coverUrl: result.url }));
+        await legendsApi.updateUserProfile({ coverUrl: result.url });
+      }
+    } catch (e) {
+      console.log('Upload error', e);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -172,50 +198,77 @@ export default function ProfileScreen({ navigation }) {
     .filter((g) => g.items.length > 0);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}
-      {...hideTabBar} contentContainerStyle={{ paddingBottom: tabClear }}>
+    <View style={styles.container}>
+      <AppHeader hideProfileIcon />
+      <ScrollView showsVerticalScrollIndicator={false}
+        {...hideTabBar} contentContainerStyle={{ paddingBottom: tabClear }}>
       {/* Hero Header */}
       <View style={styles.hero}>
-        <View style={styles.heroInner}>
-          {/* Avatar — hexagon, carrying the Arena honeycomb motif */}
-          <View style={styles.avatarWrap}>
-            <HexAvatar size={72} uri={profile.avatarUrl || undefined} color={DS.surfaceHighest}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </HexAvatar>
-            {stats.momCount > 0 && (
-              <View style={styles.momBadge}>
-                <Icon name="star" size={9} color={DS.bg} />
-                <Text style={styles.momBadgeText}>{stats.momCount}</Text>
+        {/* Background Cover */}
+        <View style={styles.coverWrap}>
+          <TouchableOpacity activeOpacity={0.9} onPress={handleCoverPress} style={{ width: '100%', height: '100%' }}>
+            {profile.coverUrl ? (
+              <Image source={{ uri: profile.coverUrl }} style={styles.coverPhoto} resizeMode="cover" />
+            ) : profile.avatarUrl ? (
+              <Image source={{ uri: profile.avatarUrl }} style={styles.coverPhoto} resizeMode="cover" blurRadius={15} />
+            ) : (
+              <Image source={{ uri: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=3538&auto=format&fit=crop' }} style={styles.coverPhoto} resizeMode="cover" />
+            )}
+            <View style={styles.coverDarkenOverlay} />
+            <View style={styles.coverUploadOverlay}>
+              <Icon name="camera" size={20} color="#FFF" />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Overlapping Profile Picture */}
+        <View style={styles.avatarContainer}>
+          <TouchableOpacity activeOpacity={0.9} onPress={handleAvatarPress}>
+            {profile.avatarUrl ? (
+              <Image source={{ uri: profile.avatarUrl }} style={styles.largeAvatar} resizeMode="cover" />
+            ) : (
+              <View style={[styles.largeAvatar, { alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={styles.avatarText}>{initials}</Text>
               </View>
             )}
-          </View>
-
-          <View style={styles.heroInfo}>
-            <Text style={styles.heroName}>{displayName}</Text>
-            <Text style={styles.heroRole}>{profile.role || 'Player'}</Text>
-            {!!profile.phone && <Text style={styles.heroPhone}>{profile.phone}</Text>}
-            <View style={styles.heroPills}>
-              {/* Only Premium earns a badge — "Free Plan" was a label for the
-                  absence of a thing, which just told players what they lack. */}
-              {isPremium && (
-                <View style={styles.membershipPill}>
-                  <Icon name="star-circle" size={11} color={DS.lime} />
-                  <Text style={[styles.membershipText, { color: DS.lime }]}>Premium</Text>
-                </View>
-              )}
-              {profile.teamName && (
-                <View style={styles.teamPill}>
-                  <Icon name="shield" size={10} color={DS.lime} />
-                  <Text style={styles.teamPillText}>{profile.teamName}</Text>
-                </View>
-              )}
+            
+            <View style={styles.uploadOverlay}>
+              <Icon name="camera" size={16} color={DS.textPrimary} />
             </View>
+          </TouchableOpacity>
+
+          {stats.momCount > 0 && (
+            <View style={styles.momBadgeOverlap}>
+              <Icon name="star" size={12} color={DS.bg} />
+              <Text style={styles.momBadgeTextOverlap}>{stats.momCount} MOM</Text>
+            </View>
+          )}
+        </View>
+
+        {/* User Info */}
+        <View style={styles.heroInfo}>
+          <Text style={styles.heroName}>{displayName}</Text>
+          <Text style={styles.heroRole}>{profile.role || 'Player'}</Text>
+          {!!profile.phone && <Text style={styles.heroPhone}>{profile.phone}</Text>}
+          <View style={styles.heroPills}>
+            {isPremium && (
+              <View style={styles.membershipPill}>
+                <Icon name="star-circle" size={12} color={DS.lime} />
+                <Text style={[styles.membershipText, { color: DS.lime }]}>Premium</Text>
+              </View>
+            )}
+            {profile.teamName && (
+              <View style={styles.teamPill}>
+                <Icon name="shield" size={11} color={DS.lime} />
+                <Text style={styles.teamPillText}>{profile.teamName}</Text>
+              </View>
+            )}
           </View>
         </View>
 
         {/* Bento Stats Grid — sport-aware */}
         {statCards.length > 0 && (
-          <View style={styles.bentoGrid}>
+          <View style={[styles.bentoGrid, { paddingHorizontal: 16, marginTop: 24 }]}>
             {statCards.map((c) => (
               <BentoStat key={c.label} label={c.label} value={c.value} accent={c.accent} />
             ))}
@@ -298,7 +351,8 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -307,40 +361,58 @@ const makeStyles = (DS) => StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
 
   // Hero
-  hero: { backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 20, paddingHorizontal: 16 },
-  heroInner: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
-  avatarWrap: { position: 'relative' },
-  avatarText: { fontSize: 24, fontWeight: '900', color: DS.lime },
-  // MOM count rides the hexagon's lower-right flat edge (a hexagon's corners sit
-  // inside its box, so this tucks against the shape rather than floating off it).
-  momBadge: {
-    position: 'absolute', bottom: 2, right: -2,
-    flexDirection: 'row', alignItems: 'center', gap: 2,
-    paddingHorizontal: 5, height: 18, borderRadius: 9,
+  hero: { backgroundColor: DS.bg, paddingBottom: 24 },
+  coverWrap: { width: '100%', height: 160, position: 'relative' },
+  coverPhoto: { width: '100%', height: '100%' },
+  coverDarkenOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)' },
+  coverUploadOverlay: {
+    position: 'absolute', top: 12, right: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)', width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
+  },
+  
+  avatarContainer: { alignItems: 'center', marginTop: -60, marginBottom: 12 },
+  largeAvatar: {
+    width: 120, height: 120, borderRadius: 60,
+    borderWidth: 4, borderColor: DS.bg,
+    backgroundColor: DS.surfaceHighest,
+  },
+  uploadOverlay: {
+    position: 'absolute', bottom: 4, right: 4,
+    backgroundColor: DS.surfaceHigh, width: 32, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 3, borderColor: DS.bg,
+  },
+  momBadgeOverlap: {
+    position: 'absolute', bottom: -12,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
     backgroundColor: DS.lime,
-    borderWidth: 2, borderColor: DS.surfaceLow,
+    borderWidth: 3, borderColor: DS.bg,
     justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
   },
-  momBadgeText: { fontSize: 10, fontWeight: '900', color: DS.bg },
-  heroInfo: { flex: 1, gap: 2 },
-  heroName: { fontSize: 22, fontWeight: '800', color: DS.textPrimary },
-  // Role leads (it's who you are here); the phone number is account admin, not
-  // identity, so it drops to the quietest line rather than sitting under the name.
-  heroRole: { fontSize: 13, color: DS.textVariant, marginTop: 2, fontWeight: '600' },
-  heroPhone: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
-  heroPills: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  momBadgeTextOverlap: { fontSize: 12, fontWeight: '900', color: DS.bg },
+  
+  avatarText: { fontSize: 40, fontWeight: '900', color: DS.lime },
+  
+  heroInfo: { alignItems: 'center', gap: 2, paddingHorizontal: 16 },
+  heroName: { fontSize: 26, fontWeight: '800', color: DS.textPrimary, textAlign: 'center' },
+  heroRole: { fontSize: 14, color: DS.textVariant, marginTop: 4, fontWeight: '600', textAlign: 'center' },
+  heroPhone: { fontSize: 12, color: DS.textMuted, marginTop: 2, textAlign: 'center' },
+  heroPills: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   membershipPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: DS.surfaceHigh, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: DS.surfaceHigh, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12,
   },
-  membershipText: { fontSize: 11, color: DS.textMuted, fontWeight: '700' },
+  membershipText: { fontSize: 12, color: DS.textMuted, fontWeight: '700' },
   teamPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: DS.surfaceHigh,
-    alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 10, marginTop: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: DS.surfaceHigh, paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 12,
   },
-  teamPillText: { fontSize: 11, color: DS.textVariant, fontWeight: '600' },
+  teamPillText: { fontSize: 12, color: DS.textVariant, fontWeight: '600' },
 
   // Bento grid
   bentoGrid: { flexDirection: 'row', gap: 8 },

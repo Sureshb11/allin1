@@ -3,7 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   RefreshControl, Modal, Share, Dimensions, StatusBar, Animated, Alert,
-  FlatList, TextInput
+  FlatList, TextInput, Image
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -17,6 +17,7 @@ import TournamentsScreen from './TournamentsScreen';
 import StatisticsScreen from './StatisticsScreen';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
+import AppHeader from '../components/AppHeader';
 import HexAvatar from '../components/HexAvatar';
 
 const { width } = Dimensions.get('window');
@@ -259,27 +260,8 @@ export default function HomeScreen({ navigation }) {
 
       {/* ── TOP GLASS BAR ────────────────────────── */}
       <View style={styles.topGlassBar}>
-        <View style={styles.header}>
-
-          {/* Row 1: logo · icons (menu items now live inline in the feed below) */}
-          <View style={styles.headerRow1}>
-            <BrandLogo />
-
-            <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.navigate('Notification')}>
-                <Icon name="bell-outline" size={22} color={DS.textVariant} />
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.headerBtn, { paddingLeft: 10 }]} onPress={() => navigation.navigate('Profile')}>
-                {meUser?.avatarUrl ? (
-                  <HexAvatar size={24} uri={meUser.avatarUrl} />
-                ) : (
-                  <Icon name="account-circle-outline" size={24} color={DS.textVariant} />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-
-        </View>
+        {/* Unified App Header */}
+        <AppHeader />
 
         {/* ── NAV TABS ──────────────────────── */}
         <View style={styles.navTabs}>
@@ -568,7 +550,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
 
   // Header
   header: { flexDirection: 'column', paddingTop: 16, paddingBottom: 10, paddingHorizontal: 16, backgroundColor: 'transparent' },
-  headerRow1: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  headerRow1: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   headerBtn: { padding: 6, flexShrink: 0 },
   headerBrand: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandText: { fontSize: 20, fontWeight: '800', color: DS.textPrimary, letterSpacing: 1.5 },
@@ -585,7 +567,7 @@ const makeStyles = (DS, typography) => StyleSheet.create({
   sportSelectorHint: { fontSize: 11, color: DS.textMuted, fontWeight: '500' },
 
   // Nav tabs
-  navTabs: { flexDirection: 'row', paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: 'transparent' },
+  navTabs: { flexDirection: 'row', paddingTop: 12, paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: 'transparent' },
   navTab: { flex: 1, alignItems: 'center', paddingVertical: 6, gap: 2, borderRadius: 14 },
   navTabActive: {
     backgroundColor: DS.surfaceHighest,

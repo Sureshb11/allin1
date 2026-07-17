@@ -61,7 +61,7 @@ export default function MyCricketScreen({ navigation }) {
           <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.navigate('Notification')}>
             <Icon name="bell-outline" size={22} color={DS.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.headerBtn, { paddingLeft: 10 }]} onPress={() => navigation.navigate('Profile')}>
+          <TouchableOpacity style={[styles.headerBtn, { paddingLeft: 10 }]} onPress={() => navigation.navigate('ProfileTab')}>
             <Icon name="account-circle-outline" size={22} color={DS.textPrimary} />
           </TouchableOpacity>
         </View>

@@ -122,7 +122,7 @@ export default function MySportsScreen({ navigation }) {const DS = useTheme().co
         })
         }
 
-          <TouchableOpacity style={s.addBtn} activeOpacity={0.85} onPress={() => navigation.navigate('Profile')}>
+          <TouchableOpacity style={s.addBtn} activeOpacity={0.85} onPress={() => navigation.navigate('ProfileTab')}>
             <Icon name="swap-horizontal" size={18} color={DS.lime} />
             <Text style={s.addTxt}>Switch sport in Profile</Text>
           </TouchableOpacity>

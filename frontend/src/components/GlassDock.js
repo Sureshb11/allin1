@@ -20,29 +20,28 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/ThemeContext';
 import { useCurrentUser } from '../utils/currentUser';
 import AnimatedCricketBall from './CricketBall/AnimatedBall';
-import StadiumLightsIcon from './StadiumLightsIcon';
 
-const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab'];
+
+const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab', 'Chat'];
 
 export default function GlassDock({
   state, navigation, sportIcon = 'cricket', sportName = 'My Cricket', homeRoute = 'CricketFeed',
 }) {
   const { colors: DS, isDark } = useTheme();
   const me = useCurrentUser();          // logged-in user → "You" tab avatar
+  const [size, setSize] = useState({ w: 0, h: 0 });
 
   const tabRoute = state.routes[state.index];
   const deep = tabRoute.state?.routes?.[tabRoute.state.index]?.name;
   if (FULLSCREEN.includes(deep)) return null;
 
   const active =
-    deep === 'Profile'    ? 'profile' :
     deep === 'StartMatch' ? 'ball' :
-    ({ HomeTab: 'home', MyCricketTab: 'mycricket', PavilionTab: 'pavilion' }[tabRoute.name] || 'home');
+    ({ HomeTab: 'home', MyCricketTab: 'mycricket', PavilionTab: 'pavilion', ProfileTab: 'profile' }[tabRoute.name] || 'home');
 
   // Each dock item goes to ITS screen (not just its tab) — otherwise "Home"
   // from Profile would land back on Profile, since Profile/StartMatch live on
@@ -52,7 +51,7 @@ export default function GlassDock({
     const ev = navigation.emit({ type: 'tabPress', target: target?.key, canPreventDefault: true });
     if (!ev.defaultPrevented) navigation.navigate(name, screen ? { screen } : undefined);
   };
-  const goProfile   = () => navigation.navigate('HomeTab', { screen: 'Profile' });
+  const goProfile   = goTab('ProfileTab', 'Profile');
   const startMatch  = () => navigation.navigate('HomeTab', { screen: 'StartMatch' });
 
   // Selection colour = the app's single green accent (dark #3ecf6e / light #0a5227)
@@ -62,8 +61,7 @@ export default function GlassDock({
 
   // Measure the capsule so the SVG gloss fills it exactly (percentage sizes on
   // <Rect> aren't reliable across react-native-svg versions — pixels are).
-  const [size, setSize] = useState({ w: 0, h: 0 });
-
+  
   // `glyph` renders a custom icon (given the current tint) in place of the
   // named MaterialCommunityIcons glyph — used for the floodlit stadium.
   const Item = ({ id, icon, glyph, onPress, label }) => {
@@ -86,30 +84,7 @@ export default function GlassDock({
       <View
         style={s.capsule}
         onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
-        {/* Rounded clip for the glass layers — kept separate so the capsule itself
-            stays overflow-visible and the ball can overhang the top edge. */}
-        <View style={s.glassClip} pointerEvents="none">
-          {/* Liquid-glass sheen: top-lit gloss + a faint diagonal wash. */}
-          <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-            <Defs>
-              <LinearGradient id="glassGloss" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0"    stopColor="#ffffff" stopOpacity={isDark ? 0.14 : 0.9} />
-                <Stop offset="0.45" stopColor="#ffffff" stopOpacity={isDark ? 0.03 : 0.14} />
-                <Stop offset="1"    stopColor="#ffffff" stopOpacity="0" />
-              </LinearGradient>
-              <LinearGradient id="glassSide" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0"   stopColor="#ffffff" stopOpacity={isDark ? 0.06 : 0.22} />
-                <Stop offset="0.5" stopColor="#ffffff" stopOpacity="0" />
-                <Stop offset="1"   stopColor="#ffffff" stopOpacity={isDark ? 0.05 : 0.18} />
-              </LinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width={size.w || 400} height={size.h || 70} fill="url(#glassSide)" />
-            <Rect x="0" y="0" width={size.w || 400} height={size.h || 70} fill="url(#glassGloss)" />
-          </Svg>
-          {/* Bright rim highlight along the top edge (the glass catching light). */}
-          <View style={s.rim} />
-        </View>
-
+        
         <Item id="home"      icon="home-variant"        onPress={goTab('HomeTab', homeRoute)}      label="Home" />
         <Item id="mycricket" icon={sportIcon}           onPress={goTab('MyCricketTab', 'Home')}    label={sportName} />
         <View style={s.ballSlot}>
@@ -117,7 +92,7 @@ export default function GlassDock({
             <AnimatedCricketBall size={52} onPress={startMatch} />
           </View>
         </View>
-        <Item id="pavilion"  glyph={(c) => <StadiumLightsIcon size={23} color={c} />}
+        <Item id="pavilion"  icon="stadium"
               onPress={goTab('PavilionTab', 'Pavilion')} label="Pavilion" />
         <Item id="profile"   onPress={goProfile}                        label="You"
               glyph={(c) => (me?.avatarUrl
@@ -133,19 +108,10 @@ const makeStyles = (isDark, DS) => StyleSheet.create({
   capsule: {
     width: '92%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 14, paddingTop: 8, paddingBottom: 7, borderRadius: 30,
-    // Translucent frosted base — content shows through for the "glass" read.
-    backgroundColor: isDark ? 'rgba(22,27,31,0.82)' : 'rgba(255,255,255,0.78)',
-    borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(15,20,35,0.10)',
-    shadowColor: '#000', shadowOpacity: isDark ? 0.5 : 0.2, shadowRadius: 18,
-    shadowOffset: { width: 0, height: 12 }, elevation: 16,
-  },
-  // Clips the SVG gloss to the capsule's rounded corners without clipping the
-  // overhanging ball (which lives outside this layer).
-  glassClip: { ...StyleSheet.absoluteFillObject, borderRadius: 30, overflow: 'hidden' },
-  // Top edge highlight — 1px of extra brightness where the glass meets the light.
-  rim: {
-    position: 'absolute', top: 0, left: 16, right: 16, height: 1,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.95)',
+    backgroundColor: isDark ? DS.surfaceHigh : '#ffffff',
+    borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+    shadowColor: '#000', shadowOpacity: isDark ? 0.4 : 0.15, shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 }, elevation: 10,
   },
   item: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
   label: { fontSize: 10.5, marginTop: 3, letterSpacing: 0.2, fontWeight: '500' },
