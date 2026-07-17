@@ -309,6 +309,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     return (words[0] || '').slice(0, 3).toUpperCase() || '—';
   };
   const totalOvers = parseInt(matchData.overs, 10) || 20;
+  // How far back Undo can reach. The old cap of 50 snapshots couldn't wind back
+  // a whole innings — a T20 is 120+ deliveries — so a scorer who spotted a
+  // mistake early had no way to reach it. History is cleared at the innings
+  // break, so the stack is already bounded by one innings; size it to that,
+  // with headroom for extras (which are balls but don't advance the over).
+  const UNDO_DEPTH = totalOvers * 6 + 120;
   const maxOversPerBowler = Math.ceil(totalOvers / 5);   // T20 → 4, ODI → 10
   // "Change Bowler" is only valid mid-over: scoring live, a bowler is set, and the
   // next-over bowler pick isn't already up (the modal auto-opens at over's end).
@@ -438,6 +444,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     if (prev.batStats) setBatStats(prev.batStats);
     if (prev.bowlStats) setBowlStats(prev.bowlStats);
     if (prev.outBatters) setOutBatters(prev.outBatters);
+    // Bowling-rule state, so winding back over an over boundary restores who is
+    // allowed to bowl next. Guarded: snapshots taken before this shipped won't
+    // carry these keys.
+    if (prev.bowlerOvers) setBowlerOvers(prev.bowlerOvers);
+    if ('lastOverBowlerId' in prev) setLastOverBowlerId(prev.lastOverBowlerId);
+    if ('freeHit' in prev) setFreeHit(prev.freeHit);
+    if (prev.retiredBatters) setRetiredBatters(prev.retiredBatters);
     setShowPlayerModal(false);
     setShowBowlerModal(false);
     const s = `${prev.score.runs}/${prev.score.wickets} (${prev.score.overs}.${prev.score.balls})`;
@@ -498,6 +511,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       score: { ...currentScore }, over: [...currentOver], ballCount,
       striker, nonStriker, bowler: currentBowler,
       batStats: { ...batStats }, bowlStats: { ...bowlStats }, outBatters: [...outBatters],
+      // The end of an over bumps the bowler's spell count and records who bowled
+      // it (the no-consecutive-overs rule). Undo used to leave both advanced, so
+      // winding back past an over boundary left a bowler wrongly barred, or a
+      // spell over-counted — invisible until the picker refused them.
+      bowlerOvers: { ...bowlerOvers }, lastOverBowlerId,
+      freeHit, retiredBatters: [...retiredBatters],
     };
     // Tactile feedback: a firm buzz on a wicket, a light tick on every other ball.
     if (value === 'out') haptic.warn(); else haptic.tick();
@@ -643,7 +662,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // striker slot (strikeSwaps stays even there) so the new-batter pick governs.
     if (strikeSwaps % 2 === 1) { setStriker(nonStriker); setNonStriker(striker); }
     // The ball is stored — now it's real, so it becomes undoable.
-    setHistory((h) => [...h.slice(-49), snapshot]);
+    setHistory((h) => [...h.slice(-(UNDO_DEPTH - 1)), snapshot]);
     setCurrentScore(newScore);
     const scoreStr = `${newScore.runs}/${newScore.wickets} (${newScore.overs}.${newScore.balls})`;
     syncMatchSummary(scoreStr);
@@ -768,10 +787,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     if (matchComplete) return;
     const leaving = slot === 'nonstriker' ? nonStriker : striker;
     if (!leaving) return;
-    setHistory((h) => [...h.slice(-49), {
+    setHistory((h) => [...h.slice(-(UNDO_DEPTH - 1)), {
       score: { ...currentScore }, over: [...currentOver], ballCount,
       striker, nonStriker, bowler: currentBowler,
       batStats: { ...batStats }, bowlStats: { ...bowlStats }, outBatters: [...outBatters],
+      bowlerOvers: { ...bowlerOvers }, lastOverBowlerId,
+      freeHit, retiredBatters: [...retiredBatters],
     }]);
     haptic.warn();
     try {
