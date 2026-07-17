@@ -109,11 +109,11 @@ export default function GlassDock({
         <Item id="mycricket" icon={sportIcon}           onPress={goTab('MyCricketTab', 'Home')}    label={sportName} />
         <View style={s.ballSlot}>
           <View style={s.ballLift}>
-            <AnimatedCricketBall size={60} onPress={startMatch} />
+            <AnimatedCricketBall size={52} onPress={startMatch} />
           </View>
         </View>
         <Item id="pavilion"  icon="stadium"             onPress={goTab('PavilionTab', 'Pavilion')} label="Pavilion" />
-        <Item id="profile"   icon="account-circle"      onPress={goProfile}                        label="Profile" />
+        <Item id="profile"   icon="account-circle"      onPress={goProfile}                        label="You" />
       </View>
     </View>
   );
