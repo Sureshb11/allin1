@@ -335,7 +335,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     if (!currentInningId || !currentBowler) throw new Error('Match state is still loading — try again in a moment');
     const overNumber = currentScore.overs + 1;
     const newBallCount = countsAsBall ? ballCount + 1 : ballCount;
-    if (countsAsBall) setBallCount(newBallCount);
     const res = await legendsApi.updateScore(matchData.id, {
       inningId: currentInningId, overNumber, ballNumber: newBallCount,
       bowlerId: currentBowler.id, batterId: striker.id, nonStrikerId: nonStriker.id,
@@ -349,6 +348,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       clientEventId: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     });
     if (!res.success) throw new Error(res.error || 'Could not save this ball');
+    // Advance the local ball count only once the delivery is actually stored.
+    // Bumping it before the await meant a rejected ball (e.g. the server's 409
+    // bowling-rule guards) still moved the count on, so the on-screen over
+    // drifted a ball ahead of what was recorded.
+    if (countsAsBall) setBallCount(newBallCount);
   };
 
   const checkWinCondition = (newScore) => {
@@ -486,12 +490,15 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     }
     savingRef.current = true;
     try {
-    // Snapshot the pre-ball state so this delivery can be taken back.
-    setHistory((h) => [...h.slice(-49), {
+    // Snapshot the pre-ball state so this delivery can be taken back. Built
+    // here, but committed only once the ball is actually stored (below) — a
+    // rejected ball used to leave an undo entry for a delivery that never
+    // happened, so Undo would "take back" nothing.
+    const snapshot = {
       score: { ...currentScore }, over: [...currentOver], ballCount,
       striker, nonStriker, bowler: currentBowler,
       batStats: { ...batStats }, bowlStats: { ...bowlStats }, outBatters: [...outBatters],
-    }]);
+    };
     // Tactile feedback: a firm buzz on a wicket, a light tick on every other ball.
     if (value === 'out') haptic.warn(); else haptic.tick();
     let newScore = { ...currentScore };
@@ -635,6 +642,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // odd-run + over-end correctly cancels. Skipped when a wicket emptied the
     // striker slot (strikeSwaps stays even there) so the new-batter pick governs.
     if (strikeSwaps % 2 === 1) { setStriker(nonStriker); setNonStriker(striker); }
+    // The ball is stored — now it's real, so it becomes undoable.
+    setHistory((h) => [...h.slice(-49), snapshot]);
     setCurrentScore(newScore);
     const scoreStr = `${newScore.runs}/${newScore.wickets} (${newScore.overs}.${newScore.balls})`;
     syncMatchSummary(scoreStr);
@@ -675,8 +684,19 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       const inn = await legendsApi.createInning(matchData.id, {
         battingTeamId: bowlingTeamId, bowlingTeamId: battingTeamId, targetScore: score.runs + 1,
       });
+      // A failed create used to fall through with currentInningId = '', which
+      // persistBall now rejects — so every ball of the 2nd innings would alert
+      // with no way forward. Stop here instead: the 1st innings is already
+      // saved, so reopening the match resumes cleanly.
+      if (!inn.success) {
+        Alert.alert(
+          'Could not start the second innings',
+          `${inn.error || 'The server rejected it.'}\n\nThe first innings is saved. Reopen the match to try again.`,
+        );
+        return;
+      }
       setIsInnings2(true);
-      setCurrentInningId(inn.success ? inn.data.id : '');
+      setCurrentInningId(inn.data.id);
       setCurrentScore({ runs: 0, wickets: 0, overs: 0, balls: 0 });
       setCurrentOver([]); setBallCount(0); setHistory([]);
       // Fresh innings → reset per-player figures + bowling spell tracking + dismissals.
