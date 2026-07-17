@@ -771,6 +771,26 @@ class LegendsApi {
     }
   }
 
+  // Transfer team ownership to another member (owner only).
+  async transferTeamOwner(teamId, userId) {
+    try {
+      await this.request(`/teams/${teamId}/transfer-owner`, { method: 'POST', body: { userId } });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Delete a team (owner only; refused if it has match history).
+  async deleteTeam(teamId) {
+    try {
+      await this.request(`/teams/${teamId}`, { method: 'DELETE' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Request to join a team (creates a pending request for admins to approve).
   async requestToJoinTeam(teamId, note) {
     try {

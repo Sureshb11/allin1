@@ -289,6 +289,63 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Transfer ownership to another member. Only the current owner may do this; the
+// new owner must be a member with a linked account. The old owner stays on as an
+// admin so they don't lose access.
+router.post('/:id/transfer-owner', authMiddleware, async (req, res) => {
+  try {
+    const teamId = req.params.id;
+    const uid = req.user.sub;
+    const { userId } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const team = await prisma.team.findUnique({ where: { id: teamId }, select: { ownerId: true } });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    if (team.ownerId !== uid) return res.status(403).json({ error: 'Only the owner can transfer ownership' });
+    if (userId === uid) return res.status(400).json({ error: 'You already own this team' });
+
+    const target = await prisma.player.findFirst({ where: { teamId, userId } });
+    if (!target) return res.status(400).json({ error: 'New owner must be a team member' });
+
+    await prisma.team.update({ where: { id: teamId }, data: { ownerId: userId } });
+    // New owner is implicitly admin; keep the outgoing owner as an admin too.
+    await prisma.player.update({ where: { id: target.id }, data: { isAdmin: true } });
+    await prisma.player.updateMany({ where: { teamId, userId: uid }, data: { isAdmin: true } });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Delete a team. Only the owner may do this, and only if it has no match history
+// (matches reference teams, and we won't rewrite scorecards). Dependent rows
+// that are safe to remove — follows, gallery, join requests — are cleaned up, and
+// remaining players are detached from the team.
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    const teamId = req.params.id;
+    const uid = req.user.sub;
+    const team = await prisma.team.findUnique({ where: { id: teamId }, select: { ownerId: true } });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    if (team.ownerId && team.ownerId !== uid) {
+      return res.status(403).json({ error: 'Only the owner can delete this team' });
+    }
+    const matchCount = await prisma.match.count({ where: { OR: [{ team1Id: teamId }, { team2Id: teamId }] } });
+    if (matchCount > 0) {
+      return res.status(400).json({ error: 'This team has match history and can’t be deleted.' });
+    }
+    await prisma.$transaction([
+      prisma.teamFollow.deleteMany({ where: { teamId } }),
+      prisma.teamJoinRequest.deleteMany({ where: { teamId } }),
+      prisma.galleryPhoto.deleteMany({ where: { teamId } }),
+      prisma.player.updateMany({ where: { teamId }, data: { teamId: null, isAdmin: false } }),
+      prisma.team.delete({ where: { id: teamId } }),
+    ]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // Promote or demote a member as a team admin. Only an existing admin may do this.
 // The owner is always an admin (their status can't be toggled here).
 router.put('/:id/members/:playerId/admin', authMiddleware, async (req, res) => {

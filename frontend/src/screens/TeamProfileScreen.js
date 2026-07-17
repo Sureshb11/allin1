@@ -80,6 +80,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
     ['gallery', 'Gallery', 'image-multiple'],
   ];
   const joinStatus = data?.viewerJoinStatus || 'none';
+  const isOwner = joinStatus === 'owner';
   const isOutsider = joinStatus !== 'member' && joinStatus !== 'owner' && !isAdmin;
 
   useLayoutEffect(() => {
@@ -167,6 +168,42 @@ const TeamProfileScreen = ({ navigation, route }) => {
   };
 
   const openMember = (m) => navigation.navigate('PlayerInsights', { playerId: m.id });
+
+  const transferOwner = (m) => {
+    Alert.alert(
+      'Transfer ownership',
+      `Make ${m.name} the team owner? You'll stay on as an admin.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Transfer', style: 'destructive',
+          onPress: async () => {
+            const res = await legendsApi.transferTeamOwner(teamId, m.userId);
+            if (res.success) { await load(); showToast(`${m.name} is now the owner.`, 'success'); }
+            else showToast(res.error || 'Failed', 'error');
+          },
+        },
+      ],
+    );
+  };
+
+  const deleteTeam = () => {
+    Alert.alert(
+      'Delete team',
+      `Permanently delete ${team?.name}? This can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete', style: 'destructive',
+          onPress: async () => {
+            const res = await legendsApi.deleteTeam(teamId);
+            if (res.success) { showToast('Team deleted.', 'success'); navigation.goBack(); }
+            else showToast(res.error || 'Could not delete', 'error');
+          },
+        },
+      ],
+    );
+  };
 
   const setMemberAdmin = async (player, makeAdmin) => {
     const res = await legendsApi.setTeamMemberAdmin(teamId, player.id, makeAdmin);
@@ -343,7 +380,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
             addingMember={addingMember} removeMember={removeMember} setMemberAdmin={setMemberAdmin}
             canLeave={!!myMembership && !myMembership.isOwner} onLeave={leaveTeam}
             joinRequests={data.joinRequests || []} onApprove={approveJoin} onReject={rejectJoin}
-            onOpenMember={openMember} />
+            onOpenMember={openMember} isOwner={isOwner} onTransfer={transferOwner} onDelete={deleteTeam} />
         )}
         {tab === 'matches' && (
           <MatchesTab matches={data.recentMatches || []} teamId={teamId} navigation={navigation} styles={styles} DS={DS} />
@@ -403,7 +440,7 @@ const Stat = ({ label, value, styles }) => (
   </View>
 );
 
-const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMember, addingMember, removeMember, setMemberAdmin, canLeave, onLeave, joinRequests, onApprove, onReject, onOpenMember }) => (
+const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMember, addingMember, removeMember, setMemberAdmin, canLeave, onLeave, joinRequests, onApprove, onReject, onOpenMember, isOwner, onTransfer, onDelete }) => (
   <View>
     {/* Pending join requests — admins only. */}
     {isAdmin && joinRequests.length > 0 && (
@@ -461,6 +498,12 @@ const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMe
               <Text style={styles.memberRole}>{m.role || 'Player'}</Text>
             </View>
           </TouchableOpacity>
+          {isOwner && !m.isOwner && !!m.userId && (
+            <TouchableOpacity onPress={() => onTransfer(m)}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} style={styles.memberAction}>
+              <Icon name="crown-outline" size={20} color={DS.lime} />
+            </TouchableOpacity>
+          )}
           {canPromote && (
             <TouchableOpacity onPress={() => setMemberAdmin(m, !m.isAdmin)}
               hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} style={styles.memberAction}>
@@ -483,10 +526,16 @@ const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMe
         <Text style={styles.leaveTxt}>Leave Team</Text>
       </TouchableOpacity>
     )}
+    {isOwner && (
+      <TouchableOpacity style={styles.leaveBtn} onPress={onDelete}>
+        <Icon name="trash-can-outline" size={18} color={DS.danger} />
+        <Text style={styles.leaveTxt}>Delete Team</Text>
+      </TouchableOpacity>
+    )}
   </View>
 );
 
-const FormTab = ({ insights, isCricket, styles, DS }) => {
+const FormTab =({ insights, isCricket, styles, DS }) => {
   if (!insights) return <ActivityIndicator color={DS.lime} style={{ marginTop: 24 }} />;
   const form = insights.form || [];
   const batters = insights.topBatters || [];
@@ -643,6 +692,7 @@ const HonoursTab = ({ achievements, awards, isAdmin, styles, DS, onAdd, onRemove
 
 const GalleryTab = ({ photos, isAdmin, styles, DS, onAdd, onRemove, busy }) => {
   const size = (SCREEN_W - 32 - GALLERY_GAP * (GALLERY_COLS - 1)) / GALLERY_COLS;
+  const [viewer, setViewer] = useState(null);   // index of the open photo, or null
   return (
     <View>
       {isAdmin && (
@@ -653,9 +703,11 @@ const GalleryTab = ({ photos, isAdmin, styles, DS, onAdd, onRemove, busy }) => {
       )}
       {photos.length === 0 && <Text style={styles.emptyTxt}>No photos yet.</Text>}
       <View style={styles.galleryGrid}>
-        {photos.map((p) => (
+        {photos.map((p, i) => (
           <View key={p.id} style={{ width: size, height: size, marginBottom: GALLERY_GAP }}>
-            <Image source={{ uri: p.url }} style={styles.galleryImg} />
+            <TouchableOpacity activeOpacity={0.85} onPress={() => setViewer(i)} style={{ flex: 1 }}>
+              <Image source={{ uri: p.url }} style={styles.galleryImg} />
+            </TouchableOpacity>
             {isAdmin && (
               <TouchableOpacity style={styles.galleryDel} onPress={() => onRemove(p)}>
                 <Icon name="close" size={13} color="#fff" />
@@ -664,6 +716,25 @@ const GalleryTab = ({ photos, isAdmin, styles, DS, onAdd, onRemove, busy }) => {
           </View>
         ))}
       </View>
+
+      {/* Full-screen swipeable viewer */}
+      <Modal visible={viewer !== null} transparent animationType="fade" onRequestClose={() => setViewer(null)}>
+        <View style={styles.viewerOverlay}>
+          <TouchableOpacity style={styles.viewerClose} onPress={() => setViewer(null)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Icon name="close" size={26} color="#fff" />
+          </TouchableOpacity>
+          <ScrollView
+            horizontal pagingEnabled showsHorizontalScrollIndicator={false}
+            contentOffset={{ x: (viewer || 0) * SCREEN_W, y: 0 }}>
+            {photos.map((p) => (
+              <View key={p.id} style={styles.viewerPage}>
+                <Image source={{ uri: p.url }} style={styles.viewerImg} resizeMode="contain" />
+                {p.caption ? <Text style={styles.viewerCaption}>{p.caption}</Text> : null}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -839,6 +910,14 @@ const makeStyles = (DS) => StyleSheet.create({
     position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 11,
     backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
   },
+  viewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center' },
+  viewerClose: {
+    position: 'absolute', top: 44, right: 20, zIndex: 10, width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center',
+  },
+  viewerPage: { width: SCREEN_W, alignItems: 'center', justifyContent: 'center' },
+  viewerImg: { width: SCREEN_W, height: '80%' },
+  viewerCaption: { position: 'absolute', bottom: 60, color: '#fff', fontSize: 14, paddingHorizontal: 24, textAlign: 'center' },
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: DS.overlay, justifyContent: 'center', alignItems: 'center', padding: 24 },
