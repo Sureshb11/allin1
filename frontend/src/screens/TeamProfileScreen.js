@@ -18,7 +18,7 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import React, { useState, useEffect, useCallback, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, TextInput, TouchableOpacity,
-  ActivityIndicator, Modal, Dimensions,
+  ActivityIndicator, Modal, Dimensions, Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -55,7 +55,12 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const [award, setAward] = useState({ title: '', year: '', note: '' });
 
   const team = data?.team;
-  const isAdmin = !!team && (!team.ownerId || team.ownerId === me?.id);
+  // Admin rights come from the server: the owner plus any promoted member. This
+  // gates every management control (logo, cover, edit, members, awards, gallery).
+  const isAdmin = !!data?.viewerIsAdmin;
+  // The caller's own membership (a player row linked to their user id) — enables
+  // the self-serve "Leave team" option for members who aren't the admin.
+  const myMembership = (data?.members || []).find((m) => m.userId && m.userId === me?.id);
   // Sport-aware: the tab icons, "Matches" glyph and honour stats all follow the
   // team's sport (cricket keeps runs/wickets; every other sport shows points).
   const sport = team?.sport || 'cricket';
@@ -109,6 +114,32 @@ const TeamProfileScreen = ({ navigation, route }) => {
     const res = await legendsApi.deletePlayer(player.id);
     if (res.success) { await load(); showToast(`${player.name} removed.`, 'success'); }
     else showToast(res.error || 'Failed to remove', 'error');
+  };
+
+  const setMemberAdmin = async (player, makeAdmin) => {
+    const res = await legendsApi.setTeamMemberAdmin(teamId, player.id, makeAdmin);
+    if (res.success) {
+      await load();
+      showToast(makeAdmin ? `${player.name} is now an admin.` : `${player.name} is no longer an admin.`, 'success');
+    } else showToast(res.error || 'Failed', 'error');
+  };
+
+  const leaveTeam = () => {
+    Alert.alert(
+      'Leave team',
+      `Leave ${team?.name}? You can be added back later.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave', style: 'destructive',
+          onPress: async () => {
+            const res = await legendsApi.leaveTeam(teamId);
+            if (res.success) { showToast('You left the team.', 'success'); navigation.goBack(); }
+            else showToast(res.error || 'Could not leave', 'error');
+          },
+        },
+      ],
+    );
   };
 
   const saveAward = async () => {
@@ -235,7 +266,8 @@ const TeamProfileScreen = ({ navigation, route }) => {
           <SquadTab
             members={data.members || []} isAdmin={isAdmin} styles={styles} DS={DS}
             newMember={newMember} setNewMember={setNewMember} addMember={addMember}
-            addingMember={addingMember} removeMember={removeMember} />
+            addingMember={addingMember} removeMember={removeMember} setMemberAdmin={setMemberAdmin}
+            canLeave={!!myMembership && !myMembership.isOwner} onLeave={leaveTeam} />
         )}
         {tab === 'matches' && (
           <MatchesTab matches={data.recentMatches || []} teamId={teamId} navigation={navigation} styles={styles} DS={DS} />
@@ -292,7 +324,7 @@ const Stat = ({ label, value, styles }) => (
   </View>
 );
 
-const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMember, addingMember, removeMember }) => (
+const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMember, addingMember, removeMember, setMemberAdmin, canLeave, onLeave }) => (
   <View>
     {isAdmin && (
       <View style={styles.addRow}>
@@ -305,20 +337,46 @@ const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMe
       </View>
     )}
     {members.length === 0 && <Text style={styles.emptyTxt}>No members yet.</Text>}
-    {members.map((m) => (
-      <View key={m.id} style={styles.memberRow}>
-        <View style={styles.memberAvatar}><Text style={styles.memberInitial}>{initials(m.name)}</Text></View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.memberName}>{m.name}</Text>
-          <Text style={styles.memberRole}>{m.role || 'Player'}</Text>
+    {members.map((m) => {
+      // Owner/admin badge; owner can't be edited. Promote/demote is offered to
+      // admins for linked members that aren't the owner.
+      const canPromote = isAdmin && !m.isOwner && !!m.userId;
+      return (
+        <View key={m.id} style={styles.memberRow}>
+          <View style={styles.memberAvatar}><Text style={styles.memberInitial}>{initials(m.name)}</Text></View>
+          <View style={{ flex: 1 }}>
+            <View style={styles.memberNameRow}>
+              <Text style={styles.memberName}>{m.name}</Text>
+              {m.isOwner
+                ? <View style={styles.roleBadge}><Text style={styles.roleBadgeTxt}>OWNER</Text></View>
+                : m.isAdmin
+                  ? <View style={styles.roleBadge}><Text style={styles.roleBadgeTxt}>ADMIN</Text></View>
+                  : null}
+            </View>
+            <Text style={styles.memberRole}>{m.role || 'Player'}</Text>
+          </View>
+          {canPromote && (
+            <TouchableOpacity onPress={() => setMemberAdmin(m, !m.isAdmin)}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} style={styles.memberAction}>
+              <Icon name={m.isAdmin ? 'shield-off-outline' : 'shield-account-outline'}
+                size={21} color={m.isAdmin ? DS.textMuted : DS.lime} />
+            </TouchableOpacity>
+          )}
+          {isAdmin && !m.isOwner && (
+            <TouchableOpacity onPress={() => removeMember(m)}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} style={styles.memberAction}>
+              <Icon name="close-circle-outline" size={22} color={DS.textMuted} />
+            </TouchableOpacity>
+          )}
         </View>
-        {isAdmin && (
-          <TouchableOpacity onPress={() => removeMember(m)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Icon name="close-circle-outline" size={22} color={DS.textMuted} />
-          </TouchableOpacity>
-        )}
-      </View>
-    ))}
+      );
+    })}
+    {canLeave && (
+      <TouchableOpacity style={styles.leaveBtn} onPress={onLeave}>
+        <Icon name="exit-run" size={18} color={DS.danger} />
+        <Text style={styles.leaveTxt}>Leave Team</Text>
+      </TouchableOpacity>
+    )}
   </View>
 );
 
@@ -527,8 +585,18 @@ const makeStyles = (DS) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
   memberInitial: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  memberNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   memberName: { color: DS.textPrimary, fontSize: 15, fontWeight: '600' },
   memberRole: { color: DS.textMuted, fontSize: 12, marginTop: 2 },
+  memberAction: { paddingLeft: 10 },
+  roleBadge: { backgroundColor: DS.surfaceHighest, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+  roleBadgeTxt: { fontSize: 9, fontWeight: '900', letterSpacing: 0.8, color: DS.lime },
+  leaveBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginTop: 20, paddingVertical: 13, borderRadius: 12,
+    borderWidth: 1, borderColor: DS.danger,
+  },
+  leaveTxt: { color: DS.danger, fontSize: 14, fontWeight: '800' },
 
   // Matches
   matchRow: {

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
+import { isTeamAdmin } from '../lib/teamAuth.js';
 
 const router = Router();
 
@@ -181,16 +182,38 @@ router.delete('/:id/follow', authMiddleware, async (req, res) => {
   }
 });
 
-// Edit a team — only the team admin (owner) may change its profile. Legacy teams
-// created before ownership was recorded (ownerId null) stay editable by anyone
-// signed in, and get claimed by the first editor.
+// Leave a team — a member removes THEMSELVES (distinct from the admin removing
+// someone). Detaches the caller's player row(s) for this team (teamId → null),
+// preserving match history. The owner can't leave their own team; they'd hand it
+// over or delete it instead.
+router.post('/:id/leave', authMiddleware, async (req, res) => {
+  try {
+    const uid = req.user.sub;
+    const team = await prisma.team.findUnique({ where: { id: req.params.id } });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    if (team.ownerId === uid) {
+      return res.status(400).json({ error: 'The team admin can’t leave their own team' });
+    }
+    const result = await prisma.player.updateMany({
+      where: { teamId: req.params.id, userId: uid }, data: { teamId: null },
+    });
+    if (result.count === 0) return res.status(404).json({ error: 'You are not a member of this team' });
+    res.json({ ok: true, left: result.count });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Edit a team — any team admin (owner or a promoted member) may change its
+// profile, logo, cover, achievements and awards. Legacy teams with no recorded
+// owner stay editable by anyone signed in, and get claimed by the first editor.
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const existing = await prisma.team.findUnique({ where: { id: req.params.id } });
     if (!existing) return res.status(404).json({ error: 'Team not found' });
     const uid = req.user.sub;
-    if (existing.ownerId && existing.ownerId !== uid) {
-      return res.status(403).json({ error: 'Only the team admin can edit this team' });
+    if (!(await isTeamAdmin(req.params.id, uid))) {
+      return res.status(403).json({ error: 'Only a team admin can edit this team' });
     }
     const data = TeamSchema.partial().parse(req.body);
     if (!existing.ownerId) data.ownerId = uid;   // claim an unowned legacy team
@@ -199,6 +222,29 @@ router.put('/:id', authMiddleware, async (req, res) => {
       data,
     });
     res.json({ team });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Promote or demote a member as a team admin. Only an existing admin may do this.
+// The owner is always an admin (their status can't be toggled here).
+router.put('/:id/members/:playerId/admin', authMiddleware, async (req, res) => {
+  try {
+    const { id: teamId, playerId } = req.params;
+    const uid = req.user.sub;
+    if (!(await isTeamAdmin(teamId, uid))) {
+      return res.status(403).json({ error: 'Only a team admin can change admins' });
+    }
+    const makeAdmin = req.body?.isAdmin !== false;   // default → promote
+    const player = await prisma.player.findFirst({ where: { id: playerId, teamId } });
+    if (!player) return res.status(404).json({ error: 'Member not found on this team' });
+    const team = await prisma.team.findUnique({ where: { id: teamId }, select: { ownerId: true } });
+    if (team?.ownerId && player.userId && player.userId === team.ownerId) {
+      return res.status(400).json({ error: 'The owner is always an admin' });
+    }
+    const updated = await prisma.player.update({ where: { id: playerId }, data: { isAdmin: makeAdmin } });
+    res.json({ player: updated });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -302,7 +348,7 @@ router.get('/:id/insights', async (req, res) => {
 // bundles everything the screen shows: the team, its squad, recent matches, a
 // win/loss record, a same-sport leaderboard (with this team's rank), the photo
 // gallery, and the admin-entered achievements + awards.
-router.get('/:id/profile', async (req, res) => {
+router.get('/:id/profile', authMiddleware, async (req, res) => {
   try {
     const teamId = req.params.id;
     const team = await prisma.team.findUnique({
@@ -310,6 +356,16 @@ router.get('/:id/profile', async (req, res) => {
       include: { players: true },
     });
     if (!team) return res.status(404).json({ error: 'Team not found' });
+
+    // Who's an admin: the owner is always one; promoted members carry isAdmin.
+    // Flag each member and tell the client whether the viewer can manage the team.
+    const membersWithRole = team.players.map((p) => ({
+      ...p,
+      isAdmin: !!p.isAdmin || (!!team.ownerId && p.userId === team.ownerId),
+      isOwner: !!team.ownerId && p.userId === team.ownerId,
+    }));
+    const viewerId = req.user.sub;
+    const viewerIsAdmin = await isTeamAdmin(teamId, viewerId);
 
     // Recent matches (any status), newest first.
     const recentMatches = await prisma.match.findMany({
@@ -387,7 +443,8 @@ router.get('/:id/profile', async (req, res) => {
 
     res.json({
       team,
-      members: team.players,
+      members: membersWithRole,
+      viewerIsAdmin,
       recentMatches,
       stats,
       leaderboard: leaderboard.slice(0, 10),

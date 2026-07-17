@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
+import { isTeamAdmin } from '../lib/teamAuth.js';
 
 const router = Router();
 
@@ -125,20 +126,19 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Remove a player from their team's squad. Only the team admin (owner) may do
-// this. The player is detached (teamId → null) rather than hard-deleted, so any
-// match/scoring history that references them stays intact.
+// Remove a player from their team's squad. Any team admin (owner or promoted
+// member) may do this. The player is detached (teamId → null) rather than
+// hard-deleted, so any match/scoring history that references them stays intact.
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const player = await prisma.player.findUnique({
       where: { id: req.params.id }, include: { team: true },
     });
     if (!player) return res.status(404).json({ error: 'Player not found' });
-    const team = player.team;
-    if (team?.ownerId && team.ownerId !== req.user.sub) {
-      return res.status(403).json({ error: 'Only the team admin can remove members' });
+    if (player.teamId && !(await isTeamAdmin(player.teamId, req.user.sub))) {
+      return res.status(403).json({ error: 'Only a team admin can remove members' });
     }
-    await prisma.player.update({ where: { id: req.params.id }, data: { teamId: null } });
+    await prisma.player.update({ where: { id: req.params.id }, data: { teamId: null, isAdmin: false } });
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message });

@@ -122,6 +122,7 @@ model Player {
   teamId    String?
   user      User?    @relation(fields: [userId], references: [id])
   userId    String?
+  isAdmin   Boolean  @default(false)   // team admin: can manage the team like the owner
   stats     Json?
 
   matchPlayers MatchPlayer[]

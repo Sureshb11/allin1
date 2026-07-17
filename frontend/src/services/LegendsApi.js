@@ -751,6 +751,26 @@ class LegendsApi {
     }
   }
 
+  // Leave a team — the current user removes themselves from a team's squad.
+  async leaveTeam(teamId) {
+    try {
+      await this.request(`/teams/${teamId}/leave`, { method: 'POST' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Promote/demote a member as a team admin (team admins only).
+  async setTeamMemberAdmin(teamId, playerId, isAdmin) {
+    try {
+      await this.request(`/teams/${teamId}/members/${playerId}/admin`, { method: 'PUT', body: { isAdmin } });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Club Management
   async getClubs() {
     try {
