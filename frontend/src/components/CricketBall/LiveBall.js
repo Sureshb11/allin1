@@ -127,6 +127,7 @@ export default function LiveBall({ event, menuItems = [], size = 56 }) {
         {/* event energy ripple, centred on the ball */}
         <Animated.View pointerEvents="none"
           style={[styles.ripple, {
+            width: size, height: size, borderRadius: size / 2,
             borderColor: rippleColor, opacity: rippleOpacity,
             transform: [{ scale: rippleScale }],
           }]} />
@@ -149,8 +150,7 @@ const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(4,7,14,0.72)' },
   anchor: { position: 'absolute', bottom: 26, alignSelf: 'center', alignItems: 'center' },
   ripple: {
-    position: 'absolute', top: 2, alignSelf: 'center',
-    width: 56, height: 56, borderRadius: 28, borderWidth: 2.5,
+    position: 'absolute', top: 2, alignSelf: 'center', borderWidth: 2.5,
   },
   menuItem: { position: 'absolute', top: 6, alignSelf: 'center', alignItems: 'center', width: 64 },
   menuBtn: {

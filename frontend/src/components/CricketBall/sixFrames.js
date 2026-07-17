@@ -93,7 +93,7 @@ export const SIX_FRAMES = [
   require('../../../assets/ball/six_frames/s82.png'),
 ];
 
-export const SIX_FPS = 12;
+export const SIX_FPS = 16;
 // canvas edge / ball diameter, and ball-centre fraction down the canvas
 export const SIX_CANVAS_PER_BALL = 200 / 84;
 export const SIX_BALL_CENTER_FRAC_Y = 0.565;

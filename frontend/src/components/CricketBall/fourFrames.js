@@ -98,7 +98,7 @@ export const FOUR_FRAMES = [
   require('../../../assets/ball/four_frames/f87.png'),
 ];
 
-export const FOUR_FPS = 12;
+export const FOUR_FPS = 16;
 // canvas edge / ball diameter, and ball-centre fraction down the canvas
 export const FOUR_CANVAS_PER_BALL = 200 / 95;
 export const FOUR_BALL_CENTER_FRAC_Y = 0.55;

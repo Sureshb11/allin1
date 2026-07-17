@@ -16,6 +16,7 @@ import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
 import HexAvatar from "../components/HexAvatar";
 import LiveBall from "../components/CricketBall/LiveBall";
+import EventSound from "../components/CricketBall/EventSound";
 import { useDockLock, useHideTabBarOnScroll } from "../components/AutoHideTabBar";
 
 // Latest COMPLETED over of the current (last) innings — used to pop an
@@ -1366,7 +1367,16 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
       lastOverEndRef.current = oe.over;
       if (match.status === 'live') {
         setOverEndBanner(oe); haptic.tick();
-        setBallEvent({ type: 'over', id: `over-${oe.over}` });   // LiveBall bounce
+        // When the over's final delivery is a boundary/wicket, both this effect
+        // and the ball-detector fire on the same poll — and we run last, so a
+        // plain 'over' bounce would clobber the four/six/wicket clip the ball
+        // detector just queued. Let the big-moment clip win; only bounce when
+        // the over ended on an ordinary delivery.
+        const lb = latestBall(match);
+        const bigMoment = lb && (lb.kind === 'four' || lb.kind === 'six' || lb.kind === 'wicket');
+        if (!bigMoment) {
+          setBallEvent({ type: 'over', id: `over-${oe.over}` });   // LiveBall bounce
+        }
       }
     }
   }, [match]);
@@ -1698,12 +1708,16 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
         </ScrollView>
       </View>
 
+      {/* FOUR / SIX / WICKET stinger — plays off the same event as the ball. */}
+      {(match?.status === 'live' || linger) && <EventSound event={ballEvent} />}
+
       {/* Phase 4 — live spectator companion: dock is locked away, the ball
           persists bottom-centre, reacts to every delivery and opens the
           radial quick menu (jumps between the tabs above). */}
       {(match?.status === 'live' || linger) && (
         <LiveBall
           event={ballEvent}
+          size={80}
           menuItems={TABS.filter((t) => ['live', 'scorecard', 'overs', 'highlights', 'info'].includes(t.key))
             .map((t) => ({ key: t.key, icon: t.icon, label: t.label, onPress: () => setTab(t.key) }))}
         />

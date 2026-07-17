@@ -100,8 +100,8 @@ export const WICKET_FRAMES = [
 ];
 
 // Playback rate. The clip was shot at 24fps; it plays slower than source so
-// the shatter is readable as a moment rather than a flash (73 frames ≈ 6s).
-export const WICKET_FPS = 12;
+// the shatter is readable as a moment rather than a flash (73 frames ≈ 4.6s).
+export const WICKET_FPS = 16;
 // canvas edge / ball diameter, and ball-centre fraction down the canvas.
 // Measured on the hand-off frames (w00/w72): ball equator 96px of the 200px
 // canvas, centre at y≈104 — so the animated ball renders at exactly the
