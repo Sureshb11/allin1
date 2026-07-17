@@ -364,12 +364,19 @@ router.get('/:id/profile', async (req, res) => {
       .sort((a, b) => b.wins - a.wins || b.winRate - a.winRate || a.name.localeCompare(b.name))
       .map((row, i) => ({ ...row, rank: i + 1 }));
 
+    // Generic "points scored" for non-cricket sports (goals/points/etc. score via
+    // SportEvent, not innings), so the stat block isn't empty outside cricket.
+    // Cricket keeps its runs/wickets, which come from the Inning aggregates above.
+    const evAgg = await prisma.sportEvent.aggregate({ _sum: { value: true }, where: { teamId } });
+
     const mine = rec[teamId] || { matches: 0, wins: 0, losses: 0 };
     const stats = {
       matches: mine.matches, wins: mine.wins, losses: mine.losses,
       winRate: mine.matches ? Math.round((mine.wins / mine.matches) * 100) : 0,
       totalRuns: runsFor[teamId] || 0,
       totalWickets: wktsFor[teamId] || 0,
+      pointsScored: evAgg._sum.value || 0,
+      sport: team.sport,
       rank: (leaderboard.find((l) => l.isCurrent) || {}).rank || null,
       squadSize: team.players.length,
     };

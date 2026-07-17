@@ -25,18 +25,12 @@ import legendsApi from '../services/LegendsApi';
 import { pickAndUploadImage } from '../utils/imageUpload';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
+import { sportMeta } from '../sports';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const GALLERY_COLS = 3;
 const GALLERY_GAP = 6;
-const TABS = [
-  ['squad', 'Squad', 'account-group'],
-  ['matches', 'Matches', 'cricket'],
-  ['standings', 'Standings', 'trophy-variant'],
-  ['honours', 'Honours', 'medal'],
-  ['gallery', 'Gallery', 'image-multiple'],
-];
 
 const initials = (name) =>
   (name || '').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
@@ -62,6 +56,18 @@ const TeamProfileScreen = ({ navigation, route }) => {
 
   const team = data?.team;
   const isAdmin = !!team && (!team.ownerId || team.ownerId === me?.id);
+  // Sport-aware: the tab icons, "Matches" glyph and honour stats all follow the
+  // team's sport (cricket keeps runs/wickets; every other sport shows points).
+  const sport = team?.sport || 'cricket';
+  const isCricket = sport === 'cricket';
+  const sportIcon = sportMeta(sport).icon;
+  const tabs = [
+    ['squad', 'Squad', 'account-group'],
+    ['matches', 'Matches', sportIcon],
+    ['standings', 'Standings', 'trophy-variant'],
+    ['honours', 'Honours', 'medal'],
+    ['gallery', 'Gallery', 'image-multiple'],
+  ];
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: true, headerBackVisible: true, headerTitle: 'Team Profile' });
@@ -215,7 +221,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
 
       {/* ── Tabs ── */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabRow} contentContainerStyle={styles.tabRowInner}>
-        {TABS.map(([key, label, icon]) => (
+        {tabs.map(([key, label, icon]) => (
           <TouchableOpacity key={key} onPress={() => setTab(key)} style={[styles.tabChip, tab === key && styles.tabChipActive]}>
             <Icon name={icon} size={15} color={tab === key ? DS.bg : DS.textMuted} />
             <Text style={[styles.tabChipTxt, tab === key && styles.tabChipTxtActive]}>{label}</Text>
@@ -241,7 +247,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
           <HonoursTab
             achievements={data.achievements} awards={data.awards || []} isAdmin={isAdmin}
             styles={styles} DS={DS} onAdd={() => setAwardModal(true)} onRemove={removeAward}
-            stats={stats} />
+            stats={stats} isCricket={isCricket} />
         )}
         {tab === 'gallery' && (
           <GalleryTab photos={data.gallery || []} isAdmin={isAdmin} styles={styles} DS={DS}
@@ -371,12 +377,21 @@ const StandingsTab = ({ rows, styles, DS }) => {
   );
 };
 
-const HonoursTab = ({ achievements, awards, isAdmin, styles, DS, onAdd, onRemove, stats }) => (
+const HonoursTab = ({ achievements, awards, isAdmin, styles, DS, onAdd, onRemove, stats, isCricket }) => (
   <View>
-    {/* Extra season stats */}
+    {/* Season stats — cricket shows runs/wickets; other sports show points scored. */}
     <View style={styles.honourStats}>
-      <View style={styles.honourStat}><Text style={styles.honourStatVal}>{stats.totalRuns ?? 0}</Text><Text style={styles.honourStatLbl}>Runs</Text></View>
-      <View style={styles.honourStat}><Text style={styles.honourStatVal}>{stats.totalWickets ?? 0}</Text><Text style={styles.honourStatLbl}>Wickets</Text></View>
+      {isCricket ? (
+        <>
+          <View style={styles.honourStat}><Text style={styles.honourStatVal}>{stats.totalRuns ?? 0}</Text><Text style={styles.honourStatLbl}>Runs</Text></View>
+          <View style={styles.honourStat}><Text style={styles.honourStatVal}>{stats.totalWickets ?? 0}</Text><Text style={styles.honourStatLbl}>Wickets</Text></View>
+        </>
+      ) : (
+        <>
+          <View style={styles.honourStat}><Text style={styles.honourStatVal}>{stats.pointsScored ?? 0}</Text><Text style={styles.honourStatLbl}>Scored</Text></View>
+          <View style={styles.honourStat}><Text style={styles.honourStatVal}>{stats.matches ?? 0}</Text><Text style={styles.honourStatLbl}>Played</Text></View>
+        </>
+      )}
       <View style={styles.honourStat}><Text style={styles.honourStatVal}>{stats.squadSize ?? 0}</Text><Text style={styles.honourStatLbl}>Squad</Text></View>
     </View>
 
