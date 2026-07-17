@@ -109,9 +109,8 @@ export default function GlassDock({
         <Item id="mycricket" icon={sportIcon}           onPress={goTab('MyCricketTab', 'Home')}    label={sportName} />
         <View style={s.ballSlot}>
           <View style={s.ballLift}>
-            <AnimatedCricketBall size={58} onPress={startMatch} />
+            <AnimatedCricketBall size={60} onPress={startMatch} />
           </View>
-          <Text numberOfLines={1} style={[s.label, s.ballLabel, active === 'ball' && { color: accent }]}>Play</Text>
         </View>
         <Item id="pavilion"  icon="stadium"             onPress={goTab('PavilionTab', 'Pavilion')} label="Pavilion" />
         <Item id="profile"   icon="account-circle"      onPress={goProfile}                        label="Profile" />
@@ -143,7 +142,6 @@ const makeStyles = (isDark, DS) => StyleSheet.create({
   label: { fontSize: 10.5, marginTop: 3, letterSpacing: 0.2, fontWeight: '500' },
   labelOn: { fontWeight: '700' },
   dot: { width: 4, height: 4, borderRadius: 2, marginTop: 3, backgroundColor: 'transparent' },
-  ballSlot: { width: 70, alignItems: 'center', justifyContent: 'flex-end' },
-  ballLift: { marginTop: -32 },
-  ballLabel: { color: isDark ? '#9aa1af' : DS.textMuted, marginTop: 1 },
+  ballSlot: { width: 68, alignItems: 'center' },
+  ballLift: { marginTop: -30 },
 });
