@@ -283,7 +283,8 @@ const TournamentsScreen = ({ navigation, inline }) => {
           </View>
         }
       />
-      <AnimatedPulse style={styles.fabWrap}>
+      {/* Clear the floating dock — it covered the + entirely. */}
+      <AnimatedPulse style={[styles.fabWrap, { bottom: 24 + tabClear }]}>
         <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateTournament')}>
           <Icon name="plus" size={28} color="#fff" />
         </TouchableOpacity>

@@ -556,8 +556,9 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
         </View>
       </Modal>
 
+      {/* Clear the floating dock — it covered the + entirely. */}
       {!selectedTeam && tab === 'mine' && (
-        <AnimatedPulse style={styles.fabWrap}>
+        <AnimatedPulse style={[styles.fabWrap, { bottom: 24 + tabClear }]}>
           <TouchableOpacity style={styles.fab} onPress={() => setShowCreateTeamModal(true)}>
             <Icon name="plus" size={28} color={DS.onBlue} />
           </TouchableOpacity>

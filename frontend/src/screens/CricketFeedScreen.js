@@ -976,7 +976,10 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       <CommentsSheet post={sheetPost} onClose={() => setActivePost(null)} onAdd={addComment} />
 
       {/* Create-post FAB */}
-      <TouchableOpacity style={s.fab} activeOpacity={0.9} onPress={() => setComposeOpen(true)}>
+      {/* Lift clear of the floating dock: the FAB is absolutely positioned, so
+          it never got the bottom padding the scroll content has — the dock sat
+          on top of it and the + was unreachable. */}
+      <TouchableOpacity style={[s.fab, { bottom: 24 + tabClear }]} activeOpacity={0.9} onPress={() => setComposeOpen(true)}>
         <Icon name="plus" size={28} color={DS.onBlue} />
       </TouchableOpacity>
 

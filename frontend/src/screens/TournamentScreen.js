@@ -1,5 +1,5 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import GradientButton from '../components/GradientButton';
@@ -32,12 +32,12 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
   const [organizerName, setOrganizerName] = useState('');
   const [form, setForm] = useState({ name: '', format: 'T20', overs: '20', ballType: 'Leather', venue: '', prizePool: '', maxTeams: '' });
 
+  // No nav header. Reached as "Create Tournament", it stacked three titles: the
+  // nav bar, this screen's own "Tournaments" heading, and the form's "Create New
+  // Tournament" — before a single field. The in-body header below owns the title
+  // and carries the back arrow.
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Tournaments',
-    });
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   useEffect(() => {loadTournaments(); loadOrganizer();}, []);
@@ -132,15 +132,29 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Tournaments</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={10}>
+          <Icon name="arrow-left" size={22} color={DS.textPrimary} />
+        </TouchableOpacity>
+        {/* Say which job this screen is doing. Opened to create, it said
+            "Tournaments" over a form headed "Create New Tournament". */}
+        <Text style={styles.headerTitle}>{showCreateForm ? 'New Tournament' : 'Tournaments'}</Text>
         <TouchableOpacity style={styles.createButton} onPress={() => setShowCreateForm(!showCreateForm)}>
           <Text style={styles.createButtonText}>{showCreateForm ? 'Cancel' : '+ Create'}</Text>
         </TouchableOpacity>
       </View>
 
-      {showCreateForm &&
-      <View style={styles.createForm}>
-          <Text style={styles.formTitle}>Create New Tournament</Text>
+      {/* Form OR list — never both. They used to render together (the form was a
+          plain View that simply pushed the list off-screen); once the form
+          became a flex ScrollView the two competed for the same space and the
+          list won, so opening "New Tournament" showed the list instead.
+          Scrollable + dock clearance because the form is taller than the screen:
+          "Create Tournament" at its foot sat under the floating dock, untappable.
+          The form's own heading is gone — the header already says
+          "New Tournament", so repeating it just cost a row. */}
+      {showCreateForm ?
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: tabClear + 24 }}
+                  keyboardShouldPersistTaps="handled" {...hideTabBar}>
+        <View style={styles.createForm}>
           <TextInput style={styles.formInput} placeholder="Tournament Name" placeholderTextColor={DS.textMuted} value={form.name} onChangeText={(t) => setForm({ ...form, name: t })} />
           <Text style={styles.formLabel}>Format</Text>
           <View style={styles.formatRow}>
@@ -188,9 +202,8 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
             style={{ marginTop: 5 }}
           />
         </View>
-      }
-
-      {loading ?
+      </ScrollView>
+      : loading ?
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={DS.lime} /></View> :
 
       <FlatList data={tournaments} renderItem={renderTournament} keyExtractor={(item) => item.id}
@@ -205,12 +218,14 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
 
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
-  header: { backgroundColor: DS.surfaceLow, padding: 20, paddingTop: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: DS.textPrimary },
+  header: { backgroundColor: DS.surfaceLow, padding: 20, paddingTop: 15, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  backBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginLeft: -8 },
+  // flex:1 so the title takes the middle and pushes Create to the right — the
+  // row was space-between with two children; it now has three.
+  headerTitle: { flex: 1, fontSize: 20, fontWeight: 'bold', color: DS.textPrimary },
   createButton: { backgroundColor: DS.lime, paddingHorizontal: 15, paddingVertical: 8, borderRadius: 8 },
   createButtonText: { color: DS.bg, fontSize: 14, fontWeight: '700' },
   createForm: { backgroundColor: DS.surfaceHigh, margin: 15, padding: 20, borderRadius: 16 },
-  formTitle: { fontSize: 18, fontWeight: '600', color: DS.textPrimary, marginBottom: 15 },
   formLabel: { fontSize: 14, fontWeight: '600', color: DS.textVariant, marginBottom: 6, marginTop: 10 },
   formInput: { backgroundColor: DS.surfaceHighest, borderRadius: 8, padding: 12, marginBottom: 10, color: DS.textPrimary, fontSize: 14 },
   formatRow: { flexDirection: 'row', marginBottom: 10 },
