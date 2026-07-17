@@ -430,7 +430,7 @@ const AppNavigator = ({ route: appRoute }) => {
       // clearance keep working. It hides itself on full-screen scoring routes.
       tabBar={(props) => (
         <AutoHideTabBar {...props} render={(p) => (
-          <GlassDock {...p} sportIcon={sportIcon}
+          <GlassDock {...p} sportIcon={sportIcon} sportName={sportName}
             homeRoute={(initialSport?.id || 'cricket') === 'cricket' ? 'CricketFeed' : 'SportFeed'} />
         )} />
       )}
