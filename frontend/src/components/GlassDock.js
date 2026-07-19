@@ -64,15 +64,16 @@ export default function GlassDock({
   
   // `glyph` renders a custom icon (given the current tint) in place of the
   // named MaterialCommunityIcons glyph — used for the floodlit stadium.
-  const Item = ({ id, icon, glyph, onPress, label }) => {
+  const Item = ({ id, activeIcon, inactiveIcon, glyph, onPress, label }) => {
     const on = active === id;
     const tint = on ? accent : idle;
+    const iconName = on ? (activeIcon || inactiveIcon) : (inactiveIcon || activeIcon);
     return (
       <TouchableOpacity
         onPress={onPress} style={s.item} hitSlop={{ top: 8, bottom: 4, left: 4, right: 4 }}
         activeOpacity={0.7}
         accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: on }}>
-        {glyph ? glyph(tint) : <Icon name={icon} size={23} color={tint} />}
+        {glyph ? glyph(tint, on) : <Icon name={iconName} size={28} color={tint} />}
         <Text numberOfLines={1} style={[s.label, { color: tint }, on && s.labelOn]}>{label}</Text>
         <View style={[s.dot, on && { backgroundColor: accent }]} />
       </TouchableOpacity>
@@ -85,19 +86,19 @@ export default function GlassDock({
         style={s.capsule}
         onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
         
-        <Item id="home"      icon="home-variant"        onPress={goTab('HomeTab', homeRoute)}      label="Home" />
-        <Item id="mycricket" icon={sportIcon}           onPress={goTab('MyCricketTab', 'Home')}    label={sportName} />
+        <Item id="home"      activeIcon="home" inactiveIcon="home-outline" onPress={goTab('HomeTab', homeRoute)}      label="Home" />
+        <Item id="mycricket" activeIcon={sportIcon} inactiveIcon={sportIcon} onPress={goTab('MyCricketTab', 'Home')}    label={sportName} />
         <View style={s.ballSlot}>
           <View style={s.ballLift}>
             <AnimatedCricketBall size={52} onPress={startMatch} />
           </View>
         </View>
-        <Item id="pavilion"  icon="stadium"
+        <Item id="pavilion"  activeIcon="stadium" inactiveIcon="stadium"
               onPress={goTab('PavilionTab', 'Pavilion')} label="Pavilion" />
         <Item id="profile"   onPress={goProfile}                        label="You"
-              glyph={(c) => (me?.avatarUrl
+              glyph={(c, on) => (me?.avatarUrl
                 ? <Image source={{ uri: me.avatarUrl }} style={[s.avatar, { borderColor: c }]} />
-                : <Icon name="account-circle" size={23} color={c} />)} />
+                : <Icon name={on ? "account-circle" : "account-circle-outline"} size={28} color={c} />)} />
       </View>
     </View>
   );

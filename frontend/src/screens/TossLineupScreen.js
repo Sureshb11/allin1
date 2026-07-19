@@ -9,6 +9,7 @@ import { Spacing, Radius } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
 import { haptic } from '../utils/haptics';
 import legendsApi from '../services/LegendsApi';
+import { useTabBarClearance } from '../components/AutoHideTabBar';
 
 // Max players a side can pick. Local/tennis-ball games often run more than a
 // standard XI, so we allow up to a 15-strong squad (matches the "/15" hero).
@@ -317,6 +318,8 @@ export default function TossLineupScreen({ route, navigation }) {
   const [activeTeam, setActiveTeam] = useState(0); // 0 = team1, 1 = team2
   const [showFlip, setShowFlip]     = useState(false); // reveal the in-app bat flip (for users without a coin)
 
+  const paddingBottom = useTabBarClearance();
+
   const [team1XI, setTeam1XI]           = useState([]);
   const [team2XI, setTeam2XI]           = useState([]);
   const [team1Avail, setTeam1Avail]     = useState({});
@@ -409,7 +412,11 @@ export default function TossLineupScreen({ route, navigation }) {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom }}
+      >
         <View style={s.body}>
 
           {/* ── Match info banner ─────────────────────── */}
@@ -533,7 +540,7 @@ export default function TossLineupScreen({ route, navigation }) {
       </ScrollView>
 
       {/* ── Fixed bottom bar ──────────────────────────── */}
-      <View style={s.bottomBar}>
+      <View style={[s.bottomBar, { paddingBottom: Math.max(28, paddingBottom + 12) }]}>
         <View style={s.selectionInfo}>
           <Text style={s.selectionLabel}>CURRENT SELECTION</Text>
           <View style={s.miniAvatarsRow}>
