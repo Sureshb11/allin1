@@ -146,6 +146,10 @@ const clampPan = (p) => ({
 // stack only mounts once focus has SETTLED (~0.25s) — a fast fling ratcheting
 // through discs never pays the mount/unmount cost.
 const Disc = React.memo(function Disc({ cell, scale, opacity, focused, attract, pulseAnim, onSelect }) {const A = useArenaColors();const d = useThemedStyles(makeD);
+  const { isDark } = useTheme();
+  // The lit disc takes the sport's own signature colour (matching the ARENA
+  // title + stage glow), so each selection feels like its own arena.
+  const accent = sportAccent(cell.id, isDark, A.lime);
   // Icon renders at a fixed size; the whole disc is scaled via transform.
   const iconSize = cell.featured ? 38 : 33;
   // Legible at rest — near-ink instead of dim grey, so every sport reads clearly
@@ -186,7 +190,7 @@ const Disc = React.memo(function Disc({ cell, scale, opacity, focused, attract, 
       {focused &&
       <Animated.View
         pointerEvents="none"
-        style={[d.pulse, {
+        style={[d.pulse, { borderColor: accent,
           opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0] }),
           transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }) }]
         }]} />
@@ -195,6 +199,7 @@ const Disc = React.memo(function Disc({ cell, scale, opacity, focused, attract, 
       <Animated.View style={[
       d.disc,
       focused && d.discFocused,
+      focused && { borderColor: accent, backgroundColor: accent + '26', shadowColor: accent },
       { transform: [{ scale: pop }] }]
       }>
         {hasSportAnim(cell.id) ?
@@ -252,8 +257,16 @@ function readableInk(hex) {
     const f = target / lum;
     r = Math.round(r * f); g = Math.round(g * f); b = Math.round(b * f);
   }
-  return `rgb(${r},${g},${b})`;
+  // hex so callers can append '33'-style alpha suffixes
+  const to2 = (v) => v.toString(16).padStart(2, '0');
+  return `#${to2(r)}${to2(g)}${to2(b)}`;
 }
+
+/** The sport's own accent, readable on the current theme. */
+const sportAccent = (id, isDark, fallback) => {
+  const c = SPORT_COLORS[id] || fallback;
+  return isDark ? c : readableInk(c);
+};
 
 // Open centred on the last-played sport (in-session; fresh launch → cricket).
 const initialArena = () => {
@@ -654,6 +667,22 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
           </Defs>
           <Rect x="0" y="0" width={dim.w} height={dim.h} fill="url(#vignette)" />
         </Svg>
+
+        {/* Constellation mesh — hairlines between neighbouring discs so the
+            cluster reads as one lattice; each line fades with its dimmer end
+            and the web brightens toward the focused centre. */}
+        <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width={dim.w} height={dim.h}>
+          {EDGES.map(([i, j]) => {
+            const a = discs[i], b = discs[j];
+            const o = Math.min(a.opacity, b.opacity);
+            return (
+              <Line key={`${i}-${j}`}
+                x1={a.left} y1={a.top} x2={b.left} y2={b.top}
+                stroke={A.ink} strokeWidth={1}
+                strokeOpacity={(o - 0.3) * (isDark ? 0.22 : 0.16)} />
+            );
+          })}
+        </Svg>
         {discs.map(({ cell, left, top, scale, opacity, rotateX, rotateY }, i) =>
         <Animated.View
           key={cell.id}
@@ -707,6 +736,15 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 
       {/* ── START — solid electric-blue, names the selection ── */}
       <View style={s.startDock}>
+        {/* tag chip — the sport's discipline in its signature colour, slides
+            up with each new selection */}
+        <Animated.View style={[s.tagBadge, {
+          borderColor: moodInk + '59', backgroundColor: moodInk + '14',
+          opacity: readoutAnim,
+          transform: [{ translateY: readoutAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+        }]}>
+          <Text style={[s.tagText, { color: moodInk }]}>{(focus.tag || '').toUpperCase()}</Text>
+        </Animated.View>
         <Animated.View style={{ transform: [{ scale: btnPulseAnim }] }}>
           <TouchableOpacity
             style={s.startSolid}
