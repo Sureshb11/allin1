@@ -667,22 +667,6 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
           </Defs>
           <Rect x="0" y="0" width={dim.w} height={dim.h} fill="url(#vignette)" />
         </Svg>
-
-        {/* Constellation mesh — hairlines between neighbouring discs so the
-            cluster reads as one lattice; each line fades with its dimmer end
-            and the web brightens toward the focused centre. */}
-        <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width={dim.w} height={dim.h}>
-          {EDGES.map(([i, j]) => {
-            const a = discs[i], b = discs[j];
-            const o = Math.min(a.opacity, b.opacity);
-            return (
-              <Line key={`${i}-${j}`}
-                x1={a.left} y1={a.top} x2={b.left} y2={b.top}
-                stroke={A.ink} strokeWidth={1}
-                strokeOpacity={(o - 0.3) * (isDark ? 0.22 : 0.16)} />
-            );
-          })}
-        </Svg>
         {discs.map(({ cell, left, top, scale, opacity, rotateX, rotateY }, i) =>
         <Animated.View
           key={cell.id}
