@@ -748,16 +748,16 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 const makeD = (A) => StyleSheet.create({
   // Barely-there bubble: 5% fill, hairline rim. The cluster reads as one
   // quiet, precise object — no colour until the light lands on a disc.
-  // Tangible glass bubble: a defined rim + faint fill lift it off the stage, and
-  // a soft drop shadow gives the cluster real depth (no longer a flat wash).
+  // Tangible glass bubble: a defined rim + faint fill lift it off the stage.
+  // NB: no elevation/shadow here — Android renders an elevation shadow through
+  // a translucent background as a dark rim + bright centre, which reads as a
+  // white circle baked behind the glyph.
   disc: {
     width: CELL, height: CELL, borderRadius: CELL / 2,
     borderWidth: 1, borderColor: A.ink + '2E',
     backgroundColor: A.ink + '14',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',   // clip the square animation frame to the disc circle
-    shadowColor: A.ink, shadowOpacity: 0.14, shadowRadius: 7,
-    shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
   // Lit, not painted: lime-tinted glass, a bold lime ring, and a strong lime
   // glow so the centred selection clearly pops out of the pack.
