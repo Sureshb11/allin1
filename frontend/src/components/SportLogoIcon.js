@@ -31,10 +31,9 @@ const START_FRAME = {
   tennis: 0, volleyball: 2, wrestling: 0,
 };
 
-// pickleball & volleyball draw a moving swing-arc "swoosh" from the mid frames
-// on (a stray ring that can't be cleaned like the static rings). Their EARLY
-// frames animate cleanly, so cap their loop before the swoosh appears.
-const END_FRAME = { pickleball: 12, volleyball: 15 };
+// (The pickleball/volleyball swing-arc "swoosh", baked-in ring circles and
+// low-alpha matte halos have all been scrubbed from the source frames — see
+// the cleanup pass — so every sport now loops its full clip.)
 
 export const hasSportAnim = (id) => Boolean(FRAMES[id]);
 
@@ -42,8 +41,8 @@ export default function SportLogoIcon({ id, size = 54, color = '#c4f82a', active
   const frames = FRAMES[id];
   const last = frames.length - 1;
   const start = START_FRAME[id] ?? 0;         // loop from where the figure is fully drawn
-  const end = END_FRAME[id] ?? last;          // …to here (caps sports with a late swoosh)
-  const rest = END_FRAME[id] ?? last;         // rest on a clean frame (end for capped sports)
+  const end = last;
+  const rest = last;                          // rest on the finished logo
   const [frame, setFrame] = useState(rest);
   const tick = useRef(start);
 
