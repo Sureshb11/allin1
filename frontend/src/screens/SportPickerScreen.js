@@ -14,7 +14,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
   Dimensions, PanResponder, Animated, Easing, Vibration, Platform, Image } from
 'react-native';
-import Svg, { Path, Line, Circle, Rect, Defs, RadialGradient, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Line, Circle, Rect, Defs, RadialGradient, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useCurrentUser } from '../utils/currentUser';
 import SportIcon from '../components/SportIcon';
@@ -267,6 +267,14 @@ const sportAccent = (id, isDark, fallback) => {
   const c = SPORT_COLORS[id] || fallback;
   return isDark ? c : readableInk(c);
 };
+
+/** Linear mix of two #rrggbb colours (t=0 → a, t=1 → b). */
+function mixHex(a, b, t) {
+  const px = (h, i) => parseInt(h.slice(i, i + 2), 16);
+  const ha = a.replace('#', ''), hb = b.replace('#', '');
+  const to2 = (v) => Math.round(v).toString(16).padStart(2, '0');
+  return '#' + [0, 2, 4].map((i) => to2(px(ha, i) + (px(hb, i) - px(ha, i)) * t)).join('');
+}
 
 // Open centred on the last-played sport (in-session; fresh launch → cricket).
 const initialArena = () => {
@@ -621,17 +629,32 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
         ],
       }]}>
         <Text style={s.title1}>CHOOSE YOUR</Text>
-        <Animated.Text style={[
-          s.title2,
-          {
-            color: moodInk,
-            textShadowColor: isDark ? moodColor + '40' : 'transparent',
-            textShadowOffset: { width: 0, height: isDark ? 4 : 0 },
-            textShadowRadius: isDark ? 12 : 0,
-            // pop each time a new sport lands in focus (ties into the colour swap)
-            transform: [{ scale: readoutAnim.interpolate({ inputRange: [0, 1], outputRange: [1.09, 1] }) }],
-          }
-        ]}>ARENA</Animated.Text>
+        {/* ARENA as SVG display type: true 900 weight (the app's bundled font
+            is single-weight, so RN Text can't go heavy), a vertical gradient in
+            the sport's colour, a soft neon halo on dark, and a speed-line
+            underline. Pops with each new selection via readoutAnim. */}
+        <Animated.View style={{
+          // pop each time a new sport lands in focus (ties into the colour swap)
+          transform: [{ scale: readoutAnim.interpolate({ inputRange: [0, 1], outputRange: [1.09, 1] }) }],
+        }}>
+          <Svg width={320} height={68} viewBox="0 0 320 68">
+            <Defs>
+              <LinearGradient id="arenaType" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={isDark ? mixHex(moodColor, '#ffffff', 0.55) : mixHex(moodInk, '#ffffff', 0.18)} />
+                <Stop offset="1" stopColor={moodInk} />
+              </LinearGradient>
+            </Defs>
+            {isDark &&
+            <SvgText x="160" y="46" textAnchor="middle" fontSize="48" fontWeight="900"
+              letterSpacing="4" fill="none" stroke={moodColor} strokeWidth="7"
+              strokeOpacity="0.13">ARENA</SvgText>}
+            <SvgText x="160" y="46" textAnchor="middle" fontSize="48" fontWeight="900"
+              letterSpacing="4" fill="url(#arenaType)">ARENA</SvgText>
+            {/* speed lines — motion streak under the wordmark */}
+            <Rect x="96" y="58" width="104" height="3.5" rx="1.75" fill={moodInk} />
+            <Rect x="206" y="58" width="18" height="3.5" rx="1.75" fill={moodInk} opacity="0.5" />
+          </Svg>
+        </Animated.View>
       </Animated.View>
 
       {/* ── HONEYCOMB ── */}
