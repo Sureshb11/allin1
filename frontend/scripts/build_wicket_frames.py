@@ -33,7 +33,7 @@ import os
 import subprocess
 import tempfile
 import numpy as np
-from scipy.ndimage import binary_fill_holes, binary_closing, label, gaussian_filter
+from scipy.ndimage import binary_fill_holes, binary_closing
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -51,23 +51,11 @@ POCKET_LO, POCKET_HI = 12.0, 38.0   # gentler ramp inside enclosed pockets
 CROP_X0, CROP_X1 = 280, 1000        # square window, ball centred
 SIZE      = 200     # output edge in px (retina for a ~56px on-screen ball)
 
-# Ball recolor (four/six only). In those source clips the ball spins to a
-# near-white face at the climax, which reads as an ugly white patch mid-flight
-# (the wicket clip stays red, so it needs none of this). We pull the washed-out
-# leather back toward red — preserving luminance so shading/seam survive — while
-# leaving the saturated green energy/glyph and the white swoosh untouched.
-#   · disc mask: four's ball stays centred → a soft centred disc covers it
-#   · blob mask: six's ball leaps around → track it as the big round pale blob
-LEATHER      = np.array([255., 58., 54.])
-LEATHER_LUMA = 0.299*LEATHER[0] + 0.587*LEATHER[1] + 0.114*LEATHER[2]
-LUMA_CAP     = 195.0    # keep the brightest ball frames deep red, not pink
-
-# (out dir, clip file, first, last, step, frame prefix, tail-dissolve frames,
-#  ball-recolor mask kind, canvas-per-ball, ball-centre-fraction-Y)
+# (out dir, clip file, first, last, step, frame prefix, tail-dissolve frames)
 CLIPS = [
-    ("wicket_frames", "wicket.mp4",    24, 169, 2, "w", 0,  None,   None,   None),
-    ("four_frames",   "ball_four.mp4", 14, 189, 2, "f", 0,  "disc", 200/95, 0.55),
-    ("six_frames",    "ball_six.mp4",  27, 192, 2, "s", 10, "blob", 200/84, 0.565),
+    ("wicket_frames", "wicket.mp4",    24, 169, 2, "w", 0),
+    ("four_frames",   "ball_four.mp4", 14, 189, 2, "f", 0),
+    ("six_frames",    "ball_six.mp4",  27, 192, 2, "s", 10),
 ]
 
 
@@ -83,48 +71,8 @@ def cut(fr):
     return fr, a
 
 
-def _disc_mask(shape, cpb, cfy):
-    H, W = shape
-    r = (W / cpb) / 2.0
-    cx, cy = W / 2.0, H * cfy
-    ys, xs = np.mgrid[0:H, 0:W]
-    dist = np.sqrt((xs - cx) ** 2 + (ys - cy) ** 2)
-    return np.clip((r * 1.05 - dist) / (r * 0.20), 0, 1)
-
-
-def _blob_mask(fr, alpha):
-    rgb = fr.astype(np.float32)
-    sat = (rgb.max(axis=2) - rgb.min(axis=2)) / (rgb.max(axis=2) + 1e-3)
-    luma = 0.299*rgb[..., 0] + 0.587*rgb[..., 1] + 0.114*rgb[..., 2]
-    cand = binary_closing((sat < 0.30) & (luma > 120) & (alpha > 0.6),
-                          structure=np.ones((5, 5)))
-    lab, n = label(cand)
-    keep = np.zeros_like(cand)
-    for k in range(1, n + 1):
-        m = lab == k
-        area = m.sum()
-        if area < 900:                       # drop scattered sparkle dust
-            continue
-        ys, xs = np.where(m)
-        h = ys.max() - ys.min() + 1; w = xs.max() - xs.min() + 1
-        if area / (h * w) > 0.45 and 0.55 < w / h < 1.8:   # round-ish = the ball
-            keep |= m
-    return np.clip(gaussian_filter(binary_fill_holes(keep).astype(np.float32), sigma=3), 0, 1)
-
-
-def recolor(fr, alpha, mask):
-    rgb = fr.astype(np.float32)
-    sat = (rgb.max(axis=2) - rgb.min(axis=2)) / (rgb.max(axis=2) + 1e-3)
-    luma = 0.299*rgb[..., 0] + 0.587*rgb[..., 1] + 0.114*rgb[..., 2]
-    pale = np.clip((0.32 - sat) / 0.27, 0, 1)          # 1 grey … 0 saturated
-    bright = np.clip((luma - 90) / 80, 0, 1)
-    w = (pale * bright * mask)[..., None]
-    target = (np.minimum(luma, LUMA_CAP) / LEATHER_LUMA)[..., None] * LEATHER
-    return np.clip(rgb * (1 - w) + target * w, 0, 255)
-
-
 def main():
-    for name, clip, lo, hi, step, pfx, tail, mask_kind, cpb, cfy in CLIPS:
+    for name, clip, lo, hi, step, pfx, tail in CLIPS:
         out = os.path.join(ASSETS, name)
         os.makedirs(out, exist_ok=True)
         for fn in os.listdir(out):
@@ -141,12 +89,6 @@ def main():
             if tail and i >= len(sel) - tail:
                 t = (i - (len(sel) - tail) + 1) / tail
                 fr = fr * (1 - t) + idle * t
-            if mask_kind:
-                # pull the washed-out spinning ball back to red before keying
-                _, a0 = cut(fr.copy())
-                mask = (_disc_mask(fr.shape[:2], cpb, cfy) if mask_kind == "disc"
-                        else _blob_mask(fr, a0))
-                fr = recolor(fr, a0, mask)
             fr, a = cut(fr)
             rgba = np.dstack([fr.astype(np.uint8), (a * 255).astype(np.uint8)])
             (Image.fromarray(rgba, "RGBA")

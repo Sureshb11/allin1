@@ -147,14 +147,20 @@ const clampPan = (p) => ({
 // through discs never pays the mount/unmount cost.
 const Disc = React.memo(function Disc({ cell, scale, opacity, focused, attract, pulseAnim, onSelect }) {const A = useArenaColors();const d = useThemedStyles(makeD);
   // Icon renders at a fixed size; the whole disc is scaled via transform.
-  const iconSize = cell.featured ? 36 : 31;
-  const glyph = focused ? A.ink : A.inkDim;
-  // Springy pop each time this disc ratchets into focus.
+  const iconSize = cell.featured ? 38 : 33;
+  // Legible at rest — near-ink instead of dim grey, so every sport reads clearly
+  // on the pale stage; full-ink once lit. Focus is carried by the lime ring/glow.
+  const glyph = focused ? A.ink : A.ink + 'C8';
+  // Springy pop each time this disc ratchets into focus; the focused disc also
+  // rests a touch larger, so the selection reads as physically raised off the mat.
+  const FOCUS_SCALE = 1.12;
   const pop = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (focused) {
-      pop.setValue(0.78);
-      Animated.spring(pop, { toValue: 1, friction: 4, tension: 160, useNativeDriver: true }).start();
+      pop.setValue(0.82);
+      Animated.spring(pop, { toValue: FOCUS_SCALE, friction: 4, tension: 160, useNativeDriver: true }).start();
+    } else {
+      Animated.timing(pop, { toValue: 1, duration: 180, useNativeDriver: true }).start();
     }
   }, [focused, pop]);
   // Play the logo only after focus settles, not while discs ratchet past.
@@ -627,14 +633,27 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
           }]}>
           <Svg width={dim.w} height={dim.h}>
             <Defs>
-              <RadialGradient id="arenaGlow" cx="50%" cy="50%" r="50%">
-                <Stop offset="0" stopColor={moodColor} stopOpacity={0.2} />
+              <RadialGradient id="arenaGlow" cx="50%" cy="50%" r="55%">
+                <Stop offset="0" stopColor={moodColor} stopOpacity={isDark ? 0.3 : 0.17} />
+                <Stop offset="0.5" stopColor={moodColor} stopOpacity={isDark ? 0.1 : 0.06} />
                 <Stop offset="1" stopColor={moodColor} stopOpacity={0} />
               </RadialGradient>
             </Defs>
-            <Circle cx={cx} cy={cy} r={200} fill="url(#arenaGlow)" />
+            <Circle cx={cx} cy={cy} r={235} fill="url(#arenaGlow)" />
           </Svg>
         </Animated.View>
+
+        {/* Vignette — the stage darkens toward the edges so the spotlit centre
+            reads as the focal point instead of a flat field. */}
+        <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width={dim.w} height={dim.h}>
+          <Defs>
+            <RadialGradient id="vignette" cx="50%" cy="42%" r="72%">
+              <Stop offset="0.5" stopColor={A.navy0} stopOpacity={0} />
+              <Stop offset="1" stopColor={isDark ? '#000000' : A.ink} stopOpacity={isDark ? 0.38 : 0.07} />
+            </RadialGradient>
+          </Defs>
+          <Rect x="0" y="0" width={dim.w} height={dim.h} fill="url(#vignette)" />
+        </Svg>
         {discs.map(({ cell, left, top, scale, opacity, rotateX, rotateY }, i) =>
         <Animated.View
           key={cell.id}
@@ -707,19 +726,23 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 const makeD = (A) => StyleSheet.create({
   // Barely-there bubble: 5% fill, hairline rim. The cluster reads as one
   // quiet, precise object — no colour until the light lands on a disc.
+  // Tangible glass bubble: a defined rim + faint fill lift it off the stage, and
+  // a soft drop shadow gives the cluster real depth (no longer a flat wash).
   disc: {
     width: CELL, height: CELL, borderRadius: CELL / 2,
-    borderWidth: 1, borderColor: A.ink + '1A',
-    backgroundColor: A.ink + '0D',
+    borderWidth: 1, borderColor: A.ink + '2E',
+    backgroundColor: A.ink + '14',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',   // clip the square animation frame to the disc circle
+    shadowColor: A.ink, shadowOpacity: 0.14, shadowRadius: 7,
+    shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
-  // Lit, not painted: same dark material, a fine lime ring + soft glow.
-  // Lit by the lime stage light: lime-tinted glass, fine lime ring, lime glow.
+  // Lit, not painted: lime-tinted glass, a bold lime ring, and a strong lime
+  // glow so the centred selection clearly pops out of the pack.
   discFocused: {
-    borderWidth: 1.5, borderColor: A.lime, backgroundColor: A.lime + '1A',
-    shadowColor: A.lime, shadowOpacity: 0.45, shadowRadius: 20,
-    shadowOffset: { width: 0, height: 0 }, elevation: 9,
+    borderWidth: 2, borderColor: A.lime, backgroundColor: A.lime + '26',
+    shadowColor: A.lime, shadowOpacity: 0.6, shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 }, elevation: 14,
   },
   pulse: {
     position: 'absolute', left: 0, top: 0, width: CELL, height: CELL,
