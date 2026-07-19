@@ -119,6 +119,19 @@ const PlayerSchema = z.object({
 router.post('/', async (req, res) => {
   try {
     const data = PlayerSchema.parse(req.body);
+    // Prevent duplicates on the same team: a linked app user can only appear once,
+    // and a guest can't be added twice under the exact same name.
+    if (data.teamId) {
+      const dupe = await prisma.player.findFirst({
+        where: data.userId
+          ? { teamId: data.teamId, userId: data.userId }             // same linked account
+          : { teamId: data.teamId, name: { equals: data.name, mode: 'insensitive' } }, // guest can't shadow any existing member
+        select: { id: true },
+      });
+      if (dupe) {
+        return res.status(409).json({ error: `${data.name} is already in this team.` });
+      }
+    }
     const player = await prisma.player.create({ data });
     res.status(201).json({ player });
   } catch (e) {

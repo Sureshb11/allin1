@@ -48,9 +48,12 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const [data, setData] = useState(null);
   const [tab, setTab] = useState('squad');
 
-  // Add-member + add-award inline forms
-  const [newMember, setNewMember] = useState('');
+  // Add-member (by mobile number) + add-award inline forms
   const [addingMember, setAddingMember] = useState(false);
+  // Link an existing app user by their registered mobile number
+  const [searchPhone, setSearchPhone] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [foundUser, setFoundUser] = useState(null);
   const [awardModal, setAwardModal] = useState(false);
   const [award, setAward] = useState({ title: '', year: '', note: '' });
   // Follow + insights + join state
@@ -126,13 +129,26 @@ const TeamProfileScreen = ({ navigation, route }) => {
     setBusy(false);
   };
 
-  const addMember = async () => {
-    const name = newMember.trim().replace(/\s+/g, ' ');
-    if (name.length < 2) return showToast('Enter the member’s name.', 'error');
+  // Look up a registered Local Legends user by mobile number.
+  const searchUser = async () => {
+    const phone = searchPhone.replace(/\D/g, '');
+    if (phone.length < 8) return showToast('Enter a valid mobile number.', 'error');
+    setSearching(true);
+    setFoundUser(null);
+    const res = await legendsApi.searchUserByPhone(phone);
+    setSearching(false);
+    if (res.success && res.data) setFoundUser(res.data);
+    else showToast(res.error || 'No Local Legends user with that number.', 'error');
+  };
+
+  // Add the found app user to this team as a player, linked to their account.
+  const addFoundMember = async () => {
+    if (!foundUser) return;
+    const name = `${foundUser.firstName || ''} ${foundUser.lastName || ''}`.trim() || 'Player';
     setAddingMember(true);
-    const res = await legendsApi.createPlayer({ name, role: 'Player', teamId, sport: team?.sport });
+    const res = await legendsApi.createPlayer({ name, role: 'Player', teamId, sport: team?.sport, userId: foundUser.id });
     setAddingMember(false);
-    if (res.success) { setNewMember(''); await load(); showToast(`${name} added.`, 'success'); }
+    if (res.success) { setSearchPhone(''); setFoundUser(null); await load(); showToast(`${name} added.`, 'success'); }
     else showToast(res.error || 'Failed to add member', 'error');
   };
 
@@ -421,8 +437,9 @@ const TeamProfileScreen = ({ navigation, route }) => {
         {tab === 'squad' && (
           <SquadTab
             members={data.members || []} isAdmin={isAdmin} styles={styles} DS={DS}
-            newMember={newMember} setNewMember={setNewMember} addMember={addMember}
             addingMember={addingMember}
+            searchPhone={searchPhone} setSearchPhone={setSearchPhone} searchUser={searchUser}
+            searching={searching} foundUser={foundUser} setFoundUser={setFoundUser} addFoundMember={addFoundMember}
             canLeave={!!myMembership && !myMembership.isOwner} onLeave={leaveTeam}
             joinRequests={data.joinRequests || []} onApprove={approveJoin} onReject={rejectJoin}
             onOpenMember={openMember} isOwner={isOwner} onManage={openManage} onDelete={deleteTeam} />
@@ -560,7 +577,7 @@ const Stat = ({ label, value, styles }) => (
   </View>
 );
 
-const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMember, addingMember, canLeave, onLeave, joinRequests, onApprove, onReject, onOpenMember, isOwner, onManage, onDelete }) => (
+const SquadTab = ({ members, isAdmin, styles, DS, addingMember, searchPhone, setSearchPhone, searchUser, searching, foundUser, setFoundUser, addFoundMember, canLeave, onLeave, joinRequests, onApprove, onReject, onOpenMember, isOwner, onManage, onDelete }) => (
   <View>
     {/* Pending join requests — admins only. */}
     {isAdmin && joinRequests.length > 0 && (
@@ -588,13 +605,33 @@ const SquadTab = ({ members, isAdmin, styles, DS, newMember, setNewMember, addMe
     )}
 
     {isAdmin && (
-      <View style={styles.addRow}>
-        <TextInput style={styles.addInput} placeholder="Add member by name"
-          placeholderTextColor={DS.textMuted} value={newMember} onChangeText={setNewMember}
-          autoCapitalize="words" returnKeyType="done" onSubmitEditing={addMember} />
-        <TouchableOpacity style={styles.addBtn} onPress={addMember} disabled={addingMember}>
-          {addingMember ? <ActivityIndicator size="small" color={DS.bg} /> : <Icon name="plus" size={20} color={DS.bg} />}
-        </TouchableOpacity>
+      <View>
+        {/* Add a member by their registered mobile number, linked to their account. */}
+        <View style={styles.addRow}>
+          <TextInput style={styles.addInput} placeholder="Add member by mobile number"
+            placeholderTextColor={DS.textMuted} value={searchPhone}
+            onChangeText={(t) => { setSearchPhone(t); setFoundUser(null); }}
+            keyboardType="phone-pad" returnKeyType="search" onSubmitEditing={searchUser} />
+          <TouchableOpacity style={[styles.addBtn, { width: 'auto', paddingHorizontal: 14 }]} onPress={searchUser} disabled={searching}>
+            {searching ? <ActivityIndicator size="small" color={DS.bg} /> : <Icon name="magnify" size={20} color={DS.bg} />}
+          </TouchableOpacity>
+        </View>
+
+        {foundUser && (
+          <View style={styles.foundCard}>
+            <View style={styles.memberAvatar}>
+              {foundUser.avatarUrl ? <Image source={{ uri: foundUser.avatarUrl }} style={styles.reqAvatarImg} />
+                : <Text style={styles.memberInitial}>{initials(`${foundUser.firstName || ''} ${foundUser.lastName || ''}`)}</Text>}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.memberName}>{`${foundUser.firstName || ''} ${foundUser.lastName || ''}`.trim() || 'Player'}</Text>
+              <Text style={styles.memberRole}>{foundUser.phone}</Text>
+            </View>
+            <TouchableOpacity style={[styles.addBtn, { width: 'auto', paddingHorizontal: 16 }]} onPress={addFoundMember} disabled={addingMember}>
+              {addingMember ? <ActivityIndicator size="small" color={DS.bg} /> : <Text style={{ color: DS.bg, fontWeight: '800' }}>Add</Text>}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     )}
     {members.length === 0 && <Text style={styles.emptyTxt}>No members yet.</Text>}
@@ -933,6 +970,10 @@ const makeStyles = (DS) => StyleSheet.create({
   reqApprove: { width: 34, height: 34, borderRadius: 17, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   reqReject: { width: 34, height: 34, borderRadius: 17, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   addRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  foundCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, marginBottom: 14,
+    borderRadius: 12, backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint,
+  },
   addInput: {
     flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11,
     fontSize: 15, color: DS.textPrimary,
