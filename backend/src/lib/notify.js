@@ -9,6 +9,7 @@
 // the primary action, so callers wrap these in a .catch (see safeNotify).
 
 import { prisma } from './prisma.js';
+import { pushToUsers } from './push.js';
 
 // The set of user IDs to notify for a set of teams: each team's owner plus any
 // roster players linked to a user account (deduplicated, nulls dropped).
@@ -36,6 +37,10 @@ export async function notifyUsers(userIds, { title, message, type = 'tournament'
   await prisma.notification.createMany({
     data: uniq.map((userId) => ({ userId, type, title, message, ...(data ? { data } : {}) })),
   });
+  // Mirror it to the device as a real push. Best-effort and non-blocking for
+  // correctness: a push failure must never undo the in-app notification.
+  await pushToUsers(uniq, { title, message, data: { type, ...(data || {}) } })
+    .catch((e) => console.error('[notify] push failed:', e.message));
   return uniq.length;
 }
 

@@ -36,6 +36,22 @@ model User {
   teamFollows   TeamFollow[]
   badges        UserBadge[]
   sports        UserSport[]
+  devices       DeviceToken[]
+}
+
+// A device's FCM registration token — one row per install per user, so a push
+// reaches every device someone is signed in on. Tokens are rotated by FCM, and
+// dead ones are pruned when a send reports them unregistered.
+model DeviceToken {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  token     String   @unique
+  platform  String   @default("android")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model UserSport {
