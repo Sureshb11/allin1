@@ -30,6 +30,7 @@ const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab', 'Chat'];
 
 export default function GlassDock({
   state, navigation, sportIcon = 'cricket', sportName = 'My Cricket', homeRoute = 'CricketFeed',
+  pavilionLabel = 'Pavilion',
 }) {
   const { colors: DS, isDark } = useTheme();
   const me = useCurrentUser();          // logged-in user → "You" tab avatar
@@ -105,7 +106,7 @@ export default function GlassDock({
           )}
         </View>
         <Item id="pavilion"  activeIcon="stadium" inactiveIcon="stadium"
-              onPress={goTab('PavilionTab', 'Pavilion')} label="Pavilion" />
+              onPress={goTab('PavilionTab', 'Pavilion')} label={pavilionLabel} />
         <Item id="profile"   onPress={goProfile}                        label="You"
               glyph={(c, on) => (me?.avatarUrl
                 ? <Image source={{ uri: me.avatarUrl }} style={[s.avatar, { borderColor: c }]} />

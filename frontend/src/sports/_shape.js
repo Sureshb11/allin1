@@ -26,6 +26,11 @@ export const defineSport = (def) => ({
   // Shared screens read these to relabel "Team" → "Player", etc.
   individual: def.individual || false,
   competitorLabel: def.competitorLabel || 'Team',
+  // The community tab's name in the bottom dock. "Pavilion" is cricket's
+  // clubhouse and reads as jargon in any other sport, so everything else gets
+  // the neutral "Clubhouse" unless it has a better word of its own (football's
+  // dressing room, a dojo, a ringside…). Keep it short — it's a tab label.
+  pavilionLabel: def.pavilionLabel || (def.id === 'cricket' ? 'Pavilion' : 'Clubhouse'),
   // domains default to null so consumers can fall back to their generic config
   formats: def.formats || null,
   scoring: def.scoring || null,

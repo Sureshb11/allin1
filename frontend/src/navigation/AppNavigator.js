@@ -8,6 +8,7 @@ import {getFocusedRouteNameFromRoute} from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { TabBarVisibilityProvider, AutoHideTabBar } from '../components/AutoHideTabBar';
 import GlassDock from '../components/GlassDock';
+import { getSport } from '../sports';
 
 import HomeScreen from '../screens/HomeScreen';
 import CricketFeedScreen from '../screens/CricketFeedScreen';
@@ -435,6 +436,8 @@ const AppNavigator = ({ route: appRoute }) => {
   const fullName  = initialSport?.name || 'Cricket';
   const sportName = SHORT[fullName] || fullName;
   const sportIcon = initialSport?.icon || 'cricket';
+  // "Pavilion" is cricket's clubhouse — other sports get their own word.
+  const pavilionLabel = getSport(initialSport?.id || 'cricket')?.pavilionLabel || 'Pavilion';
 
   return (
     <TabBarVisibilityProvider>
@@ -444,7 +447,7 @@ const AppNavigator = ({ route: appRoute }) => {
       // clearance keep working. It hides itself on full-screen scoring routes.
       tabBar={(props) => (
         <AutoHideTabBar {...props} render={(p) => (
-          <GlassDock {...p} sportIcon={sportIcon} sportName={sportName}
+          <GlassDock {...p} sportIcon={sportIcon} sportName={sportName} pavilionLabel={pavilionLabel}
             homeRoute={(initialSport?.id || 'cricket') === 'cricket' ? 'CricketFeed' : 'SportFeed'} />
         )} />
       )}
