@@ -19,6 +19,7 @@ import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
 import { getScoringConfig } from '../sports/scoring';
+import { sportColor } from '../sports/colors';
 import { useCurrentUser } from '../utils/currentUser';
 import Skeleton from '../components/Skeleton';
 import MomentumMeter from '../components/MomentumMeter';
@@ -182,7 +183,10 @@ export default function SportFeedScreen({ navigation }) {
   const sportIcon = def?.icon || selected?.icon || 'trophy';
 
   // Theme + copy derived from the registry (feed override → scoring colour → default).
-  const accent = def?.feed?.accent || getScoringConfig(sportId)?.color || def?.accent || '#abd600';
+  // One source: the same signature colour the Arena picker showed for this
+  // sport, theme-corrected. The old chain (feed.accent -> scoring color ->
+  // accent) is exactly why football was blue in the picker and green here.
+  const accent = sportColor(sportId, isDark);
   const unit = def?.feed?.scoreUnit || null;
   const copy = { ...DEFAULT_COPY, ...(def?.feed?.copy || {}) };
 

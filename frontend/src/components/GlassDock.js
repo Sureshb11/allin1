@@ -24,13 +24,14 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/ThemeContext';
 import { useCurrentUser } from '../utils/currentUser';
 import AnimatedCricketBall from './CricketBall/AnimatedBall';
+import { sportColor as sportColorFor } from '../sports/colors';
 
 
 const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab', 'Chat'];
 
 export default function GlassDock({
   state, navigation, sportIcon = 'cricket', sportName = 'My Cricket', homeRoute = 'CricketFeed',
-  pavilionLabel = 'Pavilion',
+  pavilionLabel = 'Pavilion', sportId = 'cricket',
 }) {
   const { colors: DS, isDark } = useTheme();
   const me = useCurrentUser();          // logged-in user → "You" tab avatar
@@ -55,8 +56,9 @@ export default function GlassDock({
   const goProfile   = goTab('ProfileTab', 'Profile');
   const startMatch  = () => navigation.navigate('HomeTab', { screen: 'StartMatch' });
 
-  // Selection colour = the app's single green accent (dark #3ecf6e / light #0a5227)
-  const accent = DS.lime;
+  // The dock wears the active sport, so the whole app reads as that arena.
+  // Cricket resolves to the brand green, i.e. unchanged.
+  const accent = sportColorFor(sportId, isDark);
   const idle = isDark ? '#9aa1af' : DS.textMuted;
   const s = makeStyles(isDark, DS);
 

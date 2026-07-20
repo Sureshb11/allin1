@@ -19,6 +19,7 @@ import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import AppHeader from '../components/AppHeader';
 import HexAvatar from '../components/HexAvatar';
+import { sportColor as sportColorFor } from '../sports/colors';
 
 const { width } = Dimensions.get('window');
 
@@ -229,7 +230,10 @@ export default function HomeScreen({ navigation }) {
     await Share.share({ message: msg });
   };
 
-  const sportColor = currentSport.color;
+  // Was `currentSport.color` — dead (never read) and it shadowed the
+  // imported helper. This is the Arena's colour for this sport, theme-
+  // corrected; cricket resolves to the brand green so it looks unchanged.
+  const sportTint = sportColorFor(currentSport.id, isDark);
 
   // "My Cricket" summary — prefer the logged-in user; in dev (auth bypassed,
   // no token) fall back to the first real DB player as a stand-in.
@@ -300,7 +304,10 @@ export default function HomeScreen({ navigation }) {
                 <AnimatedPulse>
                   <View style={{ alignItems: 'stretch' }}>
                     <TouchableOpacity
-                      style={styles.startMatchCTA}
+                      // Same colour the Arena picker showed for this sport, so
+                      // the choice carries inside the app. Cricket resolves to
+                      // the brand green, i.e. unchanged.
+                      style={[styles.startMatchCTA, { backgroundColor: sportTint, shadowColor: sportTint }]}
                       onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
                       activeOpacity={0.88}
                     >
@@ -372,7 +379,7 @@ export default function HomeScreen({ navigation }) {
                 </View>
                 <Text style={styles.emptyTitle}>No matches yet</Text>
                 <Text style={styles.emptySub}>Start scoring your first match</Text>
-                <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('StartMatch', { sport: currentSport })} activeOpacity={0.9}>
+                <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: sportTint }]} onPress={() => navigation.navigate('StartMatch', { sport: currentSport })} activeOpacity={0.9}>
                   <Icon name="play-circle" size={18} color={DS.white} />
                   <Text style={styles.emptyBtnText}>Start a Match</Text>
                 </TouchableOpacity>

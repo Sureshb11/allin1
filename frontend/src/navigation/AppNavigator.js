@@ -455,6 +455,7 @@ const AppNavigator = ({ route: appRoute }) => {
       tabBar={(props) => (
         <AutoHideTabBar {...props} render={(p) => (
           <GlassDock {...p} sportIcon={sportIcon} sportName={sportName} pavilionLabel={pavilionLabel}
+            sportId={initialSport?.id || 'cricket'}
             homeRoute={(initialSport?.id || 'cricket') === 'cricket' ? 'CricketFeed' : 'SportFeed'} />
         )} />
       )}
