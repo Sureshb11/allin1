@@ -344,17 +344,16 @@ const StartMatchScreen = ({ navigation, route }) => {
         return;
       }
 
-      // Non-cricket sports use the generic event-based scorer; cricket keeps
-      // its toss → lineup → ball-by-ball flow.
+      // Non-cricket sports go through their own pre-match setup (coin toss +
+      // squads) before scoring. They used to jump straight into the scorer with
+      // no squads recorded at all, which meant a goal could never be attributed
+      // to a player. Cricket keeps its toss → lineup → ball-by-ball flow.
       if (sport.id !== 'cricket') {
-        navigation.navigate('SportScoring', {
-          match: {
-            id: matchRes.data.id,
-            team1: team1.name, team2: team2.name,
-            team1Id: team1.id, team2Id: team2.id,
-            venue: venue.trim(), matchType: format.label,
-            sport: sport.id,
-          },
+        navigation.navigate('MatchSetup', {
+          matchId: matchRes.data.id,
+          team1: team1.name, team2: team2.name,
+          team1Id: team1.id, team2Id: team2.id,
+          venue: venue.trim(), matchType: format.label,
           sport,
         });
         return;

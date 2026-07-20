@@ -122,6 +122,19 @@ class LegendsApi {
     }
   }
 
+  // Pre-match setup for non-cricket sports: coin toss + both squads.
+  // Cricket uses submitToss instead (it must also set batting/bowling sides).
+  async submitMatchSetup(matchId, { tossWinnerId, choice, squads }) {
+    try {
+      const json = await this.request(`/matches/${matchId}/setup`, {
+        method: 'POST', body: { tossWinnerId, choice, squads },
+      });
+      return { success: true, data: json.match };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Sport Events (multi-sport scoring)
   async addSportEvent(matchId, eventData) {
     try {

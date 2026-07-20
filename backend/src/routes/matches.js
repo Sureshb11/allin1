@@ -780,6 +780,63 @@ router.put('/:id', authMiddleware, async (req, res) => {
 // batting/bowling teams (created at match time as "team1 bats"), and persists
 // both playing XIs to MatchPlayer (previously never written — squads were
 // always empty on the scorecard).
+// ── Match setup for non-cricket sports ───────────────────────────────────────
+// Cricket's /toss is bat-or-bowl shaped (it has to set the innings' batting and
+// bowling sides). Every other sport still needs the same two real things before
+// kick-off: who won the coin toss, and each side's squad — without which goals
+// and cards can't be attributed to anyone. This is that, sport-agnostic:
+// `choice` is free text ('kickoff', 'ends', …) rather than a bat/bowl enum.
+const SetupSchema = z.object({
+  tossWinnerId: z.string().optional(),
+  choice:       z.string().optional(),
+  squads: z.array(z.object({
+    teamId:    z.string(),
+    playerIds: z.array(z.string()).min(1),
+  })).min(1),
+});
+
+router.post('/:id/setup', authMiddleware, async (req, res) => {
+  try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
+    const data = SetupSchema.parse(req.body);
+    const matchId = req.params.id;
+
+    const match = await prisma.$transaction(async (tx) => {
+      const m = await tx.match.update({
+        where: { id: matchId },
+        data: {
+          status: 'live',
+          ...(data.tossWinnerId ? { tossWinnerId: data.tossWinnerId } : {}),
+          ...(data.choice ? { tossDecision: data.choice } : {}),
+        },
+      });
+      // Re-submitting setup replaces the squads rather than appending, so a
+      // corrected line-up doesn't leave the old XI attached to the match.
+      await tx.matchPlayer.deleteMany({ where: { matchId } });
+      await tx.matchPlayer.createMany({
+        data: data.squads.flatMap((sq) =>
+          sq.playerIds.map((playerId) => ({ matchId, teamId: sq.teamId, playerId }))
+        ),
+        skipDuplicates: true,
+      });
+      return m;
+    });
+
+    // Same as the cricket toss: this is what puts the match on air.
+    await safeNotify(async () => {
+      const full = await prisma.match.findUnique({
+        where: { id: matchId },
+        include: { team1: { select: { name: true } }, team2: { select: { name: true } } },
+      });
+      return full ? notifyMatchLive(full, { exclude: [req.user.sub] }) : 0;
+    });
+
+    res.json({ match });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 const TossSchema = z.object({
   tossWinnerId:  z.string(),
   tossDecision:  z.enum(['bat', 'bowl']),

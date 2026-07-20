@@ -37,6 +37,7 @@ import StartMatchScreen from '../screens/StartMatchScreen';
 import MyCricketScreen from '../screens/MyCricketScreen';
 import MyPerformanceScreen from '../screens/MyPerformanceScreen';
 import TossLineupScreen from '../screens/TossLineupScreen';
+import MatchSetupScreen from '../screens/MatchSetupScreen';
 import SportScoringScreen from '../screens/SportScoringScreen';
 import MyMatchesScreen from '../screens/MyMatchesScreen';
 import ScorecardScreen from '../screens/ScorecardScreen';
@@ -106,6 +107,12 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
     <Stack.Screen
       name="TossLineup"
       component={TossLineupScreen}
+      options={{ headerShown: false }}
+    />
+    {/* Non-cricket pre-match setup: coin toss + squads (cricket uses TossLineup). */}
+    <Stack.Screen
+      name="MatchSetup"
+      component={MatchSetupScreen}
       options={{ headerShown: false }}
     />
     <Stack.Screen 
