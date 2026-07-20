@@ -21,7 +21,6 @@ import { getSport } from '../sports';
 import { getScoringConfig } from '../sports/scoring';
 import { useCurrentUser } from '../utils/currentUser';
 import Skeleton from '../components/Skeleton';
-import GradientButton from '../components/GradientButton';
 import MomentumMeter from '../components/MomentumMeter';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from "../components/BrandLogo";
@@ -181,7 +180,6 @@ export default function SportFeedScreen({ navigation }) {
   const def = getSport(sportId);
   const sportName = def?.name || selected?.name || cap(sportId);
   const sportIcon = def?.icon || selected?.icon || 'trophy';
-  const sportObj = { id: sportId, name: sportName, icon: sportIcon };
 
   // Theme + copy derived from the registry (feed override → scoring colour → default).
   const accent = def?.feed?.accent || getScoringConfig(sportId)?.color || def?.accent || '#abd600';
@@ -290,25 +288,16 @@ export default function SportFeedScreen({ navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accent} colors={[accent]} progressBackgroundColor={D.surfaceLow} />
         }
       >
-        <View style={s.actions}>
-          <GradientButton
-            label="Start Match"
-            icon={sportIcon}
-            onPress={() => navigation.navigate('StartMatch', { sport: sportObj })}
-            height={48}
-            style={{ flex: 1, borderRadius: 14 }}
-            textStyle={{ fontSize: 14 }}
-          />
-          <TouchableOpacity style={[s.action, s.actionAlt]} onPress={() => navigation.navigate('FindCricketers', { sport: sportId })}>
-            <Icon name="account-search" size={20} color={accent} />
-            <Text style={[s.actionTxt, { color: accent }]}>Find Players</Text>
-          </TouchableOpacity>
-        </View>
-
         {loading ? (
           <FeedSkeleton />
         ) : (
           <>
+            {matches.length > 0 && (
+              <View style={s.circleHead}>
+                <Text style={s.circleTitle}>From Your Circle</Text>
+                <Text style={s.circleSub}>Teams you’ve played for · friends’ recent matches</Text>
+              </View>
+            )}
             {live.length > 0 && (
               <>
                 <SectionTitle accent={accent}>{copy.live}</SectionTitle>
@@ -332,10 +321,7 @@ export default function SportFeedScreen({ navigation }) {
               <View style={s.empty}>
                 <Icon name={sportIcon} size={40} color={D.faint} />
                 <Text style={s.emptyTitle}>No {sportName.toLowerCase()} matches yet</Text>
-                <TouchableOpacity style={[s.startBtn, { backgroundColor: accent }]} onPress={() => navigation.navigate('StartMatch', { sport: sportObj })}>
-                  <Icon name={sportIcon} size={16} color={D.bg} />
-                  <Text style={s.startTxt}>Start a {sportName} Match</Text>
-                </TouchableOpacity>
+                <Text style={s.emptyHint}>Tap + below to start one.</Text>
               </View>
             )}
           </>
@@ -457,10 +443,6 @@ const makeStyles = (D) => StyleSheet.create({
   sportTagTxt: { color: D.bg, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   topActions: { flexDirection: 'row', alignItems: 'center', gap: 18 },
 
-  actions: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 16 },
-  action: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 13 },
-  actionAlt: { backgroundColor: D.surface, borderWidth: 1, borderColor: D.line },
-  actionTxt: { color: D.bg, fontSize: 14, fontWeight: '800' },
 
   topGlow: { position: 'absolute', top: 0, left: 0, right: 0 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 16, paddingTop: 18 },
@@ -492,6 +474,12 @@ const makeStyles = (D) => StyleSheet.create({
   featVenue: { flex: 1, color: D.inkDim, fontSize: 12 },
   featCta: { fontSize: 12, fontWeight: '800' },
 
+  // Mirrors the cricket home's "From Your Circle" heading so every sport's
+  // landing page reads the same way.
+  circleHead: { paddingHorizontal: 16, paddingTop: 14 },
+  circleTitle: { color: D.textPrimary, fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
+  circleSub: { color: D.textVariant, fontSize: 13, fontWeight: '500', marginTop: 2 },
+  emptyHint: { color: D.textMuted, fontSize: 13, marginTop: 6 },
   rail: { paddingHorizontal: 16, paddingTop: 12, gap: 12 },
   resCard: { width: 220, backgroundColor: D.surfaceLow, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: D.line },
   resTag: { color: D.inkDim, fontSize: 9, fontWeight: '800', letterSpacing: 0.6, marginBottom: 10 },
