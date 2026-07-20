@@ -146,9 +146,12 @@ const makeStyles = (A) => StyleSheet.create({
   title: { fontSize: 20, fontWeight: '900', color: A.ink, letterSpacing: 0.6 },
 
   cta: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: A.lime, borderRadius: 18, padding: 18 },
-  ctaIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(10,14,24,0.12)', alignItems: 'center', justifyContent: 'center' },
+  ctaIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: A.navy0 + '1F', alignItems: 'center', justifyContent: 'center' },
   ctaTitle: { color: A.navy0, fontSize: 18, fontWeight: '900' },
-  ctaSub: { color: 'rgba(10,14,24,0.7)', fontSize: 12, fontWeight: '600', marginTop: 2 },
+  // navy0 is the theme's on-lime ink (white on light's deep-green card,
+  // near-black on dark's bright-green) — a hardcoded dark value was
+  // illegible on the light theme.
+  ctaSub: { color: A.navy0 + 'B3', fontSize: 12, fontWeight: '600', marginTop: 2 },
 
   sectionTitle: { color: A.ink, fontSize: 16, fontWeight: '800', marginTop: 22, marginBottom: 4 },
   sectionHint: { color: A.inkDim, fontSize: 12, marginBottom: 12 },

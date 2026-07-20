@@ -71,17 +71,22 @@ export default function SportSwitcher({ navigation, current: currentOverride, va
           </TouchableOpacity>
         )
         : (
-          <>
-            <Text style={s.label}>CURRENT SPORT</Text>
-            <TouchableOpacity style={s.selector} activeOpacity={0.85} onPress={() => setOpen(true)}>
-              <View style={s.iconBox}><Icon name={current.icon} size={18} color={C.lime} /></View>
+          // Branded card: the sport reads as the active context (lime-tinted
+          // tile + kicker) and "Change" is a real pill affordance rather than
+          // muted grey text, which was easy to miss on the Rummy home.
+          <TouchableOpacity style={s.selector} activeOpacity={0.9} onPress={() => setOpen(true)}>
+            <View style={s.iconBox}>
+              <Icon name={current.icon} size={22} color={C.lime} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.kicker}>NOW PLAYING</Text>
               <Text style={s.selectorText} numberOfLines={1}>{current.name}</Text>
-              <View style={s.right}>
-                <Text style={s.hint}>Change sport</Text>
-                <Icon name="chevron-down" size={16} color={C.textMuted} />
-              </View>
-            </TouchableOpacity>
-          </>
+            </View>
+            <View style={s.changeBtn}>
+              <Icon name="swap-horizontal" size={15} color={C.lime} />
+              <Text style={s.changeTxt}>Change</Text>
+            </View>
+          </TouchableOpacity>
         )}
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
@@ -119,12 +124,24 @@ const makeStyles = (C) => StyleSheet.create({
   actionItem: { alignItems: 'center', gap: 6, width: 64 },
   actionLabel: { fontSize: 11, fontWeight: '700', color: C.textVariant },
 
-  label: { color: C.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 8 },
-  selector: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.surfaceHigh, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 12 },
-  iconBox: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceHighest },
-  selectorText: { flex: 1, fontSize: 15, fontWeight: '700', color: C.textPrimary },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  hint: { fontSize: 11, color: C.textMuted, fontWeight: '500' },
+  selector: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: C.surface, borderRadius: 18, padding: 14,
+    borderWidth: 1, borderColor: C.lime + '33',
+  },
+  iconBox: {
+    width: 46, height: 46, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.lime + '1A', borderWidth: 1, borderColor: C.lime + '2E',
+  },
+  kicker: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, color: C.lime, marginBottom: 2 },
+  selectorText: { fontSize: 17, fontWeight: '800', color: C.textPrimary },
+  changeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: C.lime + '14', borderWidth: 1, borderColor: C.lime + '3D',
+  },
+  changeTxt: { fontSize: 12, fontWeight: '800', color: C.lime },
 
   modalContainer: { flex: 1, backgroundColor: C.overlay },
   dismiss: { flex: 1 },
