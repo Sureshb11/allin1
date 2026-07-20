@@ -6,6 +6,7 @@ import Svg, { Polyline, Polygon, Circle, Line, Text as SvgText } from 'react-nat
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
+import { getCareerPanels, readStat } from '../sports/careerStats';
 
 const W = Dimensions.get('window').width - 48;
 
@@ -87,7 +88,11 @@ const FIELDING_STATS = (s, DS) => [
 
 export default function MyPerformanceScreen({ navigation, inline }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
   const [stats, setStats] = useState(null);
-  const [tab, setTab] = useState('batting');
+  // Panels come from the sport, not from cricket: football shows Attack /
+  // Discipline, racquet sports Scoring / Errors, and so on.
+  const sportId = getSelectedSport().sport?.id || 'cricket';
+  const panels = getCareerPanels(sportId);
+  const [tab, setTab] = useState(panels[0].id);
   const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
@@ -107,11 +112,17 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
     });
   }, []);
 
-  const tabStats = stats ? tab === 'batting' ? BATTING_STATS(stats, DS) : tab === 'bowling' ? BOWLING_STATS(stats, DS) : FIELDING_STATS(stats, DS) : [];
-  const chartData = tab === 'batting' ?
-  stats?.recentScores || [45, 60, 32, 78, 25, 90, 40, 65, 55, 72] :
-  tab === 'bowling' ? stats?.recentWickets || [2, 4, 1, 3, 5, 2, 1, 4, 3, 2] :
-  stats?.recentCatches || [0, 1, 0, 2, 1, 0, 0, 1, 0, 2];
+  const ACCENTS = [DS.lime, DS.coral, '#7c3aed', DS.blue, '#d97706', '#34d399'];
+  const activePanel = panels.find((p) => p.id === tab) || panels[0];
+  const tabStats = stats
+    ? activePanel.rows.map((r, i) => ({ label: r.label, value: readStat(r, stats), color: ACCENTS[i % ACCENTS.length] }))
+    : [];
+  // Trend line: cricket has real per-match series; other sports don't yet, so
+  // the chart is simply omitted rather than showing invented numbers.
+  const chartSeries = sportId === 'cricket'
+    ? (tab === 'batting' ? stats?.recentScores : tab === 'bowling' ? stats?.recentWickets : stats?.recentCatches)
+    : null;
+  const chartData = chartSeries || [];
   const chartColor = tab === 'batting' ? DS.lime : tab === 'bowling' ? DS.coral : DS.blue;
 
   return (
@@ -126,13 +137,11 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
 
       {/* Tab bar */}
       <View style={styles.tabBar}>
-        {['batting', 'bowling', 'fielding'].map((t) =>
-        <TouchableOpacity key={t} style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
-        onPress={() => setTab(t)}>
-            <Icon name={t === 'batting' ? 'cricket' : t === 'bowling' ? 'weather-windy' : 'shield-account'} size={14}
-          color={tab === t ? DS.bg : DS.textMuted} />
-            <Text style={[styles.tabBtnText, tab === t && styles.tabBtnTextActive]}>
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+        {panels.map((p) =>
+        <TouchableOpacity key={p.id} style={[styles.tabBtn, tab === p.id && styles.tabBtnActive]}
+        onPress={() => setTab(p.id)}>
+            <Text style={[styles.tabBtnText, tab === p.id && styles.tabBtnTextActive]}>
+              {p.label}
             </Text>
           </TouchableOpacity>
         )}
@@ -152,13 +161,16 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
             )}
             </View>
 
-            {/* Chart */}
-            <View style={styles.chartCard}>
-              <Text style={styles.chartTitle}>
-                {tab === 'batting' ? 'Recent Scores' : tab === 'bowling' ? 'Recent Wickets' : 'Recent Catches/Runouts'} — Last {chartData.length} Matches
-              </Text>
-              <PerformanceChart values={chartData} color={chartColor} />
-            </View>
+            {/* Trend — cricket only for now; other sports have no per-match
+                series yet, and a chart of invented numbers is worse than none. */}
+            {chartData.length > 0 && (
+              <View style={styles.chartCard}>
+                <Text style={styles.chartTitle}>
+                  {tab === 'batting' ? 'Recent Scores' : tab === 'bowling' ? 'Recent Wickets' : 'Recent Catches/Runouts'} — Last {chartData.length} Matches
+                </Text>
+                <PerformanceChart values={chartData} color={chartColor} />
+              </View>
+            )}
           </> :
 
         <View style={styles.centered}>

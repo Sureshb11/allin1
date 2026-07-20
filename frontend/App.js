@@ -16,6 +16,7 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import { registerForPush } from './src/services/push';
+import { loadSelectedSport } from './src/utils/selectedSport';
 import AppNavigator from './src/navigation/AppNavigator';
 import SportPickerScreen from './src/screens/SportPickerScreen';
 import RummyHomeScreen from './src/sports/rummy/screens/RummyHomeScreen';
@@ -42,7 +43,12 @@ const Root = () => {
 
   // Restore a saved session on launch so reopening the app doesn't re-prompt OTP.
   useEffect(() => {
-    legendsApi.loadToken().then((token) => {
+    // Restore the active sport BEFORE the first screens read it, otherwise
+    // every sport-scoped query on launch runs with no filter — and the Arena
+    // picker centres cricket instead of what you last played. Gated on `ready`
+    // so nothing mounts until the value is in place (it's read synchronously
+    // during render, so resolving it later would be too late).
+    Promise.all([loadSelectedSport(), legendsApi.loadToken()]).then(([, token]) => {
       setIsAuthenticated(!!token);
       setReady(true);
       // Returning user: hand this device's FCM token to the backend so match

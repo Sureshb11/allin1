@@ -205,6 +205,37 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
     });
   }
 
+  // ── Non-cricket career stats ───────────────────────────────────────────────
+  // Cricket's numbers come from the ball-by-ball tables above. Every other
+  // sport records SportEvents instead, so a career line is just that player's
+  // events tallied by type (goals, cards, …) across their matches. Returning
+  // the raw tally keeps this generic — the app decides which types to show and
+  // what to call them, so a new sport needs no change here.
+  if (player.sport && player.sport !== 'cricket') {
+    const evs = await prisma.sportEvent.findMany({
+      where: { playerId: player.id },
+      select: { matchId: true, eventType: true, value: true },
+    });
+    const byType = {};
+    for (const e of evs) byType[e.eventType] = (byType[e.eventType] || 0) + 1;
+    const played = new Set(evs.map((e) => e.matchId)).size;
+
+    return res.json({
+      stats: {
+        ...base,
+        matches: played || seasonMatches,
+        eventTotals: byType,               // { goal: 5, 'yellow-card': 2, … }
+        seasonMatches,
+        momCount,
+        recentForm,
+      },
+      sport: player.sport,
+      role: player.role,
+      team: player.team?.name || null,
+      linked: true,
+    });
+  }
+
   const stats = {
     ...base,
     ...s,                                   // pass through any sport-specific fields (goals, assists, …)
