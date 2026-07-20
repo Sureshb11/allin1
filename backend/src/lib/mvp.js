@@ -204,6 +204,9 @@ export function computeAwards(match) {
   }
 
   const out = (p) => (p ? {
+    // Squad players key on their Player id (off-squad fielders key on "name:…"),
+    // so callers can resolve an award back to the account behind it.
+    playerId: p.key && !String(p.key).startsWith('name:') ? p.key : null,
     name: p.name, teamName: p.teamName,
     total: +p.total.toFixed(2), bat: +p.bat.toFixed(2), bowl: +p.bowl.toFixed(2), field: +p.field.toFixed(2),
     batLine: p.batLine, bowlLine: p.bowlLine, fieldCount: p.fieldCount || 0,

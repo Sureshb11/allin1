@@ -7,35 +7,40 @@ import { checkMatchMilestones } from '../lib/milestones.js';
 import { pushMatchResultCard } from '../lib/feed.js';
 import { reportMatchToTournament } from '../lib/tournamentResult.js';
 import { computeAwards } from '../lib/mvp.js';
+import { safeNotify, notifyMatchLive, notifyMatchResult } from '../lib/notify.js';
 
 const router = Router();
 
 // ── Match awards (MVP): Man of the Match, Fighter, Best Batter/Bowler/Fielder ──
 // Computed from ball-by-ball data using the CricHeroes-style MVP algorithm.
-router.get('/:id/awards', async (req, res) => {
-  try {
-    const match = await prisma.match.findUnique({
-      where: { id: req.params.id },
+// Everything computeAwards() needs: both squads plus the full ball-by-ball log.
+// Shared by the awards endpoint and the post-match award notifications.
+const loadMatchForAwards = (id) => prisma.match.findUnique({
+  where: { id },
+  include: {
+    team1: true,
+    team2: true,
+    squads: { include: { player: { select: { name: true } } } },
+    innings: {
+      orderBy: { inningNumber: 'asc' },
       include: {
-        team1: true,
-        team2: true,
-        squads: { include: { player: { select: { name: true } } } },
-        innings: {
-          orderBy: { inningNumber: 'asc' },
+        battingTeam: { select: { name: true } },
+        bowlingTeam: { select: { name: true } },
+        oversData: {
+          orderBy: { overNumber: 'asc' },
           include: {
-            battingTeam: { select: { name: true } },
-            bowlingTeam: { select: { name: true } },
-            oversData: {
-              orderBy: { overNumber: 'asc' },
-              include: {
-                bowler: { select: { name: true } },
-                balls: { orderBy: { ballNumber: 'asc' }, include: { batter: { select: { name: true } } } },
-              },
-            },
+            bowler: { select: { name: true } },
+            balls: { orderBy: { ballNumber: 'asc' }, include: { batter: { select: { name: true } } } },
           },
         },
       },
-    });
+    },
+  },
+});
+
+router.get('/:id/awards', async (req, res) => {
+  try {
+    const match = await loadMatchForAwards(req.params.id);
     if (!match) return res.status(404).json({ error: 'Match not found' });
     const awards = computeAwards(match);
     res.json({ awards, result: match.result || null });
@@ -753,6 +758,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
       // If this match is a tournament fixture, auto-finalize it (score → standings
       // → bracket → notifications). Guarded so it can't fail the completion.
       await reportMatchToTournament(match).catch((e) => console.error('[tournament report]', e.message));
+      // Result + award notifications: winners get a personal "you won X" card,
+      // the rest of both teams' circles get the round-up.
+      await safeNotify(async () => {
+        const full = await loadMatchForAwards(match.id);
+        if (!full) return 0;
+        return notifyMatchResult(full, computeAwards(full));
+      });
     }
     res.json({ match });
   } catch (e) {
@@ -830,6 +842,16 @@ router.post('/:id/toss', authMiddleware, async (req, res) => {
         });
       }
       return m;
+    });
+
+    // The toss is what puts a match on air — tell both teams' circles it's live.
+    // The scorer already knows, so they're left out.
+    await safeNotify(async () => {
+      const full = await prisma.match.findUnique({
+        where: { id: matchId },
+        include: { team1: { select: { name: true } }, team2: { select: { name: true } } },
+      });
+      return full ? notifyMatchLive(full, { exclude: [req.user.sub] }) : 0;
     });
 
     res.json({ match });
