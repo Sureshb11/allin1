@@ -16,6 +16,7 @@ import SportSwitcher from '../components/SportSwitcher';
 import { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { getSelectedSport } from '../utils/selectedSport';
+import { getSport } from '../sports';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 // Sport-aware profile stats: which stored-stat fields to surface per sport (first 4
@@ -26,8 +27,15 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 // land 3rd and 4th.
 const SPORT_STAT_FIELDS = {
   cricket:  [['matches', 'Matches'], ['runs', 'Runs', true], ['wickets', 'Wickets', true], ['strikeRate', 'Strike Rate']],
-  football: [['matches', 'Matches'], ['goals', 'Goals', true], ['assists', 'Assists', true], ['cleanSheets', 'Clean Sheets']],
+  // Non-cricket keys are SportEvent types (see /users/me/stats -> eventTotals),
+  // not top-level stat fields — 'goals'/'assists' never existed on the payload,
+  // so these cells rendered blank.
+  football: [['matches', 'Matches'], ['goal', 'Goals', true], ['assist', 'Assists', true], ['yellow-card', 'Yellows']],
 };
+
+// A field is either a computed stat (cricket) or an event tally (everything
+// else). Resolve both, so one field list works for any sport.
+const statValue = (stats, key) => stats?.[key] ?? stats?.eventTotals?.[key];
 const DEFAULT_STAT_FIELDS = [['matches', 'Matches'], ['events', 'Events'], ['fights', 'Fights'], ['wins', 'Wins', true], ['titles', 'Titles', true], ['ko', 'KO'], ['goals', 'Goals']];
 
 // Career detail, grouped. The API already computes all of this from the
@@ -99,7 +107,7 @@ export default function ProfileScreen({ navigation }) {
     try {
       const [profileRes, statsRes] = await Promise.all([
         legendsApi.getUserProfile(),
-        legendsApi.getUserStats(),
+        legendsApi.getUserStats(getSelectedSport().sport?.id),
       ]);
       if (profileRes.success) { setProfile(profileRes.data); setCurrentAvatar(profileRes.data?.avatarUrl || null); }
       if (statsRes.success) setStats(statsRes.data);
@@ -115,9 +123,9 @@ export default function ProfileScreen({ navigation }) {
     const name = profile.name || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Player';
     const fields = SPORT_STAT_FIELDS[getSelectedSport().sport?.id] || DEFAULT_STAT_FIELDS;
     const line = fields
-      .filter(([k]) => typeof stats[k] === 'number')
+      .filter(([k]) => typeof statValue(stats, k) === 'number')
       .slice(0, 3)
-      .map(([k, label]) => `${stats[k]} ${label.toLowerCase()}`)
+      .map(([k, label]) => `${statValue(stats, k)} ${label.toLowerCase()}`)
       .join(' | ');
     try {
       await Share.share({
@@ -201,10 +209,11 @@ export default function ProfileScreen({ navigation }) {
   // Sport-aware stat cards (same layout for every sport, fields adapt to the sport).
   const sport = getSelectedSport().sport || { id: 'cricket', name: 'Cricket' };
   const statFields = SPORT_STAT_FIELDS[sport.id] || DEFAULT_STAT_FIELDS;
+  const sportAccent = getSport(sport.id)?.accent || DS.lime;
   const statCards = statFields
-    .filter(([k]) => typeof stats[k] === 'number')
+    .filter(([k]) => typeof statValue(stats, k) === 'number')
     .slice(0, 4)
-    .map(([k, label, accent]) => ({ label, value: stats[k], accent: !!accent }));
+    .map(([k, label, accent]) => ({ label, value: statValue(stats, k), accent: !!accent }));
 
   // Career detail blocks — only groups with at least one real value render.
   const statGroups = (SPORT_STAT_GROUPS[sport.id] || [])
@@ -229,7 +238,11 @@ export default function ProfileScreen({ navigation }) {
             ) : profile.avatarUrl ? (
               <Image source={{ uri: profile.avatarUrl }} style={styles.coverPhoto} resizeMode="cover" blurRadius={15} />
             ) : (
-              <Image source={{ uri: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=3538&auto=format&fit=crop' }} style={styles.coverPhoto} resizeMode="cover" />
+              // Last resort: the sport's own colour, not a stock CRICKET photo
+              // (which is what this was — a hotlinked Unsplash cricket shot
+              // shown on every sport's profile). Also removes a network
+              // dependency from the profile header.
+              <View style={[styles.coverPhoto, { backgroundColor: sportAccent }]} />
             )}
             <View style={styles.coverDarkenOverlay} />
             <View style={styles.coverUploadOverlay}>
