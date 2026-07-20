@@ -12,7 +12,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
-  Dimensions, PanResponder, Animated, Easing, Vibration, Platform, Image } from
+  Dimensions, PanResponder, Animated, Easing, Vibration, Platform, Image, Alert } from
 'react-native';
 import Svg, { Path, Line, Circle, Rect, Defs, RadialGradient, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -22,6 +22,7 @@ import SportLogoIcon, { hasSportAnim } from '../components/SportLogoIcon';
 import { haptic } from '../utils/haptics';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
+import { isSportLive } from '../sports';
 import { useTheme, useThemedStyles, useArenaColors } from '../theme/ThemeContext';
 import BrandLogo from '../components/BrandLogo';
 
@@ -150,11 +151,14 @@ const Disc = React.memo(function Disc({ cell, scale, opacity, focused, attract, 
   // The lit disc takes the sport's own signature colour (matching the ARENA
   // title + stage glow), so each selection feels like its own arena.
   const accent = sportAccent(cell.id, isDark, A.lime);
+  // Not-yet-shipped sports stay visible (they preview the roadmap) but sit back:
+  // dimmer glyph plus a small build marker, so the cluster reads at a glance.
+  const live = isSportLive(cell.id);
   // Icon renders at a fixed size; the whole disc is scaled via transform.
   const iconSize = cell.featured ? 38 : 33;
   // Legible at rest — near-ink instead of dim grey, so every sport reads clearly
   // on the pale stage; full-ink once lit. Focus is carried by the lime ring/glow.
-  const glyph = focused ? A.ink : A.ink + 'C8';
+  const glyph = live ? (focused ? A.ink : A.ink + 'C8') : (focused ? A.ink + 'B0' : A.ink + '66');
   // Springy pop each time this disc ratchets into focus; the focused disc also
   // rests a touch larger, so the selection reads as physically raised off the mat.
   const FOCUS_SCALE = 1.12;
@@ -542,6 +546,16 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
     }
   }, [navigation]);
 
+  // Unfinished sport: say so plainly rather than dropping the user into a
+  // half-built flow. Sports go live one at a time via LIVE_SPORTS in src/sports.
+  const showComingSoon = useCallback((cell) => {
+    Alert.alert(
+      `${cell.name} is coming soon`,
+      `We're building ${cell.name} out properly — scoring, stats and teams. Cricket is ready to play now.`,
+      [{ text: 'Got it' }],
+    );
+  }, []);
+
   const onGridLayout = useCallback((e) => {
     const { width, height } = e.nativeEvent.layout;
     setDim({ w: width, h: height });
@@ -549,6 +563,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
 
   const cx = dim.w / 2,cy = dim.h / 2;
   const focus = useMemo(() => SPORTS.find((s) => s.id === focusId) || SPORTS[0], [focusId]);
+  const focusLive = isSportLive(focus.id);
 
   // Fisheye layout for the current pan offset. useMemo so non-pan re-renders
   // (focus tick, attract, glow) reuse the identical array and the memoized
@@ -750,17 +765,27 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
           opacity: readoutAnim,
           transform: [{ translateY: readoutAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
         }]}>
-          <Text style={[s.tagText, { color: moodInk }]}>{(focus.tag || '').toUpperCase()}</Text>
+          <Text style={[s.tagText, { color: moodInk }]}>
+            {focusLive ? (focus.tag || '').toUpperCase() : 'IN THE NETS'}
+          </Text>
         </Animated.View>
-        <Animated.View style={{ transform: [{ scale: btnPulseAnim }] }}>
+        {/* Only finished sports can be entered; the rest read as Coming Soon and
+            sit still (no pulse) so the button doesn't invite a tap. */}
+        <Animated.View style={{ transform: [{ scale: focusLive ? btnPulseAnim : 1 }] }}>
           <TouchableOpacity
-            style={s.startSolid}
-            activeOpacity={0.88}
-            onPress={() => { haptic.impact(); routeSport(focus); }}>
-            <Text style={s.startSolidTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-              PLAY {focus.name.toUpperCase()}
+            style={[s.startSolid, !focusLive && s.startSoon]}
+            activeOpacity={focusLive ? 0.88 : 1}
+            onPress={() => {
+              haptic.impact();
+              if (focusLive) return routeSport(focus);
+              showComingSoon(focus);
+            }}>
+            <Text style={[s.startSolidTxt, !focusLive && s.startSoonTxt]}
+              numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+              {focusLive ? `PLAY ${focus.name.toUpperCase()}` : 'COMING SOON'}
             </Text>
-            <Icon name="play" size={20} color="#ffffff" />
+            <Icon name={focusLive ? 'play' : 'progress-wrench'} size={20}
+              color={focusLive ? '#ffffff' : A.textMuted} />
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -829,6 +854,14 @@ const makeS = (A) => StyleSheet.create({
     shadowOpacity: 0.35, shadowRadius: 14, elevation: 8
   },
   startSolidTxt: { fontSize: 15, fontWeight: '800', color: '#ffffff', letterSpacing: 3 },
+  // Not-yet-shipped sport: a quiet outlined slab instead of the loud solid CTA,
+  // so it reads as unavailable at a glance rather than as a broken button.
+  startSoon: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5, borderColor: A.textMuted + '66',
+    shadowOpacity: 0, elevation: 0,
+  },
+  startSoonTxt: { color: A.textMuted },
   tagBadge: {
     alignSelf: 'center', marginBottom: 16,
     paddingHorizontal: 16, paddingVertical: 6,

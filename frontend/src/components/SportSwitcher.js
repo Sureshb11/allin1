@@ -9,6 +9,7 @@ import HexAvatar from './HexAvatar';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { SPORTS } from '../sports/dashboard';
+import { isSportLive } from '../sports';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 export default function SportSwitcher({ navigation, current: currentOverride, variant }) {
@@ -20,6 +21,16 @@ export default function SportSwitcher({ navigation, current: currentOverride, va
   const switchTo = (sport) => {
     setOpen(false);
     if (sport.id === current.id) return;
+    // Unfinished sports are listed (so the roadmap is visible) but can't be
+    // entered — this is the same gate the Arena picker applies.
+    if (!isSportLive(sport.id)) {
+      Alert.alert(
+        `${sport.name} is coming soon`,
+        `We're building ${sport.name} out properly. Cricket is ready to play now.`,
+        [{ text: 'Got it' }],
+      );
+      return;
+    }
     Alert.alert(
       `Switch to ${sport.name}?`,
       `Local Legends will reload and show everything for ${sport.name}.`,
@@ -82,13 +93,16 @@ export default function SportSwitcher({ navigation, current: currentOverride, va
             <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
               {SPORTS.map((sport) => {
                 const active = current.id === sport.id;
+                const live = isSportLive(sport.id);
                 return (
                   <TouchableOpacity key={sport.id} style={[s.item, active && s.itemActive]} onPress={() => switchTo(sport)}>
                     <View style={[s.itemIcon, { backgroundColor: active ? C.lime : C.surfaceHighest }]}>
                       <Icon name={sport.icon} size={24} color={active ? C.bg : C.textMuted} />
                     </View>
-                    <Text style={[s.itemLabel, active && { color: C.lime, fontWeight: '700' }]}>{sport.name}</Text>
+                    <Text style={[s.itemLabel, active && { color: C.lime, fontWeight: '700' },
+                      !live && { color: C.textMuted }]}>{sport.name}</Text>
                     {active && <Icon name="check-circle" size={20} color={C.lime} />}
+                    {!live && !active && <Text style={s.soonTag}>SOON</Text>}
                   </TouchableOpacity>
                 );
               })}
@@ -121,4 +135,5 @@ const makeStyles = (C) => StyleSheet.create({
   itemActive: {},
   itemIcon: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   itemLabel: { flex: 1, color: C.textPrimary, fontSize: 15, fontWeight: '600' },
+  soonTag: { fontSize: 10, fontWeight: '800', letterSpacing: 1, color: C.textMuted },
 });
