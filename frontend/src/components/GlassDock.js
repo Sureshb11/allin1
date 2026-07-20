@@ -89,9 +89,20 @@ export default function GlassDock({
         <Item id="home"      activeIcon="home" inactiveIcon="home-outline" onPress={goTab('HomeTab', homeRoute)}      label="Home" />
         <Item id="mycricket" activeIcon={sportIcon} inactiveIcon={sportIcon} onPress={goTab('MyCricketTab', 'Home')}    label={sportName} />
         <View style={s.ballSlot}>
-          <View style={s.ballLift}>
-            <AnimatedCricketBall size={52} onPress={startMatch} />
-          </View>
+          {/* The signature animated ball is cricket's own hero art, so it stays on
+              cricket only — and keeps its lift above the capsule. Every other
+              sport gets a neutral "+" create button sitting inline with the rest
+              of the dock (YouTube-style), which reads as "add" in any sport. */}
+          {sportIcon === 'cricket' ? (
+            <View style={s.ballLift}>
+              <AnimatedCricketBall size={52} onPress={startMatch} />
+            </View>
+          ) : (
+            <TouchableOpacity style={s.plusBtn} activeOpacity={0.7} onPress={startMatch}
+              accessibilityRole="button" accessibilityLabel="Start a match">
+              <Icon name="plus" size={26} color={DS.textPrimary} />
+            </TouchableOpacity>
+          )}
         </View>
         <Item id="pavilion"  activeIcon="stadium" inactiveIcon="stadium"
               onPress={goTab('PavilionTab', 'Pavilion')} label="Pavilion" />
@@ -121,5 +132,13 @@ const makeStyles = (isDark, DS) => StyleSheet.create({
   // "You" tab avatar — ring takes the current tint (green when selected).
   avatar: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.6, backgroundColor: DS.surfaceHigh },
   ballSlot: { width: 68, alignItems: 'center' },
+  // Neutral create button for non-cricket sports: a soft grey disc with a dark
+  // glyph, flat and inline — deliberately quiet, so it doesn't compete with the
+  // cricket ball's hero treatment.
+  plusBtn: {
+    width: 46, height: 46, borderRadius: 23,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.10)' : DS.surfaceHigh,
+  },
   ballLift: { marginTop: -30 },
 });

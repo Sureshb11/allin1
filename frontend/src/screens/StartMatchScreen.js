@@ -11,6 +11,7 @@ import { Typography, Spacing, Radius } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
 import { getStartFormat as getSportFormat } from '../sports/start';
 import { getSport } from '../sports';
+import { getSelectedSport } from '../utils/selectedSport';
 import GradientButton from '../components/GradientButton';
 import HexAvatar from '../components/HexAvatar';
 import { showToast } from '../components/Toast';
@@ -235,7 +236,11 @@ const StartMatchScreen = ({ navigation, route }) => {
   const K = useMemo(() => makeK(c), [c]);
   const s = useMemo(() => makeS(K), [K]);
   const tabClear = useTabBarClearance();   // keep CREATE clear of the floating dock
-  const sport = route.params?.sport || { id: 'cricket', name: 'Cricket', icon: 'cricket' };
+  // Fall back to the sport the user is actually in, not cricket: the dock's
+  // create-match button navigates here without params, which otherwise showed
+  // a football player T20 formats, overs and cricket ball types.
+  const sport = route.params?.sport || getSelectedSport().sport
+    || { id: 'cricket', name: 'Cricket', icon: 'cricket' };
   const sportDef = getSport(sport.id);
   const indiv = !!sportDef?.individual;          // 1v1 sports → "Player" not "Team"
   const COMP = sportDef?.competitorLabel || 'Team';

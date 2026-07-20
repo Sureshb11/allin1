@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Alert, StatusBar, Animated, Dimensions, TextInput, Modal,
@@ -513,14 +513,6 @@ export default function SportScoringScreen({ route, navigation }) {
   const [period, setPeriod]     = useState(1);
   const [saving, setSaving]     = useState(false);
   const [matchOver, setMatchOver] = useState(false);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Scoring',
-    });
-  }, [navigation]);
 
   const score1 = cfg.scoreLabel(events, match?.team1Id, match?.team2Id);
   const score2 = cfg.scoreLabel(events, match?.team2Id, match?.team1Id);
