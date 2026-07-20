@@ -9,7 +9,7 @@
 // the primary action, so callers wrap these in a .catch (see safeNotify).
 
 import { prisma } from './prisma.js';
-import { pushToUsers } from './push.js';
+import { pushToUsers, pushDataToUsers } from './push.js';
 
 // The set of user IDs to notify for a set of teams: each team's owner plus any
 // roster players linked to a user account (deduplicated, nulls dropped).
@@ -67,6 +67,44 @@ export async function notifyAllParticipants(tournamentId, payload) {
 export async function safeNotify(fn) {
   try { return await fn(); }
   catch (e) { console.error('[notify] failed:', e.message); return 0; }
+}
+
+// ── Live match updates ───────────────────────────────────────────────────────
+// The app used to poll a live scorecard every 6s per watcher. The API runs on
+// Vercel serverless, which can't hold a WebSocket or SSE connection, so the
+// realtime transport here is a DATA-ONLY push: "match X changed, refetch".
+// No tray notification, no new infrastructure — it reuses FCM.
+//
+// Balls land faster than anyone can read, so pings are coalesced per match:
+// at most one every LIVE_PING_MS. A watcher therefore sees roughly the same
+// cadence as the old poll, but pays nothing while nothing is happening and
+// gets the update almost immediately when it is.
+const LIVE_PING_MS = 5000;
+const lastPing = new Map();   // matchId -> timestamp
+
+// Takes a match ID: the throttle is checked BEFORE any lookup, so a burst of
+// deliveries costs one Map read rather than a query each.
+export async function pingMatchWatchers(matchId) {
+  if (!matchId) return 0;
+  const now = Date.now();
+  const prev = lastPing.get(matchId) || 0;
+  if (now - prev < LIVE_PING_MS) return 0;      // coalesce a burst of deliveries
+  lastPing.set(matchId, now);
+
+  // Keep the map from growing across a long-lived process.
+  if (lastPing.size > 500) {
+    for (const [k, t] of lastPing) if (now - t > 60_000) lastPing.delete(k);
+  }
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId }, select: { team1Id: true, team2Id: true },
+  });
+  if (!match) return 0;
+
+  const audience = await matchAudience([match.team1Id, match.team2Id]);
+  if (!audience.length) return 0;
+  // Silent: data only, so it refreshes the screen instead of buzzing the phone.
+  return pushDataToUsers(audience, { type: 'score', matchId });
 }
 
 // ── Retention ────────────────────────────────────────────────────────────────

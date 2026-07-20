@@ -11,6 +11,7 @@ import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 import RNShare from 'react-native-share';
 import legendsApi from '../services/LegendsApi';
+import { onForegroundMessage } from '../services/push';
 import { haptic } from '../utils/haptics';
 import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
@@ -1407,17 +1408,28 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   useFocusEffect(
     useCallback(() => {
       loadScorecard(true);
+
+      // Live updates arrive as a silent data push from the scorer's device
+      // ("match X changed, refetch") — the API runs on Vercel serverless, which
+      // can't hold a socket. The interval below is only a safety net for a
+      // missed/throttled push, so it can be far slower than the old 6s poll.
+      const stopPush = onForegroundMessage((msg) => {
+        if (msg?.data?.type === 'score' && msg.data.matchId === matchId) {
+          loadScorecard(false);
+        }
+      });
+
       const poll = setInterval(() => {
         setMatch((cur) => {
-          // Stop polling entirely once the match is no longer live — no point
-          // hitting the server every 6s for a finished game.
+          // Stop entirely once the match is no longer live.
           if (cur && cur.status !== 'live') { clearInterval(poll); return cur; }
           loadScorecard(false);
           return cur;
         });
-      }, 6000);
-      return () => clearInterval(poll);
-    }, [loadScorecard])
+      }, 30000);
+
+      return () => { clearInterval(poll); stopPush?.(); };
+    }, [loadScorecard, matchId])
   );
 
   const onRefresh = useCallback(() => {

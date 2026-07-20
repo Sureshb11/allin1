@@ -7,7 +7,7 @@ import { checkMatchMilestones } from '../lib/milestones.js';
 import { pushMatchResultCard } from '../lib/feed.js';
 import { reportMatchToTournament } from '../lib/tournamentResult.js';
 import { computeAwards } from '../lib/mvp.js';
-import { safeNotify, notifyMatchLive, notifyMatchResult } from '../lib/notify.js';
+import { safeNotify, notifyMatchLive, notifyMatchResult, pingMatchWatchers } from '../lib/notify.js';
 
 const router = Router();
 
@@ -365,6 +365,8 @@ router.put('/:id/score', authMiddleware, async (req, res) => {
       }
     });
 
+    // Tell watching devices to refetch (coalesced) — replaces their polling.
+    safeNotify(() => pingMatchWatchers(req.params.id));
     res.json({ success: true, ball });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -414,6 +416,7 @@ router.delete('/:id/score/last', authMiddleware, async (req, res) => {
     });
 
     if (result.empty) return res.status(404).json({ error: 'No ball to undo' });
+    safeNotify(() => pingMatchWatchers(req.params.id));
     res.json({ success: true, undone: result.ball });
   } catch (e) {
     res.status(400).json({ error: e.message });

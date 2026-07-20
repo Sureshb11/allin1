@@ -59,11 +59,21 @@ const DEAD = new Set([
 ]);
 
 /**
+ * Silent, data-only push — no notification block, so nothing appears in the
+ * tray and the phone doesn't buzz. Used to tell watching devices that a live
+ * match changed so they refetch, in place of polling. Delivered to the app's
+ * message handler; on Android a high priority still wakes a backgrounded app.
+ */
+export async function pushDataToUsers(userIds, data = {}) {
+  return pushToUsers(userIds, { data, silent: true });
+}
+
+/**
  * Push a notification to every device the given users are signed in on.
  * Best-effort: never throws, returns the number of messages delivered.
  * `data` values must be strings — FCM rejects other types.
  */
-export async function pushToUsers(userIds, { title, message, data = {} } = {}) {
+export async function pushToUsers(userIds, { title, message, data = {}, silent = false } = {}) {
   const uniq = [...new Set((userIds || []).filter(Boolean))];
   if (!uniq.length) return 0;
 
@@ -92,9 +102,14 @@ export async function pushToUsers(userIds, { title, message, data = {} } = {}) {
     try {
       const res = await fcm.sendEachForMulticast({
         tokens: chunk,
-        notification: { title, body: message },
+        // Omitting `notification` entirely is what makes a message data-only:
+        // include it and Android renders a tray entry, which would buzz the
+        // phone on every ball of a live match.
+        ...(silent ? {} : { notification: { title, body: message } }),
         data: stringData,
-        android: { priority: 'high', notification: { channelId: 'default', sound: 'default' } },
+        android: silent
+          ? { priority: 'high' }
+          : { priority: 'high', notification: { channelId: 'default', sound: 'default' } },
       });
       sent += res.successCount;
       res.responses.forEach((r, j) => {
