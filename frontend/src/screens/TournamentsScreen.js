@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport } from '../utils/selectedSport';
 
 /* ── Design System ── */
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -82,20 +83,28 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
             )}
           </View>
 
-          {/* Stats row */}
+          {/* Stats row — each cell only appears when there's real data behind
+              it. The format chip used to be a hardcoded "T20" with a cricket
+              bat icon, on every tournament of every sport. */}
           <View style={styles.cardStatsRow}>
             <View style={styles.cardStatItem}>
               <Icon name="account-group-outline" size={14} color={DS.textMuted} />
-              <Text style={styles.cardStatText}>{item.teams}/{item.maxTeams} teams</Text>
+              <Text style={styles.cardStatText}>
+                {item.maxTeams ? `${item.teams}/${item.maxTeams} teams` : `${item.teams} teams`}
+              </Text>
             </View>
-            <View style={styles.cardStatItem}>
-              <Icon name="cricket" size={14} color={DS.textMuted} />
-              <Text style={styles.cardStatText}>T20</Text>
-            </View>
-            <View style={styles.cardStatItem}>
-              <Icon name="currency-inr" size={14} color={DS.textMuted} />
-              <Text style={styles.cardStatText}>{item.prize}</Text>
-            </View>
+            {!!item.format && (
+              <View style={styles.cardStatItem}>
+                <Icon name="trophy-outline" size={14} color={DS.textMuted} />
+                <Text style={styles.cardStatText}>{item.format}</Text>
+              </View>
+            )}
+            {!!item.prize && (
+              <View style={styles.cardStatItem}>
+                <Icon name="currency-inr" size={14} color={DS.textMuted} />
+                <Text style={styles.cardStatText}>{item.prize}</Text>
+              </View>
+            )}
           </View>
 
           {!!item.description && (
@@ -164,17 +173,25 @@ const TournamentsScreen = ({ navigation, inline }) => {
 
   const loadTournaments = async () => {
     try {
-      const res = await legendsApi.request('/tournaments');
+      // Scope to the active sport. This screen called request() directly and
+      // so bypassed getTournaments() and its filter — which is why the
+      // football league still listed every cricket tournament.
+      const sport = getSelectedSport().sport?.id;
+      const res = await legendsApi.request('/tournaments' + (sport ? `?sport=${encodeURIComponent(sport)}` : ''));
       if (res && res.tournaments) {
         setTournaments((res.tournaments || []).map(t => ({
           id:        t.id,
           name:      t.name,
-          description: `${t.format || 'T20'} tournament at ${t.venue || 'TBD'}`,
+          // Real values only. These were placeholders from the mock era: every
+          // tournament claimed a ₹50,000 prize and 0/16 teams, and the format
+          // fell back to the cricket-specific "T20" on non-cricket screens.
+          description: t.format ? `${t.format} tournament at ${t.venue || 'TBD'}` : `Tournament at ${t.venue || 'TBD'}`,
           startDate: (t.startDate && !isNaN(new Date(t.startDate).getTime()))
             ? new Date(t.startDate).toISOString().split('T')[0] : 'TBD',
-          prize:     '₹50,000',
-          teams:     0,
-          maxTeams:  16,
+          prize:     t.prizePool || null,
+          teams:     Array.isArray(t.teams) ? t.teams.length : 0,
+          maxTeams:  t.maxTeams ?? null,
+          format:    t.format || null,
           location:  t.venue || 'TBD',
           status:    t.status
             ? t.status.charAt(0).toUpperCase() + t.status.slice(1)
