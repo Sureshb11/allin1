@@ -23,6 +23,7 @@ import { haptic } from '../utils/haptics';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { isSportLive } from '../sports';
+import { rawSportColor, sportColor } from '../sports/colors';
 import { useTheme, useThemedStyles, useArenaColors } from '../theme/ThemeContext';
 import BrandLogo from '../components/BrandLogo';
 
@@ -221,30 +222,6 @@ const Disc = React.memo(function Disc({ cell, scale, opacity, focused, attract, 
   Math.abs(prev.opacity - next.opacity) < 0.03
 );
 
-// One unique neon per sport — evenly spaced around the hue wheel (min ~19° apart)
-// and interleaved so no two sports read as the same colour when the header wash,
-// ARENA tint and centre glow take on the focused sport's colour.
-const SPORT_COLORS = {
-  cricket: '#d0ff14',
-  football: '#2662ff',
-  basketball: '#7426ff',
-  tennis: '#3cff14',
-  kabaddi: '#ff5014',
-  hockey: '#14ffcb',
-  badminton: '#ff14b7',
-  volleyball: '#ffe414',
-  boxing: '#149fff',
-  wrestling: '#ff1423',
-  tabletennis: '#14ff81',
-  khokho: '#fd14ff',
-  handball: '#86ff14',
-  squash: '#2f26ff',
-  pickleball: '#ff9a14',
-  judo: '#14e9ff',
-  karate: '#ff146d',
-  skateboard: '#14ff37',
-  rummy: '#b826ff',
-};
 
 // The sport colours above are neon — tuned for a dark stage. On the light
 // theme they'd be invisible, so darken to a readable ink while keeping the hue
@@ -267,10 +244,7 @@ function readableInk(hex) {
 }
 
 /** The sport's own accent, readable on the current theme. */
-const sportAccent = (id, isDark, fallback) => {
-  const c = SPORT_COLORS[id] || fallback;
-  return isDark ? c : readableInk(c);
-};
+const sportAccent = (id, isDark) => sportColor(id, isDark);
 
 /** Linear mix of two #rrggbb colours (t=0 → a, t=1 → b). */
 function mixHex(a, b, t) {
@@ -586,9 +560,11 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
     return { cell: c, left: cx + c.x + panOff.x, top: cy + c.y + panOff.y, scale: s, opacity, rotateX, rotateY };
   }), [panOff.x, panOff.y, cx, cy]);
 
-  const moodColor = SPORT_COLORS[focus.id] || A.lime;
+  const moodColor = rawSportColor(focus.id);
   // ARENA title tint: the neon colour on dark, a readable darkened hue on light.
-  const moodInk = isDark ? moodColor : readableInk(moodColor);
+  // sportColor() already returns a theme-correct value (and keeps cricket on
+  // the brand green rather than darkening a neon), so no readableInk pass.
+  const moodInk = sportColor(focus.id, isDark);
 
   return (
     <View style={s.root}>
@@ -775,7 +751,12 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
             sit still (no pulse) so the button doesn't invite a tap. */}
         <Animated.View style={{ transform: [{ scale: focusLive ? btnPulseAnim : 1 }] }}>
           <TouchableOpacity
-            style={[s.startSolid, !focusLive && s.startSoon]}
+            style={[s.startSolid,
+              // The button wears the sport you're about to enter — same colour
+              // as its disc, the ARENA title and the stage glow, so the choice
+              // carries through instead of every sport sharing one green.
+              focusLive && { backgroundColor: moodInk, shadowColor: moodInk },
+              !focusLive && s.startSoon]}
             activeOpacity={focusLive ? 0.88 : 1}
             onPress={() => {
               haptic.impact();
