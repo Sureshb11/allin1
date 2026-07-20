@@ -6,6 +6,7 @@ import {
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport } from '../utils/selectedSport';
 import BrandLogo from '../components/BrandLogo';
 import HexAvatar from '../components/HexAvatar';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -230,7 +231,8 @@ export default function MyMatchesScreen({ navigation }) {
     try {
       // "My Matches" = matches involving the user's own teams (owned / played / followed),
       // across every sport — not every match in the database.
-      const res = await legendsApi.getCircleMatches();
+      // Scope to the active sport — cricket matches must not list under football.
+      const res = await legendsApi.getCircleMatches({ sport: getSelectedSport().sport?.id });
       if (res.success) setMatches(res.data || []);
     } catch (e) {}
     finally { setLoading(false); }

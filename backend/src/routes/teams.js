@@ -81,8 +81,14 @@ router.get('/', async (req, res) => {
 router.get('/categorized', authMiddleware, async (req, res) => {
   try {
     const uid = req.user.sub;
+    // Scope every list to the active sport. Without this the Teams tab showed a
+    // user's cricket teams while they were inside football — each sport is a
+    // separate world in this app.
+    const sport = req.query.sport ? String(req.query.sport) : null;
+    const inSport = sport ? { sport } : {};
+
     const mine = await prisma.team.findMany({
-      where: { OR: [{ ownerId: uid }, { players: { some: { userId: uid } } }] },
+      where: { ...inSport, OR: [{ ownerId: uid }, { players: { some: { userId: uid } } }] },
       include: { players: true },
       orderBy: { name: 'asc' },
     });
@@ -102,13 +108,13 @@ router.get('/categorized', authMiddleware, async (req, res) => {
       }
       if (oppIds.size) {
         opponents = await prisma.team.findMany({
-          where: { id: { in: [...oppIds] } }, include: { players: true }, orderBy: { name: 'asc' },
+          where: { ...inSport, id: { in: [...oppIds] } }, include: { players: true }, orderBy: { name: 'asc' },
         });
       }
     }
 
     const follows = await prisma.teamFollow.findMany({
-      where: { userId: uid },
+      where: { userId: uid, ...(sport ? { team: { sport } } : {}) },
       include: { team: { include: { players: true } } },
       orderBy: { createdAt: 'desc' },
     });

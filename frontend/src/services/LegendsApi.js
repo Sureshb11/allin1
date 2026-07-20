@@ -198,9 +198,11 @@ class LegendsApi {
   }
 
   // Teams grouped for the current user: { mine, opponents, followed }.
-  async getTeamsCategorized() {
+  // `sport` scopes every list to the active sport — a user's cricket teams must
+  // not appear while they're inside football.
+  async getTeamsCategorized(sport) {
     try {
-      const json = await this.request('/teams/categorized');
+      const json = await this.request('/teams/categorized' + (sport ? `?sport=${encodeURIComponent(sport)}` : ''));
       return { success: true, data: { mine: json.mine || [], opponents: json.opponents || [], followed: json.followed || [] } };
     } catch (error) {
       return { success: false, error: error.message, data: { mine: [], opponents: [], followed: [] } };
@@ -1168,9 +1170,11 @@ class LegendsApi {
   }
 
   // Tournament listing
-  async getTournaments() {
+  async getTournaments(params = {}) {
     try {
-      const json = await this.request('/tournaments');
+      const qs = Object.entries(params).filter(([, v]) => v)
+        .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+      const json = await this.request('/tournaments' + (qs ? `?${qs}` : ''));
       return { success: true, data: json.tournaments || [] };
     } catch (error) {
       return { success: true, data: [] };

@@ -5,6 +5,7 @@ import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Animated
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport } from '../utils/selectedSport';
 
 const MEDAL = ['#FFD700', '#C0C0C0', '#CD7F32'];
 
@@ -235,7 +236,8 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    Promise.all([legendsApi.getPlayers(), legendsApi.getTeams()]).then(([pr, tr]) => {
+    const _sport = getSelectedSport().sport?.id;   // rankings are per-sport
+    Promise.all([legendsApi.getPlayers({ sport: _sport }), legendsApi.getTeams(_sport)]).then(([pr, tr]) => {
       if (!alive) return;
       // Default every stat to 0 — a player/team with no stored stats used to crash
       // the card (e.g. `undefined.toLocaleString()`).

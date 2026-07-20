@@ -2,6 +2,7 @@ import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, 
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport } from '../utils/selectedSport';
 import GradientButton from '../components/GradientButton';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { showToast } from '../components/Toast';
@@ -55,7 +56,7 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
 
   const loadTournaments = async () => {
     try {
-      const res = await legendsApi.getTournaments();
+      const res = await legendsApi.getTournaments({ sport: getSelectedSport().sport?.id });
       if (res.success) setTournaments(res.data);
     } catch (e) {} finally {setLoading(false);}
   };

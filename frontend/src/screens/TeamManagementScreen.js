@@ -16,6 +16,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import PressableScale from '../components/PressableScale';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport } from '../utils/selectedSport';
 import { showToast } from '../components/Toast';
 import BrandLogo from "../components/BrandLogo";
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
@@ -101,7 +102,8 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
 
   const loadData = async () => {
     try {
-      const catRes = await legendsApi.getTeamsCategorized();
+      // Scope to the active sport — otherwise cricket teams show up in football.
+      const catRes = await legendsApi.getTeamsCategorized(getSelectedSport().sport?.id);
       if (catRes.success) {
         const c = catRes.data;
         setCategorized({
