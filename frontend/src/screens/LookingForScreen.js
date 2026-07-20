@@ -215,7 +215,8 @@ export default function LookingForScreen({ navigation, route, inline }) {
     const filters = {};
     if (type && type !== 'all') filters.type = type;
     if (sportFilter) filters.sport = sportFilter;
-    const res = await legendsApi.getLookingForPosts(filters);
+    // Scout listings are per-sport — a cricket all-rounder isn't a football lead.
+    const res = await legendsApi.getLookingForPosts({ ...filters, sport: getSelectedSport().sport?.id });
     if (res.success) setPosts(res.data);
   }, [sportFilter]);
 

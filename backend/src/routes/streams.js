@@ -5,7 +5,11 @@ import { prisma } from '../lib/prisma.js';
 const router = Router();
 
 router.get('/', async (req, res) => {
-  const streams = await prisma.stream.findMany({ orderBy: { createdAt: 'desc' } });
+  const { sport } = req.query;
+  const streams = await prisma.stream.findMany({
+    where: sport ? { sport: String(sport) } : {},
+    orderBy: { createdAt: 'desc' },
+  });
   res.json({ streams });
 });
 

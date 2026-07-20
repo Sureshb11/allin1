@@ -6,7 +6,11 @@ import { authMiddleware } from '../lib/auth.js';
 const router = Router();
 
 router.get('/products', async (req, res) => {
-  const products = await prisma.product.findMany({ orderBy: { createdAt: 'desc' }, take: 50 });
+  const { sport } = req.query;
+  const products = await prisma.product.findMany({
+    where: sport ? { sport: String(sport) } : {},
+    orderBy: { createdAt: 'desc' }, take: 50,
+  });
   res.json({ products });
 });
 

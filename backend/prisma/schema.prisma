@@ -302,16 +302,22 @@ model Ball {
 
 model News {
   id        String   @id @default(cuid())
+  // Each sport is its own world in this app — content is scoped to one.
+  sport     String   @default("cricket")
   createdAt DateTime @default(now())
   title     String
   summary   String
   body      String
   author    String?
   category  String?
+
+  @@index([sport])
 }
 
 model Product {
   id          String   @id @default(cuid())
+  // Each sport is its own world in this app — content is scoped to one.
+  sport       String   @default("cricket")
   createdAt   DateTime @default(now())
   title       String
   description String
@@ -321,6 +327,8 @@ model Product {
   sellerId    String
   images      Json?
   seller      User     @relation(fields: [sellerId], references: [id])
+
+  @@index([sport])
 }
 
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
@@ -394,6 +402,8 @@ model Tournament {
 
 model Stream {
   id          String   @id @default(cuid())
+  // Each sport is its own world in this app — content is scoped to one.
+  sport       String   @default("cricket")
   title       String
   description String?
   matchId     String?
@@ -402,6 +412,8 @@ model Stream {
   quality     String
   status      String   @default("upcoming")
   createdAt   DateTime @default(now())
+
+  @@index([sport])
 }
 
 model Ground {
@@ -432,6 +444,8 @@ model Booking {
 
 model Quiz {
   id          String       @id @default(cuid())
+  // Each sport is its own world in this app — content is scoped to one.
+  sport       String       @default("cricket")
   title       String
   description String?
   difficulty  String       @default("Medium")
@@ -440,6 +454,8 @@ model Quiz {
   active      Boolean      @default(true)
   createdAt   DateTime     @default(now())
   results     QuizResult[]
+
+  @@index([sport])
 }
 
 model QuizResult {
@@ -454,6 +470,8 @@ model QuizResult {
 
 model Club {
   id            String   @id @default(cuid())
+  // Each sport is its own world in this app — content is scoped to one.
+  sport         String   @default("cricket")
   createdAt     DateTime @default(now())
   name          String
   president     String?
@@ -469,6 +487,8 @@ model Club {
   membershipFee String?
   facilities    Json?
   bio           String?
+
+  @@index([sport])
 }
 
 model ChatRoom {

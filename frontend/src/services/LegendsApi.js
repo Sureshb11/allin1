@@ -79,6 +79,10 @@ class LegendsApi {
     throw lastError;
   }
 
+
+  // Query-string helper for sport-scoped content lists.
+  _sportQs(sport) { return sport ? `?sport=${encodeURIComponent(sport)}` : ''; }
+
   // Live Scores API
   async getLiveScores(params = {}) {
     try {
@@ -571,9 +575,9 @@ class LegendsApi {
   }
 
   // News Feed
-  async getCricketNews() {
+  async getCricketNews(sport) {
     try {
-      const json = await this.request('/news');
+      const json = await this.request('/news' + this._sportQs(sport));
       // server returns { news: [...] }
       return { success: true, data: json.news || [] };
     } catch (error) {
@@ -887,9 +891,9 @@ class LegendsApi {
   }
 
   // Club Management
-  async getClubs() {
+  async getClubs(sport) {
     try {
-      const json = await this.request('/clubs');
+      const json = await this.request('/clubs' + this._sportQs(sport));
       return { success: true, data: json.clubs || [] };
     } catch (error) {
       return { success: true, data: [] };
@@ -962,9 +966,9 @@ class LegendsApi {
   }
 
   // Live Streaming APIs
-  async getLiveStreams() {
+  async getLiveStreams(sport) {
     try {
-      const json = await this.request('/streams');
+      const json = await this.request('/streams' + this._sportQs(sport));
       const streams = (json.streams || []).filter(s => s.status === 'live');
       return { success: true, data: streams };
     } catch (error) {
@@ -1130,9 +1134,9 @@ class LegendsApi {
   }
 
   // Marketplace APIs
-  async getMarketplaceProducts() {
+  async getMarketplaceProducts(sport) {
     try {
-      const json = await this.request('/marketplace/products');
+      const json = await this.request('/marketplace/products' + this._sportQs(sport));
       return { success: true, data: json.products || [] };
     } catch (error) {
       return { success: false, error: error.message };

@@ -5,7 +5,11 @@ import { prisma } from '../lib/prisma.js';
 const router = Router();
 
 router.get('/', async (req, res) => {
-  const news = await prisma.news.findMany({ orderBy: { createdAt: 'desc' }, take: 50 });
+  const { sport } = req.query;
+  const news = await prisma.news.findMany({
+    where: sport ? { sport: String(sport) } : {},
+    orderBy: { createdAt: 'desc' }, take: 50,
+  });
   res.json({ news });
 });
 

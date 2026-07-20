@@ -4,6 +4,7 @@ import {
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport } from '../utils/selectedSport';
 
 
 
@@ -79,7 +80,7 @@ const MarketPlaceScreen = ({ navigation }) => {const DS = useTheme().colors;cons
   const loadData = async () => {
     try {
       const [pRes, cRes] = await Promise.all([
-      legendsApi.getMarketplaceProducts(),
+      legendsApi.getMarketplaceProducts(getSelectedSport().sport?.id),
       legendsApi.getMarketplaceCategories()]
       );
       if (pRes.success) setProducts(pRes.data);

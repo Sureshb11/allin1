@@ -5,7 +5,12 @@ import { prisma } from '../lib/prisma.js';
 const router = Router();
 
 router.get('/', async (req, res) => {
-  const clubs = await prisma.club.findMany({ orderBy: { createdAt: 'desc' } });
+  // Scope to the active sport; unscoped requests still get everything.
+  const { sport } = req.query;
+  const clubs = await prisma.club.findMany({
+    where: sport ? { sport: String(sport) } : {},
+    orderBy: { createdAt: 'desc' },
+  });
   res.json({ clubs });
 });
 

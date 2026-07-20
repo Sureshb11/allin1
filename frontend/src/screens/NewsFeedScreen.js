@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport } from '../utils/selectedSport';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 const makeCategoryColors = (DS) => ({
@@ -89,7 +90,7 @@ export default function NewsFeedScreen({ navigation }) {
 
   const loadNews = async () => {
     try {
-      const res = await legendsApi.getCricketNews();
+      const res = await legendsApi.getCricketNews(getSelectedSport().sport?.id);
       if (res.success) {
         setNews((res.data || []).map(item => ({
           id:       item.id,

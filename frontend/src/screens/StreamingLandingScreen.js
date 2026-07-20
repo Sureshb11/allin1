@@ -4,6 +4,7 @@ import {
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport } from '../utils/selectedSport';
 
 
 
@@ -63,7 +64,7 @@ const StreamingLandingScreen = ({ navigation }) => {const DS = useTheme().colors
   const loadData = async () => {
     try {
       const [lRes, uRes] = await Promise.all([
-      legendsApi.getLiveStreams(),
+      legendsApi.getLiveStreams(getSelectedSport().sport?.id),
       legendsApi.getUpcomingStreams()]
       );
       if (lRes.success) setLiveStreams(lRes.data);
