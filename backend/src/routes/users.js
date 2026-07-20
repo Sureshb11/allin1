@@ -48,11 +48,24 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found' });
 
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-  let player = await prisma.player.findFirst({ where: { userId: user.id }, include: { team: true } });
-  if (!player && fullName) player = await prisma.player.findFirst({ where: { name: fullName }, include: { team: true } });
+  // Scope to the requested sport. A user can hold a Player row per sport, and
+  // findFirst() was returning whichever came first — so "My Stats" inside
+  // football happily showed a cricket career (runs, wickets, centuries).
+  const sport = req.query.sport ? String(req.query.sport) : null;
+  const inSport = sport ? { sport } : {};
+
+  let player = await prisma.player.findFirst({
+    where: { ...inSport, userId: user.id }, include: { team: true },
+  });
+  if (!player && fullName) {
+    player = await prisma.player.findFirst({
+      where: { ...inSport, name: fullName }, include: { team: true },
+    });
+  }
 
   const base = { matches: 0, runs: 0, wickets: 0, average: 0, strikeRate: 0, centuries: 0, halfCenturies: 0 };
-  if (!player) return res.json({ stats: base, sport: null, linked: false });
+  // No player in THIS sport → zeros, not another sport's numbers.
+  if (!player) return res.json({ stats: base, sport: sport || null, linked: false });
 
   const s = player.stats || {};
   // Real season match count = matches this player's team has played in their sport.

@@ -74,7 +74,10 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
         prizePool: form.prizePool.trim() || undefined,
         maxTeams: form.maxTeams ? parseInt(form.maxTeams, 10) : undefined,
         organizer: organizerName || undefined,
-        status: 'upcoming'
+        status: 'upcoming',
+        // Without this the tournament is created as cricket and then never
+        // appears in the (sport-filtered) list you created it from.
+        sport: getSelectedSport().sport?.id,
       });
       if (res.success) {
         showToast('Tournament created!', 'success');

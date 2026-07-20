@@ -5,6 +5,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import Svg, { Polyline, Polygon, Circle, Line, Text as SvgText } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { getSelectedSport } from '../utils/selectedSport';
 
 const W = Dimensions.get('window').width - 48;
 
@@ -100,7 +101,7 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
   }, [navigation, inline]);
 
   useEffect(() => {
-    legendsApi.getUserStats().then((res) => {
+    legendsApi.getUserStats(getSelectedSport().sport?.id).then((res) => {
       if (res.success) setStats(res.data);
       setLoading(false);
     });

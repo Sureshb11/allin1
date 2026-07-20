@@ -1095,10 +1095,10 @@ class LegendsApi {
     }
   }
 
-  async getUserStats() {
+  async getUserStats(sport) {
     try {
       if (!this.token) return { success: true, data: {} };
-      const json = await this.request('/users/me/stats');
+      const json = await this.request('/users/me/stats' + this._sportQs(sport));
       return { success: true, data: json.stats || json };
     } catch (error) {
       return { success: true, data: { matches: 0, runs: 0, wickets: 0, average: 0, strikeRate: 0, centuries: 0, halfCenturies: 0 } };
