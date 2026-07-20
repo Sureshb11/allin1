@@ -364,6 +364,29 @@ class LegendsApi {
     }
   }
 
+  // ── Push registration ──
+  // Hand the device's FCM token to the backend so match/award notifications
+  // can reach it. Called after notification permission is granted and again
+  // whenever FCM rotates the token.
+  async registerDevice(token, platform = 'android') {
+    try {
+      const json = await this.request('/devices/register', { method: 'POST', body: { token, platform } });
+      return { success: true, data: json.device };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Drop this device's token on sign-out so the next user doesn't get our pushes.
+  async unregisterDevice(token) {
+    try {
+      await this.request('/devices/unregister', { method: 'POST', body: { token } });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Find an existing app user by mobile number (to add them to a team).
   async searchUserByPhone(phone) {
     try {
