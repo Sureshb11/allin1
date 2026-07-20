@@ -90,3 +90,40 @@ export const readStat = (row, stats = {}) => {
 };
 
 export default { getCareerPanels, readStat };
+
+// ── Rankings boards ──────────────────────────────────────────────────────────
+// The Rankings tab used to be cricket-only (Runs / Wickets / Economy), so other
+// sports saw a table of zeros under cricket headings. Non-cricket boards rank
+// on SportEvent tallies; cricket keeps its own derived-stat boards.
+// Boards match the shape StatisticsScreen expects: value() to rank on,
+// qualify() to filter, better to set the direction.
+const board = (id, label, event, icon = 'chart-bar') => ({
+  id, label, icon, event,
+  value: (row) => row?.eventTotals?.[event] ?? 0,
+  // Everyone who has played is listed — a striker on 0 goals is a real answer,
+  // and hiding them would make an empty board look broken.
+  qualify: () => true,
+  better: 'high',
+});
+
+const RANKING_BOARDS = {
+  football:   [board('goal', 'Goals', 'goal', 'soccer'),
+               board('yellow-card', 'Yellows', 'yellow-card', 'card')],
+  hockey:     [board('goal', 'Goals', 'goal', 'hockey-sticks')],
+  basketball: [board('2pt', '2-Pointers', '2pt', 'basketball'),
+               board('3pt', '3-Pointers', '3pt', 'basketball')],
+  kabaddi:    [board('raid', 'Raid Points', 'raid', 'run-fast')],
+};
+
+const GENERIC_BOARDS = [{
+  id: 'matches', label: 'Matches', icon: 'calendar-check', key: 'matches',
+  value: (row) => row?.matches ?? 0, qualify: () => true, better: 'high',
+}];
+
+/** Ranking boards for a sport (empty for cricket — it has its own). */
+export const getRankingBoards = (sportId) =>
+  sportId === 'cricket' ? [] : (RANKING_BOARDS[sportId] || GENERIC_BOARDS);
+
+/** Value a leaderboard row scores on, for a given board. */
+export const rankValue = (row, board) =>
+  board.event ? (row.eventTotals?.[board.event] ?? 0) : (row[board.key] ?? 0);

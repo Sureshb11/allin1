@@ -101,6 +101,51 @@ router.get('/', async (req, res) => {
   res.json({ players: enriched });
 });
 
+// GET /players/leaderboard?sport=football — per-sport player rankings.
+//
+// Cricket ranks on its ball-by-ball derived stats (runs, wickets, economy).
+// Every other sport records SportEvents, so ranking is just each player's
+// events tallied by type. Returned raw so the app can rank on whichever metric
+// that sport cares about (goals, cards, points…) without a backend change.
+//
+// NOTE: must stay above GET /:id, or Express matches "leaderboard" as an id.
+router.get('/leaderboard', async (req, res) => {
+  try {
+    const sport = String(req.query.sport || '');
+    if (!sport) return res.status(400).json({ error: 'sport is required' });
+
+    const players = await prisma.player.findMany({
+      where: { sport },
+      select: { id: true, name: true, teamId: true, team: { select: { name: true } } },
+    });
+    if (!players.length) return res.json({ players: [] });
+
+    const events = await prisma.sportEvent.findMany({
+      where: { sport, playerId: { in: players.map((p) => p.id) } },
+      select: { playerId: true, eventType: true, matchId: true },
+    });
+
+    const tally = {};
+    for (const e of events) {
+      const t = (tally[e.playerId] ||= { totals: {}, matches: new Set() });
+      t.totals[e.eventType] = (t.totals[e.eventType] || 0) + 1;
+      t.matches.add(e.matchId);
+    }
+
+    res.json({
+      players: players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        teamName: p.team?.name || null,
+        matches: tally[p.id]?.matches.size || 0,
+        eventTotals: tally[p.id]?.totals || {},
+      })),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   const player = await prisma.player.findUnique({ where: { id: req.params.id }, include: { team: true } });
   if (!player) return res.status(404).json({ error: 'Player not found' });

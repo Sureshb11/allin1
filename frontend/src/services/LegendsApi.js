@@ -194,6 +194,17 @@ class LegendsApi {
     }
   }
 
+  // Per-sport player rankings from SportEvent tallies (non-cricket sports).
+  // Cricket ranks off its ball-by-ball numbers via getPlayers() instead.
+  async getLeaderboard(sport) {
+    try {
+      const json = await this.request('/players/leaderboard' + this._sportQs(sport));
+      return { success: true, data: json.players || [] };
+    } catch (error) {
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
   // Team Management
   async getTeams(sport) {
     try {

@@ -6,6 +6,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
+import { getRankingBoards, rankValue } from '../sports/careerStats';
 
 const MEDAL = ['#FFD700', '#C0C0C0', '#CD7F32'];
 
@@ -116,7 +117,7 @@ const sortFor = (board) => (a, b) => {
   return diff || (b.matches || 0) - (a.matches || 0) || a.name.localeCompare(b.name);
 };
 
-function PlayerCard({ item, rank, board }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+function PlayerCard({ item, rank, board, cols }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const isTop = rank < 3;
   const rankColor = isTop ? MEDAL[rank] : DS.border;
   const avColor = AVATAR_RANK(DS)[rank] || DS.blue;
@@ -137,18 +138,17 @@ function PlayerCard({ item, rank, board }) {const DS = useTheme().colors;const s
         </View>
       </View>
       <View style={styles.statRow}>
-        {[
-        // "100s" lived here and read 0 for everyone — nothing computed it, and
-        // even now that it's real, nobody in the data has passed 86. Highest
-        // score carries actual information in the same slot today, and the
-        // economy board needs a bowling rate to look at.
+        {(cols || [
+        // Cricket columns. "100s" lived here and read 0 for everyone — nothing
+        // computed it. Highest score carries actual information in the same
+        // slot today, and the economy board needs a bowling rate to look at.
         { label: 'Runs', value: (item.runs || 0).toLocaleString(), icon: 'cricket' },
         { label: 'Avg', value: item.average, icon: 'numeric' },
         { label: 'SR', value: item.strikeRate, icon: 'lightning-bolt' },
         board.id === 'wickets' || board.id === 'economy'
           ? { label: 'Econ', value: item.economy ?? '—', icon: 'gauge' }
           : { label: 'HS', value: item.highestScore ?? '—', icon: 'star-circle-outline' },
-        { label: 'Wkts', value: item.wickets, icon: 'weather-windy' }].
+        { label: 'Wkts', value: item.wickets, icon: 'weather-windy' }]).
         map((s) =>
         <View key={s.label} style={styles.statItem}>
             <Icon name={s.icon} size={16} color={DS.blue} />
@@ -216,7 +216,12 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
 
 export default function StatisticsScreen({ navigation, inline }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
   const [tab, setTab] = useState('Players');
-  const [boardId, setBoardId] = useState(PLAYER_BOARDS[0].id);
+  // Cricket keeps its Runs/Wickets/Economy boards; other sports rank on their
+  // own event tallies (goals, cards …) so the tab labels match the sport.
+  const sportId = getSelectedSport().sport?.id || 'cricket';
+  const sportBoards = getRankingBoards(sportId);
+  const activeBoards = sportBoards.length ? sportBoards : PLAYER_BOARDS;
+  const [boardId, setBoardId] = useState(activeBoards[0].id);
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -237,7 +242,13 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
     let alive = true;
     setLoading(true);
     const _sport = getSelectedSport().sport?.id;   // rankings are per-sport
-    Promise.all([legendsApi.getPlayers({ sport: _sport }), legendsApi.getTeams(_sport)]).then(([pr, tr]) => {
+    // Cricket ranks on its ball-by-ball derived stats; every other sport ranks
+    // on SportEvent tallies, which getPlayers() doesn't carry.
+    const isCricket = (_sport || 'cricket') === 'cricket';
+    Promise.all([
+      isCricket ? legendsApi.getPlayers({ sport: _sport }) : legendsApi.getLeaderboard(_sport),
+      legendsApi.getTeams(_sport),
+    ]).then(([pr, tr]) => {
       if (!alive) return;
       // Default every stat to 0 — a player/team with no stored stats used to crash
       // the card (e.g. `undefined.toLocaleString()`).
@@ -245,6 +256,9 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
         id: p.id, name: p.name,
         matches: 0, runs: 0, average: 0, strikeRate: 0, centuries: 0, wickets: 0,
         ...(p.stats || {}),
+        // leaderboard rows carry these instead of a stats blob
+        ...(p.matches != null ? { matches: p.matches } : {}),
+        ...(p.eventTotals ? { eventTotals: p.eventTotals } : {}),
       })));
       setTeams((tr?.data || []).map((t) => ({
         id: t.id, name: t.name,
@@ -259,7 +273,7 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
   // Qualify → rank → stamp the standing → then filter by search. The standing is
   // fixed before searching, so looking up a name shows that player's real rank
   // rather than renumbering them to #1.
-  const boards = tab === 'Players' ? PLAYER_BOARDS : TEAM_BOARDS;
+  const boards = tab === 'Players' ? activeBoards : TEAM_BOARDS;
   const board = boards.find((b) => b.id === boardId) || boards[0];
   const rawData = tab === 'Players' ? players : teams;
   const ranked = rawData
@@ -268,7 +282,13 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
     .map((item, i) => ({ ...item, standing: i }));
   const data = ranked.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
   const renderCard = tab === 'Players' ?
-  ({ item }) => <PlayerCard item={item} rank={item.standing} board={board} /> :
+  ({ item }) => <PlayerCard item={item} rank={item.standing} board={board}
+      // Non-cricket: one column per ranking board (Goals, Yellows …) plus
+      // matches, instead of cricket's Runs/Avg/SR/Wkts.
+      cols={sportBoards.length ? [
+        { label: 'Matches', value: item.matches ?? 0, icon: 'calendar-check' },
+        ...sportBoards.map((b) => ({ label: b.label, value: rankValue(item, b), icon: 'chart-bar' })),
+      ] : null} /> :
   ({ item }) => <TeamCard item={item} rank={item.standing} />;
 
   const listAnim = useRef(new Animated.Value(1)).current;
@@ -281,7 +301,7 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
       // 'economy') would fall back to the first board silently. Reset explicitly,
       // and rewind the chip strip — it keeps its scroll offset across tabs, which
       // left the (now-selected) first chip clipped off the left edge.
-      setBoardId((newTab === 'Players' ? PLAYER_BOARDS : TEAM_BOARDS)[0].id);
+      setBoardId((newTab === 'Players' ? activeBoards : TEAM_BOARDS)[0].id);
       boardBarRef.current?.scrollTo({ x: 0, animated: false });
       Animated.timing(listAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start();
     });
