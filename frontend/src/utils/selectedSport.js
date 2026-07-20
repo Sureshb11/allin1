@@ -1,6 +1,6 @@
 /**
  * Simple module-level singleton to share the sport/format selection
- * from SportSetupScreen to HomeScreen without relying on React Navigation
+ * from the Arena picker to the feed//scoped screens without relying on React Navigation
  * initialParams chains (which break when navigators reuse cached state).
  */
 

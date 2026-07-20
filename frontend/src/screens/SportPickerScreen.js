@@ -7,7 +7,7 @@
 // Note: the design calls for the Anton/Archivo fonts, which aren't bundled in
 // this app — we match the existing screens' approach (heavy system weight +
 // letter-spacing) instead. Tapping a disc keeps the app's navigation contract
-// (→ SportSetup with the chosen sport).
+// (→ straight into MainApp with the chosen sport).
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
@@ -39,7 +39,7 @@ const { width: SW } = Dimensions.get('window');
 
 // Sports — index 0 is the focal point (Cricket), then rings outward.
 // `mci` = a MaterialCommunityIcons fallback name so the downstream
-// SportSetupScreen (which renders sport.icon) keeps working.
+// downstream screens that render sport.icon keep working.
 const SPORTS = [
 { id: 'cricket', name: 'Cricket', tag: 'Bat & Ball', featured: true, mci: 'cricket' },
 { id: 'football', name: 'Football', tag: '11-a-side', mci: 'soccer' },
@@ -531,19 +531,21 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
     const sport = { ...cell, label: cell.name, icon: cell.mci };
     // Record the chosen sport on the user's profile (no-op if not logged in).
     legendsApi.selectPrimarySport(cell.id);
+    // Publish the selection to the app-wide singleton BEFORE navigating. Every
+    // sport-scoped screen reads this to filter its data, and it used to be set
+    // only by the old format screen — so entering cricket (which already
+    // skipped that screen) left it null and the feeds fell back to unfiltered.
+    setSelectedSport(sport, null);
     // Rummy opens its dedicated Pool-Rummy score-board flow. Reset (not push) so the
     // Arena picker isn't left underneath — back must not return to sport selection.
     if (cell.id === 'rummy') {
       navigation.reset({ index: 0, routes: [{ name: 'RummyHome' }] });
       return;
     }
-    // Cricket skips the "select format" screen and goes straight into the app.
-    // Reset so the Arena picker isn't left under MainApp (back must not return here).
-    if (cell.id === 'cricket') {
-      navigation.reset({ index: 0, routes: [{ name: 'MainApp', params: { sport } }] });
-    } else {
-      navigation.push('SportSetup', { sport });
-    }
+    // Every other sport goes straight to its feed. Choosing a match format is
+    // part of creating a match (StartMatch already asks), not of entering a
+    // sport, so the old SportSetup step in between was just friction.
+    navigation.reset({ index: 0, routes: [{ name: 'MainApp', params: { sport } }] });
   }, [navigation]);
 
   // Unfinished sport: say so plainly rather than dropping the user into a

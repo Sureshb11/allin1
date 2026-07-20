@@ -6,7 +6,7 @@
 //
 // Domains (all optional — a sport can fill in only what it needs):
 //   meta:      id, name, icon (MaterialCommunityIcons), tag, color, accent
-//   formats:   match formats           → SportSetupScreen
+//   formats:   match formats           → (data only; the setup screen was removed)
 //   scoring:   { periods, maxPeriods, actions, extras, scoreLabel, oversLabel }
 //                                        → SportScoringScreen
 //   dashboard: { ctaSubtitle, navTabs, quickAccess, features } → HomeScreen

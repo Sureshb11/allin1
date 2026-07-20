@@ -426,7 +426,7 @@ const AppNavigator = ({ route: appRoute }) => {
   const me = useCurrentUser();   // current user → profile-tab avatar
 
 
-  // sport + format passed from SportSetupScreen via navigation.replace('MainApp', { sport, format })
+  // sport passed from the Arena picker via navigation.reset('MainApp', { sport })
   const initialSport  = appRoute?.params?.sport  || null;
   const initialFormat = appRoute?.params?.format || null;
 

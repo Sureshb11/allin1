@@ -57,6 +57,7 @@ export const sportMeta = (id) => {
 const LIVE_SPORTS = new Set([
   'cricket',   // bespoke feed + full ball-by-ball scoring
   'rummy',     // dedicated Pool Rummy game flow
+  'football',  // generic event scoring (SportEvent) + themed feed
 ]);
 
 /** Is this sport finished and enterable? */

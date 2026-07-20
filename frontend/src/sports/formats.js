@@ -1,4 +1,6 @@
-// Per-sport match formats (T20/ODI, halves, sets, …) for SportSetupScreen.
+// Per-sport match formats (T20/ODI, halves, sets, …).
+// NOTE: currently unused — the SportSetup screen was removed (format is chosen
+// when creating a match, see sports/start.js). Kept as reference data.
 // Add a sport here to give it custom formats; unknown sports use DEFAULT_FORMATS.
 // NB: keys match Arena-picker sport ids. Sports without an entry (e.g. skateboard)
 // fall through to DEFAULT_FORMATS.
