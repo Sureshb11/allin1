@@ -308,11 +308,13 @@ export default function HomeScreen({ navigation }) {
                         <View style={styles.startMatchIconBox}>
                           <Icon name={currentSport.icon} size={26} color={DS.white} />
                         </View>
-                        <View>
-                          <Text style={styles.startMatchTitle}>
+                        <View style={{ flex: 1 }}>
+                          {/* One line, shrink-to-fit: "TOSS & PLAY" is short but
+                              "START A FOOTBALL MATCH" clipped off the card edge. */}
+                          <Text style={styles.startMatchTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                             {currentSport.id === 'cricket' ? 'Toss & Play' : `Start a ${currentSport.name} Match`}
                           </Text>
-                          <Text style={styles.startMatchSub}>{cfg.ctaSubtitle}</Text>
+                          <Text style={styles.startMatchSub} numberOfLines={1}>{cfg.ctaSubtitle}</Text>
                         </View>
                       </View>
                       <View style={styles.startMatchRight}>
@@ -359,13 +361,18 @@ export default function HomeScreen({ navigation }) {
               />
             )}
             ListEmptyComponent={
-              <View style={styles.empty}>
-                <View style={styles.emptyIconWrap}>
-                  <Icon name="cricket" size={48} color={DS.textMuted} />
+              // NB: these referenced styles.empty / styles.emptyIconWrap, which
+              // don't exist (the sheet defines emptyCard / emptyIconBox) — so the
+              // whole block rendered unstyled: no card, nothing centred, and the
+              // button stretched to a full-width slab. The icon was also a
+              // hardcoded cricket bat on every sport's screen.
+              <View style={styles.emptyCard}>
+                <View style={styles.emptyIconBox}>
+                  <Icon name={currentSport.icon} size={40} color={DS.textMuted} />
                 </View>
                 <Text style={styles.emptyTitle}>No matches yet</Text>
                 <Text style={styles.emptySub}>Start scoring your first match</Text>
-                <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('StartMatch')} activeOpacity={0.9}>
+                <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('StartMatch', { sport: currentSport })} activeOpacity={0.9}>
                   <Icon name="play-circle" size={18} color={DS.white} />
                   <Text style={styles.emptyBtnText}>Start a Match</Text>
                 </TouchableOpacity>
@@ -604,9 +611,9 @@ const makeStyles = (DS, typography, radii, shadows) => StyleSheet.create({
   mcStatLbl: { color: DS.textMuted, fontSize: 10.5, fontWeight: '600', marginTop: 2, letterSpacing: 0.3 },
 
   startMatchCTA: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radii?.lg || 16, paddingVertical: 11, paddingHorizontal: 18, marginBottom: 12, backgroundColor: DS.blueDeep, elevation: 8, shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
-  startMatchLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  startMatchIconBox: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  startMatchTitle: { fontSize: 20, fontWeight: '800', color: DS.onBlue, textTransform: 'uppercase', letterSpacing: 0.5 },
+  startMatchLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, marginRight: 8 },
+  startMatchIconBox: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  startMatchTitle: { fontSize: 17, fontWeight: '800', color: DS.onBlue, textTransform: 'uppercase', letterSpacing: 0.4 },
   startMatchSub: { fontSize: 12, fontWeight: '600', color: DS.onBlue, marginTop: 2, letterSpacing: 0.3, opacity: 0.8 },
   startMatchRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   startMatchGo: { fontSize: 14, fontWeight: '800', color: DS.onBlue, letterSpacing: 1 },
