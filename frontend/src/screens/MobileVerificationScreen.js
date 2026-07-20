@@ -10,6 +10,7 @@ import {
   ActivityIndicator } from
 'react-native';
 import legendsApi from '../services/LegendsApi';
+import { registerForPush } from '../services/push';
 import BrandLogo from "../components/BrandLogo";
 
 
@@ -96,6 +97,9 @@ const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme
       const cleaned = String(phoneNumber).replace(/\s/g, '');
       const res = await legendsApi.verifyOtp(cleaned, otpString, countryCode);
       if (res.success) {
+        // Fresh sign-in: ask for notification permission and register this
+        // device for match/award pushes. Fire-and-forget — never blocks entry.
+        registerForPush();
         navigation.replace('SportPicker');
       } else {
         Alert.alert('Invalid OTP', res.error || 'Please check and enter the correct verification code');

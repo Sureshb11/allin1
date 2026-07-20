@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "45593744055",
+    "project_id": "locallegends-a4a69",
+    "storage_bucket": "locallegends-a4a69.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:45593744055:android:4b54624cefae7a81087332",
+        "android_client_info": {
+          "package_name": "com.local.legends"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAH5kljEnoIT3uATX5aEzdSWbBWi2LGiIM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

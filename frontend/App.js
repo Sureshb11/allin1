@@ -15,6 +15,7 @@ RNTextInput.defaultProps.maxFontSizeMultiplier = MAX_FONT_SCALE;
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import AuthNavigator from './src/navigation/AuthNavigator';
+import { registerForPush } from './src/services/push';
 import AppNavigator from './src/navigation/AppNavigator';
 import SportPickerScreen from './src/screens/SportPickerScreen';
 import SportSetupScreen from './src/screens/SportSetupScreen';
@@ -45,6 +46,9 @@ const Root = () => {
     legendsApi.loadToken().then((token) => {
       setIsAuthenticated(!!token);
       setReady(true);
+      // Returning user: hand this device's FCM token to the backend so match
+      // and award pushes reach it. Fire-and-forget — never blocks start-up.
+      if (token) registerForPush();
     });
     // Hydrate the polymorphic sport rules from the DB (SportConfiguration).
     // Fire-and-forget: bundled config is the fallback if this fails or the

@@ -31,15 +31,14 @@ async function getMessaging() {
   }
 
   try {
-    const admin = (await import('firebase-admin')).default;
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: inline
-          ? admin.credential.cert(JSON.parse(inline))
-          : admin.credential.applicationDefault(),
-      });
-    }
-    messaging = admin.messaging();
+    // firebase-admin v13+ exposes the modular API on subpaths; the legacy
+    // default export has no `.apps`/`.messaging()` under ESM.
+    const { initializeApp, getApps, cert, applicationDefault } = await import('firebase-admin/app');
+    const { getMessaging } = await import('firebase-admin/messaging');
+    const app = getApps()[0] || initializeApp({
+      credential: inline ? cert(JSON.parse(inline)) : applicationDefault(),
+    });
+    messaging = getMessaging(app);
     console.log('[push] Firebase messaging ready');
   } catch (e) {
     console.error('[push] Firebase init failed — device push disabled:', e.message);

@@ -35,5 +35,25 @@ module.exports = {
         },
       },
     },
+    // Firebase (push notifications). The app module keeps its ReactPackage in a
+    // separate `reactnative` source set, but the import path is what matters here.
+    '@react-native-firebase/app': {
+      platforms: {
+        android: {
+          sourceDir: '../node_modules/@react-native-firebase/app/android',
+          packageImportPath: 'import io.invertase.firebase.app.ReactNativeFirebaseAppPackage;',
+          packageInstance: 'new ReactNativeFirebaseAppPackage()',
+        },
+      },
+    },
+    '@react-native-firebase/messaging': {
+      platforms: {
+        android: {
+          sourceDir: '../node_modules/@react-native-firebase/messaging/android',
+          packageImportPath: 'import io.invertase.firebase.messaging.ReactNativeFirebaseMessagingPackage;',
+          packageInstance: 'new ReactNativeFirebaseMessagingPackage()',
+        },
+      },
+    },
   },
 };

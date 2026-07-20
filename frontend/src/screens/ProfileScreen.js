@@ -10,6 +10,7 @@ import { useCurrentUser } from '../utils/currentUser';
 import AppHeader from '../components/AppHeader';
 import { setCurrentAvatar, clearCurrentUser } from '../utils/currentUser';
 import legendsApi from '../services/LegendsApi';
+import { unregisterFromPush } from '../services/push';
 import SportSwitcher from '../components/SportSwitcher';
 
 import { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
@@ -133,6 +134,7 @@ export default function ProfileScreen({ navigation }) {
       {
         text: 'Logout', style: 'destructive',
         onPress: async () => {
+          await unregisterFromPush();                      // stop pushes to this device
           await legendsApi.logout();                       // clear persisted JWT
           clearCurrentUser();                              // wipe cached id/name/avatar
           // Reset the ROOT navigator back to the auth flow.
