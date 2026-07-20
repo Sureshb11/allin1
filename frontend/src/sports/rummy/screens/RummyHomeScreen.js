@@ -1,7 +1,7 @@
 // RummyHomeScreen — entry for the Pool-Rummy score board.
 // Start a new game or continue/view existing ones (real data via /rummy).
 
-import { useState, useCallback, useMemo, useLayoutEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator, TextInput,
@@ -22,14 +22,6 @@ export default function RummyHomeScreen({ navigation }) {
   const [roster, setRoster] = useState([]);
   const [newPlayer, setNewPlayer] = useState('');
   const [adding, setAdding] = useState(false);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Rummy',
-    });
-  }, [navigation]);
 
   const loadRoster = useCallback(() => {
     legendsApi.getRummyRosterPlayers().then((res) => setRoster(res?.data || []));
@@ -66,7 +58,9 @@ export default function RummyHomeScreen({ navigation }) {
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor={A.navy1} />
+      {/* Theme-aware: the surface is white on the light theme, so light-content
+          would render the clock/battery white-on-white (invisible). */}
+      <StatusBar barStyle={C.mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={A.navy1} />
       <View style={s.header}>
         <SportIcon id="rummy" size={22} color={A.lime} />
         <Text style={s.title}>RUMMY</Text>

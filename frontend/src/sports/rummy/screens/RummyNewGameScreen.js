@@ -1,6 +1,6 @@
 // RummyNewGameScreen — configure a new Pool-Rummy game (name, scores, players).
 
-import { useState, useEffect, useMemo, useLayoutEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
   TextInput, Alert,
@@ -45,14 +45,6 @@ export default function RummyNewGameScreen({ navigation }) {
   const [selected, setSelected] = useState([]);   // names chosen for THIS game
   const [newPlayer, setNewPlayer] = useState('');
   const [starting, setStarting] = useState(false);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'New Game',
-    });
-  }, [navigation]);
 
   // Load the saved roster, and pre-select the logged-in user (like the reference's "*you").
   useEffect(() => {

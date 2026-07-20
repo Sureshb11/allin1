@@ -2,7 +2,7 @@
 // Settings header, per-player totals, round-by-round table, ENTER SCORE modal
 // (with drop/full quick-fills), add-player & share. Winner derived server-side.
 
-import { useState, useCallback, useMemo, useLayoutEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar,
@@ -24,14 +24,6 @@ export default function RummyGameScreen({ navigation, route }) {
   const [enter, setEnter] = useState(false);
   const [vals, setVals] = useState({});           // { playerId: "score" }
   const [saving, setSaving] = useState(false);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: game?.name || 'Game',
-    });
-  }, [navigation, game?.name]);
 
   const refresh = useCallback(() => {
     legendsApi.getRummyGame(gameId).then((res) => {
