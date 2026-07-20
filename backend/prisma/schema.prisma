@@ -79,6 +79,12 @@ model Notification {
   read      Boolean  @default(false)
   data      Json?
   user      User     @relation(fields: [userId], references: [id])
+
+  // The bell screen reads "my notifications, newest first" — without this the
+  // lookup is a sequential scan over every row in the table.
+  @@index([userId, createdAt])
+  // Unread badge counts.
+  @@index([userId, read])
 }
 
 model Team {

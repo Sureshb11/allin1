@@ -49,6 +49,9 @@ async function getMessaging() {
 
 // Tokens FCM tells us are gone for good. Anything else (rate limits, transient
 // server errors) is left alone so a blip doesn't wipe someone's registration.
+// FCM hard limit for a multicast send.
+const FCM_BATCH = 500;
+
 const DEAD = new Set([
   'messaging/registration-token-not-registered',
   'messaging/invalid-registration-token',
@@ -78,25 +81,34 @@ export async function pushToUsers(userIds, { title, message, data = {} } = {}) {
     Object.entries(data).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])
   );
 
-  try {
-    const res = await fcm.sendEachForMulticast({
-      tokens,
-      notification: { title, body: message },
-      data: stringData,
-      android: { priority: 'high', notification: { channelId: 'default', sound: 'default' } },
-    });
-
-    // Prune tokens FCM says are permanently gone.
-    const dead = res.responses
-      .map((r, i) => (!r.success && DEAD.has(r.error?.code) ? tokens[i] : null))
-      .filter(Boolean);
-    if (dead.length) {
-      await prisma.deviceToken.deleteMany({ where: { token: { in: dead } } });
-      console.log(`[push] pruned ${dead.length} dead token(s)`);
+  // sendEachForMulticast accepts at most 500 tokens per call — over that it
+  // rejects the WHOLE batch, so a popular team's match would push to nobody.
+  // Chunk, and keep going if one chunk fails so a single bad batch can't
+  // silently drop everyone else's notification.
+  let sent = 0;
+  const dead = [];
+  for (let i = 0; i < tokens.length; i += FCM_BATCH) {
+    const chunk = tokens.slice(i, i + FCM_BATCH);
+    try {
+      const res = await fcm.sendEachForMulticast({
+        tokens: chunk,
+        notification: { title, body: message },
+        data: stringData,
+        android: { priority: 'high', notification: { channelId: 'default', sound: 'default' } },
+      });
+      sent += res.successCount;
+      res.responses.forEach((r, j) => {
+        if (!r.success && DEAD.has(r.error?.code)) dead.push(chunk[j]);
+      });
+    } catch (e) {
+      console.error(`[push] batch ${i / FCM_BATCH} failed:`, e.message);
     }
-    return res.successCount;
-  } catch (e) {
-    console.error('[push] send failed:', e.message);
-    return 0;
   }
+
+  // Prune tokens FCM says are permanently gone (uninstalled apps).
+  if (dead.length) {
+    await prisma.deviceToken.deleteMany({ where: { token: { in: dead } } });
+    console.log(`[push] pruned ${dead.length} dead token(s)`);
+  }
+  return sent;
 }

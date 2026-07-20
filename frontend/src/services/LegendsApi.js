@@ -1568,11 +1568,19 @@ class LegendsApi {
   }
 
   // Notification APIs
-  async getNotifications() {
+  // Paged, newest first. `unread` is the true server-side count (the loaded
+  // page alone can't tell you that once there are more than `limit` unread).
+  async getNotifications({ limit = 30, cursor } = {}) {
     try {
-      if (!this.token) return { success: true, data: [] };
-      const json = await this.request('/notifications');
-      return { success: true, data: json.notifications || [] };
+      if (!this.token) return { success: true, data: [], unread: 0, nextCursor: null };
+      const qs = new URLSearchParams({ limit: String(limit), ...(cursor ? { cursor } : {}) });
+      const json = await this.request(`/notifications?${qs}`);
+      return {
+        success: true,
+        data: json.notifications || [],
+        nextCursor: json.nextCursor || null,
+        unread: json.unread ?? 0,
+      };
     } catch (error) {
       return { success: false, error: error.message };
     }

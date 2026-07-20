@@ -24,12 +24,19 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
     });
   }, [navigation]);
 
+  // True unread count from the server — the loaded page alone would
+  // undercount once there are more unread than fit in one page.
+  const [serverUnread, setServerUnread] = useState(0);
+
   useEffect(() => {loadNotifications();}, []);
 
   const loadNotifications = async () => {
     try {
       const response = await legendsApi.getNotifications();
-      if (response.success) setNotifications(response.data);
+      if (response.success) {
+        setNotifications(response.data);
+        setServerUnread(response.unread ?? 0);
+      }
     } catch (error) {Alert.alert('Error', 'Failed to load notifications');} finally
     {setRefreshing(false);}
   };
@@ -43,6 +50,10 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
         setNotifications(notifications.map((notif) =>
         notif.id === notificationId ? { ...notif, read: true } : notif
         ));
+        // keep the server-derived badge in step with what the user just read
+        if (!notifications.find((n) => n.id === notificationId)?.read) {
+          setServerUnread((c) => Math.max(0, c - 1));
+        }
       }
     } catch (error) {console.log('Error marking notification as read:', error);}
   };
@@ -52,6 +63,7 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
       const response = await legendsApi.markAllNotificationsAsRead();
       if (response.success) {
         setNotifications(notifications.map((notif) => ({ ...notif, read: true })));
+        setServerUnread(0);
         Alert.alert('Success', 'All notifications marked as read');
       }
     } catch (error) {Alert.alert('Error', 'Failed to mark notifications as read');}
@@ -111,7 +123,7 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
 
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = Math.max(serverUnread, notifications.filter((n) => !n.read).length);
 
   return (
     <View style={styles.container}>

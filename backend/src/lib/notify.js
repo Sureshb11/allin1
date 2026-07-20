@@ -41,6 +41,12 @@ export async function notifyUsers(userIds, { title, message, type = 'tournament'
   // correctness: a push failure must never undo the in-app notification.
   await pushToUsers(uniq, { title, message, data: { type, ...(data || {}) } })
     .catch((e) => console.error('[notify] push failed:', e.message));
+
+  // Self-maintaining retention: there's no scheduler here, so prune on roughly
+  // 1 in 200 writes. Fire-and-forget — it must never delay or fail a notify.
+  if (Math.random() < 0.005) {
+    trimOldNotifications().catch((e) => console.error('[notify] trim failed:', e.message));
+  }
   return uniq.length;
 }
 
@@ -61,6 +67,24 @@ export async function notifyAllParticipants(tournamentId, payload) {
 export async function safeNotify(fn) {
   try { return await fn(); }
   catch (e) { console.error('[notify] failed:', e.message); return 0; }
+}
+
+// ── Retention ────────────────────────────────────────────────────────────────
+// Notifications are fanned out on WRITE (one row per recipient), so a single
+// match event on a team with a large following writes a lot of rows. Nobody
+// scrolls months back through a bell screen, so old read rows are dead weight:
+// bound the table instead of letting it grow forever.
+const RETAIN_DAYS = 60;
+
+export async function trimOldNotifications(days = RETAIN_DAYS) {
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  // Only prune what the user has already seen — an old unread notification is
+  // still something they haven't been told.
+  const { count } = await prisma.notification.deleteMany({
+    where: { read: true, createdAt: { lt: cutoff } },
+  });
+  if (count) console.log(`[notify] trimmed ${count} notification(s) older than ${days}d`);
+  return count;
 }
 
 // ── "From Your Circle" match + award notifications ───────────────────────────
