@@ -79,6 +79,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const [bowlStats, setBowlStats] = useState({});
   const [extraPrompt, setExtraPrompt] = useState(null);    // 'wide'|'noball'|'bye'|'legbye' → +runs sheet
   const [wicketPrompt, setWicketPrompt] = useState(false); // WICKET → dismissal-type sheet
+  const [penaltyPrompt, setPenaltyPrompt] = useState(false); // PEN 5 → reason sheet (Helmet Hit)
+  const [penaltyDeliveryPrompt, setPenaltyDeliveryPrompt] = useState(false); // after Helmet Hit → which delivery?
   const [runOutPrompt, setRunOutPrompt] = useState(false); // run out → which batter is out?
   const [runOutFielderPrompt, setRunOutFielderPrompt] = useState(false); // run out → which fielder?
   const [runOutSlot, setRunOutSlot] = useState('striker'); // which batter the run-out dismisses
@@ -477,7 +479,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // wicketType = dismissal kind chosen from the Wicket sheet.
   // dismissed = 'striker' | 'nonstriker' — a run-out can dismiss the non-striker.
   // catcher = fielder/keeper/bowler name for a caught dismissal (shown in scorecard).
-  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null) => {
+  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null, penaltyReason = null) => {
     if (matchComplete || undoing) return;
     // Debounce: ignore a new tap while the previous ball is still being saved. Rapid
     // taps during the async save read a stale score and used to pile balls into one
@@ -576,10 +578,22 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       if (newScore.wickets < 10) { setNewBatterFor(outNon ? 'nonstriker' : 'striker'); setShowPlayerModal(true); }
     } else if (value === 'penalty') {
       // Penalty runs (5) — a team award, not a delivery: no ball faced, no
-      // strike change, doesn't advance the over.
+      // strike change, doesn't advance the over. Awarded to the batting side.
+      // The reason (e.g. "Helmet Hit") rides along in wicketAssists — a free
+      // note field only ever read for wickets, so it's safe for a penalty ball.
       newScore.runs += 5;
       newOver.push('P5');
-      await persistBall(0, 5, 'penalty', false, null, false);
+      await persistBall(0, 5, 'penalty', false, null, false, null, catcher);
+    }
+
+    // Penalty (e.g. Helmet Hit) awarded ON this delivery: the delivery above keeps
+    // its own book-keeping (ball count, bowler charge, free hit); the 5 penalty
+    // runs ride along as a SEPARATE team-only entry — not charged to the bowler,
+    // not credited to the batter. Skipped when the delivery itself is the penalty.
+    if (penaltyReason && value !== 'penalty') {
+      newScore.runs += 5;
+      newOver.push('P5');
+      await persistBall(0, 5, 'penalty', false, null, false, null, penaltyReason);
     }
 
     // ── Real per-player figures (striker runs/balls, bowler O-M-R-W) ──
@@ -1223,7 +1237,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             <TouchableOpacity style={styles.extraBtn} onPress={() => setExtraPrompt('legbye')}>
               <Text style={styles.extraBtnText}>LB +</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} onPress={() => handleScore('penalty')}>
+            <TouchableOpacity style={styles.extraBtn} onPress={() => setPenaltyPrompt(true)}>
               <Text style={styles.extraBtnText}>PEN 5</Text>
             </TouchableOpacity>
           </View>
@@ -1522,6 +1536,66 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               ))}
             </View>
             <TouchableOpacity style={styles.modalClose} onPress={() => setWicketPrompt(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── 5 PENALTY RUNS sheet — reason picker (awarded to the batting side).
+          Just Helmet Hit for now; the reason is recorded on the ball. ── */}
+      <Modal visible={penaltyPrompt} transparent animationType="slide" onRequestClose={() => setPenaltyPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>5 Penalty Runs</Text>
+            <Text style={styles.modalSub}>Added to {battingTeamName || 'the batting team'} · doesn't count as a ball</Text>
+            <TouchableOpacity style={styles.penaltyOption}
+              onPress={() => { setPenaltyPrompt(false); setPenaltyDeliveryPrompt(true); }}>
+              <Text style={styles.penaltyOptionEmoji}>🪖</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.penaltyOptionLabel}>Helmet Hit</Text>
+                <Text style={styles.penaltyOptionSub}>Ball struck a fielding helmet left on the ground</Text>
+              </View>
+              <Text style={styles.penaltyOptionPlus}>+5</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setPenaltyPrompt(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── HELMET HIT — off which delivery? The 5 penalty runs are added on top of
+          the delivery's own book-keeping (legal/bye/lb count as a ball; wd/nb don't). ── */}
+      <Modal visible={penaltyDeliveryPrompt} transparent animationType="slide" onRequestClose={() => setPenaltyDeliveryPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>🪖 Helmet Hit · +5</Text>
+            <Text style={styles.modalSub}>Off which delivery? The 5 penalty runs are added on top</Text>
+            <View style={styles.wktChips}>
+              {[
+                ['Legal ball', 0, 'cricket'],
+                ['Wide', 'wide', 'arrow-expand-horizontal'],
+                ['No ball', 'noball', 'close-circle-outline'],
+                ['Bye', 'bye', 'run'],
+                ['Leg bye', 'legbye', 'shoe-print'],
+              ].map(([label, val, icon]) => (
+                <TouchableOpacity key={label} style={styles.wktChip}
+                  onPress={() => {
+                    setPenaltyDeliveryPrompt(false);
+                    // bye/leg-bye default to 1 run taken; wide/no-ball add their 1;
+                    // a legal ball is a dot. The +5 penalty rides along in handleScore.
+                    const addRuns = (val === 'bye' || val === 'legbye') ? 1 : 0;
+                    handleScore(val, addRuns, 'bowled', 'striker', null, 'Helmet Hit');
+                  }}>
+                  <Icon name={icon} size={20} color={DS.lime} />
+                  <Text style={styles.wktChipText}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setPenaltyDeliveryPrompt(false)}>
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -1879,6 +1953,16 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   changeBowlerBtnDisabled: { backgroundColor: DS.surfaceHigh, borderColor: DS.line },
   changeBowlerText: { fontSize: 12, fontWeight: '900', color: DS.lime, letterSpacing: 1.5 },
+
+  // Penalty-reason option (5 Penalty Runs sheet)
+  penaltyOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: DS.surfaceHigh,
+    borderRadius: 14, borderWidth: 1, borderColor: DS.line, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 4,
+  },
+  penaltyOptionEmoji: { fontSize: 22 },
+  penaltyOptionLabel: { fontSize: 15, fontWeight: '800', color: DS.textPrimary },
+  penaltyOptionSub: { fontSize: 11, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
+  penaltyOptionPlus: { fontSize: 17, fontWeight: '900', color: DS.lime },
 
   // Run chips (extra + runs sheet)
   runChips: { flexDirection: 'row', gap: 10, marginBottom: 8 },
