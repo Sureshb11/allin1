@@ -58,6 +58,12 @@ const LIVE_SPORTS = new Set([
   'cricket',   // bespoke feed + full ball-by-ball scoring
   'rummy',     // dedicated Pool Rummy game flow
   'football',  // generic event scoring (SportEvent) + themed feed
+  // Wave 1 — goal/point team sports on football's generic SportEvent flow.
+  // Full frontend config (scoring.js) + backend parity (setup schema, result +
+  // stats in matches.js) already in place; the gate was the only thing missing.
+  'hockey',    // goals · Q1–Q4
+  'handball',  // field goals + 7m throws · halves
+  'basketball',// 2pt/3pt/free throw · Q1–Q4 + OT
 ]);
 
 /** Is this sport finished and enterable? */
