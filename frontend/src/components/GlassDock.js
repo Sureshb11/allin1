@@ -27,7 +27,11 @@ import AnimatedCricketBall from './CricketBall/AnimatedBall';
 import { sportColor as sportColorFor } from '../sports/colors';
 
 
-const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab', 'Chat'];
+// Full-screen routes the dock must NOT overlay. The pre-match setup screens
+// (MatchSetup = non-cricket toss+squads, TossLineup = cricket) pin their
+// START MATCH CTA to the bottom, so the floating dock would sit right on top
+// of it — include them alongside the live-scoring routes.
+const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab', 'Chat', 'MatchSetup', 'TossLineup'];
 
 export default function GlassDock({
   state, navigation, sportIcon = 'cricket', sportName = 'My Cricket', homeRoute = 'CricketFeed',
