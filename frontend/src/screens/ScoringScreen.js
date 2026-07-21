@@ -100,6 +100,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const [retiredBatters, setRetiredBatters] = useState([]);  // ids retired hurt (can return to bat)
   const [mvp, setMvp] = useState(null);                    // Player of the Match (computed on completion)
   const [showSettings, setShowSettings] = useState(false); // top-bar settings sheet (End Innings/Match lives here)
+  const [morePrompt, setMorePrompt] = useState(false);     // bottom "More options" sheet (Change bowler, Retire)
   const [showExitModal, setShowExitModal] = useState(false);
   // Swipe-down-to-dismiss for the Pause/Leave drawer: drag the top of the sheet
   // down past a threshold (or flick) to close; otherwise it springs back.
@@ -1280,16 +1281,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         </TouchableOpacity>
         }
 
-        {/* ── CHANGE BOWLER — always visible; enabled only while an over is in
-            progress (disabled once 6 legal balls are done — the next-over flow
-            picks the new bowler then). Continues the SAME over with the pick. ── */}
+        {/* ── MORE OPTIONS — secondary in-play actions (Change bowler, Retire).
+            Always tappable; each action inside is gated on its own. ── */}
         {!matchComplete &&
-        <TouchableOpacity
-          style={[styles.changeBowlerBtn, !canChangeBowler && styles.changeBowlerBtnDisabled]}
-          disabled={!canChangeBowler}
-          onPress={() => { setMustPickBowler(false); setShowBowlerModal(true); }}>
-          <Icon name="sync" size={16} color={canChangeBowler ? DS.lime : DS.textMuted} />
-          <Text style={[styles.changeBowlerText, !canChangeBowler && { color: DS.textMuted }]}>CHANGE BOWLER</Text>
+        <TouchableOpacity style={styles.changeBowlerBtn} onPress={() => setMorePrompt(true)}>
+          <Icon name="dots-horizontal" size={18} color={DS.lime} />
+          <Text style={styles.changeBowlerText}>MORE OPTIONS</Text>
         </TouchableOpacity>
         }
 
@@ -1752,6 +1749,38 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         </View>
       </Modal>
 
+      {/* ── MORE OPTIONS sheet — in-play secondary actions ── */}
+      <Modal visible={morePrompt} transparent animationType="slide" onRequestClose={() => setMorePrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>More Options</Text>
+            {/* Change bowler — only while an over is in progress (the next-over flow
+                picks the bowler once 6 legal balls are done). */}
+            <TouchableOpacity
+              style={[styles.settingRow, !canChangeBowler && { opacity: 0.4 }]}
+              disabled={!canChangeBowler}
+              onPress={() => { setMorePrompt(false); setMustPickBowler(false); setShowBowlerModal(true); }}>
+              <Icon name="sync" size={20} color={DS.lime} />
+              <Text style={styles.settingText}>Change bowler</Text>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
+            {/* Retire a batsman (hurt → can return, or out → counts as a wicket). */}
+            <TouchableOpacity
+              style={[styles.settingRow, !scoringReady && { opacity: 0.4 }]}
+              disabled={!scoringReady}
+              onPress={() => { setMorePrompt(false); setRetiredPrompt(true); }}>
+              <Icon name="bandage" size={20} color={DS.blue} />
+              <Text style={styles.settingText}>Retire batsman</Text>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setMorePrompt(false)}>
+              <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── MATCH SETTINGS sheet (⚙) — End Innings/Match lives here ── */}
       <Modal visible={showSettings} transparent animationType="slide" onRequestClose={() => setShowSettings(false)}>
         <View style={styles.modalOverlay}>
@@ -1951,7 +1980,6 @@ const makeStyles = (DS) => StyleSheet.create({
     marginHorizontal: 16, marginBottom: 6, paddingVertical: 10, borderRadius: 12,
     backgroundColor: DS.lime + '14', borderWidth: 1, borderColor: DS.lime + '44',
   },
-  changeBowlerBtnDisabled: { backgroundColor: DS.surfaceHigh, borderColor: DS.line },
   changeBowlerText: { fontSize: 12, fontWeight: '900', color: DS.lime, letterSpacing: 1.5 },
 
   // Penalty-reason option (5 Penalty Runs sheet)
