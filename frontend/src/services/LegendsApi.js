@@ -732,6 +732,16 @@ class LegendsApi {
     }
   }
 
+  // Mark the last delivery an accidental short run: server docks exactly 1 run.
+  async shortenLastBall(matchId, inningId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/score/last/short`, { method: 'PUT', body: { inningId } });
+      return { success: true, awarded: json.awarded };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // One transactional call from Toss & Lineup: records the toss, fixes
   // inning 1's batting/bowling teams, and persists both playing XIs.
   async submitToss(matchId, data) {

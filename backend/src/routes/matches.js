@@ -432,6 +432,58 @@ router.delete('/:id/score/last', authMiddleware, async (req, res) => {
   }
 });
 
+// Accidental short run on the last delivery: one of the runs the batters ran
+// wasn't grounded, so exactly ONE run is disallowed. Dock 1 from the ball, its
+// over and the inning total. The delivery still counts (legal ball / wide /
+// no-ball are unchanged) and the batters keep the ends they physically reached —
+// strike is persisted separately via /crease, so it's not touched here. Tagged
+// on the ball so it can't be applied twice.
+const SHORT_RUN_TAG = 'Accidental Short Run';
+router.put('/:id/score/last/short', authMiddleware, async (req, res) => {
+  try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
+    const { inningId } = req.body || {};
+    if (!inningId) return res.status(400).json({ error: 'inningId required' });
+
+    const result = await prisma.$transaction(async (tx) => {
+      const lastOver = await tx.over.findFirst({
+        where: { inningId: String(inningId) },
+        orderBy: { overNumber: 'desc' },
+        include: { balls: { orderBy: { ballNumber: 'desc' }, take: 1 } },
+      });
+      const ball = lastOver?.balls[0];
+      if (!ball) return { none: true };
+      if (ball.wicketAssists === SHORT_RUN_TAG) return { already: true };
+      if (ball.isWicket) return { ineligible: true };
+      // Where the ran runs live: off the bat for a normal ball / no-ball; in
+      // extras for wide/bye/leg-bye. Penalty/retired can't be short.
+      const et = ball.extraType;
+      const field = (!et || et === 'noBall') ? 'runs'
+        : (et === 'wide' || et === 'bye' || et === 'legBye') ? 'extras' : null;
+      if (!field) return { ineligible: true };
+      // Runs actually RUN in the field we measure: a wide's 1-run penalty sits in
+      // that same `extras`, so back it out; a no-ball's penalty is in `extras`
+      // while we measure off-the-bat `runs`, so there's nothing to back out there.
+      const penalty = et === 'wide' ? 1 : 0;
+      const ran = ball[field] - penalty;
+      if (ran < 2) return { ineligible: true };
+
+      await tx.ball.update({ where: { id: ball.id }, data: { [field]: { decrement: 1 }, wicketAssists: SHORT_RUN_TAG } });
+      await tx.over.update({ where: { id: lastOver.id }, data: { [field]: { decrement: 1 } } });
+      await tx.inning.update({ where: { id: String(inningId) }, data: { totalRuns: { decrement: 1 } } });
+      return { ok: true, awarded: ran - 1 };
+    });
+
+    if (result.none) return res.status(404).json({ error: 'No ball to adjust' });
+    if (result.already) return res.status(409).json({ error: 'This ball is already a short run' });
+    if (result.ineligible) return res.status(400).json({ error: 'Short run does not apply to this delivery' });
+    safeNotify(() => pingMatchWatchers(req.params.id));
+    res.json({ success: true, awarded: result.awarded });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // ── Scorer info + transfer ───────────────────────────────────────────────────
 // Who can score, and the registered users in the match squad you can hand it to.
 router.get('/:id/scorer', authMiddleware, async (req, res) => {

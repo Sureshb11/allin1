@@ -101,6 +101,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const [mvp, setMvp] = useState(null);                    // Player of the Match (computed on completion)
   const [showSettings, setShowSettings] = useState(false); // top-bar settings sheet (End Innings/Match lives here)
   const [morePrompt, setMorePrompt] = useState(false);     // bottom "More options" sheet (Change bowler, Retire)
+  const [shortRunPrompt, setShortRunPrompt] = useState(false); // "Short Run?" confirm dialog
+  const [lastBallShort, setLastBallShort] = useState(false);   // last ball already docked → block a second short run
   const [showExitModal, setShowExitModal] = useState(false);
   // Swipe-down-to-dismiss for the Pause/Leave drawer: drag the top of the sheet
   // down past a threshold (or flick) to close; otherwise it springs back.
@@ -459,8 +461,36 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     setShowBowlerModal(false);
     const s = `${prev.score.runs}/${prev.score.wickets} (${prev.score.overs}.${prev.score.balls})`;
     syncMatchSummary(s);
+    setLastBallShort(false);   // the undone ball's short-run flag goes with it
     showToast('Last ball undone', 'success');
     setUndoing(false);
+  };
+
+  // Accidental short run on the LAST ball: dock exactly one run. The batters keep
+  // the ends they physically reached, so strike is NOT changed here — the ball
+  // already rotated it by the runs actually run (a 2 stayed, a 3 crossed). We only
+  // reduce the awarded total by 1: team score, the facing batter's runs, and the
+  // over chip. The delivery still counts. One per ball.
+  const applyShortRun = async () => {
+    if (!shortRunEligible || undoing) return;
+    const attempt = shortRunAttempt;               // 2 or 3
+    const awarded = attempt - 1;                   // 1 or 2
+    // Who faced it: an even run left the striker on strike; an odd run crossed
+    // them, so the facer is now the non-striker.
+    const facer = attempt % 2 === 0 ? striker : nonStriker;
+    const res = await legendsApi.shortenLastBall(matchData.id, currentInningId);
+    if (!res.success) { showToast(res.error || 'Could not record short run', 'error'); return; }
+    haptic.tick();
+    const nextRuns = currentScore.runs - 1;
+    setCurrentScore((sc) => ({ ...sc, runs: sc.runs - 1 }));
+    if (facer) setBatStats((prev) => {
+      const c = prev[facer.id] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
+      return { ...prev, [facer.id]: { ...c, runs: Math.max(0, c.runs - 1) } };
+    });
+    setCurrentOver((o) => { const n = [...o]; n[n.length - 1] = String(awarded); return n; });
+    setLastBallShort(true);
+    syncMatchSummary(`${nextRuns}/${currentScore.wickets} (${currentScore.overs}.${currentScore.balls})`);
+    showToast(`Short run · ${attempt} → ${awarded}`, 'success');
   };
 
   // The match summary is TEAM-indexed everywhere it's displayed: score1 = team1's
@@ -679,6 +709,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     if (strikeSwaps % 2 === 1) { setStriker(nonStriker); setNonStriker(striker); }
     // The ball is stored — now it's real, so it becomes undoable.
     setHistory((h) => [...h.slice(-(UNDO_DEPTH - 1)), snapshot]);
+    setLastBallShort(false);   // a fresh delivery: short run is available again
     setCurrentScore(newScore);
     const scoreStr = `${newScore.runs}/${newScore.wickets} (${newScore.overs}.${newScore.balls})`;
     syncMatchSummary(scoreStr);
@@ -907,6 +938,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const lastBall = currentOver.length
     ? (String(currentOver[currentOver.length - 1]) === '·' ? '0' : String(currentOver[currentOver.length - 1]))
     : null;
+
+  // Short Run — only when the LAST ball was runs the batters RAN (2 or 3; the 4/6
+  // buttons are boundaries, not run, so they're excluded) and hasn't already been
+  // docked. One short run per ball. Awarded = attempted − 1.
+  const lastChip = currentOver.length ? String(currentOver[currentOver.length - 1]) : null;
+  const shortRunAttempt = (lastChip === '2' || lastChip === '3') ? parseInt(lastChip, 10) : 0;
+  const shortRunEligible = scoringReady && !matchComplete && !lastBallShort && shortRunAttempt >= 2;
 
   // Display-only runs tally for the in-progress over (incl. extras) — derived
   // from currentOver locally, same parsing as the end-of-over summary; never
@@ -1765,6 +1803,18 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <Text style={styles.settingText}>Change bowler</Text>
               <Icon name="chevron-right" size={18} color={DS.textMuted} />
             </TouchableOpacity>
+            {/* Short run — only lit when the last ball was 2 or 3 runs run. */}
+            <TouchableOpacity
+              style={[styles.settingRow, !shortRunEligible && { opacity: 0.4 }]}
+              disabled={!shortRunEligible}
+              onPress={() => { setMorePrompt(false); setShortRunPrompt(true); }}>
+              <Icon name="call-split" size={20} color={DS.coral} />
+              <Text style={styles.settingText}>Short run</Text>
+              <Text style={styles.settingHint}>
+                {shortRunEligible ? `${shortRunAttempt} → ${shortRunAttempt - 1}` : 'last ball 2 or 3'}
+              </Text>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
             {/* Retire a batsman (hurt → can return, or out → counts as a wicket). */}
             <TouchableOpacity
               style={[styles.settingRow, !scoringReady && { opacity: 0.4 }]}
@@ -1777,6 +1827,33 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             <TouchableOpacity style={styles.modalClose} onPress={() => setMorePrompt(false)}>
               <Text style={styles.modalCloseText}>Close</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── SHORT RUN — confirm the accidental short run on the last ball ── */}
+      <Modal visible={shortRunPrompt} transparent animationType="fade" onRequestClose={() => setShortRunPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Short Run</Text>
+            <Text style={styles.modalSub}>
+              One run wasn't grounded. Award {shortRunAttempt - 1} instead of {shortRunAttempt}? The ball still counts and the batters keep their ends.
+            </Text>
+            <View style={styles.shortRunCalc}>
+              <Text style={styles.shortRunCalcNum}>{shortRunAttempt}</Text>
+              <Icon name="arrow-right-thin" size={22} color={DS.textMuted} />
+              <Text style={[styles.shortRunCalcNum, { color: DS.coral }]}>{shortRunAttempt - 1}</Text>
+            </View>
+            <View style={styles.yesNoRow}>
+              <TouchableOpacity style={[styles.yesNoBtn, styles.noBtn]} onPress={() => setShortRunPrompt(false)}>
+                <Text style={styles.noBtnText}>No</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.yesNoBtn, styles.yesBtn]}
+                onPress={() => { setShortRunPrompt(false); applyShortRun(); }}>
+                <Text style={styles.yesBtnText}>Yes, short run</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -2052,6 +2129,17 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingVertical: 15, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: DS.line,
   },
   settingText: { flex: 1, fontSize: 15, fontWeight: '700', color: DS.textPrimary },
+  settingHint: { fontSize: 12, fontWeight: '800', color: DS.textMuted, marginRight: 2 },
+
+  // Short Run confirm dialog
+  shortRunCalc: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 18 },
+  shortRunCalcNum: { fontSize: 34, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1 },
+  yesNoRow: { flexDirection: 'row', gap: 10 },
+  yesNoBtn: { flex: 1, borderRadius: 14, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
+  noBtn: { backgroundColor: DS.surfaceHigh },
+  noBtnText: { fontSize: 15, fontWeight: '800', color: DS.textVariant },
+  yesBtn: { backgroundColor: DS.coral },
+  yesBtnText: { fontSize: 15, fontWeight: '900', color: DS.onBlue },
 
   // "Add from squad" button (batsman/bowler pickers)
   squadAddBtn: {
