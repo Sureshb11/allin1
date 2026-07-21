@@ -896,11 +896,16 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   }, 0);
 
   // Real bowler figures: Overs - Maidens - Runs - Wickets (O-M-R-W).
-  const bowlerStats = (() => {
-    if (!currentBowler) return '—';
-    const b = bowlStats[currentBowler.id] || { balls: 0, runs: 0, wickets: 0, maidens: 0 };
+  const figFor = (id) => {
+    const b = bowlStats[id] || { balls: 0, runs: 0, wickets: 0, maidens: 0 };
     return `${Math.floor(b.balls / 6)}.${b.balls % 6} - ${b.maidens} - ${b.runs} - ${b.wickets}`;
-  })();
+  };
+  const bowlerStats = currentBowler ? figFor(currentBowler.id) : '—';
+
+  // Who bowled the previous over — shown, quieter, under the current bowler.
+  const prevBowler = lastOverBowlerId && lastOverBowlerId !== currentBowler?.id
+    ? bowlingXI.find((p) => p.id === lastOverBowlerId)
+    : null;
 
   // ── PRE-SCORING SETUP SCREEN ──────────────────────────────────
   if (!scoringReady) {
@@ -1160,14 +1165,21 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             </Text>
           </View>
 
+          {/* Current bowler — emphasised (larger + full ink), no swap control. */}
           <View style={[styles.creaseRow, styles.creaseBowlerRow]}>
             {currentBowler && <PlayerAvatar name={currentBowler.name} avatarUrl={currentBowler.avatarUrl} size={24} style={styles.creaseAvatar} />}
-            <Text style={styles.creaseName} numberOfLines={1}>{currentBowler?.name || 'Select bowler'}</Text>
-            <Text style={styles.creaseFig}>{bowlerStats}</Text>
-            <TouchableOpacity hitSlop={8} onPress={() => { setMustPickBowler(false); setShowBowlerModal(true); }}>
-              <Icon name="swap-horizontal" size={17} color={DS.textMuted} />
-            </TouchableOpacity>
+            <Text style={[styles.creaseName, styles.creaseStriker]} numberOfLines={1}>{currentBowler?.name || 'Select bowler'}</Text>
+            <Text style={[styles.creaseFig, styles.creaseFigLit]}>{bowlerStats}</Text>
           </View>
+
+          {/* Previous over's bowler — quieter row, for at-a-glance context. */}
+          {prevBowler ? (
+            <View style={styles.creaseRow}>
+              <PlayerAvatar name={prevBowler.name} avatarUrl={prevBowler.avatarUrl} size={24} style={styles.creaseAvatar} />
+              <Text style={styles.creaseName} numberOfLines={1}>{prevBowler.name}</Text>
+              <Text style={styles.creaseFig}>{figFor(prevBowler.id)}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* ── EXTRAS ROW — tap for +runs (wide 2, no-ball 4, etc.) ── */}
