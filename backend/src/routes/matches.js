@@ -590,8 +590,17 @@ router.get('/:id/live-state', async (req, res) => {
     const xiFor = (teamId) => squad.filter((s) => s.teamId === teamId).map((s) => ({ id: s.player.id, name: s.player.name, avatarUrl: s.player.user?.avatarUrl || null }));
 
     // Notation for the balls already in the current over (to rebuild the log).
-    const notate = (b) => b.extraType === 'wide' ? 'WD' : b.extraType === 'noBall' ? 'NB'
-      : b.extraType === 'bye' ? 'B' : b.extraType === 'legBye' ? 'LB' : b.extraType === 'penalty' ? 'P5'
+    // Must mirror the client's own over-strip strings EXACTLY (ScoringScreen's
+    // newOver.push): an extra with runs run keeps its total (wide+2 → "3wd",
+    // no-ball+3 → "4nb", bye+2 → "2b", leg-bye+2 → "2lb") so the resumed strip —
+    // and the "THIS OVER · N runs" tally the client parses off it — matches what
+    // was scored live instead of collapsing every extra to a bare "WD"/"B".
+    const notate = (b) =>
+        b.extraType === 'wide'    ? (b.extras > 1 ? `${b.extras}wd` : 'WD')
+      : b.extraType === 'noBall'  ? (b.runs > 0 ? `${b.runs + b.extras}nb` : 'NB')
+      : b.extraType === 'bye'     ? (b.extras > 1 ? `${b.extras}b` : 'B')
+      : b.extraType === 'legBye'  ? (b.extras > 1 ? `${b.extras}lb` : 'LB')
+      : b.extraType === 'penalty' ? 'P5'
       : b.isWicket ? 'W' : b.runs === 0 ? '·' : String(b.runs);
     const currentOverBalls = overComplete ? [] : [...(curOver?.balls || [])].reverse().map(notate);
 
@@ -1052,8 +1061,8 @@ router.get('/:id/insights', async (req, res) => {
       for (const ball of allBalls) {
         const id = ball.batterId;
         if (!batterMap[id]) batterMap[id] = { player: ball.batter, runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false };
-        if (!ball.extraType || ball.extraType === 'legbye' || ball.extraType === 'bye') batterMap[id].balls++;
-        if (!ball.extraType || ['legbye', 'bye'].includes(ball.extraType)) {
+        if (!ball.extraType || ball.extraType === 'legBye' || ball.extraType === 'bye') batterMap[id].balls++;
+        if (!ball.extraType || ['legBye', 'bye'].includes(ball.extraType)) {
           batterMap[id].runs += ball.runs;
           if (ball.runs === 4) batterMap[id].fours++;
           if (ball.runs === 6) batterMap[id].sixes++;
@@ -1096,10 +1105,14 @@ router.get('/:id/insights', async (req, res) => {
 
       const extras = { wides: 0, noBalls: 0, byes: 0, legByes: 0 };
       for (const ball of allBalls) {
-        if (ball.extraType === 'wide')   extras.wides++;
-        if (ball.extraType === 'noBall') extras.noBalls++;
-        if (ball.extraType === 'bye')    extras.byes += ball.extras;
-        if (ball.extraType === 'legbye') extras.legByes += ball.extras;
+        // Runs-accurate extras: a wide/no-ball carries its ran runs too (wide+2 = 3
+        // wide runs), so the breakdown sums to the innings' extras total instead of
+        // just counting deliveries. No-ball extras = the 1-run penalty (runs off the
+        // bat are the striker's, not extras).
+        if (ball.extraType === 'wide')   extras.wides   += ball.extras;
+        if (ball.extraType === 'noBall') extras.noBalls += ball.extras;
+        if (ball.extraType === 'bye')    extras.byes    += ball.extras;
+        if (ball.extraType === 'legBye') extras.legByes += ball.extras;
       }
 
       const runRate = inning.oversData.map(o => ({ over: o.overNumber, runs: o.runs + o.extras, wickets: o.wickets }));

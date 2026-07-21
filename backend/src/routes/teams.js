@@ -475,7 +475,7 @@ router.get('/:id/insights', async (req, res) => {
           const id = ball.batterId;
           if (!batterMap[id]) batterMap[id] = { player: ball.batter, runs: 0, balls: 0, innings: new Set() };
           batterMap[id].innings.add(inning.id);
-          if (!ball.extraType || ['legbye', 'bye'].includes(ball.extraType)) {
+          if (!ball.extraType || ['legBye', 'bye'].includes(ball.extraType)) {
             batterMap[id].runs += ball.runs;
             batterMap[id].balls++;
           }

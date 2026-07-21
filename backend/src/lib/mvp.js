@@ -90,7 +90,7 @@ export function computeAwards(match) {
       const id = b.batterId;
       if (!bat[id]) bat[id] = { name: b.batter?.name, runs: 0, balls: 0 };
       if (legal) bat[id].balls++;
-      if (!b.extraType || b.extraType === 'bye' || b.extraType === 'legbye') bat[id].runs += b.runs;
+      if (!b.extraType || b.extraType === 'bye' || b.extraType === 'legBye') bat[id].runs += b.runs;
     }
     const teamSR = legalBalls > 0 ? (inning.totalRuns / legalBalls) * 100 : 0;
 
