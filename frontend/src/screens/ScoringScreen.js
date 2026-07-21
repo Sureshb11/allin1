@@ -858,12 +858,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   };
 
   // Ball display in over tracker
-  const renderBallDot = (b, i) => {
+  const renderBallDot = (b, i, isLast = false) => {
     let bg = DS.surfaceHighest;
     let color = DS.textPrimary;
     let label = b;
     const str = String(b).toLowerCase();
-    
+
     if (str === '·') label = '0';
 
     if (str.includes('w') && !str.includes('wd')) { bg = DS.wicketBg; color = DS.wicketText; } // Wickets
@@ -874,8 +874,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     else if (label === '0') { bg = DS.surfaceHighest; color = DS.textMuted; } // Dots
     else { bg = DS.surfaceHigh; color = DS.textPrimary; } // Normal runs
 
+    // The just-recorded ball is ringed + scaled up a touch, so a tap lands with
+    // clear confirmation of what went in.
     return (
-      <View key={i} style={[styles.overBall, { backgroundColor: bg }]}>
+      <View key={i} style={[styles.overBall, { backgroundColor: bg }, isLast && [styles.overBallLast, { borderColor: color }]]}>
         <Text style={[styles.overBallText, { color }]}>{label}</Text>
       </View>);
   };
@@ -883,6 +885,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // Fill remaining balls as empty dots
   const filledOver = [...currentOver];
   while (filledOver.length < 6) filledOver.push(null);
+
+  // The last delivery of the in-progress over — shown on the UNDO button so it
+  // doubles as "what you just recorded / what undo will remove". Blank between
+  // overs (the pick-bowler prompt covers that moment).
+  const lastBall = currentOver.length
+    ? (String(currentOver[currentOver.length - 1]) === '·' ? '0' : String(currentOver[currentOver.length - 1]))
+    : null;
 
   // Display-only runs tally for the in-progress over (incl. extras) — derived
   // from currentOver locally, same parsing as the end-of-over summary; never
@@ -1131,7 +1140,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           {freeHit && <View style={styles.freeHitPill}><Text style={styles.freeHitText}>FREE HIT</Text></View>}
           <ScrollView ref={overScrollRef} horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={styles.overBalls}>
             {filledOver.map((b, i) =>
-            b !== null ? renderBallDot(b, i) :
+            b !== null ? renderBallDot(b, i, i === currentOver.length - 1) :
             <View key={i} style={[styles.overBall, styles.overBallEmpty]}><View style={styles.overBallDot} /></View>
             )}
           </ScrollView>
@@ -1186,10 +1195,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         {!matchComplete &&
         <View style={styles.extraRow}>
             <TouchableOpacity
-              style={[styles.extraBtn, (history.length === 0 || undoing) && { opacity: 0.4 }]}
+              style={[styles.extraBtn, styles.undoBtn, (history.length === 0 || undoing) && { opacity: 0.4 }]}
               onPress={undoLastBall} disabled={history.length === 0 || undoing}>
-              <Icon name="undo" size={14} color={DS.textMuted} />
-              <Text style={styles.extraBtnText}>UNDO</Text>
+              <Icon name="undo-variant" size={15} color={DS.coral} />
+              <Text style={[styles.extraBtnText, styles.undoBtnText]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                UNDO{lastBall ? ` ${lastBall}` : ''}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.extraBtn} onPress={() => setExtraPrompt('wide')}>
               <Text style={[styles.extraBtnText, { color: DS.coral }]}>WD +</Text>
@@ -1827,6 +1838,11 @@ const makeStyles = (DS) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 2, borderWidth: 1, borderColor: DS.line,
   },
   extraBtnText: { fontSize: 10.5, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.3, textAlign: 'center' },
+  // UNDO is a correction control, not an extra — coral-tinted so it reads apart
+  // from the neutral WD/NB/BYE/LB buttons beside it, and its label carries the
+  // last delivery (what it will remove).
+  undoBtn: { flex: 1.6, flexDirection: 'row', gap: 4, paddingHorizontal: 4, backgroundColor: DS.coral + '14', borderColor: DS.coral + '55' },
+  undoBtnText: { color: DS.coral },
 
   // Full-width wicket button
   wicketBtn: {
@@ -1885,6 +1901,8 @@ const makeStyles = (DS) => StyleSheet.create({
   freeHitText: { fontSize: 9, fontWeight: '900', color: DS.bg, letterSpacing: 0.8 },
   overBalls: { flexDirection: 'row', gap: 5 },
   overBall: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  // Latest delivery: a coloured ring + slight scale, as tap confirmation.
+  overBallLast: { borderWidth: 2, transform: [{ scale: 1.12 }] },
   overBallEmpty: { backgroundColor: DS.surfaceHighest, borderWidth: 1, borderColor: DS.line },
   overBallDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: DS.surfaceHighest },
   overBallText: { fontSize: 14, fontWeight: '800' },
