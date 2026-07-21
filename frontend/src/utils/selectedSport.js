@@ -17,15 +17,24 @@ const KEY = 'll_selected_sport';
 
 let _sport  = null;
 let _format = null;
+const listeners = new Set();
 
 export const setSelectedSport = (sport, format) => {
   _sport  = sport  || null;
   _format = format || null;
   // Fire-and-forget: a storage failure must never block navigation.
   AsyncStorage.setItem(KEY, JSON.stringify({ sport: _sport, format: _format })).catch(() => {});
+  // Notify subscribers (the ThemeProvider recolours the app accent from this).
+  for (const fn of listeners) { try { fn(_sport); } catch { /* a listener must never break selection */ } }
 };
 
 export const getSelectedSport = () => ({ sport: _sport, format: _format });
+
+/** Subscribe to sport changes; returns an unsubscribe fn. */
+export const subscribeSport = (fn) => {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+};
 
 /**
  * Restore the last selection on launch. Call once before the app renders, so the

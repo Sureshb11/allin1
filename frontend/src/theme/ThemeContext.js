@@ -17,6 +17,8 @@
 // both resolve from the same theme.
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { getSelectedSport, subscribeSport } from '../utils/selectedSport';
+import { sportColor } from '../sports/colors';
 import { Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -121,6 +123,42 @@ const light = {
 
 export const PALETTES = { dark, light };
 
+// ── Sport accent override ─────────────────────────────────────────────────────
+// The whole app reads its accent from these palette tokens (DS.lime, DS.accent,
+// DS.blueDeep, DS.success …), which are all the same brand green. Recolour just
+// that family from the active sport, and EVERY screen that uses the theme turns
+// that sport's colour — no per-screen edits. Semantic colours (red for
+// wickets/danger, text, surfaces) are untouched. Cricket resolves to the brand
+// green, so the flagship is unchanged.
+const ACCENT_TOKENS = ['lime', 'limeBright', 'lime2', 'blue', 'blueDeep', 'blueSoft', 'success', 'live2'];
+
+const relLum = (hex) => {
+  const h = hex.replace('#', '');
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+};
+const mix = (hex, target, t) => {
+  const h = hex.replace('#', ''); const to2 = (v) => Math.round(v).toString(16).padStart(2, '0');
+  const px = (i) => parseInt(h.slice(i, i + 2), 16);
+  const tp = target.replace('#', ''); const tx = (i) => parseInt(tp.slice(i, i + 2), 16);
+  return '#' + [0, 2, 4].map((i) => to2(px(i) + (tx(i) - px(i)) * t)).join('');
+};
+
+export function applySportAccent(base, accent) {
+  if (!accent) return base;
+  const out = { ...base };
+  for (const k of ACCENT_TOKENS) if (out[k] != null) out[k] = accent;
+  // Ink that sits ON the accent (button text, chips): pick black or white by the
+  // accent's luminance so it stays legible whatever the sport colour is.
+  const onAccent = relLum(accent) > 0.6 ? '#0b1a10' : '#ffffff';
+  if (out.onLime != null) out.onLime = onAccent;
+  if (out.onBlue != null) out.onBlue = onAccent;
+  // Subtle accent-tinted fill (limeDark): the accent pushed most of the way to
+  // the surface, so it recolours with the sport too instead of staying green.
+  if (out.limeDark != null) out.limeDark = mix(accent, base.surface || base.bg, 0.82);
+  return out;
+}
+
 // Segoe UI look via Selawik — the app-wide font is injected natively (the RN
 // Text/TextInput patch maps `Selawik` → the Android `selawik` res/font family and
 // the iOS "Selawik" family). Only the Regular face is bundled/registered now —
@@ -186,6 +224,12 @@ export function ThemeProvider({ children }) {
 
   const mode = pref === 'system' ? sysScheme : pref;
 
+  // Track the active sport so the accent follows it. The provider is above the
+  // navigator and doesn't remount on a sport switch, so it subscribes rather
+  // than reading the singleton once.
+  const [sportId, setSportId] = useState(() => getSelectedSport().sport?.id || null);
+  useEffect(() => subscribeSport((s) => setSportId(s?.id || null)), []);
+
   const setMode = useCallback((next) => {
     setPref(next);
     AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
@@ -200,17 +244,23 @@ export function ThemeProvider({ children }) {
     });
   }, []);
 
+  // Cricket → brand green (null accent = palette untouched); other sports →
+  // their signature colour, theme-corrected.
+  const accent = sportId && sportId !== 'cricket' ? sportColor(sportId, mode === 'dark') : null;
+  const colors = useMemo(() => applySportAccent(PALETTES[mode], accent), [mode, accent]);
+
   const value = useMemo(() => ({
     mode,
     pref,
-    colors: PALETTES[mode],
+    colors,
     radii,
     shadows,
     typography: mode === 'dark' ? typographyDark : typographyLight,
     isDark: mode === 'dark',
+    sportId,
     setMode,
     toggle,
-  }), [mode, pref, setMode, toggle]);
+  }), [mode, pref, colors, sportId, setMode, toggle]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
