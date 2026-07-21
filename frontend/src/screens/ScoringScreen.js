@@ -1127,7 +1127,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           {/* Display-only balls/runs tally for this over (incl. extras) — derived
               from currentOver locally, never persisted; the server tracks legal
               balls/overs itself. */}
-          <Text style={styles.overCount}>{currentOver.length} balls · {overRunsSoFar} runs</Text>
+          <Text style={styles.overCount}>{currentOver.length} ball{currentOver.length !== 1 ? 's' : ''} · {overRunsSoFar} run{overRunsSoFar !== 1 ? 's' : ''}</Text>
           {freeHit && <View style={styles.freeHitPill}><Text style={styles.freeHitText}>FREE HIT</Text></View>}
           <ScrollView ref={overScrollRef} horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={styles.overBalls}>
             {filledOver.map((b, i) =>
