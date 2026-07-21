@@ -203,7 +203,7 @@ function CircleMatchCard({ match, onPress }) {
   };
 
   const content = (
-    <TouchableOpacity activeOpacity={0.9} style={[c.card, (live || match.status === 'break') && c.cardLive, { minHeight: 244, justifyContent: 'space-between' }]} onPress={onPress}>
+    <TouchableOpacity activeOpacity={0.9} style={[c.card, (live || match.status === 'break') && c.cardLive, { minHeight: 208, justifyContent: 'space-between' }]} onPress={onPress}>
       <View>
         {/* header row */}
         <View style={c.head}>
@@ -244,19 +244,13 @@ function CircleMatchCard({ match, onPress }) {
       <View style={{ justifyContent: 'flex-end' }}>
 
         {live || match.status === 'break' ? (
-          <>
-            <View style={c.metaRow}>
-              <Text style={c.metaMuted}>{match.overs ? `${match.overs} overs` : ''}</Text>
-              {rr != null && <Text style={[c.metaRR, { color: isDark ? DS.lime : '#5a7302' }]}>RR: {rr.toFixed(1)}</Text>}
-            </View>
-            <View style={c.track}>
-              <View style={[c.fill, { width: `${Math.max(progress * 100, 4)}%` }]} />
-            </View>
-            <View style={c.primaryBtn}>
-              <Icon name="chart-box" size={16} color={DS.onBlue} />
-              <Text style={c.primaryBtnTxt}>{match.isScorer ? 'RESUME' : 'LIVE SCORECARD'}</Text>
-            </View>
-          </>
+          // Dropped the overs + run-rate meta row and the progress bar — the
+          // scores already carry the state, and losing them lets the card sit
+          // compact with the CTA straight under the teams.
+          <View style={c.primaryBtn}>
+            <Icon name="chart-box" size={16} color={DS.onBlue} />
+            <Text style={c.primaryBtnTxt}>{match.isScorer ? 'RESUME' : 'LIVE SCORECARD'}</Text>
+          </View>
         ) : completed ? (
           <>
             <View style={c.resultBanner}>
