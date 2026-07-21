@@ -85,7 +85,7 @@ export function computeAwards(match) {
     // Per-batter tallies + legal-ball count for team SR.
     const bat = {}; let legalBalls = 0;
     for (const b of balls) {
-      const legal = b.extraType !== 'wide' && b.extraType !== 'noBall';
+      const legal = !['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType);
       if (legal) legalBalls++;
       const id = b.batterId;
       if (!bat[id]) bat[id] = { name: b.batter?.name, runs: 0, balls: 0 };
@@ -113,7 +113,7 @@ export function computeAwards(match) {
       if (!bowl[id]) bowl[id] = { name: o.bowler?.name, balls: 0, conceded: 0, wkts: 0, maidens: 0 };
       let overCharged = 0, overLegal = 0;
       for (const b of o.balls || []) {
-        const legal = b.extraType !== 'wide' && b.extraType !== 'noBall';
+        const legal = !['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType);
         if (legal) { bowl[id].balls++; overLegal++; }
         let charged = b.runs;
         if (b.extraType === 'wide' || b.extraType === 'noBall') charged += b.extras;

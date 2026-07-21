@@ -39,7 +39,7 @@ router.get('/', async (req, res) => {
     // no-balls don't advance the over.
     prisma.ball.groupBy({
       by: ['overId'], _count: { _all: true },
-      where: { OR: [{ extraType: null }, { extraType: { notIn: ['wide', 'noBall'] } }] },
+      where: { OR: [{ extraType: null }, { extraType: { notIn: ['wide', 'noBall', 'penalty', 'retired'] } }] },
     }),
   ]);
 

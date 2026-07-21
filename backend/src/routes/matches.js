@@ -11,6 +11,14 @@ import { safeNotify, notifyMatchLive, notifyMatchResult, pingMatchWatchers } fro
 
 const router = Router();
 
+// Extra types that are NOT a legal delivery, so they never advance the over or
+// the ball-in-over count: wides & no-balls (re-bowled), penalty runs (a team
+// award, not a ball) and retirements (an admin event). Byes/leg-byes DO count —
+// they're a legal ball. This must match the client scorer, which scores a
+// penalty/retirement with countsAsBall=false; leaving penalty out here made the
+// server count it as a ball, so the over drifted a ball ahead of the scorer.
+const NON_BALL_EXTRAS = ['wide', 'noBall', 'penalty', 'retired'];
+
 // ── Match awards (MVP): Man of the Match, Fighter, Best Batter/Bowler/Fielder ──
 // Computed from ball-by-ball data using the CricHeroes-style MVP algorithm.
 // Everything computeAwards() needs: both squads plus the full ball-by-ball log.
@@ -280,11 +288,12 @@ router.put('/:id/score', authMiddleware, async (req, res) => {
     }
 
     // ── Server-authoritative over placement ──────────────────────────────────
-    // Append to the current over until it has 6 LEGAL balls (wides & no-balls do
-    // NOT count), then roll to a new over. We do NOT trust the client's overNumber:
+    // Append to the current over until it has 6 LEGAL balls (NON_BALL_EXTRAS —
+    // wides, no-balls, penalties, retirements — do NOT count), then roll to a new
+    // over. We do NOT trust the client's overNumber:
     // rapid taps during the async save repeat a stale overNumber, which was piling
     // many balls into one over (overs of 8–12 balls). The server owns the boundary.
-    const isLegal = (b) => !['wide', 'noBall', 'retired'].includes(b.extraType);
+    const isLegal = (b) => !NON_BALL_EXTRAS.includes(b.extraType);
     const legalCount = (o) => (o ? o.balls.filter(isLegal).length : 0);
     const latest = await prisma.over.findFirst({
       where: { inningId: data.inningId },
@@ -555,7 +564,7 @@ router.get('/:id/live-state', async (req, res) => {
     const inning = innings[innings.length - 1];
     if (!inning) return res.json({ sport: 'cricket', status: match.status, resumable: false });
 
-    const legalB = (b) => !['wide', 'noBall', 'retired'].includes(b.extraType);
+    const legalB = (b) => !NON_BALL_EXTRAS.includes(b.extraType);
     const legalIn = (over) => (over.balls || []).filter(legalB).length;
     // Per-bowler completed overs from ACTUAL deliveries (shared overs count per
     // bowler = legal balls / 6) → enforces the spell limit on resume;
