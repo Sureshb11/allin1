@@ -1149,12 +1149,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               {striker ? (() => { const st = batStats[striker.id] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
                 return `${st.runs} (${st.balls})  ${st.fours}×4 ${st.sixes}×6`; })() : '—'}
             </Text>
-            <TouchableOpacity hitSlop={8} onPress={() => { const t = striker; setStriker(nonStriker); setNonStriker(t); }}>
-              <Icon name="swap-horizontal" size={17} color={DS.textMuted} />
-            </TouchableOpacity>
-            <TouchableOpacity hitSlop={8} onPress={() => setShowPlayerModal(true)}>
-              <Icon name="account-search" size={17} color={DS.textMuted} />
-            </TouchableOpacity>
           </View>
 
           <View style={[styles.creaseRow, styles.creaseRowDivider]}>
