@@ -104,7 +104,11 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cri
     const res = await legendsApi.createTeam({ name, sport });
     setSaving(false);
     if (res.success && res.data) {
-      onSelect(res.data);
+      // A brand-new team has no players yet. Keep `players` defined (default [])
+      // so the empty-squad guard sees 0 — otherwise the create response omits it,
+      // the count reads "unknown", and START SCORING stays enabled only to be
+      // rejected by the server. res.data wins if it already carries players.
+      onSelect({ players: [], ...res.data });
     } else {
       showToast('Could not create team. Try again.', 'error');
     }
@@ -604,7 +608,7 @@ const StartMatchScreen = ({ navigation, route }) => {
                 {emptyTeams.map((t) => t.name).join(' and ')} {emptyTeams.length > 1 ? 'have' : 'has'} no players.
                 Add at least one player to each {COMP.toLowerCase()} before you can start.
               </Text>
-              <TouchableOpacity style={s.squadWarnBtn} onPress={() => navigation.navigate('Teams')} activeOpacity={0.8}>
+              <TouchableOpacity style={s.squadWarnBtn} onPress={() => navigation.navigate('TeamManagement')} activeOpacity={0.8}>
                 <Icon name="account-plus" size={14} color={K.lime} />
                 <Text style={s.squadWarnBtnText}>Add players</Text>
               </TouchableOpacity>

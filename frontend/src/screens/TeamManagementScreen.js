@@ -274,7 +274,9 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     const name = guestName.trim().replace(/\s+/g, ' ');
     if (name.length < 2) return showToast('Enter the player’s name.', 'error');
     setAddingGuest(true);
-    const result = await legendsApi.createPlayer({ name, role: 'Player', teamId: selectedTeam?.id });
+    // Stamp the team's sport, else Player.sport defaults to "cricket" and the
+    // new member vanishes from this sport's leaderboards/roster filters.
+    const result = await legendsApi.createPlayer({ name, role: 'Player', teamId: selectedTeam?.id, sport: selectedTeam?.sport });
     setAddingGuest(false);
     if (result.success) {
       await loadData();
@@ -302,7 +304,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     if (!foundUser) return;
     const name = `${foundUser.firstName || ''} ${foundUser.lastName || ''}`.trim() || 'Player';
     const result = await legendsApi.createPlayer({
-      name, role: 'Player', teamId: selectedTeam?.id, userId: foundUser.id,
+      name, role: 'Player', teamId: selectedTeam?.id, userId: foundUser.id, sport: selectedTeam?.sport,
     });
     if (result.success) {
       await loadData();
