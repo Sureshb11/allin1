@@ -676,11 +676,22 @@ router.get('/:id/live-state', async (req, res) => {
       const p = creasePlayers.find((x) => x.id === pid) || squad.find((s) => s.player.id === pid)?.player;
       return p ? { id: pid, name: p.name, avatarUrl: p.user?.avatarUrl || null } : null;
     };
+    // Everyone dismissed this innings — computed up front so a batter who is OUT
+    // is never seated at the crease, even if a persisted strikerId/nonStrikerId
+    // still points at them (e.g. the app was reloaded between the wicket and
+    // picking the replacement). A rejected slot resolves to null → needsNewBatter,
+    // so the scorer is asked to pick the correct incoming batter.
+    const outThisInnings = new Set();
+    for (const ov of inning.oversData) for (const b of (ov.balls || [])) {
+      if (b.isWicket && b.dismissedPlayerId) outThisInnings.add(b.dismissedPlayerId);
+    }
+    const notOut = (c) => (c && !outThisInnings.has(c.id)) ? c : null;
+
     const fbStriker = lastBall && !lastBall.isWicket ? { id: lastBall.batter.id, name: lastBall.batter.name, avatarUrl: lastBall.batter.user?.avatarUrl || null } : null;
     const fbNon = lastBall ? { id: lastBall.nonStriker.id, name: lastBall.nonStriker.name, avatarUrl: lastBall.nonStriker.user?.avatarUrl || null } : null;
     const fbBowler = overComplete ? null : (curOver?.bowler ? { id: curOver.bowler.id, name: curOver.bowler.name, avatarUrl: curOver.bowler.user?.avatarUrl || null } : null);
-    const creaseStriker = nameFor(inning.strikerId) || fbStriker;
-    const creaseNonStriker = nameFor(inning.nonStrikerId) || fbNon;
+    const creaseStriker = notOut(nameFor(inning.strikerId)) || notOut(fbStriker);
+    const creaseNonStriker = notOut(nameFor(inning.nonStrikerId)) || notOut(fbNon);
     const creaseBowler = nameFor(inning.currentBowlerId) || fbBowler;
 
     // Per-player figures for resume: striker runs/balls and bowler O-M-R-W.

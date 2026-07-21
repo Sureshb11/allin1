@@ -1389,13 +1389,17 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       </Modal>
 
       {/* ── PLAYER MODAL ── */}
-      <Modal visible={showPlayerModal} transparent animationType="slide">
+      {/* A new batter is mandatory — a wicket/retirement leaves the crease empty,
+          so there's no Cancel and back can't dismiss it: the scorer must choose
+          (or Add from squad) to continue. */}
+      <Modal visible={showPlayerModal} transparent animationType="slide" onRequestClose={() => {}}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>
               New Batsman{newBatterFor === 'nonstriker' ? ' (non-striker)' : ''}
             </Text>
+            <Text style={styles.modalSub}>Choose the incoming batter to continue</Text>
             <ScrollView>
               {getAvailableBatsmen().map((p, i) => {
                 const resuming = retiredBatters.some((r) => r.id === p.id);   // retired hurt, coming back
@@ -1426,9 +1430,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             <TouchableOpacity style={styles.squadAddBtn} onPress={() => openSquadAdd('bat')}>
               <Icon name="account-plus" size={18} color={DS.lime} />
               <Text style={styles.squadAddText}>Add from squad</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalClose} onPress={() => setShowPlayerModal(false)}>
-              <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1637,8 +1638,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         </View>
       </Modal>
 
-      {/* ── RUN OUT — which batter is out? (striker or non-striker) ── */}
-      <Modal visible={runOutPrompt} transparent animationType="slide" onRequestClose={() => setRunOutPrompt(false)}>
+      {/* ── RUN OUT — which batter is out? (striker or non-striker). Mandatory once
+          run-out is chosen; only escapable on a free hit, where WICKET opens this
+          directly (so it doubles as the mis-tap guard there). ── */}
+      <Modal visible={runOutPrompt} transparent animationType="slide" onRequestClose={() => { if (freeHit) setRunOutPrompt(false); }}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
@@ -1656,15 +1659,18 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                 <Icon name="chevron-right" size={18} color={DS.textMuted} />
               </TouchableOpacity>
             ))}
-            <TouchableOpacity style={styles.modalClose} onPress={() => setRunOutPrompt(false)}>
-              <Text style={styles.modalCloseText}>Cancel</Text>
-            </TouchableOpacity>
+            {freeHit && (
+              <TouchableOpacity style={styles.modalClose} onPress={() => setRunOutPrompt(false)}>
+                <Text style={styles.modalCloseText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
 
-      {/* ── RUN OUT — which fielder effected it? (shown as 'run out (Fielder)') ── */}
-      <Modal visible={runOutFielderPrompt} transparent animationType="slide" onRequestClose={() => setRunOutFielderPrompt(false)}>
+      {/* ── RUN OUT — which fielder effected it? Mandatory — "Not sure / no fielder"
+          is the completion path, so there's no Cancel. ── */}
+      <Modal visible={runOutFielderPrompt} transparent animationType="slide" onRequestClose={() => {}}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
@@ -1691,9 +1697,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                 <Icon name="chevron-right" size={18} color={DS.textMuted} />
               </TouchableOpacity>
             </ScrollView>
-            <TouchableOpacity style={styles.modalClose} onPress={() => setRunOutFielderPrompt(false)}>
-              <Text style={styles.modalCloseText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1751,8 +1754,9 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         </View>
       </Modal>
 
-      {/* ── CAUGHT — who took the catch? (c&b / keeper / fielder) ── */}
-      <Modal visible={catchPrompt} transparent animationType="slide" onRequestClose={() => setCatchPrompt(false)}>
+      {/* ── CAUGHT — who took the catch? (c&b / keeper / fielder). Mandatory once
+          "caught" is chosen — pick the catcher to record the wicket. ── */}
+      <Modal visible={catchPrompt} transparent animationType="slide" onRequestClose={() => {}}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
@@ -1780,9 +1784,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <TouchableOpacity style={styles.modalClose} onPress={() => setCatchPrompt(false)}>
-              <Text style={styles.modalCloseText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
