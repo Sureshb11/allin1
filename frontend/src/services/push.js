@@ -7,10 +7,22 @@
 //
 // Everything here is best-effort and defensive: a device with no Play Services,
 // a denied permission, or a backend that's down must never break app start-up.
+//
+// Uses the RN Firebase MODULAR API (getMessaging(getApp()) + free functions).
+// The old namespaced form (messaging().getToken() …) is deprecated in v22 and
+// logs a console warning on every call.
 
 import { Platform, PermissionsAndroid } from 'react-native';
-import messaging from '@react-native-firebase/messaging';
+import { getApp } from '@react-native-firebase/app';
+import {
+  getMessaging, getToken, onMessage, onTokenRefresh, requestPermission,
+  AuthorizationStatus,
+} from '@react-native-firebase/messaging';
 import legendsApi from './LegendsApi';
+
+// One messaging instance for the default app, resolved lazily so a device
+// without Firebase/Play Services fails inside a try rather than at import.
+const fcm = () => getMessaging(getApp());
 
 let currentToken = null;      // remembered so we can unregister on sign-out
 let unsubscribeRefresh = null;
@@ -25,10 +37,10 @@ async function ensurePermission() {
       );
       return res === PermissionsAndroid.RESULTS.GRANTED;
     }
-    const status = await messaging().requestPermission();
+    const status = await requestPermission(fcm());
     return (
-      status === messaging.AuthorizationStatus.AUTHORIZED ||
-      status === messaging.AuthorizationStatus.PROVISIONAL
+      status === AuthorizationStatus.AUTHORIZED ||
+      status === AuthorizationStatus.PROVISIONAL
     );
   } catch (e) {
     console.warn('[push] permission request failed:', e.message);
@@ -47,7 +59,7 @@ export async function registerForPush() {
       return null;
     }
 
-    const token = await messaging().getToken();
+    const token = await getToken(fcm());
     if (!token) return null;
 
     currentToken = token;
@@ -55,7 +67,7 @@ export async function registerForPush() {
 
     // FCM rotates tokens; push the new one straight through.
     unsubscribeRefresh?.();
-    unsubscribeRefresh = messaging().onTokenRefresh(async (next) => {
+    unsubscribeRefresh = onTokenRefresh(fcm(), async (next) => {
       currentToken = next;
       await legendsApi.registerDevice(next, Platform.OS);
     });
@@ -87,7 +99,7 @@ export async function unregisterFromPush() {
  */
 export function onForegroundMessage(handler) {
   try {
-    return messaging().onMessage(async (msg) => {
+    return onMessage(fcm(), async (msg) => {
       handler?.({
         title: msg?.notification?.title,
         body: msg?.notification?.body,
