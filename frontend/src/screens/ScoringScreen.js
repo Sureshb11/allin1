@@ -1138,10 +1138,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         {/* ── CREASE PANEL — both batters + the bowler, like a real scoreboard ── */}
         <View style={styles.creasePanel}>
           <View style={[styles.creaseRow, styles.creaseStrikerRow]}>
-            {/* On-strike marker: the striker's row is starred + bold. */}
-            <Icon name="star" size={14} color={DS.lime} style={{ marginRight: 1 }} />
+            {/* On-strike marker: bold name + a superscript asterisk after it
+                (cricket's "on strike" notation), instead of a leading star. */}
             {striker && <PlayerAvatar name={striker.name} avatarUrl={striker.avatarUrl} size={24} style={styles.creaseAvatar} />}
-            <Text style={[styles.creaseName, styles.creaseStriker]} numberOfLines={1}>{striker?.name || 'Select batter'}</Text>
+            <Text style={[styles.creaseName, styles.creaseStriker]} numberOfLines={1}>
+              {striker?.name || 'Select batter'}
+              {striker ? <Text style={styles.strikerMark}>*</Text> : null}
+            </Text>
             <Text style={[styles.creaseFig, styles.creaseFigLit]}>
               {striker ? (() => { const st = batStats[striker.id] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
                 return `${st.runs} (${st.balls})  ${st.fours}×4 ${st.sixes}×6`; })() : '—'}
@@ -1155,7 +1158,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           </View>
 
           <View style={[styles.creaseRow, styles.creaseRowDivider]}>
-            <View style={{ width: 15 }} />
             {nonStriker && <PlayerAvatar name={nonStriker.name} avatarUrl={nonStriker.avatarUrl} size={24} style={styles.creaseAvatar} />}
             <Text style={styles.creaseName} numberOfLines={1}>{nonStriker?.name || '—'}</Text>
             <Text style={styles.creaseFig}>
@@ -1165,7 +1167,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           </View>
 
           <View style={[styles.creaseRow, styles.creaseBowlerRow]}>
-            <View style={{ width: 15 }} />
             {currentBowler && <PlayerAvatar name={currentBowler.name} avatarUrl={currentBowler.avatarUrl} size={24} style={styles.creaseAvatar} />}
             <Text style={styles.creaseName} numberOfLines={1}>{currentBowler?.name || 'Select bowler'}</Text>
             <Text style={styles.creaseFig}>{bowlerStats}</Text>
@@ -1801,6 +1802,10 @@ const makeStyles = (DS) => StyleSheet.create({
   creaseBowlerRow: { borderTopWidth: 1, borderTopColor: DS.line },
   creaseName: { flex: 1, fontSize: 14, fontWeight: '700', color: DS.textVariant },
   creaseStriker: { fontSize: 14, fontWeight: '900', color: DS.textPrimary },
+  // Superscript "on strike" asterisk: smaller than the name and lime; the '*'
+  // glyph already sits high in the line box, so a smaller one reads as a raised
+  // exponent (like x² / x³) after the name.
+  strikerMark: { fontSize: 10, lineHeight: 10, fontWeight: '900', color: DS.lime },
   creaseFig: { fontSize: 12.5, fontWeight: '800', color: DS.textMuted, marginRight: 4 },
   creaseFigLit: { color: DS.lime },
 
