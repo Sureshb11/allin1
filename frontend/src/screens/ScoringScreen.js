@@ -1800,12 +1800,17 @@ const makeStyles = (DS) => StyleSheet.create({
   creaseAvatar: { marginLeft: -2 },
   creaseRowDivider: { paddingTop: 3 },
   creaseBowlerRow: { borderTopWidth: 1, borderTopColor: DS.line },
-  creaseName: { flex: 1, fontSize: 14, fontWeight: '700', color: DS.textVariant },
-  creaseStriker: { fontSize: 14, fontWeight: '900', color: DS.textPrimary },
+  // The bundled font is single-weight (see res/font/selawik.xml — every weight
+  // maps to Regular), so "bold" can't come from fontWeight. The striker is
+  // emphasised the way the rest of the app does it — larger + full-ink — while
+  // the non-striker/bowler sit smaller + muted. Explicit lineHeight so the row
+  // can't clip the name's ascenders.
+  creaseName: { flex: 1, fontSize: 13.5, lineHeight: 20, color: DS.textMuted },
+  creaseStriker: { flex: 1, fontSize: 16, lineHeight: 22, color: DS.textPrimary },
   // Superscript "on strike" asterisk: smaller than the name and lime; the '*'
   // glyph already sits high in the line box, so a smaller one reads as a raised
   // exponent (like x² / x³) after the name.
-  strikerMark: { fontSize: 10, lineHeight: 10, fontWeight: '900', color: DS.lime },
+  strikerMark: { fontSize: 11, fontWeight: '900', color: DS.lime },
   creaseFig: { fontSize: 12.5, fontWeight: '800', color: DS.textMuted, marginRight: 4 },
   creaseFigLit: { color: DS.lime },
 
