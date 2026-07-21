@@ -227,12 +227,18 @@ function CircleMatchCard({ match, onPress }) {
           <Team t={match.b} muted={!pb.runs} />
         </View>
 
-        {match.chase ? (
-          <View style={c.chaseRow}>
-            <Icon name="target" size={11} color={DS.coral} />
-            <Text style={c.chaseLine} numberOfLines={1}>{match.chase}</Text>
-          </View>
-        ) : null}
+        {/* Always render this row (empty when there's no chase) so a 2nd-innings
+            card with a chase line and a 1st-innings/RESUME card without one are
+            the SAME height — otherwise the chase line made some rail cards taller
+            than others. */}
+        <View style={c.chaseRow}>
+          {match.chase ? (
+            <>
+              <Icon name="target" size={11} color={DS.coral} />
+              <Text style={c.chaseLine} numberOfLines={1}>{match.chase}</Text>
+            </>
+          ) : null}
+        </View>
       </View>
 
       <View style={{ justifyContent: 'flex-end' }}>
@@ -1124,7 +1130,9 @@ const makeC = (DS, TYPO) => StyleSheet.create({
   teamScoreMuted: { color: DS.textMuted },
   teamDivider: { width: 1, height: 46, backgroundColor: DS.line, marginHorizontal: 4 },
   vs: { fontFamily: TYPO.headline.fontFamily, color: DS.textMuted, fontSize: 14, fontWeight: '700', marginHorizontal: 4 },
-  chaseRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 10 },
+  // Fixed height so the row occupies the same space with or without a chase
+  // line — keeps every rail card the same height (see the render note above).
+  chaseRow: { height: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 10 },
   chaseLine: { fontSize: 11, fontWeight: '700', color: DS.textMuted, textAlign: 'center' },
 
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
