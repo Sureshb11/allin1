@@ -1131,14 +1131,23 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           </View>
         </TouchableOpacity>
 
-        <View style={styles.sbOverRow}>
-          <Text style={styles.overLabel}>THIS OVER</Text>
-          {/* Display-only balls/runs tally for this over (incl. extras) — derived
-              from currentOver locally, never persisted; the server tracks legal
-              balls/overs itself. */}
-          <Text style={styles.overCount}>{currentOver.length} ball{currentOver.length !== 1 ? 's' : ''} · {overRunsSoFar} run{overRunsSoFar !== 1 ? 's' : ''}</Text>
-          {freeHit && <View style={styles.freeHitPill}><Text style={styles.freeHitText}>FREE HIT</Text></View>}
-          <ScrollView ref={overScrollRef} horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={styles.overBalls}>
+        {/* ── THIS-OVER TRACKER — its own band so the ball chips get the full
+            width to breathe, with the over's running runs called out in the
+            sport accent. Tally is display-only (incl. extras), derived from
+            currentOver; the server tracks legal balls/overs itself. ── */}
+        <View style={styles.sbOverBox}>
+          <View style={styles.sbOverMeta}>
+            <View style={styles.overLabelWrap}>
+              <View style={styles.overAccentTick} />
+              <Text style={styles.overLabel}>THIS OVER</Text>
+              {freeHit && <View style={styles.freeHitPill}><Text style={styles.freeHitText}>FREE HIT</Text></View>}
+            </View>
+            <Text style={styles.overSummary} numberOfLines={1}>
+              <Text style={styles.overSummaryRuns}>{overRunsSoFar}</Text>
+              <Text style={styles.overSummaryUnit}> {overRunsSoFar === 1 ? 'run' : 'runs'} · {currentOver.length} ball{currentOver.length !== 1 ? 's' : ''}</Text>
+            </Text>
+          </View>
+          <ScrollView ref={overScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.overBalls}>
             {filledOver.map((b, i) =>
             b !== null ? renderBallDot(b, i, i === currentOver.length - 1) :
             <View key={i} style={[styles.overBall, styles.overBallEmpty]}><View style={styles.overBallDot} /></View>
@@ -1804,9 +1813,19 @@ const makeStyles = (DS) => StyleSheet.create({
   resultPill: { marginTop: 8, backgroundColor: DS.lime, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4, alignSelf: 'flex-start' },
   resultText: { fontSize: 12, fontWeight: '800', color: DS.bg },
 
-  sbOverRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  overLabel: { fontSize: 9.5, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8 },
-  overCount: { fontSize: 9.5, fontWeight: '800', color: DS.textMuted },
+  // "This over" tracker band — meta line (label + running runs) over a
+  // full-width chips row.
+  sbOverBox: {
+    marginTop: 10, backgroundColor: DS.surface, borderRadius: 12,
+    borderWidth: 1, borderColor: DS.line, paddingTop: 7, paddingBottom: 8, paddingHorizontal: 10, gap: 8,
+  },
+  sbOverMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  overLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  overAccentTick: { width: 3, height: 11, borderRadius: 2, backgroundColor: DS.lime },
+  overLabel: { fontSize: 10, fontWeight: '800', color: DS.textVariant, letterSpacing: 1.1 },
+  overSummary: { flexShrink: 1, textAlign: 'right' },
+  overSummaryRuns: { fontSize: 14, fontWeight: '900', color: DS.lime, letterSpacing: -0.2 },
+  overSummaryUnit: { fontSize: 10.5, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.2 },
 
   // ── Crease panel — striker (lit) / non-striker / bowler ──
   creasePanel: { backgroundColor: DS.surfaceHigh, borderRadius: 16, marginHorizontal: 16, paddingHorizontal: 12, paddingVertical: 2, marginBottom: 6 },
@@ -1897,7 +1916,7 @@ const makeStyles = (DS) => StyleSheet.create({
     marginHorizontal: 16, marginBottom: 8
   },
   overSectionLabel: { fontSize: 18, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8 },
-  freeHitPill: { backgroundColor: DS.limeBright, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'center', marginRight: 8 },
+  freeHitPill: { backgroundColor: DS.limeBright, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'center' },
   freeHitText: { fontSize: 9, fontWeight: '900', color: DS.bg, letterSpacing: 0.8 },
   overBalls: { flexDirection: 'row', gap: 5 },
   overBall: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
