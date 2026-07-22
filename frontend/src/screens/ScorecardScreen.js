@@ -934,7 +934,7 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
           </View>
           <View style={styles.summaryHeroRow}>
             {/* Big profile pic */}
-            <HexAvatar size={72} color={DS.lime} uri={avatarFor(motm.name)}><Text style={styles.summaryHeroInit}>{summaryInitials(motm.name)}</Text></HexAvatar>
+            <HexAvatar round size={72} color={DS.lime} uri={avatarFor(motm.name)}><Text style={styles.summaryHeroInit}>{summaryInitials(motm.name)}</Text></HexAvatar>
             <View style={{ flex: 1, marginLeft: 14 }}>
               <Text style={styles.summaryHeroName} numberOfLines={1}>{motm.name}</Text>
               <Text style={styles.summaryHeroTeam} numberOfLines={1}>{motm.teamName}</Text>
@@ -951,7 +951,7 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
       {/* Fighter + Best Batter/Bowler/Fielder — smaller profile pic than the MotM */}
       {awardRows.map(({ key, label, icon, color, p }) => (
         <View key={key} style={[styles.summaryAwardRow, key === 'fighter' && { borderColor: color + '55' }]}>
-          <HexAvatar size={46} color={color} uri={avatarFor(p.name)}><Text style={styles.summaryAwardInit}>{summaryInitials(p.name)}</Text></HexAvatar>
+          <HexAvatar round size={46} color={color} uri={avatarFor(p.name)}><Text style={styles.summaryAwardInit}>{summaryInitials(p.name)}</Text></HexAvatar>
           <View style={{ flex: 1 }}>
             <View style={styles.summaryAwardLabelRow}>
               <Icon name={icon} size={12} color={color} />
@@ -975,7 +975,7 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
           {mvpOrder.map((p, i) => (
             <View key={i} style={[styles.mvpRankRow, i === 0 && { borderTopWidth: 0 }]}>
               <Text style={styles.mvpRank}>{i + 1}</Text>
-              <HexAvatar size={30} color={DS.surfaceHighest} uri={avatarFor(p.name)}><Text style={styles.mvpRankInit}>{summaryInitials(p.name)}</Text></HexAvatar>
+              <HexAvatar round size={30} color={DS.surfaceHighest} uri={avatarFor(p.name)}><Text style={styles.mvpRankInit}>{summaryInitials(p.name)}</Text></HexAvatar>
               <View style={{ flex: 1 }}>
                 <Text style={styles.mvpRankName} numberOfLines={1}>{p.name}</Text>
                 <Text style={styles.mvpRankTeam} numberOfLines={1}>{p.teamName}</Text>

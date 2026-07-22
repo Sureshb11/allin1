@@ -116,10 +116,9 @@ function FeedSkeleton({ DS }) {
       {[0, 1, 2].map((i) => (
         <View key={i} style={{ backgroundColor: DS.surface, borderRadius: 16, padding: 14, gap: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            {/* Hexagon, so the placeholder is the shape of the avatar that
-                replaces it — a circle here popped into a hexagon on load. */}
+            {/* Circle — matches the round person avatar it swaps in for. */}
             <Animated.View style={{ opacity }}>
-              <HexAvatar size={42} color={DS.surfaceHigh} />
+              <HexAvatar round size={42} color={DS.surfaceHigh} />
             </Animated.View>
             <View style={{ flex: 1, gap: 6 }}>
               <Bar w={120} h={12} />
@@ -141,23 +140,19 @@ function FeedSkeleton({ DS }) {
 }
 
 // ── Small building blocks ───────────────────────────────────────────────────
-// Hexagon, like every other avatar in the app (leaderboards, team badges, the
-// profile) — the Arena honeycomb motif. The feed was the last place still
-// drawing circles.
-//
-// The lime `ring` can't be a border: borderWidth follows the View's box, so on a
-// hexagon it would draw a square-ish outline around the shape. Instead a lime
-// hexagon sits behind a slightly smaller one, and the 2px it peeks out reads as
-// an outline that actually follows the silhouette.
+// This is a PERSON avatar (post author) → a circle. People read as circles in
+// mobile UI and photos crop cleanly into them; hexagons are reserved for teams
+// and emblems. The `ring` is an accent circle sitting behind a slightly smaller
+// one — the 2px it peeks out reads as an outline.
 function Avatar({ initial, color, size = 40, ring = false, uri = null }) {const DS = useTheme().colors;
   const inner = size - (ring ? 4 : 0);
   const face = (
-    <HexAvatar size={inner} color={color} uri={uri || undefined}>
+    <HexAvatar round size={inner} color={color} uri={uri || undefined}>
       <Text style={{ color: DS.white, fontWeight: '800', fontSize: inner * 0.4 }}>{initial}</Text>
     </HexAvatar>
   );
   if (!ring) return face;
-  return <HexAvatar size={size} color={DS.lime}>{face}</HexAvatar>;
+  return <HexAvatar round size={size} color={DS.lime}>{face}</HexAvatar>;
 }
 
 const LiveDot = () => {

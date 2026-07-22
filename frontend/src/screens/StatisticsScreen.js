@@ -125,7 +125,7 @@ function PlayerCard({ item, rank, board, cols }) {const DS = useTheme().colors;c
     <View style={[styles.card, isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 }]}>
       <View style={styles.cardHeader}>
         <View style={styles.avatarWrap}>
-          <HexAvatar size={42} color={avColor}>
+          <HexAvatar round size={42} color={avColor}>
             <Text style={[styles.avatarText, { color: '#fff' }]}>{initials(item.name)}</Text>
           </HexAvatar>
           <View style={styles.rankBadge}>
@@ -170,7 +170,7 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
     <View style={[styles.card, isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 }]}>
       <View style={styles.cardHeader}>
         <View style={styles.avatarWrap}>
-          <HexAvatar size={42} color={avColor}>
+          <HexAvatar round size={42} color={avColor}>
             <Text style={[styles.avatarText, { color: '#fff' }]}>{initials(item.name)}</Text>
           </HexAvatar>
           <View style={styles.rankBadge}>

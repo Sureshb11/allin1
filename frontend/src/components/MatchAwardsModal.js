@@ -54,7 +54,7 @@ export default function MatchAwardsModal({ visible, loading, awards, result, onC
                 <View style={s.heroCard}>
                   <View style={s.heroBadge}><Icon name="star-four-points" size={12} color={DS.onLime} /><Text style={s.heroBadgeTxt}>MAN OF THE MATCH</Text></View>
                   <View style={s.heroRow}>
-                    <HexAvatar size={56} color={DS.lime}><Text style={s.heroInitials}>{initials(motm.name)}</Text></HexAvatar>
+                    <HexAvatar round size={56} color={DS.lime}><Text style={s.heroInitials}>{initials(motm.name)}</Text></HexAvatar>
                     <View style={{ flex: 1, marginLeft: 14 }}>
                       <Text style={s.heroName} numberOfLines={1}>{motm.name}</Text>
                       <Text style={s.heroTeam} numberOfLines={1}>{motm.teamName}</Text>
