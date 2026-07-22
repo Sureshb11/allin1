@@ -589,7 +589,10 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
               <Path d="M14 4 7 11l7 7" stroke={A.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
-          <BrandLogo scale={0.8} textColor={A.ink} />
+          {/* The brand logo stays the house cricket-green here — it's the app's
+              identity, not the focused sport. Pin it explicitly, because the
+              committed theme accent (BrandLogo's default) could be any sport. */}
+          <BrandLogo scale={0.8} textColor={A.ink} badgeColor={sportColor('cricket', isDark)} />
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
