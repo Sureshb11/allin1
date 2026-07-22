@@ -18,7 +18,7 @@ const CRICKET = { dark: '#3ecf6e', light: '#0a5227' };
 
 const SIGNATURE = {
   football: '#2662ff',
-  basketball: '#7426ff',
+  basketball: '#fc8019',   // sunset orange (the ball's own colour) — was purple
   tennis: '#3cff14',
   kabaddi: '#ff5014',
   hockey: '#14ffcb',
