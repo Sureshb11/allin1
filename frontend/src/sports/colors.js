@@ -63,10 +63,17 @@ function darken(hex, target = 0.34) {
  * The sport's colour for the CURRENT theme: the neon on dark, a darkened
  * same-hue ink on light. Safe as a fill behind white text in both.
  */
+// Signatures already mid-toned enough to read on white — darkening them only
+// muddies the hue (a dark orange is just brown), so they keep their true colour
+// in light mode too. Basketball wears the ball's own sunset orange (#fc8019),
+// used with white text the way Swiggy does.
+const LIGHT_KEEP = new Set(['basketball']);
+
 export const sportColor = (id, isDark = true) => {
   // Cricket's greens are already theme-tuned, so they skip the darken pass.
   if (id === 'cricket') return isDark ? CRICKET.dark : CRICKET.light;
   const c = rawSportColor(id);
+  if (!isDark && LIGHT_KEEP.has(id)) return c;   // keep vibrant, don't brown it out
   return isDark ? c : darken(c);
 };
 
