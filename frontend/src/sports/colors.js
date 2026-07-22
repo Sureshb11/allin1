@@ -68,7 +68,7 @@ function darken(hex, target = 0.34) {
 // hand-tuned, softer tone: clearly the sport, but muted enough to sit quietly.
 // Dark mode still uses the vibrant signature.
 const LIGHT_OVERRIDE = {
-  basketball: '#e29257',   // soft sunset orange (muted #fc8019) — not brown, not loud
+  basketball: '#e0804a',   // warm, muted sunset orange (terracotta lean) — subtle on white
 };
 
 export const sportColor = (id, isDark = true) => {
