@@ -236,6 +236,28 @@ export const SPORT_CONFIG = {
     scoreLabel: rallyLabel('tabletennis'),   // auto games (to 11, best of 7)
   },
 
+  squash: {
+    icon: 'racquetball', color: '#2f26ff',
+    periods: ['Game 1', 'Game 2', 'Game 3', 'Game 4', 'Game 5'], maxPeriods: 5,
+    actions: [
+      { type: 'point',  label: 'Point',  icon: 'racquetball',   value: 1, color: DS.primary },
+      { type: 'stroke', label: 'Stroke', icon: 'whistle',       value: 1, color: '#f59e0b' },
+      { type: 'fault',  label: 'Fault',  icon: 'close-circle',  value: 0, color: DS.error },
+    ],
+    scoreLabel: rallyLabel('squash'),   // auto games (to 11, best of 5)
+  },
+
+  pickleball: {
+    icon: 'table-tennis', color: '#ff9a14',
+    periods: ['Game 1', 'Game 2', 'Game 3'], maxPeriods: 3,
+    actions: [
+      { type: 'point',  label: 'Point',  icon: 'table-tennis',   value: 1, color: DS.primary },
+      { type: 'ace',    label: 'Ace',    icon: 'lightning-bolt', value: 1, color: '#f59e0b' },
+      { type: 'fault',  label: 'Fault',  icon: 'close-circle',   value: 0, color: DS.error },
+    ],
+    scoreLabel: rallyLabel('pickleball'),   // auto games (to 11, best of 3)
+  },
+
   hockey: {
     icon: 'hockey-sticks', color: '#0284c7',
     periods: ['Q1', 'Q2', 'Q3', 'Q4'], maxPeriods: 4,

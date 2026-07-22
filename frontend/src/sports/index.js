@@ -64,6 +64,14 @@ const LIVE_SPORTS = new Set([
   'hockey',    // goals · Q1–Q4
   'handball',  // field goals + 7m throws · halves
   'basketball',// 2pt/3pt/free throw · Q1–Q4 + OT
+  // Wave 2 — rally/net sports on the shared auto game/set engine (RALLY_RULES,
+  // mirrored frontend↔backend). Config + backend parity (setup/result/stats)
+  // already in place.
+  'volleyball',// rally points → sets to 25 (final 15), best of 5
+  'badminton', // rally points → games to 21 (cap 30), best of 3
+  'tabletennis',// rally points → games to 11, best of 7
+  'squash',    // rally points → games to 11, best of 5
+  'pickleball',// rally points → games to 11, best of 3
 ]);
 
 /** Is this sport finished and enterable? */
