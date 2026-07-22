@@ -25,6 +25,8 @@ import AppHeader from '../components/AppHeader';
 import HexAvatar from '../components/HexAvatar';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { splitScore } from './MyMatchesScreen';
+import { getSelectedSport } from '../utils/selectedSport';
+import { getSport } from '../sports';
 
 const SW = Dimensions.get('window').width;
 const CARD_GAP = 12;
@@ -585,6 +587,16 @@ function CommentsSheet({ post, onClose, onAdd }) {const DS = useTheme().colors;c
 // ── Screen ──────────────────────────────────────────────────────────────────
 export default function CricketFeedScreen({ navigation }) {const { colors: DS, isDark } = useTheme();const s = useThemedStyles(makeS);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
   const meUser = useCurrentUser();
+  // This is the shared landing feed for EVERY match sport (rummy has its own
+  // flow). It renders the selected sport, themed from the registry; cricket keeps
+  // its exact routes/copy via the isCricket branch, everything else gets the
+  // generic match-detail route and sport-named copy.
+  const selectedSport = getSelectedSport().sport;
+  const sportId = selectedSport?.id || 'cricket';
+  const sportDef = getSport(sportId);
+  const isCricket = sportId === 'cricket';
+  const sportName = sportDef?.name || selectedSport?.name || 'Cricket';
+  const sportIcon = sportDef?.icon || 'cricket';
   const [posts, setPosts] = useState([]);
   const [matches, setMatches] = useState([]);
   const [activity, setActivity] = useState([]);   // ActivityFeed highlight cards
@@ -648,9 +660,9 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   }), []);
 
   const fetchFeed = useCallback(() => Promise.all([
-    legendsApi.getCircleMatches({ sport: 'cricket' }),
-    legendsApi.getPosts({ sport: 'cricket' }),
-    legendsApi.getFeed({ sport: 'cricket', limit: 12 }),
+    legendsApi.getCircleMatches({ sport: sportId }),
+    legendsApi.getPosts({ sport: sportId }),
+    legendsApi.getFeed({ sport: sportId, limit: 12 }),
   ]).then(([mr, pr, fr]) => {
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
@@ -681,7 +693,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
         });
       });
     }
-  }), [mapMatch, mapPost]);
+  }), [mapMatch, mapPost, sportId]);
 
   useFocusEffect(useCallback(() => {
     setLoading(true);
@@ -761,6 +773,25 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   // scorer, the live (auto-refreshing) scorecard for everyone else watching;
   // completed → scorecard.
   const openCircleMatch = useCallback(async (mt) => {
+    // Non-cricket sports: the scorer starts a scheduled match via the shared
+    // toss/squad setup (so the card's "Start Match" CTA is truthful); everything
+    // else opens the shared match detail. Resuming a live non-cricket match to
+    // score still happens from My Matches, as it did on the old SportFeed.
+    if (!isCricket) {
+      if (mt.status === 'scheduled' && mt.isScorer) {
+        navigation.navigate('MatchSetup', {
+          matchId: mt.id,
+          team1: mt.a.name, team2: mt.b.name,
+          team1Id: mt.team1Id, team2Id: mt.team2Id,
+          venue: '', matchType: mt.matchType,
+          sport: sportDef,
+        });
+      } else {
+        navigation.navigate('MatchStats', { matchId: mt.id, sportName });
+      }
+      return;
+    }
+
     if (mt.status === 'live') {
       navigation.navigate(mt.isScorer ? 'Scoring' : 'Scorecard', mt.isScorer ? { resume: true, matchId: mt.id } : { matchId: mt.id });
       return;
@@ -782,14 +813,14 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       firstInningId,
       sport: 'cricket',
     });
-  }, [navigation]);
+  }, [navigation, isCricket, sportName, sportDef]);
 
   const submitPost = useCallback(async () => {
     const text = composeText.trim();
     if (!text && !composeImage) return;
     setPosting(true);
     try {
-      const res = await legendsApi.createPost({ sport: 'cricket', text: text || '📷', mediaUrl: composeImage });
+      const res = await legendsApi.createPost({ sport: sportId, text: text || '📷', mediaUrl: composeImage });
       if (res.success) {
         setPosts((prev) => [mapPost(res.data), ...prev]);
         setComposeText('');
@@ -799,7 +830,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     } finally {
       setPosting(false);
     }
-  }, [composeText, composeImage, mapPost]);
+  }, [composeText, composeImage, mapPost, sportId]);
 
   const addComposePhoto = useCallback(async () => {
     setUploadingPhoto(true);
@@ -910,7 +941,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
                 key={it.id}
                 item={it}
                 onLike={toggleHighlightLike}
-                onOpen={() => it.payload?.matchId && navigation.navigate('Scorecard', { matchId: it.payload.matchId })}
+                onOpen={() => it.payload?.matchId && navigation.navigate(isCricket ? 'Scorecard' : 'MatchStats', { matchId: it.payload.matchId, sportName })}
               />
             ))}
           </ScrollView>
@@ -942,9 +973,9 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
         }
         ListEmptyComponent={!loading ?
           <View style={s.feedEmpty}>
-            <Icon name="cricket" size={40} color={DS.surfaceHighest} />
+            <Icon name={sportIcon} size={40} color={DS.surfaceHighest} />
             <Text style={s.feedEmptyTxt}>No posts yet</Text>
-            <Text style={s.feedEmptySub}>Be the first to share a cricket moment.</Text>
+            <Text style={s.feedEmptySub}>Be the first to share a {sportName.toLowerCase()} moment.</Text>
           </View>
           : <FeedSkeleton DS={DS} />
         }
@@ -984,7 +1015,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
               </View>
               <TextInput
                 style={s.composeInput}
-                placeholder="Share a cricket moment…"
+                placeholder={`Share a ${sportName.toLowerCase()} moment…`}
                 placeholderTextColor={DS.textMuted}
                 value={composeText}
                 onChangeText={setComposeText}

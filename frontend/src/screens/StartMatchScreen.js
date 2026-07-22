@@ -343,7 +343,7 @@ const StartMatchScreen = ({ navigation, route }) => {
         // (or push a separate matches page) behind it.
         navigation.reset({
           index: 0,
-          routes: [{ name: sport.id === 'cricket' ? 'CricketFeed' : 'SportFeed' }],
+          routes: [{ name: 'CricketFeed' }],
         });
         return;
       }

@@ -66,9 +66,11 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
   // Cricket gets its signature feed; other sports land on the (sport-aware)
   // dashboard, since the feed is cricket-specific.
   const sportId = stackRoute?.params?.initialSport?.id || 'cricket';
-  // Cricket keeps its bespoke feed; every other match sport uses the shared themed
-  // SportFeed template (themed per the selected sport via the registry).
-  const feedForSport = sportId === 'cricket' ? 'CricketFeed' : 'SportFeed';
+  // Every match sport now shares cricket's Instagram-style landing feed
+  // (CricketFeedScreen), themed per the selected sport from the registry. (Rummy
+  // never reaches here — it diverts to its own game flow at the picker.) The old
+  // SportFeed template is retained as a registered route but no longer the home.
+  const feedForSport = 'CricketFeed';
   const initial = initialRouteName || feedForSport;
   return (
   <Stack.Navigator initialRouteName={initial}>
@@ -456,7 +458,7 @@ const AppNavigator = ({ route: appRoute }) => {
         <AutoHideTabBar {...props} render={(p) => (
           <GlassDock {...p} sportIcon={sportIcon} sportName={sportName} pavilionLabel={pavilionLabel}
             sportId={initialSport?.id || 'cricket'}
-            homeRoute={(initialSport?.id || 'cricket') === 'cricket' ? 'CricketFeed' : 'SportFeed'} />
+            homeRoute="CricketFeed" />
         )} />
       )}
       screenOptions={{ headerShown: false }}
