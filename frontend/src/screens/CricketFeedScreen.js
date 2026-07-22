@@ -27,6 +27,7 @@ import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHid
 import { splitScore } from './MyMatchesScreen';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
+import { sportColor } from '../sports/colors';
 
 const SW = Dimensions.get('window').width;
 const CARD_GAP = 12;
@@ -597,6 +598,9 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   const isCricket = sportId === 'cricket';
   const sportName = sportDef?.name || selectedSport?.name || 'Cricket';
   const sportIcon = sportDef?.icon || 'cricket';
+  // Dark, white-text-safe ink for team hexes on match cards — the darkened
+  // signature colour (cricket → #0a5227, unchanged).
+  const hexInk = sportColor(sportId, false);
   const [posts, setPosts] = useState([]);
   const [matches, setMatches] = useState([]);
   const [activity, setActivity] = useState([]);   // ActivityFeed highlight cards
@@ -647,8 +651,10 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     // Server-authoritative flag from /circle — never derived from a cached local id.
     isScorer: !!m.isScorer,
     when: m.status === 'live' ? '' : timeAgo(m.createdAt),
-    a: { name: sideName(m.team1), short: initials(sideName(m.team1)), color: colorFor(sideName(m.team1)), score: m.score1 ?? '—', overs: '' },
-    b: { name: sideName(m.team2), short: initials(sideName(m.team2)), color: colorFor(sideName(m.team2) + 'x'), score: m.score2 ?? '—', overs: '' },
+    // Team hex is the sport's own dark ink (cricket resolves to the same #0a5227
+    // it always used) so the match card reads as this sport, not always green.
+    a: { name: sideName(m.team1), short: initials(sideName(m.team1)), color: hexInk, score: m.score1 ?? '—', overs: '' },
+    b: { name: sideName(m.team2), short: initials(sideName(m.team2)), color: hexInk, score: m.score2 ?? '—', overs: '' },
     result: m.result || (m.status === 'completed' ? 'Completed' : m.status === 'live' ? 'In progress' : 'Tap to start'),
     // Chase line ("X need 45 off 30 balls") for the current (2nd) innings — the
     // toss is a static fact that belongs on the Scorecard's INFO tab only, not
@@ -657,7 +663,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     // raw fields needed to launch the toss → scoring flow for a scheduled match
     team1Id: m.team1Id, team2Id: m.team2Id,
     overs: m.overs, matchType: m.matchType,
-  }), []);
+  }), [hexInk]);
 
   const fetchFeed = useCallback(() => Promise.all([
     legendsApi.getCircleMatches({ sport: sportId }),
