@@ -81,6 +81,9 @@ const LIVE_SPORTS = new Set([
   // Wave 4 — indigenous team sports. Point-based; config + backend parity in place.
   'kabaddi',   // touch/bonus/tackle points + all-out (·2), 2 halves
   'khokho',    // out/pole-dive (1) + dream-run (2), 4 turns
+  // Tennis — its bespoke engine (deriveTennis: 15/30/40, deuce/advantage, games,
+  // tiebreak at 6-6, best-of-3 sets) already exists frontend + backend; verified.
+  'tennis',
 ]);
 
 /** Is this sport finished and enterable? */
