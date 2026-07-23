@@ -1460,6 +1460,7 @@ router.get('/:id/sport-stats', async (req, res) => {
       data: {
         matchId: match.id,
         sport: match.sport,
+        status: match.status,   // lets the live-watch screen stop polling once done
         team1: match.team1,
         team2: match.team2,
         score,

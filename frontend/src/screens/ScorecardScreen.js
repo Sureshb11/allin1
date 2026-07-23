@@ -1283,6 +1283,7 @@ function InfoTab({ match }) {const styles = useThemedStyles(makeStyles);
 export default function ScorecardScreen({ route, navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const { matchId } = route.params || {};
   const [match, setMatch] = useState(null);
+  const matchRef = useRef(null);   // latest match, so the live poll can read status without a state churn
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [inningsTab, setInningsTab] = useState(0);   // which innings' overs to show (OVERS tab)
@@ -1401,6 +1402,10 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
       .finally(() => setLoading(false));
   }, [matchId]);
 
+  // Keep the ref pointed at the latest match so the live poll can read status
+  // (live vs completed) without threading state through the interval closure.
+  useEffect(() => { matchRef.current = match; }, [match]);
+
   // Watch a live match like Cricbuzz/Cricinfo: auto-refresh every few seconds while
   // this screen is focused, so the score/overs/wickets update without a manual pull.
   // Anyone can land here — team members and followers included — this is the
@@ -1409,10 +1414,13 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     useCallback(() => {
       loadScorecard(true);
 
-      // Live updates arrive as a silent data push from the scorer's device
-      // ("match X changed, refetch") — the API runs on Vercel serverless, which
-      // can't hold a socket. The interval below is only a safety net for a
-      // missed/throttled push, so it can be far slower than the old 6s poll.
+      // POLLING is the reliable transport (the API is on Vercel serverless — it
+      // can't hold a socket, and FCM data pushes are best-effort/throttled and
+      // only reach the two teams' members, not general spectators). So every
+      // watcher polls the live scorecard on a short cadence; the FCM push below is
+      // just a bonus that pulls an update in a touch sooner when it does arrive.
+      // (A too-slow 30s poll is what made the score look frozen until a refresh.)
+      const LIVE_POLL_MS = 6000;
       const stopPush = onForegroundMessage((msg) => {
         if (msg?.data?.type === 'score' && msg.data.matchId === matchId) {
           loadScorecard(false);
@@ -1420,13 +1428,13 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
       });
 
       const poll = setInterval(() => {
-        setMatch((cur) => {
-          // Stop entirely once the match is no longer live.
-          if (cur && cur.status !== 'live') { clearInterval(poll); return cur; }
-          loadScorecard(false);
-          return cur;
-        });
-      }, 30000);
+        // Read the latest status without mutating state; stop once it's not live.
+        if (matchRef.current && matchRef.current.status !== 'live') {
+          clearInterval(poll);
+          return;
+        }
+        loadScorecard(false);
+      }, LIVE_POLL_MS);
 
       return () => { clearInterval(poll); stopPush?.(); };
     }, [loadScorecard, matchId])

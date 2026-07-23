@@ -1,7 +1,7 @@
 import { useTheme, useThemedStyles, useArenaColors } from "../theme/ThemeContext"; // MatchStatsScreen — match view for event-based sports (football, basketball, …).
 // Shows the live/final score, per-period breakdown, and sport aggregates
 // (football: cards & corners) from GET /matches/:id/sport-stats.
-import { useState, useCallback, useLayoutEffect } from 'react';
+import { useState, useCallback, useLayoutEffect, useRef, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -51,6 +51,8 @@ const summarizePlayer = (p) =>
 export default function MatchStatsScreen({ navigation, route }) {const A = useArenaColors();const s = useThemedStyles(makeS);
   const { matchId, sportName = 'Match' } = route.params || {};
   const [stats, setStats] = useState(null);
+  const statusRef = useRef(null);   // latest match status, so the poll can stop once done
+  useEffect(() => { statusRef.current = stats?.status || null; }, [stats]);
   const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
@@ -61,15 +63,27 @@ export default function MatchStatsScreen({ navigation, route }) {const A = useAr
     });
   }, [navigation]);
 
+  // Live-watch like the cricket scorecard: poll the sport stats on a short cadence
+  // while focused so a spectator sees the score climb without a manual refresh.
+  // (The API is on Vercel serverless — polling is the reliable transport.) Stop
+  // once the match is no longer live.
   useFocusEffect(useCallback(() => {
     let alive = true;
-    setLoading(true);
-    legendsApi.getSportStats(matchId).then((res) => {
-      if (!alive) return;
-      setStats(res?.success ? res.data : null);
-      setLoading(false);
-    });
-    return () => {alive = false;};
+    const load = (spin) => {
+      if (spin) setLoading(true);
+      return legendsApi.getSportStats(matchId).then((res) => {
+        if (!alive) return;
+        if (res?.success) setStats(res.data);
+        else if (spin) setStats(null);
+        setLoading(false);
+      });
+    };
+    load(true);
+    const poll = setInterval(() => {
+      if (statusRef.current && statusRef.current !== 'live') { clearInterval(poll); return; }
+      load(false);
+    }, 6000);
+    return () => { alive = false; clearInterval(poll); };
   }, [matchId]));
 
   const t1 = teamName(stats?.team1);
