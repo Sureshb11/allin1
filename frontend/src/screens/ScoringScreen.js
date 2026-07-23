@@ -44,6 +44,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const [firstInningsScore, setFirstInningsScore] = useState({ runs: 0, wickets: 0, overs: 0 });
   const [striker, setStriker] = useState(null);
   const [nonStriker, setNonStriker] = useState(null);
+  // Current partnership: team runs when this pair came together, + legal balls
+  // they've faced since. Runs = currentScore.runs - pnrStartRuns. Reset on each
+  // new batter (a wicket ends the stand).
+  const [pnrStartRuns, setPnrStartRuns] = useState(0);
+  const [pnrBalls, setPnrBalls] = useState(0);
   const [currentBowler, setCurrentBowler] = useState(null);
   const [currentOver, setCurrentOver] = useState([]);
   const [isInnings2, setIsInnings2] = useState(false);
@@ -212,6 +217,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       setIsInnings2(!!d.isInnings2);
       if (d.isInnings2 && d.target) setFirstInningsScore({ runs: d.target - 1, wickets: 0, overs: 0 });
       setCurrentScore({ runs: d.totalRuns, wickets: d.wickets, overs: d.completedOvers, balls: d.ballInOver });
+      // Partnership isn't persisted ball-by-ball; anchor it to the resumed total so
+      // it reads 0 (0) now and grows from here. Self-corrects on the next wicket.
+      setPnrStartRuns(d.totalRuns || 0);
+      setPnrBalls(0);
       setBallCount(d.ballInOver || 0);
       setCurrentOver(d.currentOverBalls || []);
       setCurrentInningId(d.inningId);
@@ -457,6 +466,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     if ('lastOverBowlerId' in prev) setLastOverBowlerId(prev.lastOverBowlerId);
     if ('freeHit' in prev) setFreeHit(prev.freeHit);
     if (prev.retiredBatters) setRetiredBatters(prev.retiredBatters);
+    if ('pnrStartRuns' in prev) setPnrStartRuns(prev.pnrStartRuns);
+    if ('pnrBalls' in prev) setPnrBalls(prev.pnrBalls);
     setShowPlayerModal(false);
     setShowBowlerModal(false);
     const s = `${prev.score.runs}/${prev.score.wickets} (${prev.score.overs}.${prev.score.balls})`;
@@ -551,6 +562,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       // spell over-counted — invisible until the picker refused them.
       bowlerOvers: { ...bowlerOvers }, lastOverBowlerId,
       freeHit, retiredBatters: [...retiredBatters],
+      pnrStartRuns, pnrBalls,
     };
     // Tactile feedback: a firm buzz on a wicket, a light tick on every other ball.
     if (value === 'out') haptic.warn(); else haptic.tick();
@@ -643,6 +655,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         tookWkt = (wt === 'runout' || wt === 'retired') ? 0 : 1;   // run-outs aren't credited to the bowler
       }
       // 'penalty' → no batsman/bowler effect
+      // Partnership balls = legal deliveries faced by the pair (same rule as the over).
+      if (bowlerLegal) setPnrBalls((b) => b + 1);
       if (striker) setBatStats((prev) => {
         const c = prev[striker.id] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
         return { ...prev, [striker.id]: { runs: c.runs + batRuns, balls: c.balls + batFaced, fours: c.fours + isFour, sixes: c.sixes + isSix } };
@@ -767,6 +781,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       setCurrentOver([]); setBallCount(0); setHistory([]);
       // Fresh innings → reset per-player figures + bowling spell tracking + dismissals.
       setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setOutBatters([]); setRetiredBatters([]); setPendingCreaseSwap(false);
+      setPnrStartRuns(0); setPnrBalls(0);   // fresh openers → new partnership
       milestoneRef.current = { bat: {}, bowl: {}, streak: { id: null, n: 0 } };   // fresh milestones for the new innings
       setBattingTeamName(bowlingTeamName); setBowlingTeamName(battingTeamName);
       setBattingXI(bowlingXI); setBowlingXI(battingXI);
@@ -1168,17 +1183,22 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <Text style={styles.scoreOvers}> ({overStr}/{totalOvers})</Text>
             </View>
             {isInnings2 && !matchComplete &&
-              <Text style={styles.sbTargetText} numberOfLines={1}>
-                {battingTeamName || 'Batting'} need <Text style={styles.sbTargetNum}>{need}</Text> run{need !== 1 ? 's' : ''} off <Text style={styles.sbTargetNum}>{ballsLeft}</Text> ball{ballsLeft !== 1 ? 's' : ''}
-              </Text>
+              // The single most-watched number in a chase — give it a bold pill
+              // (need · balls left · required rate) instead of a quiet line.
+              <View style={styles.chaseStrip}>
+                <Text style={styles.chaseNeed}>NEED <Text style={styles.chaseBig}>{need}</Text></Text>
+                <View style={styles.chaseSep} />
+                <Text style={styles.chaseMeta}><Text style={styles.chaseNum}>{ballsLeft}</Text> ball{ballsLeft !== 1 ? 's' : ''}</Text>
+                {rrr ? <><View style={styles.chaseSep} /><Text style={styles.chaseMeta}>RRR <Text style={styles.chaseNum}>{rrr}</Text></Text></> : null}
+              </View>
             }
             {matchComplete &&
               <View style={styles.resultPill}><Text style={styles.resultText}>{matchResult}</Text></View>}
           </View>
           <View style={styles.sbRatesCol}>
             <View style={styles.sbRates}>
+              {/* RRR now lives in the chase pill (left); keep CRR here always. */}
               <Text style={styles.sbRate}>CRR <Text style={styles.sbRateNumCrr}>{crr}</Text></Text>
-              {rrr ? <Text style={styles.sbRate}>RRR <Text style={styles.sbRateNumRrr}>{rrr}</Text></Text> : null}
             </View>
             <Text style={styles.sbScorecardLink}>Scorecard ›</Text>
           </View>
@@ -1235,6 +1255,14 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                 return `${st.runs} (${st.balls})`; })() : ''}
             </Text>
           </View>
+
+          {/* Current partnership — quiet strip between bat and bowl. */}
+          {striker && nonStriker ? (
+            <View style={styles.pnrRow}>
+              <Text style={styles.pnrLabel}>PARTNERSHIP</Text>
+              <Text style={styles.pnrFig}>{Math.max(0, currentScore.runs - pnrStartRuns)} <Text style={styles.pnrFigSub}>({pnrBalls})</Text></Text>
+            </View>
+          ) : null}
 
           {/* Current bowler — emphasised (larger + full ink), no swap control. */}
           <View style={[styles.creaseRow, styles.creaseBowlerRow]}>
@@ -1414,6 +1442,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                   if (newBatterFor === 'nonstriker') nn = p; else ns = p;
                   if (pendingCreaseSwap) { const t = ns; ns = nn; nn = t; setPendingCreaseSwap(false); }
                   setStriker(ns); setNonStriker(nn);
+                  // A new batter on the crease starts a fresh partnership.
+                  setPnrStartRuns(currentScore.runs); setPnrBalls(0);
                   if (resuming) setRetiredBatters((prev) => prev.filter((r) => r.id !== p.id));
                   setShowPlayerModal(false); setNewBatterFor('striker');
                 }}>
@@ -1987,10 +2017,14 @@ const makeStyles = (DS) => StyleSheet.create({
   sbRates: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   sbRate: { fontSize: 11.5, fontWeight: '700', color: DS.textMuted },
   sbRateNumCrr: { color: DS.lime, fontWeight: '900' },
-  sbRateNumRrr: { color: DS.coral, fontWeight: '900' },
   sbScorecardLink: { fontSize: 11.5, fontWeight: '800', color: DS.blue },
-  sbTargetText: { fontSize: 13, fontWeight: '600', color: DS.coral, marginTop: 4 },
-  sbTargetNum: { fontWeight: '900', color: DS.coral },
+  // 2nd-innings chase pill: need · balls · RRR, loud.
+  chaseStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginTop: 6, backgroundColor: DS.coral + '1f', borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4 },
+  chaseNeed: { fontSize: 12.5, fontWeight: '900', color: DS.coral, letterSpacing: 0.5 },
+  chaseBig: { fontSize: 16, fontWeight: '900', color: DS.coral },
+  chaseNum: { fontWeight: '900', color: DS.coral },
+  chaseMeta: { fontSize: 12, fontWeight: '700', color: DS.coral },
+  chaseSep: { width: 3, height: 3, borderRadius: 2, backgroundColor: DS.coral, opacity: 0.5 },
   resultPill: { marginTop: 8, backgroundColor: DS.lime, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4, alignSelf: 'flex-start' },
   resultText: { fontSize: 12, fontWeight: '800', color: DS.bg },
 
@@ -2016,6 +2050,10 @@ const makeStyles = (DS) => StyleSheet.create({
   creaseStrikerRow: { backgroundColor: DS.lime + '14', borderRadius: 10, marginHorizontal: -6, paddingHorizontal: 6 },
   creaseAvatar: { marginLeft: -2 },
   creaseRowDivider: { paddingTop: 3 },
+  pnrRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 5, marginTop: 2, borderTopWidth: 1, borderTopColor: DS.line },
+  pnrLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1, color: DS.textMuted },
+  pnrFig: { fontSize: 13, fontWeight: '800', color: DS.textPrimary },
+  pnrFigSub: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
   creaseBowlerRow: { borderTopWidth: 1, borderTopColor: DS.line },
   // The bundled font is single-weight (see res/font/selawik.xml — every weight
   // maps to Regular), so "bold" can't come from fontWeight. The striker is
