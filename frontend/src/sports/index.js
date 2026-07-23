@@ -78,6 +78,9 @@ const LIVE_SPORTS = new Set([
   'wrestling', // takedown/suplex/escape/reversal/nearfall/penalty-pt + pin
   'judo',      // ippon / waza-ari / osaekomi + shido
   'karate',    // yuko / waza-ari / ippon / nage-waza + penalty
+  // Wave 4 — indigenous team sports. Point-based; config + backend parity in place.
+  'kabaddi',   // touch/bonus/tackle points + all-out (·2), 2 halves
+  'khokho',    // out/pole-dive (1) + dream-run (2), 4 turns
 ]);
 
 /** Is this sport finished and enterable? */
