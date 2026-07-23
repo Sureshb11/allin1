@@ -17,7 +17,7 @@ Postgres on **Neon**, push via **FCM** (Firebase project `locallegends-a4a69`).
 | `Notification` had no indexes; every read was a sequential scan | `(userId, createdAt)` + `(userId, read)` — unread count is now an Index Only Scan | `07ff46b` |
 | `GET /notifications` returned **every** notification ever | cursor paging, default 30 / cap 100, server-side unread count | `07ff46b` |
 | Notification table grew forever (fan-out on write) | 60-day retention, prunes **read** rows only, runs on ~1/200 writes | `07ff46b` |
-| Live scorecard polled every 6s per watcher | silent data-only FCM push → refetch; interval now a 30s safety net | `f35a213` |
+| ~~Live scorecard polled every 6s per watcher~~ **REVERTED** | The "FCM push primary, 30s poll" change (`f35a213`) made the score look **frozen for spectators** — silent FCM pushes are throttled and only reach team members, so general watchers got a 30s-or-never refresh. Restored the reliable **6s poll**; realtime is the real fix, not a slower poll. | `f35a213` → reverted `38e4bf0` |
 
 ---
 
@@ -25,9 +25,17 @@ Postgres on **Neon**, push via **FCM** (Firebase project `locallegends-a4a69`).
 
 ### 1. Realtime transport (the big one)
 
+> **Concrete, code-grounded plan:** see
+> [`LIVE-SCORING-REALTIME.md`](./LIVE-SCORING-REALTIME.md) — phased (edge cache →
+> managed pub/sub → Azure SignalR) with the exact `PUT /:id/score` publish hook and
+> the client subscribe path. Summary below.
+
 The live-score updates use a **data-only FCM push** rather than WebSockets/SSE.
 That was not a preference — **Vercel serverless cannot hold a long-lived
-connection**. WS/SSE would have worked locally and failed in production.
+connection**. WS/SSE would have worked locally and failed in production. The
+cheapest win *before* sockets is **edge-caching the scorecard read** (Vercel
+`s-maxage=2` + stale-while-revalidate): thousands of pollers collapse to one origin
+query every 2s, no client change.
 
 **On Azure this constraint disappears.** App Service and Container Apps both
 support WebSockets, so the options become:
