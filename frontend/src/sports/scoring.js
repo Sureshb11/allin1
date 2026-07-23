@@ -108,6 +108,13 @@ const RANK = {
   boxing:     (ev, t) => cnt(ev, t, 'round-win'),
   wrestling:  (ev, t) => pts(ev, t, ['takedown', 'suplex', 'escape', 'reversal', 'nearfall', 'penalty-pt']),
   judo:       (ev, t) => cnt(ev, t, 'waza-ari') + cnt(ev, t, 'osaekomi'),
+  // Judged, best-run-wins (not a sum): the highest single run-score counts,
+  // matching scoreLabel + the backend. Without this, decideWinner's fallback
+  // would sum every run and crown the wrong skater.
+  skateboard: (ev, t) => {
+    const runs = ev.filter((e) => e.teamId === t && e.eventType.startsWith('run-score'));
+    return runs.length ? Math.max(...runs.map((e) => e.value)) : 0;
+  },
 };
 
 /** Decide a winner: { side:'team1'|'team2'|null, reason, instant }. */

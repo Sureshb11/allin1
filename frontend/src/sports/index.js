@@ -84,6 +84,9 @@ const LIVE_SPORTS = new Set([
   // Tennis — its bespoke engine (deriveTennis: 15/30/40, deuce/advantage, games,
   // tiebreak at 6-6, best-of-3 sets) already exists frontend + backend; verified.
   'tennis',
+  // Skateboard — judged, best-run-wins. Config + backend parity in place; added a
+  // RANK.skateboard (max run, not sum) so decideWinner matches the score display.
+  'skateboard',
 ]);
 
 /** Is this sport finished and enterable? */
