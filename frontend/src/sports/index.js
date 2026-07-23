@@ -56,20 +56,20 @@ export const sportMeta = (id) => {
 // Shipping a sport = add its id here (and give it the screens/config it needs).
 const LIVE_SPORTS = new Set([
   'cricket',   // the flagship — fully polished, ships now.
+  'rummy',     // complete standalone Pool-Rummy game (its own flow), ships too.
 ]);
 // ── Gated for a CRICKET-FIRST launch ─────────────────────────────────────────
 // Everything below is fully BUILT and verified (frontend scoring.js config +
 // shared engines + backend matches.js parity — scoring math checked
 // deterministically) but deliberately gated behind the "Warming Up" state in the
 // Arena. Re-open a wave by moving its ids into the Set above:
-//   'rummy'                                              — Pool Rummy game flow
 //   'football'                                           — generic SportEvent
 //   'hockey','handball','basketball'                     — Wave 1 goal/point
 //   'volleyball','badminton','tabletennis','squash','pickleball' — Wave 2 rally
 //   'boxing','wrestling','judo','karate'                 — Wave 3 combat 1v1
 //   'kabaddi','khokho'                                   — Wave 4 indigenous
 //   'tennis','skateboard'                                — bespoke engines
-// (18 sports, all green-lit — flip whenever each is deemed launch-ready.)
+// (17 sports, all green-lit — flip whenever each is deemed launch-ready.)
 
 /** Is this sport finished and enterable? */
 export const isSportLive = (id) => LIVE_SPORTS.has(id);
