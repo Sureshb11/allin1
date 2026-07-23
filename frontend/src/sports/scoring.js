@@ -91,9 +91,9 @@ const tennisLabel = (events, teamId, oppId) => {
 // ── Winner detection ────────────────────────────────────────────────────────
 // Instant finishes (the event ends the match) + a numeric rank fallback.
 const INSTANT = {
-  boxing:    (ev, t) => cnt(ev, t, 'ko') > 0 && 'KO',
+  boxing:    (ev, t) => (cnt(ev, t, 'ko') > 0 || cnt(ev, t, 'tko') > 0) && 'KO',
   wrestling: (ev, t) => cnt(ev, t, 'pin') > 0 && 'Pin',
-  judo:      (ev, t) => (cnt(ev, t, 'ippon') > 0 || cnt(ev, t, 'waza-ari') >= 2) && 'Ippon',
+  judo:      (ev, t) => (cnt(ev, t, 'ippon') > 0 || cnt(ev, t, 'waza-ari') + cnt(ev, t, 'osaekomi') >= 2) && 'Ippon',
 };
 const setUnits = (sport, ev, t, o) =>
   sport === 'tennis' ? deriveTennis(ev, t, o).team1.sets : deriveRally(ev, t, o, RALLY_RULES[sport]).team1.units;
@@ -104,10 +104,10 @@ const RANK = {
   basketball: (ev, t) => pts(ev, t, ['2pt', '3pt', 'freethrow']),
   kabaddi:    (ev, t) => pts(ev, t, ['touch-point', 'bonus-point', 'tackle-point']) + cnt(ev, t, 'all-out') * 2,
   khokho:     (ev, t) => pts(ev, t, ['out', 'pole-dive', 'bonus']),
-  karate:     (ev, t) => pts(ev, t, ['yuko', 'waza-ari', 'ippon']),
+  karate:     (ev, t) => pts(ev, t, ['yuko', 'waza-ari', 'ippon', 'nage-waza']),
   boxing:     (ev, t) => cnt(ev, t, 'round-win'),
-  wrestling:  (ev, t) => pts(ev, t, ['takedown', 'escape', 'reversal', 'nearfall']),
-  judo:       (ev, t) => cnt(ev, t, 'waza-ari'),
+  wrestling:  (ev, t) => pts(ev, t, ['takedown', 'suplex', 'escape', 'reversal', 'nearfall', 'penalty-pt']),
+  judo:       (ev, t) => cnt(ev, t, 'waza-ari') + cnt(ev, t, 'osaekomi'),
 };
 
 /** Decide a winner: { side:'team1'|'team2'|null, reason, instant }. */
@@ -301,14 +301,21 @@ export const SPORT_CONFIG = {
     icon: 'boxing-glove', color: '#9f1239',
     periods: ['Rd 1','Rd 2','Rd 3','Rd 4','Rd 5','Rd 6','Rd 7','Rd 8','Rd 9','Rd 10','Rd 11','Rd 12'],
     maxPeriods: 12,
+    // Signature punches are stats only — a boxing bout is won on rounds or a
+    // stoppage (KO/TKO), never on punch count — so they carry value 0.
     actions: [
-      { type: 'punch-landed', label: 'Punch',     icon: 'boxing-glove',    value: 1, color: DS.primary },
-      { type: 'knockdown',    label: 'Knockdown', icon: 'arrow-down-bold', value: 0, color: '#f97316' },
-      { type: 'round-win',    label: 'Round Win', icon: 'trophy-outline',  value: 1, color: '#22c55e' },
-      { type: 'ko',           label: 'KO',        icon: 'lightning-bolt',  value: 0, color: DS.error },
+      { type: 'jab',       label: 'Jab',       icon: 'boxing-glove',    value: 0, color: DS.primary },
+      { type: 'cross',     label: 'Cross',     icon: 'boxing-glove',    value: 0, color: DS.primary },
+      { type: 'hook',      label: 'Hook',      icon: 'boxing-glove',    value: 0, color: '#0ea5e9' },
+      { type: 'uppercut',  label: 'Uppercut',  icon: 'boxing-glove',    value: 0, color: '#8b5cf6' },
+      { type: 'body-shot', label: 'Body Shot', icon: 'boxing-glove',    value: 0, color: '#f59e0b' },
+      { type: 'knockdown', label: 'Knockdown', icon: 'arrow-down-bold', value: 0, color: '#f97316' },
+      { type: 'round-win', label: 'Round Win', icon: 'trophy-outline',  value: 1, color: '#22c55e' },
+      { type: 'ko',        label: 'KO',        icon: 'lightning-bolt',  value: 0, color: DS.error },
+      { type: 'tko',       label: 'TKO',       icon: 'flash-alert',     value: 0, color: DS.error },
     ],
     scoreLabel: (events, teamId) => {
-      if (cnt(events, teamId, 'ko') > 0) return 'KO';
+      if (cnt(events, teamId, 'ko') > 0 || cnt(events, teamId, 'tko') > 0) return 'KO';
       return `${cnt(events, teamId, 'round-win')} rds`;
     },
   },
@@ -317,26 +324,31 @@ export const SPORT_CONFIG = {
     icon: 'karate', color: '#b91c1c',
     periods: ['Bout'], maxPeriods: 1,
     actions: [
-      { type: 'yuko',     label: 'Yuko (1)',      icon: 'karate',       value: 1, color: '#0ea5e9' },
-      { type: 'waza-ari', label: 'Waza-ari (2)', icon: 'karate',       value: 2, color: '#f59e0b' },
-      { type: 'ippon',    label: 'Ippon (3)',    icon: 'karate',       value: 3, color: '#22c55e' },
-      { type: 'penalty',  label: 'Penalty',       icon: 'close-circle', value: 0, color: DS.error },
+      { type: 'yuko',      label: 'Yuko · Punch',   icon: 'karate',       value: 1, color: '#0ea5e9' },
+      { type: 'waza-ari',  label: 'Waza-ari · Kick', icon: 'karate',      value: 2, color: '#f59e0b' },
+      { type: 'ippon',     label: 'Ippon · Head',    icon: 'karate',      value: 3, color: '#22c55e' },
+      { type: 'nage-waza', label: 'Throw · Nage',    icon: 'judo',        value: 3, color: '#22c55e' },
+      { type: 'penalty',   label: 'Penalty',         icon: 'close-circle', value: 0, color: DS.error },
     ],
-    scoreLabel: (events, teamId) => String(pts(events, teamId, ['yuko', 'waza-ari', 'ippon'])),
+    scoreLabel: (events, teamId) => String(pts(events, teamId, ['yuko', 'waza-ari', 'ippon', 'nage-waza'])),
   },
 
   judo: {
     // Modern judo (post-2017): only waza-ari & ippon. Two waza-ari = ippon = win.
     icon: 'human-handsup', color: '#1d4ed8',
     periods: ['Bout'], maxPeriods: 1,
+    // Osaekomi (a held pin) scores like a waza-ari; two waza-ari (from throws or
+    // holds) make ippon and win the bout.
     actions: [
       { type: 'ippon',    label: 'Ippon',    icon: 'lightning-bolt', value: 1, color: '#22c55e' },
       { type: 'waza-ari', label: 'Waza-ari', icon: 'human-handsup',  value: 1, color: '#f59e0b' },
+      { type: 'osaekomi', label: 'Osaekomi', icon: 'human-handsdown', value: 1, color: '#0ea5e9' },
       { type: 'penalty',  label: 'Shido',    icon: 'close-circle',   value: 0, color: DS.error },
     ],
     scoreLabel: (events, teamId) => {
-      if (cnt(events, teamId, 'ippon') > 0 || cnt(events, teamId, 'waza-ari') >= 2) return 'Ippon';
-      return `${cnt(events, teamId, 'waza-ari')} wa`;
+      const wa = cnt(events, teamId, 'waza-ari') + cnt(events, teamId, 'osaekomi');
+      if (cnt(events, teamId, 'ippon') > 0 || wa >= 2) return 'Ippon';
+      return `${wa} wa`;
     },
   },
 
@@ -344,15 +356,17 @@ export const SPORT_CONFIG = {
     icon: 'arm-flex-outline', color: '#dc2626',
     periods: ['Period 1', 'Period 2', 'Period 3'], maxPeriods: 3,
     actions: [
-      { type: 'takedown', label: 'Takedown (2)', icon: 'arm-flex-outline', value: 2, color: DS.primary },
-      { type: 'escape',   label: 'Escape (1)',   icon: 'run',              value: 1, color: '#0ea5e9' },
-      { type: 'reversal', label: 'Reversal (2)', icon: 'refresh',          value: 2, color: '#8b5cf6' },
-      { type: 'nearfall', label: 'Nearfall',     icon: 'chevron-down',     value: 2, color: '#f59e0b' },
-      { type: 'pin',      label: 'Pin',          icon: 'lightning-bolt',   value: 0, color: DS.error },
+      { type: 'takedown',    label: 'Takedown (2)', icon: 'arm-flex-outline', value: 2, color: DS.primary },
+      { type: 'suplex',      label: 'Suplex (5)',   icon: 'axis-z-rotate-clockwise', value: 5, color: '#e11d48' },
+      { type: 'escape',      label: 'Escape (1)',   icon: 'run',              value: 1, color: '#0ea5e9' },
+      { type: 'reversal',    label: 'Reversal (2)', icon: 'refresh',          value: 2, color: '#8b5cf6' },
+      { type: 'nearfall',    label: 'Nearfall (2)', icon: 'chevron-down',     value: 2, color: '#f59e0b' },
+      { type: 'penalty-pt',  label: 'Penalty Pt',   icon: 'plus-circle',      value: 1, color: '#14b8a6' },
+      { type: 'pin',         label: 'Pin',          icon: 'lightning-bolt',   value: 0, color: DS.error },
     ],
     scoreLabel: (events, teamId) => {
       if (cnt(events, teamId, 'pin') > 0) return 'Pin!';
-      return String(pts(events, teamId, ['takedown', 'escape', 'reversal', 'nearfall']));
+      return String(pts(events, teamId, ['takedown', 'suplex', 'escape', 'reversal', 'nearfall', 'penalty-pt']));
     },
   },
 

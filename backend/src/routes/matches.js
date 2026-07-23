@@ -1595,8 +1595,8 @@ function computeSportScore(sport, events, team1Id, team2Id) {
       // round-win events declare winner of each round
       const rw1 = countByTeam(events, team1Id, 'round-win');
       const rw2 = countByTeam(events, team2Id, 'round-win');
-      const ko1 = countByTeam(events, team1Id, 'ko');
-      const ko2 = countByTeam(events, team2Id, 'ko');
+      const ko1 = countByTeam(events, team1Id, 'ko') + countByTeam(events, team1Id, 'tko');
+      const ko2 = countByTeam(events, team2Id, 'ko') + countByTeam(events, team2Id, 'tko');
       if (ko1 > 0) return { score1: 'KO Win', score2: '-' };
       if (ko2 > 0) return { score1: '-', score2: 'KO Win' };
       return { score1: `${rw1} rds`, score2: `${rw2} rds` };
@@ -1604,25 +1604,24 @@ function computeSportScore(sport, events, team1Id, team2Id) {
 
     case 'karate': {
       // yuko=1, waza-ari=2, ippon=3 (ippon ends the match)
-      const pts1 = sum(events, team1Id, ['yuko', 'waza-ari', 'ippon']);
-      const pts2 = sum(events, team2Id, ['yuko', 'waza-ari', 'ippon']);
+      const pts1 = sum(events, team1Id, ['yuko', 'waza-ari', 'ippon', 'nage-waza']);
+      const pts2 = sum(events, team2Id, ['yuko', 'waza-ari', 'ippon', 'nage-waza']);
       return { score1: String(pts1), score2: String(pts2) };
     }
 
     case 'judo': {
       // Modern judo: waza-ari & ippon only; ippon (or 2 waza-ari) wins the bout.
-      const win = (tid) => countByTeam(events, tid, 'ippon') > 0 || countByTeam(events, tid, 'waza-ari') >= 2;
+      const wa = (tid) => countByTeam(events, tid, 'waza-ari') + countByTeam(events, tid, 'osaekomi');
+      const win = (tid) => countByTeam(events, tid, 'ippon') > 0 || wa(tid) >= 2;
       if (win(team1Id)) return { score1: 'Ippon', score2: '-' };
       if (win(team2Id)) return { score1: '-', score2: 'Ippon' };
-      const w1 = countByTeam(events, team1Id, 'waza-ari');
-      const w2 = countByTeam(events, team2Id, 'waza-ari');
-      return { score1: `${w1} wa`, score2: `${w2} wa` };
+      return { score1: `${wa(team1Id)} wa`, score2: `${wa(team2Id)} wa` };
     }
 
     case 'wrestling': {
       // takedown=2, escape=1, reversal=2, nearfall=2-3 (use value field), pin ends match
-      const p1 = sum(events, team1Id, ['takedown', 'escape', 'reversal', 'nearfall']);
-      const p2 = sum(events, team2Id, ['takedown', 'escape', 'reversal', 'nearfall']);
+      const p1 = sum(events, team1Id, ['takedown', 'suplex', 'escape', 'reversal', 'nearfall', 'penalty-pt']);
+      const p2 = sum(events, team2Id, ['takedown', 'suplex', 'escape', 'reversal', 'nearfall', 'penalty-pt']);
       const pin1 = countByTeam(events, team1Id, 'pin');
       const pin2 = countByTeam(events, team2Id, 'pin');
       if (pin1 > 0) return { score1: 'Pin Win', score2: '-' };
@@ -1726,7 +1725,7 @@ function computePlayerStats(sport, events) {
       };
     case 'boxing':
       return {
-        punchesLanded: events.filter(e => e.eventType === 'punch-landed').length,
+        punchesLanded: events.filter(e => ['jab','cross','hook','uppercut','body-shot'].includes(e.eventType)).length,
         knockdowns:    events.filter(e => e.eventType === 'knockdown').length,
         roundsWon:     events.filter(e => e.eventType === 'round-win').length,
       };
@@ -1776,7 +1775,7 @@ function computePlayerStats(sport, events) {
     case 'judo':
     case 'karate':
       return {
-        points:    events.filter(e => ['yuko','waza-ari','ippon'].includes(e.eventType)).reduce((s,e) => s + e.value, 0),
+        points:    events.filter(e => ['yuko','waza-ari','ippon','nage-waza'].includes(e.eventType)).reduce((s,e) => s + e.value, 0),
         ippons:    events.filter(e => e.eventType === 'ippon').length,
         wazaAri:   events.filter(e => e.eventType === 'waza-ari').length,
         penalties: events.filter(e => e.eventType === 'penalty').length,
@@ -1851,7 +1850,8 @@ function computeSportAggregates(sport, events, team1Id, team2Id) {
     }
     case 'boxing': {
       const knockdowns = { team1: countByTeam(events, team1Id, 'knockdown'), team2: countByTeam(events, team2Id, 'knockdown') };
-      const punches    = { team1: countByTeam(events, team1Id, 'punch-landed'), team2: countByTeam(events, team2Id, 'punch-landed') };
+      const punchOf = (tid) => events.filter(e => e.teamId === tid && ['jab','cross','hook','uppercut','body-shot'].includes(e.eventType)).length;
+      const punches    = { team1: punchOf(team1Id), team2: punchOf(team2Id) };
       const roundsWon  = { team1: countByTeam(events, team1Id, 'round-win'), team2: countByTeam(events, team2Id, 'round-win') };
       return { knockdowns, punches, roundsWon };
     }

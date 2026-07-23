@@ -72,6 +72,12 @@ const LIVE_SPORTS = new Set([
   'tabletennis',// rally points → games to 11, best of 7
   'squash',    // rally points → games to 11, best of 5
   'pickleball',// rally points → games to 11, best of 3
+  // Wave 3 — combat 1v1 sports. Signature moves score per real rules; instant
+  // finishes (KO/TKO, Pin, Ippon) end the bout. Config + backend parity in place.
+  'boxing',    // rounds + KO/TKO; signature punches are stats
+  'wrestling', // takedown/suplex/escape/reversal/nearfall/penalty-pt + pin
+  'judo',      // ippon / waza-ari / osaekomi + shido
+  'karate',    // yuko / waza-ari / ippon / nage-waza + penalty
 ]);
 
 /** Is this sport finished and enterable? */
