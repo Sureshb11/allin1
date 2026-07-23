@@ -526,9 +526,9 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
   // half-built flow. Sports go live one at a time via LIVE_SPORTS in src/sports.
   const showComingSoon = useCallback((cell) => {
     Alert.alert(
-      `${cell.name} is coming soon`,
-      `We're building ${cell.name} out properly — scoring, stats and teams. Cricket is ready to play now.`,
-      [{ text: 'Got it' }],
+      `${cell.name} is warming up`,
+      `${cell.name} is in the final warm-up — we're putting the last touches on its scoring, stats and teams before it steps onto the field. Cricket's already match-ready, so grab a bat and go. 🏏`,
+      [{ text: "Can't wait" }],
     );
   }, []);
 
@@ -747,7 +747,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
           transform: [{ translateY: readoutAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
         }]}>
           <Text style={[s.tagText, { color: moodInk }]}>
-            {focusLive ? (focus.tag || '').toUpperCase() : 'IN THE NETS'}
+            {focusLive ? (focus.tag || '').toUpperCase() : 'WARMING UP'}
           </Text>
         </Animated.View>
         {/* Only finished sports can be entered; the rest read as Coming Soon and
@@ -768,7 +768,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
             }}>
             <Text style={[s.startSolidTxt, !focusLive && s.startSoonTxt]}
               numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-              {focusLive ? `PLAY ${focus.name.toUpperCase()}` : 'COMING SOON'}
+              {focusLive ? `PLAY ${focus.name.toUpperCase()}` : 'ALMOST MATCH-READY'}
             </Text>
             <Icon name={focusLive ? 'play' : 'progress-wrench'} size={20}
               color={focusLive ? '#ffffff' : A.textMuted} />

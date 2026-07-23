@@ -55,39 +55,21 @@ export const sportMeta = (id) => {
 //
 // Shipping a sport = add its id here (and give it the screens/config it needs).
 const LIVE_SPORTS = new Set([
-  'cricket',   // bespoke feed + full ball-by-ball scoring
-  'rummy',     // dedicated Pool Rummy game flow
-  'football',  // generic event scoring (SportEvent) + themed feed
-  // Wave 1 — goal/point team sports on football's generic SportEvent flow.
-  // Full frontend config (scoring.js) + backend parity (setup schema, result +
-  // stats in matches.js) already in place; the gate was the only thing missing.
-  'hockey',    // goals · Q1–Q4
-  'handball',  // field goals + 7m throws · halves
-  'basketball',// 2pt/3pt/free throw · Q1–Q4 + OT
-  // Wave 2 — rally/net sports on the shared auto game/set engine (RALLY_RULES,
-  // mirrored frontend↔backend). Config + backend parity (setup/result/stats)
-  // already in place.
-  'volleyball',// rally points → sets to 25 (final 15), best of 5
-  'badminton', // rally points → games to 21 (cap 30), best of 3
-  'tabletennis',// rally points → games to 11, best of 7
-  'squash',    // rally points → games to 11, best of 5
-  'pickleball',// rally points → games to 11, best of 3
-  // Wave 3 — combat 1v1 sports. Signature moves score per real rules; instant
-  // finishes (KO/TKO, Pin, Ippon) end the bout. Config + backend parity in place.
-  'boxing',    // rounds + KO/TKO; signature punches are stats
-  'wrestling', // takedown/suplex/escape/reversal/nearfall/penalty-pt + pin
-  'judo',      // ippon / waza-ari / osaekomi + shido
-  'karate',    // yuko / waza-ari / ippon / nage-waza + penalty
-  // Wave 4 — indigenous team sports. Point-based; config + backend parity in place.
-  'kabaddi',   // touch/bonus/tackle points + all-out (·2), 2 halves
-  'khokho',    // out/pole-dive (1) + dream-run (2), 4 turns
-  // Tennis — its bespoke engine (deriveTennis: 15/30/40, deuce/advantage, games,
-  // tiebreak at 6-6, best-of-3 sets) already exists frontend + backend; verified.
-  'tennis',
-  // Skateboard — judged, best-run-wins. Config + backend parity in place; added a
-  // RANK.skateboard (max run, not sum) so decideWinner matches the score display.
-  'skateboard',
+  'cricket',   // the flagship — fully polished, ships now.
 ]);
+// ── Gated for a CRICKET-FIRST launch ─────────────────────────────────────────
+// Everything below is fully BUILT and verified (frontend scoring.js config +
+// shared engines + backend matches.js parity — scoring math checked
+// deterministically) but deliberately gated behind the "Warming Up" state in the
+// Arena. Re-open a wave by moving its ids into the Set above:
+//   'rummy'                                              — Pool Rummy game flow
+//   'football'                                           — generic SportEvent
+//   'hockey','handball','basketball'                     — Wave 1 goal/point
+//   'volleyball','badminton','tabletennis','squash','pickleball' — Wave 2 rally
+//   'boxing','wrestling','judo','karate'                 — Wave 3 combat 1v1
+//   'kabaddi','khokho'                                   — Wave 4 indigenous
+//   'tennis','skateboard'                                — bespoke engines
+// (18 sports, all green-lit — flip whenever each is deemed launch-ready.)
 
 /** Is this sport finished and enterable? */
 export const isSportLive = (id) => LIVE_SPORTS.has(id);
