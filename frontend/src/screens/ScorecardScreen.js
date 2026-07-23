@@ -18,7 +18,8 @@ import PlayerAvatar from "../components/PlayerAvatar";
 import HexAvatar from "../components/HexAvatar";
 import LiveBall from "../components/CricketBall/LiveBall";
 import EventSound from "../components/CricketBall/EventSound";
-import { useDockLock, useHideTabBarOnScroll } from "../components/AutoHideTabBar";
+import { useDockLock, useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
+import Skeleton from "../components/Skeleton";
 
 // Latest COMPLETED over of the current (last) innings — used to pop an
 // auto-dismissing banner the moment a live watcher's poll picks up a newly
@@ -483,6 +484,7 @@ function buildCommentary(innings) {
         text: ballCommentary(ball, bowlerName),
         isWicket: !!ball.isWicket,
         isBoundary: !ball.extraType && (ball.runs === 4 || ball.runs === 6),
+        isSix: !ball.extraType && ball.runs === 6,   // a six gets its own accent — it's the moment
       });
     });
     const oe = overEndByNum[over.overNumber];
@@ -1188,7 +1190,13 @@ function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
           ) : (
             <View key={line.key} style={styles.commentaryRow}>
               <Text style={[styles.commentaryLabel, line.isWicket && { color: DS.live }]}>{line.label || ''}</Text>
-              <Text style={[styles.commentaryText, line.isWicket && { fontWeight: '800', color: DS.textPrimary }, line.isBoundary && { color: DS.lime, fontWeight: '700' }]}>
+              {/* Six gets its own amber — the single-green accent theme folds
+                  blue/success back to green, so a four and a six looked identical.
+                  Amber (#f59e0b) is the app's "special" colour (aces/bonuses). */}
+              <Text style={[styles.commentaryText,
+                line.isWicket && { fontWeight: '800', color: DS.textPrimary },
+                line.isBoundary && !line.isSix && { color: DS.lime, fontWeight: '700' },
+                line.isSix && { color: '#f59e0b', fontWeight: '800' }]}>
                 {line.text || ''}
               </Text>
             </View>
@@ -1312,6 +1320,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   // On a non-live match the dock is unlocked, so the tab pages hide it on scroll
   // like every other screen. While live it stays locked away regardless.
   const hideTabBar = useHideTabBarOnScroll();
+  const tabClear = useTabBarClearance();   // so the floating dock/ball doesn't cover the last rows
 
   // Ceremony moments (poster spec): innings break → one fast spin + big ring;
   // match finished → golden trophy ripple, ball lingers a beat, dock returns.
@@ -1501,11 +1510,27 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   }, [activeTab, isLive]);
 
   if (loading) {
+    // Skeleton of the score header + a few commentary rows — reads as "the
+    // scorecard is coming" instead of a lone spinner on a blank screen.
+    const sk = [DS.surfaceHigh, DS.surfaceHighest];
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={DS.lime} />
+      <View style={styles.scLoad}>
+        <Skeleton width={210} height={20} radius={6} colors={sk} style={{ marginBottom: 26 }} />
+        <View style={styles.scLoadTeams}>
+          <View style={styles.scLoadTeam}><Skeleton width={44} height={44} radius={12} colors={sk} /><Skeleton width={72} height={12} radius={4} colors={sk} /></View>
+          <Skeleton width={92} height={30} radius={6} colors={sk} />
+          <View style={styles.scLoadTeam}><Skeleton width={44} height={44} radius={12} colors={sk} /><Skeleton width={72} height={12} radius={4} colors={sk} /></View>
+        </View>
+        <View style={styles.scLoadChips}>
+          {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} width={30} height={30} radius={8} colors={sk} />)}
+        </View>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <View key={i} style={styles.scLoadRow}>
+            <Skeleton width={30} height={12} radius={4} colors={sk} />
+            <Skeleton width={i % 2 ? 210 : 160} height={12} radius={4} colors={sk} />
+          </View>
+        ))}
       </View>);
-
   }
 
   if (!match) {
@@ -1659,7 +1684,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             return (
             <ScrollView key={t.key} style={{ width: SCREEN_WIDTH }} showsVerticalScrollIndicator={false}
               {...hideTabBar}
-              contentContainerStyle={{ paddingTop: 12, paddingBottom: 12 }}
+              contentContainerStyle={{ paddingTop: 12, paddingBottom: tabClear + 12 }}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}>
               {near && <>
               <View style={styles.body}>
@@ -1749,6 +1774,11 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
+  scLoad: { flex: 1, backgroundColor: DS.bg, paddingTop: 64, paddingHorizontal: 16 },
+  scLoadTeams: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 },
+  scLoadTeam: { alignItems: 'center', gap: 8 },
+  scLoadChips: { flexDirection: 'row', gap: 8, marginBottom: 26 },
+  scLoadRow: { flexDirection: 'row', gap: 12, marginBottom: 18 },
   errorText: { fontSize: 16, color: DS.textMuted, marginTop: 12, fontWeight: '600' },
 
   // Match-center header — one bar: back/title/live row, tabs row directly under it
