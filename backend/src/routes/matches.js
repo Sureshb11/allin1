@@ -703,8 +703,23 @@ router.get('/:id/live-state', async (req, res) => {
     const fbStriker = lastBall && !lastBall.isWicket ? { id: lastBall.batter.id, name: lastBall.batter.name, avatarUrl: lastBall.batter.user?.avatarUrl || null } : null;
     const fbNon = lastBall ? { id: lastBall.nonStriker.id, name: lastBall.nonStriker.name, avatarUrl: lastBall.nonStriker.user?.avatarUrl || null } : null;
     const fbBowler = overComplete ? null : (curOver?.bowler ? { id: curOver.bowler.id, name: curOver.bowler.name, avatarUrl: curOver.bowler.user?.avatarUrl || null } : null);
-    const creaseStriker = notOut(nameFor(inning.strikerId)) || notOut(fbStriker);
-    const creaseNonStriker = notOut(nameFor(inning.nonStrikerId)) || notOut(fbNon);
+    // Resolve each slot from its persisted id first; only fall back to the last
+    // ball's pair if that id is missing or points at a dismissed batter.
+    const primaryStriker = notOut(nameFor(inning.strikerId));
+    const primaryNon = notOut(nameFor(inning.nonStrikerId));
+    let creaseStriker = primaryStriker || notOut(fbStriker);
+    let creaseNonStriker = primaryNon || notOut(fbNon);
+    // A batter can't stand at both ends. This collides when one slot's persisted
+    // id resolves to a dismissed player (rejected above) and the fallback then
+    // lands on the OTHER slot's batter — seating the same person twice, which read
+    // as "the dismissed batter vanished and got replaced by a duplicate of their
+    // partner." Drop the FALLBACK-derived slot to null so the scorer is asked to
+    // pick the real incoming batter instead of showing a phantom duplicate.
+    if (creaseStriker && creaseNonStriker && creaseStriker.id === creaseNonStriker.id) {
+      if (!primaryStriker) creaseStriker = null;         // striker came from the fallback
+      else if (!primaryNon) creaseNonStriker = null;     // non-striker came from the fallback
+      else creaseNonStriker = null;                      // both persisted ids equal (bad data)
+    }
     const creaseBowler = nameFor(inning.currentBowlerId) || fbBowler;
 
     // Per-player figures for resume: striker runs/balls and bowler O-M-R-W.
