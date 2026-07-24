@@ -196,14 +196,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     return () => { live = false; };
   }, [matchData?.id, navigation]);
 
-  // ── Resume an in-progress match: rehydrate the full scoring state from the
-  // server (Module 7 live-state projection) and skip the toss/setup screen.
-  useEffect(() => {
-    if (!resume || !resumeId) return;
-    (async () => {
-      const res = await legendsApi.getLiveState(resumeId);
-      const d = res.data;
-      if (!res.success || !d?.resumable) { showToast('Could not resume this match', 'error'); return; }
+  // ── Apply a server live-state projection to the entire scoring surface.
+  // Shared by TWO callers that need to rebuild identical state from the DB:
+  // resuming a match on a fresh mount, and Undo once the in-memory snapshot
+  // stack is exhausted (see undoLastBall — that's what lets Undo keep walking
+  // back through an innings scored in an earlier session).
+  const applyLiveState = (d, mode = 'resume') => {
       setMatchData({
         id: d.matchId, overs: String(d.totalOvers), sport: 'cricket',
         battingTeamName: d.battingTeam, bowlingTeamName: d.bowlingTeam,
@@ -217,7 +215,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       setIsInnings2(!!d.isInnings2);
       if (d.isInnings2 && d.target) setFirstInningsScore({ runs: d.target - 1, wickets: 0, overs: 0 });
       setCurrentScore({ runs: d.totalRuns, wickets: d.wickets, overs: d.completedOvers, balls: d.ballInOver });
-      // Partnership isn't persisted ball-by-ball; anchor it to the resumed total so
+      // Partnership isn't persisted ball-by-ball; anchor it to the rebuilt total so
       // it reads 0 (0) now and grows from here. Self-corrects on the next wicket.
       setPnrStartRuns(d.totalRuns || 0);
       setPnrBalls(0);
@@ -255,7 +253,26 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       setCurrentBowler(knownBowler || null);
       const fullyKnown = knownStriker && d.nonStriker && knownBowler;
       setScoringReady(!!fullyKnown);
-      showToast(fullyKnown ? 'Resumed scoring' : 'Resumed — confirm the players', 'success', 1600);
+      // Undo winds back to its own toast; only resume announces itself. If undoing
+      // emptied the crease (back past the first ball, or past a wicket), the same
+      // "confirm the players" path applies — the crease genuinely isn't knowable.
+      if (mode === 'resume') {
+        showToast(fullyKnown ? 'Resumed scoring' : 'Resumed — confirm the players', 'success', 1600);
+      } else if (!fullyKnown) {
+        showToast('Undone — confirm the players', 'success', 1600);
+      }
+      return fullyKnown;
+  };
+
+  // ── Resume an in-progress match: rehydrate the full scoring state from the
+  // server (Module 7 live-state projection) and skip the toss/setup screen.
+  useEffect(() => {
+    if (!resume || !resumeId) return;
+    (async () => {
+      const res = await legendsApi.getLiveState(resumeId);
+      const d = res.data;
+      if (!res.success || !d?.resumable) { showToast('Could not resume this match', 'error'); return; }
+      applyLiveState(d, 'resume');
     })();
   }, [resume, resumeId]);
 
@@ -339,6 +356,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const ballsLeft = isInnings2 ? Math.max(1, totalOvers * 6 - (currentScore.overs * 6 + currentScore.balls)) : 1;
   // Live run rates: current (CRR) always; required (RRR) during a chase.
   const ballsBowled = currentScore.overs * 6 + currentScore.balls;
+  // Undo reaches back to the first ball of the INNINGS, not just this session.
+  // With a snapshot we restore locally; without one (post-resume) we let the
+  // server delete the ball and rebuild from its projection. So the button is live
+  // whenever the innings has had any delivery at all — a lone wide leaves
+  // ballsBowled at 0 but puts a run on the board, hence the runs/wickets checks.
+  const inningsHasBalls = ballsBowled > 0 || currentScore.runs > 0 || currentScore.wickets > 0;
+  const canUndo = !matchComplete && (history.length > 0 || inningsHasBalls);
   const crr = ballsBowled > 0 ? (currentScore.runs / (ballsBowled / 6)).toFixed(2) : '0.00';
   const rrr = isInnings2 && ballsLeft > 0 ? (need / (ballsLeft / 6)).toFixed(2) : null;
 
@@ -438,13 +462,36 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // server-side. Works across over boundaries because the snapshot captures the
   // full state, not a diff.
   const undoLastBall = async () => {
-    if (matchComplete || undoing || history.length === 0) return;
+    if (matchComplete || undoing || !canUndo) return;
     setUndoing(true);
     haptic.tick();
     const prev = history[history.length - 1];
     const res = await legendsApi.undoLastBall(matchData.id, currentInningId);
     if (!res.success) {
       showToast(res.error || 'Could not undo', 'error');
+      setUndoing(false);
+      return;
+    }
+    // No snapshot for this ball — it was scored before this session (a resume
+    // clears the in-memory stack). The server has already deleted the ball, so
+    // rebuild every figure from its live-state projection instead. This is what
+    // lets Undo keep stepping back to the first ball of the innings; the server
+    // stops us at the innings boundary by only ever deleting from currentInningId.
+    if (!prev) {
+      const live = await legendsApi.getLiveState(matchData.id);
+      const d = live.data;
+      // The ball IS already gone server-side, so a bad projection must not leave a
+      // stale board on screen pretending otherwise — say so rather than paint numbers
+      // rebuilt from undefined.
+      if (!live.success || typeof d?.totalRuns !== 'number') {
+        showToast('Ball undone — reopen the match to refresh', 'error');
+        setUndoing(false);
+        return;
+      }
+      applyLiveState(d, 'undo');
+      syncMatchSummary(`${d.totalRuns}/${d.wickets} (${d.completedOvers}.${d.ballInOver})`);
+      setLastBallShort(false);
+      showToast('Last ball undone', 'success');
       setUndoing(false);
       return;
     }
@@ -1285,8 +1332,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         {!matchComplete &&
         <View style={styles.extraRow}>
             <TouchableOpacity
-              style={[styles.extraBtn, styles.undoBtn, (history.length === 0 || undoing) && { opacity: 0.4 }]}
-              onPress={undoLastBall} disabled={history.length === 0 || undoing}>
+              style={[styles.extraBtn, styles.undoBtn, (!canUndo || undoing) && { opacity: 0.4 }]}
+              onPress={undoLastBall} disabled={!canUndo || undoing}>
               <Icon name="undo-variant" size={15} color={DS.coral} />
               <Text style={[styles.extraBtnText, styles.undoBtnText]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                 UNDO{lastBall ? ` ${lastBall}` : ''}
