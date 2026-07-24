@@ -415,6 +415,19 @@ router.delete('/:id/score/last', authMiddleware, async (req, res) => {
         data: {
           totalRuns:    { decrement: ball.runs + ball.extras },
           totalWickets: { decrement: ball.isWicket ? 1 : 0 },
+          // Put the crease back to whoever was actually facing this delivery. The
+          // ball records the exact pair at the time it was bowled, so this is right
+          // for every undo — but it MATTERS most for a wicket: the client persists
+          // the crease on every change, so after "A out, B walks in" the inning still
+          // pointed at B. Undoing the wicket removed A's dismissal without unseating
+          // B, so the wicket count dropped while A simply vanished from the crease.
+          // Note batterId is the FACING batter, not necessarily the dismissed one
+          // (a run-out can remove the non-striker) — restoring both slots covers it.
+          strikerId:    ball.batterId,
+          nonStrikerId: ball.nonStrikerId,
+          // Same reasoning for the bowler, so undoing back over an over boundary
+          // returns the bowler who actually sent down that ball.
+          ...(ball.bowlerId ? { currentBowlerId: ball.bowlerId } : {}),
         },
       });
       // If that was the only ball in the over, remove the empty over too.
