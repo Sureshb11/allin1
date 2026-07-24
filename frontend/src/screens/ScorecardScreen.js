@@ -79,9 +79,17 @@ const overEndBannerStyles = StyleSheet.create({
 function matchSig(m) {
   if (!m) return '';
   let balls = 0;
+  let crease = '';
   const inns = m.innings || [];
-  for (const inn of inns) for (const o of (inn.oversData || [])) balls += (o.balls || []).length;
-  return `${m.status}|${m.result}|${m.score1}|${m.score2}|${m.currentInnings}|${inns.length}|${balls}`;
+  for (const inn of inns) {
+    for (const o of (inn.oversData || [])) balls += (o.balls || []).length;
+    // Include the crease pair so seating a new batter (a wicket replacement who
+    // hasn't faced a ball yet — no change to score or ball count) still counts as
+    // a change and re-renders the batting card. Without this the new batter only
+    // appears after their first delivery.
+    crease += `|${inn.strikerId || ''}/${inn.nonStrikerId || ''}`;
+  }
+  return `${m.status}|${m.result}|${m.score1}|${m.score2}|${m.currentInnings}|${inns.length}|${balls}${crease}`;
 }
 
 // The most-recent delivery across the whole match (last innings → last over →
@@ -242,16 +250,22 @@ function computeBatting(innings, battingXI) {
       }
     });
   });
-  // Prefer the actual XI order; fall back to whoever appears in the ball log.
+  // The pair currently at the crease, so a new batter shows the moment they're sent
+  // in — not only after facing their first ball (they have no ball log yet, so
+  // without this they'd sit under "Yet to bat" until ball one).
+  const atCrease = (id) => id && (id === innings.strikerId || id === innings.nonStrikerId);
+  // Prefer the actual XI order; fall back to whoever appears in the ball log — plus
+  // the current crease, so the not-yet-faced incoming batter isn't dropped here too.
   const xi = (battingXI && battingXI.length)
     ? battingXI
-    : [...new Set([...Object.keys(fig), ...Object.keys(dis)])].map((id) => ({ id, name: nameFromBall[id] || 'Unknown' }));
+    : [...new Set([...Object.keys(fig), ...Object.keys(dis), innings.strikerId, innings.nonStrikerId].filter(Boolean))]
+        .map((id) => ({ id, name: nameFromBall[id] || 'Unknown' }));
   const batted = [];
   const yetToBat = [];
   xi.forEach((p) => {
     const f = fig[p.id];
     const out = dis[p.id];
-    if (f || out) {
+    if (f || out || atCrease(p.id)) {
       batted.push({
         id: p.id, name: p.name, runs: f?.runs || 0, balls: f?.balls || 0,
         fours: f?.fours || 0, sixes: f?.sixes || 0, out: !!out, howOut: out || '',
