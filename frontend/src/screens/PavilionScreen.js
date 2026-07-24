@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated, Image, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
@@ -15,13 +15,24 @@ const TABS = [
   { label: 'Scout',    icon: 'telescope',   component: LookingForScreen },
 ];
 
+const { width: SCREEN_W } = Dimensions.get('window');
+const TAB_W = SCREEN_W / TABS.length;
+
 export default function PavilionScreen({ navigation, route }) {
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const meUser = useCurrentUser();
 
   const [activeTab, setActiveTab] = useState(0);
-  const contentAnim = useRef(new Animated.Value(1)).current;
+  // Horizontal pager: scrollX drives the sliding underline (native), and a
+  // "visited" set lazy-mounts each tab's (full-screen) content only once reached
+  // so the three don't all fetch on first paint.
+  const pagerRef = useRef(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
+  // Mount the active tab + its neighbours, so a page is already there as you swipe
+  // toward it (never a blank slide-in), and stays mounted once visited (no re-fetch
+  // on return). Seed with tab 0 and its neighbour.
+  const [visited, setVisited] = useState({ 0: true, 1: true });
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -30,23 +41,23 @@ export default function PavilionScreen({ navigation, route }) {
     });
   }, [navigation]);
 
-  const handleTabPress = (index) => {
-    if (index === activeTab) return;
-    Animated.timing(contentAnim, {
-      toValue: 0,
-      duration: 100,
-      useNativeDriver: true,
-    }).start(() => {
-      setActiveTab(index);
-      Animated.timing(contentAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }).start();
-    });
+  const goToTab = (index) => {
+    pagerRef.current?.scrollTo?.({ x: index * SCREEN_W, animated: true });
   };
 
-  const ActiveComponent = TABS[activeTab].component;
+  const onMomentumEnd = (e) => {
+    const i = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
+    if (i !== activeTab) setActiveTab(i);
+    // Ensure the new page and its neighbours are mounted for the next swipe.
+    setVisited((v) => ({ ...v, [i - 1]: true, [i]: true, [i + 1]: true }));
+  };
+
+  // The underline slides continuously with the swipe.
+  const underlineX = scrollX.interpolate({
+    inputRange: [0, (TABS.length - 1) * SCREEN_W],
+    outputRange: [0, (TABS.length - 1) * TAB_W],
+    extrapolate: 'clamp',
+  });
 
   return (
     <View style={styles.container}>
@@ -55,30 +66,51 @@ export default function PavilionScreen({ navigation, route }) {
       {/* ── HEADER ──────────────────────── */}
       <AppHeader />
 
-      {/* ── NAV TABS ──────────────────────── */}
+      {/* ── NAV TABS (underline) ──────────────────────── */}
       <View style={styles.navTabs}>
         {TABS.map((tab, i) => {
           const isActive = activeTab === i;
           return (
             <TouchableOpacity
               key={tab.label}
-              style={[styles.navTab, isActive && styles.navTabActive]}
-              onPress={() => handleTabPress(i)}
-              activeOpacity={0.8}
+              style={styles.navTab}
+              onPress={() => goToTab(i)}
+              activeOpacity={0.7}
             >
-              <Icon name={tab.icon} size={18} color={isActive ? DS.lime : DS.textVariant} />
+              <Icon name={tab.icon} size={17} color={isActive ? DS.lime : DS.textVariant} />
               <Text style={[styles.navTabText, isActive && styles.navTabTextActive]}>
                 {tab.label}
               </Text>
             </TouchableOpacity>
           );
         })}
+        {/* Sliding underline indicator */}
+        <Animated.View style={[styles.underline, { transform: [{ translateX: underlineX }] }]} />
       </View>
 
-      {/* ── CONTENT ──────────────────────────── */}
-      <Animated.View style={[{ flex: 1 }, { opacity: contentAnim }]}>
-        <ActiveComponent navigation={navigation} inline={true} route={route} />
-      </Animated.View>
+      {/* ── CONTENT (horizontal swipe pager) ──────────────────────────── */}
+      <Animated.ScrollView
+        ref={pagerRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: true },
+        )}
+        onMomentumScrollEnd={onMomentumEnd}
+        style={{ flex: 1 }}
+      >
+        {TABS.map((tab, i) => {
+          const Comp = tab.component;
+          return (
+            <View key={tab.label} style={{ width: SCREEN_W }}>
+              {visited[i] ? <Comp navigation={navigation} inline={true} route={route} /> : null}
+            </View>
+          );
+        })}
+      </Animated.ScrollView>
 
       {/* ── FAB for Go Live ────────────────── */}
       <TouchableOpacity 
@@ -105,15 +137,14 @@ const makeStyles = (DS) => StyleSheet.create({
   brandBadgeText: { fontSize: 13, fontWeight: '800', color: DS.bg, letterSpacing: 0.8 },
   heroRight: { flexDirection: 'row', alignItems: 'center' },
   
-  navTabs: { flexDirection: 'row', paddingTop: 12, paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: 'transparent' },
-  navTab: { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 2, borderRadius: 14 },
-  navTabActive: {
-    backgroundColor: DS.surfaceHighest,
-    shadowColor: DS.lime, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4,
-    borderWidth: 1, borderColor: 'rgba(171,214,0,0.3)',
-  },
-  navTabText: { fontSize: 10, fontWeight: '700', color: DS.textVariant, letterSpacing: 0.5 },
+  // Underline tab bar: flat row, a lime bar slides under the active tab. Active
+  // state is carried by colour + the bar (bold text doesn't render in the single-
+  // weight font, so it can't be the signal).
+  navTabs: { flexDirection: 'row', paddingTop: 10, borderBottomWidth: 1, borderBottomColor: DS.line },
+  navTab: { flexDirection: 'row', width: TAB_W, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, gap: 6 },
+  navTabText: { fontSize: 12.5, fontWeight: '700', color: DS.textVariant, letterSpacing: 0.4 },
   navTabTextActive: { color: DS.lime },
+  underline: { position: 'absolute', bottom: -1, left: 0, height: 2.5, width: TAB_W, backgroundColor: DS.lime, borderRadius: 2 },
   
   fab: {
     position: 'absolute',
