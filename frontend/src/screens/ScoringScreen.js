@@ -51,6 +51,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const [pnrBalls, setPnrBalls] = useState(0);
   const [currentBowler, setCurrentBowler] = useState(null);
   const [currentOver, setCurrentOver] = useState([]);
+  // The over that just finished, kept on screen (as "LAST OVER") until the next
+  // ball is bowled — otherwise the strip blanks the instant an over ends and the
+  // scorer can't see, or confirm an undo of, that over's final ball.
+  const [lastOverBalls, setLastOverBalls] = useState([]);
   const [isInnings2, setIsInnings2] = useState(false);
   const [battingTeamName, setBattingTeamName] = useState('');
   const [bowlingTeamName, setBowlingTeamName] = useState('');
@@ -139,7 +143,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // current delivery is always visible without a manual swipe.
   useEffect(() => {
     overScrollRef.current?.scrollToEnd({ animated: true });
-  }, [currentOver]);
+  }, [currentOver, lastOverBalls]);
 
   // When the match finishes, compute the MVP awards once and pop the winner
   // sheet for the scorer. Dismissing it redirects to the Home feed.
@@ -221,6 +225,9 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       setPnrBalls(0);
       setBallCount(d.ballInOver || 0);
       setCurrentOver(d.currentOverBalls || []);
+      // Live-state doesn't carry the previous over's balls, so the "LAST OVER"
+      // view isn't reconstructable across a resume/server-undo — clear it.
+      setLastOverBalls([]);
       setCurrentInningId(d.inningId);
       setBowlerOvers(d.bowlerOvers || {});
       setLastOverBowlerId(d.lastOverBowlerId || null);
@@ -498,6 +505,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     setHistory((h) => h.slice(0, -1));
     setCurrentScore(prev.score);
     setCurrentOver(prev.over);
+    setLastOverBalls(prev.lastOver || []);   // restore the "LAST OVER" view too
     setBallCount(prev.ballCount);
     setStriker(prev.striker);
     setNonStriker(prev.nonStriker);
@@ -600,7 +608,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // rejected ball used to leave an undo entry for a delivery that never
     // happened, so Undo would "take back" nothing.
     const snapshot = {
-      score: { ...currentScore }, over: [...currentOver], ballCount,
+      score: { ...currentScore }, over: [...currentOver], lastOver: [...lastOverBalls], ballCount,
       striker, nonStriker, bowler: currentBowler,
       batStats: { ...batStats }, bowlStats: { ...bowlStats }, outBatters: [...outBatters],
       // The end of an over bumps the bowler's spell count and records who bowled
@@ -720,6 +728,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     if (newScore.balls >= 6) {
       newScore.overs += 1;
       newScore.balls = 0;
+      setLastOverBalls(newOver);   // keep the finished over on screen until the next ball
       setCurrentOver([]);
       setBallCount(0);
       // Credit the completed over to the bowler (spell limit) + remember them
@@ -746,6 +755,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       }
     } else {
       setCurrentOver(newOver);
+      setLastOverBalls([]);   // a ball in the new over → stop showing the previous one
     }
 
     // Free Hit: a no-ball sets it for the next legal ball; a legal delivery consumes
@@ -825,7 +835,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       setIsInnings2(true);
       setCurrentInningId(inn.data.id);
       setCurrentScore({ runs: 0, wickets: 0, overs: 0, balls: 0 });
-      setCurrentOver([]); setBallCount(0); setHistory([]);
+      setCurrentOver([]); setLastOverBalls([]); setBallCount(0); setHistory([]);
       // Fresh innings → reset per-player figures + bowling spell tracking + dismissals.
       setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setOutBatters([]); setRetiredBatters([]); setPendingCreaseSwap(false);
       setPnrStartRuns(0); setPnrBalls(0);   // fresh openers → new partnership
@@ -897,7 +907,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     const leaving = slot === 'nonstriker' ? nonStriker : striker;
     if (!leaving) return;
     setHistory((h) => [...h.slice(-(UNDO_DEPTH - 1)), {
-      score: { ...currentScore }, over: [...currentOver], ballCount,
+      score: { ...currentScore }, over: [...currentOver], lastOver: [...lastOverBalls], ballCount,
       striker, nonStriker, bowler: currentBowler,
       batStats: { ...batStats }, bowlStats: { ...bowlStats }, outBatters: [...outBatters],
       bowlerOvers: { ...bowlerOvers }, lastOverBowlerId,
@@ -990,15 +1000,21 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       </View>);
   };
 
+  // Between overs (the over just ended, the next ball isn't bowled yet) keep the
+  // finished over on screen so its final ball — and what an undo would remove —
+  // stays visible instead of a blank strip.
+  const betweenOvers = currentOver.length === 0 && lastOverBalls.length > 0;
+  const displayOver = betweenOvers ? lastOverBalls : currentOver;
+
   // Fill remaining balls as empty dots
-  const filledOver = [...currentOver];
+  const filledOver = [...displayOver];
   while (filledOver.length < 6) filledOver.push(null);
 
-  // The last delivery of the in-progress over — shown on the UNDO button so it
-  // doubles as "what you just recorded / what undo will remove". Blank between
-  // overs (the pick-bowler prompt covers that moment).
-  const lastBall = currentOver.length
-    ? (String(currentOver[currentOver.length - 1]) === '·' ? '0' : String(currentOver[currentOver.length - 1]))
+  // The last delivery shown — on the UNDO button so it doubles as "what you just
+  // recorded / what undo will remove". Uses the displayed over, so between overs
+  // it names the finished over's last ball rather than going blank.
+  const lastBall = displayOver.length
+    ? (String(displayOver[displayOver.length - 1]) === '·' ? '0' : String(displayOver[displayOver.length - 1]))
     : null;
 
   // Short Run — only when the LAST ball was runs the batters RAN (2 or 3; the 4/6
@@ -1011,7 +1027,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // Display-only runs tally for the in-progress over (incl. extras) — derived
   // from currentOver locally, same parsing as the end-of-over summary; never
   // persisted, the server computes its own over totals.
-  const overRunsSoFar = currentOver.reduce((acc, b) => {
+  const overRunsSoFar = displayOver.reduce((acc, b) => {
     if (b === 'WD' || b === 'NB' || b === 'B' || b === 'LB') return acc + 1;
     if (b === 'P5') return acc + 5;
     if (b === '·' || b === 'W') return acc;
@@ -1259,17 +1275,17 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           <View style={styles.sbOverMeta}>
             <View style={styles.overLabelWrap}>
               <View style={styles.overAccentTick} />
-              <Text style={styles.overLabel}>THIS OVER</Text>
+              <Text style={styles.overLabel}>{betweenOvers ? 'LAST OVER' : 'THIS OVER'}</Text>
               {freeHit && <View style={styles.freeHitPill}><Text style={styles.freeHitText}>FREE HIT</Text></View>}
             </View>
             <Text style={styles.overSummary} numberOfLines={1}>
               <Text style={styles.overSummaryRuns}>{overRunsSoFar}</Text>
-              <Text style={styles.overSummaryUnit}> {overRunsSoFar === 1 ? 'run' : 'runs'} · {currentOver.length} ball{currentOver.length !== 1 ? 's' : ''}</Text>
+              <Text style={styles.overSummaryUnit}> {overRunsSoFar === 1 ? 'run' : 'runs'} · {displayOver.length} ball{displayOver.length !== 1 ? 's' : ''}</Text>
             </Text>
           </View>
           <ScrollView ref={overScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.overBalls}>
             {filledOver.map((b, i) =>
-            b !== null ? renderBallDot(b, i, i === currentOver.length - 1) :
+            b !== null ? renderBallDot(b, i, i === displayOver.length - 1) :
             <View key={i} style={[styles.overBall, styles.overBallEmpty]}><View style={styles.overBallDot} /></View>
             )}
           </ScrollView>
