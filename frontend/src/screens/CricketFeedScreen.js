@@ -235,6 +235,13 @@ function CircleMatchCard({ match, onPress }) {
               <Icon name="target" size={11} color={DS.coral} />
               <Text style={c.chaseLine} numberOfLines={1}>{match.chase}</Text>
             </>
+          ) : completed && match.result ? (
+            // The result lives in this always-reserved row (not a separate banner
+            // below the button) so a FINAL card is the SAME height as a live one.
+            <>
+              <Icon name="trophy" size={11} color={DS.success} />
+              <Text style={[c.chaseLine, c.resultLine]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{match.result}</Text>
+            </>
           ) : null}
         </View>
       </View>
@@ -250,14 +257,11 @@ function CircleMatchCard({ match, onPress }) {
             <Text style={c.primaryBtnTxt}>{match.isScorer ? 'RESUME' : 'LIVE SCORECARD'}</Text>
           </View>
         ) : completed ? (
-          <>
-            <View style={c.resultBanner}>
-              <Text style={c.resultBannerTxt} numberOfLines={1} adjustsFontSizeToFit>{match.result}</Text>
-            </View>
-            <View style={c.primaryBtn}>
-              <Text style={c.primaryBtnTxt}>VIEW SUMMARY</Text>
-            </View>
-          </>
+          // Result now shows in the chaseRow above, so the bottom is a single
+          // button — same footprint as every other state, no extra height.
+          <View style={c.primaryBtn}>
+            <Text style={c.primaryBtnTxt}>VIEW SUMMARY</Text>
+          </View>
         ) : (
           <View style={c.primaryBtn}>
             <Text style={c.primaryBtnTxt}>{match.isScorer ? 'START MATCH' : 'NOTIFY ME'}</Text>
@@ -1160,6 +1164,7 @@ const makeC = (DS, TYPO) => StyleSheet.create({
   // line — keeps every rail card the same height (see the render note above).
   chaseRow: { height: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 10 },
   chaseLine: { fontSize: 11, fontWeight: '700', color: DS.textMuted, textAlign: 'center' },
+  resultLine: { color: DS.success, fontWeight: '800', flexShrink: 1 },
 
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   metaMuted: { fontFamily: TYPO.label.fontFamily, color: DS.textMuted, fontSize: 12, fontWeight: '700' },
@@ -1171,8 +1176,6 @@ const makeC = (DS, TYPO) => StyleSheet.create({
   primaryBtnTxt: { fontFamily: TYPO.label.fontFamily, color: DS.onBlue, fontSize: 13, fontWeight: '700', letterSpacing: 0.8 },
   // Same style as My Cricket → Matches: soft green-tint fill, green bold text,
   // sentence case (no uppercase) — e.g. "D-Vigo-S XI won by 5 wickets".
-  resultBanner: { backgroundColor: DS.success + '14', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 14, alignItems: 'center', marginBottom: 10 },
-  resultBannerTxt: { fontFamily: TYPO.label.fontFamily, color: DS.success, fontSize: 13, fontWeight: '800', textAlign: 'center' },
 });
 
 const makeM = (DS) => StyleSheet.create({
