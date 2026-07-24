@@ -479,6 +479,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       setUndoing(false);
       return;
     }
+    // Winding the ball back also lifts any mandatory prompt it triggered: undoing
+    // the over-ending ball drops us mid-over (no next bowler needed), and undoing a
+    // wicket puts the dismissed batter back (no new batsman needed).
+    setMustPickBowler(false);
     // No snapshot for this ball — it was scored before this session (a resume
     // clears the in-memory stack). The server has already deleted the ball, so
     // rebuild every figure from its live-state projection instead. This is what
@@ -1480,10 +1484,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       </Modal>
 
       {/* ── PLAYER MODAL ── */}
-      {/* A new batter is mandatory — a wicket/retirement leaves the crease empty,
-          so there's no Cancel and back can't dismiss it: the scorer must choose
-          (or Add from squad) to continue. */}
-      <Modal visible={showPlayerModal} transparent animationType="slide" onRequestClose={() => {}}>
+      {/* A wicket/retirement leaves the crease empty, so a new batter is needed to
+          score on — but the picker is dismissable (Cancel / back) so the scorer can
+          reach UNDO without first choosing a throwaway batter. Trying to score with
+          the slot still empty simply reopens it (see handleScore). */}
+      <Modal visible={showPlayerModal} transparent animationType="slide" onRequestClose={() => { setShowPlayerModal(false); setNewBatterFor('striker'); }}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
@@ -1524,13 +1529,18 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <Icon name="account-plus" size={18} color={DS.lime} />
               <Text style={styles.squadAddText}>Add from squad</Text>
             </TouchableOpacity>
+            {/* Dismiss without picking → reach UNDO. Scoring stays gated until a
+                batter is set (handleScore reopens this). */}
+            <TouchableOpacity style={styles.modalClose} onPress={() => { setShowPlayerModal(false); setNewBatterFor('striker'); }}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
       {/* ── BOWLER MODAL ── */}
       <Modal visible={showBowlerModal} transparent animationType="slide"
-        onRequestClose={() => { if (!mustPickBowler) setShowBowlerModal(false); }}>
+        onRequestClose={() => setShowBowlerModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
@@ -1568,11 +1578,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <Icon name="account-plus" size={18} color={DS.lime} />
               <Text style={styles.squadAddText}>Add from squad</Text>
             </TouchableOpacity>
-            {!mustPickBowler && (
-              <TouchableOpacity style={styles.modalClose} onPress={() => setShowBowlerModal(false)}>
-                <Text style={styles.modalCloseText}>Cancel</Text>
-              </TouchableOpacity>
-            )}
+            {/* Always dismissable — including the mandatory next-over prompt — so the
+                scorer can reach UNDO without first picking a bowler. The next-over
+                bowler is still enforced when they try to score (handleScore rechecks
+                eligibility at ball 0 and reopens this). */}
+            <TouchableOpacity style={styles.modalClose} onPress={() => setShowBowlerModal(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
