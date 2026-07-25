@@ -7,6 +7,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getCareerPanels, readStat } from '../sports/careerStats';
+import SegmentedControl from '../components/SegmentedControl';
 
 const W = Dimensions.get('window').width - 48;
 
@@ -135,17 +136,13 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
         </View>
       )}
 
-      {/* Tab bar */}
-      <View style={styles.tabBar}>
-        {panels.map((p) =>
-        <TouchableOpacity key={p.id} style={[styles.tabBtn, tab === p.id && styles.tabBtnActive]}
-        onPress={() => setTab(p.id)}>
-            <Text style={[styles.tabBtnText, tab === p.id && styles.tabBtnTextActive]}>
-              {p.label}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* View-mode toggle — a capsule segment, deliberately NOT an underline:
+          underline = the swipeable Pavilion level, capsule = tap toggle here. */}
+      <SegmentedControl
+        options={panels.map((p) => ({ id: p.id, label: p.label }))}
+        value={tab} onChange={setTab}
+        style={{ marginHorizontal: 16, marginTop: 4, marginBottom: 12 }}
+      />
 
       <View style={styles.body}>
         {loading ?
@@ -190,22 +187,7 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.bg, paddingTop: 52, paddingBottom: 12, paddingHorizontal: 16
   },
   heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
-  // Underline sub-tabs (matches the Pavilion main tabs): flat row + a lime bar
-  // under the active tab, instead of a filled pill. Active state is colour + the
-  // bar (the single-weight font can't carry it with bold).
-  tabBar: {
-    flexDirection: 'row',
-    marginHorizontal: 16, marginTop: 4, marginBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: DS.line,
-  },
-  tabBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 11,
-    borderBottomWidth: 2.5, borderBottomColor: 'transparent', marginBottom: -1,
-  },
-  tabBtnActive: { borderBottomColor: DS.lime },
-  tabBtnText: { fontWeight: '700', fontSize: 13, color: DS.textMuted },
-  tabBtnTextActive: { color: DS.lime },
+  // (Sub-tab styles moved into the shared SegmentedControl component.)
   body: { paddingHorizontal: 16, paddingBottom: 28, gap: 10 },
   bentoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   bentoCard: { width: "47%", borderRadius: 14, padding: 11 },

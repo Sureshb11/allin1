@@ -25,11 +25,17 @@ export default function PavilionScreen({ navigation, route }) {
   const meUser = useCurrentUser();
 
   const [activeTab, setActiveTab] = useState(0);
-  // Pager: the pages live in a horizontal ScrollView driven programmatically (user
-  // scroll disabled); scrollX drives the sliding underline. A "visited" set
-  // lazy-mounts each tab's full-screen content once reached (+ its neighbour).
-  const pagerRef = useRef(null);
-  const scrollX = useRef(new Animated.Value(0)).current;
+  // ── Finger-tracked pager, no ScrollView anywhere in the pager itself. ──
+  // The three pages sit in one 3×-wide row moved by a single native-driven
+  // translateX (`tx`). A Pan gesture drags the row 1:1 under the finger and a
+  // spring settles it on release; the underline is an interpolation of the SAME
+  // value, so it glides with the finger instead of jumping after the fact.
+  // Why not a horizontal ScrollView: it must fight the pages' inner vertical
+  // lists for the gesture and loses over list content. With a Pan, failOffsetY
+  // hands vertical drags to the lists and there's nothing left to fight.
+  const tx = useRef(new Animated.Value(0)).current;         // row translateX: 0 … -(N-1)·W
+  const settledPage = useRef(0);                            // page the row last settled on
+  const dragPage = useRef(0);                               // page under the finger mid-drag
   const [visited, setVisited] = useState({ 0: true, 1: true });
 
   const markVisited = (i) => setVisited((v) => ({ ...v, [i - 1]: true, [i]: true, [i + 1]: true }));
@@ -41,34 +47,48 @@ export default function PavilionScreen({ navigation, route }) {
     });
   }, [navigation]);
 
-  // Tap or swipe → animate the page across; the underline follows via scrollX.
+  // Settle on a page (tap or swipe release): quick spring, labels + lazy-mount.
   const goToTab = (index) => {
-    const clamped = Math.max(0, Math.min(TABS.length - 1, index));
-    pagerRef.current?.scrollTo?.({ x: clamped * SCREEN_W, animated: true });
-    setActiveTab(clamped);
-    markVisited(clamped);
+    const p = Math.max(0, Math.min(TABS.length - 1, index));
+    settledPage.current = p;
+    dragPage.current = p;
+    setActiveTab(p);
+    markVisited(p);
+    Animated.spring(tx, {
+      toValue: -p * SCREEN_W,
+      useNativeDriver: true,
+      stiffness: 220, damping: 28, mass: 1,
+    }).start();
   };
 
-  // Horizontal swipe via gesture-handler — NOT the ScrollView's own scroll. A plain
-  // horizontal ScrollView loses the gesture to the pages' inner vertical lists over
-  // list content; a Pan with failOffsetY lets vertical drags fall through to those
-  // lists and claims only clearly-horizontal ones, so a swipe pages the tab
-  // reliably anywhere. Recreated each render so it reads the current activeTab.
   const swipeGesture = Gesture.Pan()
     .activeOffsetX([-16, 16])   // claim a horizontal drag early, so it beats a card's tap
     .failOffsetY([-14, 14])     // but yield to a vertical drag first, so lists still scroll
+    .onBegin(() => { tx.stopAnimation(); })
+    .onUpdate((e) => {
+      let v = -settledPage.current * SCREEN_W + e.translationX;
+      // Rubber-band past either end instead of a hard stop.
+      const min = -(TABS.length - 1) * SCREEN_W;
+      if (v > 0) v = v * 0.3;
+      else if (v < min) v = min + (v - min) * 0.3;
+      tx.setValue(v);
+      // Light the tab label as the finger crosses each page's centre.
+      const cur = Math.max(0, Math.min(TABS.length - 1, Math.round(-v / SCREEN_W)));
+      if (cur !== dragPage.current) { dragPage.current = cur; setActiveTab(cur); markVisited(cur); }
+    })
     .onEnd((e) => {
-      const goNext = e.translationX <= -60 || e.velocityX <= -450;
-      const goPrev = e.translationX >= 60 || e.velocityX >= 450;
-      if (goNext && activeTab < TABS.length - 1) goToTab(activeTab + 1);
-      else if (goPrev && activeTab > 0) goToTab(activeTab - 1);
+      const raw = -settledPage.current * SCREEN_W + e.translationX;
+      let target = Math.round(-raw / SCREEN_W);
+      // A committed fling always moves at least one page in its direction.
+      if (e.velocityX <= -450) target = Math.max(target, settledPage.current + 1);
+      else if (e.velocityX >= 450) target = Math.min(target, settledPage.current - 1);
+      goToTab(target);
     });
 
-  // The underline slides continuously with the swipe.
-  const underlineX = scrollX.interpolate({
-    inputRange: [0, (TABS.length - 1) * SCREEN_W],
-    outputRange: [0, (TABS.length - 1) * TAB_W],
-    extrapolate: 'clamp',
+  // Underline: a short centred bar riding the same animated value as the pages.
+  const underlineX = tx.interpolate({
+    inputRange: [-(TABS.length - 1) * SCREEN_W, 0],
+    outputRange: [(TABS.length - 1) * TAB_W + TAB_W * 0.25, TAB_W * 0.25],
   });
 
   return (
@@ -100,30 +120,20 @@ export default function PavilionScreen({ navigation, route }) {
         <Animated.View style={[styles.underline, { transform: [{ translateX: underlineX }] }]} />
       </View>
 
-      {/* ── CONTENT (horizontal swipe pager) ──────────────────────────── */}
+      {/* ── CONTENT (finger-tracked pager: one wide row, translated) ──── */}
       <GestureDetector gesture={swipeGesture}>
-        <Animated.ScrollView
-          ref={pagerRef}
-          horizontal
-          pagingEnabled
-          scrollEnabled={false}
-          showsHorizontalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-            { useNativeDriver: true },
-          )}
-          style={{ flex: 1 }}
-        >
-          {TABS.map((tab, i) => {
-            const Comp = tab.component;
-            return (
-              <View key={tab.label} style={{ width: SCREEN_W }}>
-                {visited[i] ? <Comp navigation={navigation} inline={true} route={route} /> : null}
-              </View>
-            );
-          })}
-        </Animated.ScrollView>
+        <View style={{ flex: 1, overflow: 'hidden' }}>
+          <Animated.View style={{ flex: 1, flexDirection: 'row', width: SCREEN_W * TABS.length, transform: [{ translateX: tx }] }}>
+            {TABS.map((tab, i) => {
+              const Comp = tab.component;
+              return (
+                <View key={tab.label} style={{ width: SCREEN_W }}>
+                  {visited[i] ? <Comp navigation={navigation} inline={true} route={route} /> : null}
+                </View>
+              );
+            })}
+          </Animated.View>
+        </View>
       </GestureDetector>
 
       {/* ── FAB for Go Live ────────────────── */}
@@ -158,7 +168,9 @@ const makeStyles = (DS) => StyleSheet.create({
   navTab: { flexDirection: 'row', width: TAB_W, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, gap: 6 },
   navTabText: { fontSize: 12.5, fontWeight: '700', color: DS.textVariant, letterSpacing: 0.4 },
   navTabTextActive: { color: DS.lime },
-  underline: { position: 'absolute', bottom: -1, left: 0, height: 2.5, width: TAB_W, backgroundColor: DS.lime, borderRadius: 2 },
+  // Short centred bar (half a tab wide) — its x offset comes from the pager
+  // interpolation, so it rides the finger during a swipe.
+  underline: { position: 'absolute', bottom: -1, left: 0, height: 3, width: TAB_W * 0.5, backgroundColor: DS.lime, borderRadius: 2 },
   
   fab: {
     position: 'absolute',

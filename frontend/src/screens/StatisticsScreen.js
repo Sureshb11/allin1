@@ -4,6 +4,7 @@ import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHid
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
+import SegmentedControl from '../components/SegmentedControl';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getRankingBoards, rankValue } from '../sports/careerStats';
@@ -327,16 +328,12 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
 
       {loading ? (
         <View style={styles.list}>
-          {/* Tab bar (rendered outside list while loading) */}
-          <View style={styles.tabBar}>
-            {TABS.map((t) =>
-            <TouchableOpacity key={t.id} style={[styles.tabBtn, tab === t.id && styles.tabBtnActive]}
-            onPress={() => handleTabChange(t.id)}>
-                <Icon name={t.icon} size={15} color={tab === t.id ? DS.lime : DS.textMuted} />
-                <Text style={[styles.tabBtnText, tab === t.id && styles.tabBtnTextActive]}>{t.label}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          {/* Players/Teams toggle (rendered outside list while loading) */}
+          <SegmentedControl
+            options={TABS.map((t) => ({ id: t.id, label: t.label, icon: t.icon }))}
+            value={tab} onChange={handleTabChange}
+            style={{ marginBottom: 12 }}
+          />
           <StatSkeleton DS={DS} />
         </View>
       ) : (
@@ -349,6 +346,14 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}>
             <View>
+              {/* WHAT am I ranking (Players/Teams) sits first, then the search
+                  within it — hierarchy over chronology. Capsule = tap toggle,
+                  distinct from the swipeable underline level above. */}
+              <SegmentedControl
+                options={TABS.map((t) => ({ id: t.id, label: t.label, icon: t.icon }))}
+                value={tab} onChange={handleTabChange}
+                style={{ marginBottom: 10 }}
+              />
               <View style={styles.searchWrap}>
                 <Icon name="magnify" size={18} color={DS.textMuted} />
                 <TextInput
@@ -363,15 +368,6 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
                     <Icon name="close-circle" size={18} color={DS.faint} />
                   </TouchableOpacity>
                 )}
-              </View>
-              <View style={styles.tabBar}>
-              {TABS.map((t) =>
-              <TouchableOpacity key={t.id} style={[styles.tabBtn, tab === t.id && styles.tabBtnActive]}
-              onPress={() => handleTabChange(t.id)}>
-                  <Icon name={t.icon} size={15} color={tab === t.id ? DS.lime : DS.textMuted} />
-                  <Text style={[styles.tabBtnText, tab === t.id && styles.tabBtnTextActive]}>{t.label}</Text>
-                </TouchableOpacity>
-              )}
               </View>
               {/* Board selector — what this leaderboard is actually ranking */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false}
@@ -420,21 +416,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
 
-  // Underline sub-tabs (matches the Pavilion main tabs): flat row + a lime bar
-  // under the active tab, instead of a filled pill.
-  tabBar: {
-    flexDirection: 'row',
-    marginHorizontal: 16, marginTop: 4, marginBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: DS.line,
-  },
-  tabBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 11,
-    borderBottomWidth: 2.5, borderBottomColor: 'transparent', marginBottom: -1,
-  },
-  tabBtnActive: { borderBottomColor: DS.lime },
-  tabBtnText: { fontWeight: '700', fontSize: 13, color: DS.textMuted },
-  tabBtnTextActive: { color: DS.lime },
+  // (Players/Teams toggle styles live in the shared SegmentedControl component.)
 
   // Board selector
   boardBar: { paddingHorizontal: 16, gap: 8, paddingBottom: 2 },
