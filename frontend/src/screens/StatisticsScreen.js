@@ -332,7 +332,7 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
             {TABS.map((t) =>
             <TouchableOpacity key={t.id} style={[styles.tabBtn, tab === t.id && styles.tabBtnActive]}
             onPress={() => handleTabChange(t.id)}>
-                <Icon name={t.icon} size={15} color={tab === t.id ? DS.bg : DS.textMuted} />
+                <Icon name={t.icon} size={15} color={tab === t.id ? DS.lime : DS.textMuted} />
                 <Text style={[styles.tabBtnText, tab === t.id && styles.tabBtnTextActive]}>{t.label}</Text>
               </TouchableOpacity>
             )}
@@ -368,7 +368,7 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
                 {TABS.map((t) =>
                 <TouchableOpacity key={t.id} style={[styles.tabBtn, tab === t.id && styles.tabBtnActive]}
                 onPress={() => handleTabChange(t.id)}>
-                    <Icon name={t.icon} size={15} color={tab === t.id ? DS.bg : DS.textMuted} />
+                    <Icon name={t.icon} size={15} color={tab === t.id ? DS.lime : DS.textMuted} />
                     <Text style={[styles.tabBtnText, tab === t.id && styles.tabBtnTextActive]}>{t.label}</Text>
                   </TouchableOpacity>
                 )}
@@ -418,18 +418,21 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
 
+  // Underline sub-tabs (matches the Pavilion main tabs): flat row + a lime bar
+  // under the active tab, instead of a filled pill.
   tabBar: {
-    flexDirection: 'row', backgroundColor: DS.surfaceLow,
+    flexDirection: 'row',
     marginHorizontal: 16, marginTop: 4, marginBottom: 12,
-    borderRadius: 14, padding: 4,
+    borderBottomWidth: 1, borderBottomColor: DS.line,
   },
   tabBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 10, borderRadius: 10, backgroundColor: 'transparent',
+    paddingVertical: 11,
+    borderBottomWidth: 2.5, borderBottomColor: 'transparent', marginBottom: -1,
   },
-  tabBtnActive: { backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  tabBtnActive: { borderBottomColor: DS.lime },
   tabBtnText: { fontWeight: '700', fontSize: 13, color: DS.textMuted },
-  tabBtnTextActive: { color: DS.bg },
+  tabBtnTextActive: { color: DS.lime },
 
   // Board selector
   boardBar: { paddingHorizontal: 16, gap: 8, paddingBottom: 2 },
