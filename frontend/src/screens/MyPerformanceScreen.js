@@ -1,12 +1,16 @@
-import React, { useEffect, useState, useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useState, useLayoutEffect, useRef, useCallback } from 'react';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, Animated, RefreshControl, Share } from 'react-native';
 import Svg, { Polyline, Polygon, Circle, Line, Text as SvgText } from 'react-native-svg';
+import ViewShot, { captureRef } from 'react-native-view-shot';
+import RNShare from 'react-native-share';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
+import { getSport } from '../sports';
 import { getCareerPanels, readStat } from '../sports/careerStats';
+import { useCurrentUser } from '../utils/currentUser';
 import SegmentedControl from '../components/SegmentedControl';
 
 const W = Dimensions.get('window').width - 48;
@@ -87,7 +91,8 @@ const FIELDING_STATS = (s, DS) => [
 { label: 'Stumpings', value: s.stumpings ?? 0, color: DS.coral }];
 
 
-export default function MyPerformanceScreen({ navigation, inline }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
+export default function MyPerformanceScreen({ navigation, inline, onRegisterFab }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
+  const meUser = useCurrentUser();
   const [stats, setStats] = useState(null);
   // Panels come from the sport, not from cricket: football shows Attack /
   // Discipline, racquet sports Scoring / Errors, and so on.
@@ -95,6 +100,8 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
   const panels = getCareerPanels(sportId);
   const [tab, setTab] = useState(panels[0].id);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const shotRef = useRef(null);
 
   useLayoutEffect(() => {
     if (!inline) {
@@ -106,12 +113,35 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
     }
   }, [navigation, inline]);
 
-  useEffect(() => {
+  const fetchStats = useCallback(() =>
     legendsApi.getUserStats(getSelectedSport().sport?.id).then((res) => {
       if (res.success) setStats(res.data);
-      setLoading(false);
-    });
-  }, []);
+    }), []);
+
+  useEffect(() => { fetchStats().finally(() => setLoading(false)); }, [fetchStats]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchStats().finally(() => setRefreshing(false));
+  }, [fetchStats]);
+
+  // Capture the stat card as an image and share it (falls back to plain text if
+  // the capture fails). Registered as the Pavilion "Share Card" FAB action.
+  const shareCard = useCallback(async () => {
+    const sportName = getSport(sportId)?.name || 'Cricket';
+    const caption = `📊 ${meUser?.name || 'My'} ${sportName} stats\nvia Local Legends`;
+    try {
+      const uri = await captureRef(shotRef, { format: 'png', quality: 0.95, result: 'tmpfile' });
+      await RNShare.open({ url: uri, type: 'image/png', message: caption, failOnCancel: false });
+    } catch (e) {
+      try { await Share.share({ message: caption }); } catch {}
+    }
+  }, [sportId, meUser]);
+
+  useEffect(() => {
+    // Only offer the share action once there are stats to share.
+    if (inline && stats) onRegisterFab?.(shareCard);
+  }, [inline, stats, onRegisterFab, shareCard]);
 
   const ACCENTS = [DS.lime, DS.coral, '#7c3aed', DS.blue, '#d97706', '#34d399'];
   const activePanel = panels.find((p) => p.id === tab) || panels[0];
@@ -127,7 +157,8 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
   const chartColor = tab === 'batting' ? DS.lime : tab === 'bowling' ? DS.coral : DS.blue;
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} {...hideTabBar} contentContainerStyle={{ paddingBottom: tabClear }}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} {...hideTabBar} contentContainerStyle={{ paddingBottom: tabClear }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}>
       {/* Hero */}
       {!inline && (
         <View style={styles.hero}>
@@ -150,7 +181,7 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
             <ActivityIndicator size="large" color={DS.lime} />
           </View> :
         stats ?
-        <>
+        <ViewShot ref={shotRef} options={{ format: 'png', quality: 0.95 }} style={{ backgroundColor: DS.bg, gap: 10 }}>
             {/* Bento Grid */}
             <View style={styles.bentoGrid}>
               {tabStats.map((s) =>
@@ -168,11 +199,23 @@ export default function MyPerformanceScreen({ navigation, inline }) {const DS = 
                 <PerformanceChart values={chartData} color={chartColor} />
               </View>
             )}
-          </> :
+
+            {/* Branding footer — only meaningful once the card is shared out, but
+                harmless (and a subtle attribution) in-app. */}
+            <View style={styles.shareBrand}>
+              <Icon name="cricket" size={13} color={DS.textMuted} />
+              <Text style={styles.shareBrandText}>{meUser?.name ? `${meUser.name} · ` : ''}Local Legends</Text>
+            </View>
+          </ViewShot> :
 
         <View style={styles.centered}>
             <Icon name="chart-line" size={48} color={DS.textMuted} />
             <Text style={styles.emptyText}>No stats available yet</Text>
+            <Text style={styles.emptySub}>Score or play a match and your career stats show up here.</Text>
+            <TouchableOpacity style={styles.emptyCta} onPress={() => navigation.navigate('StreamingLanding')} activeOpacity={0.85}>
+              <Icon name="broadcast" size={16} color={DS.live} />
+              <Text style={styles.emptyCtaText}>Score a live match</Text>
+            </TouchableOpacity>
           </View>
         }
       </View>
@@ -195,5 +238,10 @@ const makeStyles = (DS) => StyleSheet.create({
   bentoLbl: { fontSize: 11, fontWeight: '600', color: DS.textMuted },
   chartCard: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 13 },
   chartTitle: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, marginBottom: 10 },
-  emptyText: { fontSize: 16, color: DS.textVariant, marginTop: 12, fontWeight: '600' }
+  shareBrand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingTop: 4 },
+  shareBrandText: { fontSize: 11, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.4 },
+  emptyText: { fontSize: 16, color: DS.textVariant, marginTop: 12, fontWeight: '600' },
+  emptySub: { fontSize: 13, color: DS.textMuted, marginTop: 6, textAlign: 'center', paddingHorizontal: 32, lineHeight: 19 },
+  emptyCta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 24, borderWidth: 1.5, borderColor: DS.live },
+  emptyCtaText: { fontSize: 14, fontWeight: '800', color: DS.live, letterSpacing: 0.3 }
 });

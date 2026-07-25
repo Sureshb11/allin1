@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated, Image, Dimensions, Platform, Vibration } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -8,6 +8,7 @@ import MyPerformanceScreen from './MyPerformanceScreen';
 import StatisticsScreen from './StatisticsScreen';
 import LookingForScreen from './LookingForScreen';
 import { useCurrentUser } from '../utils/currentUser';
+import { useTabBarClearance } from '../components/AutoHideTabBar';
 import AppHeader from '../components/AppHeader';
 
 const TABS = [
@@ -19,12 +20,46 @@ const TABS = [
 const { width: SCREEN_W } = Dimensions.get('window');
 const TAB_W = SCREEN_W / TABS.length;
 
+// Per-tab primary action for the floating button. Rankings has no screen-local
+// action, so it falls back to Go Live; My Stats and Scout register their own
+// (share the stat card / open the post-a-listing sheet) via onRegisterFab.
+const FAB_FOR = (DS) => [
+  { icon: 'share-variant', label: 'Share Card',   bg: DS.lime, fg: DS.onLime },
+  { icon: 'broadcast',     label: 'Live Action',  bg: DS.live, fg: DS.white },
+  { icon: 'plus',          label: 'Post Listing', bg: DS.blue, fg: DS.white },
+];
+
+// Remembered across mounts so re-entering the clubhouse lands where you left it
+// (a route `tab` param — index or label — still wins for deep links).
+let lastPavilionTab = 0;
+
+const resolveTab = (v) => {
+  if (v == null) return null;
+  if (typeof v === 'number') return Math.max(0, Math.min(TABS.length - 1, v));
+  const i = TABS.findIndex((t) => t.label.toLowerCase() === String(v).toLowerCase());
+  return i >= 0 ? i : null;
+};
+
+// A short, subtle tick on tab settle. Only Android — iOS's Vibration ignores the
+// duration and fires a full buzz, which is too heavy for a tab change.
+const tick = () => { if (Platform.OS === 'android') Vibration.vibrate(8); };
+
 export default function PavilionScreen({ navigation, route }) {
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const meUser = useCurrentUser();
+  const tabClear = useTabBarClearance();
 
-  const [activeTab, setActiveTab] = useState(0);
+  // Land on the deep-linked tab if given, else the one we left on last time.
+  const initialTab = resolveTab(route?.params?.tab) ?? lastPavilionTab ?? 0;
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Each child screen registers its FAB action here (keyed by tab index); the
+  // shared button dispatches to the active tab's action, or Go Live if none.
+  const fabActions = useRef({}).current;
+  const registerFab = (i) => (fn) => { fabActions[i] = fn; };
+  const FABS = FAB_FOR(DS);
+  const fab = FABS[activeTab] || FABS[0];
   // ── Finger-tracked pager, no ScrollView anywhere in the pager itself. ──
   // The three pages sit in one 3×-wide row moved by a single native-driven
   // translateX (`tx`). A Pan gesture drags the row 1:1 under the finger and a
@@ -33,10 +68,10 @@ export default function PavilionScreen({ navigation, route }) {
   // Why not a horizontal ScrollView: it must fight the pages' inner vertical
   // lists for the gesture and loses over list content. With a Pan, failOffsetY
   // hands vertical drags to the lists and there's nothing left to fight.
-  const tx = useRef(new Animated.Value(0)).current;         // row translateX: 0 … -(N-1)·W
-  const settledPage = useRef(0);                            // page the row last settled on
-  const dragPage = useRef(0);                               // page under the finger mid-drag
-  const [visited, setVisited] = useState({ 0: true, 1: true });
+  const tx = useRef(new Animated.Value(-initialTab * SCREEN_W)).current;  // row translateX: 0 … -(N-1)·W
+  const settledPage = useRef(initialTab);                   // page the row last settled on
+  const dragPage = useRef(initialTab);                      // page under the finger mid-drag
+  const [visited, setVisited] = useState({ [initialTab]: true, [initialTab + 1]: true, [Math.max(0, initialTab - 1)]: true });
 
   const markVisited = (i) => setVisited((v) => ({ ...v, [i - 1]: true, [i]: true, [i + 1]: true }));
 
@@ -50,8 +85,10 @@ export default function PavilionScreen({ navigation, route }) {
   // Settle on a page (tap or swipe release): quick spring, labels + lazy-mount.
   const goToTab = (index) => {
     const p = Math.max(0, Math.min(TABS.length - 1, index));
+    if (p !== settledPage.current) tick();
     settledPage.current = p;
     dragPage.current = p;
+    lastPavilionTab = p;
     setActiveTab(p);
     markVisited(p);
     Animated.spring(tx, {
@@ -126,24 +163,34 @@ export default function PavilionScreen({ navigation, route }) {
           <Animated.View style={{ flex: 1, flexDirection: 'row', width: SCREEN_W * TABS.length, transform: [{ translateX: tx }] }}>
             {TABS.map((tab, i) => {
               const Comp = tab.component;
+              // Off-screen pages dim and shrink a touch as they slide out, so the
+              // page under the finger reads as the focused one. All riding the same
+              // native-driven `tx`, so it stays in lockstep with the swipe.
+              const dist = [-(i + 1) * SCREEN_W, -i * SCREEN_W, -(i - 1) * SCREEN_W];
+              const opacity = tx.interpolate({ inputRange: dist, outputRange: [0.35, 1, 0.35], extrapolate: 'clamp' });
+              const scale = tx.interpolate({ inputRange: dist, outputRange: [0.94, 1, 0.94], extrapolate: 'clamp' });
               return (
-                <View key={tab.label} style={{ width: SCREEN_W }}>
-                  {visited[i] ? <Comp navigation={navigation} inline={true} route={route} /> : null}
-                </View>
+                <Animated.View key={tab.label} style={{ width: SCREEN_W, opacity, transform: [{ scale }] }}>
+                  {visited[i] ? <Comp navigation={navigation} inline={true} route={route} onRegisterFab={registerFab(i)} /> : null}
+                </Animated.View>
               );
             })}
           </Animated.View>
         </View>
       </GestureDetector>
 
-      {/* ── FAB for Go Live ────────────────── */}
-      <TouchableOpacity 
-        style={styles.fab}
-        onPress={() => navigation.navigate('StreamingLanding')}
+      {/* ── FAB: primary action for the active tab ────────────────── */}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: fab.bg, shadowColor: fab.bg, bottom: tabClear + 16 }]}
+        onPress={() => {
+          const action = fabActions[activeTab];
+          if (action) action();
+          else navigation.navigate('StreamingLanding');
+        }}
         activeOpacity={0.85}
       >
-        <Icon name="broadcast" size={20} color={DS.bg} />
-        <Text style={styles.fabText}>Live Action</Text>
+        <Icon name={fab.icon} size={20} color={fab.fg} />
+        <Text style={[styles.fabText, { color: fab.fg }]}>{fab.label}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -172,25 +219,23 @@ const makeStyles = (DS) => StyleSheet.create({
   // interpolation, so it rides the finger during a swipe.
   underline: { position: 'absolute', bottom: -1, left: 0, height: 3, width: TAB_W * 0.5, backgroundColor: DS.lime, borderRadius: 2 },
   
+  // Colour, label and `bottom` (dock clearance) are applied inline per active
+  // tab; this holds only the shared shape.
   fab: {
     position: 'absolute',
-    bottom: 24,
     right: 24,
-    backgroundColor: '#EF4444',
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 28,
     gap: 8,
-    shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 8,
   },
   fabText: {
-    color: DS.bg,
     fontWeight: '800',
     fontSize: 14,
     letterSpacing: 0.5,

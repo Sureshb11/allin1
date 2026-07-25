@@ -130,7 +130,7 @@ const buildWhen = (form) => {
   return parts.join(' · ');
 };
 
-export default function LookingForScreen({ navigation, route, inline }) {
+export default function LookingForScreen({ navigation, route, inline, onRegisterFab }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const hideTabBar = useHideTabBarOnScroll();
@@ -173,6 +173,13 @@ export default function LookingForScreen({ navigation, route, inline }) {
   const [submitting, setSubmitting] = useState(false);
   const [myPhone, setMyPhone] = useState('');
   const [sharePhone, setSharePhone] = useState(true);
+
+  // When embedded in Pavilion, hand the "post a listing" action up to the
+  // shared FAB so the Scout tab's primary action lives in the same place as the
+  // other tabs' (Share Card / Go Live) instead of only the small header +.
+  useEffect(() => {
+    if (inline) onRegisterFab?.(() => setShowCreate(true));
+  }, [inline, onRegisterFab]);
 
   // Pull the logged-in user's phone once so "Contact" needs no typing.
   useEffect(() => {
@@ -501,7 +508,11 @@ export default function LookingForScreen({ navigation, route, inline }) {
         ))}
       </ScrollView>
 
-      <View style={{ flex: 1 }} {...swipe.panHandlers}>
+      {/* The filter-stepping swipe is only for the standalone route. Inside the
+          Pavilion pager the parent Pan gesture owns horizontal drags, so
+          attaching this here would fight it (a right-swipe would both step the
+          filter back AND page to Rankings). */}
+      <View style={{ flex: 1 }} {...(inline ? {} : swipe.panHandlers)}>
       {loading ? (
         <ScoutSkeleton DS={DS} />
       ) : (

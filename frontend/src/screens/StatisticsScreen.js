@@ -1,13 +1,14 @@
-import { useState, useEffect, useLayoutEffect, useRef, Fragment } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, Fragment } from 'react';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import SegmentedControl from '../components/SegmentedControl';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getRankingBoards, rankValue } from '../sports/careerStats';
+import { useCurrentUser } from '../utils/currentUser';
 
 const MEDAL = ['#FFD700', '#C0C0C0', '#CD7F32'];
 
@@ -118,12 +119,16 @@ const sortFor = (board) => (a, b) => {
   return diff || (b.matches || 0) - (a.matches || 0) || a.name.localeCompare(b.name);
 };
 
-function PlayerCard({ item, rank, board, cols }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+function PlayerCard({ item, rank, board, cols, isMe }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const isTop = rank < 3;
   const rankColor = isTop ? MEDAL[rank] : DS.border;
   const avColor = AVATAR_RANK(DS)[rank] || DS.blue;
   return (
-    <View style={[styles.card, isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 }]}>
+    <View style={[
+      styles.card,
+      isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+      isMe && styles.cardMe,
+    ]}>
       <View style={styles.cardHeader}>
         <View style={styles.avatarWrap}>
           <HexAvatar round size={42} color={avColor}>
@@ -134,7 +139,7 @@ function PlayerCard({ item, rank, board, cols }) {const DS = useTheme().colors;c
           </View>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.cardName}>{item.name}</Text>
+          <Text style={styles.cardName}>{item.name}{isMe ? '  ·  You' : ''}</Text>
           <Text style={styles.cardSub}>{item.matches} matches</Text>
         </View>
       </View>
@@ -227,7 +232,13 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
   const [teams, setTeams] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const boardBarRef = useRef(null);
+  // "Find me" plumbing: scroll to the logged-in player's row on the board.
+  const meUser = useCurrentUser();
+  const myId = meUser?.id;
+  const scrollRef = useRef(null);
+  const myRowY = useRef(0);
 
   useLayoutEffect(() => {
     if (!inline) {
@@ -239,37 +250,43 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
     }
   }, [navigation, inline]);
 
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
+  const fetchData = useCallback(async () => {
     const _sport = getSelectedSport().sport?.id;   // rankings are per-sport
     // Cricket ranks on its ball-by-ball derived stats; every other sport ranks
     // on SportEvent tallies, which getPlayers() doesn't carry.
     const isCricket = (_sport || 'cricket') === 'cricket';
-    Promise.all([
+    const [pr, tr] = await Promise.all([
       isCricket ? legendsApi.getPlayers({ sport: _sport }) : legendsApi.getLeaderboard(_sport),
       legendsApi.getTeams(_sport),
-    ]).then(([pr, tr]) => {
-      if (!alive) return;
-      // Default every stat to 0 — a player/team with no stored stats used to crash
-      // the card (e.g. `undefined.toLocaleString()`).
-      setPlayers((pr?.data || []).map((p) => ({
-        id: p.id, name: p.name,
-        matches: 0, runs: 0, average: 0, strikeRate: 0, centuries: 0, wickets: 0,
-        ...(p.stats || {}),
-        // leaderboard rows carry these instead of a stats blob
-        ...(p.matches != null ? { matches: p.matches } : {}),
-        ...(p.eventTotals ? { eventTotals: p.eventTotals } : {}),
-      })));
-      setTeams((tr?.data || []).map((t) => ({
-        id: t.id, name: t.name,
-        matches: 0, wins: 0, losses: 0, totalRuns: 0, totalWickets: 0, winRate: 0,
-        ...(t.stats || {}),
-      })));
-      setLoading(false);
-    });
-    return () => { alive = false; };
+    ]);
+    // Default every stat to 0 — a player/team with no stored stats used to crash
+    // the card (e.g. `undefined.toLocaleString()`).
+    setPlayers((pr?.data || []).map((p) => ({
+      id: p.id, name: p.name,
+      matches: 0, runs: 0, average: 0, strikeRate: 0, centuries: 0, wickets: 0,
+      ...(p.stats || {}),
+      // leaderboard rows carry these instead of a stats blob
+      ...(p.matches != null ? { matches: p.matches } : {}),
+      ...(p.eventTotals ? { eventTotals: p.eventTotals } : {}),
+    })));
+    setTeams((tr?.data || []).map((t) => ({
+      id: t.id, name: t.name,
+      matches: 0, wins: 0, losses: 0, totalRuns: 0, totalWickets: 0, winRate: 0,
+      ...(t.stats || {}),
+    })));
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    fetchData().finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [fetchData]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchData().finally(() => setRefreshing(false));
+  }, [fetchData]);
 
   // Qualify → rank → stamp the standing → then filter by search. The standing is
   // fixed before searching, so looking up a name shows that player's real rank
@@ -282,8 +299,11 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
     .sort(sortFor(board))
     .map((item, i) => ({ ...item, standing: i }));
   const data = ranked.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  // Where the logged-in player sits on the current board (pre-search, so it's the
+  // real standing). Powers the "You're #N — find me" banner and row highlight.
+  const myStanding = tab === 'Players' && myId ? ranked.find((r) => r.id === myId) : null;
   const renderCard = tab === 'Players' ?
-  ({ item }) => <PlayerCard item={item} rank={item.standing} board={board}
+  ({ item }) => <PlayerCard item={item} rank={item.standing} board={board} isMe={item.id === myId}
       // Non-cricket: one column per ranking board (Goals, Yellows …) plus
       // matches, instead of cricket's Runs/Avg/SR/Wkts.
       cols={sportBoards.length ? [
@@ -291,6 +311,8 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
         ...sportBoards.map((b) => ({ label: b.label, value: rankValue(item, b), icon: 'chart-bar' })),
       ] : null} /> :
   ({ item }) => <TeamCard item={item} rank={item.standing} />;
+
+  const scrollToMe = () => scrollRef.current?.scrollTo({ y: Math.max(0, myRowY.current - 12), animated: true });
 
   const listAnim = useRef(new Animated.Value(1)).current;
 
@@ -342,9 +364,20 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
               horizontal drag and blocks the Pavilion pager's swipe; 45 rows don't
               need windowing, and this lets a swipe directional-lock cleanly. */}
           <ScrollView
+            ref={scrollRef}
             {...hideTabBar}
             showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}
             contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}>
+            {/* "Find me" — jump straight to the logged-in player's row on a long
+                board instead of scrolling to hunt for it. */}
+            {myStanding && (
+              <TouchableOpacity style={styles.findMe} onPress={scrollToMe} activeOpacity={0.85}>
+                <Icon name="crosshairs-gps" size={16} color={DS.onLime} />
+                <Text style={styles.findMeText}>You're #{myStanding.standing + 1} by {board.label.toLowerCase()}</Text>
+                <Text style={styles.findMeJump}>Find me</Text>
+              </TouchableOpacity>
+            )}
             <View>
               {/* WHAT am I ranking (Players/Teams) sits first, then the search
                   within it — hierarchy over chronology. Capsule = tap toggle,
@@ -397,7 +430,15 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
                 <Text style={{ color: DS.textMuted, fontSize: 14 }}>No {tab.toLowerCase()} ranked yet</Text>
               </View>
             ) : (
-              data.map((item) => <Fragment key={item.id}>{renderCard({ item })}</Fragment>)
+              data.map((item) => (
+                item.id === myId ? (
+                  <View key={item.id} onLayout={(e) => { myRowY.current = e.nativeEvent.layout.y; }}>
+                    {renderCard({ item })}
+                  </View>
+                ) : (
+                  <Fragment key={item.id}>{renderCard({ item })}</Fragment>
+                )
+              ))
             )}
           </ScrollView>
         </Animated.View>
@@ -441,10 +482,19 @@ const makeStyles = (DS) => StyleSheet.create({
 
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
 
-  card: { 
+  card: {
     backgroundColor: DS.surface, borderRadius: 16,
     borderWidth: 1, borderColor: DS.border,
   },
+  cardMe: { borderColor: DS.lime, borderWidth: 1.5, backgroundColor: DS.lime + '0f' },
+
+  findMe: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: DS.lime, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 10, marginBottom: 12,
+  },
+  findMeText: { flex: 1, fontSize: 13, fontWeight: '800', color: DS.onLime, letterSpacing: 0.2 },
+  findMeJump: { fontSize: 12, fontWeight: '800', color: DS.onLime, textDecorationLine: 'underline' },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, paddingBottom: 8 },
   avatarWrap: { position: 'relative' },
   rankBadge: {
