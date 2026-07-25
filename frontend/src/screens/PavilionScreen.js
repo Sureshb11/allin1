@@ -24,15 +24,17 @@ export default function PavilionScreen({ navigation, route }) {
   const meUser = useCurrentUser();
 
   const [activeTab, setActiveTab] = useState(0);
-  // Horizontal pager: scrollX drives the sliding underline (native), and a
-  // "visited" set lazy-mounts each tab's (full-screen) content only once reached
-  // so the three don't all fetch on first paint.
+  // Horizontal swipe pager (same proven shape as ScorecardScreen's tabs): scrollX
+  // drives the sliding underline natively; a "visited" set lazy-mounts each tab's
+  // full-screen content once reached (+ its neighbour), so the three don't all
+  // fetch on first paint but a swipe target is never blank.
   const pagerRef = useRef(null);
   const scrollX = useRef(new Animated.Value(0)).current;
-  // Mount the active tab + its neighbours, so a page is already there as you swipe
-  // toward it (never a blank slide-in), and stays mounted once visited (no re-fetch
-  // on return). Seed with tab 0 and its neighbour.
+  const swipingRef = useRef(false);   // true only during a finger drag, so a tap's
+                                      // programmatic scroll isn't read back as a swipe
   const [visited, setVisited] = useState({ 0: true, 1: true });
+
+  const markVisited = (i) => setVisited((v) => ({ ...v, [i - 1]: true, [i]: true, [i + 1]: true }));
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -41,14 +43,29 @@ export default function PavilionScreen({ navigation, route }) {
     });
   }, [navigation]);
 
-  // Tab switching is TAP-only: user swipe is disabled on the pager because the tab
-  // screens' own vertical lists + horizontal chips fight a horizontal drag and make
-  // it snap back. The programmatic animated scroll still slides the page and the
-  // underline; state is updated here (programmatic scrolls don't fire momentum end).
+  // Tap → animate the page across; the underline follows via scrollX. State is set
+  // here because a programmatic scroll doesn't fire onMomentumScrollEnd.
   const goToTab = (index) => {
     pagerRef.current?.scrollTo?.({ x: index * SCREEN_W, animated: true });
     setActiveTab(index);
-    setVisited((v) => ({ ...v, [index - 1]: true, [index]: true, [index + 1]: true }));
+    markVisited(index);
+  };
+
+  // Swipe → track the active tab live as the finger passes each page centre, and
+  // finalise on settle. Guarded by swipingRef so the tap path doesn't double-fire.
+  const onPagerScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    { useNativeDriver: true, listener: (e) => {
+        if (!swipingRef.current) return;
+        const i = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
+        if (i !== activeTab) { setActiveTab(i); markVisited(i); }
+      } },
+  );
+  const onPagerSettle = (e) => {
+    swipingRef.current = false;
+    const i = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
+    if (i !== activeTab) setActiveTab(i);
+    markVisited(i);
   };
 
   // The underline slides continuously with the swipe.
@@ -92,13 +109,13 @@ export default function PavilionScreen({ navigation, route }) {
         ref={pagerRef}
         horizontal
         pagingEnabled
-        scrollEnabled={false}
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: true },
-        )}
+        contentOffset={{ x: activeTab * SCREEN_W, y: 0 }}
+        onScrollBeginDrag={() => { swipingRef.current = true; }}
+        onScroll={onPagerScroll}
+        onScrollEndDrag={() => { swipingRef.current = false; }}
+        onMomentumScrollEnd={onPagerSettle}
         style={{ flex: 1 }}
       >
         {TABS.map((tab, i) => {

@@ -1,7 +1,7 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, Fragment } from 'react';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Animated, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import legendsApi from '../services/LegendsApi';
@@ -341,67 +341,69 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
         </View>
       ) : (
         <Animated.View style={{ flex: 1, opacity: listAnim }}>
-          <FlatList
+          {/* A vertical ScrollView (not a FlatList): a VirtualizedList grabs the
+              horizontal drag and blocks the Pavilion pager's swipe; 45 rows don't
+              need windowing, and this lets a swipe directional-lock cleanly. */}
+          <ScrollView
             {...hideTabBar}
-            data={data}
-            renderItem={renderCard}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}
-            ListHeaderComponent={
-              <View>
-                <View style={styles.searchWrap}>
-                  <Icon name="magnify" size={18} color={DS.textMuted} />
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder={`Search ${tab.toLowerCase()}...`}
-                    placeholderTextColor={DS.faint}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                  />
-                  {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-                      <Icon name="close-circle" size={18} color={DS.faint} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <View style={styles.tabBar}>
-                {TABS.map((t) =>
-                <TouchableOpacity key={t.id} style={[styles.tabBtn, tab === t.id && styles.tabBtnActive]}
-                onPress={() => handleTabChange(t.id)}>
-                    <Icon name={t.icon} size={15} color={tab === t.id ? DS.lime : DS.textMuted} />
-                    <Text style={[styles.tabBtnText, tab === t.id && styles.tabBtnTextActive]}>{t.label}</Text>
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}>
+            <View>
+              <View style={styles.searchWrap}>
+                <Icon name="magnify" size={18} color={DS.textMuted} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder={`Search ${tab.toLowerCase()}...`}
+                  placeholderTextColor={DS.faint}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+                    <Icon name="close-circle" size={18} color={DS.faint} />
                   </TouchableOpacity>
                 )}
-                </View>
-                {/* Board selector — what this leaderboard is actually ranking */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}
-                  ref={boardBarRef}
-                  contentContainerStyle={styles.boardBar}>
-                  {boards.map((b) => {
-                    const on = b.id === board.id;
-                    return (
-                      <TouchableOpacity key={b.id} activeOpacity={0.85}
-                        style={[styles.boardChip, on && styles.boardChipActive]}
-                        onPress={() => handleBoardChange(b.id)}>
-                        <Icon name={b.icon} size={13} color={on ? DS.bg : DS.textMuted} />
-                        <Text style={[styles.boardChipText, on && styles.boardChipTextActive]}>{b.label}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-                {/* State the qualification instead of quietly dropping people */}
-                <Text style={styles.boardMeta}>
-                  {data.length} ranked by {board.label.toLowerCase()}
-                  {board.note ? ` · ${board.note}` : ''}
-                </Text>
               </View>
-            }
-            ListEmptyComponent={
+              <View style={styles.tabBar}>
+              {TABS.map((t) =>
+              <TouchableOpacity key={t.id} style={[styles.tabBtn, tab === t.id && styles.tabBtnActive]}
+              onPress={() => handleTabChange(t.id)}>
+                  <Icon name={t.icon} size={15} color={tab === t.id ? DS.lime : DS.textMuted} />
+                  <Text style={[styles.tabBtnText, tab === t.id && styles.tabBtnTextActive]}>{t.label}</Text>
+                </TouchableOpacity>
+              )}
+              </View>
+              {/* Board selector — what this leaderboard is actually ranking */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                ref={boardBarRef}
+                contentContainerStyle={styles.boardBar}>
+                {boards.map((b) => {
+                  const on = b.id === board.id;
+                  return (
+                    <TouchableOpacity key={b.id} activeOpacity={0.85}
+                      style={[styles.boardChip, on && styles.boardChipActive]}
+                      onPress={() => handleBoardChange(b.id)}>
+                      <Icon name={b.icon} size={13} color={on ? DS.bg : DS.textMuted} />
+                      <Text style={[styles.boardChipText, on && styles.boardChipTextActive]}>{b.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              {/* State the qualification instead of quietly dropping people */}
+              <Text style={styles.boardMeta}>
+                {data.length} ranked by {board.label.toLowerCase()}
+                {board.note ? ` · ${board.note}` : ''}
+              </Text>
+            </View>
+            {data.length === 0 ? (
               <View style={{ alignItems: 'center', paddingVertical: 48, gap: 8 }}>
                 <Icon name="chart-bar" size={44} color={DS.surfaceHighest} />
                 <Text style={{ color: DS.textMuted, fontSize: 14 }}>No {tab.toLowerCase()} ranked yet</Text>
-              </View>}
-            showsVerticalScrollIndicator={false} />
+              </View>
+            ) : (
+              data.map((item) => <Fragment key={item.id}>{renderCard({ item })}</Fragment>)
+            )}
+          </ScrollView>
         </Animated.View>
       )}
 
