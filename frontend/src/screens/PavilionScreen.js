@@ -55,8 +55,8 @@ export default function PavilionScreen({ navigation, route }) {
   // lists and claims only clearly-horizontal ones, so a swipe pages the tab
   // reliably anywhere. Recreated each render so it reads the current activeTab.
   const swipeGesture = Gesture.Pan()
-    .activeOffsetX([-24, 24])
-    .failOffsetY([-16, 16])
+    .activeOffsetX([-16, 16])   // claim a horizontal drag early, so it beats a card's tap
+    .failOffsetY([-14, 14])     // but yield to a vertical drag first, so lists still scroll
     .onEnd((e) => {
       const goNext = e.translationX <= -60 || e.velocityX <= -450;
       const goPrev = e.translationX >= 60 || e.velocityX >= 450;
