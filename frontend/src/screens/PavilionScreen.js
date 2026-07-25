@@ -41,15 +41,14 @@ export default function PavilionScreen({ navigation, route }) {
     });
   }, [navigation]);
 
+  // Tab switching is TAP-only: user swipe is disabled on the pager because the tab
+  // screens' own vertical lists + horizontal chips fight a horizontal drag and make
+  // it snap back. The programmatic animated scroll still slides the page and the
+  // underline; state is updated here (programmatic scrolls don't fire momentum end).
   const goToTab = (index) => {
     pagerRef.current?.scrollTo?.({ x: index * SCREEN_W, animated: true });
-  };
-
-  const onMomentumEnd = (e) => {
-    const i = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
-    if (i !== activeTab) setActiveTab(i);
-    // Ensure the new page and its neighbours are mounted for the next swipe.
-    setVisited((v) => ({ ...v, [i - 1]: true, [i]: true, [i + 1]: true }));
+    setActiveTab(index);
+    setVisited((v) => ({ ...v, [index - 1]: true, [index]: true, [index + 1]: true }));
   };
 
   // The underline slides continuously with the swipe.
@@ -93,13 +92,13 @@ export default function PavilionScreen({ navigation, route }) {
         ref={pagerRef}
         horizontal
         pagingEnabled
+        scrollEnabled={false}
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
           { useNativeDriver: true },
         )}
-        onMomentumScrollEnd={onMomentumEnd}
         style={{ flex: 1 }}
       >
         {TABS.map((tab, i) => {
