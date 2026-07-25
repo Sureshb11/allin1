@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated, Image, Dimensions } from 'react-native';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
@@ -24,14 +25,11 @@ export default function PavilionScreen({ navigation, route }) {
   const meUser = useCurrentUser();
 
   const [activeTab, setActiveTab] = useState(0);
-  // Horizontal swipe pager (same proven shape as ScorecardScreen's tabs): scrollX
-  // drives the sliding underline natively; a "visited" set lazy-mounts each tab's
-  // full-screen content once reached (+ its neighbour), so the three don't all
-  // fetch on first paint but a swipe target is never blank.
+  // Pager: the pages live in a horizontal ScrollView driven programmatically (user
+  // scroll disabled); scrollX drives the sliding underline. A "visited" set
+  // lazy-mounts each tab's full-screen content once reached (+ its neighbour).
   const pagerRef = useRef(null);
   const scrollX = useRef(new Animated.Value(0)).current;
-  const swipingRef = useRef(false);   // true only during a finger drag, so a tap's
-                                      // programmatic scroll isn't read back as a swipe
   const [visited, setVisited] = useState({ 0: true, 1: true });
 
   const markVisited = (i) => setVisited((v) => ({ ...v, [i - 1]: true, [i]: true, [i + 1]: true }));
@@ -43,30 +41,28 @@ export default function PavilionScreen({ navigation, route }) {
     });
   }, [navigation]);
 
-  // Tap → animate the page across; the underline follows via scrollX. State is set
-  // here because a programmatic scroll doesn't fire onMomentumScrollEnd.
+  // Tap or swipe → animate the page across; the underline follows via scrollX.
   const goToTab = (index) => {
-    pagerRef.current?.scrollTo?.({ x: index * SCREEN_W, animated: true });
-    setActiveTab(index);
-    markVisited(index);
+    const clamped = Math.max(0, Math.min(TABS.length - 1, index));
+    pagerRef.current?.scrollTo?.({ x: clamped * SCREEN_W, animated: true });
+    setActiveTab(clamped);
+    markVisited(clamped);
   };
 
-  // Swipe → track the active tab live as the finger passes each page centre, and
-  // finalise on settle. Guarded by swipingRef so the tap path doesn't double-fire.
-  const onPagerScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-    { useNativeDriver: true, listener: (e) => {
-        if (!swipingRef.current) return;
-        const i = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
-        if (i !== activeTab) { setActiveTab(i); markVisited(i); }
-      } },
-  );
-  const onPagerSettle = (e) => {
-    swipingRef.current = false;
-    const i = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
-    if (i !== activeTab) setActiveTab(i);
-    markVisited(i);
-  };
+  // Horizontal swipe via gesture-handler — NOT the ScrollView's own scroll. A plain
+  // horizontal ScrollView loses the gesture to the pages' inner vertical lists over
+  // list content; a Pan with failOffsetY lets vertical drags fall through to those
+  // lists and claims only clearly-horizontal ones, so a swipe pages the tab
+  // reliably anywhere. Recreated each render so it reads the current activeTab.
+  const swipeGesture = Gesture.Pan()
+    .activeOffsetX([-24, 24])
+    .failOffsetY([-16, 16])
+    .onEnd((e) => {
+      const goNext = e.translationX <= -60 || e.velocityX <= -450;
+      const goPrev = e.translationX >= 60 || e.velocityX >= 450;
+      if (goNext && activeTab < TABS.length - 1) goToTab(activeTab + 1);
+      else if (goPrev && activeTab > 0) goToTab(activeTab - 1);
+    });
 
   // The underline slides continuously with the swipe.
   const underlineX = scrollX.interpolate({
@@ -105,28 +101,30 @@ export default function PavilionScreen({ navigation, route }) {
       </View>
 
       {/* ── CONTENT (horizontal swipe pager) ──────────────────────────── */}
-      <Animated.ScrollView
-        ref={pagerRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEventThrottle={16}
-        contentOffset={{ x: activeTab * SCREEN_W, y: 0 }}
-        onScrollBeginDrag={() => { swipingRef.current = true; }}
-        onScroll={onPagerScroll}
-        onScrollEndDrag={() => { swipingRef.current = false; }}
-        onMomentumScrollEnd={onPagerSettle}
-        style={{ flex: 1 }}
-      >
-        {TABS.map((tab, i) => {
-          const Comp = tab.component;
-          return (
-            <View key={tab.label} style={{ width: SCREEN_W }}>
-              {visited[i] ? <Comp navigation={navigation} inline={true} route={route} /> : null}
-            </View>
-          );
-        })}
-      </Animated.ScrollView>
+      <GestureDetector gesture={swipeGesture}>
+        <Animated.ScrollView
+          ref={pagerRef}
+          horizontal
+          pagingEnabled
+          scrollEnabled={false}
+          showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+            { useNativeDriver: true },
+          )}
+          style={{ flex: 1 }}
+        >
+          {TABS.map((tab, i) => {
+            const Comp = tab.component;
+            return (
+              <View key={tab.label} style={{ width: SCREEN_W }}>
+                {visited[i] ? <Comp navigation={navigation} inline={true} route={route} /> : null}
+              </View>
+            );
+          })}
+        </Animated.ScrollView>
+      </GestureDetector>
 
       {/* ── FAB for Go Live ────────────────── */}
       <TouchableOpacity 

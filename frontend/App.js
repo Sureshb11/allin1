@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from 'react';
 import {StatusBar, Text as RNText, TextInput as RNTextInput} from 'react-native';
 import 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Clamp global font scaling. A large system font ("Display size" / accessibility
 // large text) would otherwise enlarge every label while fixed-height cards, chips
@@ -69,7 +70,7 @@ const Root = () => {
   }
 
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={colors.bg}
@@ -90,7 +91,7 @@ const Root = () => {
         </Stack.Navigator>
       </NavigationContainer>
       <ToastHost />
-    </>
+    </GestureHandlerRootView>
   );
 };
 
