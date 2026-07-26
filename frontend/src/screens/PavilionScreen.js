@@ -86,10 +86,6 @@ export default function PavilionScreen({ navigation, route }) {
   const tx = useSharedValue(-initialTab * SCREEN_W);   // row translateX: 0 … -(N-1)·W
   const settled = useSharedValue(initialTab);          // page the row last settled on
   const dragPage = useSharedValue(initialTab);         // page under the finger mid-drag
-  // Inner width of the L1 pill track (measured), so the sliding pill snaps to
-  // exact segment widths and tracks the pager 1:1.
-  const [trackW, setTrackW] = useState(0);
-  const segW = trackW / N;
   const [visited, setVisited] = useState({ [initialTab]: true, [initialTab + 1]: true, [Math.max(0, initialTab - 1)]: true });
 
   const markVisited = (i) => setVisited((v) => ({ ...v, [i - 1]: true, [i]: true, [i + 1]: true }));
@@ -148,15 +144,6 @@ export default function PavilionScreen({ navigation, route }) {
 
   const trackStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
 
-  // L1 sliding pill: the near-black active pill rides the same `tx` 1:1, so it
-  // glides under the finger between the equal-width segments during a swipe.
-  const pillStyle = useAnimatedStyle(() => {
-    'worklet';
-    let p = -tx.value / SCREEN_W;
-    if (p < 0) p = 0; else if (p > N - 1) p = N - 1;
-    return { width: segW, transform: [{ translateX: p * segW }] };
-  });
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
@@ -164,29 +151,22 @@ export default function PavilionScreen({ navigation, route }) {
       {/* ── HEADER ──────────────────────── */}
       <AppHeader />
 
-      {/* ── L1 NAV (charcoal sliding pill) ──────────────────────── */}
-      <View style={styles.navWrap}>
-        <View style={[styles.navTrack, { backgroundColor: P.track }]}
-          onLayout={(e) => setTrackW(e.nativeEvent.layout.width - 8)}>
-          {trackW > 0 && (
-            <Animated.View style={[styles.navPill, { backgroundColor: DS.lime }, pillStyle]} />
-          )}
-          {TABS.map((tab, i) => {
-            const isActive = activeTab === i;
-            const fg = isActive ? DS.onLime : P.textOff;
-            return (
-              <TouchableOpacity
-                key={tab.label}
-                style={styles.navSeg}
-                onPress={() => goToTab(i)}
-                activeOpacity={0.8}
-              >
-                <Icon name={tab.icon} size={16} color={fg} />
-                <Text style={[styles.navSegText, { color: fg }]}>{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+      {/* ── L1 NAV (separate pills; active = green + icon) ──────────── */}
+      <View style={styles.navRow}>
+        {TABS.map((tab, i) => {
+          const isActive = activeTab === i;
+          return (
+            <TouchableOpacity
+              key={tab.label}
+              style={[styles.navPill, { backgroundColor: isActive ? DS.lime : DS.surfaceHigh }]}
+              onPress={() => goToTab(i)}
+              activeOpacity={0.85}
+            >
+              {isActive && <Icon name={tab.icon} size={15} color={DS.onLime} />}
+              <Text style={[styles.navPillText, { color: isActive ? DS.onLime : DS.textMuted }]}>{tab.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* ── CONTENT (finger-tracked pager: one wide row, translated) ──── */}
@@ -226,29 +206,26 @@ export default function PavilionScreen({ navigation, route }) {
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
 
-  // L1 charcoal pill nav: a near-black pill slides between equal segments on a
-  // charcoal track. Active carried by the pill + bright-green label/icon.
-  navWrap: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
-  navTrack: { flexDirection: 'row', borderRadius: 16, padding: 4 },
-  navPill: { position: 'absolute', top: 4, bottom: 4, left: 4, borderRadius: 12 },
-  navSeg: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 11 },
-  navSegText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.2 },
+  // L1 nav: three separate rounded pills. Inactive = grey, text-only; active =
+  // green with its icon (matches the reference's single filled tab).
+  navRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
+  navPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 999 },
+  navPillText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.2 },
 
-  // Near-black control; accent icon + label colour are applied inline per tab,
-  // `bottom` is dock clearance.
+  // Green primary; a rounded rectangle (not a full pill). `bottom` is dock clearance.
   fab: {
     position: 'absolute',
-    right: 24,
+    right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 28,
-    gap: 8,
+    paddingVertical: 15,
+    paddingHorizontal: 22,
+    borderRadius: 18,
+    gap: 9,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
     elevation: 8,
   },
   fabText: {

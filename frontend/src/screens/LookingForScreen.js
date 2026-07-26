@@ -320,14 +320,13 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
         entering={FadeInDown.duration(360).delay(Math.min(index, 8) * 45)}
         style={styles.card}
       >
-        {/* Faint type-icon watermark bleeding off the top-right corner. */}
-        <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={104} color={chipColor} style={styles.cardWatermark} />
+        {/* Faint grey type-icon watermark, upright, in the top-right. */}
+        <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={92} color={DS.surfaceHighest} style={styles.cardWatermark} />
 
         <View style={styles.cardBody}>
           <View style={styles.cardHeader}>
-            <View style={[styles.typeBadge, { borderColor: chipColor }]}>
-              <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={12} color={chipColor} />
-              <Text style={[styles.typeText, { color: chipColor }]}>{item.type?.toUpperCase()}</Text>
+            <View style={styles.typeBadge}>
+              <Text style={styles.typeText}>{item.type?.toUpperCase()}</Text>
             </View>
             {item.status === 'open' ? (
               <TouchableOpacity onPress={() => handleClose(item.id)} style={styles.markFilled} activeOpacity={0.8}>
@@ -348,8 +347,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           <View style={styles.cardMeta}>
             {!!whenText && (
               <View style={styles.metaChip}>
-                <Icon name="clock-outline" size={13} color={DS.lime} />
-                <Text style={[styles.metaText, { color: DS.textVariant, fontWeight: '700' }]}>{whenText}</Text>
+                <Icon name="clock-outline" size={13} color={DS.textMuted} />
+                <Text style={styles.metaText}>{whenText}</Text>
               </View>
             )}
             {!!item.location && (
@@ -472,10 +471,10 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
         </View>
       )}
 
-      {/* Search bar + create */}
+      {/* Search bar — full width (posting lives on the FAB + CTA card). */}
       <View style={styles.searchWrap}>
         <View style={styles.searchBar}>
-          <Icon name="magnify" size={20} color={DS.textMuted} />
+          <Icon name="magnify" size={20} color={DS.lime} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search listings..."
@@ -489,9 +488,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity style={[styles.createBtn, { backgroundColor: DS.lime }]} onPress={() => setShowCreate(true)} activeOpacity={0.85}>
-          <Icon name="plus" size={24} color={DS.onLime} />
-        </TouchableOpacity>
       </View>
 
       {/* Filter Tabs */}
@@ -736,25 +732,25 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Card — larger radius, a faint type-icon watermark, chip-style meta. */
   card: { backgroundColor: DS.surface, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: DS.border, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
-  cardWatermark: { position: 'absolute', top: -12, right: -14, opacity: 0.06, transform: [{ rotate: '-12deg' }] },
-  cardBody: { padding: 18 },
-  cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999, borderWidth: 1.5, backgroundColor: 'transparent' },
-  typeText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  markFilled: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: DS.success + '1f', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
-  markFilledText: { fontSize: 11.5, color: DS.success, fontWeight: '800' },
-  filledBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: DS.faint },
+  cardWatermark: { position: 'absolute', top: 14, right: 14, opacity: 0.5 },
+  cardBody: { padding: 22 },
+  cardHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 },
+  typeBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: DS.border, backgroundColor: DS.surface },
+  typeText: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: DS.textMuted },
+  markFilled: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: DS.success + '24', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 },
+  markFilledText: { fontSize: 12, color: DS.success, fontWeight: '700' },
+  filledBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5, borderWidth: 1, borderColor: DS.faint },
   filledBadgeText: { fontSize: 10, color: DS.textMuted, fontWeight: '800', letterSpacing: 0.8 },
-  cardTitle: { fontSize: 17, fontWeight: "800", color: DS.textPrimary, marginBottom: 10, letterSpacing: -0.3, lineHeight: 23 },
-  cardDesc: { fontSize: 13, color: DS.textVariant, marginBottom: 10, lineHeight: 19 },
-  cardMeta: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 },
-  metaChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: DS.surfaceHigh, borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6 },
-  metaText: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
+  cardTitle: { fontSize: 20, fontWeight: "700", color: DS.textPrimary, marginBottom: 12, letterSpacing: -0.3, lineHeight: 27 },
+  cardDesc: { fontSize: 14, color: DS.textVariant, marginBottom: 12, lineHeight: 20 },
+  cardMeta: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
+  metaChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: DS.surfaceHigh, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
+  metaText: { fontSize: 13, color: DS.textMuted, fontWeight: '500' },
   // CONNECT = near-black control (bg applied inline); primary action.
-  connectBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 14, paddingVertical: 13, marginTop: 2 },
+  connectBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 12, paddingVertical: 14, marginTop: 2 },
   connectBtnText: { fontSize: 13, fontWeight: '800', color: DS.white, letterSpacing: 1 },
   // Chat = outlined green; the secondary/positive follow-up.
-  chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'transparent', borderRadius: 14, paddingVertical: 12, borderWidth: 1.5, borderColor: DS.lime },
+  chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'transparent', borderRadius: 12, paddingVertical: 13, borderWidth: 2, borderColor: DS.lime },
   chatBtnText: { fontSize: 13, fontWeight: '800', color: DS.lime, letterSpacing: 0.5 },
   requestedBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingVertical: 11, borderWidth: 1, borderColor: DS.faint },
   requestedText: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
