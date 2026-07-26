@@ -11,6 +11,7 @@ import LookingForScreen from './LookingForScreen';
 import { useCurrentUser } from '../utils/currentUser';
 import { useTabBarClearance } from '../components/AutoHideTabBar';
 import { haptic } from '../utils/haptics';
+import { pav } from '../theme/pavilion';
 import AppHeader from '../components/AppHeader';
 
 const TABS = [
@@ -20,19 +21,19 @@ const TABS = [
 ];
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const TAB_W = SCREEN_W / TABS.length;
 const N = TABS.length;
 // One house spring (Reanimated): a quick, barely-overshooting settle shared by
 // tap and swipe so both feel like the same material.
 const SPRING = { damping: 28, stiffness: 220, mass: 1 };
 
-// Per-tab primary action for the floating button. Rankings has no screen-local
-// action, so it falls back to Go Live; My Stats and Scout register their own
-// (share the stat card / open the post-a-listing sheet) via onRegisterFab.
-const FAB_FOR = (DS) => [
-  { icon: 'share-variant', label: 'Share Card',   bg: DS.lime, fg: DS.onLime },
-  { icon: 'broadcast',     label: 'Live Action',  bg: DS.live, fg: DS.white },
-  { icon: 'plus',          label: 'Post Listing', bg: DS.blue, fg: DS.white },
+// Per-tab primary action for the floating button. All share the near-black
+// control fill; the icon carries the accent (lime, or the live-red on Rankings'
+// Go Live). Rankings has no screen-local action → falls back to Go Live; My Stats
+// and Scout register their own (share the stat card / open the post sheet).
+const FAB_FOR = (P) => [
+  { icon: 'share-variant', label: 'Share Card',   accent: P.accent },
+  { icon: 'broadcast',     label: 'Live Action',  accent: P.live },
+  { icon: 'plus',          label: 'Post Listing', accent: P.accent },
 ];
 
 // Remembered across mounts so re-entering the clubhouse lands where you left it
@@ -61,6 +62,7 @@ function PagerPage({ index, tx, children }) {
 export default function PavilionScreen({ navigation, route }) {
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const P = pav(DS);
   const meUser = useCurrentUser();
   const tabClear = useTabBarClearance();
 
@@ -72,7 +74,7 @@ export default function PavilionScreen({ navigation, route }) {
   // shared button dispatches to the active tab's action, or Go Live if none.
   const fabActions = useRef({}).current;
   const registerFab = (i) => (fn) => { fabActions[i] = fn; };
-  const FABS = FAB_FOR(DS);
+  const FABS = FAB_FOR(P);
   const fab = FABS[activeTab] || FABS[0];
 
   // ── Reanimated finger-tracked pager (no ScrollView anywhere in the pager). ──
@@ -84,9 +86,10 @@ export default function PavilionScreen({ navigation, route }) {
   const tx = useSharedValue(-initialTab * SCREEN_W);   // row translateX: 0 … -(N-1)·W
   const settled = useSharedValue(initialTab);          // page the row last settled on
   const dragPage = useSharedValue(initialTab);         // page under the finger mid-drag
-  // Measured label widths so the underline hugs the actual word, not a fixed slot.
-  const labelWRef = useRef([TAB_W * 0.42, TAB_W * 0.42, TAB_W * 0.42]);
-  const labelW = useSharedValue(labelWRef.current);
+  // Inner width of the L1 pill track (measured), so the sliding pill snaps to
+  // exact segment widths and tracks the pager 1:1.
+  const [trackW, setTrackW] = useState(0);
+  const segW = trackW / N;
   const [visited, setVisited] = useState({ [initialTab]: true, [initialTab + 1]: true, [Math.max(0, initialTab - 1)]: true });
 
   const markVisited = (i) => setVisited((v) => ({ ...v, [i - 1]: true, [i]: true, [i + 1]: true }));
@@ -104,15 +107,6 @@ export default function PavilionScreen({ navigation, route }) {
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false, headerTitle: 'Pavilion' });
   }, [navigation]);
-
-  const onLabelLayout = (i) => (e) => {
-    const w = e.nativeEvent.layout.width;
-    if (!w) return;
-    const a = labelWRef.current.slice();
-    a[i] = w;
-    labelWRef.current = a;
-    labelW.value = a;
-  };
 
   // Settle on a page via a tap: same spring, same detent + lazy-mount as a swipe.
   const goToTab = (index) => {
@@ -154,20 +148,13 @@ export default function PavilionScreen({ navigation, route }) {
 
   const trackStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
 
-  // Elastic underline: rides the same `tx`, resizes to the active label's width,
-  // and stretches slightly at mid-travel between two pages before snapping.
-  const underlineStyle = useAnimatedStyle(() => {
+  // L1 sliding pill: the near-black active pill rides the same `tx` 1:1, so it
+  // glides under the finger between the equal-width segments during a swipe.
+  const pillStyle = useAnimatedStyle(() => {
     'worklet';
     let p = -tx.value / SCREEN_W;
     if (p < 0) p = 0; else if (p > N - 1) p = N - 1;
-    const lo = Math.floor(p), hi = Math.ceil(p), f = p - lo;
-    const ws = labelW.value;
-    const wLo = ws[lo] || TAB_W * 0.42, wHi = ws[hi] || TAB_W * 0.42;
-    const w = wLo + (wHi - wLo) * f;
-    const cLo = lo * TAB_W + TAB_W / 2, cHi = hi * TAB_W + TAB_W / 2;
-    const center = cLo + (cHi - cLo) * f;
-    const stretch = lo === hi ? 1 : 1 + (1 - Math.abs(f - 0.5) * 2) * 0.3;
-    return { width: w, transform: [{ translateX: center - w / 2 }, { scaleX: stretch }] };
+    return { width: segW, transform: [{ translateX: p * segW }] };
   });
 
   return (
@@ -177,26 +164,29 @@ export default function PavilionScreen({ navigation, route }) {
       {/* ── HEADER ──────────────────────── */}
       <AppHeader />
 
-      {/* ── NAV TABS (elastic underline) ──────────────────────── */}
-      <View style={styles.navTabs}>
-        {TABS.map((tab, i) => {
-          const isActive = activeTab === i;
-          return (
-            <TouchableOpacity
-              key={tab.label}
-              style={styles.navTab}
-              onPress={() => goToTab(i)}
-              activeOpacity={0.7}
-            >
-              <Icon name={tab.icon} size={17} color={isActive ? DS.lime : DS.textVariant} />
-              <Text style={[styles.navTabText, isActive && styles.navTabTextActive]} onLayout={onLabelLayout(i)}>
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-        {/* Sliding + stretching underline indicator */}
-        <Animated.View style={[styles.underline, underlineStyle]} />
+      {/* ── L1 NAV (charcoal sliding pill) ──────────────────────── */}
+      <View style={styles.navWrap}>
+        <View style={[styles.navTrack, { backgroundColor: P.track }]}
+          onLayout={(e) => setTrackW(e.nativeEvent.layout.width - 8)}>
+          {trackW > 0 && (
+            <Animated.View style={[styles.navPill, { backgroundColor: P.control }, pillStyle]} />
+          )}
+          {TABS.map((tab, i) => {
+            const isActive = activeTab === i;
+            const fg = isActive ? P.accent : P.textOff;
+            return (
+              <TouchableOpacity
+                key={tab.label}
+                style={styles.navSeg}
+                onPress={() => goToTab(i)}
+                activeOpacity={0.8}
+              >
+                <Icon name={tab.icon} size={16} color={fg} />
+                <Text style={[styles.navSegText, { color: fg }]}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       {/* ── CONTENT (finger-tracked pager: one wide row, translated) ──── */}
@@ -215,9 +205,9 @@ export default function PavilionScreen({ navigation, route }) {
         </View>
       </GestureDetector>
 
-      {/* ── FAB: primary action for the active tab ────────────────── */}
+      {/* ── FAB: near-black control, accent icon per active tab ─────── */}
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: fab.bg, shadowColor: fab.bg, bottom: tabClear + 16 }]}
+        style={[styles.fab, { backgroundColor: P.control, bottom: tabClear + 16 }]}
         onPress={() => {
           haptic.impact();
           const action = fabActions[activeTab];
@@ -226,8 +216,8 @@ export default function PavilionScreen({ navigation, route }) {
         }}
         activeOpacity={0.85}
       >
-        <Icon name={fab.icon} size={20} color={fab.fg} />
-        <Text style={[styles.fabText, { color: fab.fg }]}>{fab.label}</Text>
+        <Icon name={fab.icon} size={20} color={fab.accent} />
+        <Text style={[styles.fabText, { color: P.onControl }]}>{fab.label}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -236,19 +226,16 @@ export default function PavilionScreen({ navigation, route }) {
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
 
-  // Underline tab bar: flat row, a lime bar slides + stretches under the active
-  // tab. Active state is carried by colour + the bar (bold text doesn't render in
-  // the single-weight font, so it can't be the signal).
-  navTabs: { flexDirection: 'row', paddingTop: 10, borderBottomWidth: 1, borderBottomColor: DS.line },
-  navTab: { flexDirection: 'row', width: TAB_W, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, gap: 6 },
-  navTabText: { fontSize: 12.5, fontWeight: '700', color: DS.textVariant, letterSpacing: 0.4 },
-  navTabTextActive: { color: DS.lime },
-  // Width + x offset come from the animated `underlineStyle` (measured label
-  // width), so it hugs the word and rides the finger during a swipe.
-  underline: { position: 'absolute', bottom: -1, left: 0, height: 3, backgroundColor: DS.lime, borderRadius: 2 },
+  // L1 charcoal pill nav: a near-black pill slides between equal segments on a
+  // charcoal track. Active carried by the pill + bright-green label/icon.
+  navWrap: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
+  navTrack: { flexDirection: 'row', borderRadius: 16, padding: 4 },
+  navPill: { position: 'absolute', top: 4, bottom: 4, left: 4, borderRadius: 12 },
+  navSeg: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 11 },
+  navSegText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.2 },
 
-  // Colour, label and `bottom` (dock clearance) are applied inline per active
-  // tab; this holds only the shared shape.
+  // Near-black control; accent icon + label colour are applied inline per tab,
+  // `bottom` is dock clearance.
   fab: {
     position: 'absolute',
     right: 24,
@@ -258,9 +245,10 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 28,
     gap: 8,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
     elevation: 8,
   },
   fabText: {

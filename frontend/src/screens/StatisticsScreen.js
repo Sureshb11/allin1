@@ -412,7 +412,7 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
                     <TouchableOpacity key={b.id} activeOpacity={0.85}
                       style={[styles.boardChip, on && styles.boardChipActive]}
                       onPress={() => handleBoardChange(b.id)}>
-                      <Icon name={b.icon} size={13} color={on ? DS.bg : DS.textMuted} />
+                      <Icon name={b.icon} size={13} color={on ? DS.onLime : DS.textMuted} />
                       <Text style={[styles.boardChipText, on && styles.boardChipTextActive]}>{b.label}</Text>
                     </TouchableOpacity>
                   );
@@ -461,14 +461,16 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // Board selector
   boardBar: { paddingHorizontal: 16, gap: 8, paddingBottom: 2 },
+  // L3 filter chips: ghost (transparent + border) when off, bright-green fill when
+  // selected — the one place the green accent gets to pop, below the near-black L1/L2.
   boardChip: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
-    backgroundColor: DS.surfaceLow, borderWidth: 1, borderColor: DS.border,
+    paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: 'transparent', borderWidth: 1.5, borderColor: DS.border,
   },
   boardChipActive: { backgroundColor: DS.lime, borderColor: DS.lime },
-  boardChipText: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
-  boardChipTextActive: { color: DS.bg },
+  boardChipText: { fontSize: 12, fontWeight: '800', color: DS.textMuted },
+  boardChipTextActive: { color: DS.onLime },
   boardMeta: { fontSize: 11, color: DS.textMuted, marginHorizontal: 16, marginTop: 8, marginBottom: 10 },
 
   /* Search */

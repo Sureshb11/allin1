@@ -58,12 +58,14 @@ function PerformanceChart({ values, color }) {const DS = useTheme().colors;
   );
 }
 
-function StatBento({ label, value, color }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+function StatBento({ label, value, color }) {const styles = useThemedStyles(makeStyles);
   return (
-    <View style={[styles.bentoCard, { backgroundColor: color + '15', borderColor: color + '30', borderWidth: 1 }]}>
-      <View style={{ width: '100%', height: 3, backgroundColor: color, borderRadius: 2, marginBottom: 10, opacity: 0.8 }} />
-      <Text style={[styles.bentoVal, { color: color }]}>{value ?? '—'}</Text>
-      <Text style={styles.bentoLbl}>{label}</Text>
+    <View style={styles.bentoCard}>
+      <View style={styles.bentoTop}>
+        <View style={[styles.bentoDot, { backgroundColor: color }]} />
+        <Text style={styles.bentoLbl}>{label}</Text>
+      </View>
+      <Text style={styles.bentoVal}>{value ?? '—'}</Text>
     </View>);
 }
 
@@ -233,9 +235,13 @@ const makeStyles = (DS) => StyleSheet.create({
   // (Sub-tab styles moved into the shared SegmentedControl component.)
   body: { paddingHorizontal: 16, paddingBottom: 28, gap: 10 },
   bentoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  bentoCard: { width: "47%", borderRadius: 14, padding: 11 },
-  bentoVal: { fontSize: 22, fontWeight: '900', color: DS.textPrimary, marginBottom: 4 },
-  bentoLbl: { fontSize: 11, fontWeight: '600', color: DS.textMuted },
+  // Calm, uniform tile: one surface, a thin border, a small accent dot carrying
+  // the stat's colour — instead of six full-tinted cards competing for attention.
+  bentoCard: { width: "47.5%", backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 14, paddingVertical: 13, gap: 10 },
+  bentoTop: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  bentoDot: { width: 8, height: 8, borderRadius: 4 },
+  bentoVal: { fontSize: 26, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
+  bentoLbl: { fontSize: 10.5, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
   chartCard: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 13 },
   chartTitle: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, marginBottom: 10 },
   shareBrand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingTop: 4 },

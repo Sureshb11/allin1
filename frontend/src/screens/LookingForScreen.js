@@ -500,8 +500,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
             style={[styles.tab, activeType === t && styles.tabActive]}
             onPress={() => setActiveType(t)}
           >
-            {/* X-style: only the selected filter shows its name (green + underline). */}
-            <Icon name={TYPE_ICONS[t]} size={16} color={activeType === t ? DS.lime : DS.textMuted} />
+            {/* Ghost pill; the selected filter fills bright-green and reveals its name. */}
+            <Icon name={TYPE_ICONS[t]} size={16} color={activeType === t ? DS.onLime : DS.textMuted} />
             {activeType === t &&
               <Text style={styles.tabTextActive}>{TYPE_LABELS[t] || t}</Text>}
           </TouchableOpacity>
@@ -722,12 +722,12 @@ const makeStyles = (DS) => StyleSheet.create({
   searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary, padding: 0 },
   searchPlaceholder: { fontSize: 14, color: DS.textMuted },
 
-  /* Filter tabs */
+  /* Filter tabs — L3 ghost→lime-fill pills, matching Rankings' board chips. */
   tabs: { backgroundColor: DS.bg, flexGrow: 0, flexShrink: 0 },
-  tabsContent: { paddingHorizontal: 12, paddingVertical: 4, gap: 4, alignItems: 'center' },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: DS.lime },
-  tabTextActive: { fontSize: 12, color: DS.lime, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, includeFontPadding: false },
+  tabsContent: { paddingHorizontal: 14, paddingVertical: 6, gap: 8, alignItems: 'center' },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: DS.border },
+  tabActive: { backgroundColor: DS.lime, borderColor: DS.lime },
+  tabTextActive: { fontSize: 12, color: DS.onLime, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, includeFontPadding: false },
 
   /* List */
   list: { padding: 16, gap: 10, paddingBottom: 28 },
