@@ -55,5 +55,26 @@ module.exports = {
         },
       },
     },
+    // Pinned like the others because the RN 0.75 autolinker returns android:null
+    // for these — without an explicit entry PackageList() drops them and the
+    // native module is missing at runtime.
+    'react-native-reanimated': {
+      platforms: {
+        android: {
+          sourceDir: '../node_modules/react-native-reanimated/android',
+          packageImportPath: 'import com.swmansion.reanimated.ReanimatedPackage;',
+          packageInstance: 'new ReanimatedPackage()',
+        },
+      },
+    },
+    'react-native-haptic-feedback': {
+      platforms: {
+        android: {
+          sourceDir: '../node_modules/react-native-haptic-feedback/android',
+          packageImportPath: 'import com.mkuczera.RNReactNativeHapticFeedbackPackage;',
+          packageInstance: 'new RNReactNativeHapticFeedbackPackage()',
+        },
+      },
+    },
   },
 };
