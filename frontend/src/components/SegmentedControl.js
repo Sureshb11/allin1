@@ -31,11 +31,11 @@ export default function SegmentedControl({ options, value, onChange, style }) {
       onLayout={(e) => setTrackW(e.nativeEvent.layout.width - 8)}
     >
       {trackW > 0 && (
-        <Animated.View style={[s.thumb, { width: segW, backgroundColor: P.control }, thumbStyle]} />
+        <Animated.View style={[s.thumb, { width: segW, backgroundColor: DS.lime }, thumbStyle]} />
       )}
       {options.map((o) => {
         const on = o.id === value;
-        const fg = on ? P.accent : P.textOff;
+        const fg = on ? DS.onLime : P.textOff;
         return (
           <TouchableOpacity key={o.id} style={s.seg} activeOpacity={0.8}
             onPress={() => { if (o.id !== value) onChange(o.id); }}>

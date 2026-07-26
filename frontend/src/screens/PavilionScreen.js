@@ -169,11 +169,11 @@ export default function PavilionScreen({ navigation, route }) {
         <View style={[styles.navTrack, { backgroundColor: P.track }]}
           onLayout={(e) => setTrackW(e.nativeEvent.layout.width - 8)}>
           {trackW > 0 && (
-            <Animated.View style={[styles.navPill, { backgroundColor: P.control }, pillStyle]} />
+            <Animated.View style={[styles.navPill, { backgroundColor: DS.lime }, pillStyle]} />
           )}
           {TABS.map((tab, i) => {
             const isActive = activeTab === i;
-            const fg = isActive ? P.accent : P.textOff;
+            const fg = isActive ? DS.onLime : P.textOff;
             return (
               <TouchableOpacity
                 key={tab.label}
@@ -205,9 +205,9 @@ export default function PavilionScreen({ navigation, route }) {
         </View>
       </GestureDetector>
 
-      {/* ── FAB: near-black control, accent icon per active tab ─────── */}
+      {/* ── FAB: green primary action, label per active tab ─────── */}
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: P.control, bottom: tabClear + 16 }]}
+        style={[styles.fab, { backgroundColor: DS.lime, bottom: tabClear + 16 }]}
         onPress={() => {
           haptic.impact();
           const action = fabActions[activeTab];
@@ -216,8 +216,8 @@ export default function PavilionScreen({ navigation, route }) {
         }}
         activeOpacity={0.85}
       >
-        <Icon name={fab.icon} size={20} color={fab.accent} />
-        <Text style={[styles.fabText, { color: P.onControl }]}>{fab.label}</Text>
+        <Icon name={fab.icon} size={20} color={DS.onLime} />
+        <Text style={[styles.fabText, { color: DS.onLime }]}>{fab.label}</Text>
       </TouchableOpacity>
     </View>
   );

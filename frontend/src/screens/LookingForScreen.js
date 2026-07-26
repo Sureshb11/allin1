@@ -489,8 +489,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity style={[styles.createBtn, { backgroundColor: P.control }]} onPress={() => setShowCreate(true)} activeOpacity={0.85}>
-          <Icon name="plus" size={24} color={P.accent} />
+        <TouchableOpacity style={[styles.createBtn, { backgroundColor: DS.lime }]} onPress={() => setShowCreate(true)} activeOpacity={0.85}>
+          <Icon name="plus" size={24} color={DS.onLime} />
         </TouchableOpacity>
       </View>
 
