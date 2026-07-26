@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder
 } from 'react-native';
+import Reanimated, { FadeInDown } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { showToast } from '../components/Toast';
 import legendsApi from '../services/LegendsApi';
@@ -10,6 +11,7 @@ import { getSelectedSport } from '../utils/selectedSport';
 import { useCurrentUser } from '../utils/currentUser';
 
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { pav } from '../theme/pavilion';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import BrandLogo from "../components/BrandLogo";
 
@@ -132,6 +134,7 @@ const buildWhen = (form) => {
 
 export default function LookingForScreen({ navigation, route, inline, onRegisterFab }) {
   const DS = useTheme().colors;
+  const P = pav(DS);
   const styles = useThemedStyles(makeStyles);
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
@@ -306,35 +309,34 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     return [p.title, p.description, p.location, p.format, p.type].join(' ').toLowerCase().includes(q);
   });
 
-  const renderPost = ({ item }) => {
+  const renderPost = ({ item, index }) => {
     const chipColor = TYPE_CHIP_COLORS[item.type] || DS.lime;
     // Pull the "When:" line back out so it can render as its own clock meta.
     const descLines = (item.description || '').split('\n');
     const whenText = descLines.find((l) => l.startsWith('When: '))?.slice(6);
     const bodyDesc = descLines.filter((l) => !l.startsWith('When: ')).join('\n').trim();
     return (
-      <View style={styles.card}>
-        {/* Rich header area */}
-        <View style={[styles.cardImageArea, { backgroundColor: chipColor + '15' }]}>
-          <Icon name={TYPE_ICONS[item.type] || 'help-circle-outline'} size={64} color={chipColor + '20'} style={{ position: 'absolute', right: -10, bottom: -15, transform: [{ rotate: '-15deg' }] }} />
-          <View style={{ position: 'absolute', top: 12, left: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: chipColor + '30', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={20} color={chipColor} />
-          </View>
-        </View>
+      <Reanimated.View
+        entering={FadeInDown.duration(360).delay(Math.min(index, 8) * 45)}
+        style={styles.card}
+      >
+        {/* Faint type-icon watermark bleeding off the top-right corner. */}
+        <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={104} color={chipColor} style={styles.cardWatermark} />
 
         <View style={styles.cardBody}>
           <View style={styles.cardHeader}>
-            <View style={[styles.typeBadge, { backgroundColor: chipColor + '22', borderColor: chipColor }]}>
+            <View style={[styles.typeBadge, { borderColor: chipColor }]}>
+              <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={12} color={chipColor} />
               <Text style={[styles.typeText, { color: chipColor }]}>{item.type?.toUpperCase()}</Text>
             </View>
             {item.status === 'open' ? (
-              <TouchableOpacity onPress={() => handleClose(item.id)} style={styles.closeBtn}>
-                <Icon name="check-circle-outline" size={16} color={DS.success} />
-                <Text style={styles.closeBtnText}>Mark Filled</Text>
+              <TouchableOpacity onPress={() => handleClose(item.id)} style={styles.markFilled} activeOpacity={0.8}>
+                <Icon name="check-circle" size={14} color={DS.success} />
+                <Text style={styles.markFilledText}>Mark Filled</Text>
               </TouchableOpacity>
             ) : (
               <View style={styles.filledBadge}>
-                <Icon name="check-circle" size={14} color={DS.textMuted} />
+                <Icon name="check-circle" size={13} color={DS.textMuted} />
                 <Text style={styles.filledBadgeText}>FILLED</Text>
               </View>
             )}
@@ -345,25 +347,25 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
           <View style={styles.cardMeta}>
             {!!whenText && (
-              <View style={styles.metaItem}>
-                <Icon name="clock-outline" size={13} color={DS.blueDeep} />
-                <Text style={[styles.metaText, { color: DS.blueDeep, fontWeight: '700' }]}>{whenText}</Text>
+              <View style={styles.metaChip}>
+                <Icon name="clock-outline" size={13} color={DS.lime} />
+                <Text style={[styles.metaText, { color: DS.textVariant, fontWeight: '700' }]}>{whenText}</Text>
               </View>
             )}
             {!!item.location && (
-              <View style={styles.metaItem}>
+              <View style={styles.metaChip}>
                 <Icon name="map-marker" size={13} color={DS.textMuted} />
                 <Text style={styles.metaText}>{item.location}</Text>
               </View>
             )}
             {!!item.format && (
-              <View style={styles.metaItem}>
+              <View style={styles.metaChip}>
                 <Icon name="cricket" size={13} color={DS.textMuted} />
                 <Text style={styles.metaText}>{item.format}</Text>
               </View>
             )}
             {!!item.ageGroup && (
-              <View style={styles.metaItem}>
+              <View style={styles.metaChip}>
                 <Icon name="human" size={13} color={DS.textMuted} />
                 <Text style={styles.metaText}>{item.ageGroup}</Text>
               </View>
@@ -400,8 +402,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                     </View>
                   ))}
                   {accepted.map((r) => (
-                    <TouchableOpacity key={r.id} style={styles.chatBtn} onPress={() => openChat(r.chatRoomId, r.requesterName)}>
-                      <Icon name="chat-outline" size={16} color={DS.white} />
+                    <TouchableOpacity key={r.id} style={styles.chatBtn} onPress={() => openChat(r.chatRoomId, r.requesterName)} activeOpacity={0.85}>
+                      <Icon name="chat-outline" size={16} color={DS.lime} />
                       <Text style={styles.chatBtnText}>Chat with {r.requesterName}</Text>
                     </TouchableOpacity>
                   ))}
@@ -412,8 +414,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
             const myReq = myReqFor(item.id);
             if (myReq?.status === 'accepted') {
               return (
-                <TouchableOpacity style={styles.chatBtn} onPress={() => openChat(myReq.chatRoomId, item.posterName || 'Poster')}>
-                  <Icon name="chat-outline" size={16} color={DS.white} />
+                <TouchableOpacity style={styles.chatBtn} onPress={() => openChat(myReq.chatRoomId, item.posterName || 'Poster')} activeOpacity={0.85}>
+                  <Icon name="chat-outline" size={16} color={DS.lime} />
                   <Text style={styles.chatBtnText}>Chat</Text>
                 </TouchableOpacity>
               );
@@ -436,14 +438,14 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
               return <View style={styles.requestedBtn}><Text style={styles.requestedText}>Request declined</Text></View>;
             }
             return (
-              <TouchableOpacity style={styles.connectBtn} onPress={() => handleConnect(item.id)}>
-                <Icon name="account-plus-outline" size={16} color={DS.white} />
-                <Text style={styles.connectBtnText}>CONNECT</Text>
+              <TouchableOpacity style={[styles.connectBtn, { backgroundColor: P.control }]} onPress={() => handleConnect(item.id)} activeOpacity={0.85}>
+                <Icon name="account-plus" size={17} color={P.onControl} />
+                <Text style={[styles.connectBtnText, { color: P.onControl }]}>CONNECT</Text>
               </TouchableOpacity>
             );
           })()}
         </View>
-      </View>
+      </Reanimated.View>
     );
   };
 
@@ -487,8 +489,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity style={styles.createBtn} onPress={() => setShowCreate(true)} activeOpacity={0.85}>
-          <Icon name="plus" size={24} color={DS.white} />
+        <TouchableOpacity style={[styles.createBtn, { backgroundColor: P.control }]} onPress={() => setShowCreate(true)} activeOpacity={0.85}>
+          <Icon name="plus" size={24} color={P.accent} />
         </TouchableOpacity>
       </View>
 
@@ -715,10 +717,10 @@ const makeStyles = (DS) => StyleSheet.create({
   heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
   heroSubtitle: { fontSize: 13, color: DS.textMuted, marginTop: 4, lineHeight: 20 },
 
-  /* Search */
+  /* Search — pill-shaped, prominent. */
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: DS.bg },
-  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, gap: 8, borderWidth: 1, borderColor: DS.faint },
-  createBtn: { width: 46, height: 46, borderRadius: 12, backgroundColor: DS.blueDeep, alignItems: 'center', justifyContent: 'center', shadowColor: DS.blueDeep, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 13, gap: 8, borderWidth: 1, borderColor: DS.border },
+  createBtn: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary, padding: 0 },
   searchPlaceholder: { fontSize: 14, color: DS.textMuted },
 
@@ -732,26 +734,28 @@ const makeStyles = (DS) => StyleSheet.create({
   /* List */
   list: { padding: 16, gap: 10, paddingBottom: 28 },
 
-  /* Card */
-  card: { backgroundColor: DS.surface, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: DS.faint, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
-  cardImageArea: { height: 40, overflow: "hidden" },
-  cardBody: { padding: 12, paddingTop: 10 },
-  cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
-  typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  /* Card — larger radius, a faint type-icon watermark, chip-style meta. */
+  card: { backgroundColor: DS.surface, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: DS.border, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  cardWatermark: { position: 'absolute', top: -12, right: -14, opacity: 0.06, transform: [{ rotate: '-12deg' }] },
+  cardBody: { padding: 18 },
+  cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999, borderWidth: 1.5, backgroundColor: 'transparent' },
   typeText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  closeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  closeBtnText: { fontSize: 11, color: DS.success, fontWeight: '700' },
-  filledBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: DS.surfaceHigh, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: DS.faint },
+  markFilled: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: DS.success + '1f', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
+  markFilledText: { fontSize: 11.5, color: DS.success, fontWeight: '800' },
+  filledBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: DS.faint },
   filledBadgeText: { fontSize: 10, color: DS.textMuted, fontWeight: '800', letterSpacing: 0.8 },
-  cardTitle: { fontSize: 15, fontWeight: "700", color: DS.textPrimary, marginBottom: 3 },
-  cardDesc: { fontSize: 13, color: DS.textVariant, marginBottom: 8, lineHeight: 18 },
-  cardMeta: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 10 },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metaText: { fontSize: 12, color: DS.textMuted },
-  connectBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: DS.blueDeep, borderRadius: 10, paddingVertical: 9, marginTop: 2 },
+  cardTitle: { fontSize: 17, fontWeight: "800", color: DS.textPrimary, marginBottom: 10, letterSpacing: -0.3, lineHeight: 23 },
+  cardDesc: { fontSize: 13, color: DS.textVariant, marginBottom: 10, lineHeight: 19 },
+  cardMeta: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 },
+  metaChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: DS.surfaceHigh, borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6 },
+  metaText: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
+  // CONNECT = near-black control (bg applied inline); primary action.
+  connectBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 14, paddingVertical: 13, marginTop: 2 },
   connectBtnText: { fontSize: 13, fontWeight: '800', color: DS.white, letterSpacing: 1 },
-  chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.blueDeep, borderRadius: 10, paddingVertical: 12 },
-  chatBtnText: { fontSize: 13, fontWeight: '800', color: DS.white, letterSpacing: 0.5 },
+  // Chat = outlined green; the secondary/positive follow-up.
+  chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'transparent', borderRadius: 14, paddingVertical: 12, borderWidth: 1.5, borderColor: DS.lime },
+  chatBtnText: { fontSize: 13, fontWeight: '800', color: DS.lime, letterSpacing: 0.5 },
   requestedBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingVertical: 11, borderWidth: 1, borderColor: DS.faint },
   requestedText: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
   noReq: { fontSize: 12, color: DS.textMuted, fontStyle: 'italic', paddingVertical: 6 },
