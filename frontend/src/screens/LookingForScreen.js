@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder
 } from 'react-native';
+import { GestureDetector, Gesture, ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import Reanimated, { FadeInDown } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { showToast } from '../components/Toast';
@@ -132,10 +133,16 @@ const buildWhen = (form) => {
   return parts.join(' · ');
 };
 
-export default function LookingForScreen({ navigation, route, inline, onRegisterFab }) {
+export default function LookingForScreen({ navigation, route, inline, onRegisterFab, filterScrollGesture }) {
   const DS = useTheme().colors;
   const P = pav(DS);
   const styles = useThemedStyles(makeStyles);
+  // The filter chip row scrolls horizontally even inside the Pavilion pager: it
+  // attaches the pager-provided Native gesture, which the pager is set to require-
+  // to-fail — so a horizontal drag on the chips scrolls them instead of paging.
+  // Standalone (no pager) falls back to a fresh Native gesture.
+  const ownScroll = useMemo(() => Gesture.Native(), []);
+  const scrollGesture = filterScrollGesture || ownScroll;
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
   const TYPE_CHIP_COLORS = makeTypeChipColors(DS);
@@ -491,20 +498,27 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       </View>
 
       {/* Filter Tabs */}
-      <ScrollView ref={filterRowRef} horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
-        {FILTER_TYPES.map(t => (
-          <TouchableOpacity
-            key={t}
-            style={[styles.tab, activeType === t && styles.tabActive]}
-            onPress={() => setActiveType(t)}
-          >
-            {/* Ghost pill; the selected filter fills bright-green and reveals its name. */}
-            <Icon name={TYPE_ICONS[t]} size={16} color={activeType === t ? DS.onLime : DS.textMuted} />
-            {activeType === t &&
-              <Text style={styles.tabTextActive}>{TYPE_LABELS[t] || t}</Text>}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <GestureDetector gesture={scrollGesture}>
+        <GHScrollView ref={filterRowRef} horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
+          {FILTER_TYPES.map(t => (
+            <TouchableOpacity
+              key={t}
+              style={[styles.tab, activeType === t && styles.tabActive]}
+              onPress={() => {
+                setActiveType(t);
+                // Bring the tapped chip into view so the selection is never clipped.
+                const idx = FILTER_TYPES.indexOf(t);
+                filterRowRef.current?.scrollTo({ x: Math.max(0, idx * 62 - 48), animated: true });
+              }}
+            >
+              {/* Ghost pill; the selected filter fills bright-green and reveals its name. */}
+              <Icon name={TYPE_ICONS[t]} size={16} color={activeType === t ? DS.onLime : DS.textMuted} />
+              {activeType === t &&
+                <Text style={styles.tabTextActive}>{TYPE_LABELS[t] || t}</Text>}
+            </TouchableOpacity>
+          ))}
+        </GHScrollView>
+      </GestureDetector>
 
       {/* The filter-stepping swipe is only for the standalone route. Inside the
           Pavilion pager the parent Pan gesture owns horizontal drags, so

@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState, useRef } from 'react';
+import React, { useLayoutEffect, useState, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Dimensions } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, cancelAnimation, runOnJS } from 'react-native-reanimated';
@@ -113,9 +113,17 @@ export default function PavilionScreen({ navigation, route }) {
     commitTab(p);
   };
 
-  const swipeGesture = Gesture.Pan()
+  // A plain Native gesture handed to a child's horizontal ScrollView (Scout's
+  // filter row). The pager requires it to fail before activating, so a horizontal
+  // drag that lands on that ScrollView scrolls the chips instead of paging — while
+  // the ScrollView itself, having no relation modifier of its own, scrolls freely.
+  const innerScroll = useMemo(() => Gesture.Native(), []);
+
+  // Memoised so its identity is stable across renders.
+  const swipeGesture = useMemo(() => Gesture.Pan()
     .activeOffsetX([-16, 16])   // claim a horizontal drag early, so it beats a card's tap
     .failOffsetY([-14, 14])     // but yield to a vertical drag first, so lists still scroll
+    .requireExternalGestureToFail(innerScroll)  // let an inner horizontal ScrollView win the drag
     .onBegin(() => { cancelAnimation(tx); })
     .onUpdate((e) => {
       let v = -settled.value * SCREEN_W + e.translationX;
@@ -140,7 +148,7 @@ export default function PavilionScreen({ navigation, route }) {
       dragPage.value = target;
       tx.value = withSpring(-target * SCREEN_W, SPRING);
       runOnJS(commitTab)(target);
-    });
+    }), [innerScroll]);
 
   const trackStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
 
@@ -177,7 +185,7 @@ export default function PavilionScreen({ navigation, route }) {
               const Comp = tab.component;
               return (
                 <PagerPage key={tab.label} index={i} tx={tx}>
-                  {visited[i] ? <Comp navigation={navigation} inline={true} route={route} onRegisterFab={registerFab(i)} /> : null}
+                  {visited[i] ? <Comp navigation={navigation} inline={true} route={route} onRegisterFab={registerFab(i)} filterScrollGesture={innerScroll} /> : null}
                 </PagerPage>
               );
             })}
