@@ -3,8 +3,8 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder
 } from 'react-native';
-import { GestureDetector, Gesture, ScrollView as GHScrollView } from 'react-native-gesture-handler';
-import Reanimated, { FadeInDown } from 'react-native-reanimated';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Reanimated, { FadeInDown, useAnimatedRef, useSharedValue, scrollTo } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { showToast } from '../components/Toast';
 import legendsApi from '../services/LegendsApi';
@@ -133,16 +133,40 @@ const buildWhen = (form) => {
   return parts.join(' · ');
 };
 
-export default function LookingForScreen({ navigation, route, inline, onRegisterFab, filterScrollGesture }) {
+export default function LookingForScreen({ navigation, route, inline, onRegisterFab, pagerGesture }) {
   const DS = useTheme().colors;
   const P = pav(DS);
   const styles = useThemedStyles(makeStyles);
-  // The filter chip row scrolls horizontally even inside the Pavilion pager: it
-  // attaches the pager-provided Native gesture, which the pager is set to require-
-  // to-fail — so a horizontal drag on the chips scrolls them instead of paging.
-  // Standalone (no pager) falls back to a fresh Native gesture.
-  const ownScroll = useMemo(() => Gesture.Native(), []);
-  const scrollGesture = filterScrollGesture || ownScroll;
+  // ── Filter chip row: a self-driven horizontal scroller ──
+  // Rather than fight the Pavilion pager for the native ScrollView gesture (which
+  // froze the row), we drive the scroll ourselves: a dedicated Pan on the row
+  // moves an Animated.ScrollView via Reanimated `scrollTo` on the UI thread, and
+  // BLOCKS the pager while active — so a drag here scrolls chips, never pages tabs.
+  const filterScroll = useAnimatedRef();
+  const filterOffset = useSharedValue(0);   // current x
+  const filterStart = useSharedValue(0);    // x at drag start
+  const filterMax = useSharedValue(0);      // contentWidth - viewportWidth
+  const filterViewW = useRef(0);
+  const filterContentW = useRef(0);
+  const recomputeMax = () => { filterMax.value = Math.max(0, filterContentW.current - filterViewW.current); };
+  const filterPan = useMemo(() => {
+    const g = Gesture.Pan()
+      .activeOffsetX([-8, 8])   // horizontal only — taps and vertical drags pass through
+      .onBegin(() => { filterStart.value = filterOffset.value; })
+      .onUpdate((e) => {
+        let next = filterStart.value - e.translationX;
+        if (next < 0) next = 0; else if (next > filterMax.value) next = filterMax.value;
+        filterOffset.value = next;
+        scrollTo(filterScroll, next, 0, false);
+      });
+    return pagerGesture ? g.blocksExternalGesture(pagerGesture) : g;
+  }, [pagerGesture, filterScroll, filterOffset, filterStart, filterMax]);
+  // Programmatic scroll (tap-into-view) — keep the shared offset in sync so the
+  // next drag continues from the right place.
+  const scrollFilterTo = (x) => {
+    filterOffset.value = x;
+    filterScroll.current?.scrollTo?.({ x, animated: true });
+  };
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
   const TYPE_CHIP_COLORS = makeTypeChipColors(DS);
@@ -160,15 +184,16 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   // and the filter row auto-scrolls the newly-active chip into view.
   const activeTypeRef = useRef(activeType);
   activeTypeRef.current = activeType;
-  const filterRowRef = useRef(null);
   const stepFilter = useCallback((dir) => {
     const idx = FILTER_TYPES.indexOf(activeTypeRef.current);
     const next = idx + dir;
     if (next < 0 || next >= FILTER_TYPES.length) return;
     setActiveType(FILTER_TYPES[next]);
     // Keep the active chip visible in the horizontal filter row.
-    filterRowRef.current?.scrollTo({ x: Math.max(0, next * 64 - 48), animated: true });
-  }, []);
+    const x = Math.max(0, next * 62 - 48);
+    filterOffset.value = x;
+    filterScroll.current?.scrollTo?.({ x, animated: true });
+  }, [filterOffset, filterScroll]);
   const swipe = useRef(PanResponder.create({
     // Only claim clearly-horizontal drags; vertical drags fall through to the list.
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4,
@@ -498,8 +523,17 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       </View>
 
       {/* Filter Tabs */}
-      <GestureDetector gesture={scrollGesture}>
-        <GHScrollView ref={filterRowRef} horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
+      <GestureDetector gesture={filterPan}>
+        <Reanimated.ScrollView
+          ref={filterScroll}
+          horizontal
+          scrollEnabled={false}
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabs}
+          contentContainerStyle={styles.tabsContent}
+          onLayout={(e) => { filterViewW.current = e.nativeEvent.layout.width; recomputeMax(); }}
+          onContentSizeChange={(w) => { filterContentW.current = w; recomputeMax(); }}
+        >
           {FILTER_TYPES.map(t => (
             <TouchableOpacity
               key={t}
@@ -508,7 +542,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                 setActiveType(t);
                 // Bring the tapped chip into view so the selection is never clipped.
                 const idx = FILTER_TYPES.indexOf(t);
-                filterRowRef.current?.scrollTo({ x: Math.max(0, idx * 62 - 48), animated: true });
+                scrollFilterTo(Math.max(0, idx * 62 - 48));
               }}
             >
               {/* Ghost pill; the selected filter fills bright-green and reveals its name. */}
@@ -517,7 +551,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                 <Text style={styles.tabTextActive}>{TYPE_LABELS[t] || t}</Text>}
             </TouchableOpacity>
           ))}
-        </GHScrollView>
+        </Reanimated.ScrollView>
       </GestureDetector>
 
       {/* The filter-stepping swipe is only for the standalone route. Inside the
