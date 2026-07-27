@@ -4,6 +4,7 @@ import {
   TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder
 } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import Reanimated, { FadeInDown, useAnimatedRef, useSharedValue, scrollTo } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { showToast } from '../components/Toast';
@@ -203,18 +204,29 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     },
   })).current;
   const [query, setQuery] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [myPhone, setMyPhone] = useState('');
   const [sharePhone, setSharePhone] = useState(true);
 
+  // "Post a listing" now lives in a bottom sheet (draggable, snap point, backdrop)
+  // instead of a full-screen Modal. It renders in the app-root provider's portal,
+  // so it overlays everything and isn't clipped by the Pavilion pager transform.
+  const createSheetRef = useRef(null);
+  const createSnapPoints = useMemo(() => ['92%'], []);
+  const openCreate = useCallback(() => createSheetRef.current?.present(), []);
+  const closeCreate = useCallback(() => createSheetRef.current?.dismiss(), []);
+  const renderBackdrop = useCallback(
+    (props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.5} pressBehavior="close" />,
+    []
+  );
+
   // When embedded in Pavilion, hand the "post a listing" action up to the
   // shared FAB so the Scout tab's primary action lives in the same place as the
   // other tabs' (Share Card / Go Live) instead of only the small header +.
   useEffect(() => {
-    if (inline) onRegisterFab?.(() => setShowCreate(true));
-  }, [inline, onRegisterFab]);
+    if (inline) onRegisterFab?.(openCreate);
+  }, [inline, onRegisterFab, openCreate]);
 
   // Pull the logged-in user's phone once so "Contact" needs no typing.
   useEffect(() => {
@@ -323,7 +335,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     const res = await legendsApi.createLookingFor(payload);
     setSubmitting(false);
     if (res.success) {
-      setShowCreate(false);
+      closeCreate();
       setForm(INITIAL_FORM);
       load(activeType);
     }
@@ -489,7 +501,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
             <Icon name="arrow-left" size={22} color={DS.textPrimary} />
           </TouchableOpacity>
           <BrandLogo scale={0.75} />
-          <TouchableOpacity onPress={() => setShowCreate(true)} style={styles.addBtn}>
+          <TouchableOpacity onPress={openCreate} style={styles.addBtn}>
             <Icon name="plus" size={20} color={DS.bg} />
           </TouchableOpacity>
         </View>
@@ -571,7 +583,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}
           ListFooterComponent={
-            <TouchableOpacity style={styles.ctaCard} onPress={() => setShowCreate(true)} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.ctaCard} onPress={openCreate} activeOpacity={0.8}>
               <View style={styles.ctaAccent} />
               <View style={styles.ctaContent}>
                 <Icon name="plus-circle-outline" size={24} color={DS.lime} />
@@ -595,10 +607,18 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       </View>
 
       {/* Create Modal */}
-      <Modal visible={showCreate} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.grabHandle} />
+      <BottomSheetModal
+        ref={createSheetRef}
+        snapPoints={createSnapPoints}
+        enablePanDownToClose
+        onDismiss={() => setForm(INITIAL_FORM)}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: DS.bg }}
+        handleIndicatorStyle={{ backgroundColor: DS.faint }}
+      >
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderLeft}>
                 <View style={styles.modalHeaderIcon}>
@@ -609,11 +629,11 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                   <Text style={styles.modalSubtitle}>Let others know what you're looking for</Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => { setShowCreate(false); setForm(INITIAL_FORM); }} style={styles.modalClose}>
+              <TouchableOpacity onPress={closeCreate} style={styles.modalClose}>
                 <Icon name="close" size={20} color={DS.textVariant} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            <BottomSheetScrollView contentContainerStyle={styles.modalBodyContent} showsVerticalScrollIndicator={false}>
               <Text style={styles.fieldLabel}>What are you looking for?</Text>
               <View style={styles.typeRow}>
                 {TYPES.map(t => (
@@ -689,14 +709,14 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
               {form.timing === 'Custom' && (
                 <View style={[styles.locWrap, { marginTop: 8 }]}>
                   <Icon name="clock-outline" size={18} color={DS.textMuted} />
-                  <TextInput style={styles.locInput} placeholder="e.g. 5:30 PM" placeholderTextColor={DS.textMuted} value={form.customTime} onChangeText={v => setForm(f => ({ ...f, customTime: v }))} />
+                  <BottomSheetTextInput style={styles.locInput} placeholder="e.g. 5:30 PM" placeholderTextColor={DS.textMuted} value={form.customTime} onChangeText={v => setForm(f => ({ ...f, customTime: v }))} />
                 </View>
               )}
 
               <Text style={styles.fieldLabel}>Location</Text>
               <View style={styles.locWrap}>
                 <Icon name="map-marker-outline" size={18} color={DS.textMuted} />
-                <TextInput style={styles.locInput} placeholder="Start typing your city…" placeholderTextColor={DS.textMuted} value={form.location} onChangeText={onLocationChange} autoCorrect={false} />
+                <BottomSheetTextInput style={styles.locInput} placeholder="Start typing your city…" placeholderTextColor={DS.textMuted} value={form.location} onChangeText={onLocationChange} autoCorrect={false} />
                 {form.location.length > 0 && (
                   <TouchableOpacity onPress={() => { setForm(f => ({ ...f, location: '' })); setCitySuggest([]); }}>
                     <Icon name="close-circle" size={16} color={DS.textMuted} />
@@ -718,7 +738,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
               )}
 
               <Text style={styles.fieldLabel}>Notes</Text>
-              <TextInput style={[styles.input, styles.textarea]} placeholder="Add any details — skills, timing, budget…" placeholderTextColor={DS.textMuted} multiline value={form.description} onChangeText={v => setForm(f => ({ ...f, description: v }))} />
+              <BottomSheetTextInput style={[styles.input, styles.textarea]} placeholder="Add any details — skills, timing, budget…" placeholderTextColor={DS.textMuted} multiline value={form.description} onChangeText={v => setForm(f => ({ ...f, description: v }))} />
 
               {!!myPhone && (
                 <TouchableOpacity style={styles.contactToggle} onPress={() => setSharePhone(s => !s)} activeOpacity={0.8}>
@@ -731,18 +751,17 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                 <Text style={styles.previewLabel}>POSTS AS</Text>
                 <Text style={styles.previewTitle}>{buildTitle(form)}</Text>
               </View>
-            </ScrollView>
-            <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.5 }]} onPress={handleCreate} disabled={submitting}>
-              {submitting ? <ActivityIndicator color={DS.white} /> : (
-                <>
-                  <Icon name="send" size={17} color={DS.white} />
-                  <Text style={styles.submitText}>Post Listing</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+
+              <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.5 }]} onPress={handleCreate} disabled={submitting}>
+                {submitting ? <ActivityIndicator color={DS.white} /> : (
+                  <>
+                    <Icon name="send" size={17} color={DS.white} />
+                    <Text style={styles.submitText}>Post Listing</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </BottomSheetScrollView>
+      </BottomSheetModal>
     </View>
   );
 }
@@ -839,6 +858,7 @@ const makeStyles = (DS) => StyleSheet.create({
   modalClose: { width: 34, height: 34, borderRadius: 17, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   modalTitle: { fontSize: 18, fontWeight: '800', color: DS.textPrimary },
   modalBody: { paddingHorizontal: 16, paddingTop: 8 },
+  modalBodyContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40 },
   fieldLabel: { fontSize: 12, fontWeight: '700', color: DS.textMuted, marginBottom: 6, marginTop: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { backgroundColor: DS.surface, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: DS.textPrimary, borderWidth: 1, borderColor: DS.faint },
   textarea: { height: 80, textAlignVertical: 'top' },
