@@ -157,6 +157,14 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
     : null;
   const chartData = chartSeries || [];
   const chartColor = tab === 'batting' ? DS.lime : tab === 'bowling' ? DS.coral : DS.blue;
+  // Quick "form guide" — the last 5, colour-coded by how good each was (a glance,
+  // vs the detailed trend line below). Batting: 50+ great, 20+ ok. Bowling/fielding:
+  // 3+ great, 1+ ok.
+  const form5 = chartData.slice(-5);
+  const formMax = Math.max(...form5, 1);
+  const formColor = (v) => tab === 'batting'
+    ? (v >= 50 ? DS.success : v >= 20 ? DS.lime : DS.textMuted)
+    : (v >= 3 ? DS.success : v >= 1 ? DS.lime : DS.textMuted);
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false} {...hideTabBar} contentContainerStyle={{ paddingBottom: tabClear }}
@@ -190,6 +198,23 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
             <StatBento key={s.label} label={s.label} value={s.value} color={s.color} />
             )}
             </View>
+
+            {/* Recent form guide — compact colour-coded bars for a quick read. */}
+            {form5.length > 0 && (
+              <View style={styles.formCard}>
+                <Text style={styles.formLabel}>RECENT FORM · LAST {form5.length}</Text>
+                <View style={styles.formRow}>
+                  {form5.map((v, i) => (
+                    <View key={i} style={styles.formCol}>
+                      <View style={styles.formBarTrack}>
+                        <View style={[styles.formBar, { height: `${Math.max(14, (v / formMax) * 100)}%`, backgroundColor: formColor(v) }]} />
+                      </View>
+                      <Text style={styles.formVal}>{v}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
 
             {/* Trend — cricket only for now; other sports have no per-match
                 series yet, and a chart of invented numbers is worse than none. */}
@@ -242,6 +267,14 @@ const makeStyles = (DS) => StyleSheet.create({
   bentoDot: { width: 8, height: 8, borderRadius: 4 },
   bentoVal: { fontSize: 26, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
   bentoLbl: { fontSize: 10.5, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
+  // Recent-form guide: colour-coded mini bars for the last 5.
+  formCard: { backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 14, paddingVertical: 13, gap: 10 },
+  formLabel: { fontSize: 10.5, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.6 },
+  formRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
+  formCol: { flex: 1, alignItems: 'center', gap: 6 },
+  formBarTrack: { width: '100%', height: 44, justifyContent: 'flex-end', backgroundColor: DS.surfaceHigh, borderRadius: 8, overflow: 'hidden' },
+  formBar: { width: '100%', borderRadius: 8, minHeight: 6 },
+  formVal: { fontSize: 12, fontWeight: '800', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
   chartCard: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 13 },
   chartTitle: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, marginBottom: 10 },
   shareBrand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingTop: 4 },

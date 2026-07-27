@@ -1,7 +1,8 @@
-import React, { useLayoutEffect, useState, useRef, useMemo } from 'react';
+import React, { useLayoutEffect, useState, useRef, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Dimensions } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, cancelAnimation, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, cancelAnimation, runOnJS } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
@@ -37,8 +38,15 @@ const FAB_FOR = (P) => [
 ];
 
 // Remembered across mounts so re-entering the clubhouse lands where you left it
-// (a route `tab` param — index or label — still wins for deep links).
+// (a route `tab` param — index or label — still wins for deep links). Persisted to
+// storage too, so it survives a cold start; hydrated best-effort at module load
+// (the user passes through Arena → feed first, so it resolves before Pavilion).
+const PAVILION_TAB_KEY = '@ll_pavilion_tab';
 let lastPavilionTab = 0;
+AsyncStorage.getItem(PAVILION_TAB_KEY).then((v) => {
+  const n = Number(v);
+  if (Number.isInteger(n) && n >= 0 && n < N) lastPavilionTab = n;
+}).catch(() => {});
 
 const resolveTab = (v) => {
   if (v == null) return null;
@@ -77,6 +85,18 @@ export default function PavilionScreen({ navigation, route }) {
   const FABS = FAB_FOR(P);
   const fab = FABS[activeTab] || FABS[0];
 
+  // Morphing FAB: when the active tab changes its icon+label swap, so pop the
+  // content (rise + fade + slight scale) instead of hard-cutting to the new label.
+  const fabPop = useSharedValue(1);
+  useEffect(() => {
+    fabPop.value = 0;
+    fabPop.value = withTiming(1, { duration: 280 });
+  }, [activeTab, fabPop]);
+  const fabContentStyle = useAnimatedStyle(() => ({
+    opacity: 0.35 + fabPop.value * 0.65,
+    transform: [{ translateY: (1 - fabPop.value) * 7 }, { scale: 0.9 + fabPop.value * 0.1 }],
+  }));
+
   // ── Reanimated finger-tracked pager (no ScrollView anywhere in the pager). ──
   // Three pages sit in one N×-wide row moved by a single UI-thread shared value
   // `tx`. A Pan gesture (worklet) drags the row 1:1 and a spring settles it; the
@@ -98,7 +118,11 @@ export default function PavilionScreen({ navigation, route }) {
     markVisited(page);
     if (page !== lastAnnounced.current) { lastAnnounced.current = page; haptic.tick(); }
   };
-  const commitTab = (page) => { lastPavilionTab = page; announceTab(page); };
+  const commitTab = (page) => {
+    lastPavilionTab = page;
+    AsyncStorage.setItem(PAVILION_TAB_KEY, String(page)).catch(() => {});
+    announceTab(page);
+  };
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false, headerTitle: 'Pavilion' });
@@ -198,8 +222,10 @@ export default function PavilionScreen({ navigation, route }) {
         }}
         activeOpacity={0.85}
       >
-        <Icon name={fab.icon} size={20} color={DS.onLime} />
-        <Text style={[styles.fabText, { color: DS.onLime }]}>{fab.label}</Text>
+        <Animated.View style={[styles.fabContent, fabContentStyle]}>
+          <Icon name={fab.icon} size={20} color={DS.onLime} />
+          <Text style={[styles.fabText, { color: DS.onLime }]}>{fab.label}</Text>
+        </Animated.View>
       </TouchableOpacity>
     </View>
   );
@@ -230,6 +256,7 @@ const makeStyles = (DS) => StyleSheet.create({
     shadowRadius: 14,
     elevation: 8,
   },
+  fabContent: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   fabText: {
     fontWeight: '800',
     fontSize: 14,

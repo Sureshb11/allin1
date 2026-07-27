@@ -1,7 +1,9 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, Fragment } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Fragment } from 'react';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl } from 'react-native';
+import Reanimated, { useAnimatedRef, useSharedValue, scrollTo } from 'react-native-reanimated';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import SegmentedControl from '../components/SegmentedControl';
@@ -220,7 +222,7 @@ function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = u
 
 }
 
-export default function StatisticsScreen({ navigation, inline }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
+export default function StatisticsScreen({ navigation, inline, pagerGesture }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
   const [tab, setTab] = useState('Players');
   // Cricket keeps its Runs/Wickets/Economy boards; other sports rank on their
   // own event tallies (goals, cards …) so the tab labels match the sport.
@@ -233,7 +235,30 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const boardBarRef = useRef(null);
+  // ── Board-chip row: self-driven horizontal scroller (same as Scout's filters) ──
+  // A dedicated Pan drives an Animated.ScrollView via Reanimated scrollTo and
+  // blocks the Pavilion pager, so a horizontal drag scrolls the boards instead of
+  // paging tabs. (The row overflows once there are 4+ boards.)
+  const boardScroll = useAnimatedRef();
+  const boardOffset = useSharedValue(0);
+  const boardStart = useSharedValue(0);
+  const boardMax = useSharedValue(0);
+  const boardViewW = useRef(0);
+  const boardContentW = useRef(0);
+  const recomputeBoardMax = () => { boardMax.value = Math.max(0, boardContentW.current - boardViewW.current); };
+  const boardPan = useMemo(() => {
+    const g = Gesture.Pan()
+      .activeOffsetX([-8, 8])
+      .onBegin(() => { boardStart.value = boardOffset.value; })
+      .onUpdate((e) => {
+        let next = boardStart.value - e.translationX;
+        if (next < 0) next = 0; else if (next > boardMax.value) next = boardMax.value;
+        boardOffset.value = next;
+        scrollTo(boardScroll, next, 0, false);
+      });
+    return pagerGesture ? g.blocksExternalGesture(pagerGesture) : g;
+  }, [pagerGesture, boardScroll, boardOffset, boardStart, boardMax]);
+  const scrollBoardTo = (x) => { boardOffset.value = x; boardScroll.current?.scrollTo?.({ x, animated: true }); };
   // "Find me" plumbing: scroll to the logged-in player's row on the board.
   const meUser = useCurrentUser();
   const myId = meUser?.id;
@@ -325,7 +350,7 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
       // and rewind the chip strip — it keeps its scroll offset across tabs, which
       // left the (now-selected) first chip clipped off the left edge.
       setBoardId((newTab === 'Players' ? activeBoards : TEAM_BOARDS)[0].id);
-      boardBarRef.current?.scrollTo({ x: 0, animated: false });
+      scrollBoardTo(0);
       Animated.timing(listAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start();
     });
   };
@@ -402,22 +427,27 @@ export default function StatisticsScreen({ navigation, inline }) {const DS = use
                   </TouchableOpacity>
                 )}
               </View>
-              {/* Board selector — what this leaderboard is actually ranking */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}
-                ref={boardBarRef}
-                contentContainerStyle={styles.boardBar}>
-                {boards.map((b) => {
-                  const on = b.id === board.id;
-                  return (
-                    <TouchableOpacity key={b.id} activeOpacity={0.85}
-                      style={[styles.boardChip, on && styles.boardChipActive]}
-                      onPress={() => handleBoardChange(b.id)}>
-                      <Icon name={b.icon} size={13} color={on ? DS.onLime : DS.textMuted} />
-                      <Text style={[styles.boardChipText, on && styles.boardChipTextActive]}>{b.label}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+              {/* Board selector — what this leaderboard is actually ranking. Drag
+                  to scroll (self-driven, blocks the pager); tap scrolls into view. */}
+              <GestureDetector gesture={boardPan}>
+                <Reanimated.ScrollView horizontal scrollEnabled={false}
+                  ref={boardScroll} showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.boardBar}
+                  onLayout={(e) => { boardViewW.current = e.nativeEvent.layout.width; recomputeBoardMax(); }}
+                  onContentSizeChange={(w) => { boardContentW.current = w; recomputeBoardMax(); }}>
+                  {boards.map((b, i) => {
+                    const on = b.id === board.id;
+                    return (
+                      <TouchableOpacity key={b.id} activeOpacity={0.85}
+                        style={[styles.boardChip, on && styles.boardChipActive]}
+                        onPress={() => { handleBoardChange(b.id); scrollBoardTo(Math.max(0, i * 92 - 40)); }}>
+                        <Icon name={b.icon} size={13} color={on ? DS.onLime : DS.textMuted} />
+                        <Text style={[styles.boardChipText, on && styles.boardChipTextActive]}>{b.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </Reanimated.ScrollView>
+              </GestureDetector>
               {/* State the qualification instead of quietly dropping people */}
               <Text style={styles.boardMeta}>
                 {data.length} ranked by {board.label.toLowerCase()}
