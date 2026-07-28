@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder, Linking
+  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder, Linking, Alert
 } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
@@ -11,6 +11,7 @@ import { showToast } from '../components/Toast';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { useCurrentUser } from '../utils/currentUser';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { pav } from '../theme/pavilion';
@@ -182,12 +183,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       });
     return pagerGesture ? g.blocksExternalGesture(pagerGesture) : g;
   }, [pagerGesture, filterScroll, filterOffset, filterStart, filterMax]);
-  // Programmatic scroll (tap-into-view) — keep the shared offset in sync so the
-  // next drag continues from the right place.
-  const scrollFilterTo = (x) => {
-    filterOffset.value = x;
-    filterScroll.current?.scrollTo?.({ x, animated: true });
-  };
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
   // Optional deep-link category (e.g. from the search screen's "Looking for" list).
@@ -204,16 +199,26 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   // and the filter row auto-scrolls the newly-active chip into view.
   const activeTypeRef = useRef(activeType);
   activeTypeRef.current = activeType;
+  // Where each chip actually sits, captured from its own onLayout. The two call
+  // sites used to guess a fixed width — 62px in one, 96px in the other — and
+  // neither can be right now that chips carry a label and a count: "All 24" and
+  // "Teams for tournament 6" are nowhere near the same width.
+  const chipX = useRef({});
+  const scrollChipIntoView = useCallback((idx) => {
+    const x = chipX.current[idx];
+    if (x == null) return;
+    const target = Math.max(0, x - 48);
+    filterOffset.value = target;
+    filterScroll.current?.scrollTo?.({ x: target, animated: true });
+  }, [filterOffset, filterScroll]);
+
   const stepFilter = useCallback((dir) => {
     const idx = FILTER_TYPES.indexOf(activeTypeRef.current);
     const next = idx + dir;
     if (next < 0 || next >= FILTER_TYPES.length) return;
     setActiveType(FILTER_TYPES[next]);
-    // Keep the active chip visible in the horizontal filter row.
-    const x = Math.max(0, next * 62 - 48);
-    filterOffset.value = x;
-    filterScroll.current?.scrollTo?.({ x, animated: true });
-  }, [filterOffset, filterScroll]);
+    scrollChipIntoView(next);
+  }, [scrollChipIntoView]);
   const swipe = useRef(PanResponder.create({
     // Only claim clearly-horizontal drags; vertical drags fall through to the list.
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4,
@@ -309,10 +314,14 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     if (res.success) setConnections(res.data);
   }, []);
 
-  useEffect(() => {
+  // On focus, not just on mount: posting from elsewhere, or accepting someone
+  // and coming back, otherwise left the board showing a stale snapshot.
+  useFocusEffect(useCallback(() => {
+    let alive = true;
     setLoading(true);
-    Promise.all([load(), loadConnections()]).finally(() => setLoading(false));
-  }, [load, loadConnections]);
+    Promise.all([load(), loadConnections()]).finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [load, loadConnections]));
 
   // Connection lookups per listing.
   const myReqFor = (listingId) => connections.find((c) => c.listingId === listingId && c.requesterId === myId);
@@ -376,11 +385,37 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     };
     const res = await legendsApi.createLookingFor(payload);
     setSubmitting(false);
-    if (res.success) {
-      closeCreate();
-      setForm(INITIAL_FORM);
-      load();
+    if (!res.success) {
+      // Silently doing nothing left the sheet open with a full form and no clue
+      // the post hadn't gone anywhere.
+      showToast(res.error || 'Could not post that listing', 'error');
+      return;
     }
+    closeCreate();
+    setForm(INITIAL_FORM);
+    load();
+    showToast('Listing posted', 'success');
+  };
+
+  // Remove a listing outright. Marking filled keeps it as a record and closes
+  // its requests; this is for the ones that shouldn't exist — a typo, a
+  // duplicate. The endpoint and the client method both existed already with no
+  // way to reach them.
+  const handleDelete = (item) => {
+    Alert.alert(
+      'Delete listing?',
+      'This removes it for good, along with any requests on it. To keep the connections you\'ve already made, mark it filled instead.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: async () => {
+          const res = await legendsApi.deleteLookingFor(item.id);
+          if (!res.success) { showToast(res.error || 'Could not delete', 'error'); return; }
+          closeDetail();
+          load();
+          showToast('Listing deleted', 'success');
+        } },
+      ],
+    );
   };
 
   const handleClose = async (postId) => {
@@ -614,10 +649,11 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
               <TouchableOpacity
                 key={t}
                 style={[styles.tab, on && styles.tabActive, empty && styles.tabEmpty]}
+                onLayout={(e) => { chipX.current[idx] = e.nativeEvent.layout.x; }}
                 onPress={() => {
                   setActiveType(t);
                   // Bring the tapped chip into view so the selection is never clipped.
-                  scrollFilterTo(Math.max(0, idx * 96 - 48));
+                  scrollChipIntoView(idx);
                 }}
               >
                 {/* Every chip carries its name now. Icon-only pills meant ten of
@@ -772,6 +808,13 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
               )}
 
               <View style={styles.detailAction}>{actionFor(detailItem, true)}</View>
+
+              {isMine && (
+                <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(detailItem)} activeOpacity={0.8}>
+                  <Icon name="trash-can-outline" size={15} color={DS.coral} />
+                  <Text style={styles.deleteText}>Delete listing</Text>
+                </TouchableOpacity>
+              )}
             </BottomSheetScrollView>
           );
         })()}
@@ -1053,6 +1096,8 @@ const makeStyles = (DS) => StyleSheet.create({
   contactValue: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginTop: 2 },
 
   detailAction: { marginTop: 4, alignItems: 'stretch' },
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
+  deleteText: { fontSize: 13, fontWeight: '800', color: DS.coral },
   // Full-width variant of the row buttons for the sheet's single primary action.
   ctaWide: { alignSelf: 'stretch', height: 46, minWidth: 0 },
 
