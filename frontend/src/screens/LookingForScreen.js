@@ -609,11 +609,17 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           ListHeaderComponent={renderInbox()}
           ListFooterComponent={
-            <TouchableOpacity style={styles.ctaCard} onPress={openCreate} activeOpacity={0.8}>
-              <Icon name="plus-circle-outline" size={20} color={DS.lime} />
-              <Text style={styles.ctaTitle}>Post what you're looking for</Text>
-              <Icon name="chevron-right" size={20} color={DS.textMuted} />
-            </TouchableOpacity>
+            // Only tails a list that has something in it. FlatList renders the
+            // footer even when data is empty, so leaving it unguarded put this
+            // directly under the empty state's own post button — two invitations
+            // to do the same thing, on top of the FAB.
+            visiblePosts.length ? (
+              <TouchableOpacity style={styles.ctaCard} onPress={openCreate} activeOpacity={0.8}>
+                <Icon name="plus-circle-outline" size={20} color={DS.lime} />
+                <Text style={styles.ctaTitle}>Post what you're looking for</Text>
+                <Icon name="chevron-right" size={20} color={DS.textMuted} />
+              </TouchableOpacity>
+            ) : null
           }
           ListEmptyComponent={
             <View style={styles.empty}>
