@@ -95,6 +95,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const [runOutSlot, setRunOutSlot] = useState('striker'); // which batter the run-out dismisses
   const [catchPrompt, setCatchPrompt] = useState(false);   // caught → who took the catch?
   const [newBatterFor, setNewBatterFor] = useState('striker'); // which crease slot the new batter fills
+  // Tapping a name in the batsman/bowler pickers only ARMS the pick — it's committed
+  // by the "Continue scoring" button. A single stray tap in a scrolling list used to
+  // put the wrong player on the crease (or the wrong bowler on for the over) with no
+  // clean way back, so the pick now gets a confirmation step.
+  const [pendingBatter, setPendingBatter] = useState(null);
+  const [pendingBowler, setPendingBowler] = useState(null);
   // A wicket on the LAST ball of an over: the ends change, but only AFTER the new
   // batter walks in — so the not-out batter is on strike next over. We defer that
   // swap until the replacement is picked (see the New Batsman modal).
@@ -157,6 +163,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   useEffect(() => {
     overScrollRef.current?.scrollToEnd({ animated: true });
   }, [currentOver, lastOverBalls]);
+
+  // Disarm on close. The pickers are also closed from elsewhere (match end, undo,
+  // the hardware back button), so clearing only in the Cancel/Confirm handlers
+  // would leave a stale pick armed the next time one opens.
+  useEffect(() => { if (!showPlayerModal) setPendingBatter(null); }, [showPlayerModal]);
+  useEffect(() => { if (!showBowlerModal) setPendingBowler(null); }, [showBowlerModal]);
 
   // When the match finishes, compute the MVP awards once and pop the winner
   // sheet for the scorer. Dismissing it redirects to the Home feed.
@@ -927,13 +939,15 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     const teamId = kind === 'bat' ? battingTeamId : bowlingTeamId;
     const entry = { id: p.id, name: p.name };
     await legendsApi.addMatchPlayer(matchData.id, { playerId: p.id, teamId });
+    // Adding to the XI only ARMS the player in the picker behind this sheet — the
+    // scorer still confirms with "Continue scoring", same as any other name in the
+    // list. Committing straight from here would sidestep that check.
     if (kind === 'bat') {
       setBattingXI((xi) => xi.some((x) => x.id === p.id) ? xi : [...xi, entry]);
-      if (newBatterFor === 'nonstriker') setNonStriker(entry); else setStriker(entry);
-      setShowPlayerModal(false); setNewBatterFor('striker');
+      setPendingBatter(entry);
     } else {
       setBowlingXI((xi) => xi.some((x) => x.id === p.id) ? xi : [...xi, entry]);
-      setCurrentBowler(entry); setShowBowlerModal(false); setMustPickBowler(false);
+      setPendingBowler(entry);
     }
     setSquadAddFor(null);
   };
@@ -1023,6 +1037,40 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         }
       } },
     ]);
+  };
+
+  // ── PICKER CONFIRMATION ───────────────────────────────────────────────────
+  // Tapping a name arms it; these commit it. Closing a picker always disarms, so
+  // a pick can never carry over into the next prompt.
+  const closeBatterPicker = () => { setShowPlayerModal(false); setNewBatterFor('striker'); setPendingBatter(null); };
+  const closeBowlerPicker = () => { setShowBowlerModal(false); setPendingBowler(null); };
+
+  const confirmBatter = () => {
+    const p = pendingBatter;
+    if (!p) return;
+    haptic.tick();
+    // Place the new batter in the dismissed slot, then apply any deferred
+    // end-of-over swap — computed on locals and set once, so chained setState
+    // calls can't clobber each other (which used to drop the not-out batter and
+    // keep the dismissed one).
+    let ns = striker, nn = nonStriker;
+    if (newBatterFor === 'nonstriker') nn = p; else ns = p;
+    if (pendingCreaseSwap) { const t = ns; ns = nn; nn = t; setPendingCreaseSwap(false); }
+    setStriker(ns); setNonStriker(nn);
+    // A new batter on the crease starts a fresh partnership.
+    setPnrStartRuns(currentScore.runs); setPnrBalls(0);
+    // Coming back from retired hurt → they're no longer waiting in the wings.
+    setRetiredBatters((prev) => prev.filter((r) => r.id !== p.id));
+    closeBatterPicker();
+  };
+
+  const confirmBowler = () => {
+    const p = pendingBowler;
+    if (!p) return;
+    haptic.tick();
+    setCurrentBowler(p);
+    setMustPickBowler(false);
+    closeBowlerPicker();
   };
 
   // Ball display in over tracker
@@ -1558,40 +1606,30 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           score on — but the picker is dismissable (Cancel / back) so the scorer can
           reach UNDO without first choosing a throwaway batter. Trying to score with
           the slot still empty simply reopens it (see handleScore). */}
-      <Modal visible={showPlayerModal} transparent animationType="slide" onRequestClose={() => { setShowPlayerModal(false); setNewBatterFor('striker'); }}>
+      <Modal visible={showPlayerModal} transparent animationType="slide" onRequestClose={closeBatterPicker}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>
               New Batsman{newBatterFor === 'nonstriker' ? ' (non-striker)' : ''}
             </Text>
-            <Text style={styles.modalSub}>Choose the incoming batter to continue</Text>
+            <Text style={styles.modalSub}>Tap the incoming batter, then confirm below</Text>
             <ScrollView>
               {getAvailableBatsmen().map((p, i) => {
                 const resuming = retiredBatters.some((r) => r.id === p.id);   // retired hurt, coming back
+                const picked = pendingBatter?.id === p.id;
                 return (
-                <TouchableOpacity key={i} style={styles.playerOption}
-                onPress={() => {
-                  // Place the new batter in the dismissed slot, then apply any
-                  // deferred end-of-over swap — computed on locals and set once, so
-                  // chained setState calls can't clobber each other (which used to
-                  // drop the not-out batter and keep the dismissed one).
-                  let ns = striker, nn = nonStriker;
-                  if (newBatterFor === 'nonstriker') nn = p; else ns = p;
-                  if (pendingCreaseSwap) { const t = ns; ns = nn; nn = t; setPendingCreaseSwap(false); }
-                  setStriker(ns); setNonStriker(nn);
-                  // A new batter on the crease starts a fresh partnership.
-                  setPnrStartRuns(currentScore.runs); setPnrBalls(0);
-                  if (resuming) setRetiredBatters((prev) => prev.filter((r) => r.id !== p.id));
-                  setShowPlayerModal(false); setNewBatterFor('striker');
-                }}>
-                  <View style={[styles.playerAvatar, resuming && { backgroundColor: DS.lime + '33' }]}>
-                    <Text style={[styles.playerInitial, resuming && { color: DS.lime }]}>{p.name.charAt(0).toUpperCase()}</Text>
+                <TouchableOpacity key={i} style={[styles.playerOption, picked && styles.playerOptionPicked]}
+                onPress={() => setPendingBatter(p)}>
+                  <View style={[styles.playerAvatar, (resuming || picked) && { backgroundColor: DS.lime + '33' }]}>
+                    <Text style={[styles.playerInitial, (resuming || picked) && { color: DS.lime }]}>{p.name.charAt(0).toUpperCase()}</Text>
                   </View>
-                  <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
-                  {resuming
-                    ? <Text style={[styles.modalSub, { marginBottom: 0, color: DS.lime }]}>retired · resume</Text>
-                    : <Icon name="chevron-right" size={18} color={DS.textMuted} />}
+                  <Text style={[styles.playerName, { flex: 1 }, picked && styles.playerNamePicked]}>{p.name}</Text>
+                  {resuming && <Text style={[styles.modalSub, { marginBottom: 0, color: DS.lime }]}>retired · resume</Text>}
+                  <Icon
+                    name={picked ? 'check-circle' : 'checkbox-blank-circle-outline'}
+                    size={18}
+                    color={picked ? DS.lime : DS.textMuted} />
                 </TouchableOpacity>);
               })}
             </ScrollView>
@@ -1599,9 +1637,19 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <Icon name="account-plus" size={18} color={DS.lime} />
               <Text style={styles.squadAddText}>Add from squad</Text>
             </TouchableOpacity>
+            {/* The pick isn't live until this is pressed — a mis-tap in the list
+                above costs nothing. */}
+            <TouchableOpacity
+              style={[styles.confirmBtn, !pendingBatter && styles.confirmBtnOff]}
+              disabled={!pendingBatter}
+              onPress={confirmBatter}>
+              <Text style={[styles.confirmBtnText, !pendingBatter && styles.confirmBtnTextOff]}>
+                {pendingBatter ? `Continue scoring · ${pendingBatter.name}` : 'Select a batter'}
+              </Text>
+            </TouchableOpacity>
             {/* Dismiss without picking → reach UNDO. Scoring stays gated until a
                 batter is set (handleScore reopens this). */}
-            <TouchableOpacity style={styles.modalClose} onPress={() => { setShowPlayerModal(false); setNewBatterFor('striker'); }}>
+            <TouchableOpacity style={styles.modalClose} onPress={closeBatterPicker}>
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -1610,13 +1658,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
 
       {/* ── BOWLER MODAL ── */}
       <Modal visible={showBowlerModal} transparent animationType="slide"
-        onRequestClose={() => setShowBowlerModal(false)}>
+        onRequestClose={closeBowlerPicker}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{mustPickBowler ? 'Next Over — Pick Bowler' : 'Change Bowler'}</Text>
             <Text style={styles.modalSub}>
-              Only eligible bowlers shown · max {maxOversPerBowler} overs each · no consecutive overs
+              Tap a bowler, then confirm · max {maxOversPerBowler} overs each · no consecutive overs
             </Text>
             <ScrollView>
               {(() => {
@@ -1631,28 +1679,43 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                 if (eligible.length === 0) {
                   return <Text style={[styles.modalSub, { textAlign: 'center', marginVertical: 16 }]}>No eligible bowlers left.</Text>;
                 }
-                return eligible.map((p, i) => (
-                  <TouchableOpacity key={i} style={styles.playerOption}
-                    onPress={() => { setCurrentBowler(p); setShowBowlerModal(false); setMustPickBowler(false); }}>
+                return eligible.map((p, i) => {
+                  const picked = pendingBowler?.id === p.id;
+                  return (
+                  <TouchableOpacity key={i} style={[styles.playerOption, picked && styles.playerOptionPicked]}
+                    onPress={() => setPendingBowler(p)}>
                     <View style={[styles.playerAvatar, { backgroundColor: DS.lime + '33' }]}>
                       <Text style={[styles.playerInitial, { color: DS.lime }]}>{p.name.charAt(0).toUpperCase()}</Text>
                     </View>
-                    <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
+                    <Text style={[styles.playerName, { flex: 1 }, picked && styles.playerNamePicked]}>{p.name}</Text>
                     <Text style={[styles.modalSub, { marginBottom: 0 }]}>{bowlerOvers[p.id] || 0}/{maxOversPerBowler} ov</Text>
-                    <Icon name="chevron-right" size={18} color={DS.textMuted} />
-                  </TouchableOpacity>
-                ));
+                    <Icon
+                      name={picked ? 'check-circle' : 'checkbox-blank-circle-outline'}
+                      size={18}
+                      color={picked ? DS.lime : DS.textMuted} />
+                  </TouchableOpacity>);
+                });
               })()}
             </ScrollView>
             <TouchableOpacity style={styles.squadAddBtn} onPress={() => openSquadAdd('bowl')}>
               <Icon name="account-plus" size={18} color={DS.lime} />
               <Text style={styles.squadAddText}>Add from squad</Text>
             </TouchableOpacity>
+            {/* The pick isn't live until this is pressed — a mis-tap in the list
+                above costs nothing. */}
+            <TouchableOpacity
+              style={[styles.confirmBtn, !pendingBowler && styles.confirmBtnOff]}
+              disabled={!pendingBowler}
+              onPress={confirmBowler}>
+              <Text style={[styles.confirmBtnText, !pendingBowler && styles.confirmBtnTextOff]}>
+                {pendingBowler ? `Continue scoring · ${pendingBowler.name}` : 'Select a bowler'}
+              </Text>
+            </TouchableOpacity>
             {/* Always dismissable — including the mandatory next-over prompt — so the
                 scorer can reach UNDO without first picking a bowler. The next-over
                 bowler is still enforced when they try to score (handleScore rechecks
                 eligibility at ball 0 and reopens this). */}
-            <TouchableOpacity style={styles.modalClose} onPress={() => setShowBowlerModal(false)}>
+            <TouchableOpacity style={styles.modalClose} onPress={closeBowlerPicker}>
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -2338,6 +2401,15 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   squadAddText: { fontSize: 14, fontWeight: '800', color: DS.lime, letterSpacing: 0.3 },
 
+  // "Continue scoring" — commits the armed pick in the batsman/bowler pickers.
+  confirmBtn: {
+    backgroundColor: DS.lime, borderRadius: 12, paddingVertical: 14,
+    marginTop: 10, alignItems: 'center',
+  },
+  confirmBtnOff: { backgroundColor: DS.surfaceHighest },
+  confirmBtnText: { fontSize: 15, fontWeight: '900', color: DS.bg, letterSpacing: 0.3 },
+  confirmBtnTextOff: { color: DS.textMuted },
+
   // Match complete
   completeActions: { marginHorizontal: 16, gap: 10 },
   resultCard: { backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 14, gap: 8, borderLeftWidth: 4, borderLeftColor: DS.lime },
@@ -2372,7 +2444,12 @@ const makeStyles = (DS) => StyleSheet.create({
   playerOption: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13 },
   playerAvatar: { width: 38, height: 38, borderRadius: 12, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   playerInitial: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
+  playerOptionPicked: {
+    backgroundColor: DS.lime + '14', borderRadius: 10,
+    paddingHorizontal: 10, marginHorizontal: -10,
+  },
   playerName: { flex: 1, fontSize: 15, fontWeight: '500', color: DS.textPrimary },
+  playerNamePicked: { fontWeight: '800', color: DS.lime },
   modalClose: { backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingVertical: 13, marginTop: 12, alignItems: 'center' },
   modalCloseText: { fontSize: 14, fontWeight: '700', color: DS.textMuted }
 });
