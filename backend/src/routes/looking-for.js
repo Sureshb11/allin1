@@ -7,8 +7,15 @@ import { notifyUsers, safeNotify } from '../lib/notify.js';
 const router = Router();
 
 // GET /looking-for?type=player&location=Mumbai
-// Everyone sees OPEN listings; the signed-in user also sees THEIR OWN closed/filled
-// ones (so accepted chats stay reachable) — marked with a FILLED badge in the app.
+// The board is live opportunities only — OPEN listings, for everyone including
+// the poster. A filled listing leaves immediately.
+//
+// This used to keep your own closed listings visible "so accepted chats stay
+// reachable", which was true when the chat button lived on the listing card. It
+// doesn't now: accepted connections are their own block, sourced from
+// /connections and opened via the connection's chatRoomId, and each one carries
+// its listing's title. So a filled listing can go without stranding anything —
+// and the poster stops scrolling past their own finished asks.
 router.get('/', optionalAuth, async (req, res) => {
   try {
     const { type, location, format, sport } = req.query;
@@ -18,9 +25,7 @@ router.get('/', optionalAuth, async (req, res) => {
     if (location) filters.location = { contains: location, mode: 'insensitive' };
     if (format) filters.format = format;
 
-    const me = req.user?.sub;
-    const visibility = me ? { OR: [{ status: 'open' }, { postedById: me }] } : { status: 'open' };
-    const where = { AND: [filters, visibility] };
+    const where = { AND: [filters, { status: 'open' }] };
 
     const posts = await prisma.lookingFor.findMany({
       where,
@@ -69,13 +74,39 @@ router.get('/connections', authMiddleware, async (req, res) => {
     });
     const userIds = [...new Set(conns.flatMap((c) => [c.requesterId, c.posterId]))];
     const users = userIds.length
-      ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, firstName: true, lastName: true } })
+      ? await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, firstName: true, lastName: true, avatarUrl: true } })
       : [];
     const nameOf = (id) => {
       const u = users.find((x) => x.id === id);
       return u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Player' : 'Player';
     };
-    res.json({ connections: conns.map((c) => ({ ...c, requesterName: nameOf(c.requesterId), posterName: nameOf(c.posterId) })) });
+    const avatarOf = (id) => users.find((x) => x.id === id)?.avatarUrl || null;
+
+    // The listing a connection came from, carried on the connection itself. A
+    // filled listing leaves the board immediately, so the app can no longer look
+    // its title up from the feed — without this, an accepted chat loses the one
+    // piece of context that says what it was ever about.
+    const listingIds = [...new Set(conns.map((c) => c.listingId).filter(Boolean))];
+    const listings = listingIds.length
+      ? await prisma.lookingFor.findMany({ where: { id: { in: listingIds } }, select: { id: true, title: true, type: true, status: true } })
+      : [];
+    const listingOf = (id) => listings.find((l) => l.id === id);
+
+    res.json({
+      connections: conns.map((c) => {
+        const l = listingOf(c.listingId);
+        return {
+          ...c,
+          requesterName: nameOf(c.requesterId),
+          posterName: nameOf(c.posterId),
+          requesterAvatarUrl: avatarOf(c.requesterId),
+          posterAvatarUrl: avatarOf(c.posterId),
+          listingTitle: l?.title || null,
+          listingType: l?.type || null,
+          listingStatus: l?.status || null,
+        };
+      }),
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

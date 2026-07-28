@@ -402,15 +402,40 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       && posts.some((p) => p.id === c.listingId && p.status === 'open')
   );
 
-  // People you've already accepted. Once a request stops being pending it drops
-  // out of the block above, and a poster's own listing row only ever offers
-  // "Mark filled" — so without this the moment you accept someone they vanish
-  // and the chat you just unlocked has no entry point on this screen. The
-  // requester's own row still carries their Chat button, so this side is
-  // poster-only rather than every accepted connection.
-  const inboundAccepted = connections.filter(
-    (c) => c.posterId === myId && c.status === 'accepted'
-  );
+  // Every accepted connection, BOTH directions — the ones you accepted and the
+  // ones accepted for you. It can't be poster-only any more: a requester's Chat
+  // button lives on the listing row, and a filled listing now leaves the board,
+  // so that button would vanish with it and take the conversation with it.
+  //
+  // Grouped by listing, since one ask can connect several people and a flat list
+  // of names says nothing about which of your listings each belongs to.
+  const acceptedGroups = useMemo(() => {
+    const mine = connections.filter((c) => c.status === 'accepted');
+    const groups = new Map();
+    mine.forEach((c) => {
+      const key = c.listingId || 'other';
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          // listingTitle rides on the connection, so the heading survives the
+          // listing leaving the board.
+          title: c.listingTitle ? askFrom({ title: c.listingTitle, type: c.listingType }) : 'Earlier listing',
+          type: c.listingType,
+          people: [],
+        });
+      }
+      const iAmPoster = c.posterId === myId;
+      groups.get(key).people.push({
+        id: c.id,
+        chatRoomId: c.chatRoomId,
+        name: iAmPoster ? c.requesterName : c.posterName,
+        avatarUrl: iAmPoster ? c.requesterAvatarUrl : c.posterAvatarUrl,
+        // Whose ask it was, so "you replied" vs "they replied" stays legible.
+        role: iAmPoster ? 'reached out to you' : 'accepted your request',
+      });
+    });
+    return [...groups.values()];
+  }, [connections, myId]);
 
   // ── One listing = one row ──────────────────────────────────────────────────
   // Three lines, fixed shape: the ask, then who/where/when, then age + category.
@@ -422,7 +447,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     const bodyDesc = descLines.filter((l) => !l.startsWith('When: ')).join('\n').trim();
     const isMine = item.postedById && item.postedById === myId;
     const myReq = myReqFor(item.id);
-    const isClosed = item.status !== 'open';
 
     // Line 2 — who, where, when. Whatever's known, in that order.
     const whoLine = [isMine ? 'You' : item.posterName, item.location, whenText]
@@ -434,13 +458,13 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     // Right-hand action. Exactly one per row, and it always states the next step.
     let action = null;
     if (isMine) {
-      action = isClosed
-        ? <View style={styles.rowFlag}><Text style={styles.rowFlagText}>Filled</Text></View>
-        : (
-          <TouchableOpacity style={styles.rowGhostBtn} onPress={() => handleClose(item.id)} activeOpacity={0.8}>
-            <Text style={styles.rowGhostText}>Mark filled</Text>
-          </TouchableOpacity>
-        );
+      // The board is open listings only, so a row is never already filled —
+      // marking it removes it on the next fetch.
+      action = (
+        <TouchableOpacity style={styles.rowGhostBtn} onPress={() => handleClose(item.id)} activeOpacity={0.8}>
+          <Text style={styles.rowGhostText}>Mark filled</Text>
+        </TouchableOpacity>
+      );
     } else if (!item.postedById) {
       action = null;
     } else if (myReq?.status === 'accepted') {
@@ -471,7 +495,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     return (
       <Reanimated.View
         entering={FadeInDown.duration(300).delay(Math.min(index, 8) * 35)}
-        style={[styles.row, isClosed && styles.rowDim]}
+        style={styles.row}
       >
         {item.posterName
           ? <PlayerAvatar name={item.posterName} avatarUrl={item.posterAvatarUrl} size={38} />
@@ -495,7 +519,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
   // Requests waiting on you, lifted out of the feed and pinned above it.
   const renderInbox = () => {
-    if (!inboundPending.length && !inboundAccepted.length) return null;
+    if (!inboundPending.length && !acceptedGroups.length) return null;
     return (
       <View style={{ gap: 10, marginBottom: 14 }}>
         {renderPendingBlock()}
@@ -543,32 +567,41 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   // done business, not something demanding an answer — but it keeps the chat one
   // tap away instead of only in the Chat tab.
   const renderAcceptedBlock = () => {
-    if (!inboundAccepted.length) return null;
+    if (!acceptedGroups.length) return null;
+    const total = acceptedGroups.reduce((n, g) => n + g.people.length, 0);
     return (
       <View style={styles.connected}>
         <View style={styles.inboxHead}>
           <Icon name="check-circle-outline" size={15} color={DS.lime} />
-          <Text style={styles.connectedTitle}>Connected · {inboundAccepted.length}</Text>
+          <Text style={styles.connectedTitle}>Connected · {total}</Text>
         </View>
-        {inboundAccepted.map((r) => {
-          const listing = posts.find((p) => p.id === r.listingId);
-          return (
-            <View key={r.id} style={styles.connectedRow}>
-              <PlayerAvatar name={r.requesterName || '?'} size={30} />
-              <Text style={styles.connectedName} numberOfLines={2}>
-                {r.requesterName}
-                <Text style={styles.inboxFor}>{listing ? `  ·  ${askFrom(listing)}` : ''}</Text>
-              </Text>
-              <TouchableOpacity
-                style={styles.rowGhostBtn}
-                onPress={() => openChat(r.chatRoomId, r.requesterName, r.id)}
-                activeOpacity={0.85}>
-                <Icon name="chat-outline" size={14} color={DS.lime} />
-                <Text style={styles.rowGhostText}>Chat</Text>
-              </TouchableOpacity>
+        {acceptedGroups.map((g) => (
+          <View key={g.key} style={styles.connGroup}>
+            {/* Which ask these people came from. Survives the listing being
+                filled, because the title rides on the connection. */}
+            <View style={styles.connGroupHead}>
+              <Icon name={TYPE_ICONS[g.type] || 'bookmark-outline'} size={13} color={DS.textMuted} />
+              <Text style={styles.connGroupTitle} numberOfLines={1}>{g.title}</Text>
+              {g.people.length > 1 && <Text style={styles.connGroupCount}>{g.people.length}</Text>}
             </View>
-          );
-        })}
+            {g.people.map((p) => (
+              <View key={p.id} style={styles.connectedRow}>
+                <PlayerAvatar name={p.name || '?'} avatarUrl={p.avatarUrl} size={30} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.connectedName} numberOfLines={1}>{p.name}</Text>
+                  <Text style={styles.connectedRole} numberOfLines={1}>{p.role}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.rowGhostBtn}
+                  onPress={() => openChat(p.chatRoomId, p.name, p.id)}
+                  activeOpacity={0.85}>
+                  <Icon name="chat-outline" size={14} color={DS.lime} />
+                  <Text style={styles.rowGhostText}>Chat</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        ))}
       </View>
     );
   };
@@ -917,7 +950,6 @@ const makeStyles = (DS) => StyleSheet.create({
   sep: { height: 1, backgroundColor: DS.faint, marginLeft: 50 },
 
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 12 },
-  rowDim: { opacity: 0.5 },
   rowIconAvatar: {
     width: 38, height: 38, borderRadius: 19, backgroundColor: DS.surfaceHigh,
     alignItems: 'center', justifyContent: 'center',
@@ -969,8 +1001,14 @@ const makeStyles = (DS) => StyleSheet.create({
     padding: 12, gap: 10,
   },
   connectedTitle: { fontSize: 12, fontWeight: '800', color: DS.lime, letterSpacing: 0.3 },
+  // One group per listing — several people can come from a single ask.
+  connGroup: { gap: 8 },
+  connGroupHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  connGroupTitle: { flex: 1, fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.4 },
+  connGroupCount: { fontSize: 11, fontWeight: '800', color: DS.textMuted },
   connectedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  connectedName: { flex: 1, fontSize: 13, fontWeight: '700', color: DS.textPrimary },
+  connectedName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
+  connectedRole: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
   inboxHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   inboxTitle: { fontSize: 12, fontWeight: '800', color: DS.coral, letterSpacing: 0.3 },
   inboxRow: { gap: 8 },
