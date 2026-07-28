@@ -378,17 +378,11 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     return c;
   }, [searched]);
 
-  // Only offer a filter that leads somewhere. Eleven icon-only chips (ten of them
-  // unreadable without their label) is what made this row guesswork; showing just
-  // the categories that actually have listings usually leaves three or four.
-  const visibleFilters = FILTER_TYPES.filter((t) => t === 'all' || countsByType[t] > 0);
-
-  // A filter can go empty under a new search — fall back rather than stranding
-  // the user on a tab with nothing in it.
-  useEffect(() => {
-    if (activeType !== 'all' && !countsByType[activeType]) setActiveType('all');
-  }, [countsByType, activeType]);
-
+  // Every category stays on the row, including the empty ones. Hiding zero-count
+  // chips reads as tidy but it's the wrong trade on a board that's still filling
+  // up: it silently erases coach, ground, umpire and commentator, so nobody
+  // discovers Scout covers them and nobody posts the first one. An empty chip is
+  // dimmed and shows "0" — legible, and tapping it invites you to post.
   const visiblePosts = activeType === 'all' ? searched : searched.filter((p) => p.type === activeType);
 
   // Requests waiting on ME, across all my listings. These were interleaved into
@@ -569,13 +563,14 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           onLayout={(e) => { filterViewW.current = e.nativeEvent.layout.width; recomputeMax(); }}
           onContentSizeChange={(w) => { filterContentW.current = w; recomputeMax(); }}
         >
-          {visibleFilters.map((t, idx) => {
+          {FILTER_TYPES.map((t, idx) => {
             const on = activeType === t;
             const n = t === 'all' ? searched.length : (countsByType[t] || 0);
+            const empty = n === 0 && !on;
             return (
               <TouchableOpacity
                 key={t}
-                style={[styles.tab, on && styles.tabActive]}
+                style={[styles.tab, on && styles.tabActive, empty && styles.tabEmpty]}
                 onPress={() => {
                   setActiveType(t);
                   // Bring the tapped chip into view so the selection is never clipped.
@@ -622,13 +617,33 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Icon name="telescope" size={44} color={DS.surfaceHighest} />
+              <Icon
+                name={activeType === 'all' ? 'telescope' : (TYPE_ICONS[activeType] || 'telescope')}
+                size={44}
+                color={DS.surfaceHighest}
+              />
               <Text style={styles.emptyText}>
-                {query.trim() ? 'Nothing matches that search' : 'No listings yet'}
+                {query.trim()
+                  ? 'Nothing matches that search'
+                  : activeType === 'all'
+                    ? 'No listings yet'
+                    : `No ${(TYPE_LABELS[activeType] || activeType).toLowerCase()} listings yet`}
               </Text>
               <Text style={styles.emptySubText}>
-                {query.trim() ? 'Try a shorter search, or clear it.' : 'Post the first one and let people find you.'}
+                {query.trim()
+                  ? 'Try a shorter search, or clear it.'
+                  : 'Post the first one and let people find you.'}
               </Text>
+              {/* An empty category is a prompt, not a dead end — it's where the
+                  next listing should come from. */}
+              {!query.trim() && (
+                <TouchableOpacity style={styles.emptyCta} onPress={openCreate} activeOpacity={0.85}>
+                  <Icon name="plus" size={16} color={DS.onLime} />
+                  <Text style={styles.emptyCtaText}>
+                    {activeType === 'all' ? 'Post a listing' : `Post ${(TYPE_LABELS[activeType] || activeType).toLowerCase()}`}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           }
         />
@@ -825,6 +840,8 @@ const makeStyles = (DS) => StyleSheet.create({
     borderWidth: 1, borderColor: DS.faint, backgroundColor: DS.surfaceHigh,
   },
   tabActive: { backgroundColor: DS.lime, borderColor: DS.lime },
+  // Zero listings: still there, still tappable, just visibly quieter.
+  tabEmpty: { opacity: 0.45 },
   tabText: { fontSize: 12, color: DS.textVariant, fontWeight: '600', includeFontPadding: false },
   tabTextActive: { color: DS.onLime, fontWeight: '800' },
   tabCount: { fontSize: 11, color: DS.textMuted, fontWeight: '800', includeFontPadding: false },
@@ -894,6 +911,11 @@ const makeStyles = (DS) => StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 70, paddingHorizontal: 32 },
   emptyText: { fontSize: 16, fontWeight: '700', color: DS.textVariant, marginTop: 12 },
   emptySubText: { fontSize: 13, color: DS.textMuted, marginTop: 4, textAlign: 'center' },
+  emptyCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 16,
+    backgroundColor: DS.lime, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10,
+  },
+  emptyCtaText: { fontSize: 13, fontWeight: '800', color: DS.onLime },
 
   /* Modal */
   modalOverlay: { flex: 1, backgroundColor: DS.overlay, justifyContent: 'flex-end' },
