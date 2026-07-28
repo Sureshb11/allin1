@@ -216,6 +216,16 @@ router.post('/', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { status } = req.body;
+    // authMiddleware only proves you're signed in. Without this, any account
+    // could close someone else's listing — and closing bulk-declines every
+    // pending request on it, so it was a one-call way to kill a stranger's
+    // recruiting. /connections/:id/respond already guards this way.
+    const existing = await prisma.lookingFor.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'Listing not found' });
+    if (existing.postedById !== req.user.sub) {
+      return res.status(403).json({ error: 'Only the poster can change this listing' });
+    }
+
     const post = await prisma.lookingFor.update({
       where: { id: req.params.id },
       data: { status },
@@ -223,10 +233,27 @@ router.put('/:id', authMiddleware, async (req, res) => {
     // Closing/filling a listing auto-declines still-pending connect requests
     // (already-accepted ones keep their chat rooms).
     if (status === 'closed' || status === 'filled') {
+      // Read them first — updateMany can't tell us who it touched, and these
+      // people are owed an answer. Being silently dropped after asking to join
+      // is worse than being declined outright: the listing also stops being
+      // visible to them, so it just disappears.
+      const pending = await prisma.lookingForConnection.findMany({
+        where: { listingId: post.id, status: 'pending' },
+        select: { requesterId: true },
+      });
       await prisma.lookingForConnection.updateMany({
         where: { listingId: post.id, status: 'pending' },
         data: { status: 'declined' },
       });
+      if (pending.length) {
+        // Same shape as the accept/decline notifications above — default type,
+        // listingId in data — so the app handles all three identically.
+        await safeNotify(() => notifyUsers(pending.map((p) => p.requesterId), {
+          title: 'Listing filled',
+          message: `"${post.title}" has been filled, so your request was closed.`,
+          data: { listingId: post.id },
+        }));
+      }
     }
     res.json({ post });
   } catch (e) {
@@ -236,6 +263,12 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
+    // Same hole as PUT: unguarded, this deleted any listing by id.
+    const existing = await prisma.lookingFor.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'Listing not found' });
+    if (existing.postedById !== req.user.sub) {
+      return res.status(403).json({ error: 'Only the poster can delete this listing' });
+    }
     await prisma.lookingFor.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
   } catch (e) {

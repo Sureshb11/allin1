@@ -363,8 +363,15 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   };
 
   const handleClose = async (postId) => {
-    await legendsApi.updateLookingFor(postId, 'closed');
-    load();
+    const res = await legendsApi.updateLookingFor(postId, 'closed');
+    if (res && res.success === false) {
+      showToast(res.error || 'Could not mark that as filled', 'error');
+      return;
+    }
+    // Filling a listing bulk-declines its pending requests server-side, so the
+    // connection list is stale the moment this returns — refetch both or the
+    // pinned blocks keep showing requests that no longer exist.
+    await Promise.all([load(), loadConnections()]);
   };
 
   // Search first, so the chip counts reflect what a search would actually turn up
