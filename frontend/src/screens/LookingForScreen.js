@@ -598,6 +598,9 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       {loading ? (
         <ScoutSkeleton DS={DS} />
       ) : (
+        // No footer CTA: with listings on screen the FAB already carries posting,
+        // and a card at the end of every scroll only repeated it. The empty state
+        // keeps its own prompt — there the invitation is the point, not noise.
         <FlatList
           {...hideTabBar}
           data={visiblePosts}
@@ -608,19 +611,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           ListHeaderComponent={renderInbox()}
-          ListFooterComponent={
-            // Only tails a list that has something in it. FlatList renders the
-            // footer even when data is empty, so leaving it unguarded put this
-            // directly under the empty state's own post button — two invitations
-            // to do the same thing, on top of the FAB.
-            visiblePosts.length ? (
-              <TouchableOpacity style={styles.ctaCard} onPress={openCreate} activeOpacity={0.8}>
-                <Icon name="plus-circle-outline" size={20} color={DS.lime} />
-                <Text style={styles.ctaTitle}>Post what you're looking for</Text>
-                <Icon name="chevron-right" size={20} color={DS.textMuted} />
-              </TouchableOpacity>
-            ) : null
-          }
           ListEmptyComponent={
             <View style={styles.empty}>
               <Icon
@@ -904,14 +894,6 @@ const makeStyles = (DS) => StyleSheet.create({
     width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
     backgroundColor: DS.surfaceHigh,
   },
-
-  /* Post-your-own — a quiet row at the end; the FAB is the loud one. */
-  ctaCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderWidth: 1, borderColor: DS.faint, borderStyle: 'dashed',
-    borderRadius: 12, padding: 14, marginTop: 16,
-  },
-  ctaTitle: { flex: 1, fontSize: 13, fontWeight: '700', color: DS.textPrimary },
 
   /* Empty */
   empty: { alignItems: 'center', paddingTop: 70, paddingHorizontal: 32 },
