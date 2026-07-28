@@ -531,9 +531,12 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   };
   selectTypeRef.current = selectType;
 
+  // Keyed off the connection's own listing fields, not the feed. `posts` is one
+  // page of one filter now, so cross-referencing it hid every pending request
+  // whose listing happened not to be on screen — which is most of them the
+  // moment you tap a filter.
   const inboundPending = connections.filter(
-    (c) => c.posterId === myId && c.status === 'pending'
-      && posts.some((p) => p.id === c.listingId && p.status === 'open')
+    (c) => c.posterId === myId && c.status === 'pending' && c.listingStatus === 'open'
   );
 
   // Requests waiting on you, lifted out of the feed and pinned above it.
@@ -545,13 +548,13 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           <Icon name="account-clock-outline" size={15} color={DS.coral} />
           <Text style={styles.inboxTitle}>Needs your reply · {inboundPending.length}</Text>
         </View>
-        {inboundPending.map((r) => {
-          const listing = posts.find((p) => p.id === r.listingId);
-          return (
+        {inboundPending.map((r) => (
             <View key={r.id} style={styles.inboxRow}>
               <Text style={styles.inboxName} numberOfLines={2}>
                 {r.requesterName}
-                <Text style={styles.inboxFor}>{listing ? `  ·  ${askFrom(listing)}` : ''}</Text>
+                <Text style={styles.inboxFor}>
+                  {r.listingTitle ? `  ·  ${askFrom({ title: r.listingTitle, type: r.listingType })}` : ''}
+                </Text>
               </Text>
               <View style={styles.inboxActions}>
                 <TouchableOpacity style={styles.rowGhostBtn} onPress={() => openRequestChat(r.id, r.requesterName)} activeOpacity={0.85}>
@@ -566,8 +569,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                 </TouchableOpacity>
               </View>
             </View>
-          );
-        })}
+          ))}
       </View>
     );
   };
