@@ -7,6 +7,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { haptic } from '../utils/haptics';
+import { activateKeepAwake, deactivateKeepAwake } from '../utils/keepAwake';
 import { showToast } from '../components/Toast';
 import MatchPhotos from '../components/MatchPhotos';
 import MatchAwardsModal from "../components/MatchAwardsModal";
@@ -191,6 +192,16 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // would leave a stale pick armed the next time one opens.
   useEffect(() => { if (!showPlayerModal) setPendingBatter(null); }, [showPlayerModal]);
   useEffect(() => { if (!showBowlerModal) setPendingBowler(null); }, [showBowlerModal]);
+  // Hold the screen on for the live session only. A scorer watches far longer
+  // than they tap, so the lock timeout kept firing between balls and every
+  // delivery cost an unlock. Released on unmount and the moment the match ends,
+  // so nothing else in the app pays for it.
+  useEffect(() => {
+    if (scoringReady && !matchComplete) activateKeepAwake();
+    else deactivateKeepAwake();
+    return deactivateKeepAwake;
+  }, [scoringReady, matchComplete]);
+
   useEffect(() => { if (!endPrompt) setPendingEndReason(null); }, [endPrompt]);
   useEffect(() => { if (!retiredKindPrompt) setPendingRetireKind(null); }, [retiredKindPrompt]);
 
