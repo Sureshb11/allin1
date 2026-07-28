@@ -16,6 +16,7 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { pav } from '../theme/pavilion';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import BrandLogo from "../components/BrandLogo";
+import PlayerAvatar from "../components/PlayerAvatar";
 
 // ── Shimmer Skeleton ────────────────────────────────────────────────────────
 function ScoutSkeleton({ DS }) {
@@ -104,14 +105,6 @@ const TYPE_ICONS = {
   commentator: 'microphone-outline',  // speaks / commentates
 };
 
-const makeTypeChipColors = (DS) => ({
-  player: DS.lime,
-  team: DS.blue,
-  umpire: DS.lime,
-  scorer: DS.blue,
-  coach: DS.lime,
-});
-
 const INITIAL_FORM = { type: 'player', role: '', description: '', location: '', format: 'Any', ageGroup: 'Any', days: [], timing: '', customTime: '' };
 
 // Auto-build a readable title from the tap selections so the user never types one.
@@ -123,6 +116,33 @@ const buildTitle = (form) => {
   if (form.role) extras.push(form.role);
   if (form.format && form.format !== 'Any') extras.push(form.format);
   return extras.length ? `${t} · ${extras.join(' · ')}` : t;
+};
+
+// How long ago a listing went up. A board with no recency makes a three-week-dead
+// ask look exactly like one from an hour ago.
+const timeAgo = (iso) => {
+  if (!iso) return '';
+  const secs = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (secs < 90) return 'just now';
+  if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  const days = Math.floor(secs / 86400);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  if (days < 35) return `${Math.floor(days / 7)}w ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+};
+
+// The real ask, without the boilerplate. buildTitle() writes every title as
+// "Looking for a Player · Batter · T20", so the biggest text on every row used to
+// be the part they all share. Strip the prefix, then drop the type word too — it's
+// already the badge — leaving "Batter · T20".
+const askFrom = (item) => {
+  const raw = (item.title || '').trim();
+  const stripped = raw.replace(/^looking for (?:an?|the)\s+/i, '');
+  const parts = stripped.split('·').map((s) => s.trim()).filter(Boolean);
+  if (parts.length > 1) return parts.slice(1).join(' · ');
+  return parts[0] || TYPE_LABELS[item.type] || 'Listing';
 };
 
 // "Days" + "Timing" read as a short human phrase, e.g. "Sat, Sun · 6:00 AM".
@@ -170,7 +190,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   };
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
-  const TYPE_CHIP_COLORS = makeTypeChipColors(DS);
   // Optional deep-link category (e.g. from the search screen's "Looking for" list).
   const initialType = FILTER_TYPES.includes(route?.params?.initialType) ? route.params.initialType : 'all';
   const meUser = useCurrentUser();
@@ -265,14 +284,14 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     }
   }, [navigation, inline]);
 
-  const load = useCallback(async (type) => {
-    const filters = {};
-    if (type && type !== 'all') filters.type = type;
-    if (sportFilter) filters.sport = sportFilter;
+  // Fetch the whole board once and filter by type in JS. Tabs then switch
+  // instantly instead of round-tripping, and each chip can show a real count —
+  // which is what makes the filter row readable at a glance.
+  const load = useCallback(async () => {
     // Scout listings are per-sport — a cricket all-rounder isn't a football lead.
-    const res = await legendsApi.getLookingForPosts({ ...filters, sport: getSelectedSport().sport?.id });
+    const res = await legendsApi.getLookingForPosts({ sport: getSelectedSport().sport?.id });
     if (res.success) setPosts(res.data);
-  }, [sportFilter]);
+  }, []);
 
   const loadConnections = useCallback(async () => {
     const res = await legendsApi.getLookingForConnections();
@@ -281,12 +300,11 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([load(activeType), loadConnections()]).finally(() => setLoading(false));
-  }, [activeType, load, loadConnections]);
+    Promise.all([load(), loadConnections()]).finally(() => setLoading(false));
+  }, [load, loadConnections]);
 
   // Connection lookups per listing.
   const myReqFor = (listingId) => connections.find((c) => c.listingId === listingId && c.requesterId === myId);
-  const reqsForMyListing = (listingId) => connections.filter((c) => c.listingId === listingId && c.posterId === myId);
 
   const handleConnect = async (postId) => {
     const res = await legendsApi.connectLookingFor(postId);
@@ -315,7 +333,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([load(activeType), loadConnections()]);
+    await Promise.all([load(), loadConnections()]);
     setRefreshing(false);
   };
 
@@ -337,158 +355,163 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     if (res.success) {
       closeCreate();
       setForm(INITIAL_FORM);
-      load(activeType);
+      load();
     }
   };
 
   const handleClose = async (postId) => {
     await legendsApi.updateLookingFor(postId, 'closed');
-    load(activeType);
+    load();
   };
 
-  // Client-side search across the loaded listings.
-  const visiblePosts = posts.filter((p) => {
+  // Search first, so the chip counts reflect what a search would actually turn up
+  // rather than promising results the query has already excluded.
+  const searched = posts.filter((p) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
     return [p.title, p.description, p.location, p.format, p.type].join(' ').toLowerCase().includes(q);
   });
 
+  const countsByType = useMemo(() => {
+    const c = {};
+    searched.forEach((p) => { c[p.type] = (c[p.type] || 0) + 1; });
+    return c;
+  }, [searched]);
+
+  // Only offer a filter that leads somewhere. Eleven icon-only chips (ten of them
+  // unreadable without their label) is what made this row guesswork; showing just
+  // the categories that actually have listings usually leaves three or four.
+  const visibleFilters = FILTER_TYPES.filter((t) => t === 'all' || countsByType[t] > 0);
+
+  // A filter can go empty under a new search — fall back rather than stranding
+  // the user on a tab with nothing in it.
+  useEffect(() => {
+    if (activeType !== 'all' && !countsByType[activeType]) setActiveType('all');
+  }, [countsByType, activeType]);
+
+  const visiblePosts = activeType === 'all' ? searched : searched.filter((p) => p.type === activeType);
+
+  // Requests waiting on ME, across all my listings. These were interleaved into
+  // the browse feed, so the one thing needing an answer was the easiest to miss.
+  const inboundPending = connections.filter(
+    (c) => c.posterId === myId && c.status === 'pending'
+      && posts.some((p) => p.id === c.listingId && p.status === 'open')
+  );
+
+  // ── One listing = one row ──────────────────────────────────────────────────
+  // Three lines, fixed shape: the ask, then who/where/when, then age + category.
+  // The action sits on the right so the eye can run down a single column of
+  // buttons instead of hunting for one at the bottom of each card.
   const renderPost = ({ item, index }) => {
-    const chipColor = TYPE_CHIP_COLORS[item.type] || DS.lime;
-    // Pull the "When:" line back out so it can render as its own clock meta.
     const descLines = (item.description || '').split('\n');
     const whenText = descLines.find((l) => l.startsWith('When: '))?.slice(6);
     const bodyDesc = descLines.filter((l) => !l.startsWith('When: ')).join('\n').trim();
+    const isMine = item.postedById && item.postedById === myId;
+    const myReq = myReqFor(item.id);
+    const isClosed = item.status !== 'open';
+
+    // Line 2 — who, where, when. Whatever's known, in that order.
+    const whoLine = [isMine ? 'You' : item.posterName, item.location, whenText]
+      .filter(Boolean).join(' · ');
+    // Line 3 — age of the listing, then the qualifiers the ask didn't carry.
+    const metaLine = [timeAgo(item.createdAt), TYPE_LABELS[item.type], item.format, item.ageGroup]
+      .filter(Boolean).join(' · ');
+
+    // Right-hand action. Exactly one per row, and it always states the next step.
+    let action = null;
+    if (isMine) {
+      action = isClosed
+        ? <View style={styles.rowFlag}><Text style={styles.rowFlagText}>Filled</Text></View>
+        : (
+          <TouchableOpacity style={styles.rowGhostBtn} onPress={() => handleClose(item.id)} activeOpacity={0.8}>
+            <Text style={styles.rowGhostText}>Mark filled</Text>
+          </TouchableOpacity>
+        );
+    } else if (!item.postedById) {
+      action = null;
+    } else if (myReq?.status === 'accepted') {
+      action = (
+        <TouchableOpacity style={styles.rowGhostBtn} onPress={() => openChat(myReq.chatRoomId, item.posterName || 'Poster')} activeOpacity={0.85}>
+          <Icon name="chat-outline" size={14} color={DS.lime} />
+          <Text style={styles.rowGhostText}>Chat</Text>
+        </TouchableOpacity>
+      );
+    } else if (myReq?.status === 'pending') {
+      // Was a dead end — you could only wait. Tapping asks a question instead.
+      action = (
+        <TouchableOpacity style={styles.rowFlag} onPress={() => openRequestChat(myReq.id, item.posterName || 'Poster')} activeOpacity={0.85}>
+          <Icon name="clock-outline" size={13} color={DS.textMuted} />
+          <Text style={styles.rowFlagText}>Sent</Text>
+        </TouchableOpacity>
+      );
+    } else if (myReq?.status === 'declined') {
+      action = <View style={styles.rowFlag}><Text style={styles.rowFlagText}>Declined</Text></View>;
+    } else {
+      action = (
+        <TouchableOpacity style={styles.rowCta} onPress={() => handleConnect(item.id)} activeOpacity={0.85}>
+          <Text style={styles.rowCtaText}>Connect</Text>
+        </TouchableOpacity>
+      );
+    }
+
     return (
       <Reanimated.View
-        entering={FadeInDown.duration(360).delay(Math.min(index, 8) * 45)}
-        style={styles.card}
+        entering={FadeInDown.duration(300).delay(Math.min(index, 8) * 35)}
+        style={[styles.row, isClosed && styles.rowDim]}
       >
-        {/* Faint grey type-icon watermark, upright, in the top-right. */}
-        <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={92} color={DS.surfaceHighest} style={styles.cardWatermark} />
-
-        <View style={styles.cardBody}>
-          <View style={styles.cardHeader}>
-            <View style={styles.typeBadge}>
-              <Text style={styles.typeText}>{item.type?.toUpperCase()}</Text>
+        {item.posterName
+          ? <PlayerAvatar name={item.posterName} avatarUrl={item.posterAvatarUrl} size={38} />
+          : (
+            <View style={styles.rowIconAvatar}>
+              <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={19} color={DS.lime} />
             </View>
-            {item.status === 'open' ? (
-              <TouchableOpacity onPress={() => handleClose(item.id)} style={styles.markFilled} activeOpacity={0.8}>
-                <Icon name="check-circle" size={14} color={DS.success} />
-                <Text style={styles.markFilledText}>Mark Filled</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.filledBadge}>
-                <Icon name="check-circle" size={13} color={DS.textMuted} />
-                <Text style={styles.filledBadgeText}>FILLED</Text>
-              </View>
-            )}
-          </View>
+          )}
 
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          {!!bodyDesc && <Text style={styles.cardDesc}>{bodyDesc}</Text>}
-
-          <View style={styles.cardMeta}>
-            {!!whenText && (
-              <View style={styles.metaChip}>
-                <Icon name="clock-outline" size={13} color={DS.textMuted} />
-                <Text style={styles.metaText}>{whenText}</Text>
-              </View>
-            )}
-            {!!item.location && (
-              <View style={styles.metaChip}>
-                <Icon name="map-marker" size={13} color={DS.textMuted} />
-                <Text style={styles.metaText}>{item.location}</Text>
-              </View>
-            )}
-            {!!item.format && (
-              <View style={styles.metaChip}>
-                <Icon name="cricket" size={13} color={DS.textMuted} />
-                <Text style={styles.metaText}>{item.format}</Text>
-              </View>
-            )}
-            {!!item.ageGroup && (
-              <View style={styles.metaChip}>
-                <Icon name="human" size={13} color={DS.textMuted} />
-                <Text style={styles.metaText}>{item.ageGroup}</Text>
-              </View>
-            )}
-          </View>
-
-          {(() => {
-            const isMine = item.postedById && item.postedById === myId;
-            if (isMine) {
-              const reqs = reqsForMyListing(item.id);
-              const isClosed = item.status !== 'open';
-              const pending = isClosed ? [] : reqs.filter((r) => r.status === 'pending');
-              const accepted = reqs.filter((r) => r.status === 'accepted');
-              if (pending.length === 0 && accepted.length === 0) {
-                return <Text style={styles.noReq}>{isClosed ? 'Filled — no active connections' : 'No connect requests yet'}</Text>;
-              }
-              return (
-                <View style={{ gap: 8 }}>
-                  {pending.map((r) => (
-                    <View key={r.id} style={styles.reqRow}>
-                      <Icon name="account-clock-outline" size={18} color={DS.blueDeep} />
-                      <Text style={styles.reqName} numberOfLines={1}>{r.requesterName} wants to connect</Text>
-                      {/* Ask before committing — chat used to appear only after
-                          you'd already accepted. */}
-                      <TouchableOpacity style={styles.askBtn} onPress={() => openRequestChat(r.id, r.requesterName)}>
-                        <Icon name="message-text-outline" size={15} color={DS.textPrimary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.acceptBtn} onPress={() => handleRespond(r.id, 'accept')}>
-                        <Text style={styles.acceptBtnText}>Accept</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.declineBtn} onPress={() => handleRespond(r.id, 'decline')}>
-                        <Icon name="close" size={16} color={DS.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                  {accepted.map((r) => (
-                    <TouchableOpacity key={r.id} style={styles.chatBtn} onPress={() => openChat(r.chatRoomId, r.requesterName)} activeOpacity={0.85}>
-                      <Icon name="chat-outline" size={16} color={DS.lime} />
-                      <Text style={styles.chatBtnText}>Chat with {r.requesterName}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              );
-            }
-            if (!item.postedById) return null;
-            const myReq = myReqFor(item.id);
-            if (myReq?.status === 'accepted') {
-              return (
-                <TouchableOpacity style={styles.chatBtn} onPress={() => openChat(myReq.chatRoomId, item.posterName || 'Poster')} activeOpacity={0.85}>
-                  <Icon name="chat-outline" size={16} color={DS.lime} />
-                  <Text style={styles.chatBtnText}>Chat</Text>
-                </TouchableOpacity>
-              );
-            }
-            if (myReq?.status === 'pending') {
-              // Was a dead end — you could only wait. Now you can make your case.
-              return (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={[styles.requestedBtn, { flex: 1 }]}>
-                    <Icon name="clock-outline" size={15} color={DS.textMuted} />
-                    <Text style={styles.requestedText}>Request sent · waiting to accept</Text>
-                  </View>
-                  <TouchableOpacity style={styles.askBtn} onPress={() => openRequestChat(myReq.id, item.posterName || 'Poster')}>
-                    <Icon name="message-text-outline" size={15} color={DS.textPrimary} />
-                  </TouchableOpacity>
-                </View>
-              );
-            }
-            if (myReq?.status === 'declined') {
-              return <View style={styles.requestedBtn}><Text style={styles.requestedText}>Request declined</Text></View>;
-            }
-            return (
-              <TouchableOpacity style={[styles.connectBtn, { backgroundColor: P.control }]} onPress={() => handleConnect(item.id)} activeOpacity={0.85}>
-                <Icon name="account-plus" size={17} color={P.onControl} />
-                <Text style={[styles.connectBtnText, { color: P.onControl }]}>CONNECT</Text>
-              </TouchableOpacity>
-            );
-          })()}
+        <View style={styles.rowMain}>
+          <Text style={styles.rowAsk} numberOfLines={1}>{askFrom(item)}</Text>
+          {!!whoLine && <Text style={styles.rowWho} numberOfLines={1}>{whoLine}</Text>}
+          <Text style={styles.rowMeta} numberOfLines={1}>{metaLine}</Text>
+          {!!bodyDesc && <Text style={styles.rowNote} numberOfLines={2}>{bodyDesc}</Text>}
         </View>
+
+        {action}
       </Reanimated.View>
+    );
+  };
+
+  // Requests waiting on you, lifted out of the feed and pinned above it.
+  const renderInbox = () => {
+    if (!inboundPending.length) return null;
+    return (
+      <View style={styles.inbox}>
+        <View style={styles.inboxHead}>
+          <Icon name="account-clock-outline" size={15} color={DS.coral} />
+          <Text style={styles.inboxTitle}>Needs your reply · {inboundPending.length}</Text>
+        </View>
+        {inboundPending.map((r) => {
+          const listing = posts.find((p) => p.id === r.listingId);
+          return (
+            <View key={r.id} style={styles.inboxRow}>
+              <Text style={styles.inboxName} numberOfLines={2}>
+                {r.requesterName}
+                <Text style={styles.inboxFor}>{listing ? `  ·  ${askFrom(listing)}` : ''}</Text>
+              </Text>
+              <View style={styles.inboxActions}>
+                <TouchableOpacity style={styles.rowGhostBtn} onPress={() => openRequestChat(r.id, r.requesterName)} activeOpacity={0.85}>
+                  <Icon name="message-text-outline" size={14} color={DS.lime} />
+                  <Text style={styles.rowGhostText}>Ask</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.rowCta} onPress={() => handleRespond(r.id, 'accept')} activeOpacity={0.85}>
+                  <Text style={styles.rowCtaText}>Accept</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.inboxDecline} onPress={() => handleRespond(r.id, 'decline')} activeOpacity={0.85}>
+                  <Icon name="close" size={15} color={DS.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })}
+      </View>
     );
   };
 
@@ -546,23 +569,29 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           onLayout={(e) => { filterViewW.current = e.nativeEvent.layout.width; recomputeMax(); }}
           onContentSizeChange={(w) => { filterContentW.current = w; recomputeMax(); }}
         >
-          {FILTER_TYPES.map(t => (
-            <TouchableOpacity
-              key={t}
-              style={[styles.tab, activeType === t && styles.tabActive]}
-              onPress={() => {
-                setActiveType(t);
-                // Bring the tapped chip into view so the selection is never clipped.
-                const idx = FILTER_TYPES.indexOf(t);
-                scrollFilterTo(Math.max(0, idx * 62 - 48));
-              }}
-            >
-              {/* Ghost pill; the selected filter fills bright-green and reveals its name. */}
-              <Icon name={TYPE_ICONS[t]} size={16} color={activeType === t ? DS.onLime : DS.textMuted} />
-              {activeType === t &&
-                <Text style={styles.tabTextActive}>{TYPE_LABELS[t] || t}</Text>}
-            </TouchableOpacity>
-          ))}
+          {visibleFilters.map((t, idx) => {
+            const on = activeType === t;
+            const n = t === 'all' ? searched.length : (countsByType[t] || 0);
+            return (
+              <TouchableOpacity
+                key={t}
+                style={[styles.tab, on && styles.tabActive]}
+                onPress={() => {
+                  setActiveType(t);
+                  // Bring the tapped chip into view so the selection is never clipped.
+                  scrollFilterTo(Math.max(0, idx * 96 - 48));
+                }}
+              >
+                {/* Every chip carries its name now. Icon-only pills meant ten of
+                    these eleven categories were a guess. */}
+                <Icon name={TYPE_ICONS[t]} size={15} color={on ? DS.onLime : DS.textMuted} />
+                <Text style={[styles.tabText, on && styles.tabTextActive]} numberOfLines={1}>
+                  {TYPE_LABELS[t] || t}
+                </Text>
+                <Text style={[styles.tabCount, on && styles.tabCountActive]}>{n}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </Reanimated.ScrollView>
       </GestureDetector>
 
@@ -582,24 +611,24 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           renderItem={renderPost}
           contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}
+          ItemSeparatorComponent={() => <View style={styles.sep} />}
+          ListHeaderComponent={renderInbox()}
           ListFooterComponent={
             <TouchableOpacity style={styles.ctaCard} onPress={openCreate} activeOpacity={0.8}>
-              <View style={styles.ctaAccent} />
-              <View style={styles.ctaContent}>
-                <Icon name="plus-circle-outline" size={24} color={DS.lime} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.ctaTitle}>Post your own listing</Text>
-                  <Text style={styles.ctaDesc}>Let others know what you're looking for</Text>
-                </View>
-                <Icon name="chevron-right" size={22} color={DS.textMuted} />
-              </View>
+              <Icon name="plus-circle-outline" size={20} color={DS.lime} />
+              <Text style={styles.ctaTitle}>Post what you're looking for</Text>
+              <Icon name="chevron-right" size={20} color={DS.textMuted} />
             </TouchableOpacity>
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Icon name="telescope" size={48} color={DS.surfaceHighest} />
-              <Text style={styles.emptyText}>No posts yet</Text>
-              <Text style={styles.emptySubText}>Be the first to post a listing</Text>
+              <Icon name="telescope" size={44} color={DS.surfaceHighest} />
+              <Text style={styles.emptyText}>
+                {query.trim() ? 'Nothing matches that search' : 'No listings yet'}
+              </Text>
+              <Text style={styles.emptySubText}>
+                {query.trim() ? 'Try a shorter search, or clear it.' : 'Post the first one and let people find you.'}
+              </Text>
             </View>
           }
         />
@@ -776,76 +805,95 @@ const makeStyles = (DS) => StyleSheet.create({
   addBtn: { backgroundColor: DS.lime, borderRadius: 20, padding: 6 },
 
   /* Hero */
-  hero: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 6, backgroundColor: DS.bg },
-  heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
-  heroSubtitle: { fontSize: 13, color: DS.textMuted, marginTop: 4, lineHeight: 20 },
+  hero: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, backgroundColor: DS.bg },
+  heroTitle: { fontSize: 20, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
+  heroSubtitle: { fontSize: 12, color: DS.textMuted, marginTop: 2, lineHeight: 18 },
 
   /* Search — pill-shaped, prominent. */
-  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: DS.bg },
-  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 13, gap: 8, borderWidth: 1, borderColor: DS.border },
-  createBtn: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary, padding: 0 },
-  searchPlaceholder: { fontSize: 14, color: DS.textMuted },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: DS.bg },
+  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, gap: 8, borderWidth: 1, borderColor: DS.border },
+  createBtn: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  searchInput: { flex: 1, fontSize: 13, color: DS.textPrimary, padding: 0 },
+  searchPlaceholder: { fontSize: 13, color: DS.textMuted },
 
-  /* Filter tabs — L3 ghost→lime-fill pills, matching Rankings' board chips. */
+  /* Filter chips — labelled + counted; the row scrolls under a self-driven Pan. */
   tabs: { backgroundColor: DS.bg, flexGrow: 0, flexShrink: 0 },
-  tabsContent: { paddingHorizontal: 14, paddingVertical: 6, gap: 8, alignItems: 'center' },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: DS.border },
-  tabActive: { backgroundColor: DS.lime, borderColor: DS.lime },
-  tabTextActive: { fontSize: 12, color: DS.onLime, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, includeFontPadding: false },
-
-  /* List */
-  list: { padding: 16, gap: 10, paddingBottom: 28 },
-
-  /* Card — larger radius, a faint type-icon watermark, chip-style meta. */
-  card: { backgroundColor: DS.surface, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: DS.border, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
-  cardWatermark: { position: 'absolute', top: 14, right: 14, opacity: 0.5 },
-  cardBody: { padding: 22 },
-  cardHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 },
-  typeBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: DS.border, backgroundColor: DS.surface },
-  typeText: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: DS.textMuted },
-  markFilled: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: DS.success + '24', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 },
-  markFilledText: { fontSize: 12, color: DS.success, fontWeight: '700' },
-  filledBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5, borderWidth: 1, borderColor: DS.faint },
-  filledBadgeText: { fontSize: 10, color: DS.textMuted, fontWeight: '800', letterSpacing: 0.8 },
-  cardTitle: { fontSize: 20, fontWeight: "700", color: DS.textPrimary, marginBottom: 12, letterSpacing: -0.3, lineHeight: 27 },
-  cardDesc: { fontSize: 14, color: DS.textVariant, marginBottom: 12, lineHeight: 20 },
-  cardMeta: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
-  metaChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: DS.surfaceHigh, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
-  metaText: { fontSize: 13, color: DS.textMuted, fontWeight: '500' },
-  // CONNECT = near-black control (bg applied inline); primary action.
-  connectBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 12, paddingVertical: 14, marginTop: 2 },
-  connectBtnText: { fontSize: 13, fontWeight: '800', color: DS.white, letterSpacing: 1 },
-  // Chat = outlined green; the secondary/positive follow-up.
-  chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'transparent', borderRadius: 12, paddingVertical: 13, borderWidth: 2, borderColor: DS.lime },
-  chatBtnText: { fontSize: 13, fontWeight: '800', color: DS.lime, letterSpacing: 0.5 },
-  requestedBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingVertical: 11, borderWidth: 1, borderColor: DS.faint },
-  requestedText: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
-  noReq: { fontSize: 12, color: DS.textMuted, fontStyle: 'italic', paddingVertical: 6 },
-  reqRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: DS.faint },
-  reqName: { flex: 1, fontSize: 13, fontWeight: '700', color: DS.textPrimary },
-  // "Ask a question" — sits next to Accept/Decline, and next to the requester's
-  // own pending pill. Neutral, so it doesn't compete with Accept.
-  askBtn: {
-    width: 38, height: 38, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: DS.surface, borderWidth: 1, borderColor: DS.faint,
+  tabsContent: { paddingHorizontal: 14, paddingVertical: 6, gap: 6, alignItems: 'center' },
+  tab: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999,
+    borderWidth: 1, borderColor: DS.faint, backgroundColor: DS.surfaceHigh,
   },
-  acceptBtn: { backgroundColor: DS.blueDeep, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 },
-  acceptBtnText: { fontSize: 12, fontWeight: '800', color: DS.white },
-  declineBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: DS.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: DS.faint },
+  tabActive: { backgroundColor: DS.lime, borderColor: DS.lime },
+  tabText: { fontSize: 12, color: DS.textVariant, fontWeight: '600', includeFontPadding: false },
+  tabTextActive: { color: DS.onLime, fontWeight: '800' },
+  tabCount: { fontSize: 11, color: DS.textMuted, fontWeight: '800', includeFontPadding: false },
+  tabCountActive: { color: DS.onLime, opacity: 0.75 },
 
-  /* CTA card */
-  ctaCard: { backgroundColor: DS.surface, borderRadius: 16, overflow: 'hidden', marginTop: 6, borderWidth: 1, borderColor: DS.faint },
-  ctaAccent: { height: 3, backgroundColor: DS.lime },
-  ctaContent: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  ctaTitle: { fontSize: 15, fontWeight: '700', color: DS.textPrimary },
-  ctaDesc: { fontSize: 12, color: DS.textMuted, marginTop: 2 },
+  /* List — bordered rows, not floating cards: ~5 listings a screen instead of 2. */
+  list: { paddingHorizontal: 14, paddingTop: 4, paddingBottom: 28 },
+  sep: { height: 1, backgroundColor: DS.faint, marginLeft: 50 },
+
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 12 },
+  rowDim: { opacity: 0.5 },
+  rowIconAvatar: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: DS.surfaceHigh,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  rowMain: { flex: 1, minWidth: 0, gap: 2 },
+  // The ask, with the "Looking for a…" boilerplate stripped — the one line worth reading.
+  rowAsk: { fontSize: 15, fontWeight: '700', color: DS.textPrimary, letterSpacing: -0.2 },
+  rowWho: { fontSize: 12, color: DS.textVariant, fontWeight: '500' },
+  rowMeta: { fontSize: 11, color: DS.textMuted, fontWeight: '500' },
+  rowNote: { fontSize: 12, color: DS.textVariant, marginTop: 3, lineHeight: 16 },
+
+  /* One action per row, right-aligned so they form a single scannable column. */
+  rowCta: {
+    backgroundColor: DS.lime, borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 8, alignSelf: 'center',
+  },
+  rowCtaText: { fontSize: 12, fontWeight: '800', color: DS.onLime },
+  rowGhostBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderWidth: 1.5, borderColor: DS.lime, borderRadius: 8,
+    paddingHorizontal: 11, paddingVertical: 7, alignSelf: 'center',
+  },
+  rowGhostText: { fontSize: 12, fontWeight: '800', color: DS.lime },
+  rowFlag: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: DS.surfaceHigh, borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 7, alignSelf: 'center',
+  },
+  rowFlagText: { fontSize: 11, fontWeight: '700', color: DS.textMuted },
+
+  /* "Needs your reply" — pulled out of the feed and pinned on top. */
+  inbox: {
+    backgroundColor: DS.surface, borderRadius: 14, borderWidth: 1, borderColor: DS.coral,
+    padding: 12, marginBottom: 14, gap: 10,
+  },
+  inboxHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  inboxTitle: { fontSize: 12, fontWeight: '800', color: DS.coral, letterSpacing: 0.3 },
+  inboxRow: { gap: 8 },
+  inboxName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
+  inboxFor: { fontSize: 12, fontWeight: '500', color: DS.textMuted },
+  inboxActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  inboxDecline: {
+    width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: DS.surfaceHigh,
+  },
+
+  /* Post-your-own — a quiet row at the end; the FAB is the loud one. */
+  ctaCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderWidth: 1, borderColor: DS.faint, borderStyle: 'dashed',
+    borderRadius: 12, padding: 14, marginTop: 16,
+  },
+  ctaTitle: { flex: 1, fontSize: 13, fontWeight: '700', color: DS.textPrimary },
 
   /* Empty */
-  empty: { alignItems: 'center', paddingTop: 80 },
-  emptyText: { fontSize: 18, fontWeight: '700', color: DS.textVariant, marginTop: 12 },
-  emptySubText: { fontSize: 13, color: DS.textMuted, marginTop: 4 },
+  empty: { alignItems: 'center', paddingTop: 70, paddingHorizontal: 32 },
+  emptyText: { fontSize: 16, fontWeight: '700', color: DS.textVariant, marginTop: 12 },
+  emptySubText: { fontSize: 13, color: DS.textMuted, marginTop: 4, textAlign: 'center' },
 
   /* Modal */
   modalOverlay: { flex: 1, backgroundColor: DS.overlay, justifyContent: 'flex-end' },

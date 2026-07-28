@@ -25,9 +25,34 @@ router.get('/', optionalAuth, async (req, res) => {
     const posts = await prisma.lookingFor.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      take: 50,
+      // The app filters by type client-side (instant tab switches + per-type
+      // counts on the chips), so this has to return the whole board, not one
+      // type's worth.
+      take: 200,
     });
-    res.json({ posts });
+
+    // Who posted it. LookingFor.postedById is a bare column with no relation, so
+    // this is the same manual join /connections already does. Without it the
+    // board is anonymous — no name, no face, nothing to judge a stranger on.
+    const posterIds = [...new Set(posts.map((p) => p.postedById).filter(Boolean))];
+    const posters = posterIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: posterIds } },
+          select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+        })
+      : [];
+    const byId = new Map(posters.map((u) => [u.id, u]));
+
+    res.json({
+      posts: posts.map((p) => {
+        const u = p.postedById ? byId.get(p.postedById) : null;
+        return {
+          ...p,
+          posterName: u ? `${u.firstName} ${u.lastName || ''}`.trim() : null,
+          posterAvatarUrl: u?.avatarUrl || null,
+        };
+      }),
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
