@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder
+  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder, Linking
 } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
@@ -231,6 +231,17 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   // "Post a listing" now lives in a bottom sheet (draggable, snap point, backdrop)
   // instead of a full-screen Modal. It renders in the app-root provider's portal,
   // so it overlays everything and isn't clipped by the Pavilion pager transform.
+  // Tapping a row opens the full listing: everything the poster typed, plus their
+  // number when they chose to share it.
+  const [detailItem, setDetailItem] = useState(null);
+  const detailSheetRef = useRef(null);
+  const detailSnapPoints = useMemo(() => ['70%'], []);
+  const openDetail = useCallback((item) => {
+    setDetailItem(item);
+    detailSheetRef.current?.present();
+  }, []);
+  const closeDetail = useCallback(() => detailSheetRef.current?.dismiss(), []);
+
   const createSheetRef = useRef(null);
   const createSnapPoints = useMemo(() => ['92%'], []);
   const openCreate = useCallback(() => createSheetRef.current?.present(), []);
@@ -413,6 +424,52 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   );
 
 
+  // The one action a listing offers right now, shared by the row and the detail
+  // sheet so the two can never show different next steps for the same listing.
+  const actionFor = (item, big = false) => {
+    const isMine = item.postedById && item.postedById === myId;
+    const myReq = myReqFor(item.id);
+    const ctaStyle = big ? [styles.rowCta, styles.ctaWide, { backgroundColor: P.control }] : [styles.rowCta, { backgroundColor: P.control }];
+    const ghostStyle = big ? [styles.rowGhostBtn, styles.ctaWide] : styles.rowGhostBtn;
+    const flagStyle = big ? [styles.rowFlag, styles.ctaWide] : styles.rowFlag;
+
+    if (isMine) {
+      // The board is open listings only, so a row is never already filled —
+      // marking it removes it on the next fetch.
+      return (
+        <TouchableOpacity style={ghostStyle} onPress={() => { closeDetail(); handleClose(item.id); }} activeOpacity={0.8}>
+          <Text style={styles.rowGhostText}>Mark filled</Text>
+        </TouchableOpacity>
+      );
+    }
+    if (!item.postedById) return null;
+    if (myReq?.status === 'accepted') {
+      return (
+        <TouchableOpacity style={ghostStyle} onPress={() => openChat(myReq.chatRoomId, item.posterName || 'Poster', myReq.id)} activeOpacity={0.85}>
+          <Icon name="chat-outline" size={14} color={DS.lime} />
+          <Text style={styles.rowGhostText}>Chat</Text>
+        </TouchableOpacity>
+      );
+    }
+    if (myReq?.status === 'pending') {
+      // Was a dead end — you could only wait. Tapping asks a question instead.
+      return (
+        <TouchableOpacity style={flagStyle} onPress={() => openRequestChat(myReq.id, item.posterName || 'Poster')} activeOpacity={0.85}>
+          <Icon name="clock-outline" size={13} color={DS.textMuted} />
+          <Text style={styles.rowFlagText}>Sent</Text>
+        </TouchableOpacity>
+      );
+    }
+    if (myReq?.status === 'declined') {
+      return <View style={flagStyle}><Text style={styles.rowFlagText}>Declined</Text></View>;
+    }
+    return (
+      <TouchableOpacity style={ctaStyle} onPress={() => handleConnect(item.id)} activeOpacity={0.85}>
+        <Text style={[styles.rowCtaText, { color: P.onControl }]}>Connect</Text>
+      </TouchableOpacity>
+    );
+  };
+
   // ── One listing = one row ──────────────────────────────────────────────────
   // Three lines, fixed shape: the ask, then who/where/when, then age + category.
   // The action sits on the right so the eye can run down a single column of
@@ -431,48 +488,13 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     const metaLine = [timeAgo(item.createdAt), TYPE_LABELS[item.type], item.format, item.ageGroup]
       .filter(Boolean).join(' · ');
 
-    // Right-hand action. Exactly one per row, and it always states the next step.
-    let action = null;
-    if (isMine) {
-      // The board is open listings only, so a row is never already filled —
-      // marking it removes it on the next fetch.
-      action = (
-        <TouchableOpacity style={styles.rowGhostBtn} onPress={() => handleClose(item.id)} activeOpacity={0.8}>
-          <Text style={styles.rowGhostText}>Mark filled</Text>
-        </TouchableOpacity>
-      );
-    } else if (!item.postedById) {
-      action = null;
-    } else if (myReq?.status === 'accepted') {
-      action = (
-        <TouchableOpacity style={styles.rowGhostBtn} onPress={() => openChat(myReq.chatRoomId, item.posterName || 'Poster', myReq.id)} activeOpacity={0.85}>
-          <Icon name="chat-outline" size={14} color={DS.lime} />
-          <Text style={styles.rowGhostText}>Chat</Text>
-        </TouchableOpacity>
-      );
-    } else if (myReq?.status === 'pending') {
-      // Was a dead end — you could only wait. Tapping asks a question instead.
-      action = (
-        <TouchableOpacity style={styles.rowFlag} onPress={() => openRequestChat(myReq.id, item.posterName || 'Poster')} activeOpacity={0.85}>
-          <Icon name="clock-outline" size={13} color={DS.textMuted} />
-          <Text style={styles.rowFlagText}>Sent</Text>
-        </TouchableOpacity>
-      );
-    } else if (myReq?.status === 'declined') {
-      action = <View style={styles.rowFlag}><Text style={styles.rowFlagText}>Declined</Text></View>;
-    } else {
-      action = (
-        <TouchableOpacity style={[styles.rowCta, { backgroundColor: P.control }]} onPress={() => handleConnect(item.id)} activeOpacity={0.85}>
-          <Text style={[styles.rowCtaText, { color: P.onControl }]}>Connect</Text>
-        </TouchableOpacity>
-      );
-    }
-
+    const action = actionFor(item);
     return (
       <Reanimated.View
         entering={FadeInDown.duration(300).delay(Math.min(index, 8) * 35)}
         style={styles.row}
       >
+        <TouchableOpacity style={styles.rowTap} activeOpacity={0.7} onPress={() => openDetail(item)}>
         {item.posterName
           ? <PlayerAvatar name={item.posterName} avatarUrl={item.posterAvatarUrl} size={38} />
           : (
@@ -487,6 +509,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           <Text style={styles.rowMeta} numberOfLines={1}>{metaLine}</Text>
           {!!bodyDesc && <Text style={styles.rowNote} numberOfLines={2}>{bodyDesc}</Text>}
         </View>
+        </TouchableOpacity>
 
         {action}
       </Reanimated.View>
@@ -665,6 +688,94 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
         />
       )}
       </View>
+
+      {/* ── LISTING DETAIL — everything the poster wrote, plus their number if
+          they chose to share it. The row only has space for two lines of notes;
+          this is where the rest lives. ── */}
+      <BottomSheetModal
+        ref={detailSheetRef}
+        snapPoints={detailSnapPoints}
+        enablePanDownToClose
+        onDismiss={() => setDetailItem(null)}
+        backdropComponent={renderBackdrop}
+        handleIndicatorStyle={{ backgroundColor: DS.textMuted }}
+        backgroundStyle={{ backgroundColor: DS.surfaceLow }}>
+        {detailItem && (() => {
+          const lines = (detailItem.description || '').split('\n');
+          const whenText = lines.find((l) => l.startsWith('When: '))?.slice(6);
+          const notes = lines.filter((l) => !l.startsWith('When: ')).join('\n').trim();
+          const isMine = detailItem.postedById && detailItem.postedById === myId;
+          const phone = (detailItem.contactInfo || '').trim();
+          const facts = [
+            ['map-marker-outline', 'Where', detailItem.location],
+            ['clock-outline', 'When', whenText],
+            ['cricket', 'Format', detailItem.format],
+            ['human', 'Age group', detailItem.ageGroup],
+          ].filter(([, , v]) => !!v);
+
+          return (
+            <BottomSheetScrollView contentContainerStyle={styles.detailBody}>
+              <View style={styles.detailHead}>
+                {detailItem.posterName
+                  ? <PlayerAvatar name={detailItem.posterName} avatarUrl={detailItem.posterAvatarUrl} size={44} />
+                  : (
+                    <View style={styles.rowIconAvatar}>
+                      <Icon name={TYPE_ICONS[detailItem.type] || 'help-circle'} size={20} color={DS.lime} />
+                    </View>
+                  )}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.detailPoster} numberOfLines={1}>
+                    {isMine ? 'You' : (detailItem.posterName || 'Someone')}
+                  </Text>
+                  <Text style={styles.detailPosted}>
+                    {[timeAgo(detailItem.createdAt), TYPE_LABELS[detailItem.type]].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.detailAsk}>{askFrom(detailItem)}</Text>
+
+              {facts.length > 0 && (
+                <View style={styles.factList}>
+                  {facts.map(([icon, label, value]) => (
+                    <View key={label} style={styles.factRow}>
+                      <Icon name={icon} size={16} color={DS.textMuted} />
+                      <Text style={styles.factLabel}>{label}</Text>
+                      <Text style={styles.factValue} numberOfLines={2}>{value}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* What they actually typed — the row can only show two lines. */}
+              {!!notes && (
+                <View style={styles.notesBox}>
+                  <Text style={styles.notesLabel}>NOTES</Text>
+                  <Text style={styles.notesText}>{notes}</Text>
+                </View>
+              )}
+
+              {/* Only when the poster ticked "share my number". This field was
+                  being written on every post and shown nowhere. */}
+              {!!phone && (
+                <TouchableOpacity
+                  style={styles.contactBox}
+                  activeOpacity={0.85}
+                  onPress={() => Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => showToast('No dialer available', 'error'))}>
+                  <Icon name="phone-outline" size={18} color={DS.lime} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.contactLabel}>Shared their number</Text>
+                    <Text style={styles.contactValue}>{phone}</Text>
+                  </View>
+                  <Icon name="chevron-right" size={20} color={DS.textMuted} />
+                </TouchableOpacity>
+              )}
+
+              <View style={styles.detailAction}>{actionFor(detailItem, true)}</View>
+            </BottomSheetScrollView>
+          );
+        })()}
+      </BottomSheetModal>
 
       {/* Create Modal */}
       <BottomSheetModal
@@ -912,6 +1023,38 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint,
   },
   rowFlagText: { fontSize: 11.5, fontWeight: '700', color: DS.textMuted },
+
+  /* Row body is one tap target; the action button beside it is its own. */
+  rowTap: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 11 },
+
+  /* ── Listing detail sheet ── */
+  detailBody: { padding: 18, paddingBottom: 32, gap: 14 },
+  detailHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  detailPoster: { fontSize: 15, fontWeight: '800', color: DS.textPrimary },
+  detailPosted: { fontSize: 12, color: DS.textMuted, marginTop: 1 },
+  detailAsk: { fontSize: 21, fontWeight: '900', color: DS.textPrimary, letterSpacing: -0.4, lineHeight: 27 },
+
+  factList: { backgroundColor: DS.surfaceHigh, borderRadius: 12, padding: 12, gap: 10 },
+  factRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
+  factLabel: { width: 76, fontSize: 12, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.3 },
+  factValue: { flex: 1, fontSize: 13, fontWeight: '600', color: DS.textPrimary },
+
+  notesBox: { gap: 6 },
+  notesLabel: { fontSize: 10, fontWeight: '900', color: DS.textMuted, letterSpacing: 1 },
+  notesText: { fontSize: 14, color: DS.textVariant, lineHeight: 21 },
+
+  // Shown only when the poster opted in; taps through to the dialer.
+  contactBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: DS.surfaceHigh, borderRadius: 12, padding: 13,
+    borderWidth: 1, borderColor: DS.lime,
+  },
+  contactLabel: { fontSize: 10, fontWeight: '900', color: DS.textMuted, letterSpacing: 0.8 },
+  contactValue: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginTop: 2 },
+
+  detailAction: { marginTop: 4, alignItems: 'stretch' },
+  // Full-width variant of the row buttons for the sheet's single primary action.
+  ctaWide: { alignSelf: 'stretch', height: 46, minWidth: 0 },
 
   /* "Needs your reply" — pulled out of the feed and pinned on top. */
   inbox: {
