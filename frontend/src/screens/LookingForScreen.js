@@ -314,8 +314,11 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     const res = await legendsApi.respondLookingForConnection(connId, action);
     if (res.success) loadConnections();
   };
-  const openChat = (chatRoomId, name) => {
+  // A missing chatRoomId used to make this a dead tap. The room is created
+  // server-side on demand, so fall through to that rather than doing nothing.
+  const openChat = (chatRoomId, name, connId) => {
     if (chatRoomId) navigation.navigate('Chat', { chatId: chatRoomId, chatName: name || 'Chat' });
+    else if (connId) openRequestChat(connId, name);
   };
 
   // Open the conversation for a request that hasn't been answered yet. The room
@@ -392,6 +395,16 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       && posts.some((p) => p.id === c.listingId && p.status === 'open')
   );
 
+  // People you've already accepted. Once a request stops being pending it drops
+  // out of the block above, and a poster's own listing row only ever offers
+  // "Mark filled" — so without this the moment you accept someone they vanish
+  // and the chat you just unlocked has no entry point on this screen. The
+  // requester's own row still carries their Chat button, so this side is
+  // poster-only rather than every accepted connection.
+  const inboundAccepted = connections.filter(
+    (c) => c.posterId === myId && c.status === 'accepted'
+  );
+
   // ── One listing = one row ──────────────────────────────────────────────────
   // Three lines, fixed shape: the ask, then who/where/when, then age + category.
   // The action sits on the right so the eye can run down a single column of
@@ -425,7 +438,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       action = null;
     } else if (myReq?.status === 'accepted') {
       action = (
-        <TouchableOpacity style={styles.rowGhostBtn} onPress={() => openChat(myReq.chatRoomId, item.posterName || 'Poster')} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.rowGhostBtn} onPress={() => openChat(myReq.chatRoomId, item.posterName || 'Poster', myReq.id)} activeOpacity={0.85}>
           <Icon name="chat-outline" size={14} color={DS.lime} />
           <Text style={styles.rowGhostText}>Chat</Text>
         </TouchableOpacity>
@@ -475,6 +488,16 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
   // Requests waiting on you, lifted out of the feed and pinned above it.
   const renderInbox = () => {
+    if (!inboundPending.length && !inboundAccepted.length) return null;
+    return (
+      <View style={{ gap: 10, marginBottom: 14 }}>
+        {renderPendingBlock()}
+        {renderAcceptedBlock()}
+      </View>
+    );
+  };
+
+  const renderPendingBlock = () => {
     if (!inboundPending.length) return null;
     return (
       <View style={styles.inbox}>
@@ -502,6 +525,40 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                   <Icon name="close" size={15} color={DS.textMuted} />
                 </TouchableOpacity>
               </View>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
+  // Where an accepted request goes. Quieter than the pending block — this is
+  // done business, not something demanding an answer — but it keeps the chat one
+  // tap away instead of only in the Chat tab.
+  const renderAcceptedBlock = () => {
+    if (!inboundAccepted.length) return null;
+    return (
+      <View style={styles.connected}>
+        <View style={styles.inboxHead}>
+          <Icon name="check-circle-outline" size={15} color={DS.lime} />
+          <Text style={styles.connectedTitle}>Connected · {inboundAccepted.length}</Text>
+        </View>
+        {inboundAccepted.map((r) => {
+          const listing = posts.find((p) => p.id === r.listingId);
+          return (
+            <View key={r.id} style={styles.connectedRow}>
+              <PlayerAvatar name={r.requesterName || '?'} size={30} />
+              <Text style={styles.connectedName} numberOfLines={2}>
+                {r.requesterName}
+                <Text style={styles.inboxFor}>{listing ? `  ·  ${askFrom(listing)}` : ''}</Text>
+              </Text>
+              <TouchableOpacity
+                style={styles.rowGhostBtn}
+                onPress={() => openChat(r.chatRoomId, r.requesterName, r.id)}
+                activeOpacity={0.85}>
+                <Icon name="chat-outline" size={14} color={DS.lime} />
+                <Text style={styles.rowGhostText}>Chat</Text>
+              </TouchableOpacity>
             </View>
           );
         })}
@@ -897,8 +954,16 @@ const makeStyles = (DS) => StyleSheet.create({
   /* "Needs your reply" — pulled out of the feed and pinned on top. */
   inbox: {
     backgroundColor: DS.surface, borderRadius: 14, borderWidth: 1, borderColor: DS.coral,
-    padding: 12, marginBottom: 14, gap: 10,
+    padding: 12, gap: 10,
   },
+  // Settled business — a plain surface, no coral demand for attention.
+  connected: {
+    backgroundColor: DS.surface, borderRadius: 14, borderWidth: 1, borderColor: DS.faint,
+    padding: 12, gap: 10,
+  },
+  connectedTitle: { fontSize: 12, fontWeight: '800', color: DS.lime, letterSpacing: 0.3 },
+  connectedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  connectedName: { flex: 1, fontSize: 13, fontWeight: '700', color: DS.textPrimary },
   inboxHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   inboxTitle: { fontSize: 12, fontWeight: '800', color: DS.coral, letterSpacing: 0.3 },
   inboxRow: { gap: 8 },
