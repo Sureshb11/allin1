@@ -275,14 +275,6 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
     .sort(sortFor(board))
     .map((item, i) => ({ ...item, standing: i }));
   const data = ranked.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  // How many competitors each board would actually rank. The rate boards have a
-  // qualification threshold, so "Economy" can hold a fraction of "Runs" — the
-  // chip now says so instead of the count being a surprise after you tap it.
-  const boardCounts = useMemo(() => {
-    const out = {};
-    boards.forEach((b) => { out[b.id] = rawData.filter(b.qualify).length; });
-    return out;
-  }, [boards, rawData]);
   // Where the logged-in player sits on the current board (pre-search, so it's the
   // real standing). Powers the "You're #N — find me" banner and row highlight.
   const myStanding = tab === 'Players' && myId ? ranked.find((r) => r.id === myId) : null;
@@ -387,7 +379,6 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                   <View style={styles.segment}>
                     {TABS.map((t) => {
                       const on = tab === t.id;
-                      const n = t.id === 'Players' ? players.length : teams.length;
                       return (
                         <TouchableOpacity
                           key={t.id}
@@ -396,7 +387,6 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                           activeOpacity={0.85}>
                           <Icon name={t.icon} size={14} color={on ? DS.onLime : DS.textMuted} />
                           <Text style={[styles.segText, on && styles.segTextOn]}>{t.label}</Text>
-                          <Text style={[styles.segCount, on && styles.segCountOn]}>{n}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -438,10 +428,9 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                   onContentSizeChange={(w) => { boardContentW.current = w; recomputeBoardMax(); }}>
                   {boards.map((b, i) => {
                     const on = b.id === board.id;
-                    const n = boardCounts[b.id] ?? 0;
                     return (
                       <TouchableOpacity key={b.id} activeOpacity={0.85}
-                        style={[styles.boardChip, on && styles.boardChipActive, !n && !on && styles.boardChipEmpty]}
+                        style={[styles.boardChip, on && styles.boardChipActive]}
                         // Measured, not a fixed 92px guess: "Runs" and "Strike rate"
                         // are nowhere near the same width, so the selected chip
                         // landed off-centre or clipped.
@@ -449,15 +438,16 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                         onPress={() => { handleBoardChange(b.id); scrollChipIntoView(i); }}>
                         <Icon name={b.icon} size={13} color={on ? DS.onLime : DS.textMuted} />
                         <Text style={[styles.boardChipText, on && styles.boardChipTextActive]}>{b.label}</Text>
-                        <Text style={[styles.boardChipCount, on && styles.boardChipCountActive]}>{n}</Text>
                       </TouchableOpacity>
                     );
                   })}
                 </Reanimated.ScrollView>
               </GestureDetector>
               {/* State the qualification instead of quietly dropping people */}
+              {/* The threshold is the part worth stating; a tally isn't, on a
+                  board that could hold six figures. */}
               <Text style={styles.boardMeta}>
-                {data.length} ranked by {board.label.toLowerCase()}
+                Ranked by {board.label.toLowerCase()}
                 {board.note ? ` · ${board.note}` : ''}
               </Text>
             </View>
@@ -545,8 +535,6 @@ const makeStyles = (DS) => StyleSheet.create({
   segBtnOn: { backgroundColor: DS.lime },
   segText: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
   segTextOn: { color: DS.onLime, fontWeight: '900' },
-  segCount: { fontSize: 11, fontWeight: '800', color: DS.textMuted },
-  segCountOn: { color: DS.onLime, opacity: 0.75 },
   searchBtn: {
     width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
     backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint,
@@ -562,9 +550,6 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: 'transparent', borderWidth: 1.5, borderColor: DS.border,
   },
   boardChipActive: { backgroundColor: DS.lime, borderColor: DS.lime },
-  boardChipEmpty: { opacity: 0.45 },
-  boardChipCount: { fontSize: 10.5, fontWeight: '800', color: DS.textMuted },
-  boardChipCountActive: { color: DS.onLime, opacity: 0.75 },
   boardChipText: { fontSize: 12, fontWeight: '800', color: DS.textMuted },
   boardChipTextActive: { color: DS.onLime },
   boardMeta: { fontSize: 11, color: DS.textMuted, marginHorizontal: 16, marginTop: 8, marginBottom: 10 },
