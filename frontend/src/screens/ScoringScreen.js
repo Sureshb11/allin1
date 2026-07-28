@@ -402,6 +402,15 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // so the over/ball count must not advance.
   // Throws if the server rejects the ball (e.g. 403 — not the assigned scorer) so
   // callers stop mutating local state instead of silently drifting from the server.
+  //
+  // EVERY persistBall caller must open an idempotency scope first (a Retry reuses
+  // the open one instead of starting a new one). Reusing a finished scope would
+  // hand out a clientEventId that's already stored — the server dedupes on it, so
+  // the write would be dropped while local state still applied it.
+  const beginBallAttempt = () => {
+    idemRef.current = { base: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, n: 0, done: {} };
+  };
+
   const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true, dismissedId = null, catcher = null) => {
     // Never skip the save silently: the local score would keep advancing (and
     // syncMatchSummary would keep updating the headline score) while the
@@ -640,7 +649,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // A fresh delivery gets a fresh idempotency base; a Retry reuses the failed
     // ball's base (rewinding the counter) so the server can recognise it.
     if (isRetry) idemRef.current.n = 0;   // rewind the sequence; `done` and `base` stand
-    else idemRef.current = { base: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, n: 0, done: {} };
+    else beginBallAttempt();
     retryRef.current = { value, addRuns, wicketType, dismissed, catcher, penaltyReason };
     setSyncState({ status: 'saving', error: null });
     try {
@@ -978,6 +987,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       freeHit, retiredBatters: [...retiredBatters],
     }]);
     haptic.warn();
+    beginBallAttempt();   // this write is its own delivery, not part of a scored ball
     try {
       await persistBall(0, 0, 'retired', true, 'retiredout', false, leaving.id);
     } catch (err) {
