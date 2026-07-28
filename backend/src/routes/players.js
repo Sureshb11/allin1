@@ -6,6 +6,24 @@ import { isTeamAdmin } from '../lib/teamAuth.js';
 
 const router = Router();
 
+// Player.stats is a free-form Json column and POST /players accepts whatever a
+// client sends (stats: z.any()), so personal details ended up living in it —
+// 14 players on production carry a `phone` key. The app used to render every
+// numeric-looking entry as a stat card, which put phone numbers on a screen
+// anyone could open. That's fixed in the app, but the API was still handing the
+// data out to any caller, so it's stripped at both ends here: on the way in so
+// it stops accumulating, and on the way out so what's already stored stays put.
+const PII_KEYS = ['phone', 'phoneNumber', 'mobile', 'email', 'contact', 'contactInfo', 'address', 'dob', 'password'];
+const stripPII = (stats) => {
+  if (!stats || typeof stats !== 'object') return stats;
+  const out = {};
+  for (const [k, v] of Object.entries(stats)) {
+    if (!PII_KEYS.includes(k)) out[k] = v;
+  }
+  return out;
+};
+
+
 router.get('/', async (req, res) => {
   // Optional filters: ?sport=cricket  ?teamId=...  ?userId=...
   const { sport, teamId, userId } = req.query;
@@ -133,7 +151,7 @@ router.get('/', async (req, res) => {
     computed.catches = catches[nm] || 0;
     computed.runOuts = runOuts[nm] || 0;
     if (mp[p.id]) computed.matches = mp[p.id];
-    return { ...p, stats: { ...(p.stats || {}), ...computed } };
+    return { ...p, stats: stripPII({ ...(p.stats || {}), ...computed }) };
   });
 
   res.json({ players: enriched });
@@ -192,7 +210,7 @@ router.get('/leaderboard', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const player = await prisma.player.findUnique({ where: { id: req.params.id }, include: { team: true } });
   if (!player) return res.status(404).json({ error: 'Player not found' });
-  res.json({ player });
+  res.json({ player: { ...player, stats: stripPII(player.stats) } });
 });
 
 const PlayerSchema = z.object({
@@ -207,6 +225,7 @@ const PlayerSchema = z.object({
 router.post('/', async (req, res) => {
   try {
     const data = PlayerSchema.parse(req.body);
+    if (data.stats) data.stats = stripPII(data.stats);
     // Prevent duplicates on the same team: a linked app user can only appear once,
     // and a guest can't be added twice under the exact same name.
     if (data.teamId) {
@@ -245,6 +264,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'Only a team admin can edit members' });
     }
     const data = EditPlayerSchema.parse(req.body);
+    if (data.stats) data.stats = stripPII(data.stats);
 
     const ops = [];
     // A captain / vice-captain is unique per team — demote the current holder first.
