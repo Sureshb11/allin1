@@ -204,6 +204,12 @@ const celebStyles = StyleSheet.create({
   badgeUmpire: { width: 44, height: 44, marginBottom: 4, tintColor: '#ffffff', resizeMode: 'contain' },
 });
 
+// Deliveries that are NOT one of the over's six balls. Must match the server's own
+// list (backend/src/routes/matches.js) or the scorecard's overs disagree with the
+// live score. 'deadBall' is a wicket taken without a ball being bowled — the
+// non-striker run out backing up (Law 38.3).
+const NON_BALL_EXTRAS = ['wide', 'noBall', 'penalty', 'retired', 'deadBall'];
+
 // Cricket dismissal notation: "b Bowler", "c Fielder b Bowler", "c & b Bowler",
 // "lbw b Bowler", "st Keeper b Bowler", "run out (Fielder)", "hit wicket b Bowler".
 function formatDismissal(wicketType, catcher, bowler) {
@@ -320,7 +326,7 @@ function computeBowling(innings) {
 function inningsOvers(innings) {
   let legal = 0;
   (innings.oversData || []).forEach((over) => (over.balls || []).forEach((b) => {
-    if (!['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)) legal += 1;
+    if (!NON_BALL_EXTRAS.includes(b.extraType)) legal += 1;
   }));
   return `${Math.floor(legal / 6)}.${legal % 6}`;
 }
@@ -345,7 +351,7 @@ function computeFOW(innings, nameById) {
   let running = 0, wkts = 0, legal = 0;
   (innings.oversData || []).forEach((over) => (over.balls || []).forEach((b) => {
     running += b.runs + b.extras;
-    if (!['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)) legal += 1;
+    if (!NON_BALL_EXTRAS.includes(b.extraType)) legal += 1;
     if (b.isWicket) {
       wkts += 1;
       fow.push({ wkt: wkts, score: running, name: nameById[b.dismissedPlayerId] || 'batter', over: `${Math.floor(legal / 6)}.${legal % 6}` });
@@ -365,7 +371,7 @@ function computePartnership(innings) {
   for (let i = lastWicketIdx + 1; i < balls.length; i++) {
     const b = balls[i];
     runs += (b.runs || 0) + (b.extras || 0);
-    if (!['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)) legalBalls += 1;
+    if (!NON_BALL_EXTRAS.includes(b.extraType)) legalBalls += 1;
   }
   return { runs, balls: legalBalls };
 }
@@ -404,7 +410,7 @@ function computePartnerships(innings, nameById) {
       register(b.batterId, b.batter?.name);
       register(b.nonStrikerId, b.nonStriker?.name);
       const et = b.extraType;
-      const legal = !['wide', 'noBall', 'penalty', 'retired'].includes(et);
+      const legal = !NON_BALL_EXTRAS.includes(et);
       cur.runs += (b.runs || 0) + (b.extras || 0);
       if (legal) cur.balls += 1;
       if (b.batterId && cur.bat[b.batterId]) {
@@ -427,7 +433,7 @@ function computeChase(innings, totalOvers) {
   const need = Math.max(0, target - innings.totalRuns);
   let legal = 0;
   (innings.oversData || []).forEach((over) => (over.balls || []).forEach((b) => {
-    if (!['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)) legal += 1;
+    if (!NON_BALL_EXTRAS.includes(b.extraType)) legal += 1;
   }));
   const ballsBowled = legal;
   const ballsLeft = Math.max(0, (totalOvers || 20) * 6 - ballsBowled);
@@ -446,15 +452,19 @@ function computeChase(innings, totalOvers) {
   return { target, need, ballsLeft, rrr, crr, wktsLeft, chaseWin, teamName: innings.battingTeam?.name || 'Chasing' };
 }
 
-// Short label for a ball in the over-by-over timeline.
+// Short label for a ball in the over-by-over timeline. A wicket is written onto the
+// delivery that took it ('wd+W', '2nb+W') — a run out can fall on any delivery, and
+// the timeline has to show both halves.
 function ballLabel(b) {
-  if (b.extraType === 'wide') return `${b.extras > 1 ? b.extras : ''}wd`;
-  if (b.extraType === 'noBall') return `${b.runs > 0 ? b.runs : ''}nb`;
-  if (b.extraType === 'bye') return `${b.extras}b`;
-  if (b.extraType === 'legBye') return `${b.extras}lb`;
+  const w = b.isWicket ? '+W' : '';
+  if (b.extraType === 'wide') return `${b.extras > 1 ? b.extras : ''}wd${w}`;
+  if (b.extraType === 'noBall') return `${b.runs > 0 ? b.runs : ''}nb${w}`;
+  if (b.extraType === 'bye') return `${b.extras}b${w}`;
+  if (b.extraType === 'legBye') return `${b.extras}lb${w}`;
   if (b.extraType === 'penalty') return 'P5';
   if (b.extraType === 'retired') return 'R';
-  if (b.isWicket) return 'W';
+  if (b.extraType === 'deadBall') return 'W';   // run out before the ball was bowled
+  if (b.isWicket) return b.runs > 0 ? `${b.runs}+W` : 'W';
   return b.runs === 0 ? '•' : `${b.runs}`;
 }
 
@@ -463,10 +473,16 @@ function ballLabel(b) {
 function ballCommentary(ball, bowlerName) {
   const batter = ball.batter?.name || 'Batter';
   const et = ball.extraType;
-  if (et === 'wide') return `${bowlerName} to ${batter}, wide`;
-  if (et === 'noBall') return `${bowlerName} to ${batter}, no ball${ball.runs ? `, ${ball.runs} run${ball.runs > 1 ? 's' : ''}` : ''}`;
-  if (et === 'bye') return `${bowlerName} to ${batter}, ${ball.extras} bye${ball.extras > 1 ? 's' : ''}`;
-  if (et === 'legBye') return `${bowlerName} to ${batter}, ${ball.extras} leg bye${ball.extras > 1 ? 's' : ''}`;
+  // A run out can fall on an extra, so every extra line carries the dismissal when
+  // there is one — otherwise the wicket would go unmentioned in the commentary.
+  const outTail = ball.isWicket
+    ? `, OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}`
+    : '';
+  if (et === 'deadBall') return `${bowlerName} runs out ${batter} backing up — OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}`;
+  if (et === 'wide') return `${bowlerName} to ${batter}, wide${ball.extras > 1 ? `, ${ball.extras - 1} run${ball.extras > 2 ? 's' : ''}` : ''}${outTail}`;
+  if (et === 'noBall') return `${bowlerName} to ${batter}, no ball${ball.runs ? `, ${ball.runs} run${ball.runs > 1 ? 's' : ''}` : ''}${outTail}`;
+  if (et === 'bye') return `${bowlerName} to ${batter}, ${ball.extras} bye${ball.extras > 1 ? 's' : ''}${outTail}`;
+  if (et === 'legBye') return `${bowlerName} to ${batter}, ${ball.extras} leg bye${ball.extras > 1 ? 's' : ''}${outTail}`;
   if (et === 'penalty') return 'Penalty awarded, 5 runs';
   if (et === 'retired') return `${batter} retires ${String(ball.wicketType).toLowerCase() === 'retiredhurt' ? 'hurt' : 'out'}`;
   if (ball.isWicket) return `${bowlerName} to ${batter}, OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}`;
@@ -489,7 +505,7 @@ function buildCommentary(innings) {
     (over.balls || []).forEach((ball, idx) => {
       // The bowler for THIS delivery (shared overs), falling back to the over's.
       const bowlerName = ball.bowler?.name || over.bowler?.name || 'Bowler';
-      const isLegal = !['wide', 'noBall', 'penalty', 'retired'].includes(ball.extraType);
+      const isLegal = !NON_BALL_EXTRAS.includes(ball.extraType);
       if (isLegal) legalInOver += 1;
       lines.push({
         type: 'ball',
@@ -529,7 +545,7 @@ function computeHighlights(match) {
         const bowlerId = ball.bowlerId || over.bowlerId;   // per-delivery bowler
         const bowlerName = ball.bowler?.name || over.bowler?.name || 'Bowler';
         const et = ball.extraType;
-        const isLegal = !['wide', 'noBall', 'penalty', 'retired'].includes(et);
+        const isLegal = !NON_BALL_EXTRAS.includes(et);
         if (isLegal) legalInOver += 1;
         const label = `${over.overNumber - 1}.${legalInOver}`;
         const batterName = ball.batter?.name || 'Batter';
@@ -1053,7 +1069,7 @@ function HighlightsTab({ match }) {const DS = useTheme().colors;const styles = u
 // Newest over first. The in-progress current over is skipped (it isn't "ended").
 function computeOverEndSummaries(innings) {
   const overs = [...(innings?.oversData || [])].sort((a, b) => a.overNumber - b.overNumber);
-  const legalIn = (over) => (over.balls || []).filter((b) => !['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType)).length;
+  const legalIn = (over) => (over.balls || []).filter((b) => !NON_BALL_EXTRAS.includes(b.extraType)).length;
   const batRuns = {}, batBalls = {}, batName = {};
   const bowl = {};   // bowlerId -> cumulative { name, balls, runs, wkts, maidens }
   let runningRuns = 0, runningWkts = 0;

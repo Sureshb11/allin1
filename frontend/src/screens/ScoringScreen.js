@@ -13,12 +13,19 @@ import MatchPhotos from '../components/MatchPhotos';
 import MatchAwardsModal from "../components/MatchAwardsModal";
 import PlayerAvatar from "../components/PlayerAvatar";
 import { BRAND_NAME, BRAND_TAGLINE } from "../components/BrandLogo";
+import {
+  resolveRunOut, resolveEnds, overRuns, isWicketChip,
+  DELIVERY, RUNS, END,
+} from '../utils/runOutEngine';
 
 const { width } = Dimensions.get('window');
 
 // Team runs off an over, read back from its chip labels (incl. extras). Display
 // only — the server computes its own over totals. Shared by the THIS OVER tally
-// and the over-complete sheet so the two can't disagree.
+// and the over-complete sheet so the two can't disagree. Lives with the notation
+// it parses (runOutEngine's ballChip), so the two can't drift apart.
+const runsInOver = overRuns;
+
 // Does a squad role mark this player as the wicket-keeper? The role string is
 // free text across the app and the seeds ('Wicket-keeper', 'Wicketkeeper',
 // 'Keeper', 'WK'), so match loosely rather than on one exact spelling.
@@ -26,14 +33,6 @@ const isKeeperRole = (role) => {
   const r = String(role || '').trim();
   return /keep/i.test(r) || /^wk$/i.test(r);
 };
-
-const runsInOver = (balls) => balls.reduce((acc, b) => {
-  if (b === 'WD' || b === 'NB' || b === 'B' || b === 'LB') return acc + 1;
-  if (b === 'P5') return acc + 5;
-  if (b === '·' || b === 'W') return acc;
-  const n = parseInt(b, 10);   // '2wd','3nb','2b','3lb', or plain runs
-  return isNaN(n) ? acc : acc + n;
-}, 0);
 
 
 
@@ -114,9 +113,17 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const [wicketPrompt, setWicketPrompt] = useState(false); // WICKET → dismissal-type sheet
   const [penaltyPrompt, setPenaltyPrompt] = useState(false); // PEN 5 → reason sheet (Helmet Hit)
   const [penaltyDeliveryPrompt, setPenaltyDeliveryPrompt] = useState(false); // after Helmet Hit → which delivery?
-  const [runOutPrompt, setRunOutPrompt] = useState(false); // run out → which batter is out?
-  const [runOutFielderPrompt, setRunOutFielderPrompt] = useState(false); // run out → which fielder?
-  const [runOutSlot, setRunOutSlot] = useState('striker'); // which batter the run-out dismisses
+  // ── Run out — four questions, asked in the order a scorer sees them happen.
+  // A run out is the only dismissal that can arrive on ANY delivery (legal, wide,
+  // no ball, or before the ball is even bowled) and the only one where runs are
+  // scored on the ball that took the wicket — so it can't be recorded from a
+  // dismissal type alone. The answers gather in one draft and are resolved by
+  // src/utils/runOutEngine.js when the last sheet commits.
+  const [runOutDeliveryPrompt, setRunOutDeliveryPrompt] = useState(false); // 1 · what was bowled + runs completed
+  const [runOutPrompt, setRunOutPrompt] = useState(false);                 // 2 · which batter is out?
+  const [runOutEndPrompt, setRunOutEndPrompt] = useState(false);           // 3 · which end did the wicket fall at?
+  const [runOutFielderPrompt, setRunOutFielderPrompt] = useState(false);   // 4 · which fielder?
+  const [runOutDraft, setRunOutDraft] = useState(null);
   const [catchPrompt, setCatchPrompt] = useState(false);   // caught → who took the catch?
   // Caught behind credits the fielding side's keeper without hunting the fielder
   // list. The keeper is read off the XI roles; when the XI doesn't name one the
@@ -683,7 +690,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // wicketType = dismissal kind chosen from the Wicket sheet.
   // dismissed = 'striker' | 'nonstriker' — a run-out can dismiss the non-striker.
   // catcher = fielder/keeper/bowler name for a caught dismissal (shown in scorecard).
-  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null, penaltyReason = null, isRetry = false) => {
+  // runOut = the run-out draft ({ delivery, runs, runsType, outSlot, end }) gathered
+  //   by the four run-out sheets. Present ONLY for a run out — every other dismissal
+  //   is a plain legal ball with no runs, which is what the null path scores.
+  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null, penaltyReason = null, isRetry = false, runOut = null) => {
     if (matchComplete || undoing) return;
     // Debounce: ignore a new tap while the previous ball is still being saved. Rapid
     // taps during the async save read a stale score and used to pile balls into one
@@ -713,7 +723,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // ball's base (rewinding the counter) so the server can recognise it.
     if (isRetry) idemRef.current.n = 0;   // rewind the sequence; `done` and `base` stand
     else beginBallAttempt();
-    retryRef.current = { value, addRuns, wicketType, dismissed, catcher, penaltyReason };
+    retryRef.current = { value, addRuns, wicketType, dismissed, catcher, penaltyReason, runOut };
     setSyncState({ status: 'saving', error: null });
     try {
     // Snapshot the pre-ball state so this delivery can be taken back. Built
@@ -744,6 +754,19 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // every following ball's runs were then credited to the wrong batter.
     let strikeSwaps = 0;
     const rotate = (n) => { if (n % 2 === 1) strikeSwaps += 1; };
+
+    // A run out resolves to a whole ball — runs, extras, whether it counts, the free
+    // hit, and which end each batter ends up at. Resolved once here so the scoring,
+    // the player figures and the crease below all read the SAME answer.
+    const ro = runOut ? resolveRunOut({
+      delivery: runOut.delivery,
+      runsCompleted: runOut.runs,
+      runsType: runOut.runsType,
+      outSlot: dismissed === 'nonstriker' ? END.NONSTRIKER : END.STRIKER,
+      dismissalEnd: runOut.end,
+      ballsInOverBefore: currentScore.balls,
+      freeHit,
+    }) : null;
 
     if (typeof value === 'number') {
       newScore.runs += value;
@@ -780,13 +803,35 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       const outNon = dismissed === 'nonstriker';        // run-out of the non-striker
       const outPlayer = outNon ? nonStriker : striker;
       newScore.wickets += 1;
-      newScore.balls += 1;
-      newOver.push('W');
-      await persistBall(0, 0, null, true, wicketType, true, outPlayer?.id, catcher);
+      if (ro) {
+        // RUN OUT — the delivery keeps its own identity (a wide is still a wide, a
+        // no ball still buys a free hit) and the runs completed before the wicket
+        // fell are still scored. All of that comes back from the engine.
+        newScore.runs += ro.teamRuns;
+        if (ro.countsAsBall) newScore.balls += 1;
+        newOver.push(ro.chip);
+        await persistBall(ro.batRuns, ro.extras, ro.extraType, true, 'runout', ro.countsAsBall, outPlayer?.id, catcher);
+      } else {
+        newScore.balls += 1;
+        newOver.push('W');
+        await persistBall(0, 0, null, true, wicketType, true, outPlayer?.id, catcher);
+      }
       if (outPlayer) setOutBatters((prev) => [...prev, outPlayer.id]);   // can't re-bat this innings
-      // Clear the dismissed batter's slot and ask for a replacement for THAT end.
-      if (outNon) setNonStriker(null); else setStriker(null);
-      if (newScore.wickets < 10) { setNewBatterFor(outNon ? 'nonstriker' : 'striker'); setShowPlayerModal(true); }
+      // Which end is now empty. Every dismissal EXCEPT a run out leaves the batters
+      // where they stood, so the vacated end is simply the dismissed batter's. A run
+      // out can leave the not-out batter at the other end (they were mid-pitch when
+      // the bails came off), so the engine says who stands where — Law 18.12.
+      let emptySlot = outNon ? 'nonstriker' : 'striker';
+      if (ro) {
+        const survivor = outNon ? striker : nonStriker;
+        if (ro.survivorAtStrikerEnd) { setStriker(survivor); setNonStriker(null); emptySlot = 'nonstriker'; }
+        else { setNonStriker(survivor); setStriker(null); emptySlot = 'striker'; }
+      } else if (outNon) {
+        setNonStriker(null);
+      } else {
+        setStriker(null);
+      }
+      if (newScore.wickets < 10) { setNewBatterFor(emptySlot); setShowPlayerModal(true); }
     } else if (value === 'penalty') {
       // Penalty runs (5) — a team award, not a delivery: no ball faced, no
       // strike change, doesn't advance the over. Awarded to the batting side.
@@ -815,13 +860,19 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     let charged = 0;
     {
       let batRuns = 0, batFaced = 0, isFour = 0, isSix = 0, tookWkt = 0;
-      const bowlerLegal = typeof value === 'number' || value === 'bye' || value === 'legbye' || value === 'out';
+      // A run out carries its delivery's own book-keeping: a wide is not a ball
+      // faced and not one of the six, a no ball is a ball faced but not one of the
+      // six, and a wicket taken before the ball was bowled is neither.
+      const bowlerLegal = ro ? ro.countsAsBall
+        : (typeof value === 'number' || value === 'bye' || value === 'legbye' || value === 'out');
       if (typeof value === 'number') { batRuns = value; batFaced = 1; isFour = value === 4 ? 1 : 0; isSix = value === 6 ? 1 : 0; charged = value; }
       else if (value === 'wide') { charged = 1 + addRuns; }
       else if (value === 'noball') { batRuns = addRuns; batFaced = 1; charged = 1 + addRuns; }
       else if (value === 'bye' || value === 'legbye') { batFaced = 1; }
       else if (value === 'out') {
-        batFaced = 1;
+        batFaced = ro ? ro.ballFaced : 1;
+        batRuns = ro ? ro.batRuns : 0;
+        charged = ro ? ro.chargedToBowler : 0;
         const wt = String(wicketType).toLowerCase().replace(/\s/g, '');
         tookWkt = (wt === 'runout' || wt === 'retired') ? 0 : 1;   // run-outs aren't credited to the bowler
       }
@@ -879,7 +930,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           number: newScore.overs,
           balls: newOver,
           runs: runsInOver(newOver),
-          wickets: newOver.filter((b) => b === 'W').length,
+          wickets: newOver.filter(isWicketChip).length,
           bowlerId: currentBowler?.id || null,
           bowlerName: currentBowler?.name || '',
           bowlerOverRuns,
@@ -893,8 +944,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     }
 
     // Free Hit: a no-ball sets it for the next legal ball; a legal delivery consumes
-    // it (a wide keeps it alive; penalty runs don't affect it).
+    // it (a wide keeps it alive; penalty runs don't affect it). A run out follows the
+    // same rules, off the delivery it actually happened on — a run out on a no-ball
+    // free hit leaves the free hit standing.
     if (value === 'noball') setFreeHit(true);
+    else if (ro) setFreeHit(ro.freeHitNext);
     else if (typeof value === 'number' || value === 'bye' || value === 'legbye' || value === 'out') setFreeHit(false);
 
     // Hat-trick: 3 bowler-credited wickets on consecutive deliveries by one bowler.
@@ -955,7 +1009,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     const a = retryRef.current;
     if (!a || savingRef.current) return;
     haptic.tick();
-    handleScore(a.value, a.addRuns, a.wicketType, a.dismissed, a.catcher, a.penaltyReason, true);
+    handleScore(a.value, a.addRuns, a.wicketType, a.dismissed, a.catcher, a.penaltyReason, true, a.runOut);
   };
 
   // Reasons offered before ending — an innings mid-way vs. the whole match.
@@ -1159,6 +1213,41 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     closeBatterPicker();
   };
 
+  // ── RUN OUT — open the flow. Starts from what was BOWLED and how many runs were
+  // completed, because those decide everything after them: whether the ball counts,
+  // whether the free hit survives, and what goes on the board. The old flow asked
+  // only "which batter?" and "which fielder?", so every run out was silently scored
+  // as a legal dot ball — runs run before the wicket vanished, and a run out on a
+  // wide or no ball stole a delivery from the over.
+  const openRunOut = () => {
+    haptic.tick();
+    setRunOutDraft({ delivery: DELIVERY.LEGAL, runs: 0, runsType: RUNS.BAT, outSlot: END.STRIKER, end: END.STRIKER });
+    setRunOutDeliveryPrompt(true);
+  };
+  const patchRunOut = (patch) => setRunOutDraft((d) => ({ ...(d || {}), ...patch }));
+
+  // Committed from the last sheet (the fielder), with every answer gathered.
+  const commitRunOut = (fielderName) => {
+    const d = runOutDraft;
+    setRunOutFielderPrompt(false);
+    setRunOutDraft(null);
+    if (!d) return;
+    handleScore('out', d.runs, 'runout', d.outSlot, fielderName, null, false, d);
+  };
+
+  // Would this delivery close the over? Only a legal one can, and only as the 6th —
+  // which is what decides whether the batters change ends on top of the run out.
+  const runOutClosesOver = (d) => (d?.delivery === DELIVERY.LEGAL) && currentScore.balls === 5;
+
+  // Who faces the next ball if the wicket falls at `end` — shown on the end sheet
+  // so the scorer confirms the consequence, not the jargon.
+  const strikeAfterRunOut = (d, end) => {
+    if (!d) return '';
+    const e = resolveEnds({ outSlot: d.outSlot, dismissalEnd: end, overComplete: runOutClosesOver(d) });
+    const survivor = d.outSlot === END.NONSTRIKER ? striker : nonStriker;
+    return e.nextStrikerIs === 'survivor' ? `${survivor?.name || 'Not-out batter'} on strike` : 'New batter on strike';
+  };
+
   // Long-press on any run button. Discoverability is the weak point of a
   // long-press, so More Options carries the same entry.
   const openOtherRuns = () => { haptic.tick(); setRunsPrompt(true); };
@@ -1189,7 +1278,9 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
 
     if (str === '·') label = '0';
 
-    if (str.includes('w') && !str.includes('wd')) { bg = DS.wicketBg; color = DS.wicketText; } // Wickets
+    // A wicket wins the colour even when it rode in on an extra ('WD+W', '3nb+W') —
+    // it's the one thing on the strip you must never miss.
+    if (isWicketChip(b)) { bg = DS.wicketBg; color = DS.wicketText; } // Wickets
     else if (str.includes('wd') || str.includes('nb')) { bg = 'rgba(255,181,158,0.15)'; color = DS.coral; } // Wides, NBs
     else if (str.includes('b')) { bg = DS.surfaceHigh; color = DS.textVariant; } // Byes / Leg Byes
     else if (str.includes('4')) { bg = DS.blue + '33'; color = DS.blue + 'ff'; } // Fours
@@ -1197,11 +1288,16 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     else if (label === '0') { bg = DS.surfaceHighest; color = DS.textMuted; } // Dots
     else { bg = DS.surfaceHigh; color = DS.textPrimary; } // Normal runs
 
+    // A wicket on an extra makes for the longest chip on the strip ('3wd+W'), so
+    // the type shrinks to fit rather than clipping inside the 32pt dot.
+    const len = String(label).length;
+    const fs = len >= 5 ? 9 : len === 4 ? 10 : len === 3 ? 12 : 14;
+
     // The just-recorded ball is ringed + scaled up a touch, so a tap lands with
     // clear confirmation of what went in.
     return (
       <View key={i} style={[styles.overBall, { backgroundColor: bg }, isLast && [styles.overBallLast, { borderColor: color }]]}>
-        <Text style={[styles.overBallText, { color }]}>{label}</Text>
+        <Text numberOfLines={1} style={[styles.overBallText, { color, fontSize: fs }]}>{label}</Text>
       </View>);
   };
 
@@ -1642,7 +1738,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         {/* ── WICKET — full width, always visible; asks the dismissal type ── */}
         {!matchComplete &&
         <TouchableOpacity style={styles.wicketBtn}
-          onPress={() => freeHit ? setRunOutPrompt(true) : setWicketPrompt(true)}>
+          onPress={() => freeHit ? openRunOut() : setWicketPrompt(true)}>
           <Image source={require('../assets/icons/out.png')} style={[styles.wicketIcon, { tintColor: DS.onBlue }]} />
           <Text style={styles.wicketBtnText}>WICKET{freeHit ? ' (RUN OUT ONLY)' : ''}</Text>
         </TouchableOpacity>
@@ -2035,7 +2131,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                     setWicketPrompt(false);
                     const wt = type.replace(/ /g, '');
                     // Run-out → which batter is out; caught → who caught; retired → who.
-                    if (wt === 'runout') setRunOutPrompt(true);
+                    if (wt === 'runout') openRunOut();
                     else if (wt === 'caught') setCatchPrompt(true);
                     else if (wt === 'retired') setRetiredPrompt(true);
                     else handleScore('out', 0, wt);
@@ -2112,38 +2208,189 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         </View>
       </Modal>
 
-      {/* ── RUN OUT — which batter is out? (striker or non-striker). Mandatory once
-          run-out is chosen; only escapable on a free hit, where WICKET opens this
-          directly (so it doubles as the mis-tap guard there). ── */}
-      <Modal visible={runOutPrompt} transparent animationType="slide" onRequestClose={() => { if (freeHit) setRunOutPrompt(false); }}>
+      {/* ── RUN OUT · 1 of 4 — what was bowled, and how many runs were completed?
+          Asked FIRST because it decides the rest: a wide or no ball isn't one of the
+          over's six balls and keeps the free hit alive, and the runs completed before
+          the wicket fell are scored (the one they were going for is not — Law 18.11). ── */}
+      <Modal visible={runOutDeliveryPrompt} transparent animationType="slide" onRequestClose={() => setRunOutDeliveryPrompt(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+          {/* Taller than the standard sheet: three pickers plus their explanations,
+              and the scorer must be able to reach Next without a scroll gamble. */}
+          <View style={[styles.modalSheet, { maxHeight: '88%' }]}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Run out — who is out?</Text>
-            <Text style={styles.modalSub}>Which batter was run out</Text>
-            {[['striker', striker], ['nonstriker', nonStriker]].map(([slot, player]) => (
-              <TouchableOpacity key={slot} style={styles.settingRow}
-                onPress={() => { setRunOutSlot(slot); setRunOutPrompt(false); setRunOutFielderPrompt(true); }}>
-                <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
-                  <Text style={[styles.playerInitial, { color: DS.wicketText }]}>{(player?.name || '?').charAt(0).toUpperCase()}</Text>
-                </View>
-                <Text style={[styles.settingText, { flex: 1 }]}>
-                  {player?.name || '—'} <Text style={styles.modalSub}>({slot === 'striker' ? 'striker' : 'non-striker'})</Text>
-                </Text>
-                <Icon name="chevron-right" size={18} color={DS.textMuted} />
-              </TouchableOpacity>
-            ))}
-            {freeHit && (
-              <TouchableOpacity style={styles.modalClose} onPress={() => setRunOutPrompt(false)}>
-                <Text style={styles.modalCloseText}>Cancel</Text>
-              </TouchableOpacity>
-            )}
+            <Text style={styles.modalTitle}>Run out — what happened?</Text>
+            <Text style={styles.modalSub}>The delivery, then the runs they completed</Text>
+            <ScrollView keyboardShouldPersistTaps="handled">
+
+            <Text style={styles.fieldLabel}>DELIVERY</Text>
+            <View style={styles.segRow}>
+              {[[DELIVERY.LEGAL, 'Legal ball'], [DELIVERY.WIDE, 'Wide'], [DELIVERY.NOBALL, 'No ball']].map(([d, label]) => (
+                <TouchableOpacity key={d}
+                  style={[styles.segBtn, runOutDraft?.delivery === d && styles.segBtnOn]}
+                  onPress={() => {
+                    haptic.tick();
+                    setRunOutDraft((prev) => {
+                      const next = { ...prev, delivery: d };
+                      // A wide has no runs type at all, and a no ball doesn't split
+                      // byes from leg byes — keep the draft on an option the sheet
+                      // can actually show as selected.
+                      if (d === DELIVERY.WIDE) next.runsType = RUNS.BAT;
+                      if (d === DELIVERY.NOBALL && next.runsType === RUNS.LEGBYE) next.runsType = RUNS.BYE;
+                      return next;
+                    });
+                  }}>
+                  <Text style={[styles.segText, runOutDraft?.delivery === d && styles.segTextOn]}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {/* Law 38.3 — the bowler takes the bails off with the non-striker backing
+                up. No ball has been bowled, so nothing is scored and the over is
+                untouched; the batter out can only be the non-striker. */}
+            <TouchableOpacity
+              style={[styles.segWide, runOutDraft?.delivery === DELIVERY.NONE && styles.segBtnOn]}
+              onPress={() => { haptic.tick(); patchRunOut({ delivery: DELIVERY.NONE, runs: 0, runsType: RUNS.BAT, outSlot: END.NONSTRIKER, end: END.NONSTRIKER }); }}>
+              <Text style={[styles.segText, runOutDraft?.delivery === DELIVERY.NONE && styles.segTextOn]}>
+                Before the ball was bowled — non-striker backing up
+              </Text>
+            </TouchableOpacity>
+
+            {runOutDraft?.delivery !== DELIVERY.NONE && <>
+              <Text style={styles.fieldLabel}>RUNS COMPLETED</Text>
+              <View style={styles.segRow}>
+                {[0, 1, 2, 3, 4].map((n) => (
+                  <TouchableOpacity key={n}
+                    style={[styles.segBtn, runOutDraft?.runs === n && styles.segBtnOn]}
+                    onPress={() => { haptic.tick(); patchRunOut({ runs: n }); }}>
+                    <Text style={[styles.segText, runOutDraft?.runs === n && styles.segTextOn]}>{n}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.modalSub}>
+                Runs they got home for. The run they were going for when the wicket fell doesn't count.
+              </Text>
+            </>}
+
+            {/* How those runs are credited. A wide has no choice to make — every run
+                run off it is a wide (Law 22.5). A no ball has only two: off the bat
+                (the striker's runs) or not, and anything not off the bat is still a
+                no-ball extra rather than a bye (Law 21.13). */}
+            {runOutDraft?.runs > 0 && runOutDraft?.delivery !== DELIVERY.WIDE && runOutDraft?.delivery !== DELIVERY.NONE && <>
+              <Text style={styles.fieldLabel}>THE RUNS WERE</Text>
+              <View style={styles.segRow}>
+                {(runOutDraft?.delivery === DELIVERY.NOBALL
+                  ? [[RUNS.BAT, 'Off the bat'], [RUNS.BYE, 'Not off the bat']]
+                  : [[RUNS.BAT, 'Off the bat'], [RUNS.BYE, 'Byes'], [RUNS.LEGBYE, 'Leg byes']]
+                ).map(([t, label]) => (
+                  <TouchableOpacity key={t}
+                    style={[styles.segBtn, runOutDraft?.runsType === t && styles.segBtnOn]}
+                    onPress={() => { haptic.tick(); patchRunOut({ runsType: t }); }}>
+                    <Text style={[styles.segText, runOutDraft?.runsType === t && styles.segTextOn]}>{label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {runOutDraft?.delivery === DELIVERY.NOBALL && runOutDraft?.runsType !== RUNS.BAT && (
+                <Text style={styles.modalSub}>Recorded as no-ball extras, not byes (Law 21.13)</Text>
+              )}
+            </>}
+
+            <TouchableOpacity style={styles.confirmBtn}
+              onPress={() => {
+                setRunOutDeliveryPrompt(false);
+                // Law 38.3 leaves nothing to ask: it can only be the non-striker, at
+                // the bowler's end — straight to who effected it.
+                if (runOutDraft?.delivery === DELIVERY.NONE) setRunOutFielderPrompt(true);
+                else setRunOutPrompt(true);
+              }}>
+              <Text style={styles.confirmBtnText}>Next</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalClose} onPress={() => { setRunOutDeliveryPrompt(false); setRunOutDraft(null); }}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* ── RUN OUT — which fielder effected it? Mandatory — "Not sure / no fielder"
-          is the completion path, so there's no Cancel. ── */}
+      {/* ── RUN OUT · 2 of 4 — which batter is out? Named by where they STARTED the
+          delivery; after an odd number of completed runs they've swapped ends, which
+          the row says out loud so the scorer picks the right man. ── */}
+      <Modal visible={runOutPrompt} transparent animationType="slide" onRequestClose={() => {}}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Run out — who is out?</Text>
+            <Text style={styles.modalSub}>
+              {runOutDraft?.runs ? `After ${runOutDraft.runs} run${runOutDraft.runs === 1 ? '' : 's'} completed` : 'Which batter was run out'}
+            </Text>
+            {[[END.STRIKER, striker], [END.NONSTRIKER, nonStriker]].map(([slot, player]) => {
+              // An odd number of completed runs has already turned them round.
+              const swapped = (runOutDraft?.runs || 0) % 2 === 1;
+              const atStriker = swapped ? slot === END.NONSTRIKER : slot === END.STRIKER;
+              return (
+                <TouchableOpacity key={slot} style={styles.settingRow}
+                  onPress={() => { patchRunOut({ outSlot: slot }); setRunOutPrompt(false); setRunOutEndPrompt(true); }}>
+                  <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
+                    <Text style={[styles.playerInitial, { color: DS.wicketText }]}>{(player?.name || '?').charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.settingText}>
+                      {player?.name || '—'} <Text style={styles.modalSub}>({slot === END.STRIKER ? 'struck the ball' : 'non-striker'})</Text>
+                    </Text>
+                    {swapped && (
+                      <Text style={styles.rowHint}>now at the {atStriker ? "striker's" : "bowler's"} end</Text>
+                    )}
+                  </View>
+                  <Icon name="chevron-right" size={18} color={DS.textMuted} />
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity style={styles.modalClose} onPress={() => { setRunOutPrompt(false); setRunOutDeliveryPrompt(true); }}>
+              <Text style={styles.modalCloseText}>Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── RUN OUT · 3 of 4 — which end was the wicket put down at? This is the
+          question that decides the crease. Whichever end the bails came off, the
+          batter who is out was short of THAT end, so the incoming batter walks in
+          there and the not-out batter is at the other end (Law 18.12) — which is
+          also why the completed runs don't come into it. Each row spells out who
+          ends up on strike, so nobody has to reason it through mid-over. ── */}
+      <Modal visible={runOutEndPrompt} transparent animationType="slide" onRequestClose={() => {}}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Where was the wicket put down?</Text>
+            <Text style={styles.modalSub}>
+              {(runOutDraft?.outSlot === END.NONSTRIKER ? nonStriker?.name : striker?.name) || 'The batter'} was short of that end
+            </Text>
+            {[[END.STRIKER, "Striker's end", "The keeper's end — where the ball was faced"],
+              [END.NONSTRIKER, "Bowler's end", 'The end the bowler runs in from']].map(([end, label, hint]) => (
+              <TouchableOpacity key={end} style={styles.settingRow}
+                onPress={() => { patchRunOut({ end }); setRunOutEndPrompt(false); setRunOutFielderPrompt(true); }}>
+                <View style={[styles.playerAvatar, { backgroundColor: DS.surfaceHigh }]}>
+                  <Icon name={end === END.STRIKER ? 'hand-back-left' : 'cricket'} size={16} color={DS.textVariant} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingText}>{label}</Text>
+                  <Text style={styles.rowHint}>{hint}</Text>
+                  <Text style={[styles.rowHint, { color: DS.lime }]}>
+                    New batter in here · {strikeAfterRunOut(runOutDraft, end)}
+                  </Text>
+                </View>
+                <Icon name="chevron-right" size={18} color={DS.textMuted} />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.modalClose} onPress={() => { setRunOutEndPrompt(false); setRunOutPrompt(true); }}>
+              <Text style={styles.modalCloseText}>Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── RUN OUT · 4 of 4 — which fielder effected it? Commits the ball, so
+          "Not sure / no fielder" is the completion path and there's no Cancel. ── */}
       <Modal visible={runOutFielderPrompt} transparent animationType="slide" onRequestClose={() => {}}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
@@ -2152,18 +2399,17 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             <Text style={styles.modalSub}>Who effected the run out</Text>
             <ScrollView style={{ maxHeight: 300 }}>
               {bowlingXI.map((p, i) => (
-                <TouchableOpacity key={i} style={styles.playerOption}
-                  onPress={() => { setRunOutFielderPrompt(false); handleScore('out', 0, 'runout', runOutSlot, p.name); }}>
+                <TouchableOpacity key={i} style={styles.playerOption} onPress={() => commitRunOut(p.name)}>
                   <View style={styles.playerAvatar}>
                     <Text style={styles.playerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
                   </View>
                   <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
+                  {p.id === keeper?.id && <Text style={styles.settingHint}>WK</Text>}
                   <Icon name="chevron-right" size={18} color={DS.textMuted} />
                 </TouchableOpacity>
               ))}
               {/* Fall back to no fielder credit (e.g. direct-hit uncertainty) */}
-              <TouchableOpacity style={styles.playerOption}
-                onPress={() => { setRunOutFielderPrompt(false); handleScore('out', 0, 'runout', runOutSlot, null); }}>
+              <TouchableOpacity style={styles.playerOption} onPress={() => commitRunOut(null)}>
                 <View style={[styles.playerAvatar, { backgroundColor: DS.surfaceHigh }]}>
                   <Icon name="help" size={16} color={DS.textMuted} />
                 </View>
@@ -2854,6 +3100,18 @@ const makeStyles = (DS) => StyleSheet.create({
   modalHandle: { width: 40, height: 4, backgroundColor: DS.surfaceHighest, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 18, fontWeight: '800', color: DS.textPrimary, marginBottom: 6, textAlign: 'center' },
   modalSub: { fontSize: 11, fontWeight: '600', color: DS.textMuted, marginBottom: 14, textAlign: 'center' },
+
+  // Run-out flow: segmented pickers (what was bowled / runs completed / how they
+  // were credited) and the secondary line under a choice that spells out its
+  // consequence — who ends up on strike.
+  fieldLabel: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 1, marginTop: 8, marginBottom: 8 },
+  segRow: { flexDirection: 'row', gap: 6 },
+  segBtn: { flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingVertical: 11, alignItems: 'center', justifyContent: 'center' },
+  segWide: { backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center', marginTop: 6 },
+  segBtnOn: { backgroundColor: DS.lime },
+  segText: { fontSize: 12, fontWeight: '800', color: DS.textVariant, textAlign: 'center' },
+  segTextOn: { color: DS.bg },
+  rowHint: { fontSize: 11, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
   playerOption: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13 },
   playerAvatar: { width: 38, height: 38, borderRadius: 12, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   playerInitial: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },

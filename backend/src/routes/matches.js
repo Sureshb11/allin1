@@ -17,7 +17,10 @@ const router = Router();
 // they're a legal ball. This must match the client scorer, which scores a
 // penalty/retirement with countsAsBall=false; leaving penalty out here made the
 // server count it as a ball, so the over drifted a ball ahead of the scorer.
-const NON_BALL_EXTRAS = ['wide', 'noBall', 'penalty', 'retired'];
+// 'deadBall' is a wicket that fell without a delivery being bowled at all — the
+// non-striker run out backing up before release (Law 38.3). It goes in the book as
+// a ball so the dismissal is recorded, but it is not one of the over's six.
+const NON_BALL_EXTRAS = ['wide', 'noBall', 'penalty', 'retired', 'deadBall'];
 
 // ── Match awards (MVP): Man of the Match, Fighter, Best Batter/Bowler/Fielder ──
 // Computed from ball-by-ball data using the CricHeroes-style MVP algorithm.
@@ -670,13 +673,20 @@ router.get('/:id/live-state', async (req, res) => {
     // no-ball+3 → "4nb", bye+2 → "2b", leg-bye+2 → "2lb") so the resumed strip —
     // and the "THIS OVER · N runs" tally the client parses off it — matches what
     // was scored live instead of collapsing every extra to a bare "WD"/"B".
-    const notate = (b) =>
-        b.extraType === 'wide'    ? (b.extras > 1 ? `${b.extras}wd` : 'WD')
-      : b.extraType === 'noBall'  ? (b.runs > 0 ? `${b.runs + b.extras}nb` : 'NB')
-      : b.extraType === 'bye'     ? (b.extras > 1 ? `${b.extras}b` : 'B')
-      : b.extraType === 'legBye'  ? (b.extras > 1 ? `${b.extras}lb` : 'LB')
-      : b.extraType === 'penalty' ? 'P5'
-      : b.isWicket ? 'W' : b.runs === 0 ? '·' : String(b.runs);
+    // Mirrors ballChip() in frontend/src/utils/runOutEngine.js — a wicket is written
+    // onto the delivery that took it ('WD+W', '3nb+W', '2+W'), because a run out can
+    // arrive on ANY delivery and the strip must show both halves of what happened.
+    const notate = (b) => {
+      const w = b.isWicket ? '+W' : '';
+      if (b.extraType === 'wide')    return (b.extras > 1 ? `${b.extras}wd` : 'WD') + w;
+      if (b.extraType === 'noBall')  { const t = b.runs + b.extras; return (t > 1 ? `${t}nb` : 'NB') + w; }
+      if (b.extraType === 'bye')     return (b.extras > 1 ? `${b.extras}b` : 'B') + w;
+      if (b.extraType === 'legBye')  return (b.extras > 1 ? `${b.extras}lb` : 'LB') + w;
+      if (b.extraType === 'penalty') return 'P5';
+      if (b.extraType === 'deadBall') return 'W';        // no delivery — only ever a wicket
+      if (b.isWicket) return b.runs > 0 ? `${b.runs}+W` : 'W';
+      return b.runs === 0 ? '·' : String(b.runs);
+    };
     const currentOverBalls = overComplete ? [] : [...(curOver?.balls || [])].reverse().map(notate);
 
     // Resolve the persisted crease/bowler names. Look them up directly (not only
