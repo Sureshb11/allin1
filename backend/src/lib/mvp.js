@@ -31,9 +31,39 @@ const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, '');
 const BOWLER_WKT = new Set(['bowled', 'caught', 'lbw', 'stumped', 'hitwicket', 'mankaded']);
 const ASSIST_WKT = new Set(['caught', 'stumped']);
 
+// ── Ball accounting. These three MUST agree with the scorecard the players are
+// looking at (frontend ScorecardScreen: computeBatting / computeBowling) — MVP
+// points that disagree with the printed figures read as a bug in the points, and
+// the two used to disagree in four places.
+
+// Not one of the over's six. 'deadBall' is a wicket taken without a delivery (the
+// non-striker run out backing up, Law 38.3).
+const NON_BALL_EXTRAS = ['wide', 'noBall', 'penalty', 'retired', 'deadBall'];
+const countsAsBall = (b) => !NON_BALL_EXTRAS.includes(b.extraType);
+
+// A ball FACED by the striker. A no ball is faced (it can be hit, and the striker
+// can be run out off it); a wide is not, and neither is anything that wasn't bowled.
+const FACED_EXCLUDES = ['wide', 'penalty', 'retired', 'deadBall'];
+const ballFaced = (b) => !FACED_EXCLUDES.includes(b.extraType);
+
+// Runs off the bat — the striker's own. Byes and leg byes are the team's; runs off
+// a no ball ARE the striker's and were being thrown away here.
+const batRunsOf = (b) => (!b.extraType || b.extraType === 'noBall' ? b.runs : 0);
+
+// Runs charged to the bowler: the wide/no-ball penalties and everything run off
+// them, plus runs off the bat. Byes and leg byes are not the bowler's fault.
+const chargedRuns = (b) =>
+  b.extraType === 'wide' ? b.extras
+  : b.extraType === 'noBall' ? b.runs + b.extras
+  : (b.extraType ? 0 : b.runs);
+
 export function computeAwards(match) {
   const innings = match.innings || [];
-  const overs = match.overs || Math.max(20, ...innings.map((i) => Math.ceil(i.totalOvers || 0)));
+  // Every points table below is keyed by the match's overs-per-side, so this must
+  // be a real number: an innings row with no totalOvers made Math.max return NaN,
+  // and every `ov <= n` lookup then fell through to the Test-match column.
+  const fromInnings = innings.map((i) => Math.ceil(i.totalOvers || 0)).filter(Number.isFinite);
+  const overs = Number(match.overs) || Math.max(20, ...fromInnings, 0);
   const srPct = srBonusPct(overs);
   const brpw = baseRunsPerWicket(overs);
   const mpw = maidensPerWicket(overs);
@@ -71,9 +101,14 @@ export function computeAwards(match) {
     const bowlingTeamId = inning.bowlingTeamId, bowlingTeamName = inning.bowlingTeam?.name;
 
     const overRows = (inning.oversData || []).slice().sort((a, b) => a.overNumber - b.overNumber);
+    // Per-DELIVERY bowler — a shared over is simply balls carrying different
+    // bowlerIds — falling back to the over's bowler for rows recorded before
+    // per-ball bowlers existed. This used to OVERWRITE the ball's own bowlerId
+    // with the over's, which handed every wicket and every run in a shared over
+    // to whoever happened to start the over.
     const balls = overRows.flatMap((o) =>
       (o.balls || []).slice().sort((a, b) => a.ballNumber - b.ballNumber)
-        .map((b) => ({ ...b, bowlerId: o.bowlerId, bowlerName: o.bowler?.name })));
+        .map((b) => ({ ...b, bowlerId: b.bowlerId || o.bowlerId, bowlerName: b.bowler?.name || o.bowler?.name })));
 
     // Batting positions: first-seen order of striker then non-striker.
     const pos = {}; let next = 1;
@@ -82,15 +117,15 @@ export function computeAwards(match) {
       if (b.nonStrikerId && !(b.nonStrikerId in pos)) pos[b.nonStrikerId] = next++;
     }
 
-    // Per-batter tallies + legal-ball count for team SR.
+    // Per-batter tallies + the innings' legal-ball count for team SR.
     const bat = {}; let legalBalls = 0;
     for (const b of balls) {
-      const legal = !['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType);
-      if (legal) legalBalls++;
+      if (countsAsBall(b)) legalBalls++;
       const id = b.batterId;
+      if (!id) continue;
       if (!bat[id]) bat[id] = { name: b.batter?.name, runs: 0, balls: 0 };
-      if (legal) bat[id].balls++;
-      if (!b.extraType || b.extraType === 'bye' || b.extraType === 'legBye') bat[id].runs += b.runs;
+      if (ballFaced(b)) bat[id].balls++;
+      bat[id].runs += batRunsOf(b);
     }
     const teamSR = legalBalls > 0 ? (inning.totalRuns / legalBalls) * 100 : 0;
 
@@ -106,21 +141,28 @@ export function computeAwards(match) {
       p.batLine = `${s.runs} (${s.balls})`;
     }
 
-    // ── Bowling tallies (per over, for maidens) ──
+    // ── Bowling tallies (per delivery, grouped by over so maidens can be seen) ──
     const bowl = {};
+    const bowlerRow = (id, name) => {
+      if (!bowl[id]) bowl[id] = { name, balls: 0, conceded: 0, wkts: 0, maidens: 0 };
+      else if (name && !bowl[id].name) bowl[id].name = name;
+      return bowl[id];
+    };
     for (const o of overRows) {
-      const id = o.bowlerId; if (!id) continue;
-      if (!bowl[id]) bowl[id] = { name: o.bowler?.name, balls: 0, conceded: 0, wkts: 0, maidens: 0 };
       let overCharged = 0, overLegal = 0;
-      for (const b of o.balls || []) {
-        const legal = !['wide', 'noBall', 'penalty', 'retired'].includes(b.extraType);
-        if (legal) { bowl[id].balls++; overLegal++; }
-        let charged = b.runs;
-        if (b.extraType === 'wide' || b.extraType === 'noBall') charged += b.extras;
-        bowl[id].conceded += charged; overCharged += charged;
-        if (b.isWicket && BOWLER_WKT.has(norm(b.wicketType))) bowl[id].wkts++;
+      const overBowlers = new Set();
+      for (const b of (o.balls || [])) {
+        const id = b.bowlerId || o.bowlerId; if (!id) continue;
+        const s = bowlerRow(id, b.bowler?.name || o.bowler?.name);
+        overBowlers.add(id);
+        const charged = chargedRuns(b);
+        s.conceded += charged; overCharged += charged;
+        if (countsAsBall(b)) { s.balls++; overLegal++; }
+        if (b.isWicket && BOWLER_WKT.has(norm(b.wicketType))) s.wkts++;
       }
-      if (overLegal >= 6 && overCharged === 0) bowl[id].maidens++;
+      // A maiden is a whole over by ONE bowler for no runs — a shared over is a
+      // maiden for neither of them.
+      if (overLegal >= 6 && overCharged === 0 && overBowlers.size === 1) bowlerRow([...overBowlers][0]).maidens++;
     }
 
     // ── Per-wicket value → bowler wicket base + fielder credit ──

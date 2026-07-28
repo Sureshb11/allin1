@@ -21,7 +21,8 @@
     "prisma:seed:individual": "node prisma/seedIndividual.js",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test \"test/*.test.js\""
   },
   "dependencies": {
     "@prisma/client": "^5.19.1",

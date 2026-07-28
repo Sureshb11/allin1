@@ -41,7 +41,12 @@ const loadMatchForAwards = (id) => prisma.match.findUnique({
           orderBy: { overNumber: 'asc' },
           include: {
             bowler: { select: { name: true } },
-            balls: { orderBy: { ballNumber: 'asc' }, include: { batter: { select: { name: true } } } },
+            // The ball's own bowler too: a shared over is balls with different
+            // bowlerIds, and the MVP credits each delivery to whoever bowled it.
+            balls: {
+              orderBy: { ballNumber: 'asc' },
+              include: { batter: { select: { name: true } }, bowler: { select: { name: true } } },
+            },
           },
         },
       },
