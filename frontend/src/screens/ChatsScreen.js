@@ -130,11 +130,35 @@ export default function ChatsScreen({ navigation }) {
     );
   };
 
+  const totalUnread = rooms.reduce((n, r) => n + (r.unreadCount || 0), 0);
+
+  const header = (
+    // Drawn here, not by the navigator: this stack sets headerShown:false
+    // everywhere else and each screen supplies its own, so the default header
+    // would have been a light system bar sitting in a dark app.
+    <View style={styles.hero}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={8}>
+        <Icon name="arrow-left" size={22} color={DS.textPrimary} />
+      </TouchableOpacity>
+      <Text style={styles.heroTitle}>Chats</Text>
+      {totalUnread > 0 && (
+        <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>{totalUnread}</Text></View>
+      )}
+    </View>
+  );
+
   if (loading && !rooms.length) {
-    return <View style={styles.center}><ActivityIndicator color={DS.lime} /></View>;
+    return (
+      <View style={styles.container}>
+        {header}
+        <View style={styles.center}><ActivityIndicator color={DS.lime} /></View>
+      </View>
+    );
   }
 
   return (
+    <View style={styles.container}>
+    {header}
     <FlatList
       style={styles.container}
       data={data}
@@ -150,11 +174,25 @@ export default function ChatsScreen({ navigation }) {
         </View>
       }
     />
+    </View>
   );
 }
 
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
+  // Matches the other in-stack screens' own headers (see ChatScreen's hero).
+  hero: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16,
+    borderBottomWidth: 1, borderBottomColor: DS.surfaceHigh,
+  },
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  heroTitle: { flex: 1, fontSize: 17, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.3 },
+  heroBadge: {
+    minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7,
+    backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center',
+  },
+  heroBadgeText: { fontSize: 12, fontWeight: '900', color: DS.onLime },
   center: { flex: 1, backgroundColor: DS.bg, alignItems: 'center', justifyContent: 'center' },
   list: { paddingHorizontal: 14, paddingTop: 8 },
 

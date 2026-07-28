@@ -400,7 +400,7 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
       options={{ headerShown: false }}
     />
     <Stack.Screen name="LookingFor" component={LookingForScreen} options={{ headerShown: false }} />
-    <Stack.Screen name="Chats" component={ChatsScreen} options={{ headerShown: true, headerTitle: 'Chats' }} />
+    <Stack.Screen name="Chats" component={ChatsScreen} options={{ headerShown: false }} />
     <Stack.Screen name="Coaching" component={CoachingScreen} options={{ headerShown: false }} />
     <Stack.Screen name="Umpires" component={UmpireScreen} options={{ headerShown: false }} />
     <Stack.Screen name="TournamentDetail" component={TournamentDetailScreen} options={{ headerShown: false }} />
