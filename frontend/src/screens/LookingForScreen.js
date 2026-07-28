@@ -8,6 +8,7 @@ import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomShe
 import Reanimated, { FadeInDown, useAnimatedRef, useSharedValue, scrollTo } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { showToast } from '../components/Toast';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { useCurrentUser } from '../utils/currentUser';
@@ -106,6 +107,8 @@ const TYPE_ICONS = {
   commentator: 'microphone-outline',  // speaks / commentates
 };
 
+const HIDDEN_KEY = '@ll_scout_hidden';
+
 const INITIAL_FORM = { type: 'player', role: '', description: '', location: '', format: 'Any', ageGroup: 'Any', days: [], timing: '', customTime: '' };
 
 // Auto-build a readable title from the tap selections so the user never types one.
@@ -189,6 +192,27 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   const initialType = FILTER_TYPES.includes(route?.params?.initialType) ? route.params.initialType : 'all';
   const meUser = useCurrentUser();
   const myId = meUser?.id;
+  // Listings you've chosen not to see. Local and device-only: this is "not for
+  // me", not a report — there's no moderation backend to send anything to.
+  const [hidden, setHidden] = useState([]);
+  useEffect(() => {
+    AsyncStorage.getItem(HIDDEN_KEY)
+      .then((raw) => { if (raw) setHidden(JSON.parse(raw)); })
+      .catch(() => {});
+  }, []);
+  const hideListing = async (item) => {
+    const next = [...new Set([...hidden, item.id])];
+    setHidden(next);
+    closeDetail();
+    await AsyncStorage.setItem(HIDDEN_KEY, JSON.stringify(next)).catch(() => {});
+    showToast('Hidden from your board', 'info');
+  };
+  const unhideAll = async () => {
+    setHidden([]);
+    await AsyncStorage.removeItem(HIDDEN_KEY).catch(() => {});
+    showToast('Hidden listings restored', 'success');
+  };
+
   const [connections, setConnections] = useState([]);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -515,7 +539,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   };
 
   // Rows arrive already filtered and searched; counts describe the whole board.
-  const visiblePosts = posts;
+  const visiblePosts = posts.filter((p) => !hidden.includes(p.id));
+  const hiddenOnPage = posts.length - visiblePosts.length;
   const countsByType = counts;
 
   // Debounce the search so each keystroke isn't a round-trip. The board reloads
@@ -776,9 +801,19 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           ListHeaderComponent={renderInbox()}
           onEndReached={loadMore}
           onEndReachedThreshold={0.4}
-          ListFooterComponent={loadingMore
-            ? <ActivityIndicator style={{ marginVertical: 20 }} color={DS.lime} />
-            : null}
+          ListFooterComponent={
+            loadingMore ? <ActivityIndicator style={{ marginVertical: 20 }} color={DS.lime} />
+            : hidden.length ? (
+              // Hiding shouldn't be a one-way door you forget you walked through.
+              <View style={styles.hiddenNote}>
+                <Text style={styles.hiddenNoteText}>
+                  {hidden.length} hidden{hiddenOnPage ? ` · ${hiddenOnPage} here` : ''}
+                </Text>
+                <TouchableOpacity onPress={unhideAll} hitSlop={8}>
+                  <Text style={styles.hiddenUndo}>Show all</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Icon
@@ -905,6 +940,13 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
               )}
 
               <View style={styles.detailAction}>{actionFor(detailItem, true)}</View>
+
+              {!isMine && (
+                <TouchableOpacity style={styles.ownerBtn} onPress={() => hideListing(detailItem)} activeOpacity={0.8}>
+                  <Icon name="eye-off-outline" size={15} color={DS.textMuted} />
+                  <Text style={styles.hideText}>Not interested — hide this</Text>
+                </TouchableOpacity>
+              )}
 
               {isMine && (
                 <View style={styles.ownerActions}>
@@ -1207,6 +1249,10 @@ const makeStyles = (DS) => StyleSheet.create({
   ownerActions: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
   ownerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 16 },
   editText: { fontSize: 13, fontWeight: '800', color: DS.lime },
+  hideText: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
+  hiddenNote: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14 },
+  hiddenNoteText: { fontSize: 12, color: DS.textMuted },
+  hiddenUndo: { fontSize: 12, fontWeight: '800', color: DS.lime },
   deleteText: { fontSize: 13, fontWeight: '800', color: DS.coral },
   // Full-width variant of the row buttons for the sheet's single primary action.
   ctaWide: { alignSelf: 'stretch', height: 46, minWidth: 0 },
