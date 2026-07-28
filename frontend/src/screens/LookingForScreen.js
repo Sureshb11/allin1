@@ -392,12 +392,17 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
   // On focus, not just on mount: posting from elsewhere, or accepting someone
   // and coming back, otherwise left the board showing a stale snapshot.
+  // Deliberately NOT keyed on activeType/query — selectType and onQueryChange
+  // each fetch on their own. Listing them here made every keystroke re-run the
+  // whole effect: a second request racing the debounced one, and a full-screen
+  // spinner flashing between letters.
   useFocusEffect(useCallback(() => {
     let alive = true;
     setLoading(true);
-    Promise.all([load(activeType, query), loadConnections()]).finally(() => { if (alive) setLoading(false); });
+    Promise.all([load(activeTypeRef.current, query), loadConnections()])
+      .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [load, loadConnections, activeType, query]));
+  }, [load, loadConnections]));   // eslint-disable-line react-hooks/exhaustive-deps
 
   // Connection lookups per listing.
   const myReqFor = (listingId) => connections.find((c) => c.listingId === listingId && c.requesterId === myId);
@@ -538,6 +543,98 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   const inboundPending = connections.filter(
     (c) => c.posterId === myId && c.status === 'pending' && c.listingStatus === 'open'
   );
+
+  // The one action a listing offers right now, shared by the row and the detail
+  // sheet so the two can never show different next steps for the same listing.
+  const actionFor = (item, big = false) => {
+    const isMine = item.postedById && item.postedById === myId;
+    const myReq = myReqFor(item.id);
+    const ctaStyle = big ? [styles.rowCta, styles.ctaWide, { backgroundColor: P.control }] : [styles.rowCta, { backgroundColor: P.control }];
+    const ghostStyle = big ? [styles.rowGhostBtn, styles.ctaWide] : styles.rowGhostBtn;
+    const flagStyle = big ? [styles.rowFlag, styles.ctaWide] : styles.rowFlag;
+
+    if (isMine) {
+      // The board is open listings only, so a row is never already filled —
+      // marking it removes it on the next fetch.
+      return (
+        <TouchableOpacity style={ghostStyle} onPress={() => { closeDetail(); handleClose(item.id); }} activeOpacity={0.8}>
+          <Text style={styles.rowGhostText}>Mark filled</Text>
+        </TouchableOpacity>
+      );
+    }
+    if (!item.postedById) return null;
+    if (myReq?.status === 'accepted') {
+      return (
+        <TouchableOpacity style={ghostStyle} onPress={() => openChat(myReq.chatRoomId, item.posterName || 'Poster', myReq.id)} activeOpacity={0.85}>
+          <Icon name="chat-outline" size={14} color={DS.lime} />
+          <Text style={styles.rowGhostText}>Chat</Text>
+        </TouchableOpacity>
+      );
+    }
+    if (myReq?.status === 'pending') {
+      // Was a dead end — you could only wait. Tapping asks a question instead.
+      return (
+        <TouchableOpacity style={flagStyle} onPress={() => openRequestChat(myReq.id, item.posterName || 'Poster')} activeOpacity={0.85}>
+          <Icon name="clock-outline" size={13} color={DS.textMuted} />
+          <Text style={styles.rowFlagText}>Sent</Text>
+        </TouchableOpacity>
+      );
+    }
+    if (myReq?.status === 'declined') {
+      return <View style={flagStyle}><Text style={styles.rowFlagText}>Declined</Text></View>;
+    }
+    return (
+      <TouchableOpacity style={ctaStyle} onPress={() => handleConnect(item.id)} activeOpacity={0.85}>
+        <Text style={[styles.rowCtaText, { color: P.onControl }]}>Connect</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  // ── One listing = one row ──────────────────────────────────────────────────
+  // Three lines, fixed shape: the ask, then who/where/when, then age + category.
+  // The action sits on the right so the eye can run down a single column of
+  // buttons instead of hunting for one at the bottom of each card.
+  const renderPost = ({ item, index }) => {
+    const descLines = (item.description || '').split('\n');
+    const whenText = descLines.find((l) => l.startsWith('When: '))?.slice(6);
+    const bodyDesc = descLines.filter((l) => !l.startsWith('When: ')).join('\n').trim();
+    const isMine = item.postedById && item.postedById === myId;
+    const myReq = myReqFor(item.id);
+
+    // Line 2 — who, where, when. Whatever's known, in that order.
+    const whoLine = [isMine ? 'You' : item.posterName, item.location, whenText]
+      .filter(Boolean).join(' · ');
+    // Line 3 — age of the listing, then the qualifiers the ask didn't carry.
+    const metaLine = [timeAgo(item.createdAt), TYPE_LABELS[item.type], item.format, item.ageGroup]
+      .filter(Boolean).join(' · ');
+
+    const action = actionFor(item);
+    return (
+      <Reanimated.View
+        entering={FadeInDown.duration(300).delay(Math.min(index, 8) * 35)}
+        style={styles.row}
+      >
+        <TouchableOpacity style={styles.rowTap} activeOpacity={0.7} onPress={() => openDetail(item)}>
+        {item.posterName
+          ? <PlayerAvatar name={item.posterName} avatarUrl={item.posterAvatarUrl} size={38} />
+          : (
+            <View style={styles.rowIconAvatar}>
+              <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={19} color={DS.lime} />
+            </View>
+          )}
+
+        <View style={styles.rowMain}>
+          <Text style={styles.rowAsk} numberOfLines={1}>{askFrom(item)}</Text>
+          {!!whoLine && <Text style={styles.rowWho} numberOfLines={1}>{whoLine}</Text>}
+          <Text style={styles.rowMeta} numberOfLines={1}>{metaLine}</Text>
+          {!!bodyDesc && <Text style={styles.rowNote} numberOfLines={2}>{bodyDesc}</Text>}
+        </View>
+        </TouchableOpacity>
+
+        {action}
+      </Reanimated.View>
+    );
+  };
 
   // Requests waiting on you, lifted out of the feed and pinned above it.
   const renderInbox = () => {
