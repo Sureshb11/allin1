@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Fragment } from 'react';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl, Image } from 'react-native';
 import Reanimated, { useAnimatedRef, useSharedValue, scrollTo } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -112,6 +112,13 @@ const TEAM_BOARDS = [
 
 // Sort by the board's metric, then by volume so a bigger body of work breaks
 // ties, then by name so the order is stable between renders.
+// Boards come in two shapes and they are NOT interchangeable. The ones defined
+// in this file carry `value: (row) => …`; the per-sport ones from careerStats
+// carry `key`/`event` and are read with rankValue(). Reading a local board with
+// rankValue gives row[undefined] — 0 for every cricket player, on every board.
+const boardValue = (row, board) =>
+  typeof board.value === 'function' ? board.value(row) : rankValue(row, board);
+
 const sortFor = (board) => (a, b) => {
   const av = board.value(a), bv = board.value(b);
   const diff = board.better === 'low' ? av - bv : bv - av;
@@ -129,15 +136,18 @@ function RankRow({ item, rank, board, cols, isMe, isTeam }) {
   const medal = rank < 3 ? MEDAL[rank] : null;
 
   // The figure this board sorts on — the reason the row is where it is.
-  const headline = rankValue(item, board);
+  const headline = boardValue(item, board);
+  // Matches leads: it's the sample size behind every other figure, and it went
+  // missing when the tall card's "N matches" subtitle became this row.
+  const played = `${item.matches || 0} ${(item.matches || 0) === 1 ? 'match' : 'matches'}`;
   const meta = isTeam
-    ? [`${item.matches} matches`, `${item.wins}W`, `${item.losses}L`].filter(Boolean).join(' · ')
-    : (cols || [
+    ? [played, `${item.wins || 0}W`, `${item.losses || 0}L`].join(' · ')
+    : [played, ...(cols || [
         { label: 'runs', value: (item.runs || 0).toLocaleString() },
         { label: 'avg', value: item.average },
         { label: 'SR', value: item.strikeRate },
         { label: 'wkts', value: item.wickets },
-      ]).map((c) => `${c.value} ${c.label}`).join(' · ');
+      ]).map((c) => `${c.value} ${c.label}`)].join(' · ');
 
   return (
     <View style={[styles.row, isMe && styles.rowMe]}>
@@ -145,9 +155,13 @@ function RankRow({ item, rank, board, cols, isMe, isTeam }) {
         <Text style={[styles.rankNum, medal && { color: medal }]}>{rank + 1}</Text>
       </View>
 
-      <HexAvatar round size={34} color={medal || DS.surfaceHighest}>
-        <Text style={styles.avatarText}>{initials(item.name)}</Text>
-      </HexAvatar>
+      {item.avatarUrl ? (
+        <Image source={{ uri: item.avatarUrl }} style={[styles.avatarImg, medal && { borderColor: medal }]} />
+      ) : (
+        <HexAvatar round size={34} color={medal || DS.surfaceHighest}>
+          <Text style={styles.avatarText}>{initials(item.name)}</Text>
+        </HexAvatar>
+      )}
 
       <View style={styles.rowMain}>
         <Text style={styles.rowName} numberOfLines={1}>
@@ -239,6 +253,8 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
     // the card (e.g. `undefined.toLocaleString()`).
     setPlayers((pr?.data || []).map((p) => ({
       id: p.id, name: p.name,
+      // From the linked user account; players themselves have no photo column.
+      avatarUrl: p.user?.avatarUrl || p.avatarUrl || null,
       matches: 0, runs: 0, average: 0, strikeRate: 0, centuries: 0, wickets: 0,
       ...(p.stats || {}),
       // leaderboard rows carry these instead of a stats blob
@@ -502,6 +518,10 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   rankNum: { fontSize: 12, fontWeight: '900', color: DS.textVariant },
   avatarText: { fontSize: 12, fontWeight: '900', color: DS.onLime },
+  avatarImg: {
+    width: 34, height: 34, borderRadius: 17, backgroundColor: DS.surfaceHighest,
+    borderWidth: 1.5, borderColor: 'transparent',
+  },
   rowMain: { flex: 1, minWidth: 0, gap: 2 },
   rowName: { fontSize: 15, fontWeight: '700', color: DS.textPrimary, letterSpacing: -0.2 },
   rowMeta: { fontSize: 11.5, color: DS.textMuted, fontWeight: '500' },

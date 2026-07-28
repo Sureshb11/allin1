@@ -16,7 +16,14 @@ router.get('/', async (req, res) => {
   // take: 100 used to silently truncate the Rankings leaderboard — the 101st
   // player simply didn't exist. 500 is still a guard against an unbounded scan
   // but is far past the point where a local league's board stays honest.
-  const players = await prisma.player.findMany({ where, include: { team: true }, take: 500 });
+  // The linked user carries the photo — Player has no avatar column of its own,
+  // so every leaderboard face was an initial in a circle even for players whose
+  // account has one.
+  const players = await prisma.player.findMany({
+    where,
+    include: { team: true, user: { select: { id: true, avatarUrl: true } } },
+    take: 500,
+  });
 
   // Attach REAL cricket numbers computed from the scoring data, so the
   // Statistics leaderboard reflects actual matches instead of the static
@@ -116,7 +123,12 @@ router.get('/leaderboard', async (req, res) => {
 
     const players = await prisma.player.findMany({
       where: { sport },
-      select: { id: true, name: true, teamId: true, team: { select: { name: true } } },
+      // Same reason as the list above: the face lives on the linked user.
+      select: {
+        id: true, name: true, teamId: true,
+        team: { select: { name: true } },
+        user: { select: { id: true, avatarUrl: true } },
+      },
     });
     if (!players.length) return res.json({ players: [] });
 
