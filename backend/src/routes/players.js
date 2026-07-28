@@ -29,8 +29,17 @@ router.get('/', async (req, res) => {
   // Statistics leaderboard reflects actual matches instead of the static
   // stats JSON (which nothing updates). Cheap: batting from one Ball groupBy,
   // bowling from the per-over aggregates the scorer already maintains.
-  const [batAgg, disAgg, bowlAgg, mpAgg, inningAgg, legalAgg] = await Promise.all([
+  const [batAgg, catchAgg, disAgg, bowlAgg, mpAgg, inningAgg, legalAgg] = await Promise.all([
     prisma.ball.groupBy({ by: ['batterId'], _sum: { runs: true }, _count: { _all: true } }),
+    // Catches. The scorer records the catcher as a NAME on wicketAssists, not an
+    // id — the picker has the id and throws it away — so this can only be
+    // matched back by name. wicketType filters out run-outs, which write the
+    // fielder's name to the same column. Caught & bowled counts: it's a catch,
+    // and it's stored under the bowler's own name.
+    prisma.ball.groupBy({
+      by: ['wicketAssists'], _count: { _all: true },
+      where: { isWicket: true, wicketType: 'caught', wicketAssists: { not: null } },
+    }),
     prisma.ball.groupBy({ by: ['dismissedPlayerId'], _count: { _all: true }, where: { dismissedPlayerId: { not: null } } }),
     prisma.over.groupBy({ by: ['bowlerId'], _sum: { runs: true, extras: true, wickets: true }, _count: { _all: true } }),
     prisma.matchPlayer.groupBy({ by: ['playerId'], _count: { _all: true } }),
@@ -72,6 +81,13 @@ router.get('/', async (req, res) => {
   const dis  = Object.fromEntries(disAgg.map((a) => [a.dismissedPlayerId, a._count._all]));
   const bowl = Object.fromEntries(bowlAgg.map((a) => [a.bowlerId, a]));
   const mp   = Object.fromEntries(mpAgg.map((a) => [a.playerId, a._count._all]));
+  // name → catches. Trimmed because the notation is assembled from typed squad
+  // names and stray whitespace would split one fielder into two.
+  const catches = {};
+  for (const c of catchAgg) {
+    const key = (c.wicketAssists || '').trim();
+    if (key) catches[key] = (catches[key] || 0) + c._count._all;
+  }
 
   const enriched = players.map((p) => {
     const b = bat[p.id], w = bowl[p.id];
@@ -101,6 +117,7 @@ router.get('/', async (req, res) => {
       computed.oversBowled  = `${Math.floor(legal / 6)}.${legal % 6}`;
       computed.economy      = legal ? +(conceded / (legal / 6)).toFixed(2) : 0;
     }
+    computed.catches = catches[(p.name || '').trim()] || 0;
     if (mp[p.id]) computed.matches = mp[p.id];
     return { ...p, stats: { ...(p.stats || {}), ...computed } };
   });

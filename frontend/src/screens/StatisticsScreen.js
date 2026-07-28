@@ -93,6 +93,16 @@ const PLAYER_BOARDS = [
   { id: 'economy', label: 'Economy', icon: 'lightning-bolt',
     value: (s) => s.economy ?? Infinity, better: 'low',
     qualify: (s) => (s.ballsBowled || 0) >= 12, note: 'min 2 overs' },
+  // A rate, so it needs a floor like Average does: 200 off 4 balls is not a
+  // strike rate, it's one lucky over.
+  { id: 'strikeRate', label: 'Strike rate', icon: 'speedometer',
+    value: (s) => s.strikeRate || 0, better: 'high',
+    qualify: (s) => (s.ballsFaced || 0) >= 30, note: 'min 30 balls' },
+  // A count, not a rate, so no threshold beyond having taken one — a board of
+  // players on zero is just the squad list.
+  { id: 'catches', label: 'Catches', icon: 'hand-back-right-outline',
+    value: (s) => s.catches || 0, better: 'high',
+    qualify: (s) => (s.catches || 0) > 0 },
 ];
 
 const TEAM_BOARDS = [
@@ -255,7 +265,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
       id: p.id, name: p.name,
       // From the linked user account; players themselves have no photo column.
       avatarUrl: p.user?.avatarUrl || p.avatarUrl || null,
-      matches: 0, runs: 0, average: 0, strikeRate: 0, centuries: 0, wickets: 0,
+      matches: 0, runs: 0, average: 0, strikeRate: 0, centuries: 0, wickets: 0, catches: 0,
       ...(p.stats || {}),
       // leaderboard rows carry these instead of a stats blob
       ...(p.matches != null ? { matches: p.matches } : {}),
