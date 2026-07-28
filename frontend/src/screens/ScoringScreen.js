@@ -98,6 +98,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const [batStats, setBatStats] = useState({});
   const [bowlStats, setBowlStats] = useState({});
   const [extraPrompt, setExtraPrompt] = useState(null);    // 'wide'|'noball'|'bye'|'legbye' → +runs sheet
+  // Runs the 0/1/2/3/4/6 pad can't express — 5 off the bat (batters run one, the
+  // throw goes to the boundary) and 7. Reached by long-pressing any run button,
+  // or from More Options. Without it these get fudged into a wrong figure.
+  const [runsPrompt, setRunsPrompt] = useState(false);
   const [wicketPrompt, setWicketPrompt] = useState(false); // WICKET → dismissal-type sheet
   const [penaltyPrompt, setPenaltyPrompt] = useState(false); // PEN 5 → reason sheet (Helmet Hit)
   const [penaltyDeliveryPrompt, setPenaltyDeliveryPrompt] = useState(false); // after Helmet Hit → which delivery?
@@ -1117,6 +1121,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     closeBatterPicker();
   };
 
+  // Long-press on any run button. Discoverability is the weak point of a
+  // long-press, so More Options carries the same entry.
+  const openOtherRuns = () => { haptic.tick(); setRunsPrompt(true); };
+
   // Leave the between-overs break and go pick the next bowler. Also what the
   // hardware back button does, so the sheet can't trap the scorer.
   const startNextOver = () => {
@@ -1551,24 +1559,24 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         {!matchComplete &&
         <View style={styles.grid}>
             <View style={styles.gridRow}>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(0)}>
+              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(0)} onLongPress={openOtherRuns}>
                 <Text style={styles.gridBtnNum}>0</Text><Text style={styles.gridBtnLabel}>DOT</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(1)}>
+              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(1)} onLongPress={openOtherRuns}>
                 <Text style={styles.gridBtnNum}>1</Text><Text style={styles.gridBtnLabel}>SINGLE</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(2)}>
+              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(2)} onLongPress={openOtherRuns}>
                 <Text style={styles.gridBtnNum}>2</Text><Text style={styles.gridBtnLabel}>DOUBLE</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.gridRow}>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(3)}>
+              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(3)} onLongPress={openOtherRuns}>
                 <Text style={styles.gridBtnNum}>3</Text><Text style={styles.gridBtnLabel}>TRIPLE</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnFour]} onPress={() => handleScore(4)}>
+              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnFour]} onPress={() => handleScore(4)} onLongPress={openOtherRuns}>
                 <Text style={[styles.gridBtnNum, { color: DS.white }]}>4</Text><Text style={[styles.gridBtnLabel, { color: 'rgba(255,255,255,0.7)' }]}>FOUR</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnSix]} onPress={() => handleScore(6)}>
+              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnSix]} onPress={() => handleScore(6)} onLongPress={openOtherRuns}>
                 <Text style={[styles.gridBtnNum, { color: DS.lime }]}>6</Text><Text style={[styles.gridBtnLabel, { color: DS.lime }]}>SIX</Text>
               </TouchableOpacity>
             </View>
@@ -1898,6 +1906,30 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         </View>
       </Modal>
 
+      {/* ── OTHER RUNS — anything the 0/1/2/3/4/6 pad can't express ── */}
+      <Modal visible={runsPrompt} transparent animationType="slide" onRequestClose={() => setRunsPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Runs off the bat</Text>
+            <Text style={styles.modalSub}>
+              For overthrows and anything else the pad doesn't cover. Scores as a normal delivery.
+            </Text>
+            <View style={styles.runChipsGrid}>
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((n) => (
+                <TouchableOpacity key={n} style={styles.runChipGrid}
+                  onPress={() => { setRunsPrompt(false); handleScore(n); }}>
+                  <Text style={styles.runChipNum}>{n}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setRunsPrompt(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── EXTRA + RUNS sheet (wide/no-ball/bye/leg-bye + runs run) ── */}
       <Modal visible={!!extraPrompt} transparent animationType="slide" onRequestClose={() => setExtraPrompt(null)}>
         <View style={styles.modalOverlay}>
@@ -1910,7 +1942,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               {extraPrompt === 'wide' || extraPrompt === 'noball' ? 'Extra + any runs the batters ran' : 'How many runs were run'}
             </Text>
             <View style={styles.runChips}>
-              {(extraPrompt === 'bye' || extraPrompt === 'legbye' ? [1, 2, 3, 4] : [0, 1, 2, 4]).map((n) => (
+              {/* 3 and 5 were missing: a wide the batters run 3 on, or byes that
+                  reach the rope off an overthrow, are both legal and used to be
+                  unrecordable. */}
+              {(extraPrompt === 'bye' || extraPrompt === 'legbye' ? [1, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5]).map((n) => (
                 <TouchableOpacity key={n} style={styles.runChip}
                   onPress={() => { const t = extraPrompt; setExtraPrompt(null); handleScore(t, n); }}>
                   <Text style={styles.runChipNum}>+{n}</Text>
@@ -2229,6 +2264,17 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               </Text>
               <Icon name="chevron-right" size={18} color={DS.textMuted} />
             </TouchableOpacity>
+            {/* Other runs — 5 off the bat, 7, anything the pad can't express.
+                Also reachable by long-pressing any run button. */}
+            <TouchableOpacity
+              style={[styles.settingRow, !scoringReady && { opacity: 0.4 }]}
+              disabled={!scoringReady}
+              onPress={() => { setMorePrompt(false); setRunsPrompt(true); }}>
+              <Icon name="numeric" size={20} color={DS.lime} />
+              <Text style={styles.settingText}>Other runs</Text>
+              <Text style={styles.settingHint}>5, 7 · overthrows</Text>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
             {/* Penalty 5 — a team award (helmet hit etc.), not a delivery. Rare
                 enough that it lives here rather than in the extras row. */}
             <TouchableOpacity
@@ -2532,9 +2578,17 @@ const makeStyles = (DS) => StyleSheet.create({
   penaltyOptionPlus: { fontSize: 17, fontWeight: '900', color: DS.lime },
 
   // Run chips (extra + runs sheet)
-  runChips: { flexDirection: 'row', gap: 10, marginBottom: 8 },
-  runChip: { flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 14, paddingVertical: 18, alignItems: 'center' },
-  runChipNum: { fontSize: 24, fontWeight: '900', color: DS.textPrimary },
+  // Six chips per row now (3 and 5 were added), so they're tighter than the old
+  // four — still a comfortable target, just less air around the number.
+  runChips: { flexDirection: 'row', gap: 7, marginBottom: 8 },
+  runChip: { flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  runChipNum: { fontSize: 21, fontWeight: '900', color: DS.textPrimary },
+  // "Other runs" sheet — 0–7 wraps onto two rows of four.
+  runChipsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  runChipGrid: {
+    width: '22.6%', backgroundColor: DS.surfaceHigh, borderRadius: 14,
+    paddingVertical: 15, alignItems: 'center',
+  },
 
   // Wicket-type chips (3-per-row grid, same look as the +runs popup)
   wktChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 },
