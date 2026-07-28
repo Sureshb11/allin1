@@ -70,8 +70,6 @@ function initials(name) {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 }
 
-const AVATAR_RANK = (DS) => [DS.lime, '#434656', DS.blueDeep];
-
 // ── Boards ───────────────────────────────────────────────────────────────────
 // One "Rankings" screen was really a batting board with a generic name: it
 // ranked by runs only, so the league's leading wicket-taker sat at #6 and its
@@ -121,105 +119,50 @@ const sortFor = (board) => (a, b) => {
   return diff || (b.matches || 0) - (a.matches || 0) || a.name.localeCompare(b.name);
 };
 
-function PlayerCard({ item, rank, board, cols, isMe }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
-  const isTop = rank < 3;
-  const rankColor = isTop ? MEDAL[rank] : DS.border;
-  const avColor = AVATAR_RANK(DS)[rank] || DS.blue;
+// ── One competitor = one row ─────────────────────────────────────────────────
+// Was a tall card carrying a five-column stat block, so three fitted a screen
+// and the number the board actually ranks by was one of five equal-weight
+// figures. Same fix as the Scout board: identity on the left, the ranked value
+// alone on the right, everything else demoted to a meta line.
+function RankRow({ item, rank, board, cols, isMe, isTeam }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  const medal = rank < 3 ? MEDAL[rank] : null;
+
+  // The figure this board sorts on — the reason the row is where it is.
+  const headline = rankValue(item, board);
+  const meta = isTeam
+    ? [`${item.matches} matches`, `${item.wins}W`, `${item.losses}L`].filter(Boolean).join(' · ')
+    : (cols || [
+        { label: 'runs', value: (item.runs || 0).toLocaleString() },
+        { label: 'avg', value: item.average },
+        { label: 'SR', value: item.strikeRate },
+        { label: 'wkts', value: item.wickets },
+      ]).map((c) => `${c.value} ${c.label}`).join(' · ');
+
   return (
-    <View style={[
-      styles.card,
-      isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-      isMe && styles.cardMe,
-    ]}>
-      <View style={styles.cardHeader}>
-        <View style={styles.avatarWrap}>
-          <HexAvatar round size={42} color={avColor}>
-            <Text style={[styles.avatarText, { color: '#fff' }]}>{initials(item.name)}</Text>
-          </HexAvatar>
-          <View style={styles.rankBadge}>
-            <Text style={styles.rankText}>{rank + 1}</Text>
-          </View>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardName}>{item.name}{isMe ? '  ·  You' : ''}</Text>
-          <Text style={styles.cardSub}>{item.matches} matches</Text>
-        </View>
-      </View>
-      <View style={styles.statRow}>
-        {(cols || [
-        // Cricket columns. "100s" lived here and read 0 for everyone — nothing
-        // computed it. Highest score carries actual information in the same
-        // slot today, and the economy board needs a bowling rate to look at.
-        { label: 'Runs', value: (item.runs || 0).toLocaleString(), icon: 'cricket' },
-        { label: 'Avg', value: item.average, icon: 'numeric' },
-        { label: 'SR', value: item.strikeRate, icon: 'lightning-bolt' },
-        board.id === 'wickets' || board.id === 'economy'
-          ? { label: 'Econ', value: item.economy ?? '—', icon: 'gauge' }
-          : { label: 'HS', value: item.highestScore ?? '—', icon: 'star-circle-outline' },
-        { label: 'Wkts', value: item.wickets, icon: 'weather-windy' }]).
-        map((s) =>
-        <View key={s.label} style={styles.statItem}>
-            <Icon name={s.icon} size={16} color={DS.blue} />
-            <Text style={styles.statVal}>{s.value}</Text>
-            <Text style={styles.statLbl}>{s.label}</Text>
-          </View>
-        )}
-      </View>
-    </View>);
-
-}
-
-function TeamCard({ item, rank }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
-  const pct = item.winRate;
-  const isTop = rank < 3;
-  const rankColor = isTop ? MEDAL[rank] : DS.border;
-  const avColor = AVATAR_RANK(DS)[rank] || DS.blue;
-  return (
-    <View style={[styles.card, isTop && { borderColor: rankColor, shadowColor: rankColor, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 }]}>
-      <View style={styles.cardHeader}>
-        <View style={styles.avatarWrap}>
-          <HexAvatar round size={42} color={avColor}>
-            <Text style={[styles.avatarText, { color: '#fff' }]}>{initials(item.name)}</Text>
-          </HexAvatar>
-          <View style={styles.rankBadge}>
-            <Text style={styles.rankText}>{rank + 1}</Text>
-          </View>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardName}>{item.name}</Text>
-          <Text style={styles.cardSub}>{item.matches} matches played</Text>
-        </View>
-        <View style={styles.winRatePill}>
-          <Text style={styles.winRatePillText}>{pct}%</Text>
-          <Text style={styles.winRatePillSub}>Win</Text>
-        </View>
+    <View style={[styles.row, isMe && styles.rowMe]}>
+      <View style={[styles.rankBox, medal && { borderColor: medal }]}>
+        <Text style={[styles.rankNum, medal && { color: medal }]}>{rank + 1}</Text>
       </View>
 
-      {/* Win/Loss bar */}
-      <View style={styles.ratioBar}>
-        <View style={[styles.ratioFill, { flex: item.wins || 1, backgroundColor: DS.success }]}>
-          <Text style={styles.ratioFillText}>{item.wins}W</Text>
-        </View>
-        <View style={[styles.ratioFill, { flex: item.losses || 1, backgroundColor: DS.live }]}>
-          <Text style={styles.ratioFillText}>{item.losses}L</Text>
-        </View>
+      <HexAvatar round size={34} color={medal || DS.surfaceHighest}>
+        <Text style={styles.avatarText}>{initials(item.name)}</Text>
+      </HexAvatar>
+
+      <View style={styles.rowMain}>
+        <Text style={styles.rowName} numberOfLines={1}>
+          {item.name}{isMe ? '  ·  You' : ''}
+        </Text>
+        <Text style={styles.rowMeta} numberOfLines={1}>{meta}</Text>
       </View>
 
-      <View style={styles.statRow}>
-        {[
-        { label: 'Wins', value: item.wins, color: DS.success },
-        { label: 'Losses', value: item.losses, color: DS.live },
-        { label: 'Runs', value: (item.totalRuns || 0).toLocaleString(), color: DS.lime },
-        { label: 'Wickets', value: item.totalWickets, color: DS.blue }].
-        map((s) =>
-        <View key={s.label} style={styles.statItem}>
-            <Text style={[styles.statVal, { color: s.color }]}>{s.value}</Text>
-            <Text style={styles.statLbl}>{s.label}</Text>
-          </View>
-        )}
+      <View style={styles.headlineBox}>
+        <Text style={styles.headlineVal} numberOfLines={1}>{headline}</Text>
+        <Text style={styles.headlineLbl} numberOfLines={1}>{board.label}</Text>
       </View>
-    </View>);
-
+    </View>
+  );
 }
 
 export default function StatisticsScreen({ navigation, inline, pagerGesture }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
@@ -259,6 +202,14 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
     return pagerGesture ? g.blocksExternalGesture(pagerGesture) : g;
   }, [pagerGesture, boardScroll, boardOffset, boardStart, boardMax]);
   const scrollBoardTo = (x) => { boardOffset.value = x; boardScroll.current?.scrollTo?.({ x, animated: true }); };
+  // Each chip reports its own x, so scrolling one into view doesn't depend on
+  // every chip being the same width (they aren't — "Runs" vs "Strike rate").
+  const chipX = useRef({});
+  const scrollChipIntoView = (idx) => {
+    const x = chipX.current[idx];
+    if (x == null) return;
+    scrollBoardTo(Math.max(0, x - 40));
+  };
   // "Find me" plumbing: scroll to the logged-in player's row on the board.
   const meUser = useCurrentUser();
   const myId = meUser?.id;
@@ -324,18 +275,31 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
     .sort(sortFor(board))
     .map((item, i) => ({ ...item, standing: i }));
   const data = ranked.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  // How many competitors each board would actually rank. The rate boards have a
+  // qualification threshold, so "Economy" can hold a fraction of "Runs" — the
+  // chip now says so instead of the count being a surprise after you tap it.
+  const boardCounts = useMemo(() => {
+    const out = {};
+    boards.forEach((b) => { out[b.id] = rawData.filter(b.qualify).length; });
+    return out;
+  }, [boards, rawData]);
   // Where the logged-in player sits on the current board (pre-search, so it's the
   // real standing). Powers the "You're #N — find me" banner and row highlight.
   const myStanding = tab === 'Players' && myId ? ranked.find((r) => r.id === myId) : null;
-  const renderCard = tab === 'Players' ?
-  ({ item }) => <PlayerCard item={item} rank={item.standing} board={board} isMe={item.id === myId}
-      // Non-cricket: one column per ranking board (Goals, Yellows …) plus
-      // matches, instead of cricket's Runs/Avg/SR/Wkts.
-      cols={sportBoards.length ? [
-        { label: 'Matches', value: item.matches ?? 0, icon: 'calendar-check' },
-        ...sportBoards.map((b) => ({ label: b.label, value: rankValue(item, b), icon: 'chart-bar' })),
-      ] : null} /> :
-  ({ item }) => <TeamCard item={item} rank={item.standing} />;
+  const renderCard = ({ item }) => (
+    <RankRow
+      item={item}
+      rank={item.standing}
+      board={board}
+      isMe={item.id === myId}
+      isTeam={tab !== 'Players'}
+      // Non-cricket: one entry per ranking board (Goals, Yellows …) plus
+      // matches, instead of cricket's runs/avg/SR/wkts.
+      cols={tab === 'Players' && sportBoards.length ? [
+        { label: 'matches', value: item.matches ?? 0 },
+        ...sportBoards.map((b) => ({ label: b.label.toLowerCase(), value: rankValue(item, b) })),
+      ] : null} />
+  );
 
   const scrollToMe = () => scrollRef.current?.scrollTo({ y: Math.max(0, myRowY.current - 12), animated: true });
 
@@ -437,12 +401,18 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                   onContentSizeChange={(w) => { boardContentW.current = w; recomputeBoardMax(); }}>
                   {boards.map((b, i) => {
                     const on = b.id === board.id;
+                    const n = boardCounts[b.id] ?? 0;
                     return (
                       <TouchableOpacity key={b.id} activeOpacity={0.85}
-                        style={[styles.boardChip, on && styles.boardChipActive]}
-                        onPress={() => { handleBoardChange(b.id); scrollBoardTo(Math.max(0, i * 92 - 40)); }}>
+                        style={[styles.boardChip, on && styles.boardChipActive, !n && !on && styles.boardChipEmpty]}
+                        // Measured, not a fixed 92px guess: "Runs" and "Strike rate"
+                        // are nowhere near the same width, so the selected chip
+                        // landed off-centre or clipped.
+                        onLayout={(e) => { chipX.current[i] = e.nativeEvent.layout.x; }}
+                        onPress={() => { handleBoardChange(b.id); scrollChipIntoView(i); }}>
                         <Icon name={b.icon} size={13} color={on ? DS.onLime : DS.textMuted} />
                         <Text style={[styles.boardChipText, on && styles.boardChipTextActive]}>{b.label}</Text>
+                        <Text style={[styles.boardChipCount, on && styles.boardChipCountActive]}>{n}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -455,18 +425,33 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
               </Text>
             </View>
             {data.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingVertical: 48, gap: 8 }}>
-                <Icon name="chart-bar" size={44} color={DS.surfaceHighest} />
-                <Text style={{ color: DS.textMuted, fontSize: 14 }}>No {tab.toLowerCase()} ranked yet</Text>
+              <View style={styles.empty}>
+                <Icon name={board.icon || 'chart-bar'} size={44} color={DS.surfaceHighest} />
+                <Text style={styles.emptyTitle}>
+                  {searchQuery.trim()
+                    ? 'No one matches that search'
+                    : `No ${tab.toLowerCase()} ranked by ${board.label.toLowerCase()} yet`}
+                </Text>
+                <Text style={styles.emptySub}>
+                  {searchQuery.trim()
+                    ? 'Try a shorter search, or clear it.'
+                    : board.note
+                      ? `This board needs ${board.note} — nobody has reached that yet.`
+                      : 'Play a match and the board fills in.'}
+                </Text>
               </View>
             ) : (
               data.map((item) => (
                 item.id === myId ? (
                   <View key={item.id} onLayout={(e) => { myRowY.current = e.nativeEvent.layout.y; }}>
                     {renderCard({ item })}
+                    <View style={styles.sep} />
                   </View>
                 ) : (
-                  <Fragment key={item.id}>{renderCard({ item })}</Fragment>
+                  <Fragment key={item.id}>
+                    {renderCard({ item })}
+                    <View style={styles.sep} />
+                  </Fragment>
                 )
               ))
             )}
@@ -479,6 +464,29 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
 }
 
 const makeStyles = (DS) => StyleSheet.create({
+  /* ── Compact rank rows (replaced the tall stat cards) ── */
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
+  // The logged-in player's own row, so "Find me" lands somewhere obvious.
+  rowMe: { backgroundColor: DS.lime + '12', borderRadius: 10, paddingHorizontal: 8, marginHorizontal: -8 },
+  sep: { height: 1, backgroundColor: DS.faint, marginLeft: 74 },
+  rankBox: {
+    width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: DS.faint,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  rankNum: { fontSize: 12, fontWeight: '900', color: DS.textVariant },
+  avatarText: { fontSize: 12, fontWeight: '900', color: DS.onLime },
+  rowMain: { flex: 1, minWidth: 0, gap: 2 },
+  rowName: { fontSize: 15, fontWeight: '700', color: DS.textPrimary, letterSpacing: -0.2 },
+  rowMeta: { fontSize: 11.5, color: DS.textMuted, fontWeight: '500' },
+  // The one figure this board sorts on, given the weight it earns.
+  headlineBox: { alignItems: 'flex-end', minWidth: 56 },
+  headlineVal: { fontSize: 18, fontWeight: '900', color: DS.lime, letterSpacing: -0.4 },
+  headlineLbl: { fontSize: 9.5, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
+
+  empty: { alignItems: 'center', paddingVertical: 56, paddingHorizontal: 32, gap: 6 },
+  emptyTitle: { fontSize: 15, fontWeight: '700', color: DS.textVariant, marginTop: 10, textAlign: 'center' },
+  emptySub: { fontSize: 12.5, color: DS.textMuted, textAlign: 'center', lineHeight: 18 },
+
   container: { flex: 1, backgroundColor: DS.bg },
 
   hero: {
@@ -499,6 +507,9 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: 'transparent', borderWidth: 1.5, borderColor: DS.border,
   },
   boardChipActive: { backgroundColor: DS.lime, borderColor: DS.lime },
+  boardChipEmpty: { opacity: 0.45 },
+  boardChipCount: { fontSize: 10.5, fontWeight: '800', color: DS.textMuted },
+  boardChipCountActive: { color: DS.onLime, opacity: 0.75 },
   boardChipText: { fontSize: 12, fontWeight: '800', color: DS.textMuted },
   boardChipTextActive: { color: DS.onLime },
   boardMeta: { fontSize: 11, color: DS.textMuted, marginHorizontal: 16, marginTop: 8, marginBottom: 10 },
@@ -514,11 +525,6 @@ const makeStyles = (DS) => StyleSheet.create({
 
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
 
-  card: {
-    backgroundColor: DS.surface, borderRadius: 16,
-    borderWidth: 1, borderColor: DS.border,
-  },
-  cardMe: { borderColor: DS.lime, borderWidth: 1.5, backgroundColor: DS.lime + '0f' },
 
   findMe: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -527,48 +533,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   findMeText: { flex: 1, fontSize: 13, fontWeight: '800', color: DS.onLime, letterSpacing: 0.2 },
   findMeJump: { fontSize: 12, fontWeight: '800', color: DS.onLime, textDecorationLine: 'underline' },
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, paddingBottom: 8 },
-  avatarWrap: { position: 'relative' },
-  rankBadge: {
-    position: 'absolute', top: -4, left: -4,
-    width: 24, height: 24, borderRadius: 12,
-    backgroundColor: DS.surfaceHighest,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: DS.surface
-  },
-  rankText: { fontSize: 11, fontWeight: '900', color: DS.textVariant },
-  avatar: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 16, fontWeight: '900' },
-  cardName: { fontSize: 15, fontWeight: '800', color: DS.textPrimary },
-  cardSub: { fontSize: 12, color: DS.textMuted, marginTop: 2, fontWeight: '500' },
 
-  winRatePill: {
-    backgroundColor: DS.success + '26', borderRadius: 12,
-    paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center'
-  },
-  winRatePillText: { fontSize: 16, fontWeight: '900', color: DS.success, fontVariant: ['tabular-nums'] },
-  winRatePillSub: { fontSize: 9, color: DS.success, fontWeight: '700' },
 
-  ratioBar: {
-    flexDirection: 'row', height: 14, overflow: 'hidden',
-    marginHorizontal: 16, marginBottom: 8, borderRadius: 9,
-    borderWidth: 1, borderColor: DS.border
-  },
-  ratioFill: { justifyContent: 'center', alignItems: 'center', minWidth: 24 },
-  ratioFillText: { fontSize: 9, fontWeight: '800', color: DS.bg },
 
-  statRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    paddingVertical: 8, paddingHorizontal: 10,
-    backgroundColor: 'transparent', gap: 8,
-    borderBottomLeftRadius: 18, borderBottomRightRadius: 18
-  },
-  statItem: {
-    flex: 1, alignItems: 'center', gap: 4,
-    backgroundColor: DS.surfaceHigh,
-    paddingVertical: 8, borderRadius: 12,
-    borderWidth: 1, borderColor: DS.faint
-  },
-  statVal: { fontSize: 14, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
-  statLbl: { fontSize: 9, color: DS.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }
 });
