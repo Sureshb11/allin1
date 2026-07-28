@@ -9,6 +9,11 @@ import legendsApi from '../services/LegendsApi';
 
 const AVATAR_KEY = '@ll_avatar';
 const NAME_KEY = '@ll_name';
+// The id has to survive a cold start too. Hydrating only name+avatar left the
+// cached user id-less until /users/me answered, and screens that ask "is this
+// mine?" got a confident no in the meantime — your own Scout listing offered
+// you a Connect button. If that request failed, it never corrected.
+const ID_KEY = '@ll_uid';
 
 let cache = null;                 // { id, name, avatarUrl }
 const listeners = new Set();
@@ -23,7 +28,7 @@ export function getCurrentUser() {
 // visible to the next login (this made spectators look like the scorer).
 export function clearCurrentUser() {
   cache = null;
-  AsyncStorage.multiRemove([AVATAR_KEY, NAME_KEY]).catch(() => {});
+  AsyncStorage.multiRemove([AVATAR_KEY, NAME_KEY, ID_KEY]).catch(() => {});
   emit();
 }
 
@@ -46,6 +51,7 @@ export async function loadCurrentUser(force = false) {
     };
     AsyncStorage.setItem(AVATAR_KEY, cache.avatarUrl || '');
     AsyncStorage.setItem(NAME_KEY, cache.name || '');
+    AsyncStorage.setItem(ID_KEY, cache.id || '');
     emit();
   }
   return cache;
@@ -59,8 +65,14 @@ export function useCurrentUser() {
     if (cache) setUser(cache);
     else {
       // Instant hydrate from storage, then refresh from the API.
-      Promise.all([AsyncStorage.getItem(AVATAR_KEY), AsyncStorage.getItem(NAME_KEY)]).then(([av, nm]) => {
-        if (!cache && (av || nm)) setUser((prev) => prev || { avatarUrl: av || null, name: nm || '' });
+      Promise.all([
+        AsyncStorage.getItem(AVATAR_KEY),
+        AsyncStorage.getItem(NAME_KEY),
+        AsyncStorage.getItem(ID_KEY),
+      ]).then(([av, nm, id]) => {
+        if (!cache && (av || nm || id)) {
+          setUser((prev) => prev || { id: id || undefined, avatarUrl: av || null, name: nm || '' });
+        }
       });
       loadCurrentUser();
     }

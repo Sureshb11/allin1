@@ -433,7 +433,11 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
   const handleConnect = async (postId) => {
     const res = await legendsApi.connectLookingFor(postId);
-    if (res.success) loadConnections();
+    if (!res.success) {
+      showToast(res.error || 'Could not send that request', 'error');
+      return;
+    }
+    loadConnections();
   };
   const handleRespond = async (connId, name, action) => {
     const res = await legendsApi.respondLookingForConnection(connId, action);
@@ -572,7 +576,12 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   // The one action a listing offers right now, shared by the row and the detail
   // sheet so the two can never show different next steps for the same listing.
   const actionFor = (item, big = false) => {
-    const isMine = item.postedById && item.postedById === myId;
+    // Until the profile resolves we can't tell whose listing this is, and every
+    // action below hinges on that. Offering Connect on a guess is how your own
+    // posting ended up with a Connect button — and the server rejects it, so
+    // the tap did nothing.
+    if (!myId) return null;
+    const isMine = item.postedById === myId;
     const myReq = myReqFor(item.id);
     const ctaStyle = big ? [styles.rowCta, styles.ctaWide, { backgroundColor: P.control }] : [styles.rowCta, { backgroundColor: P.control }];
     const ghostStyle = big ? [styles.rowGhostBtn, styles.ctaWide] : styles.rowGhostBtn;
@@ -623,7 +632,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     const descLines = (item.description || '').split('\n');
     const whenText = descLines.find((l) => l.startsWith('When: '))?.slice(6);
     const bodyDesc = descLines.filter((l) => !l.startsWith('When: ')).join('\n').trim();
-    const isMine = item.postedById && item.postedById === myId;
+    const isMine = !!myId && item.postedById === myId;
     const myReq = myReqFor(item.id);
 
     // Line 2 — who, where, when. Whatever's known, in that order.
@@ -864,7 +873,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           const lines = (detailItem.description || '').split('\n');
           const whenText = lines.find((l) => l.startsWith('When: '))?.slice(6);
           const notes = lines.filter((l) => !l.startsWith('When: ')).join('\n').trim();
-          const isMine = detailItem.postedById && detailItem.postedById === myId;
+          const isMine = !!myId && detailItem.postedById === myId;
           const phone = (detailItem.contactInfo || '').trim();
           const facts = [
             ['map-marker-outline', 'Where', detailItem.location],
