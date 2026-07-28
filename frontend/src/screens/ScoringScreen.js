@@ -421,6 +421,19 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const canUndo = !matchComplete && (history.length > 0 || inningsHasBalls);
   const crr = ballsBowled > 0 ? (currentScore.runs / (ballsBowled / 6)).toFixed(2) : '0.00';
   const rrr = isInnings2 && ballsLeft > 0 ? (need / (ballsLeft / 6)).toFixed(2) : null;
+  // Where this innings lands if the current rate holds. 1st innings only: in a
+  // chase the target is what matters, and it already sits in the chase pill.
+  const projected = !isInnings2 && ballsBowled > 0
+    ? Math.round(currentScore.runs + (currentScore.runs / ballsBowled) * (totalOvers * 6 - ballsBowled))
+    : null;
+
+  // Strike rate / economy — the two figures a captain asks for mid-over, and the
+  // only ones the crease panel was missing.
+  // (economy rides along in figFor below, where the bowler's figures are built)
+  const srOf = (id) => {
+    const s = batStats[id];
+    return s?.balls ? ((s.runs / s.balls) * 100).toFixed(0) : null;
+  };
 
   // countsAsBall=false for penalty runs — they're a team award, not a delivery,
   // so the over/ball count must not advance.
@@ -1196,7 +1209,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // Real bowler figures: Overs - Maidens - Runs - Wickets (O-M-R-W).
   const figFor = (id) => {
     const b = bowlStats[id] || { balls: 0, runs: 0, wickets: 0, maidens: 0 };
-    return `${Math.floor(b.balls / 6)}.${b.balls % 6} - ${b.maidens} - ${b.runs} - ${b.wickets}`;
+    // Economy trails the O-M-R-W, so every place that shows a bowler's figures
+    // (crease panel, previous bowler, over-complete sheet) gets it for free.
+    const econ = b.balls ? (b.runs / (b.balls / 6)).toFixed(2) : null;
+    return `${Math.floor(b.balls / 6)}.${b.balls % 6} - ${b.maidens} - ${b.runs} - ${b.wickets}${econ ? ` · ${econ}` : ''}`;
   };
   const bowlerStats = currentBowler ? figFor(currentBowler.id) : '—';
 
@@ -1418,7 +1434,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           </View>
           <View style={styles.sbRatesCol}>
             <View style={styles.sbRates}>
-              {/* RRR now lives in the chase pill (left); keep CRR here always. */}
+              {/* RRR now lives in the chase pill (left); keep CRR here always.
+                  Projected is 1st-innings only — in a chase the target is the
+                  number that matters, and it's already in the pill. */}
+              {projected != null &&
+                <Text style={styles.sbRate}>PROJ <Text style={styles.sbRateNum}>{projected}</Text></Text>}
               <Text style={styles.sbRate}>CRR <Text style={styles.sbRateNumCrr}>{crr}</Text></Text>
             </View>
             <Text style={styles.sbScorecardLink}>Scorecard ›</Text>
@@ -1488,7 +1508,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             </Text>
             <Text style={[styles.creaseFig, styles.creaseFigLit]}>
               {striker ? (() => { const st = batStats[striker.id] || { runs: 0, balls: 0, fours: 0, sixes: 0 };
-                return `${st.runs} (${st.balls})  ${st.fours}×4 ${st.sixes}×6`; })() : '—'}
+                const sr = srOf(striker.id);
+                return `${st.runs} (${st.balls})${sr ? ` · SR ${sr}` : ''}  ${st.fours}×4 ${st.sixes}×6`; })() : '—'}
             </Text>
           </View>
 
@@ -1497,7 +1518,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             <Text style={styles.creaseName} numberOfLines={1}>{nonStriker?.name || '—'}</Text>
             <Text style={styles.creaseFig}>
               {nonStriker ? (() => { const st = batStats[nonStriker.id] || { runs: 0, balls: 0 };
-                return `${st.runs} (${st.balls})`; })() : ''}
+                const sr = srOf(nonStriker.id);
+                return `${st.runs} (${st.balls})${sr ? ` · SR ${sr}` : ''}`; })() : ''}
             </Text>
           </View>
 
@@ -1835,7 +1857,9 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                     <Text style={[styles.ocRowName, i === 0 && styles.ocRowNameStrike]} numberOfLines={1}>
                       {p.name}{i === 0 ? ' *' : ''}
                     </Text>
-                    <Text style={styles.ocRowFig}>{s.runs} <Text style={styles.ocRowFigSub}>({s.balls})</Text></Text>
+                    <Text style={styles.ocRowFig}>
+                      {s.runs} <Text style={styles.ocRowFigSub}>({s.balls}){srOf(p.id) ? ` SR ${srOf(p.id)}` : ''}</Text>
+                    </Text>
                   </View>
                 );
               })}
@@ -2482,6 +2506,7 @@ const makeStyles = (DS) => StyleSheet.create({
   sbRates: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   sbRate: { fontSize: 11.5, fontWeight: '700', color: DS.textMuted },
   sbRateNumCrr: { color: DS.lime, fontWeight: '900' },
+  sbRateNum: { color: DS.textVariant, fontWeight: '900' },   // PROJ — quieter than CRR
   sbScorecardLink: { fontSize: 11.5, fontWeight: '800', color: DS.blue },
   // 2nd-innings chase pill: need · balls · RRR, loud.
   chaseStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginTop: 6, backgroundColor: DS.coral + '1f', borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4 },
