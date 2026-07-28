@@ -130,6 +130,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // scorer picks them once and that choice sticks for the innings.
   const [keeperPrompt, setKeeperPrompt] = useState(false); // caught behind → who's keeping?
   const [keeperId, setKeeperId] = useState(null);          // scorer-picked keeper for the bowling side
+  // Armed-but-not-recorded catcher — { kind: 'cb'|'keeper'|'fielder', name, id }.
+  // Same arm-then-confirm as the batter/bowler pickers: a wicket against the wrong
+  // fielder can only be taken back by undoing the whole delivery.
+  const [pendingCatcher, setPendingCatcher] = useState(null);
   const [newBatterFor, setNewBatterFor] = useState('striker'); // which crease slot the new batter fills
   // Tapping a name in the batsman/bowler pickers only ARMS the pick — it's committed
   // by the "Continue scoring" button. A single stray tap in a scrolling list used to
@@ -1248,6 +1252,22 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     return e.nextStrikerIs === 'survivor' ? `${survivor?.name || 'Not-out batter'} on strike` : 'New batter on strike';
   };
 
+  // ── CAUGHT — arm a catcher, then commit. The scorecard line the pick will write,
+  // so the confirm button can show what actually goes in the book.
+  const armCatcher = (pick) => { haptic.tick(); setPendingCatcher(pick); };
+  const catchNotation = (pick) => (
+    pick.kind === 'cb'
+      ? `c & b ${currentBowler?.name || 'bowler'}`
+      : `c ${pick.name} b ${currentBowler?.name || 'bowler'}`
+  );
+  const commitCatch = () => {
+    const pick = pendingCatcher;
+    if (!pick) return;
+    setCatchPrompt(false);
+    setPendingCatcher(null);
+    handleScore('out', 0, 'caught', 'striker', pick.name);
+  };
+
   // Put the other batter on strike. Only a correction — every normal change of ends
   // is applied by the ball itself — so it's deliberately not tied to a delivery: it
   // just re-seats the crease, which the crease effect persists like any other change.
@@ -2145,7 +2165,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                     const wt = type.replace(/ /g, '');
                     // Run-out → which batter is out; caught → who caught; retired → who.
                     if (wt === 'runout') openRunOut();
-                    else if (wt === 'caught') setCatchPrompt(true);
+                    else if (wt === 'caught') { setPendingCatcher(null); setCatchPrompt(true); }
                     else if (wt === 'retired') setRetiredPrompt(true);
                     else handleScore('out', 0, wt);
                   }}>
@@ -2520,7 +2540,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       </Modal>
 
       {/* ── CAUGHT — who took the catch? (c&b / keeper / fielder). Mandatory once
-          "caught" is chosen — pick the catcher to record the wicket. ── */}
+          "caught" is chosen. Tapping a name only ARMS the catcher — the wicket goes
+          down when the button below is pressed. A stray tap in a scrolling XI used
+          to record the wicket against the wrong fielder outright, and the only way
+          back was to undo the delivery. ── */}
       <Modal visible={catchPrompt} transparent animationType="slide" onRequestClose={() => {}}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
@@ -2528,22 +2551,25 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             <Text style={styles.modalTitle}>Who took the catch?</Text>
             <Text style={styles.modalSub}>Caught &amp; bowled, keeper, or a fielder</Text>
             {/* Caught & bowled — the bowler catches their own delivery */}
-            <TouchableOpacity style={styles.settingRow}
-              onPress={() => { setCatchPrompt(false); handleScore('out', 0, 'caught', 'striker', currentBowler?.name); }}>
+            <TouchableOpacity
+              style={[styles.settingRow, pendingCatcher?.kind === 'cb' && styles.settingRowPicked]}
+              onPress={() => armCatcher({ kind: 'cb', name: currentBowler?.name, id: currentBowler?.id })}>
               <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
                 <Icon name="cricket" size={16} color={DS.wicketText} />
               </View>
               <Text style={[styles.settingText, { flex: 1 }]}>Caught &amp; Bowled <Text style={styles.modalSub}>({currentBowler?.name})</Text></Text>
-              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+              {pendingCatcher?.kind === 'cb'
+                ? <Icon name="check-circle" size={18} color={DS.lime} />
+                : <Icon name="chevron-right" size={18} color={DS.textMuted} />}
             </TouchableOpacity>
             {/* Caught behind — the commonest catch of all, so it gets its own row
                 instead of a scroll through the XI. The keeper is filled in for the
                 scorer; only an XI that doesn't name one asks who's keeping. */}
-            <TouchableOpacity style={styles.settingRow}
+            <TouchableOpacity
+              style={[styles.settingRow, pendingCatcher?.kind === 'keeper' && styles.settingRowPicked]}
               onPress={() => {
-                setCatchPrompt(false);
-                if (keeper) handleScore('out', 0, 'caught', 'striker', keeper.name);
-                else setKeeperPrompt(true);
+                if (keeper) armCatcher({ kind: 'keeper', name: keeper.name, id: keeper.id });
+                else { setCatchPrompt(false); setKeeperPrompt(true); }
               }}>
               <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
                 <Icon name="hand-back-left" size={16} color={DS.wicketText} />
@@ -2551,29 +2577,49 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <Text style={[styles.settingText, { flex: 1 }]}>
                 Caught Behind <Text style={styles.modalSub}>({keeper ? keeper.name : 'pick the keeper'})</Text>
               </Text>
-              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+              {pendingCatcher?.kind === 'keeper'
+                ? <Icon name="check-circle" size={18} color={DS.lime} />
+                : <Icon name="chevron-right" size={18} color={DS.textMuted} />}
             </TouchableOpacity>
             {/* Any fielder / keeper from the bowling XI (excluding the bowler) */}
             <ScrollView style={{ maxHeight: 260 }}>
-              {bowlingXI.filter((p) => p.id !== currentBowler?.id).map((p, i) => (
-                <TouchableOpacity key={i} style={styles.playerOption}
-                  onPress={() => { setCatchPrompt(false); handleScore('out', 0, 'caught', 'striker', p.name); }}>
-                  <View style={styles.playerAvatar}>
-                    <Text style={styles.playerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
-                  {p.id === keeper?.id && <Text style={styles.settingHint}>WK</Text>}
-                  <Icon name="chevron-right" size={18} color={DS.textMuted} />
-                </TouchableOpacity>
-              ))}
+              {bowlingXI.filter((p) => p.id !== currentBowler?.id).map((p, i) => {
+                const picked = pendingCatcher?.kind === 'fielder' && pendingCatcher.id === p.id;
+                return (
+                  <TouchableOpacity key={i}
+                    style={[styles.playerOption, picked && styles.playerOptionPicked]}
+                    onPress={() => armCatcher({ kind: 'fielder', name: p.name, id: p.id })}>
+                    <View style={styles.playerAvatar}>
+                      <Text style={styles.playerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <Text style={[styles.playerName, { flex: 1 }, picked && styles.playerNamePicked]}>{p.name}</Text>
+                    {p.id === keeper?.id && <Text style={styles.settingHint}>WK</Text>}
+                    {picked
+                      ? <Icon name="check-circle" size={18} color={DS.lime} />
+                      : <Icon name="chevron-right" size={18} color={DS.textMuted} />}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
+            {/* Says exactly what goes in the book — "c Maxwell b Starc" — so the
+                scorer confirms the scorecard line, not just a name. */}
+            <TouchableOpacity
+              style={[styles.confirmBtn, !pendingCatcher && styles.confirmBtnOff]}
+              disabled={!pendingCatcher}
+              onPress={commitCatch}>
+              <Text style={[styles.confirmBtnText, !pendingCatcher && styles.confirmBtnTextOff]}>
+                {pendingCatcher ? `Confirm wicket · ${catchNotation(pendingCatcher)}` : 'Pick who took the catch'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
       {/* ── CAUGHT BEHIND — only when the XI doesn't name a keeper (or names more
           than one). Asked once: the pick is remembered for the rest of the innings,
-          so every later caught behind records straight away. ── */}
+          so every later caught behind arms straight away. This sheet only answers
+          "who has the gloves on" — it hands back to the catch sheet, where the
+          wicket is confirmed like any other catch. ── */}
       <Modal visible={keeperPrompt} transparent animationType="slide" onRequestClose={() => {}}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
@@ -2586,7 +2632,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                   onPress={() => {
                     setKeeperId(p.id);
                     setKeeperPrompt(false);
-                    handleScore('out', 0, 'caught', 'striker', p.name);
+                    armCatcher({ kind: 'keeper', name: p.name, id: p.id });
+                    setCatchPrompt(true);
                   }}>
                   <View style={styles.playerAvatar}>
                     <Text style={styles.playerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
