@@ -15,6 +15,17 @@ import { BRAND_NAME, BRAND_TAGLINE } from "../components/BrandLogo";
 
 const { width } = Dimensions.get('window');
 
+// Team runs off an over, read back from its chip labels (incl. extras). Display
+// only — the server computes its own over totals. Shared by the THIS OVER tally
+// and the over-complete sheet so the two can't disagree.
+const runsInOver = (balls) => balls.reduce((acc, b) => {
+  if (b === 'WD' || b === 'NB' || b === 'B' || b === 'LB') return acc + 1;
+  if (b === 'P5') return acc + 5;
+  if (b === '·' || b === 'W') return acc;
+  const n = parseInt(b, 10);   // '2wd','3nb','2b','3lb', or plain runs
+  return isNaN(n) ? acc : acc + n;
+}, 0);
+
 
 
 
@@ -105,6 +116,9 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // innings/match, and retiring a batter out (a wicket) vs hurt (not out).
   const [pendingEndReason, setPendingEndReason] = useState(null);
   const [pendingRetireKind, setPendingRetireKind] = useState(null);   // 'hurt' | 'out'
+  // Between-overs break: a snapshot of the over that just closed (its chips can't
+  // be read live — currentOver is cleared the moment the over ends).
+  const [overComplete, setOverComplete] = useState(null);
   // A wicket on the LAST ball of an over: the ends change, but only AFTER the new
   // batter walks in — so the not-out batter is on strike next over. We defer that
   // swap until the replacement is picked (see the New Batsman modal).
@@ -475,6 +489,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // Match's over — never leave the bowler picker (or any prompt) hanging.
     setShowBowlerModal(false); setMustPickBowler(false);
     setShowPlayerModal(false);
+    setOverComplete(null);   // no between-overs break when there is no next over
     const scoreStr = `${finalScore.runs}/${finalScore.wickets} (${finalScore.overs}.${finalScore.balls})`;
     // The match ends during the 2nd innings, so battingTeamId is the chasing side —
     // write its own summary field, not a hardcoded score2.
@@ -529,6 +544,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // the over-ending ball drops us mid-over (no next bowler needed), and undoing a
     // wicket puts the dismissed batter back (no new batsman needed).
     setMustPickBowler(false);
+    setOverComplete(null);   // back inside the over — the break no longer applies
     // No snapshot for this ball — it was scored before this session (a resume
     // clears the in-memory stack). The server has already deleted the ball, so
     // rebuild every figure from its live-state projection instead. This is what
@@ -753,8 +769,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // ── Real per-player figures (striker runs/balls, bowler O-M-R-W) ──
     // Runs off the bat go to the striker; runs "charged" to the bowler are bat
     // runs + wides + no-ball penalty (byes/leg-byes/penalty are NOT charged).
+    // Hoisted: the over-complete sheet below needs what this ball cost the bowler,
+    // and bowlStats' own overRuns tally is reset the moment the over closes.
+    let charged = 0;
     {
-      let batRuns = 0, batFaced = 0, isFour = 0, isSix = 0, charged = 0, tookWkt = 0;
+      let batRuns = 0, batFaced = 0, isFour = 0, isSix = 0, tookWkt = 0;
       const bowlerLegal = typeof value === 'number' || value === 'bye' || value === 'legbye' || value === 'out';
       if (typeof value === 'number') { batRuns = value; batFaced = 1; isFour = value === 4 ? 1 : 0; isSix = value === 6 ? 1 : 0; charged = value; }
       else if (value === 'wide') { charged = 1 + addRuns; }
@@ -807,7 +826,25 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       // last over bowled, all out, or the chase (innings 2) is already won.
       const chaseWon = isInnings2 && newScore.runs >= target;
       if (newScore.overs < totalOvers && newScore.wickets < 10 && !chaseWon) {
-        setMustPickBowler(true); setShowBowlerModal(true);
+        // Break between overs: show what just happened before asking for the next
+        // bowler. "Start next over" in the sheet opens the picker. Anything the
+        // sheet can read from live state (score, spell figures, the crease) is
+        // read at render — only the over's own chips have to be snapshotted,
+        // because currentOver is cleared the instant the over closes.
+        const bowlerOverRuns = currentBowler
+          ? (bowlStats[currentBowler.id]?.overRuns || 0) + charged
+          : 0;
+        setOverComplete({
+          number: newScore.overs,
+          balls: newOver,
+          runs: runsInOver(newOver),
+          wickets: newOver.filter((b) => b === 'W').length,
+          bowlerId: currentBowler?.id || null,
+          bowlerName: currentBowler?.name || '',
+          bowlerOverRuns,
+          maiden: bowlerOverRuns === 0,
+        });
+        setMustPickBowler(true);
       }
     } else {
       setCurrentOver(newOver);
@@ -912,7 +949,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       setIsInnings2(true);
       setCurrentInningId(inn.data.id);
       setCurrentScore({ runs: 0, wickets: 0, overs: 0, balls: 0 });
-      setCurrentOver([]); setLastOverBalls([]); setBallCount(0); setHistory([]);
+      setCurrentOver([]); setLastOverBalls([]); setBallCount(0); setHistory([]); setOverComplete(null);
       // Fresh innings → reset per-player figures + bowling spell tracking + dismissals.
       setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setOutBatters([]); setRetiredBatters([]); setPendingCreaseSwap(false);
       setPnrStartRuns(0); setPnrBalls(0);   // fresh openers → new partnership
@@ -1080,6 +1117,14 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     closeBatterPicker();
   };
 
+  // Leave the between-overs break and go pick the next bowler. Also what the
+  // hardware back button does, so the sheet can't trap the scorer.
+  const startNextOver = () => {
+    haptic.tick();
+    setOverComplete(null);
+    setShowBowlerModal(true);
+  };
+
   const confirmBowler = () => {
     const p = pendingBowler;
     if (!p) return;
@@ -1138,16 +1183,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const shortRunAttempt = (lastChip === '2' || lastChip === '3') ? parseInt(lastChip, 10) : 0;
   const shortRunEligible = scoringReady && !matchComplete && !lastBallShort && shortRunAttempt >= 2;
 
-  // Display-only runs tally for the in-progress over (incl. extras) — derived
-  // from currentOver locally, same parsing as the end-of-over summary; never
-  // persisted, the server computes its own over totals.
-  const overRunsSoFar = displayOver.reduce((acc, b) => {
-    if (b === 'WD' || b === 'NB' || b === 'B' || b === 'LB') return acc + 1;
-    if (b === 'P5') return acc + 5;
-    if (b === '·' || b === 'W') return acc;
-    const n = parseInt(b, 10);   // '2wd','3nb','2b','3lb', or plain runs
-    return isNaN(n) ? acc : acc + n;
-  }, 0);
+  const overRunsSoFar = runsInOver(displayOver);
 
   // Real bowler figures: Overs - Maidens - Runs - Wickets (O-M-R-W).
   const figFor = (id) => {
@@ -1733,6 +1769,97 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                 eligibility at ball 0 and reopens this). */}
             <TouchableOpacity style={styles.modalClose} onPress={closeBowlerPicker}>
               <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── OVER COMPLETE — the between-overs break. Sits in front of the bowler
+          picker rather than replacing it: the scorer sees what the over cost
+          before choosing who bowls next. Suppressed while the New Batsman modal
+          is up (a wicket on the last ball opens both). ── */}
+      <Modal visible={!!overComplete && !showPlayerModal} transparent animationType="slide"
+        onRequestClose={startNextOver}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, styles.ocSheet]}>
+            <View style={styles.modalHandle} />
+
+            {/* Body scrolls, buttons below stay pinned — on a short screen the
+                cards would otherwise push "Start next over" out of reach. */}
+            <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.ocHead}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.ocTitle}>OVER {overComplete?.number} COMPLETE</Text>
+                <Text style={styles.ocSub}>
+                  <Text style={styles.ocSubNum}>{overComplete?.runs}</Text>
+                  {` run${overComplete?.runs === 1 ? '' : 's'}`}
+                  {overComplete?.wickets ? ` · ${overComplete.wickets} wicket${overComplete.wickets > 1 ? 's' : ''}` : ''}
+                </Text>
+              </View>
+              {overComplete?.maiden &&
+                <View style={styles.ocMaiden}><Text style={styles.ocMaidenText}>MAIDEN</Text></View>}
+            </View>
+
+            {/* The over, in the same chips as the live tracker. */}
+            <View style={styles.ocBalls}>
+              {(overComplete?.balls || []).map((b, i) => renderBallDot(b, i, false))}
+            </View>
+
+            {/* Who bowled it — this over's cost, then the full spell. */}
+            <View style={styles.ocCard}>
+              <View style={styles.ocRow}>
+                <PlayerAvatar name={overComplete?.bowlerName || '?'} size={26} />
+                <Text style={styles.ocRowName} numberOfLines={1}>{overComplete?.bowlerName || '—'}</Text>
+                <Text style={styles.ocRowFig}>{figFor(overComplete?.bowlerId)}</Text>
+              </View>
+              <Text style={styles.ocRowNote}>
+                {overComplete?.bowlerOverRuns} CHARGED THIS OVER · SPELL O-M-R-W
+              </Text>
+            </View>
+
+            {/* At the crease — ends have already changed, so this is who faces next. */}
+            <View style={styles.ocCard}>
+              {[striker, nonStriker].filter(Boolean).map((p, i) => {
+                const s = batStats[p.id] || { runs: 0, balls: 0 };
+                return (
+                  <View key={p.id} style={styles.ocRow}>
+                    <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} size={26} />
+                    <Text style={[styles.ocRowName, i === 0 && styles.ocRowNameStrike]} numberOfLines={1}>
+                      {p.name}{i === 0 ? ' *' : ''}
+                    </Text>
+                    <Text style={styles.ocRowFig}>{s.runs} <Text style={styles.ocRowFigSub}>({s.balls})</Text></Text>
+                  </View>
+                );
+              })}
+              <Text style={styles.ocRowNote}>
+                PARTNERSHIP {Math.max(0, currentScore.runs - pnrStartRuns)} ({pnrBalls})
+              </Text>
+            </View>
+
+            {/* Where the match stands — and, in a chase, what's left to do. */}
+            <View style={[styles.ocCard, styles.ocStateCard]}>
+              <View style={styles.ocRow}>
+                <Text style={styles.ocScore}>
+                  {currentScore.runs}/{currentScore.wickets}
+                  <Text style={styles.ocScoreSub}> ({currentScore.overs}.0)</Text>
+                </Text>
+                <Text style={styles.ocRowFig}>CRR <Text style={styles.ocRowFigLit}>{crr}</Text></Text>
+              </View>
+              {isInnings2 &&
+                <Text style={styles.ocChase}>
+                  Need <Text style={styles.ocChaseLit}>{need}</Text> off <Text style={styles.ocChaseLit}>{ballsLeft}</Text>
+                  {rrr ? <Text> · RRR <Text style={styles.ocChaseLit}>{rrr}</Text></Text> : null}
+                </Text>}
+            </View>
+            </ScrollView>
+
+            <TouchableOpacity style={styles.confirmBtn} onPress={startNextOver}>
+              <Text style={styles.confirmBtnText}>Start next over</Text>
+            </TouchableOpacity>
+            {/* The way out if the last ball was wrong — the over reopens on undo. */}
+            <TouchableOpacity style={styles.modalClose}
+              onPress={() => { setOverComplete(null); undoLastBall(); }}>
+              <Text style={styles.modalCloseText}>Undo last ball</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -2491,6 +2618,34 @@ const makeStyles = (DS) => StyleSheet.create({
     borderWidth: 1, borderColor: DS.lime, borderStyle: 'dashed',
   },
   squadAddText: { fontSize: 14, fontWeight: '800', color: DS.lime, letterSpacing: 0.3 },
+
+  // ── OVER COMPLETE sheet — the between-overs break ──
+  // Taller than the stock 60% sheet: this one carries the over, the bowler, the
+  // crease and the match state, and the two buttons sit below the scroll.
+  ocSheet: { maxHeight: '88%' },
+  ocHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  ocTitle: { fontSize: 17, fontWeight: '900', color: DS.textPrimary, letterSpacing: 1 },
+  ocSub: { fontSize: 13, fontWeight: '700', color: DS.textVariant, marginTop: 2 },
+  ocSubNum: { fontSize: 15, fontWeight: '900', color: DS.lime },
+  ocMaiden: { backgroundColor: DS.lime, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  ocMaidenText: { fontSize: 10, fontWeight: '900', color: DS.bg, letterSpacing: 0.9 },
+  ocBalls: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  ocCard: {
+    backgroundColor: DS.surfaceHigh, borderRadius: 12, padding: 11,
+    gap: 7, marginBottom: 8, borderWidth: 1, borderColor: DS.line,
+  },
+  ocStateCard: { borderLeftWidth: 3, borderLeftColor: DS.lime },
+  ocRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  ocRowName: { flex: 1, fontSize: 14, fontWeight: '600', color: DS.textPrimary },
+  ocRowNameStrike: { fontWeight: '900' },
+  ocRowFig: { fontSize: 13, fontWeight: '800', color: DS.textVariant },
+  ocRowFigSub: { fontSize: 11, fontWeight: '700', color: DS.textMuted },
+  ocRowFigLit: { color: DS.lime },
+  ocRowNote: { fontSize: 10.5, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.7 },
+  ocScore: { flex: 1, fontSize: 20, fontWeight: '900', color: DS.textPrimary, letterSpacing: -0.3 },
+  ocScoreSub: { fontSize: 13, fontWeight: '700', color: DS.textVariant, letterSpacing: 0 },
+  ocChase: { fontSize: 12.5, fontWeight: '700', color: DS.textVariant },
+  ocChaseLit: { fontWeight: '900', color: DS.lime },
 
   // "Continue scoring" — commits the armed pick in the batsman/bowler pickers.
   confirmBtn: {
