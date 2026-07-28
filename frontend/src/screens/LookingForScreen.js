@@ -1356,7 +1356,6 @@ const makeStyles = (DS) => StyleSheet.create({
   previewBox: { marginTop: 18, backgroundColor: DS.blueDeep + '10', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: DS.blueDeep + '22' },
   previewLabel: { fontSize: 10, fontWeight: '800', color: DS.blueDeep, letterSpacing: 1 },
   previewTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginTop: 4 },
-  row: { flexDirection: 'row' },
   // Same role as Connect — the primary commit — so the same near-black
   // treatment (fill applied inline from pav().control). Was DS.blueDeep, which
   // the theme folds to the accent green, and it cast a green shadow to match.
