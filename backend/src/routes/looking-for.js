@@ -121,7 +121,9 @@ async function roomFor(conn) {
   const room = await prisma.chatRoom.create({
     data: {
       name: listing?.title || 'Scout chat',
-      type: 'direct',
+      // 'scout', not 'direct' — tournament rooms also used 'direct', so the two
+      // were indistinguishable and the chat list couldn't group them apart.
+      type: 'scout',
       members: { create: [{ userId: conn.posterId }, { userId: conn.requesterId }] },
     },
   });

@@ -424,7 +424,7 @@ router.post('/:id/join-requests/:teamId/chat', authMiddleware, async (req, res) 
     const room = await prisma.chatRoom.create({
       data: {
         name: `${entry.team?.name || 'Team'} · ${entry.tournament?.name || 'Tournament'}`,
-        type: 'direct',
+        type: 'tournament',
         members: { create: [{ userId: organizerId }, { userId: requesterId }] },
       },
     });

@@ -6,20 +6,51 @@ import { authMiddleware } from '../lib/auth.js';
 const router = Router();
 
 // Get chat rooms for user
+// Every room you're in, newest activity first, with an unread count.
+//
+// This endpoint existed but nothing ever called it — there was no chat list
+// screen. Serving it raw wasn't enough to build one on: rooms came back in
+// membership order (so a dead room could sit above a live one), members carried
+// no avatar, and there was no unread signal at all despite ChatMember.lastReadAt
+// being right there.
 router.get('/rooms', authMiddleware, async (req, res) => {
   try {
+    const me = req.user.sub;
     const memberships = await prisma.chatMember.findMany({
-      where: { userId: req.user.sub },
+      where: { userId: me },
       include: {
         chatRoom: {
           include: {
             messages: { orderBy: { createdAt: 'desc' }, take: 1 },
-            members: { include: { user: { select: { id: true, firstName: true, lastName: true } } } },
+            members: { include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } } },
           },
         },
       },
     });
-    const rooms = memberships.map(m => m.chatRoom);
+
+    // Unread = messages someone else sent since you last opened the room. Counted
+    // per room because lastReadAt is per membership; a user is in a handful of
+    // rooms, so a bounded fan-out is cheaper than over-fetching every message.
+    const rooms = await Promise.all(memberships.map(async (m) => {
+      const unreadCount = await prisma.chatMessage.count({
+        where: {
+          chatRoomId: m.chatRoomId,
+          senderId: { not: me },
+          ...(m.lastReadAt ? { createdAt: { gt: m.lastReadAt } } : {}),
+        },
+      });
+      const last = m.chatRoom.messages[0] || null;
+      return {
+        ...m.chatRoom,
+        unreadCount,
+        lastMessage: last ? { text: last.text, createdAt: last.createdAt, senderId: last.senderId } : null,
+        lastActivityAt: last?.createdAt || m.chatRoom.createdAt,
+      };
+    }));
+
+    // Newest activity first — an empty room falls back to when it was created,
+    // so a just-opened conversation still surfaces at the top.
+    rooms.sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt));
     res.json({ rooms });
   } catch (e) {
     res.status(500).json({ error: e.message });

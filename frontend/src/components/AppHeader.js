@@ -37,6 +37,13 @@ export default function AppHeader({ onComposePress, showCompose = false, hidePro
           <View style={{ width: 24 }} />
         )}
 
+        {/* Chats — sits next to notifications because it's the same kind of
+            thing: something waiting for you. Shared header, so every screen
+            using it gets the entry point, not just Scout. */}
+        <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Chats')}>
+          <Icon name="chat-outline" size={22} color={DS.textPrimary} />
+        </TouchableOpacity>
+
         {/* Notifications */}
         <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Notification')}>
           <Icon name="bell-outline" size={22} color={DS.textPrimary} />

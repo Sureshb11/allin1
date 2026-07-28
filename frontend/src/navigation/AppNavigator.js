@@ -50,6 +50,7 @@ import CreateProductScreen from '../screens/CreateProductScreen';
 import ProductDetailScreen from '../screens/ProductDetailScreen';
 import TournamentsScreen from '../screens/TournamentsScreen';
 import LookingForScreen from '../screens/LookingForScreen';
+import ChatsScreen from '../screens/ChatsScreen';
 import CoachingScreen from '../screens/CoachingScreen';
 import UmpireScreen from '../screens/UmpireScreen';
 import TournamentDetailScreen from '../screens/TournamentDetailScreen';
@@ -399,6 +400,7 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
       options={{ headerShown: false }}
     />
     <Stack.Screen name="LookingFor" component={LookingForScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="Chats" component={ChatsScreen} options={{ headerShown: true, headerTitle: 'Chats' }} />
     <Stack.Screen name="Coaching" component={CoachingScreen} options={{ headerShown: false }} />
     <Stack.Screen name="Umpires" component={UmpireScreen} options={{ headerShown: false }} />
     <Stack.Screen name="TournamentDetail" component={TournamentDetailScreen} options={{ headerShown: false }} />
