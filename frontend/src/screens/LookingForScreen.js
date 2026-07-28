@@ -253,6 +253,14 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     },
   })).current;
   const [query, setQuery] = useState('');
+  // Mirrors `query` for callbacks that must not be rebuilt on every keystroke —
+  // same reason activeTypeRef exists. The focus effect holds stable deps, so it
+  // captured `query` from the first render and re-searched for "" on every
+  // return to the screen: your text stayed in the box, the results silently
+  // reset to the whole board.
+  const queryRef = useRef('');
+  queryRef.current = query;
+
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [myPhone, setMyPhone] = useState('');
@@ -395,7 +403,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     const res = await legendsApi.getLookingForPosts({
       sport: getSelectedSport().sport?.id,
       type: activeTypeRef.current !== 'all' ? activeTypeRef.current : undefined,
-      q: query.trim() || undefined,
+      q: queryRef.current.trim() || undefined,
       cursor,
     });
     // Drop the page if the filter or search moved on while it was in flight.
@@ -407,7 +415,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       setCursor(res.nextCursor);
     }
     setLoadingMore(false);
-  }, [cursor, loadingMore, query]);
+  }, [cursor, loadingMore]);
 
   const loadConnections = useCallback(async () => {
     const res = await legendsApi.getLookingForConnections();
@@ -423,7 +431,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   useFocusEffect(useCallback(() => {
     let alive = true;
     setLoading(true);
-    Promise.all([load(activeTypeRef.current, query), loadConnections()])
+    Promise.all([load(activeTypeRef.current, queryRef.current), loadConnections()])
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [load, loadConnections]));   // eslint-disable-line react-hooks/exhaustive-deps
@@ -545,11 +553,15 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   // Rows arrive already filtered and searched; counts describe the whole board.
   const visiblePosts = posts.filter((p) => !hidden.includes(p.id));
   const hiddenOnPage = posts.length - visiblePosts.length;
+  // Hiding everything on a page is not the same as there being nothing here, and
+  // the empty state said the latter — offering to post a listing when the board
+  // was full of ones you'd chosen not to see.
+  const allHiddenHere = !visiblePosts.length && posts.length > 0;
   const countsByType = counts;
 
-  // Debounce the search so each keystroke isn't a round-trip. The board reloads
-  // through the same focus effect that owns activeType.
+  // Debounce the search so each keystroke isn't a round-trip.
   const searchTimer = useRef(null);
+  useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
   const onQueryChange = (text) => {
     setQuery(text);
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -831,20 +843,30 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                 color={DS.surfaceHighest}
               />
               <Text style={styles.emptyText}>
-                {query.trim()
-                  ? 'Nothing matches that search'
-                  : activeType === 'all'
-                    ? 'No listings yet'
-                    : `No ${(TYPE_LABELS[activeType] || activeType).toLowerCase()} listings yet`}
+                {allHiddenHere
+                  ? 'Everything here is hidden'
+                  : query.trim()
+                    ? 'Nothing matches that search'
+                    : activeType === 'all'
+                      ? 'No listings yet'
+                      : `No ${(TYPE_LABELS[activeType] || activeType).toLowerCase()} listings yet`}
               </Text>
               <Text style={styles.emptySubText}>
-                {query.trim()
-                  ? 'Try a shorter search, or clear it.'
-                  : 'Post the first one and let people find you.'}
+                {allHiddenHere
+                  ? 'You hid every listing on this page.'
+                  : query.trim()
+                    ? 'Try a shorter search, or clear it.'
+                    : 'Post the first one and let people find you.'}
               </Text>
               {/* An empty category is a prompt, not a dead end — it's where the
                   next listing should come from. */}
-              {!query.trim() && (
+              {allHiddenHere && (
+                <TouchableOpacity style={styles.emptyCta} onPress={unhideAll} activeOpacity={0.85}>
+                  <Icon name="eye-outline" size={16} color={DS.onLime} />
+                  <Text style={styles.emptyCtaText}>Show hidden listings</Text>
+                </TouchableOpacity>
+              )}
+              {!allHiddenHere && !query.trim() && (
                 <TouchableOpacity style={styles.emptyCta} onPress={openCreate} activeOpacity={0.85}>
                   <Icon name="plus" size={16} color={DS.onLime} />
                   <Text style={styles.emptyCtaText}>
