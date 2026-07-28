@@ -442,8 +442,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       action = <View style={styles.rowFlag}><Text style={styles.rowFlagText}>Declined</Text></View>;
     } else {
       action = (
-        <TouchableOpacity style={styles.rowCta} onPress={() => handleConnect(item.id)} activeOpacity={0.85}>
-          <Text style={styles.rowCtaText}>Connect</Text>
+        <TouchableOpacity style={[styles.rowCta, { backgroundColor: P.control }]} onPress={() => handleConnect(item.id)} activeOpacity={0.85}>
+          <Text style={[styles.rowCtaText, { color: P.onControl }]}>Connect</Text>
         </TouchableOpacity>
       );
     }
@@ -495,8 +495,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                   <Icon name="message-text-outline" size={14} color={DS.lime} />
                   <Text style={styles.rowGhostText}>Ask</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.rowCta} onPress={() => handleRespond(r.id, 'accept')} activeOpacity={0.85}>
-                  <Text style={styles.rowCtaText}>Accept</Text>
+                <TouchableOpacity style={[styles.rowCta, { backgroundColor: P.control }]} onPress={() => handleRespond(r.id, 'accept')} activeOpacity={0.85}>
+                  <Text style={[styles.rowCtaText, { color: P.onControl }]}>Accept</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.inboxDecline} onPress={() => handleRespond(r.id, 'decline')} activeOpacity={0.85}>
                   <Icon name="close" size={15} color={DS.textMuted} />
@@ -860,24 +860,34 @@ const makeStyles = (DS) => StyleSheet.create({
   rowMeta: { fontSize: 11, color: DS.textMuted, fontWeight: '500' },
   rowNote: { fontSize: 12, color: DS.textVariant, marginTop: 3, lineHeight: 16 },
 
-  /* One action per row, right-aligned so they form a single scannable column. */
+  /* One action per row, right-aligned so they form a single scannable column.
+     The three variants below carry IDENTICAL geometry on purpose — a row whose
+     state is Connect, Mark filled or Filled must occupy exactly the same box, or
+     the right edge ragged-steps down the list and the column stops reading as a
+     column. Height is fixed rather than padding-derived because RN counts border
+     inside the box, so the 1px-bordered variants would otherwise sit taller. */
   rowCta: {
-    backgroundColor: DS.lime, borderRadius: 8,
-    paddingHorizontal: 14, paddingVertical: 8, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    minWidth: 96, height: 34, borderRadius: 8, paddingHorizontal: 10, alignSelf: 'center',
+    // Near-black primary (pav().control, applied inline — it's theme-derived).
+    // The green accent already carries selected chips, avatar initials, ghost
+    // buttons and the empty-state CTA; a green Connect on every row turned the
+    // list into a green stripe and left the accent meaning nothing.
+    borderWidth: 1, borderColor: DS.faint,
   },
-  rowCtaText: { fontSize: 12, fontWeight: '800', color: DS.onLime },
+  rowCtaText: { fontSize: 11.5, fontWeight: '800' },
   rowGhostBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderWidth: 1.5, borderColor: DS.lime, borderRadius: 8,
-    paddingHorizontal: 11, paddingVertical: 7, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    minWidth: 96, height: 34, borderRadius: 8, paddingHorizontal: 10, alignSelf: 'center',
+    borderWidth: 1.5, borderColor: DS.lime,
   },
-  rowGhostText: { fontSize: 12, fontWeight: '800', color: DS.lime },
+  rowGhostText: { fontSize: 11.5, fontWeight: '800', color: DS.lime },
   rowFlag: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: DS.surfaceHigh, borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 7, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    minWidth: 96, height: 34, borderRadius: 8, paddingHorizontal: 10, alignSelf: 'center',
+    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint,
   },
-  rowFlagText: { fontSize: 11, fontWeight: '700', color: DS.textMuted },
+  rowFlagText: { fontSize: 11.5, fontWeight: '700', color: DS.textMuted },
 
   /* "Needs your reply" — pulled out of the feed and pinned on top. */
   inbox: {
@@ -891,8 +901,10 @@ const makeStyles = (DS) => StyleSheet.create({
   inboxFor: { fontSize: 12, fontWeight: '500', color: DS.textMuted },
   inboxActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   inboxDecline: {
-    width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: DS.surfaceHigh,
+    // 34 to match the Ask/Accept buttons beside it — a 32 here left the row
+    // baseline half a pixel off and read as a misalignment.
+    width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint,
   },
 
   /* Empty */
