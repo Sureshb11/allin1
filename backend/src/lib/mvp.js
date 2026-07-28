@@ -203,14 +203,21 @@ export function computeAwards(match) {
     }
   }
 
-  const out = (p) => (p ? {
-    // Squad players key on their Player id (off-squad fielders key on "name:…"),
-    // so callers can resolve an award back to the account behind it.
-    playerId: p.key && !String(p.key).startsWith('name:') ? p.key : null,
-    name: p.name, teamName: p.teamName,
-    total: +p.total.toFixed(2), bat: +p.bat.toFixed(2), bowl: +p.bowl.toFixed(2), field: +p.field.toFixed(2),
-    batLine: p.batLine, bowlLine: p.bowlLine, fieldCount: p.fieldCount || 0,
-  } : null);
+  const out = (p) => {
+    if (!p) return null;
+    // The total is the sum of the ROUNDED parts, not the rounded sum. The apps show
+    // the points broken down — batting + bowling + fielding = total — and rounding
+    // each part independently can leave that arithmetic a hundredth out on screen.
+    const bat = +p.bat.toFixed(2), bowl = +p.bowl.toFixed(2), field = +p.field.toFixed(2);
+    return {
+      // Squad players key on their Player id (off-squad fielders key on "name:…"),
+      // so callers can resolve an award back to the account behind it.
+      playerId: p.key && !String(p.key).startsWith('name:') ? p.key : null,
+      name: p.name, teamName: p.teamName,
+      total: +(bat + bowl + field).toFixed(2), bat, bowl, field,
+      batLine: p.batLine, bowlLine: p.bowlLine, fieldCount: p.fieldCount || 0,
+    };
+  };
 
   // Man of the Match: top-3 winning-team player, else overall leader.
   let motm = null;

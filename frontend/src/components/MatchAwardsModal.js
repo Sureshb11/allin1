@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import HexAvatar from './HexAvatar';
 
 const initials = (name = '') => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+
+const num = (n) => (n === undefined || n === null ? 0 : n);
 
 // A player's one-line stat summary from their MVP breakdown.
 function statLine(p) {
@@ -16,6 +18,51 @@ function statLine(p) {
 }
 
 /**
+ * The same split as one compact line, for list rows where four numeric columns
+ * would squeeze a name down to nothing on a phone.
+ */
+function SplitLine({ p, s, DS }) {
+  return (
+    <Text style={s.splitLine} numberOfLines={1}>
+      <Text style={[s.splitLineLbl, { color: DS.blue }]}>BAT </Text>{num(p.bat)}
+      <Text style={s.splitLineSep}>{'   '}</Text>
+      <Text style={[s.splitLineLbl, { color: DS.success || DS.lime }]}>BOWL </Text>{num(p.bowl)}
+      <Text style={s.splitLineSep}>{'   '}</Text>
+      <Text style={[s.splitLineLbl, { color: DS.lime }]}>FLD </Text>{num(p.field)}
+    </Text>
+  );
+}
+
+/**
+ * Where an MVP total came from: batting + bowling + fielding. Always all three,
+ * even at zero — the columns then line up down a list, and a total is never a
+ * bare number nobody can account for. The server rounds the parts and sums THOSE
+ * into the total, so what's on screen always adds up.
+ */
+function PointsSplit({ p, s, DS }) {
+  const parts = [
+    ['BAT', num(p.bat), DS.blue],
+    ['BOWL', num(p.bowl), DS.success || DS.lime],
+    ['FIELD', num(p.field), DS.lime],
+  ];
+  return (
+    <View style={s.splitRow}>
+      {parts.map(([label, val, color], i) => (
+        <React.Fragment key={label}>
+          {i > 0 && <Text style={s.splitOp}>+</Text>}
+          <View style={s.splitChip}>
+            <Text style={[s.splitLbl, { color }]}>{label}</Text>
+            <Text style={s.splitVal}>{val}</Text>
+          </View>
+        </React.Fragment>
+      ))}
+      <Text style={s.splitOp}>=</Text>
+      <Text style={s.splitTotal}>{num(p.total)}</Text>
+    </View>
+  );
+}
+
+/**
  * Post-match awards popup shown to the scorer. Celebrates the winners with a
  * hero "Man of the Match" card plus Fighter / Best Batter / Bowler / Fielder,
  * all derived from MVP points. onClose fires on the CONTINUE button.
@@ -23,9 +70,13 @@ function statLine(p) {
 export default function MatchAwardsModal({ visible, loading, awards, result, onClose }) {
   const DS = useTheme().colors;
   const s = useThemedStyles(makeStyles);
+  // The whole squad's points, folded away behind the awards — the celebration
+  // reads first, the accounting is one tap under it.
+  const [showAll, setShowAll] = useState(false);
 
   const motm = awards?.manOfMatch;
   const fighter = awards?.fighter;
+  const ranked = awards?.mvp || [];
   const minor = [
     { key: 'bat', label: 'Best Batter', icon: 'cricket', color: DS.blue, p: awards?.bestBatter },
     { key: 'bowl', label: 'Best Bowler', icon: 'bowling', color: DS.success, p: awards?.bestBowler },
@@ -62,6 +113,7 @@ export default function MatchAwardsModal({ visible, loading, awards, result, onC
                     </View>
                     <View style={s.mvpPill}><Text style={s.mvpVal}>{motm.total}</Text><Text style={s.mvpLbl}>MVP</Text></View>
                   </View>
+                  <PointsSplit p={motm} s={s} DS={DS} />
                 </View>
               )}
 
@@ -73,6 +125,7 @@ export default function MatchAwardsModal({ visible, loading, awards, result, onC
                     <Text style={s.awardLabel}>FIGHTER OF THE MATCH</Text>
                     <Text style={s.awardName} numberOfLines={1}>{fighter.name} <Text style={s.awardTeam}>· {fighter.teamName}</Text></Text>
                     {!!statLine(fighter) && <Text style={s.awardStat} numberOfLines={1}>{statLine(fighter)}</Text>}
+                    <PointsSplit p={fighter} s={s} DS={DS} />
                   </View>
                   <Text style={s.awardMvp}>{fighter.total}</Text>
                 </View>
@@ -86,10 +139,36 @@ export default function MatchAwardsModal({ visible, loading, awards, result, onC
                     <Text style={s.awardLabel}>{label.toUpperCase()}</Text>
                     <Text style={s.awardName} numberOfLines={1}>{p.name} <Text style={s.awardTeam}>· {p.teamName}</Text></Text>
                     {!!statLine(p) && <Text style={s.awardStat} numberOfLines={1}>{statLine(p)}</Text>}
+                    <PointsSplit p={p} s={s} DS={DS} />
                   </View>
                   <Text style={s.awardMvp}>{p.total}</Text>
                 </View>
               ))}
+
+              {/* Every player's points, in the same three columns the awards are
+                  built from — so an award is checkable against the field, not just
+                  announced. Folded away by default; the awards are the headline. */}
+              {ranked.length > 0 && (
+                <View style={s.tableCard}>
+                  <TouchableOpacity style={s.tableHead} onPress={() => setShowAll((v) => !v)} activeOpacity={0.7}>
+                    <Text style={s.tableTitle}>MVP POINTS</Text>
+                    <Text style={s.tableToggle}>{showAll ? 'Hide' : `All ${ranked.length}`}</Text>
+                    <Icon name={showAll ? 'chevron-up' : 'chevron-down'} size={16} color={DS.textMuted} />
+                  </TouchableOpacity>
+                  {(showAll ? ranked : ranked.slice(0, 5)).map((p, i) => (
+                    <View key={i} style={s.tableRow}>
+                      <Text style={s.rowRank}>{i + 1}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.rowName} numberOfLines={1}>
+                          {p.name} <Text style={s.rowTeam}>· {p.teamName}</Text>
+                        </Text>
+                        <SplitLine p={p} s={s} DS={DS} />
+                      </View>
+                      <Text style={s.cellTotal}>{num(p.total)}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
 
               {!motm && !fighter && minor.length === 0 && (
                 <Text style={s.empty}>No award data for this match.</Text>
@@ -144,6 +223,32 @@ const makeStyles = (DS) => StyleSheet.create({
   awardStat: { fontSize: 12, fontWeight: '700', color: DS.textVariant, marginTop: 2, fontVariant: ['tabular-nums'] },
   awardMvp: { fontSize: 16, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
   empty: { textAlign: 'center', color: DS.textMuted, paddingVertical: 24 },
+
+  // bat + bowl + field = total, spelled out under a player
+  splitRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginTop: 8 },
+  splitChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: DS.surface, borderRadius: 7, paddingHorizontal: 6, paddingVertical: 3,
+    borderWidth: 1, borderColor: DS.faint,
+  },
+  splitLbl: { fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+  splitVal: { fontSize: 11, fontWeight: '800', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
+  splitOp: { fontSize: 11, fontWeight: '800', color: DS.textMuted, marginHorizontal: 1 },
+  splitTotal: { fontSize: 12, fontWeight: '900', color: DS.lime, fontVariant: ['tabular-nums'] },
+
+  // Every player's points, three columns and a total
+  tableCard: { backgroundColor: DS.surfaceLow, borderRadius: 14, borderWidth: 1, borderColor: DS.faint, marginBottom: 10, overflow: 'hidden' },
+  tableHead: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
+  tableTitle: { flex: 1, fontSize: 11, fontWeight: '900', letterSpacing: 1, color: DS.textVariant },
+  tableToggle: { fontSize: 11, fontWeight: '800', color: DS.textMuted },
+  tableRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: DS.faint },
+  rowRank: { width: 16, fontSize: 11, fontWeight: '800', color: DS.textMuted, textAlign: 'center' },
+  rowName: { fontSize: 13, fontWeight: '800', color: DS.textPrimary },
+  rowTeam: { fontSize: 10, fontWeight: '600', color: DS.textMuted },
+  splitLine: { fontSize: 11, fontWeight: '800', color: DS.textVariant, marginTop: 2, fontVariant: ['tabular-nums'] },
+  splitLineLbl: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  splitLineSep: { color: DS.faint },
+  cellTotal: { minWidth: 38, fontSize: 15, fontWeight: '900', color: DS.lime, textAlign: 'right', fontVariant: ['tabular-nums'] },
 
   cta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.blueDeep, borderRadius: 14, paddingVertical: 15, marginTop: 8 },
   ctaTxt: { fontSize: 15, fontWeight: '900', color: DS.white, letterSpacing: 1 },

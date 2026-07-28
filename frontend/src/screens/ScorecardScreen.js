@@ -1004,13 +1004,26 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
               <Text style={styles.sectionHeaderText}>MVP</Text>
             </View>
           </View>
+          {/* Batting + bowling + fielding, then the total they add up to. Without
+              the split a player's number is unaccountable — you can't see whether
+              20 points came off the bat, with the ball, or in the field. Written on
+              one line rather than as columns: four numeric columns leave nothing
+              for a name on a phone. */}
           {mvpOrder.map((p, i) => (
             <View key={i} style={[styles.mvpRankRow, i === 0 && { borderTopWidth: 0 }]}>
               <Text style={styles.mvpRank}>{i + 1}</Text>
               <HexAvatar round size={30} color={DS.surfaceHighest} uri={avatarFor(p.name)}><Text style={styles.mvpRankInit}>{summaryInitials(p.name)}</Text></HexAvatar>
               <View style={{ flex: 1 }}>
-                <Text style={styles.mvpRankName} numberOfLines={1}>{p.name}</Text>
-                <Text style={styles.mvpRankTeam} numberOfLines={1}>{p.teamName}</Text>
+                <Text style={styles.mvpRankName} numberOfLines={1}>
+                  {p.name} <Text style={styles.mvpRankTeam}>· {p.teamName}</Text>
+                </Text>
+                <Text style={styles.mvpSplit} numberOfLines={1}>
+                  <Text style={[styles.mvpSplitLbl, { color: DS.blue }]}>BAT </Text>{p.bat ?? 0}
+                  <Text style={styles.mvpSplitSep}>{'   '}</Text>
+                  <Text style={[styles.mvpSplitLbl, { color: DS.success || DS.lime }]}>BOWL </Text>{p.bowl ?? 0}
+                  <Text style={styles.mvpSplitSep}>{'   '}</Text>
+                  <Text style={[styles.mvpSplitLbl, { color: DS.lime }]}>FLD </Text>{p.field ?? 0}
+                </Text>
               </View>
               <Text style={styles.mvpRankVal}>{p.total}</Text>
             </View>
@@ -2106,6 +2119,11 @@ const makeStyles = (DS) => StyleSheet.create({
   mvpRankName: { fontSize: 13, fontWeight: '400', color: DS.textPrimary },
   mvpRankTeam: { fontSize: 11, fontWeight: '400', color: DS.textMuted },
   mvpRankVal: { fontSize: 15, fontWeight: '300', color: DS.lime },
+  // Points split under the name — tabular figures so the numbers still line up
+  // down the list without paying for fixed columns.
+  mvpSplit: { fontSize: 11, fontWeight: '400', color: DS.textVariant, marginTop: 2, fontVariant: ['tabular-nums'] },
+  mvpSplitLbl: { fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
+  mvpSplitSep: { color: DS.line },
 
   // Run-rate worm graph (SCORECARD tab)
   wormCard: { backgroundColor: DS.surface, borderRadius: 14, padding: 14, gap: 8 },
