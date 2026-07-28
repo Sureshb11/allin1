@@ -47,11 +47,8 @@ export default function TeamInsightsScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Team Insights',
-    });
+    // Same duplicate as PlayerInsights — this screen has its own back button.
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   useEffect(() => {

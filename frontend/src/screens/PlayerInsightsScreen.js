@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator,
+  ActivityIndicator, Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
@@ -61,11 +61,10 @@ export default function PlayerInsightsScreen({ route, navigation }) {
   const [loading, setLoading]   = useState(true);
 
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Player Insights',
-    });
+    // This screen draws its own hero — back button, avatar, name, role and team —
+    // so the navigator's default header was a second bar above it, in the light
+    // system styling every other screen in this stack opts out of.
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   useEffect(() => {
@@ -97,6 +96,8 @@ export default function PlayerInsightsScreen({ route, navigation }) {
   const sportId = apiPlayer?.sport || passed?.sport || 'cricket';
   const career = apiPlayer?.stats || {};
   const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  // Rankings passes the row through, which now carries the linked account's photo.
+  const avatarUrl = passed?.avatarUrl || passed?.user?.avatarUrl || apiPlayer?.user?.avatarUrl || null;
   const careerCells = Object.entries(career)
     .filter(([k, v]) => k !== 'style' && (typeof v === 'number' || /^\d/.test(String(v))))
     .slice(0, 6);
@@ -110,7 +111,9 @@ export default function PlayerInsightsScreen({ route, navigation }) {
             <Icon name="arrow-left" size={22} color={DS.textPrimary} />
           </TouchableOpacity>
         )}
-        <View style={styles.heroAvatar}><Text style={styles.heroAvatarTxt}>{initials}</Text></View>
+        {avatarUrl
+          ? <Image source={{ uri: avatarUrl }} style={styles.heroAvatarImg} />
+          : <View style={styles.heroAvatar}><Text style={styles.heroAvatarTxt}>{initials}</Text></View>}
         <View style={{ flex: 1 }}>
           <Text style={styles.heroTitle} numberOfLines={1}>{name}</Text>
           <Text style={styles.heroSub} numberOfLines={1}>
@@ -244,6 +247,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   backBtn: { padding: 4 },
   heroAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
+  heroAvatarImg: { width: 44, height: 44, borderRadius: 22, backgroundColor: DS.surfaceHighest },
   heroAvatarTxt: { color: DS.bg, fontWeight: '800', fontSize: 16 },
   heroTitle: { fontSize: 20, fontWeight: '800', color: DS.textPrimary },
   heroSub: { fontSize: 12, color: DS.textMuted, marginTop: 2 },

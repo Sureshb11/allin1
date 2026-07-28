@@ -94,7 +94,10 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const canChat = isOwner || isAdmin || joinStatus === 'member';
 
   useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: true, headerBackVisible: true, headerTitle: 'Team Profile' });
+    // Hidden like the rest of this stack. Unlike PlayerInsights and
+    // TeamInsights this screen had NO back affordance of its own — it leaned
+    // entirely on the navigator's — so one is drawn over the cover below.
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   const load = useCallback(async () => {
@@ -342,6 +345,11 @@ const TeamProfileScreen = ({ navigation, route }) => {
         {team.coverUrl
           ? <Image source={{ uri: team.coverUrl }} style={styles.cover} />
           : <View style={[styles.cover, styles.coverEmpty]} />}
+        {/* Floats over the cover: without it, hiding the navigator header would
+            leave this screen with no way out. */}
+        <TouchableOpacity style={styles.coverBackBtn} onPress={() => navigation.goBack()} hitSlop={8}>
+          <Icon name="arrow-left" size={22} color="#fff" />
+        </TouchableOpacity>
         {isAdmin && (
           <TouchableOpacity style={styles.coverEditBtn} onPress={() => changeImage('coverUrl')} disabled={busy}>
             <Icon name="camera" size={16} color="#fff" />
@@ -891,6 +899,13 @@ const makeStyles = (DS) => StyleSheet.create({
   muted: { color: DS.textMuted, fontSize: 15 },
 
   coverWrap: { height: 150, backgroundColor: DS.surfaceHigh },
+  coverBackBtn: {
+    position: 'absolute', left: 12, top: 48,
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+    // Dark scrim so the arrow reads on a light cover photo too.
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
   cover: { width: '100%', height: 150 },
   coverEmpty: { backgroundColor: DS.surfaceHigh },
   coverEditBtn: {
