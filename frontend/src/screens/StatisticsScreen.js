@@ -6,7 +6,6 @@ import Reanimated, { useAnimatedRef, useSharedValue, scrollTo } from 'react-nati
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
-import SegmentedControl from '../components/SegmentedControl';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getRankingBoards, rankValue } from '../sports/careerStats';
@@ -176,6 +175,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   // ── Board-chip row: self-driven horizontal scroller (same as Scout's filters) ──
@@ -339,12 +339,21 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
 
       {loading ? (
         <View style={styles.list}>
-          {/* Players/Teams toggle (rendered outside list while loading) */}
-          <SegmentedControl
-            options={TABS.map((t) => ({ id: t.id, label: t.label, icon: t.icon }))}
-            value={tab} onChange={handleTabChange}
-            style={{ marginBottom: 12 }}
-          />
+          {/* Same toggle while loading, so the header doesn't jump when rows land. */}
+          <View style={[styles.controlRow, { marginBottom: 12 }]}>
+            <View style={styles.segment}>
+              {TABS.map((t) => {
+                const on = tab === t.id;
+                return (
+                  <TouchableOpacity key={t.id} style={[styles.segBtn, on && styles.segBtnOn]}
+                    onPress={() => handleTabChange(t.id)} activeOpacity={0.85}>
+                    <Icon name={t.icon} size={14} color={on ? DS.onLime : DS.textMuted} />
+                    <Text style={[styles.segText, on && styles.segTextOn]}>{t.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
           <StatSkeleton DS={DS} />
         </View>
       ) : (
@@ -368,29 +377,57 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
               </TouchableOpacity>
             )}
             <View>
-              {/* WHAT am I ranking (Players/Teams) sits first, then the search
-                  within it — hierarchy over chronology. Capsule = tap toggle,
-                  distinct from the swipeable underline level above. */}
-              <SegmentedControl
-                options={TABS.map((t) => ({ id: t.id, label: t.label, icon: t.icon }))}
-                value={tab} onChange={handleTabChange}
-                style={{ marginBottom: 10 }}
-              />
-              <View style={styles.searchWrap}>
-                <Icon name="magnify" size={18} color={DS.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={`Search ${tab.toLowerCase()}...`}
-                  placeholderTextColor={DS.faint}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-                    <Icon name="close-circle" size={18} color={DS.faint} />
+              {/* One row for both "what am I ranking" and "find someone in it".
+                  These were two stacked full-width controls above a third row of
+                  board chips — three bands of chrome over a list whose whole
+                  point is now density. Search collapses to its icon until it's
+                  wanted, and takes the row when it is. */}
+              <View style={styles.controlRow}>
+                {!searchOpen && (
+                  <View style={styles.segment}>
+                    {TABS.map((t) => {
+                      const on = tab === t.id;
+                      const n = t.id === 'Players' ? players.length : teams.length;
+                      return (
+                        <TouchableOpacity
+                          key={t.id}
+                          style={[styles.segBtn, on && styles.segBtnOn]}
+                          onPress={() => handleTabChange(t.id)}
+                          activeOpacity={0.85}>
+                          <Icon name={t.icon} size={14} color={on ? DS.onLime : DS.textMuted} />
+                          <Text style={[styles.segText, on && styles.segTextOn]}>{t.label}</Text>
+                          <Text style={[styles.segCount, on && styles.segCountOn]}>{n}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {searchOpen ? (
+                  <View style={styles.searchWrap}>
+                    <Icon name="magnify" size={18} color={DS.lime} />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder={`Search ${tab.toLowerCase()}`}
+                      placeholderTextColor={DS.textMuted}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      autoFocus
+                      returnKeyType="search"
+                    />
+                    <TouchableOpacity
+                      onPress={() => { setSearchQuery(''); setSearchOpen(false); }}
+                      hitSlop={10}>
+                      <Icon name="close" size={18} color={DS.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.searchBtn} onPress={() => setSearchOpen(true)} activeOpacity={0.85}>
+                    <Icon name="magnify" size={19} color={DS.textVariant} />
                   </TouchableOpacity>
                 )}
               </View>
+
               {/* Board selector — what this leaderboard is actually ranking. Drag
                   to scroll (self-driven, blocks the pager); tap scrolls into view. */}
               <GestureDetector gesture={boardPan}>
@@ -495,7 +532,25 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
 
-  // (Players/Teams toggle styles live in the shared SegmentedControl component.)
+  /* One control row: Players/Teams on the left, search on the right. */
+  controlRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  segment: {
+    flex: 1, flexDirection: 'row', gap: 4, padding: 3,
+    backgroundColor: DS.surfaceHigh, borderRadius: 999, borderWidth: 1, borderColor: DS.faint,
+  },
+  segBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    paddingVertical: 7, borderRadius: 999,
+  },
+  segBtnOn: { backgroundColor: DS.lime },
+  segText: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
+  segTextOn: { color: DS.onLime, fontWeight: '900' },
+  segCount: { fontSize: 11, fontWeight: '800', color: DS.textMuted },
+  segCountOn: { color: DS.onLime, opacity: 0.75 },
+  searchBtn: {
+    width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint,
+  },
 
   // Board selector
   boardBar: { paddingHorizontal: 16, gap: 8, paddingBottom: 2 },
@@ -515,13 +570,14 @@ const makeStyles = (DS) => StyleSheet.create({
   boardMeta: { fontSize: 11, color: DS.textMuted, marginHorizontal: 16, marginTop: 8, marginBottom: 10 },
 
   /* Search */
+  // Sits in the control row now (was a standalone full-width band with its own
+  // margins), so it has to fill the row rather than impose its own spacing.
   searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: DS.surface, marginHorizontal: 16, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 9, marginTop: 14,
-    borderWidth: 1, borderColor: DS.faint,
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, height: 40,
+    backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 14,
+    borderWidth: 1, borderColor: DS.lime,
   },
-  searchInput: { flex: 1, fontSize: 13, fontWeight: '500', color: DS.textPrimary, padding: 0 },
+  searchInput: { flex: 1, fontSize: 14, fontWeight: '600', color: DS.textPrimary, padding: 0 },
 
   list: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
 
