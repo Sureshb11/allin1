@@ -44,10 +44,19 @@ const makeTrendConfig = (DS) => ({
 // Humanised labels for the generic career stats grid.
 const STAT_LABELS = {
   matches: 'Matches', runs: 'Runs', wickets: 'Wickets', battingAverage: 'Bat Avg',
-  strikeRate: 'Strike Rate', economy: 'Economy', goals: 'Goals', assists: 'Assists',
+  average: 'Average', strikeRate: 'Strike Rate', economy: 'Economy',
+  highestScore: 'Highest', centuries: '100s', halfCenturies: '50s',
+  innings: 'Innings', oversBowled: 'Overs', catches: 'Catches', runOuts: 'Run-outs',
+  goals: 'Goals', assists: 'Assists',
   cleanSheets: 'Clean Sheets', saves: 'Saves', points: 'Points', wins: 'Wins',
   titles: 'Titles', fours: 'Fours', sixes: 'Sixes',
 };
+// Only these render. The old filter admitted any value that merely LOOKED
+// numeric — `/^\d/.test(String(v))` — and Player.stats is a free-form Json
+// column, so a `phone` entry sitting in there was drawn as a stat card labelled
+// "phone": a player's number on a screen anyone can open. An allowlist can't
+// leak the next unexpected key the way a blocklist would.
+const CAREER_KEYS = Object.keys(STAT_LABELS);
 const makeStatColors = (DS) => [DS.lime, DS.coral, DS.blue, '#c4b5fd', '#7dd3fc', '#fbbf24'];
 
 export default function PlayerInsightsScreen({ route, navigation }) {
@@ -55,7 +64,7 @@ export default function PlayerInsightsScreen({ route, navigation }) {
   const styles = useThemedStyles(makeStyles);
   const TREND_CONFIG = makeTrendConfig(DS);
   const STAT_COLORS = makeStatColors(DS);
-  const { playerId, player: passed } = route.params || {};
+  const { playerId, player: passed, standing, boardLabel } = route.params || {};
   const [insights, setInsights] = useState({});
   const [apiPlayer, setApiPlayer] = useState(null);
   const [loading, setLoading]   = useState(true);
@@ -98,8 +107,9 @@ export default function PlayerInsightsScreen({ route, navigation }) {
   const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
   // Rankings passes the row through, which now carries the linked account's photo.
   const avatarUrl = passed?.avatarUrl || passed?.user?.avatarUrl || apiPlayer?.user?.avatarUrl || null;
-  const careerCells = Object.entries(career)
-    .filter(([k, v]) => k !== 'style' && (typeof v === 'number' || /^\d/.test(String(v))))
+  const careerCells = CAREER_KEYS
+    .filter((k) => career[k] != null && career[k] !== '')
+    .map((k) => [k, career[k]])
     .slice(0, 6);
 
   return (
@@ -120,12 +130,20 @@ export default function PlayerInsightsScreen({ route, navigation }) {
             {role}{teamName ? ` · ${teamName}` : ''}{career.style ? ` · ${career.style}` : ''}
           </Text>
         </View>
+        {/* Carried from Rankings — the reason you opened this profile. */}
+        {standing != null && (
+          <View style={styles.rankPill}>
+            <Text style={styles.rankPillNum}>#{standing}</Text>
+            <Text style={styles.rankPillLbl} numberOfLines={1}>{(boardLabel || '').toLowerCase()}</Text>
+          </View>
+        )}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.body}>
-          {/* Career stats (all sports) */}
-          {careerCells.length > 0 && (
+          {/* Career bento is the fallback for sports with no dedicated sections
+              below. For cricket it just restated Batting and Bowling. */}
+          {sportId !== 'cricket' && careerCells.length > 0 && (
             <Section title="Career" icon="chart-box-outline">
               <View style={styles.bentoGrid}>
                 {careerCells.map(([k, v], i) => (
@@ -175,6 +193,18 @@ export default function PlayerInsightsScreen({ route, navigation }) {
               <BentoCard label="Bowling Avg"  value={stats.bowlingAverage} color={DS.coral}   icon="numeric" />
               <BentoCard label="Economy"      value={stats.economy}        color={DS.blue}    icon="speedometer" />
               <BentoCard label="Overs"        value={stats.oversBowled}    color="#7dd3fc"     icon="timer-outline" />
+            </View>
+          </Section>
+
+          {/* Fielding — catches and run-outs credited to this player. The
+              scorer has always recorded them; nothing ever showed them. */}
+          <Section title="Fielding" icon="hand-back-right-outline">
+            <View style={styles.bentoGrid}>
+              <BentoCard label="Catches"  value={career.catches ?? 0}  color={DS.lime}  icon="hand-back-right-outline" />
+              <BentoCard label="Run-outs" value={career.runOuts ?? 0}  color={DS.coral} icon="run-fast" />
+              <BentoCard label="Dismissals"
+                value={(career.catches ?? 0) + (career.runOuts ?? 0)}
+                color={DS.blue} icon="sigma" />
             </View>
           </Section>
 
@@ -248,6 +278,13 @@ const makeStyles = (DS) => StyleSheet.create({
   backBtn: { padding: 4 },
   heroAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
   heroAvatarImg: { width: 44, height: 44, borderRadius: 22, backgroundColor: DS.surfaceHighest },
+  rankPill: {
+    alignItems: 'center', justifyContent: 'center', minWidth: 54,
+    paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: DS.lime + '1f', borderRadius: 12, borderWidth: 1, borderColor: DS.lime,
+  },
+  rankPillNum: { fontSize: 16, fontWeight: '900', color: DS.lime, letterSpacing: -0.4 },
+  rankPillLbl: { fontSize: 8.5, fontWeight: '800', color: DS.lime, letterSpacing: 0.4, textTransform: 'uppercase' },
   heroAvatarTxt: { color: DS.bg, fontWeight: '800', fontSize: 16 },
   heroTitle: { fontSize: 20, fontWeight: '800', color: DS.textPrimary },
   heroSub: { fontSize: 12, color: DS.textMuted, marginTop: 2 },

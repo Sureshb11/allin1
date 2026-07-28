@@ -353,7 +353,14 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
   // hands off rather than duplicating a stats screen inside a sheet. The player
   // object rides along so Insights can paint before its fetch returns.
   const openDetail = (item) => {
-    if (tab === 'Players') navigation?.navigate('PlayerInsights', { playerId: item.id, player: item });
+    if (tab === 'Players') navigation?.navigate('PlayerInsights', {
+      playerId: item.id,
+      player: item,
+      // Where they sit on the board you tapped from, so the profile can say so
+      // instead of losing the context that made you open it.
+      standing: item.standing + 1,
+      boardLabel: board.label,
+    });
     else navigation?.navigate('TeamProfile', { teamId: item.id });
   };
 
