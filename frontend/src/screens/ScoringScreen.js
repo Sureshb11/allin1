@@ -19,6 +19,14 @@ const { width } = Dimensions.get('window');
 // Team runs off an over, read back from its chip labels (incl. extras). Display
 // only — the server computes its own over totals. Shared by the THIS OVER tally
 // and the over-complete sheet so the two can't disagree.
+// Does a squad role mark this player as the wicket-keeper? The role string is
+// free text across the app and the seeds ('Wicket-keeper', 'Wicketkeeper',
+// 'Keeper', 'WK'), so match loosely rather than on one exact spelling.
+const isKeeperRole = (role) => {
+  const r = String(role || '').trim();
+  return /keep/i.test(r) || /^wk$/i.test(r);
+};
+
 const runsInOver = (balls) => balls.reduce((acc, b) => {
   if (b === 'WD' || b === 'NB' || b === 'B' || b === 'LB') return acc + 1;
   if (b === 'P5') return acc + 5;
@@ -110,6 +118,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const [runOutFielderPrompt, setRunOutFielderPrompt] = useState(false); // run out → which fielder?
   const [runOutSlot, setRunOutSlot] = useState('striker'); // which batter the run-out dismisses
   const [catchPrompt, setCatchPrompt] = useState(false);   // caught → who took the catch?
+  // Caught behind credits the fielding side's keeper without hunting the fielder
+  // list. The keeper is read off the XI roles; when the XI doesn't name one the
+  // scorer picks them once and that choice sticks for the innings.
+  const [keeperPrompt, setKeeperPrompt] = useState(false); // caught behind → who's keeping?
+  const [keeperId, setKeeperId] = useState(null);          // scorer-picked keeper for the bowling side
   const [newBatterFor, setNewBatterFor] = useState('striker'); // which crease slot the new batter fills
   // Tapping a name in the batsman/bowler pickers only ARMS the pick — it's committed
   // by the "Continue scoring" button. A single stray tap in a scrolling list used to
@@ -984,6 +997,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       milestoneRef.current = { bat: {}, bowl: {}, streak: { id: null, n: 0 } };   // fresh milestones for the new innings
       setBattingTeamName(bowlingTeamName); setBowlingTeamName(battingTeamName);
       setBattingXI(bowlingXI); setBowlingXI(battingXI);
+      setKeeperId(null);   // other side in the field now → their keeper, not this one's
       setBattingTeamId(bowlingTeamId); setBowlingTeamId(battingTeamId);
       setStriker(null); setNonStriker(null); setCurrentBowler(null);
       setScoringReady(false);
@@ -1231,6 +1245,15 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const prevBowler = lastOverBowlerId && lastOverBowlerId !== currentBowler?.id
     ? bowlingXI.find((p) => p.id === lastOverBowlerId)
     : null;
+
+  // The keeper for the fielding side, used by "caught behind". A scorer pick wins;
+  // otherwise take the XI's keeper — but only when it's unambiguous (a squad with
+  // two keepers in it can't say which one has the gloves on today).
+  const keeper = (() => {
+    if (keeperId) return bowlingXI.find((p) => p.id === keeperId) || null;
+    const wks = bowlingXI.filter((p) => isKeeperRole(p.role));
+    return wks.length === 1 ? wks[0] : null;
+  })();
 
   // ── PRE-SCORING SETUP SCREEN ──────────────────────────────────
   if (!scoringReady) {
@@ -2254,6 +2277,23 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <Text style={[styles.settingText, { flex: 1 }]}>Caught &amp; Bowled <Text style={styles.modalSub}>({currentBowler?.name})</Text></Text>
               <Icon name="chevron-right" size={18} color={DS.textMuted} />
             </TouchableOpacity>
+            {/* Caught behind — the commonest catch of all, so it gets its own row
+                instead of a scroll through the XI. The keeper is filled in for the
+                scorer; only an XI that doesn't name one asks who's keeping. */}
+            <TouchableOpacity style={styles.settingRow}
+              onPress={() => {
+                setCatchPrompt(false);
+                if (keeper) handleScore('out', 0, 'caught', 'striker', keeper.name);
+                else setKeeperPrompt(true);
+              }}>
+              <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
+                <Icon name="hand-back-left" size={16} color={DS.wicketText} />
+              </View>
+              <Text style={[styles.settingText, { flex: 1 }]}>
+                Caught Behind <Text style={styles.modalSub}>({keeper ? keeper.name : 'pick the keeper'})</Text>
+              </Text>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
             {/* Any fielder / keeper from the bowling XI (excluding the bowler) */}
             <ScrollView style={{ maxHeight: 260 }}>
               {bowlingXI.filter((p) => p.id !== currentBowler?.id).map((p, i) => (
@@ -2263,10 +2303,45 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                     <Text style={styles.playerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
                   </View>
                   <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
+                  {p.id === keeper?.id && <Text style={styles.settingHint}>WK</Text>}
                   <Icon name="chevron-right" size={18} color={DS.textMuted} />
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── CAUGHT BEHIND — only when the XI doesn't name a keeper (or names more
+          than one). Asked once: the pick is remembered for the rest of the innings,
+          so every later caught behind records straight away. ── */}
+      <Modal visible={keeperPrompt} transparent animationType="slide" onRequestClose={() => {}}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Who's keeping wicket?</Text>
+            <Text style={styles.modalSub}>Recorded as caught behind — remembered for this innings</Text>
+            <ScrollView style={{ maxHeight: 300 }}>
+              {bowlingXI.filter((p) => p.id !== currentBowler?.id).map((p, i) => (
+                <TouchableOpacity key={i} style={styles.playerOption}
+                  onPress={() => {
+                    setKeeperId(p.id);
+                    setKeeperPrompt(false);
+                    handleScore('out', 0, 'caught', 'striker', p.name);
+                  }}>
+                  <View style={styles.playerAvatar}>
+                    <Text style={styles.playerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
+                  <Icon name="chevron-right" size={18} color={DS.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            {/* Back, not out — the wicket still has to be recorded. */}
+            <TouchableOpacity style={styles.modalClose}
+              onPress={() => { setKeeperPrompt(false); setCatchPrompt(true); }}>
+              <Text style={styles.modalCloseText}>Back</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

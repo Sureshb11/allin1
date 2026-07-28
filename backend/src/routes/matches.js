@@ -661,7 +661,8 @@ router.get('/:id/live-state', async (req, res) => {
     // Squads (playing XIs) split by the current inning's batting/bowling team,
     // so the resumed scorer keeps the same player pickers.
     const squad = await prisma.matchPlayer.findMany({ where: { matchId: match.id }, include: { player: { include: { user: { select: { avatarUrl: true } } } } } });
-    const xiFor = (teamId) => squad.filter((s) => s.teamId === teamId).map((s) => ({ id: s.player.id, name: s.player.name, avatarUrl: s.player.user?.avatarUrl || null }));
+    // role rides along so a resumed scorer can still spot the keeper (caught behind).
+    const xiFor = (teamId) => squad.filter((s) => s.teamId === teamId).map((s) => ({ id: s.player.id, name: s.player.name, role: s.player.role, avatarUrl: s.player.user?.avatarUrl || null }));
 
     // Notation for the balls already in the current over (to rebuild the log).
     // Must mirror the client's own over-strip strings EXACTLY (ScoringScreen's
