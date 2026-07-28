@@ -1248,6 +1248,19 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     return e.nextStrikerIs === 'survivor' ? `${survivor?.name || 'Not-out batter'} on strike` : 'New batter on strike';
   };
 
+  // Put the other batter on strike. Only a correction — every normal change of ends
+  // is applied by the ball itself — so it's deliberately not tied to a delivery: it
+  // just re-seats the crease, which the crease effect persists like any other change.
+  const canSwapStrike = scoringReady && !matchComplete && !!striker && !!nonStriker;
+  const swapStrike = () => {
+    if (!canSwapStrike) return;
+    haptic.tick();
+    setMorePrompt(false);
+    setStriker(nonStriker);
+    setNonStriker(striker);
+    showToast(`${nonStriker.name} on strike`, 'info', 1800);
+  };
+
   // Long-press on any run button. Discoverability is the weak point of a
   // long-press, so More Options carries the same entry.
   const openOtherRuns = () => { haptic.tick(); setRunsPrompt(true); };
@@ -2606,6 +2619,22 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               onPress={() => { setMorePrompt(false); setMustPickBowler(false); setShowBowlerModal(true); }}>
               <Icon name="sync" size={20} color={DS.lime} />
               <Text style={styles.settingText}>Change bowler</Text>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
+            {/* Swap strike — the manual correction for the ends. The ends normally
+                look after themselves (odd runs, end of over, a run out), but nothing
+                else can fix a mix-up the scorer only spots a ball later, or the rare
+                case both batters end up at the same end. Reversible in one tap, so
+                it commits straight away. */}
+            <TouchableOpacity
+              style={[styles.settingRow, !canSwapStrike && { opacity: 0.4 }]}
+              disabled={!canSwapStrike}
+              onPress={swapStrike}>
+              <Icon name="swap-horizontal" size={20} color={DS.lime} />
+              <Text style={styles.settingText}>Swap strike</Text>
+              <Text style={styles.settingHint} numberOfLines={1}>
+                {canSwapStrike ? `${nonStriker.name} faces` : 'both batters needed'}
+              </Text>
               <Icon name="chevron-right" size={18} color={DS.textMuted} />
             </TouchableOpacity>
             {/* Short run — only lit when the last ball was 2 or 3 runs run. */}
