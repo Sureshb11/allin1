@@ -101,6 +101,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // clean way back, so the pick now gets a confirmation step.
   const [pendingBatter, setPendingBatter] = useState(null);
   const [pendingBowler, setPendingBowler] = useState(null);
+  // Same arm-then-confirm for the two actions UNDO can't take back: ending the
+  // innings/match, and retiring a batter out (a wicket) vs hurt (not out).
+  const [pendingEndReason, setPendingEndReason] = useState(null);
+  const [pendingRetireKind, setPendingRetireKind] = useState(null);   // 'hurt' | 'out'
   // A wicket on the LAST ball of an over: the ends change, but only AFTER the new
   // batter walks in — so the not-out batter is on strike next over. We defer that
   // swap until the replacement is picked (see the New Batsman modal).
@@ -169,6 +173,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // would leave a stale pick armed the next time one opens.
   useEffect(() => { if (!showPlayerModal) setPendingBatter(null); }, [showPlayerModal]);
   useEffect(() => { if (!showBowlerModal) setPendingBowler(null); }, [showBowlerModal]);
+  useEffect(() => { if (!endPrompt) setPendingEndReason(null); }, [endPrompt]);
+  useEffect(() => { if (!retiredKindPrompt) setPendingRetireKind(null); }, [retiredKindPrompt]);
 
   // When the match finishes, compute the MVP awards once and pop the winner
   // sheet for the scorer. Dismissing it redirects to the Home feed.
@@ -1476,7 +1482,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           ) : null}
         </View>
 
-        {/* ── EXTRAS ROW — tap for +runs (wide 2, no-ball 4, etc.) ── */}
+        {/* ── EXTRAS ROW — tap for +runs (wide 2, no-ball 4, etc.). Penalty 5 used
+            to sit here too, but it's a rare call (helmet hit) that was taking a
+            sixth of a row the scorer hits every over — it lives in MORE OPTIONS
+            now, and the four extras get the width instead. ── */}
         {!matchComplete &&
         <View style={styles.extraRow}>
             <TouchableOpacity
@@ -1498,9 +1507,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             </TouchableOpacity>
             <TouchableOpacity style={styles.extraBtn} onPress={() => setExtraPrompt('legbye')}>
               <Text style={styles.extraBtnText}>LB +</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} onPress={() => setPenaltyPrompt(true)}>
-              <Text style={styles.extraBtnText}>PEN 5</Text>
             </TouchableOpacity>
           </View>
         }
@@ -1981,19 +1987,51 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Retired hurt or out?</Text>
-            <TouchableOpacity style={styles.settingRow} onPress={() => retireBatsman(retiredSlot)}>
+            <Text style={styles.modalSub}>
+              Tap one, then confirm — {(retiredSlot === 'nonstriker' ? nonStriker : striker)?.name || 'the batter'} leaves the crease either way.
+            </Text>
+            <TouchableOpacity
+              style={[styles.settingRow, pendingRetireKind === 'hurt' && styles.settingRowPicked]}
+              onPress={() => setPendingRetireKind('hurt')}>
               <View style={[styles.playerAvatar, { backgroundColor: DS.lime + '33' }]}>
                 <Icon name="bandage" size={16} color={DS.lime} />
               </View>
               <Text style={[styles.settingText, { flex: 1 }]}>Retired hurt <Text style={styles.modalSub}>(not out · can return)</Text></Text>
-              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+              <Icon
+                name={pendingRetireKind === 'hurt' ? 'check-circle' : 'checkbox-blank-circle-outline'}
+                size={18}
+                color={pendingRetireKind === 'hurt' ? DS.lime : DS.textMuted} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.settingRow} onPress={() => retireOut(retiredSlot)}>
+            <TouchableOpacity
+              style={[styles.settingRow, pendingRetireKind === 'out' && styles.settingRowPickedDanger]}
+              onPress={() => setPendingRetireKind('out')}>
               <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
                 <Icon name="flag-checkered" size={16} color={DS.wicketText} />
               </View>
               <Text style={[styles.settingText, { flex: 1, color: DS.wicketText }]}>Retired out <Text style={styles.modalSub}>(counts as a wicket)</Text></Text>
-              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+              <Icon
+                name={pendingRetireKind === 'out' ? 'check-circle' : 'checkbox-blank-circle-outline'}
+                size={18}
+                color={pendingRetireKind === 'out' ? DS.wicketText : DS.textMuted} />
+            </TouchableOpacity>
+            {/* Two rows a thumb-width apart with opposite consequences — one costs a
+                wicket, the other doesn't. Neither fires until this is pressed. */}
+            <TouchableOpacity
+              style={[styles.confirmBtn,
+                !pendingRetireKind && styles.confirmBtnOff,
+                pendingRetireKind === 'out' && styles.confirmBtnDanger]}
+              disabled={!pendingRetireKind}
+              onPress={() => {
+                if (pendingRetireKind === 'out') retireOut(retiredSlot);
+                else retireBatsman(retiredSlot);
+              }}>
+              <Text style={[styles.confirmBtnText,
+                !pendingRetireKind && styles.confirmBtnTextOff,
+                pendingRetireKind === 'out' && { color: DS.onBlue }]}>
+                {pendingRetireKind === 'out' ? 'Confirm · retired OUT (wicket)'
+                  : pendingRetireKind === 'hurt' ? 'Confirm · retired hurt'
+                  : 'Pick hurt or out'}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalClose} onPress={() => setRetiredKindPrompt(false)}>
               <Text style={styles.modalCloseText}>Cancel</Text>
@@ -2062,6 +2100,17 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <Text style={styles.settingHint}>
                 {shortRunEligible ? `${shortRunAttempt} → ${shortRunAttempt - 1}` : 'last ball 2 or 3'}
               </Text>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
+            {/* Penalty 5 — a team award (helmet hit etc.), not a delivery. Rare
+                enough that it lives here rather than in the extras row. */}
+            <TouchableOpacity
+              style={[styles.settingRow, !scoringReady && { opacity: 0.4 }]}
+              disabled={!scoringReady}
+              onPress={() => { setMorePrompt(false); setPenaltyPrompt(true); }}>
+              <Icon name="alert-octagon-outline" size={20} color={DS.coral} />
+              <Text style={styles.settingText}>Penalty 5 runs</Text>
+              <Text style={styles.settingHint}>team award</Text>
               <Icon name="chevron-right" size={18} color={DS.textMuted} />
             </TouchableOpacity>
             {/* Retire a batsman (hurt → can return, or out → counts as a wicket). */}
@@ -2172,15 +2221,40 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{isInnings2 ? 'End Match' : 'End Innings'} — reason</Text>
-            <Text style={styles.modalSub}>Pick a reason to confirm</Text>
-            {(isInnings2 ? END_REASONS.match : END_REASONS.innings).map((reason) => (
-              <TouchableOpacity key={reason} style={styles.settingRow}
-                onPress={() => { setEndPrompt(false); finishInnings(reason); }}>
+            <Text style={styles.modalSub}>
+              {isInnings2
+                ? 'Tap a reason, then confirm. This completes the match — it can\'t be undone.'
+                : 'Tap a reason, then confirm. This closes the innings — it can\'t be undone.'}
+            </Text>
+            {(isInnings2 ? END_REASONS.match : END_REASONS.innings).map((reason) => {
+              const picked = pendingEndReason === reason;
+              return (
+              <TouchableOpacity key={reason} style={[styles.settingRow, picked && styles.settingRowPickedDanger]}
+                onPress={() => setPendingEndReason(reason)}>
                 <Icon name="flag-outline" size={18} color={DS.coral} />
-                <Text style={[styles.settingText, { flex: 1 }]}>{reason}</Text>
-                <Icon name="chevron-right" size={18} color={DS.textMuted} />
-              </TouchableOpacity>
-            ))}
+                <Text style={[styles.settingText, { flex: 1 }, picked && { color: DS.coral }]}>{reason}</Text>
+                <Icon
+                  name={picked ? 'check-circle' : 'checkbox-blank-circle-outline'}
+                  size={18}
+                  color={picked ? DS.coral : DS.textMuted} />
+              </TouchableOpacity>);
+            })}
+            {/* Nothing happens until this is pressed — finishInnings() creates the
+                second innings (or completes the match) and there's no way back. */}
+            <TouchableOpacity
+              style={[styles.confirmBtn, pendingEndReason ? styles.confirmBtnDanger : styles.confirmBtnOff]}
+              disabled={!pendingEndReason}
+              onPress={() => {
+                const reason = pendingEndReason;
+                setEndPrompt(false);
+                finishInnings(reason);
+              }}>
+              <Text style={[styles.confirmBtnText, !pendingEndReason && styles.confirmBtnTextOff, pendingEndReason && { color: DS.onBlue }]}>
+                {pendingEndReason
+                  ? `${isInnings2 ? 'End match' : 'End innings'} · ${pendingEndReason}`
+                  : 'Pick a reason'}
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.modalClose} onPress={() => setEndPrompt(false)}>
               <Text style={styles.modalCloseText}>Cancel</Text>
             </TouchableOpacity>
@@ -2289,11 +2363,15 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // Extra action row
   extraRow: { flexDirection: 'row', gap: 6, marginHorizontal: 16, marginBottom: 6 },
+  // Dropping PEN 5 gave this row a whole slot back. It goes to the four extras
+  // (all flex:1) as a taller target and a bigger label — these are hit every
+  // over, and at 10.5pt in a sixth of the row they were the smallest live
+  // controls on the screen.
   extraBtn: {
-    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 11, paddingVertical: 8,
+    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 11, paddingVertical: 11,
     alignItems: 'center', justifyContent: 'center', gap: 2, borderWidth: 1, borderColor: DS.line,
   },
-  extraBtnText: { fontSize: 10.5, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.3, textAlign: 'center' },
+  extraBtnText: { fontSize: 12.5, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.3, textAlign: 'center' },
   // UNDO is a correction control, not an extra — coral-tinted so it reads apart
   // from the neutral WD/NB/BYE/LB buttons beside it, and its label carries the
   // last delivery (what it will remove).
@@ -2391,6 +2469,9 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingVertical: 15, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: DS.line,
   },
   settingText: { flex: 1, fontSize: 15, fontWeight: '700', color: DS.textPrimary },
+  // Armed-but-not-committed row in the end-innings / retire sheets.
+  settingRowPicked: { backgroundColor: DS.lime + '14', borderRadius: 10, paddingHorizontal: 10, marginHorizontal: -6 },
+  settingRowPickedDanger: { backgroundColor: DS.coral + '1a', borderRadius: 10, paddingHorizontal: 10, marginHorizontal: -6 },
   settingHint: { fontSize: 12, fontWeight: '800', color: DS.textMuted, marginRight: 2 },
 
   // Short Run confirm dialog
@@ -2417,6 +2498,8 @@ const makeStyles = (DS) => StyleSheet.create({
     marginTop: 10, alignItems: 'center',
   },
   confirmBtnOff: { backgroundColor: DS.surfaceHighest },
+  // Destructive variant — ending an innings/match, or retiring a batter OUT.
+  confirmBtnDanger: { backgroundColor: DS.coral },
   confirmBtnText: { fontSize: 15, fontWeight: '900', color: DS.bg, letterSpacing: 0.3 },
   confirmBtnTextOff: { color: DS.textMuted },
 
