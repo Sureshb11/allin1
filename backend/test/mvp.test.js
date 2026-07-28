@@ -9,7 +9,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computeAwards } from '../src/lib/mvp.js';
+import { computeAwards, economyBonus, ECONOMY } from '../src/lib/mvp.js';
 
 const T1 = { id: 't1', name: 'Mumbai' };
 const T2 = { id: 't2', name: 'Sydney' };
@@ -150,6 +150,32 @@ test('batting + bowling + fielding always equals the total on screen', () => {
   for (const p of a.mvp) {
     assert.equal(+(p.bat + p.bowl + p.field).toFixed(2), p.total, `${p.name}'s parts must add up`);
   }
+});
+
+// ── The bowler's economy bonus, as CricHeroes publish it ────────────────────
+// (TeamSR / PlayerSR) × (TeamSR − PlayerSR) × SR%. Worked by hand so a change to
+// the formula has to be deliberate.
+test('economy bonus follows the published formula', () => {
+  // T20 (8%), innings 160 off 120 balls → TeamSR 133.33.
+  // Bowler 4-0-20-1 → 24 balls, PlayerSR 83.33.
+  // ratio 1.6 × gap 50 × 0.08 = 6.4
+  const bonus = economyBonus({ teamSR: (160 / 120) * 100, playerSR: (20 / 24) * 100, srPct: 0.08, ballsBowled: 24 });
+  assert.equal(+bonus.toFixed(4), 6.4);
+});
+
+test('economy bonus only ever adds, and never for a bowler who did not bowl', () => {
+  const srPct = 0.08, teamSR = 133.33;
+  // Went at more than the innings rate → no bonus, and no penalty either.
+  assert.equal(economyBonus({ teamSR, playerSR: 200, srPct, ballsBowled: 24 }), 0);
+  assert.equal(economyBonus({ teamSR, playerSR: teamSR, srPct, ballsBowled: 24 }), 0);
+  // Didn't bowl a ball → nothing, however tidy the arithmetic looks.
+  assert.equal(economyBonus({ teamSR, playerSR: 0, srPct, ballsBowled: 0 }), 0);
+});
+
+test('conceding nothing is capped rather than infinite', () => {
+  const b = economyBonus({ teamSR: 133.33, playerSR: 0, srPct: 0.08, ballsBowled: 6 });
+  assert.ok(Number.isFinite(b));
+  assert.equal(+b.toFixed(4), +(ECONOMY.ratioCap * 133.33 * 0.08 / ECONOMY.divisor).toFixed(4));
 });
 
 test('every squad player is listed, ranked, even with nothing to show', () => {

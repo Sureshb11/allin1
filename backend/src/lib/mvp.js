@@ -57,6 +57,39 @@ const chargedRuns = (b) =>
   : b.extraType === 'noBall' ? b.runs + b.extras
   : (b.extraType ? 0 : b.runs);
 
+// ── The bowler's economy bonus ───────────────────────────────────────────────
+// CricHeroes publish this one as:
+//
+//     ((Team SR) / (Player SR)) * (Team SR) — (Player SR) * SR Bonus Percentage
+//
+// i.e. (TeamSR ÷ PlayerSR) × (TeamSR − PlayerSR) × SR%, where a bowler's "SR" is
+// the runs they concede per 100 balls. Implemented literally, because matching
+// their published numbers is the point — but their write-up leaves two things
+// undefined, and both are pinned HERE so a real CricHeroes card can settle them
+// by changing one number rather than by rewriting the formula:
+//
+//   • SCALE (`divisor`). Everywhere else the algorithm turns runs into points at
+//     10 runs = 1 point, and the batting bonus is scaled by the batter's own base
+//     score — this term is scaled by nothing, so as written a tidy 4-over spell
+//     is worth several wickets. 1 = the formula exactly as published; 10 = the
+//     same term converted at the algorithm's own runs-to-points rate. If real
+//     CricHeroes bowling points come out ~10× smaller than ours, this is why.
+//
+//   • ZERO RUNS (`ratioCap`). TeamSR ÷ PlayerSR is undefined when a bowler has
+//     conceded nothing and runs away as they approach it, so the ratio is capped.
+//     A wicket-maiden spell is already paid for by the maiden bonus.
+//
+// No penalty for going at more than the innings rate: CricHeroes removed the
+// strike-rate penalty on the batting side, and their bowling formula was never
+// republished with a sign term, so this only ever adds.
+export const ECONOMY = { divisor: 1, ratioCap: 3 };
+
+export function economyBonus({ teamSR, playerSR, srPct, ballsBowled }) {
+  if (!ballsBowled || !(teamSR > playerSR)) return 0;
+  const ratio = playerSR > 0 ? Math.min(teamSR / playerSR, ECONOMY.ratioCap) : ECONOMY.ratioCap;
+  return (ratio * (teamSR - playerSR) * srPct) / ECONOMY.divisor;
+}
+
 export function computeAwards(match) {
   const innings = match.innings || [];
   // Every points table below is keyed by the match's overs-per-side, so this must
@@ -192,16 +225,7 @@ export function computeAwards(match) {
       const wicketBase = wktBase[id] || 0;
       const milestone = s.wkts >= 10 ? 1.5 : s.wkts >= 5 ? 1.0 : s.wkts >= 3 ? 0.5 : 0;
       const playerSR = s.balls > 0 ? (s.conceded / s.balls) * 100 : 0;
-      // Economy bonus: rewards conceding fewer runs than the innings run-rate.
-      // CricHeroes' literal (TeamSR/PlayerSR)·(TeamSR−PlayerSR) term is unbounded
-      // (a tight wicketless spell can out-score a 5-for), so we keep the same
-      // signal — economy gap vs team SR, scaled by the SR% table — but bound it
-      // to overs bowled so wickets stay the dominant factor.
-      let srBonus = 0;
-      if (playerSR > 0 && teamBowlSR >= playerSR) {
-        const gap = (teamBowlSR - playerSR) / teamBowlSR; // 0..1
-        srBonus = srPct * (s.balls / 6) * gap;
-      }
+      const srBonus = economyBonus({ teamSR: teamBowlSR, playerSR, srPct, ballsBowled: s.balls });
       const maidenBonus = s.maidens * ((brpw / 10) / mpw);
       p.bowl += wicketBase + milestone + srBonus + maidenBonus;
       p.bowlLine = `${s.wkts}/${s.conceded}`;
