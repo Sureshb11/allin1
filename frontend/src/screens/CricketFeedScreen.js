@@ -969,7 +969,6 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
 
       <FlatList
         {...hideTabBar}
-        contentContainerStyle={{ paddingBottom: tabClear }}
         data={posts}
         keyExtractor={(it) => it.id}
         ListHeaderComponent={renderHeader}
@@ -986,7 +985,10 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
         }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 24 }} />
+        // Was declared twice on this list — the second one won, so paddingBottom
+        // was a flat 24 and the tab-bar clearance it was meant to carry never
+        // applied. The last post sat behind the dock. Both intents, once.
+        contentContainerStyle={{ paddingBottom: tabClear + 24 }} />
 
 
       <CommentsSheet post={sheetPost} onClose={() => setActivePost(null)} onAdd={addComment} />
