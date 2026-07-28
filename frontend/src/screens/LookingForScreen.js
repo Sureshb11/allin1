@@ -310,9 +310,19 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     const res = await legendsApi.connectLookingFor(postId);
     if (res.success) loadConnections();
   };
-  const handleRespond = async (connId, action) => {
+  const handleRespond = async (connId, name, action) => {
     const res = await legendsApi.respondLookingForConnection(connId, action);
-    if (res.success) loadConnections();
+    if (!res.success) {
+      showToast(res.error || 'Could not respond', 'error');
+      return;
+    }
+    // Accepting removes them from this screen — the conversation now lives in
+    // Chats, under Scout. Say so once, here, or the chat you just unlocked is
+    // something the user has to go looking for.
+    if (action === 'accept') {
+      showToast(`Connected with ${name || 'them'} — chat is in Chats`, 'success', 3000);
+    }
+    loadConnections();
   };
   // A missing chatRoomId used to make this a dead tap. The room is created
   // server-side on demand, so fall through to that rather than doing nothing.
@@ -402,40 +412,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       && posts.some((p) => p.id === c.listingId && p.status === 'open')
   );
 
-  // Every accepted connection, BOTH directions — the ones you accepted and the
-  // ones accepted for you. It can't be poster-only any more: a requester's Chat
-  // button lives on the listing row, and a filled listing now leaves the board,
-  // so that button would vanish with it and take the conversation with it.
-  //
-  // Grouped by listing, since one ask can connect several people and a flat list
-  // of names says nothing about which of your listings each belongs to.
-  const acceptedGroups = useMemo(() => {
-    const mine = connections.filter((c) => c.status === 'accepted');
-    const groups = new Map();
-    mine.forEach((c) => {
-      const key = c.listingId || 'other';
-      if (!groups.has(key)) {
-        groups.set(key, {
-          key,
-          // listingTitle rides on the connection, so the heading survives the
-          // listing leaving the board.
-          title: c.listingTitle ? askFrom({ title: c.listingTitle, type: c.listingType }) : 'Earlier listing',
-          type: c.listingType,
-          people: [],
-        });
-      }
-      const iAmPoster = c.posterId === myId;
-      groups.get(key).people.push({
-        id: c.id,
-        chatRoomId: c.chatRoomId,
-        name: iAmPoster ? c.requesterName : c.posterName,
-        avatarUrl: iAmPoster ? c.requesterAvatarUrl : c.posterAvatarUrl,
-        // Whose ask it was, so "you replied" vs "they replied" stays legible.
-        role: iAmPoster ? 'reached out to you' : 'accepted your request',
-      });
-    });
-    return [...groups.values()];
-  }, [connections, myId]);
 
   // ── One listing = one row ──────────────────────────────────────────────────
   // Three lines, fixed shape: the ask, then who/where/when, then age + category.
@@ -519,16 +495,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
   // Requests waiting on you, lifted out of the feed and pinned above it.
   const renderInbox = () => {
-    if (!inboundPending.length && !acceptedGroups.length) return null;
-    return (
-      <View style={{ gap: 10, marginBottom: 14 }}>
-        {renderPendingBlock()}
-        {renderAcceptedBlock()}
-      </View>
-    );
-  };
-
-  const renderPendingBlock = () => {
     if (!inboundPending.length) return null;
     return (
       <View style={styles.inbox}>
@@ -549,59 +515,16 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                   <Icon name="message-text-outline" size={14} color={DS.lime} />
                   <Text style={styles.rowGhostText}>Ask</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.rowCta, { backgroundColor: P.control }]} onPress={() => handleRespond(r.id, 'accept')} activeOpacity={0.85}>
+                <TouchableOpacity style={[styles.rowCta, { backgroundColor: P.control }]} onPress={() => handleRespond(r.id, r.requesterName, 'accept')} activeOpacity={0.85}>
                   <Text style={[styles.rowCtaText, { color: P.onControl }]}>Accept</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.inboxDecline} onPress={() => handleRespond(r.id, 'decline')} activeOpacity={0.85}>
+                <TouchableOpacity style={styles.inboxDecline} onPress={() => handleRespond(r.id, r.requesterName, 'decline')} activeOpacity={0.85}>
                   <Icon name="close" size={15} color={DS.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
           );
         })}
-      </View>
-    );
-  };
-
-  // Where an accepted request goes. Quieter than the pending block — this is
-  // done business, not something demanding an answer — but it keeps the chat one
-  // tap away instead of only in the Chat tab.
-  const renderAcceptedBlock = () => {
-    if (!acceptedGroups.length) return null;
-    const total = acceptedGroups.reduce((n, g) => n + g.people.length, 0);
-    return (
-      <View style={styles.connected}>
-        <View style={styles.inboxHead}>
-          <Icon name="check-circle-outline" size={15} color={DS.lime} />
-          <Text style={styles.connectedTitle}>Connected · {total}</Text>
-        </View>
-        {acceptedGroups.map((g) => (
-          <View key={g.key} style={styles.connGroup}>
-            {/* Which ask these people came from. Survives the listing being
-                filled, because the title rides on the connection. */}
-            <View style={styles.connGroupHead}>
-              <Icon name={TYPE_ICONS[g.type] || 'bookmark-outline'} size={13} color={DS.textMuted} />
-              <Text style={styles.connGroupTitle} numberOfLines={1}>{g.title}</Text>
-              {g.people.length > 1 && <Text style={styles.connGroupCount}>{g.people.length}</Text>}
-            </View>
-            {g.people.map((p) => (
-              <View key={p.id} style={styles.connectedRow}>
-                <PlayerAvatar name={p.name || '?'} avatarUrl={p.avatarUrl} size={30} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.connectedName} numberOfLines={1}>{p.name}</Text>
-                  <Text style={styles.connectedRole} numberOfLines={1}>{p.role}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.rowGhostBtn}
-                  onPress={() => openChat(p.chatRoomId, p.name, p.id)}
-                  activeOpacity={0.85}>
-                  <Icon name="chat-outline" size={14} color={DS.lime} />
-                  <Text style={styles.rowGhostText}>Chat</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        ))}
       </View>
     );
   };
@@ -993,22 +916,8 @@ const makeStyles = (DS) => StyleSheet.create({
   /* "Needs your reply" — pulled out of the feed and pinned on top. */
   inbox: {
     backgroundColor: DS.surface, borderRadius: 14, borderWidth: 1, borderColor: DS.coral,
-    padding: 12, gap: 10,
+    padding: 12, gap: 10, marginBottom: 14,
   },
-  // Settled business — a plain surface, no coral demand for attention.
-  connected: {
-    backgroundColor: DS.surface, borderRadius: 14, borderWidth: 1, borderColor: DS.faint,
-    padding: 12, gap: 10,
-  },
-  connectedTitle: { fontSize: 12, fontWeight: '800', color: DS.lime, letterSpacing: 0.3 },
-  // One group per listing — several people can come from a single ask.
-  connGroup: { gap: 8 },
-  connGroupHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  connGroupTitle: { flex: 1, fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.4 },
-  connGroupCount: { fontSize: 11, fontWeight: '800', color: DS.textMuted },
-  connectedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  connectedName: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
-  connectedRole: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
   inboxHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   inboxTitle: { fontSize: 12, fontWeight: '800', color: DS.coral, letterSpacing: 0.3 },
   inboxRow: { gap: 8 },
