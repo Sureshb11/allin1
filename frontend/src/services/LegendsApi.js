@@ -1446,11 +1446,19 @@ class LegendsApi {
   }
 
   // Looking For posts
+  // Returns one page plus the board-wide chip counts and the next cursor.
   async getLookingForPosts(filters = {}) {
     try {
-      const params = new URLSearchParams(filters).toString();
+      const clean = Object.fromEntries(Object.entries(filters).filter(([, v]) => v != null && v !== ''));
+      const params = new URLSearchParams(clean).toString();
       const json = await this.request(`/looking-for${params ? `?${params}` : ''}`);
-      return { success: true, data: json.posts || [] };
+      return {
+        success: true,
+        data: json.posts || [],
+        counts: json.counts || {},
+        total: json.total || 0,
+        nextCursor: json.nextCursor || null,
+      };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -1465,9 +1473,11 @@ class LegendsApi {
     }
   }
 
-  async updateLookingFor(postId, status) {
+  // Takes a status string (close/fill) or a partial listing to edit.
+  async updateLookingFor(postId, patch) {
     try {
-      const json = await this.request(`/looking-for/${postId}`, { method: 'PUT', body: { status } });
+      const body = typeof patch === 'string' ? { status: patch } : patch;
+      const json = await this.request(`/looking-for/${postId}`, { method: 'PUT', body });
       return { success: true, data: json.post };
     } catch (error) {
       return { success: false, error: error.message };

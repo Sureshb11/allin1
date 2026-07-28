@@ -16,30 +16,57 @@ const router = Router();
 // /connections and opened via the connection's chatRoomId, and each one carries
 // its listing's title. So a filled listing can go without stranding anything —
 // and the poster stops scrolling past their own finished asks.
+const PAGE_SIZE = 30;
+
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const { type, location, format, sport } = req.query;
-    const filters = {};
-    if (type) filters.type = type;
-    if (sport) filters.sport = sport;
-    if (location) filters.location = { contains: location, mode: 'insensitive' };
-    if (format) filters.format = format;
+    const { type, location, format, sport, q, cursor } = req.query;
+    const limit = Math.min(Number(req.query.limit) || PAGE_SIZE, 50);
 
-    const where = { AND: [filters, { status: 'open' }] };
+    // Everything except the type filter — the chip counts have to describe the
+    // whole board, not the slice you're currently looking at.
+    const base = { status: 'open' };
+    if (sport) base.sport = sport;
+    if (location) base.location = { contains: location, mode: 'insensitive' };
+    if (format) base.format = format;
+    // Search moved server-side with pagination: matching only the page you'd
+    // already downloaded would quietly miss most of the board.
+    if (q && q.trim()) {
+      const needle = q.trim();
+      base.OR = [
+        { title: { contains: needle, mode: 'insensitive' } },
+        { description: { contains: needle, mode: 'insensitive' } },
+        { location: { contains: needle, mode: 'insensitive' } },
+      ];
+    }
 
+    const where = type && type !== 'all' ? { ...base, type } : base;
+
+    // One page, keyset-paginated on the ordered id so a listing posted mid-scroll
+    // can't shift rows across a page boundary the way skip/take would.
     const posts = await prisma.lookingFor.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
-      // The app filters by type client-side (instant tab switches + per-type
-      // counts on the chips), so this has to return the whole board, not one
-      // type's worth.
-      take: 200,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
+    const hasMore = posts.length > limit;
+    const page = hasMore ? posts.slice(0, limit) : posts;
+
+    // Per-type totals for the filter chips, over the unfiltered board.
+    const grouped = await prisma.lookingFor.groupBy({
+      by: ['type'],
+      where: base,
+      _count: { _all: true },
+    });
+    const counts = {};
+    let total = 0;
+    grouped.forEach((g) => { counts[g.type] = g._count._all; total += g._count._all; });
 
     // Who posted it. LookingFor.postedById is a bare column with no relation, so
     // this is the same manual join /connections already does. Without it the
     // board is anonymous — no name, no face, nothing to judge a stranger on.
-    const posterIds = [...new Set(posts.map((p) => p.postedById).filter(Boolean))];
+    const posterIds = [...new Set(page.map((p) => p.postedById).filter(Boolean))];
     const posters = posterIds.length
       ? await prisma.user.findMany({
           where: { id: { in: posterIds } },
@@ -48,15 +75,38 @@ router.get('/', optionalAuth, async (req, res) => {
       : [];
     const byId = new Map(posters.map((u) => [u.id, u]));
 
+    // A shared number is for the people the poster actually accepted — not for
+    // anyone who scrolls the board. contactInfo used to go out with every
+    // listing to every caller.
+    const me = req.user?.sub;
+    let unlocked = new Set();
+    if (me) {
+      const accepted = await prisma.lookingForConnection.findMany({
+        where: { requesterId: me, status: 'accepted', listingId: { in: page.map((p) => p.id) } },
+        select: { listingId: true },
+      });
+      unlocked = new Set(accepted.map((c) => c.listingId));
+    }
+
     res.json({
-      posts: posts.map((p) => {
+      posts: page.map((p) => {
         const u = p.postedById ? byId.get(p.postedById) : null;
+        const shared = !!(p.contactInfo || '').trim();
+        const mine = !!me && p.postedById === me;
         return {
           ...p,
+          contactInfo: mine || unlocked.has(p.id) ? p.contactInfo : null,
+          // Whether a number exists at all, so the app can tell "they'll share
+          // once you connect" apart from "there's no number here" — without
+          // handing out the digits.
+          contactShared: shared,
           posterName: u ? `${u.firstName} ${u.lastName || ''}`.trim() : null,
           posterAvatarUrl: u?.avatarUrl || null,
         };
       }),
+      counts,
+      total,
+      nextCursor: hasMore ? page[page.length - 1].id : null,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -225,7 +275,11 @@ router.get('/:id', async (req, res) => {
 
 const LookingForSchema = z.object({
   sport:       z.string().optional(),
-  type:        z.enum(['player', 'team', 'umpire', 'scorer', 'coach', 'opponent', 'commentator']),
+  // Must stay in step with TYPES in LookingForScreen — ground, teamtourn and
+  // tournament were offered by the form and rejected here with a 400, so three
+  // of the ten categories could never be posted at all.
+  type:        z.enum(['player', 'team', 'umpire', 'scorer', 'coach', 'opponent',
+                       'commentator', 'tournament', 'teamtourn', 'ground']),
   title:       z.string().min(1),
   description: z.string().optional(),
   location:    z.string().optional(),
@@ -246,6 +300,10 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
+// Editable fields. Everything a poster can change after the fact — status is
+// handled separately below because closing has side effects.
+const LookingForEditSchema = LookingForSchema.partial();
+
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { status } = req.body;
@@ -259,9 +317,15 @@ router.put('/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'Only the poster can change this listing' });
     }
 
+    // An edit and a status change arrive on the same route; take whichever the
+    // caller sent. A listing used to be unfixable — a typo meant delete and
+    // repost, losing its age and any requests on it.
+    const edits = LookingForEditSchema.parse(
+      Object.fromEntries(Object.entries(req.body).filter(([k]) => k !== 'status')),
+    );
     const post = await prisma.lookingFor.update({
       where: { id: req.params.id },
-      data: { status },
+      data: { ...edits, ...(status ? { status } : {}) },
     });
     // Closing/filling a listing auto-declines still-pending connect requests
     // (already-accepted ones keep their chat rooms).

@@ -212,11 +212,12 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     filterScroll.current?.scrollTo?.({ x: target, animated: true });
   }, [filterOffset, filterScroll]);
 
+  const selectTypeRef = useRef(null);
   const stepFilter = useCallback((dir) => {
     const idx = FILTER_TYPES.indexOf(activeTypeRef.current);
     const next = idx + dir;
     if (next < 0 || next >= FILTER_TYPES.length) return;
-    setActiveType(FILTER_TYPES[next]);
+    selectTypeRef.current?.(FILTER_TYPES[next]);
     scrollChipIntoView(next);
   }, [scrollChipIntoView]);
   const swipe = useRef(PanResponder.create({
@@ -247,9 +248,47 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   }, []);
   const closeDetail = useCallback(() => detailSheetRef.current?.dismiss(), []);
 
+  // The create sheet doubles as the edit sheet — same fields, same validation,
+  // so the two can't drift. editingId null means "posting a new one".
+  const [editingId, setEditingId] = useState(null);
+
   const createSheetRef = useRef(null);
   const createSnapPoints = useMemo(() => ['92%'], []);
-  const openCreate = useCallback(() => createSheetRef.current?.present(), []);
+  const openCreate = useCallback(() => {
+    setEditingId(null);
+    setForm(INITIAL_FORM);
+    createSheetRef.current?.present();
+  }, []);
+
+  // Reassemble the tap-selections from a stored listing. The title and the
+  // "When:" line were generated from them on the way in, so they parse back out.
+  const openEdit = useCallback((item) => {
+    const lines = (item.description || '').split('\n');
+    const when = lines.find((l) => l.startsWith('When: '))?.slice(6) || '';
+    const notes = lines.filter((l) => !l.startsWith('When: ')).join('\n').trim();
+    const [daysPart, timePart] = when.split(' · ');
+    const days = (daysPart || '').split(',').map((d) => d.trim()).filter((d) => DAYS.includes(d));
+    const timing = TIME_OPTS.includes(timePart) ? timePart : (timePart ? 'Custom' : '');
+    // The role sits between the type word and the format in the generated title.
+    const titleParts = (item.title || '').replace(/^looking for (?:an?|the)\s+/i, '').split('·').map((x) => x.trim());
+    const role = (SUBTYPES[item.type] || []).find((r) => titleParts.includes(r)) || '';
+
+    setEditingId(item.id);
+    setForm({
+      type: item.type || 'player',
+      role,
+      description: notes,
+      location: item.location || '',
+      format: item.format || 'Any',
+      ageGroup: item.ageGroup || 'Any',
+      days,
+      timing,
+      customTime: timing === 'Custom' ? (timePart || '') : '',
+    });
+    setSharePhone(!!(item.contactInfo || '').trim());
+    closeDetail();
+    createSheetRef.current?.present();
+  }, []);
   const closeCreate = useCallback(() => createSheetRef.current?.dismiss(), []);
   const renderBackdrop = useCallback(
     (props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.5} pressBehavior="close" />,
@@ -300,14 +339,51 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     }
   }, [navigation, inline]);
 
-  // Fetch the whole board once and filter by type in JS. Tabs then switch
-  // instantly instead of round-tripping, and each chip can show a real count —
-  // which is what makes the filter row readable at a glance.
-  const load = useCallback(async () => {
-    // Scout listings are per-sport — a cricket all-rounder isn't a football lead.
-    const res = await legendsApi.getLookingForPosts({ sport: getSelectedSport().sport?.id });
-    if (res.success) setPosts(res.data);
+  // One page at a time, filtered server-side. The board used to arrive whole
+  // (take: 200) and get filtered in JS, which was fine at ten listings and
+  // silently wrong past two hundred.
+  const [counts, setCounts] = useState({});
+  const [total, setTotal] = useState(0);
+  const [cursor, setCursor] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Guards a page request against the filter changing underneath it — a slow
+  // page for "player" must not append into a board now showing "ground".
+  const reqIdRef = useRef(0);
+
+  const load = useCallback(async (typeArg, queryArg) => {
+    const rid = ++reqIdRef.current;
+    const res = await legendsApi.getLookingForPosts({
+      sport: getSelectedSport().sport?.id,
+      type: typeArg && typeArg !== 'all' ? typeArg : undefined,
+      q: (queryArg || '').trim() || undefined,
+    });
+    if (!res.success || rid !== reqIdRef.current) return;
+    setPosts(res.data);
+    setCounts(res.counts);
+    setTotal(res.total);
+    setCursor(res.nextCursor);
   }, []);
+
+  const loadMore = useCallback(async () => {
+    if (!cursor || loadingMore) return;
+    const rid = reqIdRef.current;
+    setLoadingMore(true);
+    const res = await legendsApi.getLookingForPosts({
+      sport: getSelectedSport().sport?.id,
+      type: activeTypeRef.current !== 'all' ? activeTypeRef.current : undefined,
+      q: query.trim() || undefined,
+      cursor,
+    });
+    // Drop the page if the filter or search moved on while it was in flight.
+    if (res.success && rid === reqIdRef.current) {
+      setPosts((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        return [...prev, ...res.data.filter((p) => !seen.has(p.id))];
+      });
+      setCursor(res.nextCursor);
+    }
+    setLoadingMore(false);
+  }, [cursor, loadingMore, query]);
 
   const loadConnections = useCallback(async () => {
     const res = await legendsApi.getLookingForConnections();
@@ -319,9 +395,9 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   useFocusEffect(useCallback(() => {
     let alive = true;
     setLoading(true);
-    Promise.all([load(), loadConnections()]).finally(() => { if (alive) setLoading(false); });
+    Promise.all([load(activeType, query), loadConnections()]).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [load, loadConnections]));
+  }, [load, loadConnections, activeType, query]));
 
   // Connection lookups per listing.
   const myReqFor = (listingId) => connections.find((c) => c.listingId === listingId && c.requesterId === myId);
@@ -366,7 +442,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([load(), loadConnections()]);
+    await Promise.all([load(activeTypeRef.current, query), loadConnections()]);
     setRefreshing(false);
   };
 
@@ -383,18 +459,21 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       contactInfo: sharePhone ? myPhone : '',
       sport: sportFilter || 'cricket',
     };
-    const res = await legendsApi.createLookingFor(payload);
+    const res = editingId
+      ? await legendsApi.updateLookingFor(editingId, payload)
+      : await legendsApi.createLookingFor(payload);
     setSubmitting(false);
     if (!res.success) {
       // Silently doing nothing left the sheet open with a full form and no clue
       // the post hadn't gone anywhere.
-      showToast(res.error || 'Could not post that listing', 'error');
+      showToast(res.error || (editingId ? 'Could not save changes' : 'Could not post that listing'), 'error');
       return;
     }
     closeCreate();
     setForm(INITIAL_FORM);
-    load();
-    showToast('Listing posted', 'success');
+    setEditingId(null);
+    load(activeTypeRef.current, query);
+    showToast(editingId ? 'Listing updated' : 'Listing posted', 'success');
   };
 
   // Remove a listing outright. Marking filled keeps it as a record and closes
@@ -411,7 +490,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           const res = await legendsApi.deleteLookingFor(item.id);
           if (!res.success) { showToast(res.error || 'Could not delete', 'error'); return; }
           closeDetail();
-          load();
+          load(activeTypeRef.current, query);
           showToast('Listing deleted', 'success');
         } },
       ],
@@ -427,129 +506,35 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     // Filling a listing bulk-declines its pending requests server-side, so the
     // connection list is stale the moment this returns — refetch both or the
     // pinned blocks keep showing requests that no longer exist.
-    await Promise.all([load(), loadConnections()]);
+    await Promise.all([load(activeTypeRef.current, query), loadConnections()]);
   };
 
-  // Search first, so the chip counts reflect what a search would actually turn up
-  // rather than promising results the query has already excluded.
-  const searched = posts.filter((p) => {
-    const q = query.trim().toLowerCase();
-    if (!q) return true;
-    return [p.title, p.description, p.location, p.format, p.type].join(' ').toLowerCase().includes(q);
-  });
+  // Rows arrive already filtered and searched; counts describe the whole board.
+  const visiblePosts = posts;
+  const countsByType = counts;
 
-  const countsByType = useMemo(() => {
-    const c = {};
-    searched.forEach((p) => { c[p.type] = (c[p.type] || 0) + 1; });
-    return c;
-  }, [searched]);
+  // Debounce the search so each keystroke isn't a round-trip. The board reloads
+  // through the same focus effect that owns activeType.
+  const searchTimer = useRef(null);
+  const onQueryChange = (text) => {
+    setQuery(text);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => load(activeTypeRef.current, text), 300);
+  };
 
-  // Every category stays on the row, including the empty ones. Hiding zero-count
-  // chips reads as tidy but it's the wrong trade on a board that's still filling
-  // up: it silently erases coach, ground, umpire and commentator, so nobody
-  // discovers Scout covers them and nobody posts the first one. An empty chip is
-  // dimmed and shows "0" — legible, and tapping it invites you to post.
-  const visiblePosts = activeType === 'all' ? searched : searched.filter((p) => p.type === activeType);
+  const selectType = (t) => {
+    setActiveType(t);
+    activeTypeRef.current = t;
+    setPosts([]);
+    setCursor(null);
+    load(t, query);
+  };
+  selectTypeRef.current = selectType;
 
-  // Requests waiting on ME, across all my listings. These were interleaved into
-  // the browse feed, so the one thing needing an answer was the easiest to miss.
   const inboundPending = connections.filter(
     (c) => c.posterId === myId && c.status === 'pending'
       && posts.some((p) => p.id === c.listingId && p.status === 'open')
   );
-
-
-  // The one action a listing offers right now, shared by the row and the detail
-  // sheet so the two can never show different next steps for the same listing.
-  const actionFor = (item, big = false) => {
-    const isMine = item.postedById && item.postedById === myId;
-    const myReq = myReqFor(item.id);
-    const ctaStyle = big ? [styles.rowCta, styles.ctaWide, { backgroundColor: P.control }] : [styles.rowCta, { backgroundColor: P.control }];
-    const ghostStyle = big ? [styles.rowGhostBtn, styles.ctaWide] : styles.rowGhostBtn;
-    const flagStyle = big ? [styles.rowFlag, styles.ctaWide] : styles.rowFlag;
-
-    if (isMine) {
-      // The board is open listings only, so a row is never already filled —
-      // marking it removes it on the next fetch.
-      return (
-        <TouchableOpacity style={ghostStyle} onPress={() => { closeDetail(); handleClose(item.id); }} activeOpacity={0.8}>
-          <Text style={styles.rowGhostText}>Mark filled</Text>
-        </TouchableOpacity>
-      );
-    }
-    if (!item.postedById) return null;
-    if (myReq?.status === 'accepted') {
-      return (
-        <TouchableOpacity style={ghostStyle} onPress={() => openChat(myReq.chatRoomId, item.posterName || 'Poster', myReq.id)} activeOpacity={0.85}>
-          <Icon name="chat-outline" size={14} color={DS.lime} />
-          <Text style={styles.rowGhostText}>Chat</Text>
-        </TouchableOpacity>
-      );
-    }
-    if (myReq?.status === 'pending') {
-      // Was a dead end — you could only wait. Tapping asks a question instead.
-      return (
-        <TouchableOpacity style={flagStyle} onPress={() => openRequestChat(myReq.id, item.posterName || 'Poster')} activeOpacity={0.85}>
-          <Icon name="clock-outline" size={13} color={DS.textMuted} />
-          <Text style={styles.rowFlagText}>Sent</Text>
-        </TouchableOpacity>
-      );
-    }
-    if (myReq?.status === 'declined') {
-      return <View style={flagStyle}><Text style={styles.rowFlagText}>Declined</Text></View>;
-    }
-    return (
-      <TouchableOpacity style={ctaStyle} onPress={() => handleConnect(item.id)} activeOpacity={0.85}>
-        <Text style={[styles.rowCtaText, { color: P.onControl }]}>Connect</Text>
-      </TouchableOpacity>
-    );
-  };
-
-  // ── One listing = one row ──────────────────────────────────────────────────
-  // Three lines, fixed shape: the ask, then who/where/when, then age + category.
-  // The action sits on the right so the eye can run down a single column of
-  // buttons instead of hunting for one at the bottom of each card.
-  const renderPost = ({ item, index }) => {
-    const descLines = (item.description || '').split('\n');
-    const whenText = descLines.find((l) => l.startsWith('When: '))?.slice(6);
-    const bodyDesc = descLines.filter((l) => !l.startsWith('When: ')).join('\n').trim();
-    const isMine = item.postedById && item.postedById === myId;
-    const myReq = myReqFor(item.id);
-
-    // Line 2 — who, where, when. Whatever's known, in that order.
-    const whoLine = [isMine ? 'You' : item.posterName, item.location, whenText]
-      .filter(Boolean).join(' · ');
-    // Line 3 — age of the listing, then the qualifiers the ask didn't carry.
-    const metaLine = [timeAgo(item.createdAt), TYPE_LABELS[item.type], item.format, item.ageGroup]
-      .filter(Boolean).join(' · ');
-
-    const action = actionFor(item);
-    return (
-      <Reanimated.View
-        entering={FadeInDown.duration(300).delay(Math.min(index, 8) * 35)}
-        style={styles.row}
-      >
-        <TouchableOpacity style={styles.rowTap} activeOpacity={0.7} onPress={() => openDetail(item)}>
-        {item.posterName
-          ? <PlayerAvatar name={item.posterName} avatarUrl={item.posterAvatarUrl} size={38} />
-          : (
-            <View style={styles.rowIconAvatar}>
-              <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={19} color={DS.lime} />
-            </View>
-          )}
-
-        <View style={styles.rowMain}>
-          <Text style={styles.rowAsk} numberOfLines={1}>{askFrom(item)}</Text>
-          {!!whoLine && <Text style={styles.rowWho} numberOfLines={1}>{whoLine}</Text>}
-          <Text style={styles.rowMeta} numberOfLines={1}>{metaLine}</Text>
-          {!!bodyDesc && <Text style={styles.rowNote} numberOfLines={2}>{bodyDesc}</Text>}
-        </View>
-        </TouchableOpacity>
-
-        {action}
-      </Reanimated.View>
-    );
-  };
 
   // Requests waiting on you, lifted out of the feed and pinned above it.
   const renderInbox = () => {
@@ -619,10 +604,10 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
             placeholder="Search listings..."
             placeholderTextColor={DS.textMuted}
             value={query}
-            onChangeText={setQuery}
+            onChangeText={onQueryChange}
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')}>
+            <TouchableOpacity onPress={() => onQueryChange('')}>
               <Icon name="close-circle" size={16} color={DS.textMuted} />
             </TouchableOpacity>
           )}
@@ -643,7 +628,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
         >
           {FILTER_TYPES.map((t, idx) => {
             const on = activeType === t;
-            const n = t === 'all' ? searched.length : (countsByType[t] || 0);
+            const n = t === 'all' ? total : (countsByType[t] || 0);
             const empty = n === 0 && !on;
             return (
               <TouchableOpacity
@@ -651,7 +636,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                 style={[styles.tab, on && styles.tabActive, empty && styles.tabEmpty]}
                 onLayout={(e) => { chipX.current[idx] = e.nativeEvent.layout.x; }}
                 onPress={() => {
-                  setActiveType(t);
+                  selectType(t);
                   // Bring the tapped chip into view so the selection is never clipped.
                   scrollChipIntoView(idx);
                 }}
@@ -690,6 +675,11 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           ListHeaderComponent={renderInbox()}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={loadingMore
+            ? <ActivityIndicator style={{ marginVertical: 20 }} color={DS.lime} />
+            : null}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Icon
@@ -791,8 +781,16 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                 </View>
               )}
 
-              {/* Only when the poster ticked "share my number". This field was
-                  being written on every post and shown nowhere. */}
+              {/* The number arrives from the server only when you're the poster or
+                  they accepted you — so this renders the digits when they exist,
+                  a note when they'll exist, and nothing at all when the poster
+                  never offered one. */}
+              {!phone && detailItem.contactShared && !isMine && (
+                <View style={styles.contactLocked}>
+                  <Icon name="lock-outline" size={16} color={DS.textMuted} />
+                  <Text style={styles.contactLockedText}>Shares their number once they accept you</Text>
+                </View>
+              )}
               {!!phone && (
                 <TouchableOpacity
                   style={styles.contactBox}
@@ -810,10 +808,16 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
               <View style={styles.detailAction}>{actionFor(detailItem, true)}</View>
 
               {isMine && (
-                <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(detailItem)} activeOpacity={0.8}>
-                  <Icon name="trash-can-outline" size={15} color={DS.coral} />
-                  <Text style={styles.deleteText}>Delete listing</Text>
-                </TouchableOpacity>
+                <View style={styles.ownerActions}>
+                  <TouchableOpacity style={styles.ownerBtn} onPress={() => openEdit(detailItem)} activeOpacity={0.8}>
+                    <Icon name="pencil-outline" size={15} color={DS.lime} />
+                    <Text style={styles.editText}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.ownerBtn} onPress={() => handleDelete(detailItem)} activeOpacity={0.8}>
+                    <Icon name="trash-can-outline" size={15} color={DS.coral} />
+                    <Text style={styles.deleteText}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </BottomSheetScrollView>
           );
@@ -825,7 +829,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
         ref={createSheetRef}
         snapPoints={createSnapPoints}
         enablePanDownToClose
-        onDismiss={() => setForm(INITIAL_FORM)}
+        onDismiss={() => { setForm(INITIAL_FORM); setEditingId(null); }}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
         android_keyboardInputMode="adjustResize"
@@ -839,7 +843,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                   <Icon name="telescope" size={20} color={DS.blueDeep} />
                 </View>
                 <View>
-                  <Text style={styles.modalTitle}>Post a Listing</Text>
+                  <Text style={styles.modalTitle}>{editingId ? 'Edit Listing' : 'Post a Listing'}</Text>
                   <Text style={styles.modalSubtitle}>Let others know what you're looking for</Text>
                 </View>
               </View>
@@ -970,7 +974,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                 {submitting ? <ActivityIndicator color={DS.white} /> : (
                   <>
                     <Icon name="send" size={17} color={DS.white} />
-                    <Text style={styles.submitText}>Post Listing</Text>
+                    <Text style={styles.submitText}>{editingId ? 'Save changes' : 'Post Listing'}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1092,11 +1096,18 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.surfaceHigh, borderRadius: 12, padding: 13,
     borderWidth: 1, borderColor: DS.lime,
   },
+  contactLocked: {
+    flexDirection: 'row', alignItems: 'center', gap: 9,
+    backgroundColor: DS.surfaceHigh, borderRadius: 12, padding: 13,
+  },
+  contactLockedText: { flex: 1, fontSize: 12.5, fontWeight: '600', color: DS.textMuted },
   contactLabel: { fontSize: 10, fontWeight: '900', color: DS.textMuted, letterSpacing: 0.8 },
   contactValue: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginTop: 2 },
 
   detailAction: { marginTop: 4, alignItems: 'stretch' },
-  deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
+  ownerActions: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  ownerBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 16 },
+  editText: { fontSize: 13, fontWeight: '800', color: DS.lime },
   deleteText: { fontSize: 13, fontWeight: '800', color: DS.coral },
   // Full-width variant of the row buttons for the sheet's single primary action.
   ctaWide: { alignSelf: 'stretch', height: 46, minWidth: 0 },
