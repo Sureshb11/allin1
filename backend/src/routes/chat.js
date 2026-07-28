@@ -91,7 +91,7 @@ router.get('/rooms/:roomId/messages', authMiddleware, async (req, res) => {
     const messages = await prisma.chatMessage.findMany({
       where,
       include: {
-        sender: { select: { id: true, firstName: true, lastName: true } },
+        sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
       },
       orderBy: { createdAt: 'asc' },
       take: 100,
@@ -127,7 +127,7 @@ router.post('/rooms/:roomId/messages', authMiddleware, async (req, res) => {
         text: text.trim(),
       },
       include: {
-        sender: { select: { id: true, firstName: true, lastName: true } },
+        sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
       },
     });
     res.status(201).json({ message });

@@ -115,7 +115,14 @@ const ChatScreen = ({ route, navigation }) => {
     const res = await legendsApi.getChatMessages(chatId);
     if (!res.success) return;
     const rows = mapIn(res.data);
-    setMessages(rows);
+    setMessages((prev) => {
+      // A message that failed to send only exists on this device. Replacing the
+      // list wholesale on every focus threw it away silently — you'd come back
+      // from another screen and your unsent text was simply gone, with no error
+      // and nothing to retry. Carry the un-delivered ones over.
+      const undelivered = prev.filter((m) => m.status === 'failed' || m.status === 'pending');
+      return undelivered.length ? [...rows, ...undelivered] : rows;
+    });
     if (rows.length) lastTimestampRef.current = rows[rows.length - 1].createdAt;
   }, [chatId, mapIn]);
 
