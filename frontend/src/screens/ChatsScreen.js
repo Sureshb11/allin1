@@ -107,7 +107,7 @@ export default function ChatsScreen({ navigation }) {
       <TouchableOpacity
         style={styles.row}
         activeOpacity={0.85}
-        onPress={() => navigation.navigate('Chat', { chatId: r.id, chatName: name })}>
+        onPress={() => navigation.navigate('Chat', { chatId: r.id, chatName: name, chatType: r.type })}>
         <PlayerAvatar name={name || '?'} avatarUrl={other?.avatarUrl} size={44} />
         <View style={styles.rowMain}>
           <View style={styles.rowTop}>

@@ -317,7 +317,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   // A missing chatRoomId used to make this a dead tap. The room is created
   // server-side on demand, so fall through to that rather than doing nothing.
   const openChat = (chatRoomId, name, connId) => {
-    if (chatRoomId) navigation.navigate('Chat', { chatId: chatRoomId, chatName: name || 'Chat' });
+    if (chatRoomId) navigation.navigate('Chat', { chatId: chatRoomId, chatName: name || 'Chat', chatType: 'scout' });
     else if (connId) openRequestChat(connId, name);
   };
 
@@ -327,7 +327,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   const openRequestChat = async (connId, name) => {
     const res = await legendsApi.openLookingForChat(connId);
     if (res.success && res.data?.chatRoomId) {
-      navigation.navigate('Chat', { chatId: res.data.chatRoomId, chatName: res.data.name || name || 'Chat' });
+      navigation.navigate('Chat', { chatId: res.data.chatRoomId, chatName: res.data.name || name || 'Chat', chatType: 'scout' });
       loadConnections();   // pick up the chatRoomId now the room exists
     } else {
       showToast(res.error || 'Could not open the chat', 'error');
