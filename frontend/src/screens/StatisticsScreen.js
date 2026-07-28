@@ -2,7 +2,10 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Fra
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl, Image } from 'react-native';
-import Reanimated, { useAnimatedRef, useSharedValue, scrollTo } from 'react-native-reanimated';
+import Reanimated, {
+  useAnimatedRef, useSharedValue, scrollTo,
+  useAnimatedStyle, withRepeat, withTiming,
+} from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
@@ -135,6 +138,23 @@ const sortFor = (board) => (a, b) => {
   return diff || (b.matches || 0) - (a.matches || 0) || a.name.localeCompare(b.name);
 };
 
+
+// A slow breathing halo behind the leader's row. Its own component so the
+// animation is mounted once, for one row, instead of a repeating timer running
+// behind all forty of them.
+function ChampionGlow({ color }) {
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    pulse.value = withRepeat(withTiming(1, { duration: 1900 }), -1, true);
+  }, [pulse]);
+  const style = useAnimatedStyle(() => ({ opacity: 0.07 + pulse.value * 0.11 }));
+  return (
+    <Reanimated.View
+      pointerEvents="none"
+      style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 14, backgroundColor: color }, style]} />
+  );
+}
+
 // ── One competitor = one row ─────────────────────────────────────────────────
 // Was a tall card carrying a five-column stat block, so three fitted a screen
 // and the number the board actually ranks by was one of five equal-weight
@@ -159,29 +179,49 @@ function RankRow({ item, rank, board, cols, isMe, isTeam }) {
         { label: 'wkts', value: item.wickets },
       ]).map((c) => `${c.value} ${c.label}`)].join(' · ');
 
+  const top = rank < 3;
+
   return (
-    <View style={[styles.row, isMe && styles.rowMe]}>
-      <View style={[styles.rankBox, medal && { borderColor: medal }]}>
-        <Text style={[styles.rankNum, medal && { color: medal }]}>{rank + 1}</Text>
+    <View style={[styles.row, top && styles.rowTop, top && { borderColor: medal }, isMe && !top && styles.rowMe]}>
+      {rank === 0 && <ChampionGlow color={medal} />}
+
+      {/* Medal bar down the leading edge — a separate view, not a border, so the
+          row can stay rounded. */}
+      {top && <View style={[styles.medalBar, { backgroundColor: medal }]} />}
+
+      <View style={[styles.rankBox, top && styles.rankBoxTop, top && { backgroundColor: medal, borderColor: medal }]}>
+        <Text style={[styles.rankNum, top && styles.rankNumTop]}>{rank + 1}</Text>
       </View>
 
-      {item.avatarUrl ? (
-        <Image source={{ uri: item.avatarUrl }} style={[styles.avatarImg, medal && { borderColor: medal }]} />
-      ) : (
-        <HexAvatar round size={34} color={medal || DS.surfaceHighest}>
-          <Text style={styles.avatarText}>{initials(item.name)}</Text>
-        </HexAvatar>
-      )}
+      <View>
+        {item.avatarUrl ? (
+          <Image
+            source={{ uri: item.avatarUrl }}
+            style={[styles.avatarImg, top && styles.avatarImgTop, medal && { borderColor: medal }]} />
+        ) : (
+          <HexAvatar round size={top ? 48 : 34} color={medal || DS.surfaceHighest}>
+            <Text style={[styles.avatarText, top && styles.avatarTextTop]}>{initials(item.name)}</Text>
+          </HexAvatar>
+        )}
+        {/* Only the leader gets the crown; three crowns is no crown. */}
+        {rank === 0 && (
+          <View style={[styles.crown, { backgroundColor: medal }]}>
+            <Icon name="crown" size={11} color="#3b2c00" />
+          </View>
+        )}
+      </View>
 
       <View style={styles.rowMain}>
-        <Text style={styles.rowName} numberOfLines={1}>
+        <Text style={[styles.rowName, top && styles.rowNameTop]} numberOfLines={1}>
           {item.name}{isMe ? '  ·  You' : ''}
         </Text>
-        <Text style={styles.rowMeta} numberOfLines={1}>{meta}</Text>
+        <Text style={[styles.rowMeta, top && styles.rowMetaTop]} numberOfLines={1}>{meta}</Text>
       </View>
 
       <View style={styles.headlineBox}>
-        <Text style={styles.headlineVal} numberOfLines={1}>{headline}</Text>
+        <Text style={[styles.headlineVal, top && styles.headlineValTop, top && { color: medal }]} numberOfLines={1}>
+          {headline}
+        </Text>
         <Text style={styles.headlineLbl} numberOfLines={1}>{board.label}</Text>
       </View>
     </View>
@@ -494,19 +534,24 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                 </Text>
               </View>
             ) : (
-              data.map((item) => (
-                item.id === myId ? (
+              data.map((item, i) => {
+                // The podium rows are bordered cards with their own margins — a
+                // hairline under them would cut across the medal frame. Only the
+                // plain rows get separated, and never the last one.
+                const sep = item.standing >= 3 && i < data.length - 1
+                  ? <View style={styles.sep} /> : null;
+                return item.id === myId ? (
                   <View key={item.id} onLayout={(e) => { myRowY.current = e.nativeEvent.layout.y; }}>
                     {renderCard({ item })}
-                    <View style={styles.sep} />
+                    {sep}
                   </View>
                 ) : (
                   <Fragment key={item.id}>
                     {renderCard({ item })}
-                    <View style={styles.sep} />
+                    {sep}
                   </Fragment>
-                )
-              ))
+                );
+              })
             )}
           </ScrollView>
         </Animated.View>
@@ -519,6 +564,13 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
 const makeStyles = (DS) => StyleSheet.create({
   /* ── Compact rank rows (replaced the tall stat cards) ── */
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
+  /* Top three: taller, brighter, and carrying a medal. The board's whole point
+     is who's winning, and every row looked identical to every other. */
+  rowTop: {
+    paddingVertical: 15, paddingLeft: 16, paddingRight: 12, marginVertical: 3,
+    borderRadius: 14, borderWidth: 1.5, overflow: 'hidden',
+  },
+  medalBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
   // The logged-in player's own row, so "Find me" lands somewhere obvious.
   rowMe: { backgroundColor: DS.lime + '12', borderRadius: 10, paddingHorizontal: 8, marginHorizontal: -8 },
   sep: { height: 1, backgroundColor: DS.faint, marginLeft: 74 },
@@ -527,17 +579,30 @@ const makeStyles = (DS) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   rankNum: { fontSize: 12, fontWeight: '900', color: DS.textVariant },
+  rankBoxTop: { width: 30, height: 30, borderRadius: 15 },
+  // Dark ink on gold/silver/bronze — white on these fails contrast badly.
+  rankNumTop: { fontSize: 14, color: '#2b2100' },
   avatarText: { fontSize: 12, fontWeight: '900', color: DS.onLime },
+  avatarTextTop: { fontSize: 16 },
+  crown: {
+    position: 'absolute', top: -5, right: -3,
+    width: 19, height: 19, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+  },
   avatarImg: {
     width: 34, height: 34, borderRadius: 17, backgroundColor: DS.surfaceHighest,
     borderWidth: 1.5, borderColor: 'transparent',
   },
+  avatarImgTop: { width: 48, height: 48, borderRadius: 24, borderWidth: 2.5 },
   rowMain: { flex: 1, minWidth: 0, gap: 2 },
   rowName: { fontSize: 15, fontWeight: '700', color: DS.textPrimary, letterSpacing: -0.2 },
+  rowNameTop: { fontSize: 17, fontWeight: '900', letterSpacing: -0.4 },
   rowMeta: { fontSize: 11.5, color: DS.textMuted, fontWeight: '500' },
+  rowMetaTop: { fontSize: 12.5, color: DS.textVariant },
   // The one figure this board sorts on, given the weight it earns.
   headlineBox: { alignItems: 'flex-end', minWidth: 56 },
   headlineVal: { fontSize: 18, fontWeight: '900', color: DS.lime, letterSpacing: -0.4 },
+  headlineValTop: { fontSize: 25, letterSpacing: -0.8 },
   headlineLbl: { fontSize: 9.5, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
 
   empty: { alignItems: 'center', paddingVertical: 56, paddingHorizontal: 32, gap: 6 },
