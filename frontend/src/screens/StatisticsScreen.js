@@ -310,6 +310,10 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
       id: p.id, name: p.name,
       // From the linked user account; players themselves have no photo column.
       avatarUrl: p.user?.avatarUrl || p.avatarUrl || null,
+      // Carried so PlayerInsights can paint its hero immediately. Without these
+      // it fell back to a placeholder "Cricketer" with no team, then corrected
+      // once two API calls returned — which defeats passing the row at all.
+      role: p.role || '', team: p.team?.name || '', sport: p.sport || undefined,
       matches: 0, runs: 0, average: 0, strikeRate: 0, centuries: 0, wickets: 0, catches: 0,
       ...(p.stats || {}),
       // leaderboard rows carry these instead of a stats blob
