@@ -782,7 +782,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
               {!!myPhone && (
                 <TouchableOpacity style={styles.contactToggle} onPress={() => setSharePhone(s => !s)} activeOpacity={0.8}>
-                  <Icon name={sharePhone ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color={sharePhone ? DS.blueDeep : DS.textMuted} />
+                  <Icon name={sharePhone ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color={sharePhone ? DS.lime : DS.textMuted} />
                   <Text style={styles.contactToggleText}>Share my number ({myPhone}) so people can connect</Text>
                 </TouchableOpacity>
               )}
@@ -792,7 +792,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                 <Text style={styles.previewTitle}>{buildTitle(form)}</Text>
               </View>
 
-              <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.5 }]} onPress={handleCreate} disabled={submitting}>
+              <TouchableOpacity style={[styles.submitBtn, { backgroundColor: P.control }, submitting && { opacity: 0.5 }]} onPress={handleCreate} disabled={submitting}>
                 {submitting ? <ActivityIndicator color={DS.white} /> : (
                   <>
                     <Icon name="send" size={17} color={DS.white} />
@@ -811,9 +811,11 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Brand bar */
   brandBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceLow, paddingTop: 48, paddingBottom: 14, paddingHorizontal: 16 },
-  backBtn: { padding: 4, marginRight: 10 },
+  // 40x40: a 22px icon with 4px padding was a 30px target, well under the 44pt
+  // minimum and the easiest thing on the screen to miss.
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
   brandText: { flex: 1, fontSize: 13, fontWeight: '800', letterSpacing: 2.5, color: DS.lime },
-  addBtn: { backgroundColor: DS.lime, borderRadius: 20, padding: 6 },
+  addBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
 
   /* Hero */
   hero: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, backgroundColor: DS.bg },
@@ -830,9 +832,12 @@ const makeStyles = (DS) => StyleSheet.create({
   /* Filter chips — labelled + counted; the row scrolls under a self-driven Pan. */
   tabs: { backgroundColor: DS.bg, flexGrow: 0, flexShrink: 0 },
   tabsContent: { paddingHorizontal: 14, paddingVertical: 6, gap: 6, alignItems: 'center' },
+  // Filter chip, form type chip and form option chip are the same control doing
+  // the same job — pick one of a set. They had three different radii (999 vs 20)
+  // and three paddings. Same geometry now; only the copy differs.
   tab: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999,
+    paddingHorizontal: 12, paddingVertical: 7, minHeight: 32, borderRadius: 999,
     borderWidth: 1, borderColor: DS.faint, backgroundColor: DS.surfaceHigh,
   },
   tabActive: { backgroundColor: DS.lime, borderColor: DS.lime },
@@ -933,14 +938,17 @@ const makeStyles = (DS) => StyleSheet.create({
   input: { backgroundColor: DS.surface, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: DS.textPrimary, borderWidth: 1, borderColor: DS.faint },
   textarea: { height: 80, textAlignVertical: 'top' },
   typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-  typeChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint },
+  typeChip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, minHeight: 32, borderRadius: 999, backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint },
   typeChipActive: { backgroundColor: DS.lime, borderColor: DS.lime },
   typeChipText: { fontSize: 12, color: DS.textVariant, fontWeight: '700' },
   typeChipTextActive: { color: DS.onLime },
-  optChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint },
-  optChipActive: { backgroundColor: DS.blueDeep, borderColor: DS.blueDeep },
+  optChip: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 7, minHeight: 32, borderRadius: 999, backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint },
+  // DS.white on the accent green was ~2.2:1 — the selected format/age/day chips
+  // were near-unreadable. DS.onLime is the dark ink the theme ships for exactly
+  // this fill (~8.45:1), and it's what the filter and type chips already use.
+  optChipActive: { backgroundColor: DS.lime, borderColor: DS.lime },
   optChipText: { fontSize: 12, color: DS.textVariant, fontWeight: '700' },
-  optChipTextActive: { color: DS.white },
+  optChipTextActive: { color: DS.onLime, fontWeight: '800' },
   optChipWeekend: { backgroundColor: DS.lime + '18', borderColor: DS.lime },
   optChipTextWeekend: { color: DS.lime2, fontWeight: '800' },
   locWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: DS.surface, borderRadius: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: DS.faint },
@@ -955,6 +963,13 @@ const makeStyles = (DS) => StyleSheet.create({
   previewLabel: { fontSize: 10, fontWeight: '800', color: DS.blueDeep, letterSpacing: 1 },
   previewTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginTop: 4 },
   row: { flexDirection: 'row' },
-  submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, margin: 16, backgroundColor: DS.blueDeep, borderRadius: 14, paddingVertical: 16, shadowColor: DS.blueDeep, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  // Same role as Connect — the primary commit — so the same near-black
+  // treatment (fill applied inline from pav().control). Was DS.blueDeep, which
+  // the theme folds to the accent green, and it cast a green shadow to match.
+  submitBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    margin: 16, borderRadius: 14, paddingVertical: 16,
+    borderWidth: 1, borderColor: DS.faint,
+  },
   submitText: { fontSize: 15, fontWeight: '800', color: DS.white, letterSpacing: 0.5 },
 });
