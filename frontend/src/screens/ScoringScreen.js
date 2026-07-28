@@ -135,6 +135,19 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const [history, setHistory] = useState([]);
   const [undoing, setUndoing] = useState(false);
   const savingRef = useRef(false);   // true while a ball is being persisted (debounces rapid taps)
+  // Per-ball sync state, surfaced to the scorer. Every delivery is a blocking
+  // server write, so success used to be silent and failure a blocking alert —
+  // the scorer had no standing answer to "did that ball actually go through?".
+  // 'saving' also explains the dead moment while savingRef is dropping taps.
+  const [syncState, setSyncState] = useState({ status: 'idle', error: null }); // idle|saving|synced|failed
+  const retryRef = useRef(null);     // args of the ball that failed, so Retry can replay it
+  // Idempotency base for the delivery in flight, HELD ACROSS RETRIES: a ball the
+  // server stored but whose response was lost must dedupe on retry (the server
+  // matches on clientEventId) instead of being counted twice.
+  // `done` marks which of this delivery's writes already landed, so a Retry that
+  // follows a PARTIAL failure (delivery stored, its penalty rejected) re-sends
+  // only the missing one instead of leaning on server-side dedupe.
+  const idemRef = useRef({ base: null, n: 0, done: {} });
   const milestoneRef = useRef({ bat: {}, bowl: {}, streak: { id: null, n: 0 } });   // announced milestones + hat-trick streak
   const overScrollRef = useRef(null);   // "this over" tracker — auto-scrolled to the latest ball
 
@@ -385,6 +398,9 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // the ball locally.
     if (!striker || !nonStriker) throw new Error('Pick the new batsman before scoring the next ball');
     if (!currentInningId || !currentBowler) throw new Error('Match state is still loading — try again in a moment');
+    // One slot per write this delivery makes, stable across retries.
+    const seq = idemRef.current.n++;
+    if (idemRef.current.done[seq]) return;   // already stored on an earlier attempt
     const overNumber = currentScore.overs + 1;
     const newBallCount = countsAsBall ? ballCount + 1 : ballCount;
     const res = await legendsApi.updateScore(matchData.id, {
@@ -395,11 +411,14 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       // Usually the striker is out; a run-out can dismiss the non-striker.
       dismissedPlayerId: isWicket ? (dismissedId || striker.id) : null,
       wicketAssists: catcher || null,   // catcher / keeper / run-out fielder name
-      // Idempotency key — if the auto-retry re-sends a ball that actually
-      // landed, the server dedupes instead of double-counting.
-      clientEventId: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      // Idempotency key — if a retry re-sends a ball that actually landed, the
+      // server dedupes instead of double-counting. The base is per-delivery and
+      // survives a manual Retry; the counter separates the two writes a single
+      // tap can make (the delivery plus a penalty riding along with it).
+      clientEventId: `${idemRef.current.base}-${seq}`,
     });
     if (!res.success) throw new Error(res.error || 'Could not save this ball');
+    idemRef.current.done[seq] = true;
     // Advance the local ball count only once the delivery is actually stored.
     // Bumping it before the await meant a rejected ball (e.g. the server's 409
     // bowling-rule guards) still moved the count on, so the on-screen over
@@ -580,7 +599,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // wicketType = dismissal kind chosen from the Wicket sheet.
   // dismissed = 'striker' | 'nonstriker' — a run-out can dismiss the non-striker.
   // catcher = fielder/keeper/bowler name for a caught dismissal (shown in scorecard).
-  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null, penaltyReason = null) => {
+  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null, penaltyReason = null, isRetry = false) => {
     if (matchComplete || undoing) return;
     // Debounce: ignore a new tap while the previous ball is still being saved. Rapid
     // taps during the async save read a stale score and used to pile balls into one
@@ -606,6 +625,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       }
     }
     savingRef.current = true;
+    // A fresh delivery gets a fresh idempotency base; a Retry reuses the failed
+    // ball's base (rewinding the counter) so the server can recognise it.
+    if (isRetry) idemRef.current.n = 0;   // rewind the sequence; `done` and `base` stand
+    else idemRef.current = { base: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, n: 0, done: {} };
+    retryRef.current = { value, addRuns, wicketType, dismissed, catcher, penaltyReason };
+    setSyncState({ status: 'saving', error: null });
     try {
     // Snapshot the pre-ball state so this delivery can be taken back. Built
     // here, but committed only once the ball is actually stored (below) — a
@@ -786,6 +811,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     setHistory((h) => [...h.slice(-(UNDO_DEPTH - 1)), snapshot]);
     setLastBallShort(false);   // a fresh delivery: short run is available again
     setCurrentScore(newScore);
+    // Every write for this delivery came back OK — say so, and drop the retry.
+    // Left standing (not auto-cleared) so a glance at the strip always answers
+    // whether the last ball is on the server.
+    setSyncState({ status: 'synced', error: null });
+    retryRef.current = null;
     const scoreStr = `${newScore.runs}/${newScore.wickets} (${newScore.overs}.${newScore.balls})`;
     syncMatchSummary(scoreStr);
     if (isInnings2) checkWinCondition(newScore);
@@ -797,14 +827,30 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       // switch straight to the live Scorecard (no alarming message); anything else
       // (e.g. a network hiccup) gets a plain, actionable alert.
       if (err.message?.includes('assigned scorer')) {
+        setSyncState({ status: 'idle', error: null });
+        retryRef.current = null;
         showToast('Switched to live view', 'info', 2000);
         navigation.replace('Scorecard', { matchId: matchData.id });
       } else {
-        Alert.alert('Could not score this ball', err.message || 'Please try again');
+        // No blocking alert: the ball simply isn't on the board (local state was
+        // never applied), so the scorer can keep working and hit Retry on the
+        // sync pill — which replays this exact ball under the same event id.
+        haptic.warn();
+        const why = err.message || 'Could not save this ball';
+        setSyncState({ status: 'failed', error: why });
+        showToast(why, 'error', 2600);   // the reason, once; the pill is the standing state
       }
     } finally {
       savingRef.current = false;
     }
+  };
+
+  // Replay the delivery the server refused, reusing its idempotency key.
+  const retryLastBall = () => {
+    const a = retryRef.current;
+    if (!a || savingRef.current) return;
+    haptic.tick();
+    handleScore(a.value, a.addRuns, a.wicketType, a.dismissed, a.catcher, a.penaltyReason, true);
   };
 
   // Reasons offered before ending — an innings mid-way vs. the whole match.
@@ -1281,6 +1327,30 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <View style={styles.overAccentTick} />
               <Text style={styles.overLabel}>{betweenOvers ? 'LAST OVER' : 'THIS OVER'}</Text>
               {freeHit && <View style={styles.freeHitPill}><Text style={styles.freeHitText}>FREE HIT</Text></View>}
+              {/* ── PER-BALL SYNC STATE ──────────────────────────────────────
+                  SAVING while the write is in flight (which is also why taps are
+                  being ignored), SYNCED once the server has the ball, and a
+                  tappable RETRY if it was refused — the ball is NOT on the board
+                  in that case, so this is the only way it gets recorded. ── */}
+              {syncState.status === 'failed' ? (
+                <TouchableOpacity
+                  style={[styles.syncPill, styles.syncPillFail]}
+                  onPress={retryLastBall}
+                  activeOpacity={0.75}>
+                  <Icon name="cloud-alert" size={11} color={DS.coral} />
+                  <Text style={[styles.syncPillText, { color: DS.coral }]}>NOT SAVED · RETRY</Text>
+                </TouchableOpacity>
+              ) : syncState.status !== 'idle' && (
+                <View style={[styles.syncPill, syncState.status === 'saving' ? styles.syncPillSaving : styles.syncPillOk]}>
+                  <Icon
+                    name={syncState.status === 'saving' ? 'cloud-upload-outline' : 'cloud-check-outline'}
+                    size={11}
+                    color={syncState.status === 'saving' ? DS.textVariant : DS.lime} />
+                  <Text style={[styles.syncPillText, { color: syncState.status === 'saving' ? DS.textVariant : DS.lime }]}>
+                    {syncState.status === 'saving' ? 'SAVING' : 'SYNCED'}
+                  </Text>
+                </View>
+              )}
             </View>
             <Text style={styles.overSummary} numberOfLines={1}>
               <Text style={styles.overSummaryRuns}>{overRunsSoFar}</Text>
@@ -2219,6 +2289,11 @@ const makeStyles = (DS) => StyleSheet.create({
     marginHorizontal: 16, marginBottom: 8
   },
   overSectionLabel: { fontSize: 18, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8 },
+  syncPill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1 },
+  syncPillSaving: { backgroundColor: DS.surfaceHigh, borderColor: DS.surfaceHighest },
+  syncPillOk: { backgroundColor: DS.lime + '1a', borderColor: DS.lime + '40' },
+  syncPillFail: { backgroundColor: 'rgba(255,181,158,0.15)', borderColor: DS.coral },
+  syncPillText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   freeHitPill: { backgroundColor: DS.limeBright, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'center' },
   freeHitText: { fontSize: 9, fontWeight: '900', color: DS.bg, letterSpacing: 0.8 },
   overBalls: { flexDirection: 'row', gap: 5 },
