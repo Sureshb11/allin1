@@ -160,7 +160,7 @@ function ChampionGlow({ color }) {
 // and the number the board actually ranks by was one of five equal-weight
 // figures. Same fix as the Scout board: identity on the left, the ranked value
 // alone on the right, everything else demoted to a meta line.
-function RankRow({ item, rank, board, cols, isMe, isTeam }) {
+function RankRow({ item, rank, board, cols, isMe, isTeam, onPress }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const medal = rank < 3 ? MEDAL[rank] : null;
@@ -182,7 +182,10 @@ function RankRow({ item, rank, board, cols, isMe, isTeam }) {
   const top = rank < 3;
 
   return (
-    <View style={[styles.row, top && styles.rowTop, top && { borderColor: medal }, isMe && !top && styles.rowMe]}>
+    <TouchableOpacity
+      activeOpacity={0.75}
+      onPress={onPress}
+      style={[styles.row, top && styles.rowTop, top && { borderColor: medal }, isMe && !top && styles.rowMe]}>
       {rank === 0 && <ChampionGlow color={medal} />}
 
       {/* Medal bar down the leading edge — a separate view, not a border, so the
@@ -224,7 +227,9 @@ function RankRow({ item, rank, board, cols, isMe, isTeam }) {
         </Text>
         <Text style={styles.headlineLbl} numberOfLines={1}>{board.label}</Text>
       </View>
-    </View>
+
+      <Icon name="chevron-right" size={18} color={DS.textMuted} />
+    </TouchableOpacity>
   );
 }
 
@@ -344,8 +349,17 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
   // Where the logged-in player sits on the current board (pre-search, so it's the
   // real standing). Powers the "You're #N — find me" banner and row highlight.
   const myStanding = tab === 'Players' && myId ? ranked.find((r) => r.id === myId) : null;
+  // Both destinations already exist and take exactly what a row holds, so this
+  // hands off rather than duplicating a stats screen inside a sheet. The player
+  // object rides along so Insights can paint before its fetch returns.
+  const openDetail = (item) => {
+    if (tab === 'Players') navigation?.navigate('PlayerInsights', { playerId: item.id, player: item });
+    else navigation?.navigate('TeamProfile', { teamId: item.id });
+  };
+
   const renderCard = ({ item }) => (
     <RankRow
+      onPress={() => openDetail(item)}
       item={item}
       rank={item.standing}
       board={board}
