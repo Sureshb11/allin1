@@ -14,7 +14,7 @@ RNText.defaultProps = RNText.defaultProps || {};
 RNText.defaultProps.maxFontSizeMultiplier = MAX_FONT_SCALE;
 RNTextInput.defaultProps = RNTextInput.defaultProps || {};
 RNTextInput.defaultProps.maxFontSizeMultiplier = MAX_FONT_SCALE;
-import {NavigationContainer} from '@react-navigation/native';
+import {NavigationContainer, DefaultTheme, DarkTheme} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import { registerForPush } from './src/services/push';
@@ -77,7 +77,28 @@ const Root = () => {
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={colors.bg}
       />
-      <NavigationContainer>
+      {/* Themed, so React Navigation's OWN chrome follows the app.
+          NavigationContainer had no theme, so it fell back to DefaultTheme — a
+          light bar with dark text — and the 24 screens that set
+          headerShown:true each rendered a light system header inside a dark
+          app. Four of them were "fixed" one at a time by hiding the header and
+          hand-drawing a replacement; this is the fix the other twenty needed,
+          and it costs one prop instead of twenty edits (several of those
+          screens have no back button of their own, so hiding their header
+          would have stranded them). */}
+      <NavigationContainer
+        theme={{
+          ...(isDark ? DarkTheme : DefaultTheme),
+          colors: {
+            ...(isDark ? DarkTheme : DefaultTheme).colors,
+            background: colors.bg,
+            card: colors.surfaceLow,      // header + tab bar surface
+            text: colors.textPrimary,
+            border: colors.faint,
+            primary: colors.lime,          // back arrow + header tint
+            notification: colors.coral,
+          },
+        }}>
           <Stack.Navigator
           id="RootStack"
           screenOptions={{ headerShown: false, animationEnabled: false, cardStyle: { backgroundColor: colors.bg } }}
