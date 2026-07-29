@@ -465,15 +465,24 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}
             contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}>
-            {/* "Find me" — jump straight to the logged-in player's row on a long
-                board instead of scrolling to hunt for it. */}
-            {myStanding && (
-              <TouchableOpacity style={styles.findMe} onPress={scrollToMe} activeOpacity={0.85}>
-                <Icon name="crosshairs-gps" size={16} color={DS.onLime} />
-                <Text style={styles.findMeText}>You're #{myStanding.standing + 1} by {board.label.toLowerCase()}</Text>
-                <Text style={styles.findMeJump}>Find me</Text>
-              </TouchableOpacity>
-            )}
+            {/* Where you stand. "Find me" jumps to your row on a long board —
+                but only when there IS a row to jump to: on the podium you're
+                already the first thing on screen, and myRowY is set by the list
+                row's onLayout, which never fires for someone in the top three.
+                Without this the button pointed at y=0 and did nothing. */}
+            {myStanding && (() => {
+              const onPodium = showPodium && myStanding.standing < 3;
+              const Wrap = onPodium ? View : TouchableOpacity;
+              return (
+                <Wrap style={styles.findMe} {...(onPodium ? {} : { onPress: scrollToMe, activeOpacity: 0.85 })}>
+                  <Icon name={onPodium ? 'trophy-variant' : 'crosshairs-gps'} size={16} color={DS.onLime} />
+                  <Text style={styles.findMeText}>
+                    You're #{myStanding.standing + 1} by {board.label.toLowerCase()}
+                  </Text>
+                  {!onPodium && <Text style={styles.findMeJump}>Find me</Text>}
+                </Wrap>
+              );
+            })()}
             <View>
               {/* One row for both "what am I ranking" and "find someone in it".
                   These were two stacked full-width controls above a third row of
