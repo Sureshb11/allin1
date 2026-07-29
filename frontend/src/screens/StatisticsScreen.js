@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Fragment } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl, Image } from 'react-native';
@@ -344,16 +345,29 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
     })));
   }, []);
 
-  useEffect(() => {
+  // Reload when Pavilion regains focus, but only if what's on screen has gone
+  // stale. Mount-only meant scoring a match and coming back showed the old
+  // standings; an unguarded focus reload is the other extreme — this board
+  // pulls 500 players and makes the server aggregate every ball behind them,
+  // and all three Pavilion tabs would refire together on every return.
+  const lastLoadedAt = useRef(0);
+  const STALE_MS = 60000;
+  useFocusEffect(useCallback(() => {
     let alive = true;
+    const fresh = Date.now() - lastLoadedAt.current < STALE_MS;
+    if (fresh) return () => { alive = false; };
     setLoading(true);
-    fetchData().finally(() => { if (alive) setLoading(false); });
+    fetchData().finally(() => {
+      if (!alive) return;
+      lastLoadedAt.current = Date.now();
+      setLoading(false);
+    });
     return () => { alive = false; };
-  }, [fetchData]);
+  }, [fetchData]));
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchData().finally(() => setRefreshing(false));
+    fetchData().finally(() => { lastLoadedAt.current = Date.now(); setRefreshing(false); });
   }, [fetchData]);
 
   // Qualify → rank → stamp the standing → then filter by search. The standing is
