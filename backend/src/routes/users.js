@@ -82,7 +82,7 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
   // run-outs write to the same column, and counting them as catches would make
   // every fielder a slip.
   const fieldName = (player.name || '').trim();
-  const [batBalls, dismissals, bowlBalls, xiMatches, momCount, catches, runOuts] = await Promise.all([
+  const [batBalls, dismissals, bowlBalls, xiMatches, momCount, catches, runOuts, fieldBalls] = await Promise.all([
     prisma.ball.findMany({
       where: { batterId: player.id },
       select: { runs: true, extraType: true, over: { select: { inningId: true } } },
@@ -97,6 +97,11 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
     prisma.matchMVP.count({ where: { playerId: player.id } }),
     prisma.ball.count({ where: { isWicket: true, wicketType: 'caught', wicketAssists: fieldName } }),
     prisma.ball.count({ where: { isWicket: true, wicketType: 'runout', wicketAssists: fieldName } }),
+    // Per-innings fielding, for the trend chart below.
+    prisma.ball.findMany({
+      where: { isWicket: true, wicketAssists: fieldName, wicketType: { in: ['caught', 'runout'] } },
+      select: { over: { select: { inningId: true } } },
+    }),
   ]);
 
   const computed = {};
@@ -244,6 +249,47 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
     });
   }
 
+  // ── Per-innings trend series ─────────────────────────────────────────────
+  // The screen has always drawn a trend chart from recentScores / recentWickets
+  // / recentCatches, and this endpoint has never sent any of them — so the chart
+  // was gated off and has never rendered for anyone, on any tab. The balls above
+  // already carry their inningId; all that was missing was folding them up and
+  // putting the innings in match order (Inning has no timestamp of its own, so
+  // the order comes from its match).
+  const perInnings = (rows, pick) => {
+    const out = {};
+    for (const r of rows) {
+      const inn = r.over?.inningId;
+      if (!inn) continue;
+      out[inn] = (out[inn] || 0) + pick(r);
+    }
+    return out;
+  };
+  const runsByInning = perInnings(batBalls, (b) => (b.extraType === 'bye' || b.extraType === 'legBye' ? 0 : b.runs || 0));
+  const wktsByInning = perInnings(bowlBalls, (b) => {
+    if (!b.isWicket) return 0;
+    const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
+    // Run-outs and retirements are never the bowler's wicket.
+    return (wt === 'runout' || wt === 'retired' || wt === 'retiredout' || wt === 'retiredhurt') ? 0 : 1;
+  });
+  const fieldByInning = perInnings(fieldBalls, () => 1);
+
+  const seriesInningIds = [...new Set([
+    ...Object.keys(runsByInning), ...Object.keys(wktsByInning), ...Object.keys(fieldByInning),
+  ])];
+  let orderedInnings = [];
+  if (seriesInningIds.length) {
+    const innings = await prisma.inning.findMany({
+      where: { id: { in: seriesInningIds } },
+      select: { id: true, match: { select: { createdAt: true } } },
+    });
+    orderedInnings = innings
+      .sort((a, b) => new Date(a.match?.createdAt || 0) - new Date(b.match?.createdAt || 0))
+      .slice(-10)                       // last ten appearances is what the chart plots
+      .map((i) => i.id);
+  }
+  const seriesFor = (map) => orderedInnings.map((id) => map[id] || 0);
+
   const stats = {
     ...base,
     ...s,                                   // pass through any sport-specific fields (goals, assists, …)
@@ -255,6 +301,9 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
     catches,
     runOuts,
     dismissalsTaken: catches + runOuts,
+    recentScores: seriesFor(runsByInning),
+    recentWickets: seriesFor(wktsByInning),
+    recentCatches: seriesFor(fieldByInning),
     seasonMatches,
     momCount,
     recentForm,

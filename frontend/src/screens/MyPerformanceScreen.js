@@ -82,11 +82,10 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
 
   useLayoutEffect(() => {
     if (!inline) {
-      navigation.setOptions({
-        headerShown: true,
-        headerBackVisible: true,
-        headerTitle: 'My Performance',
-      });
+      // Own hero below, like every other screen in this stack — the navigator's
+      // default header stacked a light system bar above it and repeated the
+      // title. Fourth instance of this pattern in the codebase.
+      navigation.setOptions({ headerShown: false });
     }
   }, [navigation, inline]);
 
@@ -147,6 +146,11 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
       {/* Hero */}
       {!inline && (
         <View style={styles.hero}>
+          {/* The hero had no back affordance — it leaned on the navigator's, so
+              hiding that without this would strand the standalone route. */}
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={8}>
+            <Icon name="arrow-left" size={22} color={DS.textPrimary} />
+          </TouchableOpacity>
           <Icon name="chart-bar" size={20} color={DS.lime} />
           <Text style={styles.heroTitle}>My Performance</Text>
         </View>
@@ -237,6 +241,7 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
 
 const makeStyles = (DS) => StyleSheet.create({
   /* Panel segment — same shape as the Players/Teams toggle on Rankings. */
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginLeft: -8 },
   segment: {
     flexDirection: 'row', gap: 4, padding: 3, marginHorizontal: 16, marginTop: 4, marginBottom: 12,
     backgroundColor: DS.surfaceHigh, borderRadius: 999, borderWidth: 1, borderColor: DS.faint,
