@@ -15,6 +15,10 @@ const TILES = [
   { icon: 'account-group', label: 'My Teams',      sub: 'Manage squads',           screen: 'TeamManagement', color: 'lime' },
   { icon: 'chart-bar',     label: 'Statistics',    sub: 'Player & team stats',     screen: 'Statistics',     color: 'lime' },
   { icon: 'video-outline', label: 'Highlights',    sub: 'Watch & analyse',         screen: 'VideoAnalysis',  color: 'lime' },
+  // Streaming is a thing you do TO a match, so it belongs in the match hub next
+  // to Highlights. It used to be the Pavilion FAB on the Rankings tab, which is
+  // a leaderboard — nothing there implies "start broadcasting".
+  { icon: 'broadcast',     label: 'Go Live',       sub: 'Stream a match',          screen: 'StreamingLanding', color: 'lime' },
   { icon: 'chart-line',    label: 'My Performance',sub: 'Batting & bowling',       screen: 'MyPerformance',  color: 'lime' },
   { icon: 'telescope',     label: 'Looking For',   sub: 'Find players & teams',    screen: 'LookingFor',     color: 'lime' },
   { icon: 'teach',         label: 'Coaching',      sub: 'Book a coach',            screen: 'Coaching',       color: 'lime' },

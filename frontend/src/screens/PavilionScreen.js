@@ -27,13 +27,18 @@ const N = TABS.length;
 // tap and swipe so both feel like the same material.
 const SPRING = { damping: 28, stiffness: 220, mass: 1 };
 
-// Per-tab primary action for the floating button. All share the near-black
-// control fill; the icon carries the accent (lime, or the live-red on Rankings'
-// Go Live). Rankings has no screen-local action → falls back to Go Live; My Stats
-// and Scout register their own (share the stat card / open the post sheet).
+// Per-tab primary action for the floating button. My Stats and Scout register
+// their own (share the stat card / open the post sheet).
+//
+// Rankings gets none, and the FAB hides there. It used to fall through to
+// "Live Action" → StreamingLanding purely because it had nothing of its own —
+// so a leaderboard's primary button started a broadcast. Going live is now in
+// My Cricket beside Highlights, where the matches are. A leaderboard has no
+// primary action, and no button says that better than a button that does
+// something unrelated.
 const FAB_FOR = (P) => [
   { icon: 'share-variant', label: 'Share Card',   accent: P.accent },
-  { icon: 'broadcast',     label: 'Live Action',  accent: P.live },
+  null,
   { icon: 'plus',          label: 'Post Listing', accent: P.accent },
 ];
 
@@ -83,7 +88,9 @@ export default function PavilionScreen({ navigation, route }) {
   const fabActions = useRef({}).current;
   const registerFab = (i) => (fn) => { fabActions[i] = fn; };
   const FABS = FAB_FOR(P);
-  const fab = FABS[activeTab] || FABS[0];
+  // null on Rankings — no fallback to another tab's action, which is how a
+  // leaderboard ended up offering "Share Card" behaviour under a Go Live label.
+  const fab = FABS[activeTab];
 
   // Morphing FAB: when the active tab changes its icon+label swap, so pop the
   // content (rise + fade + slight scale) instead of hard-cutting to the new label.
@@ -211,22 +218,24 @@ export default function PavilionScreen({ navigation, route }) {
         </View>
       </GestureDetector>
 
-      {/* ── FAB: green primary action, label per active tab ─────── */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: DS.lime, bottom: tabClear + 16 }]}
-        onPress={() => {
-          haptic.impact();
-          const action = fabActions[activeTab];
-          if (action) action();
-          else navigation.navigate('StreamingLanding');
-        }}
-        activeOpacity={0.85}
-      >
-        <Animated.View style={[styles.fabContent, fabContentStyle]}>
-          <Icon name={fab.icon} size={20} color={DS.onLime} />
-          <Text style={[styles.fabText, { color: DS.onLime }]}>{fab.label}</Text>
-        </Animated.View>
-      </TouchableOpacity>
+      {/* ── FAB: primary action for the active tab; absent where there isn't
+          one. The old fallback fired StreamingLanding for any tab that hadn't
+          registered an action, which is why Rankings had a Go Live button. ── */}
+      {fab && (
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: DS.lime, bottom: tabClear + 16 }]}
+          onPress={() => {
+            haptic.impact();
+            fabActions[activeTab]?.();
+          }}
+          activeOpacity={0.85}
+        >
+          <Animated.View style={[styles.fabContent, fabContentStyle]}>
+            <Icon name={fab.icon} size={20} color={DS.onLime} />
+            <Text style={[styles.fabText, { color: DS.onLime }]}>{fab.label}</Text>
+          </Animated.View>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
