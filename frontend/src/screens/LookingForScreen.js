@@ -647,11 +647,13 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     const isMine = !!myId && item.postedById === myId;
     const myReq = myReqFor(item.id);
 
-    // Line 2 — who posted it, then where and when. The poster's real name shows
-    // even on your own listing, with "You" appended rather than replacing it:
-    // the create sheet previews the post as others will see it, so the row
-    // should match what you were shown.
-    const who = item.posterName ? `${item.posterName}${isMine ? ' · You' : ''}` : (isMine ? 'You' : '');
+    // Line 2 — who posted it, then where and when. Just the name: 84e503b had it
+    // read "Suresh Balakrishnan · You" on your own listings, which is the third
+    // ownership cue on one row. The avatar is yours and the action column says
+    // "Mark filled" where everyone else's says "Connect" — that column is fixed
+    // width and scans down the page, so it marks your listings better than a
+    // word buried mid-sentence.
+    const who = item.posterName || (isMine ? 'You' : '');
     const whoLine = [who, item.location, whenText].filter(Boolean).join(' · ');
     // Line 3 — age, then the qualifiers. The category is no longer repeated here:
     // the full title above already names it.
