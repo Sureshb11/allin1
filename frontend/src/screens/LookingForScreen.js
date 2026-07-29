@@ -647,11 +647,15 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     const isMine = !!myId && item.postedById === myId;
     const myReq = myReqFor(item.id);
 
-    // Line 2 — who, where, when. Whatever's known, in that order.
-    const whoLine = [isMine ? 'You' : item.posterName, item.location, whenText]
-      .filter(Boolean).join(' · ');
-    // Line 3 — age of the listing, then the qualifiers the ask didn't carry.
-    const metaLine = [timeAgo(item.createdAt), TYPE_LABELS[item.type], item.format, item.ageGroup]
+    // Line 2 — who posted it, then where and when. The poster's real name shows
+    // even on your own listing, with "You" appended rather than replacing it:
+    // the create sheet previews the post as others will see it, so the row
+    // should match what you were shown.
+    const who = item.posterName ? `${item.posterName}${isMine ? ' · You' : ''}` : (isMine ? 'You' : '');
+    const whoLine = [who, item.location, whenText].filter(Boolean).join(' · ');
+    // Line 3 — age, then the qualifiers. The category is no longer repeated here:
+    // the full title above already names it.
+    const metaLine = [timeAgo(item.createdAt), item.format, item.ageGroup]
       .filter(Boolean).join(' · ');
 
     const action = actionFor(item);
@@ -670,7 +674,12 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
           )}
 
         <View style={styles.rowMain}>
-          <Text style={styles.rowAsk} numberOfLines={1}>{askFrom(item)}</Text>
+          {/* The listing exactly as the create sheet's "POSTS AS" preview showed
+              it. This used to run through askFrom(), which strips the "Looking
+              for a Player" prefix — so you previewed one thing and the board
+              showed another, with no sign of where the rest had gone. Two lines,
+              because the whole title is the point. */}
+          <Text style={styles.rowAsk} numberOfLines={2}>{item.title || askFrom(item)}</Text>
           {!!whoLine && <Text style={styles.rowWho} numberOfLines={1}>{whoLine}</Text>}
           <Text style={styles.rowMeta} numberOfLines={1}>{metaLine}</Text>
           {!!bodyDesc && <Text style={styles.rowNote} numberOfLines={2}>{bodyDesc}</Text>}
@@ -924,7 +933,10 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                 </View>
               </View>
 
-              <Text style={styles.detailAsk}>{askFrom(detailItem)}</Text>
+              {/* Full title here too, so preview, row and detail all read the
+                  same. askFrom() is now only used as a short label where the
+                  full string genuinely won't fit — the pending/connected blocks. */}
+              <Text style={styles.detailAsk}>{detailItem.title || askFrom(detailItem)}</Text>
 
               {facts.length > 0 && (
                 <View style={styles.factList}>
@@ -1209,7 +1221,10 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   rowMain: { flex: 1, minWidth: 0, gap: 2 },
   // The ask, with the "Looking for a…" boilerplate stripped — the one line worth reading.
-  rowAsk: { fontSize: 15, fontWeight: '700', color: DS.textPrimary, letterSpacing: -0.2 },
+  // 14.5 rather than 15: the full title is longer than the stripped ask it
+  // replaced, and this keeps the common case on one line inside the ~190px the
+  // fixed-width action column leaves.
+  rowAsk: { fontSize: 14.5, fontWeight: '700', color: DS.textPrimary, letterSpacing: -0.2, lineHeight: 19 },
   rowWho: { fontSize: 12, color: DS.textVariant, fontWeight: '500' },
   rowMeta: { fontSize: 11, color: DS.textMuted, fontWeight: '500' },
   rowNote: { fontSize: 12, color: DS.textVariant, marginTop: 3, lineHeight: 16 },
