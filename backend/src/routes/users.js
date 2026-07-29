@@ -76,7 +76,13 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
   // ── Real cricket career numbers, computed from the ball-by-ball data ──────
   // Batting: every ball this player faced. Bowling: every ball in overs they
   // bowled. Overrides the static stats JSON whenever real deliveries exist.
-  const [batBalls, dismissals, bowlBalls, xiMatches, momCount] = await Promise.all([
+  // Fielding. The scorer records the fielder as a NAME on Ball.wicketAssists —
+  // the catch picker holds their id and discards it — so this can only be
+  // matched back by name, exactly as /players does. wicketType separates the two:
+  // run-outs write to the same column, and counting them as catches would make
+  // every fielder a slip.
+  const fieldName = (player.name || '').trim();
+  const [batBalls, dismissals, bowlBalls, xiMatches, momCount, catches, runOuts] = await Promise.all([
     prisma.ball.findMany({
       where: { batterId: player.id },
       select: { runs: true, extraType: true, over: { select: { inningId: true } } },
@@ -89,6 +95,8 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
     prisma.matchPlayer.count({ where: { playerId: player.id } }),
     // Career Player-of-the-Match count — the profile's star badge reads this.
     prisma.matchMVP.count({ where: { playerId: player.id } }),
+    prisma.ball.count({ where: { isWicket: true, wicketType: 'caught', wicketAssists: fieldName } }),
+    prisma.ball.count({ where: { isWicket: true, wicketType: 'runout', wicketAssists: fieldName } }),
   ]);
 
   const computed = {};
@@ -242,6 +250,11 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
     matches: s.matches ?? seasonMatches,
     average: s.average ?? s.battingAverage ?? 0,
     ...computed,                            // real ball-derived numbers win
+    // My Stats had no fielding panel at all and the payload carried no fielding
+    // numbers to fill one — the scorer has recorded both since day one.
+    catches,
+    runOuts,
+    dismissalsTaken: catches + runOuts,
     seasonMatches,
     momCount,
     recentForm,

@@ -28,6 +28,15 @@ const CRICKET = [
     { label: 'Best Figures', key: 'bestBowling' },
     { label: '5-wkt Hauls',  key: 'fiveWickets' },
   ]},
+  // Cricket lost its fielding panel when these tables replaced the screen's
+  // hardcoded tabs, and the payload had nothing to fill one with — even though
+  // the scorer has recorded every catch and run-out since day one.
+  { id: 'fielding', label: 'Fielding', rows: [
+    { label: 'Matches',    key: 'matches' },
+    { label: 'Catches',    key: 'catches' },
+    { label: 'Run Outs',   key: 'runOuts' },
+    { label: 'Dismissals', key: 'dismissalsTaken' },
+  ]},
 ];
 
 const FOOTBALL = [

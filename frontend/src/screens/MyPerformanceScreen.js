@@ -11,7 +11,6 @@ import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
 import { getCareerPanels, readStat } from '../sports/careerStats';
 import { useCurrentUser } from '../utils/currentUser';
-import SegmentedControl from '../components/SegmentedControl';
 
 const W = Dimensions.get('window').width - 48;
 
@@ -68,30 +67,6 @@ function StatBento({ label, value, color }) {const styles = useThemedStyles(make
       <Text style={styles.bentoVal}>{value ?? '—'}</Text>
     </View>);
 }
-
-const BATTING_STATS = (s, DS) => [
-{ label: 'Matches', value: s.matches, color: DS.lime },
-{ label: 'Runs', value: s.runs, color: DS.coral },
-{ label: 'Average', value: s.battingAverage ?? s.average, color: '#7c3aed' },
-{ label: 'Strike Rate', value: s.battingStrikeRate ?? s.strikeRate, color: DS.blue },
-{ label: '100s / 50s', value: `${s.centuries ?? 0}/${s.halfCenturies ?? 0}`, color: '#d97706' },
-{ label: 'Highest', value: s.highestScore ?? '—', color: '#34d399' }];
-
-
-const BOWLING_STATS = (s, DS) => [
-{ label: 'Matches', value: s.matches, color: DS.lime },
-{ label: 'Wickets', value: s.wickets, color: '#34d399' },
-{ label: 'Bowling Avg', value: s.bowlingAverage ?? '—', color: DS.blue },
-{ label: 'Economy', value: s.economy ?? '—', color: DS.coral },
-{ label: 'Best Figures', value: s.bestBowling ?? '—', color: '#7c3aed' },
-{ label: '5-wkt Hauls', value: s.fiveWickets ?? 0, color: '#d97706' }];
-
-const FIELDING_STATS = (s, DS) => [
-{ label: 'Matches', value: s.matches, color: DS.lime },
-{ label: 'Catches', value: s.catches ?? 0, color: '#34d399' },
-{ label: 'Run Outs', value: s.runOuts ?? 0, color: DS.blue },
-{ label: 'Stumpings', value: s.stumpings ?? 0, color: DS.coral }];
-
 
 export default function MyPerformanceScreen({ navigation, inline, onRegisterFab }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
   const meUser = useCurrentUser();
@@ -179,11 +154,22 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
 
       {/* View-mode toggle — a capsule segment, deliberately NOT an underline:
           underline = the swipeable Pavilion level, capsule = tap toggle here. */}
-      <SegmentedControl
-        options={panels.map((p) => ({ id: p.id, label: p.label }))}
-        value={tab} onChange={setTab}
-        style={{ marginHorizontal: 16, marginTop: 4, marginBottom: 12 }}
-      />
+      {/* Same pill segment as Rankings, so the two Pavilion tabs read as one
+          screen rather than two designs. */}
+      <View style={styles.segment}>
+        {panels.map((p) => {
+          const on = tab === p.id;
+          return (
+            <TouchableOpacity
+              key={p.id}
+              style={[styles.segBtn, on && styles.segBtnOn]}
+              onPress={() => setTab(p.id)}
+              activeOpacity={0.85}>
+              <Text style={[styles.segText, on && styles.segTextOn]}>{p.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       <View style={styles.body}>
         {loading ?
@@ -250,6 +236,16 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
 }
 
 const makeStyles = (DS) => StyleSheet.create({
+  /* Panel segment — same shape as the Players/Teams toggle on Rankings. */
+  segment: {
+    flexDirection: 'row', gap: 4, padding: 3, marginHorizontal: 16, marginTop: 4, marginBottom: 12,
+    backgroundColor: DS.surfaceHigh, borderRadius: 999, borderWidth: 1, borderColor: DS.faint,
+  },
+  segBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 7, borderRadius: 999 },
+  segBtnOn: { backgroundColor: DS.lime },
+  segText: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
+  segTextOn: { color: DS.onLime, fontWeight: '900' },
+
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   hero: {
