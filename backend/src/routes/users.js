@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { publicUser } from '../lib/publicUser.js';
 import { authMiddleware } from '../lib/auth.js';
 import { entitlementsFor } from '../lib/entitlements.js';
 
@@ -37,7 +38,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     player = await prisma.player.findFirst({ where: { name: fullName }, include: { team: true } });
   }
   const { sports, ...userBase } = user;
-  res.json({ user: userBase, player, sports, entitlements: entitlementsFor(user) });
+  res.json({ user: publicUser(userBase), player, sports, entitlements: entitlementsFor(user) });
 });
 
 // Aggregate stats for the logged-in user, sourced from their linked Player's stored

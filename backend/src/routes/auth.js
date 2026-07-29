@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { publicUser } from '../lib/publicUser.js';
 import { signToken } from '../lib/auth.js';
 
 const router = Router();
@@ -23,7 +24,7 @@ router.post('/signup', async (req, res) => {
       data: { ...data, passwordHash }
     });
     const token = signToken({ sub: user.id, email: user.email });
-    res.json({ token, user });
+    res.json({ token, user: publicUser(user) });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -42,7 +43,7 @@ router.post('/login', async (req, res) => {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
     const token = signToken({ sub: user.id, email: user.email });
-    res.json({ token, user });
+    res.json({ token, user: publicUser(user) });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
