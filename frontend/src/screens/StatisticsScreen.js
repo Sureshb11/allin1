@@ -201,7 +201,7 @@ function RankRow({ item, rank, board, cols, isMe, isTeam, onPress }) {
   // missing when the tall card's "N matches" subtitle became this row.
   const played = `${item.matches || 0} ${(item.matches || 0) === 1 ? 'match' : 'matches'}`;
   const meta = isTeam
-    ? [played, `${item.wins || 0}W`, `${item.losses || 0}L`].join(' · ')
+    ? [item.city, played, `${item.wins || 0}W`, `${item.losses || 0}L`].filter(Boolean).join(' · ')
     : [played, ...(cols || [
         { label: 'runs', value: (item.runs || 0).toLocaleString() },
         { label: 'avg', value: item.average },
@@ -332,6 +332,13 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
     })));
     setTeams((tr?.data || []).map((t) => ({
       id: t.id, name: t.name,
+      // Teams carry a logo; the row and podium already render item.avatarUrl for
+      // players, so mapping it across lights both up with no other change. Teams
+      // were falling back to initials even where a logo was set.
+      avatarUrl: t.logoUrl || null,
+      // City disambiguates: two Team rows genuinely share the name "Mumbai
+      // Mavericks" on this data, and a leaderboard listing both was unreadable.
+      city: t.city || '',
       matches: 0, wins: 0, losses: 0, totalRuns: 0, totalWickets: 0, winRate: 0,
       ...(t.stats || {}),
     })));
