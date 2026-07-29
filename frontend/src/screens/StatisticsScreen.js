@@ -313,11 +313,10 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
 
   useLayoutEffect(() => {
     if (!inline) {
-      navigation?.setOptions({
-        headerShown: true,
-        headerBackVisible: true,
-        headerTitle: 'Statistics',
-      });
+      // Own hero below. The navigator's header also sat above it titled
+      // "Statistics" while the hero said "Rankings" — two stacked bars naming
+      // the same screen differently.
+      navigation?.setOptions({ headerShown: false });
     }
   }, [navigation, inline]);
 
@@ -466,7 +465,12 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
       {/* Hero */}
       {!inline && (
         <View style={styles.hero}>
-          <Icon name="chart-bar" size={24} color={DS.lime} />
+          {/* No back affordance of its own — it leaned on the navigator's, so
+              hiding that without this would strand the standalone route. */}
+          <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn} hitSlop={8}>
+            <Icon name="arrow-left" size={22} color={DS.textPrimary} />
+          </TouchableOpacity>
+          <Icon name="chart-bar" size={22} color={DS.lime} />
           <Text style={styles.heroTitle}>Rankings</Text>
         </View>
       )}
@@ -651,6 +655,8 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
 }
 
 const makeStyles = (DS) => StyleSheet.create({
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginLeft: -8 },
+
   /* ── Podium: the top three, above the list ── */
   podium: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8,

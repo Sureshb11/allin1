@@ -13,7 +13,7 @@ const TILES = [
   { icon: 'cricket',       label: 'My Matches',   sub: 'View all matches',        screen: 'MyMatches',      color: 'lime' },
   { icon: 'trophy',        label: 'Tournaments',   sub: 'Join & track',            screen: 'Tournaments',    color: 'lime' },
   { icon: 'account-group', label: 'My Teams',      sub: 'Manage squads',           screen: 'TeamManagement', color: 'lime' },
-  { icon: 'chart-bar',     label: 'Statistics',    sub: 'Player & team stats',     screen: 'Statistics',     color: 'lime' },
+  { icon: 'chart-bar',     label: 'Rankings',      sub: 'Player & team boards',    screen: 'Statistics',     color: 'lime' },
   { icon: 'video-outline', label: 'Highlights',    sub: 'Watch & analyse',         screen: 'VideoAnalysis',  color: 'lime' },
   // Streaming is a thing you do TO a match, so it belongs in the match hub next
   // to Highlights. It used to be the Pavilion FAB on the Rankings tab, which is
