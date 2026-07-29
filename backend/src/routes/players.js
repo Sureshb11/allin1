@@ -24,6 +24,129 @@ const stripPII = (stats) => {
 };
 
 
+// Career numbers computed from the ball-by-ball record, shared by the list and
+// the single-player route.
+//
+// This lived only inside GET /players. GET /players/:id returned the raw Prisma
+// row, whose `stats` JSON is empty for anyone whose numbers are derived — so
+// Player Insights, which fetches by id, showed a blank Career grid and a
+// Fielding panel reading 0 catches for a player the leaderboard listed with
+// catches. Same input, two answers, because only one route did the work.
+async function enrichPlayers(players) {
+// Attach REAL cricket numbers computed from the scoring data, so the
+// Statistics leaderboard reflects actual matches instead of the static
+// stats JSON (which nothing updates). Cheap: batting from one Ball groupBy,
+// bowling from the per-over aggregates the scorer already maintains.
+const [batAgg, catchAgg, runOutAgg, disAgg, bowlAgg, mpAgg, inningAgg, legalAgg] = await Promise.all([
+  prisma.ball.groupBy({ by: ['batterId'], _sum: { runs: true }, _count: { _all: true } }),
+  // Catches. The scorer records the catcher as a NAME on wicketAssists, not an
+  // id — the picker has the id and throws it away — so this can only be
+  // matched back by name. wicketType filters out run-outs, which write the
+  // fielder's name to the same column. Caught & bowled counts: it's a catch,
+  // and it's stored under the bowler's own name.
+  prisma.ball.groupBy({
+    by: ['wicketAssists'], _count: { _all: true },
+    where: { isWicket: true, wicketType: 'caught', wicketAssists: { not: null } },
+  }),
+  // Run-outs credited to the fielder, from the same column and by the same
+  // name match. Together with catches this is the whole fielding record the
+  // scorer captures — stumpings record no assist at all.
+  prisma.ball.groupBy({
+    by: ['wicketAssists'], _count: { _all: true },
+    where: { isWicket: true, wicketType: 'runout', wicketAssists: { not: null } },
+  }),
+  prisma.ball.groupBy({ by: ['dismissedPlayerId'], _count: { _all: true }, where: { dismissedPlayerId: { not: null } } }),
+  prisma.over.groupBy({ by: ['bowlerId'], _sum: { runs: true, extras: true, wickets: true }, _count: { _all: true } }),
+  prisma.matchPlayer.groupBy({ by: ['playerId'], _count: { _all: true } }),
+  // Per-innings run totals → hundreds. The leaderboard has always shown a
+  // "100s" column, but nothing computed it, so it read 0 for every player
+  // forever. A century is per INNINGS, and groupBy can't reach through
+  // Over → Inning, so group by over and fold overs into their innings below.
+  prisma.ball.groupBy({ by: ['batterId', 'overId'], _sum: { runs: true } }),
+  // Legal deliveries per over → real overs bowled. The economy below used to
+  // divide by the NUMBER OF OVER ROWS, so a bowler who sent down 3 balls was
+  // charged for a full over and their economy read better than it was (and
+  // disagreed with the profile screen, which counts legal balls). Wides and
+  // no-balls don't advance the over.
+  prisma.ball.groupBy({
+    by: ['overId'], _count: { _all: true },
+    where: { OR: [{ extraType: null }, { extraType: { notIn: ['wide', 'noBall', 'penalty', 'retired'] } }] },
+  }),
+]);
+
+// overId → inningId / bowlerId, so the per-over sums above can be folded into
+// knocks and into each bowler's real ball count.
+const overRows = await prisma.over.findMany({ select: { id: true, inningId: true, bowlerId: true } });
+const inningOf = Object.fromEntries(overRows.map((o) => [o.id, o.inningId]));
+const bowlerOf = Object.fromEntries(overRows.map((o) => [o.id, o.bowlerId]));
+const legalBy = {};                     // bowlerId → legal balls bowled
+for (const g of legalAgg) {
+  const bid = bowlerOf[g.overId];
+  if (!bid) continue;
+  legalBy[bid] = (legalBy[bid] || 0) + g._count._all;
+}
+const knock = {};                       // batterId → { inningId → runs }
+for (const g of inningAgg) {
+  const inn = inningOf[g.overId];
+  if (!inn) continue;
+  (knock[g.batterId] = knock[g.batterId] || {});
+  knock[g.batterId][inn] = (knock[g.batterId][inn] || 0) + (g._sum.runs || 0);
+}
+const bat  = Object.fromEntries(batAgg.map((a) => [a.batterId, a]));
+const dis  = Object.fromEntries(disAgg.map((a) => [a.dismissedPlayerId, a._count._all]));
+const bowl = Object.fromEntries(bowlAgg.map((a) => [a.bowlerId, a]));
+const mp   = Object.fromEntries(mpAgg.map((a) => [a.playerId, a._count._all]));
+// name → catches. Trimmed because the notation is assembled from typed squad
+// names and stray whitespace would split one fielder into two.
+const byName = (rows) => {
+  const out = {};
+  for (const r of rows) {
+    const key = (r.wicketAssists || '').trim();
+    if (key) out[key] = (out[key] || 0) + r._count._all;
+  }
+  return out;
+};
+const catches = byName(catchAgg);
+const runOuts = byName(runOutAgg);
+
+const enriched = players.map((p) => {
+  const b = bat[p.id], w = bowl[p.id];
+  const computed = {};
+  if (b) {
+    const runs = b._sum.runs || 0, faced = b._count._all;
+    const outs = dis[p.id] || 0;
+    computed.runs = runs;
+    computed.strikeRate = faced ? +(runs / faced * 100).toFixed(1) : 0;
+    computed.average = outs ? +(runs / outs).toFixed(1) : runs;
+    const scores = Object.values(knock[p.id] || {});
+    computed.centuries     = scores.filter((r) => r >= 100).length;
+    computed.halfCenturies = scores.filter((r) => r >= 50 && r < 100).length;
+    computed.highestScore  = scores.length ? Math.max(...scores) : 0;
+    // Innings batted + balls faced: the leaderboard needs these to qualify
+    // rate stats, so one 185-run knock with a single dismissal can't top the
+    // averages table over a full season.
+    computed.innings   = scores.length;
+    computed.ballsFaced = faced;
+  }
+  if (w) {
+    const conceded = (w._sum.runs || 0) + (w._sum.extras || 0);
+    const legal = legalBy[p.id] || 0;
+    computed.wickets      = w._sum.wickets || 0;
+    computed.runsConceded = conceded;
+    computed.ballsBowled  = legal;
+    computed.oversBowled  = `${Math.floor(legal / 6)}.${legal % 6}`;
+    computed.economy      = legal ? +(conceded / (legal / 6)).toFixed(2) : 0;
+  }
+  const nm = (p.name || '').trim();
+  computed.catches = catches[nm] || 0;
+  computed.runOuts = runOuts[nm] || 0;
+  if (mp[p.id]) computed.matches = mp[p.id];
+  return { ...p, stats: stripPII({ ...(p.stats || {}), ...computed }) };
+});
+
+  return enriched;
+}
+
 router.get('/', async (req, res) => {
   // Optional filters: ?sport=cricket  ?teamId=...  ?userId=...
   const { sport, teamId, userId } = req.query;
@@ -43,116 +166,7 @@ router.get('/', async (req, res) => {
     take: 500,
   });
 
-  // Attach REAL cricket numbers computed from the scoring data, so the
-  // Statistics leaderboard reflects actual matches instead of the static
-  // stats JSON (which nothing updates). Cheap: batting from one Ball groupBy,
-  // bowling from the per-over aggregates the scorer already maintains.
-  const [batAgg, catchAgg, runOutAgg, disAgg, bowlAgg, mpAgg, inningAgg, legalAgg] = await Promise.all([
-    prisma.ball.groupBy({ by: ['batterId'], _sum: { runs: true }, _count: { _all: true } }),
-    // Catches. The scorer records the catcher as a NAME on wicketAssists, not an
-    // id — the picker has the id and throws it away — so this can only be
-    // matched back by name. wicketType filters out run-outs, which write the
-    // fielder's name to the same column. Caught & bowled counts: it's a catch,
-    // and it's stored under the bowler's own name.
-    prisma.ball.groupBy({
-      by: ['wicketAssists'], _count: { _all: true },
-      where: { isWicket: true, wicketType: 'caught', wicketAssists: { not: null } },
-    }),
-    // Run-outs credited to the fielder, from the same column and by the same
-    // name match. Together with catches this is the whole fielding record the
-    // scorer captures — stumpings record no assist at all.
-    prisma.ball.groupBy({
-      by: ['wicketAssists'], _count: { _all: true },
-      where: { isWicket: true, wicketType: 'runout', wicketAssists: { not: null } },
-    }),
-    prisma.ball.groupBy({ by: ['dismissedPlayerId'], _count: { _all: true }, where: { dismissedPlayerId: { not: null } } }),
-    prisma.over.groupBy({ by: ['bowlerId'], _sum: { runs: true, extras: true, wickets: true }, _count: { _all: true } }),
-    prisma.matchPlayer.groupBy({ by: ['playerId'], _count: { _all: true } }),
-    // Per-innings run totals → hundreds. The leaderboard has always shown a
-    // "100s" column, but nothing computed it, so it read 0 for every player
-    // forever. A century is per INNINGS, and groupBy can't reach through
-    // Over → Inning, so group by over and fold overs into their innings below.
-    prisma.ball.groupBy({ by: ['batterId', 'overId'], _sum: { runs: true } }),
-    // Legal deliveries per over → real overs bowled. The economy below used to
-    // divide by the NUMBER OF OVER ROWS, so a bowler who sent down 3 balls was
-    // charged for a full over and their economy read better than it was (and
-    // disagreed with the profile screen, which counts legal balls). Wides and
-    // no-balls don't advance the over.
-    prisma.ball.groupBy({
-      by: ['overId'], _count: { _all: true },
-      where: { OR: [{ extraType: null }, { extraType: { notIn: ['wide', 'noBall', 'penalty', 'retired'] } }] },
-    }),
-  ]);
-
-  // overId → inningId / bowlerId, so the per-over sums above can be folded into
-  // knocks and into each bowler's real ball count.
-  const overRows = await prisma.over.findMany({ select: { id: true, inningId: true, bowlerId: true } });
-  const inningOf = Object.fromEntries(overRows.map((o) => [o.id, o.inningId]));
-  const bowlerOf = Object.fromEntries(overRows.map((o) => [o.id, o.bowlerId]));
-  const legalBy = {};                     // bowlerId → legal balls bowled
-  for (const g of legalAgg) {
-    const bid = bowlerOf[g.overId];
-    if (!bid) continue;
-    legalBy[bid] = (legalBy[bid] || 0) + g._count._all;
-  }
-  const knock = {};                       // batterId → { inningId → runs }
-  for (const g of inningAgg) {
-    const inn = inningOf[g.overId];
-    if (!inn) continue;
-    (knock[g.batterId] = knock[g.batterId] || {});
-    knock[g.batterId][inn] = (knock[g.batterId][inn] || 0) + (g._sum.runs || 0);
-  }
-  const bat  = Object.fromEntries(batAgg.map((a) => [a.batterId, a]));
-  const dis  = Object.fromEntries(disAgg.map((a) => [a.dismissedPlayerId, a._count._all]));
-  const bowl = Object.fromEntries(bowlAgg.map((a) => [a.bowlerId, a]));
-  const mp   = Object.fromEntries(mpAgg.map((a) => [a.playerId, a._count._all]));
-  // name → catches. Trimmed because the notation is assembled from typed squad
-  // names and stray whitespace would split one fielder into two.
-  const byName = (rows) => {
-    const out = {};
-    for (const r of rows) {
-      const key = (r.wicketAssists || '').trim();
-      if (key) out[key] = (out[key] || 0) + r._count._all;
-    }
-    return out;
-  };
-  const catches = byName(catchAgg);
-  const runOuts = byName(runOutAgg);
-
-  const enriched = players.map((p) => {
-    const b = bat[p.id], w = bowl[p.id];
-    const computed = {};
-    if (b) {
-      const runs = b._sum.runs || 0, faced = b._count._all;
-      const outs = dis[p.id] || 0;
-      computed.runs = runs;
-      computed.strikeRate = faced ? +(runs / faced * 100).toFixed(1) : 0;
-      computed.average = outs ? +(runs / outs).toFixed(1) : runs;
-      const scores = Object.values(knock[p.id] || {});
-      computed.centuries     = scores.filter((r) => r >= 100).length;
-      computed.halfCenturies = scores.filter((r) => r >= 50 && r < 100).length;
-      computed.highestScore  = scores.length ? Math.max(...scores) : 0;
-      // Innings batted + balls faced: the leaderboard needs these to qualify
-      // rate stats, so one 185-run knock with a single dismissal can't top the
-      // averages table over a full season.
-      computed.innings   = scores.length;
-      computed.ballsFaced = faced;
-    }
-    if (w) {
-      const conceded = (w._sum.runs || 0) + (w._sum.extras || 0);
-      const legal = legalBy[p.id] || 0;
-      computed.wickets      = w._sum.wickets || 0;
-      computed.runsConceded = conceded;
-      computed.ballsBowled  = legal;
-      computed.oversBowled  = `${Math.floor(legal / 6)}.${legal % 6}`;
-      computed.economy      = legal ? +(conceded / (legal / 6)).toFixed(2) : 0;
-    }
-    const nm = (p.name || '').trim();
-    computed.catches = catches[nm] || 0;
-    computed.runOuts = runOuts[nm] || 0;
-    if (mp[p.id]) computed.matches = mp[p.id];
-    return { ...p, stats: stripPII({ ...(p.stats || {}), ...computed }) };
-  });
+  const enriched = await enrichPlayers(players);
 
   res.json({ players: enriched });
 });
@@ -208,9 +222,17 @@ router.get('/leaderboard', async (req, res) => {
 });
 
 router.get('/:id', async (req, res) => {
-  const player = await prisma.player.findUnique({ where: { id: req.params.id }, include: { team: true } });
+  const player = await prisma.player.findUnique({
+    where: { id: req.params.id },
+    // The linked account carries the photo, same as the list route.
+    include: { team: true, user: { select: { id: true, avatarUrl: true } } },
+  });
   if (!player) return res.status(404).json({ error: 'Player not found' });
-  res.json({ player: { ...player, stats: stripPII(player.stats) } });
+  // Through the same enrichment the list uses, so a player's numbers can't
+  // differ depending on which endpoint asked. This route used to hand back the
+  // raw stats JSON — empty for anyone whose figures are derived from balls.
+  const [enriched] = await enrichPlayers([player]);
+  res.json({ player: enriched });
 });
 
 const PlayerSchema = z.object({
