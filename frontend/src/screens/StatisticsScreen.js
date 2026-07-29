@@ -28,18 +28,33 @@ function StatSkeleton({ DS }) {
   const Bar = ({ w, h, r = 6, mt = 0 }) => (
     <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity, marginTop: mt }} />
   );
+  // Mirrors what actually resolves: a podium, then compact rows. It used to draw
+  // four tall bordered cards with a stat block — the pre-rebuild layout — so the
+  // screen visibly jumped shape the moment the data landed. A skeleton is a
+  // promise about layout; this one was making the wrong one.
   return (
-    <View style={{ paddingHorizontal: 16, paddingBottom: 24, gap: 14 }}>
-      {[0, 1, 2, 3].map((i) => (
-        <View key={i} style={{ backgroundColor: DS.surfaceHigh, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: DS.border }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Bar w={42} h={42} r={21} />
-            <View style={{ flex: 1, gap: 8 }}>
-              <Bar w="55%" h={14} />
-              <Bar w="32%" h={11} />
-            </View>
+    <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
+      {/* Podium: three plinths, the middle one taller. */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingBottom: 14 }}>
+        {[{ av: 44, h: 46 }, { av: 54, h: 68 }, { av: 44, h: 34 }].map((p, i) => (
+          <View key={i} style={{ flex: i === 1 ? 1.15 : 1, alignItems: 'center', gap: 5 }}>
+            <Bar w={p.av} h={p.av} r={p.av / 2} />
+            <Bar w="70%" h={10} mt={2} />
+            <Bar w="45%" h={13} mt={2} />
+            <Bar w="100%" h={p.h} r={8} mt={3} />
           </View>
-          <Bar w="100%" h={40} r={10} mt={14} />
+        ))}
+      </View>
+      {/* Rows below, at the height a real one occupies. */}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 }}>
+          <Bar w={26} h={26} r={13} />
+          <Bar w={34} h={34} r={17} />
+          <View style={{ flex: 1, gap: 6 }}>
+            <Bar w="52%" h={13} />
+            <Bar w="34%" h={10} />
+          </View>
+          <Bar w={44} h={18} r={5} />
         </View>
       ))}
     </View>
