@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { authMiddleware } from '../lib/auth.js';
 
 const router = Router();
 
@@ -37,7 +38,11 @@ const ClubSchema = z.object({
   bio: z.string().optional(),
 });
 
-router.post('/', async (req, res) => {
+// Writes require a signed-in caller. Both of these were completely open: no
+// authMiddleware anywhere in this file, so anyone who could reach the API could
+// create a club or rewrite any existing one by id — name, contact details, the
+// lot — without an account.
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const data = ClubSchema.parse(req.body);
     const club = await prisma.club.create({ data });
@@ -47,7 +52,11 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+// Signed-in only. It cannot check OWNERSHIP: Club has no ownerId/createdBy
+// column, so there is nothing to compare req.user.sub against. Any signed-in
+// user can still edit any club — narrowing that needs a schema change and a
+// migration, which is a deliberate decision rather than a drive-by.
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const data = ClubSchema.partial().parse(req.body);
     const club = await prisma.club.update({
