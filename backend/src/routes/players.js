@@ -419,7 +419,17 @@ router.get('/:id/insights', async (req, res) => {
         performance: { recentForm, trend, strongPoints, improvementAreas },
         // The full career rides along, so a caller needing numbers uses the same
         // ones rather than a second, differently-computed set.
-        statistics: stats,
+        statistics: {
+          ...stats,
+          // Legacy aliases. This payload used to name these three differently,
+          // and an installed app is still asking for them by the old names —
+          // dropping them turned Runs, Average, Wickets and Bowling Avg into
+          // dashes on every phone that hadn't updated yet. Cheap to keep; an
+          // API doesn't get to assume its clients were all replaced at once.
+          totalRuns:      stats.runs ?? 0,
+          wicketsTaken:   stats.wickets ?? 0,
+          battingAverage: stats.average ?? 0,
+        },
         recommendations,
       },
     });
