@@ -182,7 +182,9 @@ function Podium({ rows, board, myId, onPress, styles, DS }) {
             <Image source={{ uri: p.avatarUrl }} style={{ width: av, height: av, borderRadius: av / 2, backgroundColor: DS.surfaceHighest }} />
           ) : (
             <HexAvatar round size={av} color={place === 1 ? DS.lime : DS.surfaceHighest}>
-              <Text style={[styles.avatarText, place === 1 && { fontSize: 15 }]}>{initials(p.name)}</Text>
+              <Text style={[styles.avatarText, place === 1 && [styles.avatarTextOnLime, { fontSize: 15 }]]}>
+                {initials(p.name)}
+              </Text>
             </HexAvatar>
           )}
           <Text style={[styles.podiumName, place === 1 && styles.podiumNameLead]} numberOfLines={1}>
@@ -699,7 +701,13 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   rankNum: { fontSize: 12, fontWeight: '900', color: DS.textVariant },
   // Dark ink on gold/silver/bronze — white on these fails contrast badly.
-  avatarText: { fontSize: 12, fontWeight: '900', color: DS.onLime },
+  // Two backgrounds, two inks. onLime is white, which is right on the leader's
+  // lime disc (9.3:1) and effectively invisible on the grey one every other
+  // avatar uses (1.2:1) — "SK", "HB", "SC" were unreadable on device. The
+  // shared PlayerAvatar component already got this right; only this screen's
+  // HexAvatar usage hardcoded the white.
+  avatarText: { fontSize: 12, fontWeight: '900', color: DS.lime },
+  avatarTextOnLime: { color: DS.onLime },
   avatarImg: {
     width: 34, height: 34, borderRadius: 17, backgroundColor: DS.surfaceHighest,
     borderWidth: 1.5, borderColor: 'transparent',
