@@ -285,12 +285,16 @@ export default function HomeScreen({ navigation }) {
                 onPress={() => handleNavTab(i)}
                 activeOpacity={0.85}
               >
-                {on && <Icon name={tab.icon} size={15} color={CONTROL.onGreen} />}
+                {/* No icon in the tight variant. Pavilion shows one on the
+                    active pill, but with four tabs the icon + gap costs ~19dp of
+                    a ~70dp label and clipped "TOURNAMENTS" to "TOURNAMENT" only
+                    while it was selected. The deep-green fill already says which
+                    tab is active. */}
                 <Text
                   style={[C.navPillTextTight, { color: on ? CONTROL.onGreen : CONTROL.slate }]}
                   numberOfLines={1}
                   adjustsFontSizeToFit
-                  minimumFontScale={0.8}
+                  minimumFontScale={0.7}
                 >{tab.label}</Text>
               </TouchableOpacity>
             );
@@ -344,21 +348,22 @@ export default function HomeScreen({ navigation }) {
                 </AnimatedPulse>
 
                 {/* Filter tabs + count on one line (reclaims a full row) */}
-                <View style={styles.filtersRow}>
+                <View style={[C.filterBar, { flexDirection: 'row', marginBottom: 12 }]}>
                   {FILTERS.map(f => {
                     const active = status === f;
                     return (
                       <TouchableOpacity
                         key={f}
-                        style={[styles.filterTab, active && styles.filterTabActive]}
+                        style={[C.filterChip, active && C.filterChipActive]}
                         onPress={() => setStatus(f)}
+                        activeOpacity={0.8}
                       >
-                        <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
+                        <Text style={[C.filterText, active && C.filterTextActive]}>
                           {f.toUpperCase()}
                         </Text>
                         {active && filterCounts[f] > 0 && (
-                          <View style={[styles.filterCount, styles.filterCountActive]}>
-                            <Text style={[styles.filterCountText, styles.filterCountTextActive]}>{filterCounts[f]}</Text>
+                          <View style={[C.segCount, C.segCountOn]}>
+                            <Text style={[C.segCountText, C.segCountTextOn]}>{filterCounts[f]}</Text>
                           </View>
                         )}
                       </TouchableOpacity>
@@ -633,29 +638,6 @@ const makeStyles = (DS, typography, radii, shadows) => StyleSheet.create({
     borderRadius: 12, paddingHorizontal: 16, paddingVertical: 11,
   },
   searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary },
-  filtersRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    gap: 6, paddingTop: 14, paddingBottom: 10,
-  },
-  filterTab: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
-    backgroundColor: 'transparent',
-  },
-  filterTabActive: {
-    backgroundColor: DS.lime,
-  },
-  filterTabText: {
-    fontSize: 11, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.5,
-  },
-  filterTabTextActive: { color: DS.bg },
-  filterCount: {
-    minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5,
-    backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center',
-  },
-  filterCountActive: { backgroundColor: 'rgba(0,0,0,0.18)' },
-  filterCountText: { fontSize: 10, fontWeight: '900', color: DS.textMuted },
-  filterCountTextActive: { color: DS.bg },
 
   // Live matches rail
   liveCard: { width: 210, backgroundColor: DS.surface, borderRadius: radii?.md || 16, padding: 14, borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}) },
