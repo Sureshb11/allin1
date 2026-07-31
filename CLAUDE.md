@@ -106,23 +106,36 @@ release builds; regenerate with `react-native bundle …` after JS changes.
 
 ## backend/ — API server
 
-Node + Express + **Prisma** ORM (Postgres via Docker). Auth uses phone + OTP
-(test OTP `1234`). Serves on **:4000**; the app's `LegendsApi` client targets this. In dev, `src/config/apiConfig.js` points to the local backend (Android emulator: http://10.0.2.2:4000, iOS sim: http://localhost:4000).
+Node + Express + **Prisma** ORM. Auth uses phone + OTP (test OTP `1234`). Serves
+on **:4000**; the app's `LegendsApi` client targets this. In dev,
+`src/config/apiConfig.js` points to the local backend (Android emulator:
+http://10.0.2.2:4000, iOS sim: http://localhost:4000).
+
+> **There is no local database.** The API deploys to **Vercel** and the Postgres
+> is **Neon** — `DATABASE_URL` in `backend/.env` points at it, so `npm run dev`
+> on your machine reads and writes the same database as production. The
+> `docker-compose.yml` / `npm run db:up` scripts are left over from before that
+> and start a Postgres nothing is configured to use.
 
 ```
 backend/
 ├── src/{index.js,routes,lib}
 ├── prisma/                 schema + migrations + seed
-├── docker-compose.yml      local Postgres
-└── .env                    DB connection / secrets
+└── .env                    Neon connection / secrets (git-ignored)
 ```
 
 ### Run (from `backend/`)
 ```bash
-npm run db:up             # start Postgres (docker compose)
-npm run prisma:migrate    # apply migrations
-npm run dev               # nodemon dev server on :4000
+npm run dev               # nodemon dev server on :4000, against Neon
+npx prisma generate       # after a schema edit
+npx prisma migrate status # what's applied vs pending on Neon
 ```
+
+**Migrations are not applied by the Vercel build** — it only runs
+`prisma generate`. A schema change reaches Neon only when someone runs
+`npx prisma migrate deploy` from `backend/`, and that hits the live database, so
+it's a deliberate manual step. Apply it *before* pushing code that queries the
+new columns, or the deployed API 500s until it lands.
 
 ---
 
