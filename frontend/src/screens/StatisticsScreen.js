@@ -3,7 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl, Image } from 'react-native';
-import Reanimated, { useAnimatedRef, useSharedValue, scrollTo } from 'react-native-reanimated';
+import Reanimated, { useAnimatedRef, useSharedValue, scrollTo, FadeIn } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
@@ -436,28 +436,27 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
 
   const scrollToMe = () => scrollRef.current?.scrollTo({ y: Math.max(0, myRowY.current - 12), animated: true });
 
-  const listAnim = useRef(new Animated.Value(1)).current;
-
   const handleTabChange = (newTab) => {
     if (tab === newTab) return;
-    Animated.timing(listAnim, { toValue: 0, duration: 100, useNativeDriver: true }).start(() => {
-      setTab(newTab);
-      // Players and Teams have different boards, so a held-over id (e.g.
-      // 'economy') would fall back to the first board silently. Reset explicitly,
-      // and rewind the chip strip — it keeps its scroll offset across tabs, which
-      // left the (now-selected) first chip clipped off the left edge.
-      setBoardId((newTab === 'Players' ? activeBoards : TEAM_BOARDS)[0].id);
-      scrollBoardTo(0);
-      Animated.timing(listAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start();
-    });
+    // Applied immediately — the results animate themselves in. Deferring these
+    // behind a fade-out was what made the tap feel like it hadn't registered.
+    setTab(newTab);
+    // Players and Teams have different boards, so a held-over id (e.g.
+    // 'economy') would fall back to the first board silently. Reset explicitly,
+    // and rewind the chip strip — it keeps its scroll offset across tabs, which
+    // left the (now-selected) first chip clipped off the left edge.
+    setBoardId((newTab === 'Players' ? activeBoards : TEAM_BOARDS)[0].id);
+    scrollBoardTo(0);
+    // Back to the top: the previous scroll offset means nothing in a different
+    // ranking, and landing at row 30 of a board you just switched to reads as a
+    // glitch rather than a position.
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   const handleBoardChange = (id) => {
     if (id === boardId) return;
-    Animated.timing(listAnim, { toValue: 0, duration: 90, useNativeDriver: true }).start(() => {
-      setBoardId(id);
-      Animated.timing(listAnim, { toValue: 1, duration: 140, useNativeDriver: true }).start();
-    });
+    setBoardId(id);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   return (
@@ -495,7 +494,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
           <StatSkeleton DS={DS} />
         </View>
       ) : (
-        <Animated.View style={{ flex: 1, opacity: listAnim }}>
+        <View style={{ flex: 1 }}>
           {/* A vertical ScrollView (not a FlatList): a VirtualizedList grabs the
               horizontal drag and blocks the Pavilion pager's swipe; 45 rows don't
               need windowing, and this lets a swipe directional-lock cleanly. */}
@@ -606,48 +605,57 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                 {board.note ? ` · ${board.note}` : ''}
               </Text>
             </View>
-            {/* Podium only when the board is unsearched and deep enough for one —
-                a filtered result of two isn't a podium, and mid-search the top
-                three of your matches aren't the top three of anything. */}
-            {showPodium && (
-              <Podium rows={data.slice(0, 3)} board={board} myId={myId}
-                onPress={openDetail} styles={styles} DS={DS} />
-            )}
+            {/* Only the RESULTS animate on a tab or board change. This whole
+                ScrollView used to sit inside one opacity value, so tapping
+                Players/Teams or a board chip faded out the control you had just
+                pressed along with everything else — 100ms out, a state change in
+                the dark, 150ms back. The controls hold still now; keying on
+                tab+board remounts just the results, so they fade in while the
+                chips stay put and the tap reads as instant. */}
+            <Reanimated.View key={`${tab}:${board.id}`} entering={FadeIn.duration(200)}>
+              {/* Podium only when the board is unsearched and deep enough for one —
+                  a filtered result of two isn't a podium, and mid-search the top
+                  three of your matches aren't the top three of anything. */}
+              {showPodium && (
+                <Podium rows={data.slice(0, 3)} board={board} myId={myId}
+                  onPress={openDetail} styles={styles} DS={DS} />
+              )}
 
-            {data.length === 0 ? (
-              <View style={styles.empty}>
-                <Icon name={board.icon || 'chart-bar'} size={44} color={DS.surfaceHighest} />
-                <Text style={styles.emptyTitle}>
-                  {searchQuery.trim()
-                    ? 'No one matches that search'
-                    : `No ${tab.toLowerCase()} ranked by ${board.label.toLowerCase()} yet`}
-                </Text>
-                <Text style={styles.emptySub}>
-                  {searchQuery.trim()
-                    ? 'Try a shorter search, or clear it.'
-                    : board.note
-                      ? `This board needs ${board.note} — nobody has reached that yet.`
-                      : 'Play a match and the board fills in.'}
-                </Text>
-              </View>
-            ) : (
-              listRows.map((item, i) => {
-                const sep = i < listRows.length - 1 ? <View style={styles.sep} /> : null;
-                return item.id === myId ? (
-                  <View key={item.id} onLayout={(e) => { myRowY.current = e.nativeEvent.layout.y; }}>
-                    {renderCard({ item })}
-                    {sep}
-                  </View>
-                ) : (
-                  <Fragment key={item.id}>
-                    {renderCard({ item })}
-                    {sep}
-                  </Fragment>
-                );
-              })
-            )}
+              {data.length === 0 ? (
+                <View style={styles.empty}>
+                  <Icon name={board.icon || 'chart-bar'} size={44} color={DS.surfaceHighest} />
+                  <Text style={styles.emptyTitle}>
+                    {searchQuery.trim()
+                      ? 'No one matches that search'
+                      : `No ${tab.toLowerCase()} ranked by ${board.label.toLowerCase()} yet`}
+                  </Text>
+                  <Text style={styles.emptySub}>
+                    {searchQuery.trim()
+                      ? 'Try a shorter search, or clear it.'
+                      : board.note
+                        ? `This board needs ${board.note} — nobody has reached that yet.`
+                        : 'Play a match and the board fills in.'}
+                  </Text>
+                </View>
+              ) : (
+                listRows.map((item, i) => {
+                  const sep = i < listRows.length - 1 ? <View style={styles.sep} /> : null;
+                  return item.id === myId ? (
+                    <View key={item.id} onLayout={(e) => { myRowY.current = e.nativeEvent.layout.y; }}>
+                      {renderCard({ item })}
+                      {sep}
+                    </View>
+                  ) : (
+                    <Fragment key={item.id}>
+                      {renderCard({ item })}
+                      {sep}
+                    </Fragment>
+                  );
+                })
+              )}
+            </Reanimated.View>
           </ScrollView>
-        </Animated.View>
+        </View>
       )}
 
     </View>);
