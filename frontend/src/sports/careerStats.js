@@ -9,22 +9,34 @@
 //   { event }      → read stats.eventTotals[event]  (SportEvent tallies:
 //                    goals, cards, … — see /users/me/stats)
 //
-// Adding a sport = add an entry. Anything not listed falls back to a generic
-// "Matches + events" panel, so a new sport is never worse than neutral.
+// Adding a sport = add an entry. Anything not listed draws no table at all —
+// matches played is reported in the screen's career line either way, so a new
+// sport is never worse than neutral.
 
+// Matches played is a career fact, not a batting or bowling one, so it belongs
+// to the header of "My Stats" rather than to every panel's first cell — these
+// tables list what the panel is actually about.
+//
+// Cricket's rows are also no longer a subset of what the API computes: the
+// endpoint has been deriving highest score, boundaries and not-outs from the
+// ball-by-ball data all along, and nothing displayed them.
 const CRICKET = [
   { id: 'batting', label: 'Batting', rows: [
-    { label: 'Matches',      key: 'matches' },
     { label: 'Runs',         key: 'runs' },
     { label: 'Average',      key: 'battingAverage', alt: 'average' },
     { label: 'Strike Rate',  key: 'battingStrikeRate', alt: 'strikeRate' },
+    { label: 'Highest',      key: 'highestScore' },
     { label: 'Fifties',      key: 'halfCenturies' },
     { label: 'Hundreds',     key: 'centuries' },
+    { label: 'Fours',        key: 'fours' },
+    { label: 'Sixes',        key: 'sixes' },
+    { label: 'Not Outs',     key: 'notOuts' },
   ]},
   { id: 'bowling', label: 'Bowling', rows: [
     { label: 'Wickets',      key: 'wickets' },
-    { label: 'Bowling Avg',  key: 'bowlingAverage' },
+    { label: 'Overs',        key: 'oversBowled' },
     { label: 'Economy',      key: 'economy' },
+    { label: 'Bowling Avg',  key: 'bowlingAverage' },
     { label: 'Best Figures', key: 'bestBowling' },
     { label: '5-wkt Hauls',  key: 'fiveWickets' },
   ]},
@@ -32,18 +44,22 @@ const CRICKET = [
   // hardcoded tabs, and the payload had nothing to fill one with — even though
   // the scorer has recorded every catch and run-out since day one.
   { id: 'fielding', label: 'Fielding', rows: [
-    { label: 'Matches',    key: 'matches' },
     { label: 'Catches',    key: 'catches' },
     { label: 'Run Outs',   key: 'runOuts' },
     { label: 'Dismissals', key: 'dismissalsTaken' },
   ]},
 ];
 
+// Every `event` below is a type the scorer can actually record — see the
+// `actions` list for the sport in sports/scoring.js. That constraint was being
+// broken: football listed Assists and the rally sports shared one Faults panel,
+// but no scorer emits an `assist`, and only tennis emits a `double-fault`. A row
+// for an event that is never written reads 0 forever, which looks like a career
+// with no assists rather than an app that cannot record one.
 const FOOTBALL = [
   { id: 'attack', label: 'Attack', rows: [
-    { label: 'Matches',   key: 'matches' },
-    { label: 'Goals',     event: 'goal' },
-    { label: 'Assists',   event: 'assist' },
+    { label: 'Goals',   event: 'goal' },
+    { label: 'Corners', event: 'corner' },
   ]},
   { id: 'discipline', label: 'Discipline', rows: [
     { label: 'Yellow Cards', event: 'yellow-card' },
@@ -52,41 +68,51 @@ const FOOTBALL = [
   ]},
 ];
 
-// Court/racquet sports share a points-and-faults shape.
-const RALLY = [
-  { id: 'scoring', label: 'Scoring', rows: [
-    { label: 'Matches', key: 'matches' },
-    { label: 'Points',  event: 'point' },
-    { label: 'Aces',    event: 'ace' },
-  ]},
-  { id: 'errors', label: 'Errors', rows: [
-    { label: 'Double Faults', event: 'double-fault' },
-    { label: 'Faults',        event: 'fault' },
+// Court/racquet sports all score points and aces; what they record third
+// differs (tennis a double fault, volleyball a block, the rest a fault), so the
+// caller passes the row its own scorer emits.
+const rally = (third) => [
+  { id: 'rally', label: 'Rally', rows: [
+    { label: 'Points', event: 'point' },
+    { label: 'Aces',   event: 'ace' },
+    third,
   ]},
 ];
 
 const PANELS = {
   cricket:     CRICKET,
   football:    FOOTBALL,
-  hockey:      [{ id: 'attack', label: 'Attack', rows: [
-                  { label: 'Matches', key: 'matches' },
-                  { label: 'Goals',   event: 'goal' }] }],
+  hockey:      [{ id: 'match', label: 'Match', rows: [
+                  { label: 'Goals',        event: 'goal' },
+                  { label: 'Pen Corners',  event: 'penalty-corner' },
+                  { label: 'Yellow Cards', event: 'yellow-card' },
+                  { label: 'Red Cards',    event: 'red-card' }] }],
   basketball:  [{ id: 'scoring', label: 'Scoring', rows: [
-                  { label: 'Matches',    key: 'matches' },
                   { label: '2-Pointers', event: '2pt' },
                   { label: '3-Pointers', event: '3pt' },
-                  { label: 'Free Throws',event: 'freethrow' }] }],
-  tennis:      RALLY,
-  badminton:   RALLY,
-  tabletennis: RALLY,
-  volleyball:  RALLY,
-  squash:      RALLY,
-  pickleball:  RALLY,
+                  { label: 'Free Throws',event: 'freethrow' },
+                  { label: 'Fouls',      event: 'foul' }] }],
+  kabaddi:     [{ id: 'raiding', label: 'Raiding', rows: [
+                  { label: 'Touch Points', event: 'touch-point' },
+                  { label: 'Bonus Points', event: 'bonus-point' },
+                  { label: 'Tackles',      event: 'tackle-point' },
+                  { label: 'All Outs',     event: 'all-out' }] }],
+  tennis:      rally({ label: 'Double Faults', event: 'double-fault' }),
+  volleyball:  rally({ label: 'Blocks',        event: 'block' }),
+  badminton:   rally({ label: 'Faults',        event: 'fault' }),
+  tabletennis: rally({ label: 'Faults',        event: 'fault' }),
+  pickleball:  rally({ label: 'Faults',        event: 'fault' }),
+  squash:      [{ id: 'rally', label: 'Rally', rows: [
+                  { label: 'Points',  event: 'point' },
+                  { label: 'Strokes', event: 'stroke' },
+                  { label: 'Lets',    event: 'let' }] }],
 };
 
-// Neutral fallback: matches played, and nothing invented.
+// Neutral fallback: a sport with no event mapping has no career table to draw.
+// Matches played is still reported — it's in the screen's career line, above
+// the panels — so an empty table here is a missing table, not a missing screen.
 const GENERIC = [
-  { id: 'overview', label: 'Overview', rows: [{ label: 'Matches', key: 'matches' }] },
+  { id: 'overview', label: 'Overview', rows: [] },
 ];
 
 export const getCareerPanels = (sportId) => PANELS[sportId] || GENERIC;
