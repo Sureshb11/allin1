@@ -3,7 +3,7 @@
 // scoring screen so a scorer can tap a face to see who's who at full size.
 // Self-contained (owns its modal), so it drops in anywhere a name/avatar is shown.
 import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, Modal, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Modal, Pressable, StyleSheet, Animated } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 
 export default function PlayerAvatar({ name, avatarUrl, size = 26, style }) {
@@ -12,15 +12,21 @@ export default function PlayerAvatar({ name, avatarUrl, size = 26, style }) {
   const initial = (name || '?').charAt(0).toUpperCase();
   const r = size / 2;
 
+  const scale = React.useRef(new Animated.Value(1)).current;
+  const handlePressIn = () => Animated.spring(scale, { toValue: 0.85, useNativeDriver: true, speed: 20 }).start();
+  const handlePressOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 12 }).start();
+
   return (
     <>
-      <TouchableOpacity activeOpacity={0.7} hitSlop={6} onPress={() => setOpen(true)} style={style}>
-        {avatarUrl
-          ? <Image source={{ uri: avatarUrl }} style={{ width: size, height: size, borderRadius: r, backgroundColor: C.surfaceHighest }} />
-          : <View style={{ width: size, height: size, borderRadius: r, backgroundColor: C.surfaceHighest, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: size * 0.42, fontWeight: '900', color: C.lime }}>{initial}</Text>
-            </View>}
-      </TouchableOpacity>
+      <Pressable hitSlop={6} onPress={() => setOpen(true)} onPressIn={handlePressIn} onPressOut={handlePressOut} style={style}>
+        <Animated.View style={{ transform: [{ scale }] }}>
+          {avatarUrl
+            ? <Image source={{ uri: avatarUrl }} style={{ width: size, height: size, borderRadius: r, backgroundColor: C.surfaceHighest }} />
+            : <View style={{ width: size, height: size, borderRadius: r, backgroundColor: C.surfaceHighest, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: size * 0.42, fontWeight: '900', color: C.lime }}>{initial}</Text>
+              </View>}
+        </Animated.View>
+      </Pressable>
 
       <Modal visible={open} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setOpen(false)}>
         <Pressable style={[s.backdrop, { backgroundColor: C.overlay || 'rgba(0,0,0,0.85)' }]} onPress={() => setOpen(false)}>

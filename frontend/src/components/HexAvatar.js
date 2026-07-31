@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { View, Image, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet, Animated, Pressable } from 'react-native';
 import Svg, { Polygon, Image as SvgImage, ClipPath, Defs } from 'react-native-svg';
 
 // Avatar for the app. By default it's the Arena honeycomb HEXAGON — the badge/
@@ -14,43 +14,54 @@ import Svg, { Polygon, Image as SvgImage, ClipPath, Defs } from 'react-native-sv
 // `uri` clips a photo into the shape; otherwise it fills with `color` and
 // centres `children` (typically the initials) on top.
 let hexSeq = 0;
-export default function HexAvatar({ size = 44, color = '#888', uri, style, children, round }) {
-  const clipId = useRef(`hexclip${++hexSeq}`).current;   // hoisted: hooks run every render
+export default function HexAvatar({ size = 44, color = '#888', uri, style, children, round, onPress }) {
+  const clipId = useRef(`hexclip${++hexSeq}`).current;
   const r = size / 2;
   const wrap = [{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style];
+  
+  const scale = useRef(new Animated.Value(1)).current;
+  const handlePressIn = () => Animated.spring(scale, { toValue: 0.85, useNativeDriver: true, speed: 20 }).start();
+  const handlePressOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 12 }).start();
 
-  // People → circle. A plain Image/View with borderRadius is crisper than an SVG
-  // mask and needs no clip path.
-  if (round) {
+  const renderContent = () => {
+    if (round) {
+      return (
+        <Animated.View style={[wrap, { transform: [{ scale }] }]}>
+          {uri
+            ? <Image source={{ uri }} style={{ width: size, height: size, borderRadius: r }} resizeMode="cover" />
+            : <View style={[StyleSheet.absoluteFill, { borderRadius: r, backgroundColor: color }]} />}
+          {!uri && children}
+        </Animated.View>
+      );
+    }
+    const pts = Array.from({ length: 6 }, (_, i) => {
+      const a = (Math.PI / 180) * (60 * i - 90);
+      return `${r + r * Math.cos(a)},${r + r * Math.sin(a)}`;
+    }).join(' ');
     return (
-      <View style={wrap}>
-        {uri
-          ? <Image source={{ uri }} style={{ width: size, height: size, borderRadius: r }} resizeMode="cover" />
-          : <View style={[StyleSheet.absoluteFill, { borderRadius: r, backgroundColor: color }]} />}
+      <Animated.View style={[wrap, { transform: [{ scale }] }]}>
+        <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+          {uri ? (
+            <>
+              <Defs><ClipPath id={clipId}><Polygon points={pts} /></ClipPath></Defs>
+              <SvgImage href={{ uri }} x="0" y="0" width={size} height={size}
+                preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clipId})`} />
+            </>
+          ) : (
+            <Polygon points={pts} fill={color} />
+          )}
+        </Svg>
         {!uri && children}
-      </View>
+      </Animated.View>
+    );
+  };
+
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+        {renderContent()}
+      </Pressable>
     );
   }
-
-  // Teams / emblems → hexagon.
-  const pts = Array.from({ length: 6 }, (_, i) => {
-    const a = (Math.PI / 180) * (60 * i - 90); // pointy-top hexagon
-    return `${r + r * Math.cos(a)},${r + r * Math.sin(a)}`;
-  }).join(' ');
-  return (
-    <View style={wrap}>
-      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-        {uri ? (
-          <>
-            <Defs><ClipPath id={clipId}><Polygon points={pts} /></ClipPath></Defs>
-            <SvgImage href={{ uri }} x="0" y="0" width={size} height={size}
-              preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clipId})`} />
-          </>
-        ) : (
-          <Polygon points={pts} fill={color} />
-        )}
-      </Svg>
-      {!uri && children}
-    </View>
-  );
+  return renderContent();
 }

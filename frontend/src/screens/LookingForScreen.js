@@ -1,18 +1,22 @@
-import { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo, forwardRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder, Linking, Alert
+  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder, Linking, Alert, LayoutAnimation
 } from 'react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import Reanimated, { FadeInDown, useAnimatedRef, useSharedValue, scrollTo } from 'react-native-reanimated';
+import Reanimated, { FadeIn, SlideInRight, SlideInLeft, FadeInDown, useAnimatedRef, useSharedValue, scrollTo, LinearTransition, useAnimatedStyle, runOnJS, withSpring, withTiming, withRepeat, Easing } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import AnimatedPressable from '../components/AnimatedPressable';
+import AmbientBackground from '../components/AmbientBackground';
 import { showToast } from '../components/Toast';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { useCurrentUser } from '../utils/currentUser';
 import { useFocusEffect } from '@react-navigation/native';
+import { haptic } from '../utils/haptics';
 
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { pav } from '../theme/pavilion';
@@ -20,35 +24,124 @@ import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHid
 import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
 
+import { useWindowDimensions } from 'react-native';
+
+function MagneticFAB({ onPress, DS }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const offsetX = useSharedValue(0);
+  const offsetY = useSharedValue(0);
+
+  const pan = Gesture.Pan()
+    .onUpdate((e) => {
+      translateX.value = offsetX.value + e.translationX;
+      translateY.value = offsetY.value + e.translationY;
+    })
+    .onEnd((e) => {
+      const finalX = offsetX.value + e.translationX;
+      const finalY = offsetY.value + e.translationY;
+      const snapX = finalX < -windowWidth / 2 + 50 ? -windowWidth + 76 : 0;
+      translateX.value = withSpring(snapX, { damping: 14, stiffness: 120 });
+      translateY.value = withSpring(finalY, { damping: 14, stiffness: 120 });
+      offsetX.value = snapX;
+      offsetY.value = finalY;
+    });
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }, { translateY: translateY.value }]
+  }));
+
+  return (
+    <GestureDetector gesture={pan}>
+      <Reanimated.View style={[
+        style, 
+        { position: 'absolute', bottom: 40, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: DS.lime, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, elevation: 6, zIndex: 999 }
+      ]}>
+        <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="plus" size={30} color={DS.bg} />
+        </TouchableOpacity>
+      </Reanimated.View>
+    </GestureDetector>
+  );
+}
+
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const DynamicIsland = React.forwardRef((props, ref) => {
+  const [msg, setMsg] = useState('');
+  const [icon, setIcon] = useState('check-circle');
+  const translateY = useSharedValue(-150);
+  const scale = useSharedValue(0.5);
+  const DS = useTheme().colors;
+
+  React.useImperativeHandle(ref, () => ({
+    show: (text, iName = 'check-circle') => {
+      setMsg(text);
+      setIcon(iName);
+      translateY.value = withSpring(10, { damping: 14, stiffness: 120 });
+      scale.value = withSpring(1, { damping: 14, stiffness: 120 });
+      
+      setTimeout(() => {
+        translateY.value = withTiming(-150, { duration: 300 });
+        scale.value = withTiming(0.5, { duration: 300 });
+      }, 2500);
+    }
+  }));
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }, { scale: scale.value }]
+  }));
+
+  return (
+    <Reanimated.View style={[
+      { position: 'absolute', top: 30, alignSelf: 'center', backgroundColor: '#000', borderRadius: 30, paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, zIndex: 9999 },
+      style
+    ]} pointerEvents="none">
+      <Icon name={icon} size={20} color={DS.lime} />
+      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>{msg}</Text>
+    </Reanimated.View>
+  );
+});
+
+// ── The List ─────────────────────────────────────────────────────────────────
 // ── Shimmer Skeleton ────────────────────────────────────────────────────────
 function ScoutSkeleton({ DS }) {
-  const shimmer = useRef(new Animated.Value(0)).current;
+  // Three distinct animated values to create a cascading wave down the screen.
+  const shimmers = useRef([new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)]).current;
+  
   useEffect(() => {
-    Animated.loop(
+    const anims = shimmers.map((shimmer, i) => 
       Animated.sequence([
-        Animated.timing(shimmer, { toValue: 1, duration: 1000, useNativeDriver: true }),
-        Animated.timing(shimmer, { toValue: 0, duration: 1000, useNativeDriver: true }),
+        Animated.delay(i * 150),
+        Animated.loop(Animated.timing(shimmer, { toValue: 1, duration: 1200, useNativeDriver: true }))
       ])
-    ).start();
-  }, [shimmer]);
-  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
-  const Bar = ({ w, h, r = 6, mt = 0 }) => (
-    <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity, marginTop: mt }} />
-  );
+    );
+    Animated.parallel(anims).start();
+  }, [shimmers]);
+
+  const Bar = ({ w, h, r = 6, mt = 0, shimmer }) => {
+    const translateX = shimmer.interpolate({ inputRange: [0, 1], outputRange: [-100, 400] });
+    return (
+      <View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, marginTop: mt, overflow: 'hidden' }}>
+        <Animated.View style={{ position: 'absolute', top: 0, bottom: 0, width: 100, backgroundColor: 'rgba(255,255,255,0.4)', transform: [{ translateX }] }} />
+      </View>
+    );
+  };
+
   return (
     <View style={{ padding: 16, gap: 14 }}>
       {[0, 1, 2].map((i) => (
-        <View key={i} style={{ backgroundColor: DS.surfaceHigh, borderRadius: 16, overflow: 'hidden' }}>
-          <Bar w="100%" h={56} r={0} />
-          <View style={{ padding: 14, gap: 12 }}>
-            <Bar w={80} h={20} r={10} />
-            <Bar w="80%" h={16} />
-            <Bar w="60%" h={12} />
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-               <Bar w={70} h={14} />
-               <Bar w={70} h={14} />
+        <View key={i} style={{ backgroundColor: '#ffffff', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', padding: 14, gap: 12, overflow: 'hidden' }}>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <Bar w={34} h={34} r={17} shimmer={shimmers[i]} />
+            <View style={{ gap: 6 }}>
+              <Bar w={120} h={14} r={7} shimmer={shimmers[i]} />
+              <Bar w={80} h={10} r={5} shimmer={shimmers[i]} />
             </View>
           </View>
+          <Bar w="100%" h={14} r={7} shimmer={shimmers[i]} />
+          <Bar w="60%" h={14} r={7} shimmer={shimmers[i]} />
         </View>
       ))}
     </View>
@@ -186,7 +279,17 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       });
     return pagerGesture ? g.blocksExternalGesture(pagerGesture) : g;
   }, [pagerGesture, filterScroll, filterOffset, filterStart, filterMax]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState('');
+  const islandRef = useRef(null);
+  
+  const scrollY = useRef(new Animated.Value(0)).current;
   const hideTabBar = useHideTabBarOnScroll();
+  const onScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: true, listener: hideTabBar.onScroll }
+  );
   const tabClear = useTabBarClearance();
   // Optional deep-link category (e.g. from the search screen's "Looking for" list).
   const initialType = FILTER_TYPES.includes(route?.params?.initialType) ? route.params.initialType : 'all';
@@ -216,7 +319,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   const [connections, setConnections] = useState([]);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [activeType, setActiveType] = useState(initialType);
   // Swipe the listings left/right to step through the filter tabs. A ref mirrors
   // the current filter so the (once-created) responder never reads a stale value,
@@ -237,10 +339,13 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   }, [filterOffset, filterScroll]);
 
   const selectTypeRef = useRef(null);
+  const swipeDir = useRef(1);
+
   const stepFilter = useCallback((dir) => {
     const idx = FILTER_TYPES.indexOf(activeTypeRef.current);
     const next = idx + dir;
     if (next < 0 || next >= FILTER_TYPES.length) return;
+    swipeDir.current = dir;
     selectTypeRef.current?.(FILTER_TYPES[next]);
     scrollChipIntoView(next);
   }, [scrollChipIntoView]);
@@ -252,7 +357,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       else if (g.dx >= 45) stepFilter(-1);   // swipe right → previous filter
     },
   })).current;
-  const [query, setQuery] = useState('');
+
   // Mirrors `query` for callbacks that must not be rebuilt on every keystroke —
   // same reason activeTypeRef exists. The focus effect holds stable deps, so it
   // captured `query` from the first render and re-searched for "" on every
@@ -271,14 +376,12 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   // so it overlays everything and isn't clipped by the Pavilion pager transform.
   // Tapping a row opens the full listing: everything the poster typed, plus their
   // number when they chose to share it.
-  const [detailItem, setDetailItem] = useState(null);
-  const detailSheetRef = useRef(null);
-  const detailSnapPoints = useMemo(() => ['70%'], []);
+  const [expandedId, setExpandedId] = useState(null);
   const openDetail = useCallback((item) => {
-    setDetailItem(item);
-    detailSheetRef.current?.present();
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedId((prev) => (prev === item.id ? null : item.id));
   }, []);
-  const closeDetail = useCallback(() => detailSheetRef.current?.dismiss(), []);
+  const closeDetail = useCallback(() => setExpandedId(null), []);
 
   // The create sheet doubles as the edit sheet — same fields, same validation,
   // so the two can't drift. editingId null means "posting a new one".
@@ -440,6 +543,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   const myReqFor = (listingId) => connections.find((c) => c.listingId === listingId && c.requesterId === myId);
 
   const handleConnect = async (postId) => {
+    if (!myId) return;
+    haptic.tick();
     const res = await legendsApi.connectLookingFor(postId);
     if (!res.success) {
       showToast(res.error || 'Could not send that request', 'error');
@@ -482,8 +587,10 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   };
 
   const onRefresh = async () => {
+    haptic.impact();
     setRefreshing(true);
     await Promise.all([load(activeTypeRef.current, query), loadConnections()]);
+    haptic.success();
     setRefreshing(false);
   };
 
@@ -568,13 +675,18 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     searchTimer.current = setTimeout(() => load(activeTypeRef.current, text), 300);
   };
 
-  const selectType = (t) => {
-    setActiveType(t);
-    activeTypeRef.current = t;
+  const selectType = useCallback((type) => {
+    if (type === activeTypeRef.current) return;
+    haptic.tick();
+    const idx = FILTER_TYPES.indexOf(type);
+    const currIdx = FILTER_TYPES.indexOf(activeTypeRef.current);
+    swipeDir.current = idx > currIdx ? 1 : -1;
+    activeTypeRef.current = type;
+    setActiveType(type);
     setPosts([]);
     setCursor(null);
-    load(t, query);
-  };
+    load(type, query);
+  }, [load, query]);
   selectTypeRef.current = selectType;
 
   // Keyed off the connection's own listing fields, not the feed. `posts` is one
@@ -636,6 +748,28 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     );
   };
 
+// Continuous pulsing sonar ring behind an avatar
+function SonarPulse({ size, color }) {
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = withRepeat(
+      withTiming(1, { duration: 2500, easing: Easing.out(Easing.ease) }),
+      -1,
+      false
+    );
+  }, []);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + progress.value * 1.5 }],
+    opacity: 1 - progress.value
+  }));
+  return (
+    <Reanimated.View style={[
+      { position: 'absolute', top: 0, left: 0, width: size, height: size, borderRadius: size / 2, backgroundColor: color },
+      animStyle
+    ]} pointerEvents="none" />
+  );
+}
+
   // ── One listing = one row ──────────────────────────────────────────────────
   // Three lines, fixed shape: the ask, then who/where/when, then age + category.
   // The action sits on the right so the eye can run down a single column of
@@ -661,34 +795,120 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       .filter(Boolean).join(' · ');
 
     const action = actionFor(item);
+    const isExpanded = expandedId === item.id;
+    const notes = bodyDesc;
+    const phone = (item.contactInfo || '').trim();
+    const facts = [
+      ['map-marker-outline', 'Where', item.location],
+      ['clock-outline', 'When', whenText],
+      ['cricket', 'Format', item.format],
+      ['human', 'Age group', item.ageGroup],
+    ].filter(([, , v]) => !!v);
+
+    const renderLeftActions = (progress, dragX) => {
+      const scale = dragX.interpolate({
+        inputRange: [0, 80, 120],
+        outputRange: [0, 1, 1.15],
+        extrapolate: 'clamp',
+      });
+      const rotate = dragX.interpolate({
+        inputRange: [0, 80],
+        outputRange: ['-45deg', '0deg'],
+        extrapolate: 'clamp',
+      });
+      return (
+        <View style={styles.swipeConnectBox}>
+          <Animated.View style={[styles.swipeConnectIcon, { transform: [{ scale }, { rotate }] }]}>
+            <Icon name="handshake" size={24} color="#ffffff" />
+            <Text style={styles.swipeConnectText}>Connect</Text>
+          </Animated.View>
+        </View>
+      );
+    };
+
     return (
       <Reanimated.View
-        entering={FadeInDown.duration(300).delay(Math.min(index, 8) * 35)}
-        style={styles.row}
+        entering={FadeInDown.duration(300).delay(index < 8 ? index * 35 : 0)}
+        style={styles.rowWrapper}
+        layout={LinearTransition.springify()}
       >
-        <TouchableOpacity style={styles.rowTap} activeOpacity={0.7} onPress={() => openDetail(item)}>
-        {item.posterName
-          ? <PlayerAvatar name={item.posterName} avatarUrl={item.posterAvatarUrl} size={38} />
-          : (
-            <View style={styles.rowIconAvatar}>
-              <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={19} color={DS.lime} />
+        <Swipeable 
+          renderLeftActions={renderLeftActions} 
+          onSwipeableWillOpen={() => haptic.impact()}
+          onSwipeableLeftOpen={() => {
+            haptic.success();
+            islandRef.current?.show(isMine ? 'Marked as filled' : 'Connection sent', isMine ? 'check-circle' : 'handshake');
+            if (!isMine) openConnect(item);
+          }}
+          overshootLeft={false}
+          containerStyle={{ flex: 1 }}
+        >
+          <View style={styles.row}>
+            <AnimatedPressable 
+              style={styles.rowTap} 
+              contentStyle={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}
+              activeOpacity={0.7} 
+              onPress={() => openDetail(item)}
+            >
+            <View style={{ position: 'relative' }}>
+              {index < 2 && <SonarPulse size={34} color={DS.lime} />}
+              {item.posterName
+                ? <PlayerAvatar name={item.posterName} avatarUrl={item.posterAvatarUrl} size={34} />
+                : (
+                  <View style={styles.rowIconAvatar}>
+                     <Icon name={TYPE_ICONS[item.type] || 'help-circle'} size={17} color={DS.lime} />
+                  </View>
+                )}
+            </View>
+
+            <View style={styles.rowMain}>
+              <Text style={styles.rowAsk} numberOfLines={2}>{item.title || askFrom(item)}</Text>
+              {!!whoLine && <Text style={styles.rowWho} numberOfLines={1}>{whoLine}</Text>}
+              <Text style={styles.rowMeta} numberOfLines={1}>{metaLine}</Text>
+              {!isExpanded && !!bodyDesc && <Text style={styles.rowNote} numberOfLines={2}>{bodyDesc}</Text>}
+            </View>
+            </AnimatedPressable>
+
+            {action}
+          </View>
+          
+          {isExpanded && (
+            <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 4 }}>
+              {facts.length > 0 && (
+                <View style={styles.factList}>
+                  {facts.map(([icon, label, value]) => (
+                    <View key={label} style={styles.factRow}>
+                      <Icon name={icon} size={16} color={DS.textMuted} />
+                      <Text style={styles.factLabel}>{label}</Text>
+                      <Text style={styles.factValue} numberOfLines={2}>{value}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              {!!notes && (
+                <View style={[styles.notesBox, { marginTop: 12 }]}>
+                  <Text style={styles.notesLabel}>NOTES</Text>
+                  <Text style={styles.notesText}>{notes}</Text>
+                </View>
+              )}
+              {!phone && item.contactShared && !isMine && (
+                <View style={[styles.contactLocked, { marginTop: 12 }]}>
+                  <Icon name="lock-outline" size={16} color={DS.textMuted} />
+                  <Text style={styles.contactLockedText}>Shares their number once they accept you</Text>
+                </View>
+              )}
+              {!!phone && (
+                <TouchableOpacity
+                  style={[styles.contactBox, { marginTop: 12 }]}
+                  activeOpacity={0.85}
+                  onPress={() => Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => showToast('No dialer available', 'error'))}>
+                  <Icon name="phone" size={18} color={DS.lime} />
+                  <Text style={styles.contactPhone}>{phone}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
-
-        <View style={styles.rowMain}>
-          {/* The listing exactly as the create sheet's "POSTS AS" preview showed
-              it. This used to run through askFrom(), which strips the "Looking
-              for a Player" prefix — so you previewed one thing and the board
-              showed another, with no sign of where the rest had gone. Two lines,
-              because the whole title is the point. */}
-          <Text style={styles.rowAsk} numberOfLines={2}>{item.title || askFrom(item)}</Text>
-          {!!whoLine && <Text style={styles.rowWho} numberOfLines={1}>{whoLine}</Text>}
-          <Text style={styles.rowMeta} numberOfLines={1}>{metaLine}</Text>
-          {!!bodyDesc && <Text style={styles.rowNote} numberOfLines={2}>{bodyDesc}</Text>}
-        </View>
-        </TouchableOpacity>
-
-        {action}
+        </Swipeable>
       </Reanimated.View>
     );
   };
@@ -730,6 +950,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
   return (
     <View style={styles.container}>
+      <AmbientBackground />
       {/* Brand bar */}
       {!inline && (
         <View style={styles.brandBar}>
@@ -737,24 +958,23 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
             <Icon name="arrow-left" size={22} color={DS.textPrimary} />
           </TouchableOpacity>
           <BrandLogo scale={0.75} />
-          <TouchableOpacity onPress={openCreate} style={styles.addBtn}>
-            <Icon name="plus" size={20} color={DS.bg} />
-          </TouchableOpacity>
         </View>
       )}
 
       {/* Hero section */}
       {!inline && (
         <View style={styles.hero}>
-          <Text style={styles.heroTitle}>EXPLORE.</Text>
-          <Text style={styles.heroSubtitle}>Find players, teams, coaches & grounds near you</Text>
+          <Animated.View style={{ transform: [{ translateY: hideTabBar.scrollY.interpolate({ inputRange: [-300, 0, 300], outputRange: [-100, 0, 100], extrapolate: 'clamp' }) }] }}>
+            <Text style={styles.heroTitle}>EXPLORE.</Text>
+            <Text style={styles.heroSubtitle}>Find players, teams, coaches & grounds near you</Text>
+          </Animated.View>
         </View>
       )}
 
       {/* Search bar — full width (posting lives on the FAB + CTA card). */}
       <View style={styles.searchWrap}>
         <View style={styles.searchBar}>
-          <Icon name="magnify" size={20} color={DS.lime} />
+          <Icon name="magnify" size={20} color={DS.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search listings..."
@@ -771,65 +991,75 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       </View>
 
       {/* Filter Tabs */}
-      <GestureDetector gesture={filterPan}>
-        <Reanimated.ScrollView
-          ref={filterScroll}
-          horizontal
-          scrollEnabled={false}
-          showsHorizontalScrollIndicator={false}
-          style={styles.tabs}
-          contentContainerStyle={styles.tabsContent}
-          onLayout={(e) => { filterViewW.current = e.nativeEvent.layout.width; recomputeMax(); }}
-          onContentSizeChange={(w) => { filterContentW.current = w; recomputeMax(); }}
-        >
-          {FILTER_TYPES.map((t, idx) => {
-            const on = activeType === t;
-            const n = t === 'all' ? total : (countsByType[t] || 0);
-            const empty = n === 0 && !on;
-            return (
-              <TouchableOpacity
-                key={t}
-                style={[styles.tab, on && styles.tabActive, empty && styles.tabEmpty]}
-                onLayout={(e) => { chipX.current[idx] = e.nativeEvent.layout.x; }}
-                onPress={() => {
-                  selectType(t);
-                  // Bring the tapped chip into view so the selection is never clipped.
-                  scrollChipIntoView(idx);
-                }}
-              >
-                {/* Every chip carries its name now. Icon-only pills meant ten of
-                    these eleven categories were a guess. */}
-                <Icon name={TYPE_ICONS[t]} size={15} color={on ? DS.onLime : DS.textMuted} />
-                <Text style={[styles.tabText, on && styles.tabTextActive]} numberOfLines={1}>
-                  {TYPE_LABELS[t] || t}
-                </Text>
-                <Text style={[styles.tabCount, on && styles.tabCountActive]}>{n}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </Reanimated.ScrollView>
-      </GestureDetector>
+      <Animated.View style={{ zIndex: 10, transform: [
+        { translateY: scrollY.interpolate({ inputRange: [-100, 0, 100], outputRange: [0, 0, -25], extrapolate: 'clamp' }) },
+        { scale: scrollY.interpolate({ inputRange: [-100, 0], outputRange: [1.1, 1], extrapolateRight: 'clamp' }) }
+      ] }}>
+        <GestureDetector gesture={filterPan}>
+          <Reanimated.ScrollView
+            ref={filterScroll}
+            horizontal
+            scrollEnabled={false}
+            showsHorizontalScrollIndicator={false}
+            style={styles.tabs}
+            contentContainerStyle={styles.tabsContent}
+            onLayout={(e) => { filterViewW.current = e.nativeEvent.layout.width; recomputeMax(); }}
+            onContentSizeChange={(w) => { filterContentW.current = w; recomputeMax(); }}
+          >
+            {FILTER_TYPES.map((t, idx) => {
+              const on = activeType === t;
+              const n = t === 'all' ? total : (countsByType[t] || 0);
+              const empty = n === 0 && !on;
+              return (
+                <TouchableOpacity
+                  key={t}
+                  activeOpacity={0.7}
+                  style={[styles.tab, on && styles.tabActive, empty && styles.tabEmpty]}
+                  onLayout={(e) => { chipX.current[idx] = e.nativeEvent.layout.x; }}
+                  onPress={() => {
+                    selectType(t);
+                    // Bring the tapped chip into view so the selection is never clipped.
+                    scrollChipIntoView(idx);
+                  }}
+                >
+                  {/* Every chip carries its name now. Icon-only pills meant ten of
+                      these eleven categories were a guess. */}
+                  {t === 'all' && <Icon name={TYPE_ICONS[t]} size={16} color={on ? P.control : DS.textVariant} />}
+                  <Text style={[styles.tabText, on && styles.tabTextActive]} numberOfLines={1}>
+                    {TYPE_LABELS[t] || t}
+                  </Text>
+                  <View style={[styles.tabCountWrap, on && styles.tabCountWrapActive]}>
+                    <Text style={[styles.tabCount, on && styles.tabCountActive]}>{n}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </Reanimated.ScrollView>
+        </GestureDetector>
+      </Animated.View>
 
-      {/* The filter-stepping swipe is only for the standalone route. Inside the
-          Pavilion pager the parent Pan gesture owns horizontal drags, so
-          attaching this here would fight it (a right-swipe would both step the
-          filter back AND page to Rankings). */}
-      <View style={{ flex: 1 }} {...(inline ? {} : swipe.panHandlers)}>
+      <View style={{ flex: 1 }} {...swipe.panHandlers}>
       {loading ? (
         <ScoutSkeleton DS={DS} />
       ) : (
         // No footer CTA: with listings on screen the FAB already carries posting,
         // and a card at the end of every scroll only repeated it. The empty state
         // keeps its own prompt — there the invitation is the point, not noise.
-        <FlatList
-          {...hideTabBar}
+        <Reanimated.View 
+          key={activeType}
+          style={{ flex: 1 }}
+          entering={swipeDir.current === 1 ? SlideInRight.duration(200).withInitialValues({ transform: [{ translateX: 50 }] }) : SlideInLeft.duration(200).withInitialValues({ transform: [{ translateX: -50 }] })}
+        >
+          <Animated.FlatList
+            onScroll={onScroll}
+          onScrollEndDrag={hideTabBar.onScrollEndDrag}
+          scrollEventThrottle={16}
           data={visiblePosts}
           extraData={[connections, myId]}
           keyExtractor={i => i.id}
           renderItem={renderPost}
           contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}
-          ItemSeparatorComponent={() => <View style={styles.sep} />}
           ListHeaderComponent={renderInbox()}
           onEndReached={loadMore}
           onEndReachedThreshold={0.4}
@@ -848,11 +1078,14 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
             ) : null}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Icon
-                name={activeType === 'all' ? 'telescope' : (TYPE_ICONS[activeType] || 'telescope')}
-                size={44}
-                color={DS.surfaceHighest}
-              />
+              <View style={styles.emptyBox}>
+                <View style={styles.emptyIconWrap}>
+                  <Icon
+                    name={activeType === 'all' ? 'telescope' : (TYPE_ICONS[activeType] || 'telescope')}
+                    size={32}
+                    color={DS.limeDark}
+                  />
+                </View>
               <Text style={styles.emptyText}>
                 {allHiddenHere
                   ? 'Everything here is hidden'
@@ -885,130 +1118,13 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                   </Text>
                 </TouchableOpacity>
               )}
+              </View>
             </View>
           }
         />
+        </Reanimated.View>
       )}
       </View>
-
-      {/* ── LISTING DETAIL — everything the poster wrote, plus their number if
-          they chose to share it. The row only has space for two lines of notes;
-          this is where the rest lives. ── */}
-      <BottomSheetModal
-        ref={detailSheetRef}
-        snapPoints={detailSnapPoints}
-        enablePanDownToClose
-        onDismiss={() => setDetailItem(null)}
-        backdropComponent={renderBackdrop}
-        handleIndicatorStyle={{ backgroundColor: DS.textMuted }}
-        backgroundStyle={{ backgroundColor: DS.surfaceLow }}>
-        {detailItem && (() => {
-          const lines = (detailItem.description || '').split('\n');
-          const whenText = lines.find((l) => l.startsWith('When: '))?.slice(6);
-          const notes = lines.filter((l) => !l.startsWith('When: ')).join('\n').trim();
-          const isMine = !!myId && detailItem.postedById === myId;
-          const phone = (detailItem.contactInfo || '').trim();
-          const facts = [
-            ['map-marker-outline', 'Where', detailItem.location],
-            ['clock-outline', 'When', whenText],
-            ['cricket', 'Format', detailItem.format],
-            ['human', 'Age group', detailItem.ageGroup],
-          ].filter(([, , v]) => !!v);
-
-          return (
-            <BottomSheetScrollView contentContainerStyle={styles.detailBody}>
-              <View style={styles.detailHead}>
-                {detailItem.posterName
-                  ? <PlayerAvatar name={detailItem.posterName} avatarUrl={detailItem.posterAvatarUrl} size={44} />
-                  : (
-                    <View style={styles.rowIconAvatar}>
-                      <Icon name={TYPE_ICONS[detailItem.type] || 'help-circle'} size={20} color={DS.lime} />
-                    </View>
-                  )}
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.detailPoster} numberOfLines={1}>
-                    {isMine ? 'You' : (detailItem.posterName || 'Someone')}
-                  </Text>
-                  <Text style={styles.detailPosted}>
-                    {[timeAgo(detailItem.createdAt), TYPE_LABELS[detailItem.type]].filter(Boolean).join(' · ')}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Full title here too, so preview, row and detail all read the
-                  same. askFrom() is now only used as a short label where the
-                  full string genuinely won't fit — the pending/connected blocks. */}
-              <Text style={styles.detailAsk}>{detailItem.title || askFrom(detailItem)}</Text>
-
-              {facts.length > 0 && (
-                <View style={styles.factList}>
-                  {facts.map(([icon, label, value]) => (
-                    <View key={label} style={styles.factRow}>
-                      <Icon name={icon} size={16} color={DS.textMuted} />
-                      <Text style={styles.factLabel}>{label}</Text>
-                      <Text style={styles.factValue} numberOfLines={2}>{value}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* What they actually typed — the row can only show two lines. */}
-              {!!notes && (
-                <View style={styles.notesBox}>
-                  <Text style={styles.notesLabel}>NOTES</Text>
-                  <Text style={styles.notesText}>{notes}</Text>
-                </View>
-              )}
-
-              {/* The number arrives from the server only when you're the poster or
-                  they accepted you — so this renders the digits when they exist,
-                  a note when they'll exist, and nothing at all when the poster
-                  never offered one. */}
-              {!phone && detailItem.contactShared && !isMine && (
-                <View style={styles.contactLocked}>
-                  <Icon name="lock-outline" size={16} color={DS.textMuted} />
-                  <Text style={styles.contactLockedText}>Shares their number once they accept you</Text>
-                </View>
-              )}
-              {!!phone && (
-                <TouchableOpacity
-                  style={styles.contactBox}
-                  activeOpacity={0.85}
-                  onPress={() => Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => showToast('No dialer available', 'error'))}>
-                  <Icon name="phone-outline" size={18} color={DS.lime} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.contactLabel}>Shared their number</Text>
-                    <Text style={styles.contactValue}>{phone}</Text>
-                  </View>
-                  <Icon name="chevron-right" size={20} color={DS.textMuted} />
-                </TouchableOpacity>
-              )}
-
-              <View style={styles.detailAction}>{actionFor(detailItem, true)}</View>
-
-              {!isMine && (
-                <TouchableOpacity style={styles.ownerBtn} onPress={() => hideListing(detailItem)} activeOpacity={0.8}>
-                  <Icon name="eye-off-outline" size={15} color={DS.textMuted} />
-                  <Text style={styles.hideText}>Not interested — hide this</Text>
-                </TouchableOpacity>
-              )}
-
-              {isMine && (
-                <View style={styles.ownerActions}>
-                  <TouchableOpacity style={styles.ownerBtn} onPress={() => openEdit(detailItem)} activeOpacity={0.8}>
-                    <Icon name="pencil-outline" size={15} color={DS.lime} />
-                    <Text style={styles.editText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.ownerBtn} onPress={() => handleDelete(detailItem)} activeOpacity={0.8}>
-                    <Icon name="trash-can-outline" size={15} color={DS.coral} />
-                    <Text style={styles.deleteText}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </BottomSheetScrollView>
-          );
-        })()}
-      </BottomSheetModal>
 
       {/* Create Modal */}
       <BottomSheetModal
@@ -1166,6 +1282,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
               </TouchableOpacity>
             </BottomSheetScrollView>
       </BottomSheetModal>
+      <MagneticFAB onPress={openCreate} DS={DS} />
+      <DynamicIsland ref={islandRef} />
     </View>
   );
 }
@@ -1174,7 +1292,7 @@ const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
 
   /* Brand bar */
-  brandBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceLow, paddingTop: 48, paddingBottom: 14, paddingHorizontal: 16 },
+  brandBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(248, 250, 252, 0.85)', paddingTop: 48, paddingBottom: 14, paddingHorizontal: 16 },
   // 40x40: a 22px icon with 4px padding was a 30px target, well under the 44pt
   // minimum and the easiest thing on the screen to miss.
   backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
@@ -1188,37 +1306,48 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Search — pill-shaped, prominent. */
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: DS.bg },
-  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, gap: 8, borderWidth: 1, borderColor: DS.border },
+  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, gap: 8, borderWidth: 0 },
   createBtn: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  searchInput: { flex: 1, fontSize: 13, color: DS.textPrimary, padding: 0 },
-  searchPlaceholder: { fontSize: 13, color: DS.textMuted },
+  searchInput: { flex: 1, fontSize: 15, color: DS.textPrimary, padding: 0 },
+  searchPlaceholder: { fontSize: 15, color: DS.textMuted },
 
   /* Filter chips — labelled + counted; the row scrolls under a self-driven Pan. */
-  tabs: { backgroundColor: DS.bg, flexGrow: 0, flexShrink: 0 },
-  tabsContent: { paddingHorizontal: 14, paddingVertical: 6, gap: 6, alignItems: 'center' },
+  tabs: { backgroundColor: DS.bg, flexGrow: 0, flexShrink: 0, borderBottomWidth: 1, borderBottomColor: DS.faint },
+  tabsContent: { paddingHorizontal: 16, paddingVertical: 0, gap: 16, alignItems: 'center' },
   // Filter chip, form type chip and form option chip are the same control doing
   // the same job — pick one of a set. They had three different radii (999 vs 20)
   // and three paddings. Same geometry now; only the copy differs.
   tab: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 7, minHeight: 32, borderRadius: 999,
-    borderWidth: 1, borderColor: DS.faint, backgroundColor: DS.surfaceHigh,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 12, paddingHorizontal: 4,
+    borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
-  tabActive: { backgroundColor: DS.lime, borderColor: DS.lime },
+  tabActive: { borderBottomColor: '#0f4c3a' },
   // Zero listings: still there, still tappable, just visibly quieter.
   tabEmpty: { opacity: 0.45 },
-  tabText: { fontSize: 12, color: DS.textVariant, fontWeight: '600', includeFontPadding: false },
-  tabTextActive: { color: DS.onLime, fontWeight: '800' },
-  tabCount: { fontSize: 11, color: DS.textMuted, fontWeight: '800', includeFontPadding: false },
-  tabCountActive: { color: DS.onLime, opacity: 0.75 },
+  tabText: { fontSize: 14, color: DS.textVariant, fontWeight: '600', includeFontPadding: false },
+  tabTextActive: { color: '#0f4c3a', fontWeight: 'bold' },
+  tabCountWrap: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: '#f1f5f9' },
+  tabCountWrapActive: { backgroundColor: '#0f4c3a' + '15' },
+  tabCount: { fontSize: 11, color: DS.textMuted, fontWeight: '600', includeFontPadding: false },
+  tabCountActive: { color: '#0f4c3a', fontWeight: '800', opacity: 1 },
 
   /* List — bordered rows, not floating cards: ~5 listings a screen instead of 2. */
-  list: { paddingHorizontal: 14, paddingTop: 4, paddingBottom: 28 },
-  sep: { height: 1, backgroundColor: DS.faint, marginLeft: 50 },
+  list: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 28 },
+  sep: { display: 'none' },
 
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 12 },
+  rowWrapper: { marginBottom: 12 },
+  swipeConnectBox: { flex: 1, backgroundColor: '#059669', borderRadius: 16, justifyContent: 'center', alignItems: 'flex-start', paddingLeft: 24 },
+  swipeConnectIcon: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  swipeConnectText: { color: '#ffffff', fontSize: 16, fontWeight: '800' },
+  rowTap: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  row: { 
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 14,
+    backgroundColor: '#ffffff', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', 
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 
+  },
   rowIconAvatar: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: DS.surfaceHigh,
+    width: 34, height: 34, borderRadius: 17, backgroundColor: DS.surfaceHigh,
     alignItems: 'center', justifyContent: 'center',
   },
   rowMain: { flex: 1, minWidth: 0, gap: 2 },
@@ -1226,10 +1355,10 @@ const makeStyles = (DS) => StyleSheet.create({
   // 14.5 rather than 15: the full title is longer than the stripped ask it
   // replaced, and this keeps the common case on one line inside the ~190px the
   // fixed-width action column leaves.
-  rowAsk: { fontSize: 14.5, fontWeight: '700', color: DS.textPrimary, letterSpacing: -0.2, lineHeight: 19 },
+  rowAsk: { fontSize: 14, fontWeight: '600', color: DS.textPrimary, letterSpacing: -0.2, lineHeight: 18 },
   rowWho: { fontSize: 12, color: DS.textVariant, fontWeight: '500' },
-  rowMeta: { fontSize: 11, color: DS.textMuted, fontWeight: '500' },
-  rowNote: { fontSize: 12, color: DS.textVariant, marginTop: 3, lineHeight: 16 },
+  rowMeta: { fontSize: 12, color: DS.textMuted },
+  rowNote: { fontSize: 11, color: DS.textVariant, marginTop: 3, lineHeight: 15 },
 
   /* One action per row, right-aligned so they form a single scannable column.
      The three variants below carry IDENTICAL geometry on purpose — a row whose
@@ -1238,21 +1367,21 @@ const makeStyles = (DS) => StyleSheet.create({
      column. Height is fixed rather than padding-derived because RN counts border
      inside the box, so the 1px-bordered variants would otherwise sit taller. */
   rowCta: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-    minWidth: 96, height: 34, borderRadius: 8, paddingHorizontal: 10, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    minWidth: 72, height: 32, borderRadius: 8, paddingHorizontal: 10, marginTop: 2,
     // Near-black primary (pav().control, applied inline — it's theme-derived).
     // The green accent already carries selected chips, avatar initials, ghost
     // buttons and the empty-state CTA; a green Connect on every row turned the
     // list into a green stripe and left the accent meaning nothing.
     borderWidth: 1, borderColor: DS.faint,
   },
-  rowCtaText: { fontSize: 11.5, fontWeight: '800' },
+  rowCtaText: { fontSize: 11, fontWeight: '800' },
   rowGhostBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-    minWidth: 96, height: 34, borderRadius: 8, paddingHorizontal: 10, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    minWidth: 72, height: 32, borderRadius: 8, paddingHorizontal: 10, marginTop: 2,
     borderWidth: 1.5, borderColor: DS.lime,
   },
-  rowGhostText: { fontSize: 11.5, fontWeight: '800', color: DS.lime },
+  rowGhostText: { fontSize: 11, fontWeight: '800', color: DS.lime },
   rowFlag: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
     minWidth: 96, height: 34, borderRadius: 8, paddingHorizontal: 10, alignSelf: 'center',
@@ -1324,14 +1453,19 @@ const makeStyles = (DS) => StyleSheet.create({
   },
 
   /* Empty */
-  empty: { alignItems: 'center', paddingTop: 70, paddingHorizontal: 32 },
-  emptyText: { fontSize: 16, fontWeight: '700', color: DS.textVariant, marginTop: 12 },
-  emptySubText: { fontSize: 13, color: DS.textMuted, marginTop: 4, textAlign: 'center' },
-  emptyCta: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 16,
-    backgroundColor: DS.lime, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10,
+  empty: { alignItems: 'center', paddingTop: 40, paddingHorizontal: 16 },
+  emptyBox: { 
+    width: '100%', alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24,
+    backgroundColor: DS.surface, borderRadius: 24, borderWidth: 1.5, borderColor: DS.faint, borderStyle: 'dashed' 
   },
-  emptyCtaText: { fontSize: 13, fontWeight: '800', color: DS.onLime },
+  emptyIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: DS.lime + '20', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  emptyText: { fontSize: 17, fontWeight: '800', color: DS.textPrimary, marginTop: 12, textAlign: 'center' },
+  emptySubText: { fontSize: 13.5, color: DS.textMuted, marginTop: 6, textAlign: 'center', lineHeight: 20 },
+  emptyCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 24,
+    backgroundColor: DS.lime, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12,
+  },
+  emptyCtaText: { fontSize: 14, fontWeight: '800', color: DS.onLime },
 
   /* Modal */
   modalOverlay: { flex: 1, backgroundColor: DS.overlay, justifyContent: 'flex-end' },

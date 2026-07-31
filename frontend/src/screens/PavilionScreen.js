@@ -191,32 +191,30 @@ export default function PavilionScreen({ navigation, route }) {
           return (
             <TouchableOpacity
               key={tab.label}
-              style={[styles.navPill, { backgroundColor: isActive ? DS.lime : DS.surfaceHigh }]}
+              style={[styles.navPill, isActive ? styles.navPillActive : styles.navPillInactive]}
               onPress={() => goToTab(i)}
               activeOpacity={0.85}
             >
-              {isActive && <Icon name={tab.icon} size={15} color={DS.onLime} />}
-              <Text style={[styles.navPillText, { color: isActive ? DS.onLime : DS.textMuted }]}>{tab.label}</Text>
+              <Icon name={tab.icon} size={16} color={isActive ? "#ffffff" : "#475569"} />
+              <Text style={[styles.navPillText, isActive ? styles.navPillTextActive : styles.navPillTextInactive]}>{tab.label}</Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
       {/* ── CONTENT (finger-tracked pager: one wide row, translated) ──── */}
-      <GestureDetector gesture={swipeGesture}>
-        <View style={{ flex: 1, overflow: 'hidden' }}>
-          <Animated.View style={[{ flex: 1, flexDirection: 'row', width: SCREEN_W * N }, trackStyle]}>
-            {TABS.map((tab, i) => {
-              const Comp = tab.component;
-              return (
-                <PagerPage key={tab.label} index={i} tx={tx}>
-                  {visited[i] ? <Comp navigation={navigation} inline={true} route={route} onRegisterFab={registerFab(i)} pagerGesture={swipeGesture} /> : null}
-                </PagerPage>
-              );
-            })}
-          </Animated.View>
-        </View>
-      </GestureDetector>
+      <View style={{ flex: 1, overflow: 'hidden' }}>
+        <Animated.View style={[{ flex: 1, flexDirection: 'row', width: SCREEN_W * N }, trackStyle]}>
+          {TABS.map((tab, i) => {
+            const Comp = tab.component;
+            return (
+              <PagerPage key={tab.label} index={i} tx={tx}>
+                {visited[i] ? <Comp navigation={navigation} inline={true} route={route} onRegisterFab={registerFab(i)} /> : null}
+              </PagerPage>
+            );
+          })}
+        </Animated.View>
+      </View>
 
       {/* ── FAB: primary action for the active tab; absent where there isn't
           one. The old fallback fired StreamingLanding for any tab that hadn't
@@ -245,9 +243,13 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // L1 nav: three separate rounded pills. Inactive = grey, text-only; active =
   // green with its icon (matches the reference's single filled tab).
-  navRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
-  navPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 999 },
-  navPillText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.2 },
+  navRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
+  navPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999 },
+  navPillActive: { backgroundColor: '#0f4c3a' },
+  navPillInactive: { backgroundColor: '#f1f5f9' },
+  navPillText: { fontSize: 15, fontWeight: '900', letterSpacing: 0.2 },
+  navPillTextActive: { color: '#ffffff' },
+  navPillTextInactive: { color: '#475569' },
 
   // Green primary; a rounded rectangle (not a full pill). `bottom` is dock clearance.
   fab: {

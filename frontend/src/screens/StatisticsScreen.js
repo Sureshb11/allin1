@@ -1,33 +1,47 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Fragment } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Fragment, forwardRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl, Image } from 'react-native';
-import Reanimated, { useAnimatedRef, useSharedValue, scrollTo, FadeIn } from 'react-native-reanimated';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl, Image, PanResponder } from 'react-native';
+import Reanimated, { useAnimatedRef, useSharedValue, scrollTo, FadeIn, FadeInDown, SlideInRight, SlideInLeft, SlideOutRight, LinearTransition, useAnimatedStyle, runOnJS, withRepeat, withSequence, withTiming, withDelay, withSpring, interpolateColor } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
+import AnimatedPressable from '../components/AnimatedPressable';
+import AmbientBackground from '../components/AmbientBackground';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getRankingBoards, rankValue } from '../sports/careerStats';
 import { useCurrentUser } from '../utils/currentUser';
+import { haptic } from '../utils/haptics';
 
 
 // ── Shimmer Skeleton ────────────────────────────────────────────────────────
 function StatSkeleton({ DS }) {
-  const shimmer = useRef(new Animated.Value(0)).current;
+  // Cascading wave of shimmers for the podium + 5 rows (6 total).
+  const shimmers = useRef(Array(6).fill(0).map(() => new Animated.Value(0))).current;
+
   useEffect(() => {
-    Animated.loop(
+    const anims = shimmers.map((shimmer, i) => 
       Animated.sequence([
-        Animated.timing(shimmer, { toValue: 1, duration: 1000, useNativeDriver: true }),
-        Animated.timing(shimmer, { toValue: 0, duration: 1000, useNativeDriver: true }),
+        Animated.delay(i * 100),
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(shimmer, { toValue: 1, duration: 800, useNativeDriver: true }),
+            Animated.timing(shimmer, { toValue: 0, duration: 800, useNativeDriver: true }),
+          ])
+        )
       ])
-    ).start();
-  }, [shimmer]);
-  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
-  const Bar = ({ w, h, r = 6, mt = 0 }) => (
-    <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity, marginTop: mt }} />
-  );
+    );
+    Animated.parallel(anims).start();
+  }, [shimmers]);
+
+  const Bar = ({ w, h, r = 6, mt = 0, shimmer }) => {
+    const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
+    return (
+      <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity, marginTop: mt }} />
+    );
+  };
   // Mirrors what actually resolves: a podium, then compact rows. It used to draw
   // four tall bordered cards with a stat block — the pre-rebuild layout — so the
   // screen visibly jumped shape the moment the data landed. A skeleton is a
@@ -38,23 +52,23 @@ function StatSkeleton({ DS }) {
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingBottom: 14 }}>
         {[{ av: 44, h: 46 }, { av: 54, h: 68 }, { av: 44, h: 34 }].map((p, i) => (
           <View key={i} style={{ flex: i === 1 ? 1.15 : 1, alignItems: 'center', gap: 5 }}>
-            <Bar w={p.av} h={p.av} r={p.av / 2} />
-            <Bar w="70%" h={10} mt={2} />
-            <Bar w="45%" h={13} mt={2} />
-            <Bar w="100%" h={p.h} r={8} mt={3} />
+            <Bar w={p.av} h={p.av} r={p.av / 2} shimmer={shimmers[0]} />
+            <Bar w="70%" h={10} mt={2} shimmer={shimmers[0]} />
+            <Bar w="45%" h={13} mt={2} shimmer={shimmers[0]} />
+            <Bar w="100%" h={p.h} r={8} mt={3} shimmer={shimmers[0]} />
           </View>
         ))}
       </View>
       {/* Rows below, at the height a real one occupies. */}
       {[0, 1, 2, 3, 4].map((i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 }}>
-          <Bar w={26} h={26} r={13} />
-          <Bar w={34} h={34} r={17} />
+          <Bar w={26} h={26} r={13} shimmer={shimmers[i + 1]} />
+          <Bar w={34} h={34} r={17} shimmer={shimmers[i + 1]} />
           <View style={{ flex: 1, gap: 6 }}>
-            <Bar w="52%" h={13} />
-            <Bar w="34%" h={10} />
+            <Bar w="52%" h={13} shimmer={shimmers[i + 1]} />
+            <Bar w="34%" h={10} shimmer={shimmers[i + 1]} />
           </View>
-          <Bar w={44} h={18} r={5} />
+          <Bar w={44} h={18} r={5} shimmer={shimmers[i + 1]} />
         </View>
       ))}
     </View>
@@ -151,16 +165,196 @@ const sortFor = (board) => (a, b) => {
 };
 
 
+function LeaderPulse({ av }) {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(0.6);
+  useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.2, { duration: 1500 }),
+        withTiming(1, { duration: 1500 })
+      ),
+      -1,
+      true
+    );
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.2, { duration: 1500 }),
+        withTiming(0.6, { duration: 1500 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+  const style = useAnimatedStyle(() => ({
+    position: 'absolute',
+    width: av,
+    height: av,
+    borderRadius: av / 2,
+    backgroundColor: '#fef08a',
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+  return <Reanimated.View style={style} />;
+}
+
+// Continuous pulsing glow for the #1 headline number
+function ShimmerText({ children, style }) {
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1500 }),
+        withTiming(0, { duration: 1500 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+  const animStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(progress.value, [0, 1], ['#0f4c3a', '#10b981']),
+  }));
+  return (
+    <Reanimated.Text 
+      style={[
+        style, 
+        animStyle, 
+        { textShadowColor: 'rgba(16, 185, 129, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8 }
+      ]} 
+      numberOfLines={1}
+    >
+      {children}
+    </Reanimated.Text>
+  );
+}
+
 // ── Podium ───────────────────────────────────────────────────────────────────
-// The top three, lifted out of the list into the shape a leaderboard actually
+// Not a standalone component; completely tied to the internal data shape this screen
 // has: the leader raised in the middle, second to the left, third to the right,
 // on bars whose heights say the same thing the numbers do.
 //
 // This replaced a medal-and-crown treatment applied to the rows themselves.
 // Gold/silver/bronze on a dark UI reads as a trophy cabinet rather than a live
 // table, and it cost every top row extra height inside a list built for density.
+function ConfettiParticle({ color, index }) {
+  const progress = useSharedValue(0);
+  
+  useEffect(() => {
+    progress.value = withDelay(
+      (index % 10) * 40, 
+      withTiming(1, { duration: 2500 })
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => {
+    const angle = (index % 15) * 12 - 90;
+    const speed = 150 + (index % 5) * 50;
+    
+    const rad = angle * Math.PI / 180;
+    const dx = Math.sin(rad) * speed * progress.value;
+    const dy = -Math.cos(rad) * speed * progress.value + 400 * Math.pow(progress.value, 2);
+
+    return {
+      position: 'absolute',
+      width: 6, height: 12,
+      backgroundColor: color,
+      opacity: 1 - Math.pow(progress.value, 4),
+      transform: [
+        { translateX: dx },
+        { translateY: dy },
+        { rotate: `${progress.value * 720}deg` },
+        { rotateX: `${progress.value * 1080}deg` }
+      ]
+    };
+  });
+
+  return <Reanimated.View style={style} />;
+}
+
+function ConfettiCannon() {
+  const particles = Array.from({ length: 50 }).map((_, i) => i);
+  const colors = ['#0f4c3a', '#fed7aa', '#10b981', '#fbbf24', '#f87171', '#38bdf8'];
+
+  return (
+    <View style={{ position: 'absolute', top: 50, left: '50%', zIndex: 100, pointerEvents: 'none' }}>
+      {particles.map((i) => (
+        <ConfettiParticle key={i} color={colors[i % colors.length]} index={i} />
+      ))}
+    </View>
+  );
+}
+
 // A podium spends that height once, above the list, and every row below stays
 // the same compact shape.
+function LevitatingAvatar({ place, children, style }) {
+  const floatProgress = useSharedValue(0);
+  const dropY = useSharedValue(-600);
+
+  useEffect(() => {
+    const dropDelay = place === 1 ? 300 : place === 2 ? 450 : 600;
+    setTimeout(() => {
+      dropY.value = withSpring(0, { damping: 12, stiffness: 120 });
+    }, dropDelay);
+
+    const floatDelay = place === 1 ? 0 : place === 2 ? 1000 : 2000;
+    setTimeout(() => {
+      floatProgress.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 2500 }),
+          withTiming(0, { duration: 2500 })
+        ),
+        -1,
+        true
+      );
+    }, dropDelay + 600);
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: dropY.value },
+      { translateY: floatProgress.value * -6 }
+    ]
+  }));
+
+  return <Reanimated.View style={[style, animStyle]}>{children}</Reanimated.View>;
+}
+
+const DynamicIsland = React.forwardRef((props, ref) => {
+  const [msg, setMsg] = useState('');
+  const [icon, setIcon] = useState('check-circle');
+  const translateY = useSharedValue(-150);
+  const scale = useSharedValue(0.5);
+  const DS = useTheme().colors;
+
+  React.useImperativeHandle(ref, () => ({
+    show: (text, iName = 'check-circle') => {
+      setMsg(text);
+      setIcon(iName);
+      translateY.value = withSpring(10, { damping: 14, stiffness: 120 });
+      scale.value = withSpring(1, { damping: 14, stiffness: 120 });
+      
+      setTimeout(() => {
+        translateY.value = withTiming(-150, { duration: 300 });
+        scale.value = withTiming(0.5, { duration: 300 });
+      }, 2500);
+    }
+  }));
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }, { scale: scale.value }]
+  }));
+
+  return (
+    <Reanimated.View style={[
+      { position: 'absolute', top: 30, alignSelf: 'center', backgroundColor: '#000', borderRadius: 30, paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, zIndex: 9999 },
+      style
+    ]} pointerEvents="none">
+      <Icon name={icon} size={20} color={DS.lime} />
+      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>{msg}</Text>
+    </Reanimated.View>
+  );
+});
+
 function Podium({ rows, board, myId, onPress, styles, DS }) {
   if (rows.length < 3) return null;
   const [first, second, third] = rows;
@@ -173,32 +367,44 @@ function Podium({ rows, board, myId, onPress, styles, DS }) {
   return (
     <View style={styles.podium}>
       {order.map(({ p, place, h, av, val }) => (
-        <TouchableOpacity
+        <AnimatedPressable
           key={p.id}
           style={[styles.podiumCol, place === 1 && styles.podiumColLead]}
           activeOpacity={0.8}
+          scaleTo={0.92}
           onPress={() => onPress(p)}>
-          {p.avatarUrl ? (
-            <Image source={{ uri: p.avatarUrl }} style={{ width: av, height: av, borderRadius: av / 2, backgroundColor: DS.surfaceHighest }} />
-          ) : (
-            <HexAvatar round size={av} color={place === 1 ? DS.lime : DS.surfaceHighest}>
-              <Text style={[styles.avatarText, place === 1 && [styles.avatarTextOnLime, { fontSize: 15 }]]}>
-                {initials(p.name)}
-              </Text>
-            </HexAvatar>
-          )}
+          <LevitatingAvatar place={place} style={[styles.avatarGlow, place === 1 && styles.avatarGlowLead]}>
+            {place === 1 && <LeaderPulse av={av} />}
+            {p.avatarUrl ? (
+              <Image source={{ uri: p.avatarUrl }} style={{ width: av, height: av, borderRadius: av / 2, backgroundColor: DS.surfaceHighest }} />
+            ) : (
+              <HexAvatar round size={av} color={place === 1 ? '#fef08a' : place === 2 ? '#e2e8f0' : '#fed7aa'}>
+                <Text style={[styles.avatarText, place === 1 && { color: '#854d0e', fontSize: 15 }]}>
+                  {initials(p.name)}
+                </Text>
+              </HexAvatar>
+            )}
+          </LevitatingAvatar>
           <Text style={[styles.podiumName, place === 1 && styles.podiumNameLead]} numberOfLines={1}>
             {p.name}{p.id === myId ? ' · You' : ''}
           </Text>
-          <Text style={[styles.podiumVal, { fontSize: val }]} numberOfLines={1}>
-            {boardValue(p, board)}
-          </Text>
+          {place === 1 ? (
+            <ShimmerText style={[styles.podiumVal, { fontSize: val }]}>
+              {boardValue(p, board)}
+            </ShimmerText>
+          ) : (
+            <Text style={[styles.podiumVal, { fontSize: val }]} numberOfLines={1}>
+              {boardValue(p, board)}
+            </Text>
+          )}
           {/* The bar is the ranking, drawn. Its height is the whole point, so it
               carries the place number rather than a separate badge. */}
-          <View style={[styles.podiumBar, { height: h }, place === 1 && styles.podiumBarLead]}>
-            <Text style={[styles.podiumPlace, place === 1 && styles.podiumPlaceLead]}>{place}</Text>
+          <View style={[styles.podiumBar, { height: h }, styles['podiumBar' + place]]}>
+            <Text style={[styles.podiumPlace, styles['podiumPlace' + place]]}>
+              {place === 1 ? '1st' : place === 2 ? '2nd' : '3rd'}
+            </Text>
           </View>
-        </TouchableOpacity>
+        </AnimatedPressable>
       ))}
     </View>
   );
@@ -209,7 +415,7 @@ function Podium({ rows, board, myId, onPress, styles, DS }) {
 // and the number the board actually ranks by was one of five equal-weight
 // figures. Same fix as the Scout board: identity on the left, the ranked value
 // alone on the right, everything else demoted to a meta line.
-function RankRow({ item, rank, board, cols, isMe, isTeam, onPress }) {
+function RankRow({ item, rank, board, cols, isMe, isTeam, onPress, onDoubleTapStar }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
 
@@ -227,11 +433,43 @@ function RankRow({ item, rank, board, cols, isMe, isTeam, onPress }) {
         { label: 'wkts', value: item.wickets },
       ]).map((c) => `${c.value} ${c.label}`)].join(' · ');
 
+  const starScale = useSharedValue(0);
+  const starOpacity = useSharedValue(0);
+  
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .onStart(() => {
+      'worklet';
+      starScale.value = 0;
+      starOpacity.value = 1;
+      starScale.value = withSpring(1.5, { damping: 10, stiffness: 200 }, () => {
+        starOpacity.value = withTiming(0, { duration: 200 });
+      });
+      if (onDoubleTapStar) {
+        runOnJS(onDoubleTapStar)();
+      }
+    });
+
+  const starStyle = useAnimatedStyle(() => ({
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '20%',
+    zIndex: 100,
+    opacity: starOpacity.value,
+    transform: [{ scale: starScale.value }],
+  }));
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.75}
-      onPress={onPress}
-      style={[styles.row, isMe && styles.rowMe]}>
+    <GestureDetector gesture={doubleTap}>
+      <Animated.View>
+        <AnimatedPressable
+          activeOpacity={0.75}
+          onPress={onPress}
+          style={[styles.row, isMe && styles.rowMe]}
+          contentStyle={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <Reanimated.View style={starStyle} pointerEvents="none">
+            <Icon name="star" size={60} color="#fbbf24" />
+          </Reanimated.View>
       <View style={styles.rankBox}>
         <Text style={styles.rankNum}>{rank + 1}</Text>
       </View>
@@ -257,7 +495,9 @@ function RankRow({ item, rank, board, cols, isMe, isTeam, onPress }) {
       </View>
 
       <Icon name="chevron-right" size={18} color={DS.textMuted} />
-    </TouchableOpacity>
+    </AnimatedPressable>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -275,6 +515,8 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const islandRef = useRef(null);
+  const triggerIsland = () => islandRef.current?.show('Starred player', 'star');
   // ── Board-chip row: self-driven horizontal scroller (same as Scout's filters) ──
   // A dedicated Pan drives an Animated.ScrollView via Reanimated scrollTo and
   // blocks the Pavilion pager, so a horizontal drag scrolls the boards instead of
@@ -368,6 +610,8 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
   // and all three Pavilion tabs would refire together on every return.
   const lastLoadedAt = useRef(0);
   const STALE_MS = 60000;
+  const scrollY = useRef(new Animated.Value(0)).current;
+
   useFocusEffect(useCallback(() => {
     let alive = true;
     const fresh = Date.now() - lastLoadedAt.current < STALE_MS;
@@ -382,8 +626,9 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
   }, [fetchData]));
 
   const onRefresh = useCallback(() => {
+    haptic.impact();
     setRefreshing(true);
-    fetchData().finally(() => { lastLoadedAt.current = Date.now(); setRefreshing(false); });
+    fetchData().finally(() => { haptic.success(); lastLoadedAt.current = Date.now(); setRefreshing(false); });
   }, [fetchData]);
 
   // Qualify → rank → stamp the standing → then filter by search. The standing is
@@ -423,6 +668,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
   const renderCard = ({ item }) => (
     <RankRow
       onPress={() => openDetail(item)}
+      onDoubleTapStar={triggerIsland}
       item={item}
       rank={item.standing}
       board={board}
@@ -440,39 +686,62 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
 
   const handleTabChange = (newTab) => {
     if (tab === newTab) return;
-    // Applied immediately — the results animate themselves in. Deferring these
-    // behind a fade-out was what made the tap feel like it hadn't registered.
+    haptic.tick();
+    const oldIdx = ['Players', 'Teams'].indexOf(tab);
+    const newIdx = ['Players', 'Teams'].indexOf(newTab);
+    swipeDir.current = newIdx > oldIdx ? 1 : -1;
     setTab(newTab);
-    // Players and Teams have different boards, so a held-over id (e.g.
-    // 'economy') would fall back to the first board silently. Reset explicitly,
-    // and rewind the chip strip — it keeps its scroll offset across tabs, which
-    // left the (now-selected) first chip clipped off the left edge.
     setBoardId((newTab === 'Players' ? activeBoards : TEAM_BOARDS)[0].id);
     scrollBoardTo(0);
-    // Back to the top: the previous scroll offset means nothing in a different
-    // ranking, and landing at row 30 of a board you just switched to reads as a
-    // glitch rather than a position.
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   const handleBoardChange = (id) => {
     if (id === boardId) return;
+    haptic.tick();
+    const idx = boards.findIndex(b => b.id === id);
+    const currIdx = boards.findIndex(b => b.id === boardId);
+    swipeDir.current = idx > currIdx ? 1 : -1;
     setBoardId(id);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
+  const swipeDir = useRef(1);
+
+  const stepBoard = useCallback((dir) => {
+    const idx = boards.findIndex(b => b.id === boardId);
+    if (idx === -1) return;
+    const next = idx + dir;
+    if (next < 0 || next >= boards.length) return;
+    swipeDir.current = dir;
+    setBoardId(boards[next].id);
+    scrollChipIntoView(next);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, [boards, boardId, scrollChipIntoView]);
+
+  const swipe = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4,
+    onPanResponderRelease: (_, g) => {
+      if (g.dx <= -45) stepBoard(1);
+      else if (g.dx >= 45) stepBoard(-1);
+    },
+  })).current;
+
   return (
     <View style={styles.container}>
+      <AmbientBackground />
       {/* Hero */}
       {!inline && (
         <View style={styles.hero}>
-          {/* No back affordance of its own — it leaned on the navigator's, so
-              hiding that without this would strand the standalone route. */}
-          <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn} hitSlop={8}>
-            <Icon name="arrow-left" size={22} color={DS.textPrimary} />
-          </TouchableOpacity>
-          <Icon name="chart-bar" size={22} color={DS.lime} />
-          <Text style={styles.heroTitle}>Rankings</Text>
+          <Animated.View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, transform: [{ translateY: scrollY.interpolate({ inputRange: [-300, 0, 300], outputRange: [-100, 0, 100], extrapolate: 'clamp' }) }] }}>
+            {/* No back affordance of its own — it leaned on the navigator's, so
+                hiding that without this would strand the standalone route. */}
+            <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn} hitSlop={8}>
+              <Icon name="arrow-left" size={22} color={DS.textPrimary} />
+            </TouchableOpacity>
+            <Icon name="chart-bar" size={22} color={DS.lime} />
+            <Text style={styles.heroTitle}>Rankings</Text>
+          </Animated.View>
         </View>
       )}
 
@@ -486,7 +755,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                 return (
                   <TouchableOpacity key={t.id} style={[styles.segBtn, on && styles.segBtnOn]}
                     onPress={() => handleTabChange(t.id)} activeOpacity={0.85}>
-                    <Icon name={t.icon} size={14} color={on ? DS.onLime : DS.textMuted} />
+                    <Icon name={t.icon} size={14} color={on ? '#0f4c3a' : '#475569'} />
                     <Text style={[styles.segText, on && styles.segTextOn]}>{t.label}</Text>
                   </TouchableOpacity>
                 );
@@ -496,13 +765,18 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
           <StatSkeleton DS={DS} />
         </View>
       ) : (
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1 }} {...swipe.panHandlers}>
           {/* A vertical ScrollView (not a FlatList): a VirtualizedList grabs the
               horizontal drag and blocks the Pavilion pager's swipe; 45 rows don't
               need windowing, and this lets a swipe directional-lock cleanly. */}
-          <ScrollView
+          <Animated.ScrollView
             ref={scrollRef}
-            {...hideTabBar}
+            scrollEventThrottle={16}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true, listener: hideTabBar.onScroll }
+            )}
+            onScrollEndDrag={hideTabBar.onScrollEndDrag}
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}
             contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}>
@@ -530,9 +804,9 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                   board chips — three bands of chrome over a list whose whole
                   point is now density. Search collapses to its icon until it's
                   wanted, and takes the row when it is. */}
-              <View style={styles.controlRow}>
+              <Reanimated.View style={styles.controlRow} layout={LinearTransition.springify()}>
                 {!searchOpen && (
-                  <View style={styles.segment}>
+                  <Reanimated.View style={styles.segment} exiting={SlideOutRight.duration(150)}>
                     {TABS.map((t) => {
                       const on = tab === t.id;
                       return (
@@ -541,16 +815,16 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                           style={[styles.segBtn, on && styles.segBtnOn]}
                           onPress={() => handleTabChange(t.id)}
                           activeOpacity={0.85}>
-                          <Icon name={t.icon} size={14} color={on ? DS.onLime : DS.textMuted} />
+                          <Icon name={t.icon} size={14} color={on ? '#0f4c3a' : '#475569'} />
                           <Text style={[styles.segText, on && styles.segTextOn]}>{t.label}</Text>
                         </TouchableOpacity>
                       );
                     })}
-                  </View>
+                  </Reanimated.View>
                 )}
 
                 {searchOpen ? (
-                  <View style={styles.searchWrap}>
+                  <Reanimated.View style={styles.searchWrap} entering={SlideInRight.springify()} exiting={SlideOutRight.duration(150)}>
                     <Icon name="magnify" size={18} color={DS.lime} />
                     <TextInput
                       style={styles.searchInput}
@@ -566,13 +840,13 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                       hitSlop={10}>
                       <Icon name="close" size={18} color={DS.textMuted} />
                     </TouchableOpacity>
-                  </View>
+                  </Reanimated.View>
                 ) : (
                   <TouchableOpacity style={styles.searchBtn} onPress={() => setSearchOpen(true)} activeOpacity={0.85}>
                     <Icon name="magnify" size={19} color={DS.textVariant} />
                   </TouchableOpacity>
                 )}
-              </View>
+              </Reanimated.View>
 
               {/* Board selector — what this leaderboard is actually ranking. Drag
                   to scroll (self-driven, blocks the pager); tap scrolls into view. */}
@@ -592,7 +866,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                         // landed off-centre or clipped.
                         onLayout={(e) => { chipX.current[i] = e.nativeEvent.layout.x; }}
                         onPress={() => { handleBoardChange(b.id); scrollChipIntoView(i); }}>
-                        <Icon name={b.icon} size={13} color={on ? DS.onLime : DS.textMuted} />
+                        <Icon name={b.icon} size={13} color={on ? '#0f4c3a' : '#475569'} />
                         <Text style={[styles.boardChipText, on && styles.boardChipTextActive]}>{b.label}</Text>
                       </TouchableOpacity>
                     );
@@ -614,52 +888,68 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                 the dark, 150ms back. The controls hold still now; keying on
                 tab+board remounts just the results, so they fade in while the
                 chips stay put and the tap reads as instant. */}
-            <Reanimated.View key={`${tab}:${board.id}`} entering={FadeIn.duration(200)}>
+            <Reanimated.View key={`${tab}:${board.id}`} entering={swipeDir.current === 1 ? SlideInRight.duration(200).withInitialValues({ transform: [{ translateX: 50 }] }) : SlideInLeft.duration(200).withInitialValues({ transform: [{ translateX: -50 }] })}>
               {/* Podium only when the board is unsearched and deep enough for one —
                   a filtered result of two isn't a podium, and mid-search the top
                   three of your matches aren't the top three of anything. */}
               {showPodium && (
-                <Podium rows={data.slice(0, 3)} board={board} myId={myId}
-                  onPress={openDetail} styles={styles} DS={DS} />
+                <Animated.View style={{ transform: [
+                  { translateY: scrollY.interpolate({ inputRange: [-150, 0, 100], outputRange: [60, 0, 45], extrapolate: 'clamp' }) },
+                  { scale: scrollY.interpolate({ inputRange: [-150, 0], outputRange: [1.3, 1], extrapolateRight: 'clamp' }) }
+                ] }}>
+                  {myStanding && myStanding.standing === 0 && <ConfettiCannon />}
+                  <Podium rows={data.slice(0, 3)} board={board} myId={myId}
+                    onPress={openDetail} styles={styles} DS={DS} />
+                </Animated.View>
               )}
 
               {data.length === 0 ? (
                 <View style={styles.empty}>
-                  <Icon name={board.icon || 'chart-bar'} size={44} color={DS.surfaceHighest} />
-                  <Text style={styles.emptyTitle}>
-                    {searchQuery.trim()
-                      ? 'No one matches that search'
-                      : `No ${tab.toLowerCase()} ranked by ${board.label.toLowerCase()} yet`}
-                  </Text>
-                  <Text style={styles.emptySub}>
-                    {searchQuery.trim()
-                      ? 'Try a shorter search, or clear it.'
-                      : board.note
-                        ? `This board needs ${board.note} — nobody has reached that yet.`
-                        : 'Play a match and the board fills in.'}
-                  </Text>
+                  <View style={styles.emptyBox}>
+                    <View style={styles.emptyIconWrap}>
+                      <Icon name={board.icon || 'chart-bar'} size={32} color={'#0f4c3a'} />
+                    </View>
+                    <Text style={styles.emptyTitle}>
+                      {searchQuery.trim()
+                        ? 'No one matches that search'
+                        : `No ${tab.toLowerCase()} ranked by ${board.label.toLowerCase()} yet`}
+                    </Text>
+                    <Text style={styles.emptySub}>
+                      {searchQuery.trim()
+                        ? 'Try a shorter search, or clear it.'
+                        : board.note
+                          ? `This board needs ${board.note} — nobody has reached that yet.`
+                          : 'Play a match and the board fills in.'}
+                    </Text>
+                  </View>
                 </View>
               ) : (
                 listRows.map((item, i) => {
                   const sep = i < listRows.length - 1 ? <View style={styles.sep} /> : null;
-                  return item.id === myId ? (
-                    <View key={item.id} onLayout={(e) => { myRowY.current = e.nativeEvent.layout.y; }}>
+                  
+                  const rowContent = (
+                    <Reanimated.View entering={FadeInDown.duration(300).delay(i < 8 ? i * 35 : 0)}>
                       {renderCard({ item })}
                       {sep}
+                    </Reanimated.View>
+                  );
+
+                  return item.id === myId ? (
+                    <View key={item.id} onLayout={(e) => { myRowY.current = e.nativeEvent.layout.y; }}>
+                      {rowContent}
                     </View>
                   ) : (
                     <Fragment key={item.id}>
-                      {renderCard({ item })}
-                      {sep}
+                      {rowContent}
                     </Fragment>
                   );
                 })
               )}
             </Reanimated.View>
-          </ScrollView>
+          </Animated.ScrollView>
         </View>
       )}
-
+      <DynamicIsland ref={islandRef} />
     </View>);
 
 }
@@ -669,100 +959,117 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* ── Podium: the top three, above the list ── */
   podium: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-    paddingHorizontal: 4, paddingTop: 6, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: DS.faint, marginBottom: 6,
+    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8,
+    paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24,
+    borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 16,
   },
-  podiumCol: { flex: 1, alignItems: 'center', gap: 5 },
+  podiumCol: { flex: 1, alignItems: 'center', gap: 4, maxWidth: 100 },
   // The leader gets the width as well as the height.
-  podiumColLead: { flex: 1.15 },
-  podiumName: { fontSize: 11.5, fontWeight: '700', color: DS.textVariant, maxWidth: '100%' },
-  podiumNameLead: { fontSize: 12.5, color: DS.textPrimary, fontWeight: '800' },
-  podiumVal: { fontWeight: '900', color: DS.lime, letterSpacing: -0.4 },
+  podiumColLead: { flex: 1.2, maxWidth: 120, zIndex: 10 },
+  podiumName: { fontSize: 12, fontWeight: '500', color: '#475569', maxWidth: '100%', textAlign: 'center' },
+  podiumNameLead: { fontSize: 14, color: '#191c1d', fontWeight: 'bold' },
+  podiumVal: { fontSize: 20, fontWeight: 'bold', color: '#0f4c3a' },
+  podiumValLead: { fontSize: 22 },
+  avatarGlow: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2, marginBottom: 2 },
+  avatarGlowLead: { shadowColor: '#fef08a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.6, shadowRadius: 8, elevation: 4 },
+  
   podiumBar: {
-    alignSelf: 'stretch', marginTop: 3,
-    backgroundColor: DS.surfaceHigh, borderTopLeftRadius: 8, borderTopRightRadius: 8,
+    alignSelf: 'stretch', marginTop: 4,
+    borderTopLeftRadius: 12, borderTopRightRadius: 12,
+    borderTopWidth: 2, borderLeftWidth: 1, borderRightWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
-  podiumBarLead: { backgroundColor: DS.lime + '2e' },
-  podiumPlace: { fontSize: 13, fontWeight: '900', color: DS.textMuted },
-  podiumPlaceLead: { fontSize: 15, color: DS.lime },
+  podiumBar1: { backgroundColor: '#fef9c3', borderColor: '#fef08a' },
+  podiumPlace1: { color: '#ca8a04', fontSize: 20, fontWeight: '800' },
+
+  podiumBar2: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0' },
+  podiumPlace2: { color: '#64748b', fontSize: 18, fontWeight: '700' },
+
+  podiumBar3: { backgroundColor: '#fff7ed', borderColor: '#fed7aa' },
+  podiumPlace3: { color: '#ea580c', fontSize: 18, fontWeight: '700' },
 
   /* ── Compact rank rows (replaced the tall stat cards) ── */
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
+  row: { 
+    flexDirection: 'row', alignItems: 'center', gap: 16, padding: 12, 
+    backgroundColor: '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', 
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 
+  },
   /* Top three: taller, brighter, and carrying a medal. The board's whole point
      is who's winning, and every row looked identical to every other. */
   // The logged-in player's own row, so "Find me" lands somewhere obvious.
-  rowMe: { backgroundColor: DS.lime + '12', borderRadius: 10, paddingHorizontal: 8, marginHorizontal: -8 },
-  sep: { height: 1, backgroundColor: DS.faint, marginLeft: 74 },
+  rowMe: { backgroundColor: '#f0fdf4', borderColor: '#d1fae5' },
+  sep: { display: 'none' },
   rankBox: {
-    width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: DS.faint,
+    width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: '#cbd5e1',
     alignItems: 'center', justifyContent: 'center',
   },
-  rankNum: { fontSize: 12, fontWeight: '900', color: DS.textVariant },
+  rankNum: { fontSize: 12, fontWeight: '600', color: '#475569' },
   // Dark ink on gold/silver/bronze — white on these fails contrast badly.
   // Two backgrounds, two inks. onLime is white, which is right on the leader's
   // lime disc (9.3:1) and effectively invisible on the grey one every other
   // avatar uses (1.2:1) — "SK", "HB", "SC" were unreadable on device. The
   // shared PlayerAvatar component already got this right; only this screen's
   // HexAvatar usage hardcoded the white.
-  avatarText: { fontSize: 12, fontWeight: '900', color: DS.lime },
-  avatarTextOnLime: { color: DS.onLime },
+  avatarText: { fontSize: 14, fontWeight: '600', color: '#0f4c3a' },
+  avatarTextOnLime: { color: '#ffffff' },
   avatarImg: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: DS.surfaceHighest,
+    width: 40, height: 40, borderRadius: 20, backgroundColor: DS.surfaceHighest,
     borderWidth: 1.5, borderColor: 'transparent',
   },
   rowMain: { flex: 1, minWidth: 0, gap: 2 },
-  rowName: { fontSize: 15, fontWeight: '700', color: DS.textPrimary, letterSpacing: -0.2 },
-  rowMeta: { fontSize: 11.5, color: DS.textMuted, fontWeight: '500' },
+  rowName: { fontSize: 14, fontWeight: '600', color: '#191c1d' },
+  rowMeta: { fontSize: 12, color: '#475569' },
   // The one figure this board sorts on, given the weight it earns.
   headlineBox: { alignItems: 'flex-end', minWidth: 56 },
-  headlineVal: { fontSize: 18, fontWeight: '900', color: DS.lime, letterSpacing: -0.4 },
-  headlineLbl: { fontSize: 9.5, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
+  headlineVal: { fontSize: 18, fontWeight: 'bold', color: '#0f4c3a' },
+  headlineLbl: { fontSize: 10, fontWeight: '500', color: '#475569', letterSpacing: 0.5, textTransform: 'uppercase' },
 
-  empty: { alignItems: 'center', paddingVertical: 56, paddingHorizontal: 32, gap: 6 },
-  emptyTitle: { fontSize: 15, fontWeight: '700', color: DS.textVariant, marginTop: 10, textAlign: 'center' },
-  emptySub: { fontSize: 12.5, color: DS.textMuted, textAlign: 'center', lineHeight: 18 },
+  empty: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 16 },
+  emptyBox: { 
+    width: '100%', alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24,
+    backgroundColor: '#ffffff', borderRadius: 24, borderWidth: 1.5, borderColor: '#e2e8f0', borderStyle: 'dashed' 
+  },
+  emptyIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#f0fdf4', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  emptyTitle: { fontSize: 17, fontWeight: '800', color: '#191c1d', marginTop: 12, textAlign: 'center' },
+  emptySub: { fontSize: 13.5, color: '#475569', marginTop: 6, textAlign: 'center', lineHeight: 20 },
 
   container: { flex: 1, backgroundColor: DS.bg },
 
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: DS.bg, paddingTop: 52, paddingBottom: 12, paddingHorizontal: 16
+    backgroundColor: 'rgba(255,255,255,0.85)', paddingTop: 52, paddingBottom: 12, paddingHorizontal: 16
   },
   heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
 
   /* One control row: Players/Teams on the left, search on the right. */
   controlRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   segment: {
-    flex: 1, flexDirection: 'row', gap: 4, padding: 3,
-    backgroundColor: DS.surfaceHigh, borderRadius: 999, borderWidth: 1, borderColor: DS.faint,
+    flex: 1, flexDirection: 'row', gap: 8,
   },
   segBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-    paddingVertical: 7, borderRadius: 999,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 10, borderRadius: 999, backgroundColor: '#f1f5f9',
   },
-  segBtnOn: { backgroundColor: DS.lime },
-  segText: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
-  segTextOn: { color: DS.onLime, fontWeight: '900' },
+  segBtnOn: { backgroundColor: '#e6f4ea' },
+  segText: { fontSize: 14, fontWeight: '600', color: '#475569' },
+  segTextOn: { color: '#0f4c3a', fontWeight: 'bold' },
   searchBtn: {
     width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
     backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint,
   },
 
   // Board selector
-  boardBar: { paddingHorizontal: 16, gap: 8, paddingBottom: 2 },
+  boardBar: { paddingHorizontal: 16, gap: 24, paddingBottom: 0, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 16 },
   // L3 filter chips: ghost (transparent + border) when off, bright-green fill when
   // selected — the one place the green accent gets to pop, below the near-black L1/L2.
   boardChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999,
-    backgroundColor: 'transparent', borderWidth: 1.5, borderColor: DS.border,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
-  boardChipActive: { backgroundColor: DS.lime, borderColor: DS.lime },
-  boardChipText: { fontSize: 12, fontWeight: '800', color: DS.textMuted },
-  boardChipTextActive: { color: DS.onLime },
-  boardMeta: { fontSize: 11, color: DS.textMuted, marginHorizontal: 16, marginTop: 8, marginBottom: 10 },
+  boardChipActive: { borderBottomColor: '#0f4c3a' },
+  boardChipText: { fontSize: 12, fontWeight: '600', color: '#475569' },
+  boardChipTextActive: { color: '#0f4c3a', fontWeight: 'bold' },
+  boardMeta: { fontSize: 14, color: '#475569', marginHorizontal: 16, marginBottom: 16 },
 
   /* Search */
   // Sits in the control row now (was a standalone full-width band with its own

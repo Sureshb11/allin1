@@ -2366,7 +2366,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                     <Text style={[styles.playerInitial, { color: DS.wicketText }]}>{(player?.name || '?').charAt(0).toUpperCase()}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.settingText}>
+                    <Text style={styles.settingTextNoFlex}>
                       {player?.name || '—'} <Text style={styles.modalSub}>({slot === END.STRIKER ? 'struck the ball' : 'non-striker'})</Text>
                     </Text>
                     {swapped && (
@@ -2406,7 +2406,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                   <Icon name={end === END.STRIKER ? 'hand-back-left' : 'cricket'} size={16} color={DS.textVariant} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.settingText}>{label}</Text>
+                  <Text style={styles.settingTextNoFlex}>{label}</Text>
                   <Text style={styles.rowHint}>{hint}</Text>
                   <Text style={[styles.rowHint, { color: DS.lime }]}>
                     New batter in here · {strikeAfterRunOut(runOutDraft, end)}
@@ -2981,7 +2981,7 @@ const makeStyles = (DS) => StyleSheet.create({
   // UNDO is a correction control, not an extra — coral-tinted so it reads apart
   // from the neutral WD/NB/BYE/LB buttons beside it, and its label carries the
   // last delivery (what it will remove).
-  undoBtn: { flex: 1.6, flexDirection: 'row', gap: 4, paddingHorizontal: 4, backgroundColor: DS.coral + '14', borderColor: DS.coral + '55' },
+  undoBtn: { flex: 2, flexDirection: 'row', gap: 4, paddingHorizontal: 4, backgroundColor: DS.coral + '14', borderColor: DS.coral + '55' },
   undoBtnText: { color: DS.coral },
 
   // Full-width wicket button
@@ -3062,7 +3062,7 @@ const makeStyles = (DS) => StyleSheet.create({
   freeHitPill: { backgroundColor: DS.limeBright, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'center' },
   freeHitText: { fontSize: 9, fontWeight: '900', color: DS.bg, letterSpacing: 0.8 },
   overBalls: { flexDirection: 'row', gap: 5 },
-  overBall: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  overBall: { minWidth: 32, height: 32, paddingHorizontal: 4, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   // Latest delivery: a coloured ring + slight scale, as tap confirmation.
   overBallLast: { borderWidth: 2, transform: [{ scale: 1.12 }] },
   overBallEmpty: { backgroundColor: DS.surfaceHighest, borderWidth: 1, borderColor: DS.line },
@@ -3083,6 +3083,7 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingVertical: 15, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: DS.line,
   },
   settingText: { flex: 1, fontSize: 15, fontWeight: '700', color: DS.textPrimary },
+  settingTextNoFlex: { fontSize: 15, fontWeight: '700', color: DS.textPrimary },
   // Armed-but-not-committed row in the end-innings / retire sheets.
   settingRowPicked: { backgroundColor: DS.lime + '14', borderRadius: 10, paddingHorizontal: 10, marginHorizontal: -6 },
   settingRowPickedDanger: { backgroundColor: DS.coral + '1a', borderRadius: 10, paddingHorizontal: 10, marginHorizontal: -6 },

@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, PanResponder } from 'react-native';
+import Reanimated, { SlideInRight, SlideInLeft, useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate } from 'react-native-reanimated';
 import Svg, { Polyline, Polygon, Circle, Line, Text as SvgText } from 'react-native-svg';
 import ViewShot from 'react-native-view-shot';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { getSport } from '../sports';
 import { getCareerPanels, readStat } from '../sports/careerStats';
@@ -46,6 +48,77 @@ const group = (v) => (typeof v === 'number' && Number.isInteger(v) && Math.abs(v
   ? String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
   : v;
 
+function Particle({ angle, speed, color }) {
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.value = withTiming(1, { duration: 600 });
+  }, []);
+  const style = useAnimatedStyle(() => {
+    const d = progress.value * speed;
+    return {
+      position: 'absolute',
+      width: 4, height: 4, borderRadius: 2, backgroundColor: color || '#fbbf24',
+      top: '50%', left: '50%',
+      transform: [
+        { translateX: Math.cos(angle) * d },
+        { translateY: Math.sin(angle) * d },
+        { scale: 1 - progress.value }
+      ],
+      opacity: 1 - progress.value
+    };
+  });
+  return <Reanimated.View style={style} />;
+}
+
+function ParticleBurst({ active, color }) {
+  const [particles, setParticles] = useState([]);
+  useEffect(() => {
+    if (active) {
+      setParticles(Array.from({ length: 8 }).map((_, i) => ({
+        id: i,
+        angle: (i / 8) * Math.PI * 2,
+        speed: 25 + Math.random() * 25
+      })));
+    }
+  }, [active]);
+
+  if (!active || particles.length === 0) return null;
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]} pointerEvents="none">
+      {particles.map((p) => <Particle key={p.id} {...p} color={color} />)}
+    </View>
+  );
+}
+
+function CountingText({ value, style, burstOnFinish, ...props }) {
+  const [display, setDisplay] = useState(0);
+  const [finished, setFinished] = useState(false);
+  const anim = useRef(new Animated.Value(0)).current;
+  const DS = useTheme().colors;
+
+  useEffect(() => {
+    if (typeof value !== 'number' || isNaN(value)) {
+      setDisplay(value);
+      return;
+    }
+    setFinished(false);
+    anim.setValue(0);
+    anim.addListener((v) => setDisplay(Math.round(v.value)));
+    Animated.timing(anim, { toValue: value, duration: 800, useNativeDriver: false }).start(() => {
+      if (burstOnFinish && value > 0) setFinished(true);
+    });
+    return () => anim.removeAllListeners();
+  }, [value, anim]);
+
+  return (
+    <View style={{ position: 'relative' }}>
+      <Text style={style} {...props}>{group(typeof value === 'number' ? display : value)}</Text>
+      <ParticleBurst active={finished} color={DS.lime} />
+    </View>
+  );
+}
+
 // ── Trend ────────────────────────────────────────────────────────────────────
 // Width comes from the card, not from Dimensions at module load — the old chart
 // was sized screen−48 inside a container of screen−58, so its last point and
@@ -55,7 +128,28 @@ const group = (v) => (typeof v === 'number' && Number.isInteger(v) && Math.abs(v
 // cost a whole label row to say nothing. In their place the chart earns its
 // height — a dashed career mean to read each innings against, and the best one
 // called out — which is what a trend is actually for.
-function TrendChart({ values, color, width }) {
+function Tooltip({ i, x, y, v, activeIndex, color, H }) {
+  const style = useAnimatedStyle(() => ({
+    opacity: withTiming(activeIndex.value === i ? 1 : 0, { duration: 100 }),
+    position: 'absolute',
+    left: x,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    transform: [{ translateX: -4 }]
+  }));
+  return (
+    <Reanimated.View style={style} pointerEvents="none">
+      <View style={{ width: 1, height: H, backgroundColor: color, position: 'absolute', opacity: 0.4 }} />
+      <View style={{ top: y - 28, backgroundColor: '#0f4c3a', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, zIndex: 10, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4 }}>
+        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{v}</Text>
+      </View>
+      <View style={{ top: y - 4, width: 8, height: 8, borderRadius: 4, backgroundColor: color, position: 'absolute', borderWidth: 2, borderColor: '#fff' }} />
+    </Reanimated.View>
+  );
+}
+
+function TrendChart({ values, color, areaColor, width }) {
   const DS = useTheme().colors;
   const H = 86;
   const INSET = 7;                                   // keeps end dots off the edges
@@ -76,22 +170,46 @@ function TrendChart({ values, color, width }) {
 
   const points = values.map((v, i) => `${x(i)},${y(v)}`).join(' ');
 
+  const activeIndex = useSharedValue(-1);
+  const pan = Gesture.Pan()
+    .minDistance(0)
+    .onBegin((e) => {
+      'worklet';
+      activeIndex.value = Math.max(0, Math.min(values.length - 1, Math.round((e.x - INSET) / stepX)));
+    })
+    .onChange((e) => {
+      'worklet';
+      activeIndex.value = Math.max(0, Math.min(values.length - 1, Math.round((e.x - INSET) / stepX)));
+    })
+    .onFinalize(() => {
+      'worklet';
+      activeIndex.value = -1;
+    });
+
   return (
-    <Animated.View style={{ opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}>
-      <Svg width={width} height={H}>
-        <Polygon points={`${INSET},${H} ${points} ${x(values.length - 1)},${H}`} fill={color} fillOpacity={0.14} />
-        {/* Career mean — the line every innings is judged against. */}
-        <Line x1={0} y1={y(mean)} x2={width} y2={y(mean)} stroke={DS.textMuted} strokeWidth={1} strokeDasharray="3 4" opacity={0.7} />
-        <Polyline points={points} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+    <GestureDetector gesture={pan}>
+      <View style={{ height: H, overflow: 'hidden' }}>
+        <Animated.View style={{ opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [H, 0] }) }] }}>
+          <Svg width={width} height={H}>
+          <Polygon points={`${INSET},${H} ${points} ${x(values.length - 1)},${H}`} fill={areaColor || color} fillOpacity={areaColor ? 0.5 : 0.14} />
+          {/* Career mean — the line every innings is judged against. */}
+          <Line x1={0} y1={y(mean)} x2={width} y2={y(mean)} stroke="#cbd5e1" strokeWidth={1} strokeDasharray="2 2" opacity={1} />
+          <Polyline points={points} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+          {values.map((v, i) => (
+            <Circle key={i} cx={x(i)} cy={y(v)} r={i === bestAt ? 3.5 : 2.5} fill={i === bestAt ? color : '#ffffff'} stroke={color} strokeWidth={1.5} />
+          ))}
+          <SvgText x={x(bestAt)} y={y(best) - 8} fontSize="11" fontWeight="800" fill="#0f4c3a"
+            textAnchor={bestAt === 0 ? 'start' : bestAt === values.length - 1 ? 'end' : 'middle'}>
+            {best}
+          </SvgText>
+        </Svg>
+        </Animated.View>
+        
         {values.map((v, i) => (
-          <Circle key={i} cx={x(i)} cy={y(v)} r={i === bestAt ? 4.5 : 3} fill={i === bestAt ? color : DS.surface} stroke={color} strokeWidth={2} />
+          <Tooltip key={i} i={i} x={x(i)} y={y(v)} v={v} activeIndex={activeIndex} color={color} H={H} />
         ))}
-        <SvgText x={x(bestAt)} y={y(best) - 8} fontSize="10" fontWeight="700" fill={color}
-          textAnchor={bestAt === 0 ? 'start' : bestAt === values.length - 1 ? 'end' : 'middle'}>
-          {best}
-        </SvgText>
-      </Svg>
-    </Animated.View>
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -105,6 +223,89 @@ function TrendChart({ values, color, width }) {
  * @param children    rendered inside the capture, under the chart (the share
  *                    footer on My Stats).
  */
+function StatCell({ s, i, styles }) {
+  const isPressed = useSharedValue(0);
+  const touchX = useSharedValue(0);
+  const touchY = useSharedValue(0);
+  const isFlipped = useSharedValue(0);
+
+  const panGesture = Gesture.Pan()
+    .manualActivation(true)
+    .onTouchesDown((e) => {
+      'worklet';
+      touchX.value = e.allTouches[0].x;
+      touchY.value = e.allTouches[0].y;
+      isPressed.value = withTiming(1, { duration: 150 });
+    })
+    .onTouchesMove((e) => {
+      'worklet';
+      touchX.value = e.allTouches[0].x;
+      touchY.value = e.allTouches[0].y;
+    })
+    .onTouchesUp(() => {
+      'worklet';
+      isPressed.value = withTiming(0, { duration: 300 });
+    });
+
+  const tapGesture = Gesture.Tap().onEnd(() => {
+    'worklet';
+    isFlipped.value = withSpring(isFlipped.value ? 0 : 1, { damping: 14, stiffness: 120 });
+  });
+
+  const composedGesture = Gesture.Simultaneous(panGesture, tapGesture);
+
+  const spotlightStyle = useAnimatedStyle(() => ({
+    position: 'absolute',
+    left: touchX.value - 60,
+    top: touchY.value - 60,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)', // Lime glow
+    opacity: isPressed.value,
+    transform: [{ scale: isPressed.value ? 1 : 0.8 }],
+  }));
+
+  const frontStyle = useAnimatedStyle(() => {
+    const spin = interpolate(isFlipped.value, [0, 1], [0, 180]);
+    return {
+      transform: [{ perspective: 1000 }, { rotateY: `${spin}deg` }],
+      backfaceVisibility: 'hidden',
+    };
+  });
+
+  const backStyle = useAnimatedStyle(() => {
+    const spin = interpolate(isFlipped.value, [0, 1], [180, 360]);
+    return {
+      transform: [{ perspective: 1000 }, { rotateY: `${spin}deg` }],
+      backfaceVisibility: 'hidden',
+      position: 'absolute',
+      top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: '#0f4c3a',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: 16,
+      borderWidth: 1, borderColor: '#e2e8f0'
+    };
+  });
+
+  return (
+    <GestureDetector gesture={composedGesture}>
+      <View style={{ width: '31%', aspectRatio: 0.9 }}>
+        <Reanimated.View style={[styles.cell, { overflow: 'hidden', width: '100%', height: '100%' }, frontStyle]}>
+          <Reanimated.View style={spotlightStyle} pointerEvents="none" />
+          <CountingText style={[styles.cellVal, i === 0 && styles.cellValLead]} numberOfLines={1} value={s.value} burstOnFinish={i === 0} />
+          <Text style={styles.cellLbl} numberOfLines={1}>{s.label}</Text>
+        </Reanimated.View>
+        <Reanimated.View style={[backStyle, { padding: 8, width: '100%', height: '100%' }]}>
+          <Text style={{ color: '#fed7aa', fontSize: 10, fontWeight: '800', textAlign: 'center' }}>CAREER TOTAL</Text>
+          <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', marginTop: 4 }}>{s.value}</Text>
+        </Reanimated.View>
+      </View>
+    </GestureDetector>
+  );
+}
+
 export default function CareerBoard({ stats, sportId, navigation, captureRef, children }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
@@ -151,14 +352,42 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
     : null;
   const chartData = chartSeries && chartSeries.length >= 2 ? chartSeries : [];
   // One accent, plus the app's wicket red where wickets are the subject.
-  const chartColor = tab === 'bowling' ? DS.coral : DS.lime;
+  const chartColor = tab === 'bowling' ? DS.coral : '#65a38a';
+  const chartAreaColor = tab === 'bowling' ? null : '#ecfdf5';
   const chartTitle = tab === 'batting' ? 'Scores' : tab === 'bowling' ? 'Wickets' : 'Catches & run outs';
   const chartAvg = chartData.length ? (chartData.reduce((t, v) => t + v, 0) / chartData.length).toFixed(1) : null;
 
-  const selectPanel = (id) => { if (id !== tab) { haptic.tick(); setTab(id); } };
+  const swipeDir = useRef(1);
+
+  const selectPanel = (id) => {
+    if (id !== tab) {
+      const idx = panels.findIndex(p => p.id === id);
+      const currIdx = panels.findIndex(p => p.id === tab);
+      swipeDir.current = idx > currIdx ? 1 : -1;
+      haptic.tick();
+      setTab(id);
+    }
+  };
+
+  const stepPanel = React.useCallback((dir) => {
+    const idx = panels.findIndex(p => p.id === tab);
+    if (idx === -1) return;
+    const next = idx + dir;
+    if (next < 0 || next >= panels.length) return;
+    swipeDir.current = dir;
+    selectPanel(panels[next].id);
+  }, [panels, tab]);
+
+  const swipe = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4,
+    onPanResponderRelease: (_, g) => {
+      if (g.dx <= -45) stepPanel(1);
+      else if (g.dx >= 45) stepPanel(-1);
+    },
+  })).current;
 
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} {...swipe.panHandlers}>
       {/* Panel segment — a one-panel sport has nothing to switch between, so the
           control doesn't render. Same pill shape and position as Rankings. */}
       {panels.length > 1 && (
@@ -178,9 +407,10 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
         </View>
       )}
 
-      <ViewShot ref={captureRef} options={{ format: 'png', quality: 0.95 }} style={{ backgroundColor: DS.bg, gap: 10 }}>
-        {/* Career line + last five results. */}
-        <View style={styles.card}>
+      <ViewShot ref={captureRef} options={{ format: 'png', quality: 0.95 }} style={{ backgroundColor: DS.bg }}>
+        <Reanimated.View key={tab} entering={swipeDir.current === 1 ? SlideInRight.duration(200).withInitialValues({ transform: [{ translateX: 50 }] }) : SlideInLeft.duration(200).withInitialValues({ transform: [{ translateX: -50 }] })} style={{ gap: 10 }}>
+          {/* Career line + last five results. */}
+          <View style={styles.card}>
           <View style={styles.cardHead}>
             <Text style={styles.cardLabel}>{sportName.toUpperCase()} CAREER</Text>
             <Text style={styles.cardMetaText}>{matches} {matches === 1 ? 'match' : 'matches'}</Text>
@@ -203,14 +433,14 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
                     accessibilityLabel={`${won ? 'Won' : lost ? 'Lost' : 'Tied'} vs ${m.opponent || 'unknown'}`
                       + (award ? `, ${AWARD_NAME[award] || 'award'}` : '')}>
                     <View style={[styles.formDisc, {
-                      backgroundColor: won ? DS.lime : lost ? DS.coral : DS.surfaceHighest,
+                      backgroundColor: won ? '#0f4c3a' : lost ? '#dc2626' : '#94a3b8',
                     }]}>
                       <Text style={[styles.formDiscText, {
-                        color: won ? DS.onLime : lost ? '#fff' : DS.textMuted,
+                        color: '#ffffff',
                       }]}>{m.result || 'T'}</Text>
                       {award && (
                         <View style={styles.formStar}>
-                          <Icon name={AWARD_ICON[award] || 'star'} size={9} color={DS.onLime} />
+                          <Icon name={AWARD_ICON[award] || 'star'} size={10} color="#0f4c3a" />
                         </View>
                       )}
                     </View>
@@ -236,7 +466,7 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
             <View style={styles.honours}>
               {honours.map((a) => (
                 <View key={a.key} style={[styles.honour, a.major && styles.honourMajor]}>
-                  <Icon name={a.icon} size={11} color={a.major ? DS.onLime : DS.lime} />
+                  <Icon name={a.icon} size={12} color={a.major ? '#0f4c3a' : '#0f4c3a'} />
                   <Text style={[styles.honourCount, a.major && styles.honourTextMajor]}>{a.n}</Text>
                   <Text style={[styles.honourLabel, a.major && styles.honourTextMajor]}>{a.label}</Text>
                 </View>
@@ -247,23 +477,15 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
 
         {/* Career table: one surface ruled into thirds, not a grid of tiles. */}
         {tabStats.length > 0 && (
-          <View style={styles.grid}>
+          <View style={styles.gridWrap}>
             <View style={styles.gridHead}>
-              <Text style={styles.cardLabel}>{activePanel.label.toUpperCase()}</Text>
+              <Text style={styles.gridHeadText}>{activePanel.label.toUpperCase()}</Text>
             </View>
-            {tabStats.map((s, i) => (
-              <View key={s.label} style={[styles.cell, i >= 3 && styles.cellRule, i % 3 !== 0 && styles.cellDivide]}>
-                <Text style={[styles.cellVal, i === 0 && styles.cellValLead]} numberOfLines={1}>{group(s.value)}</Text>
-                <Text style={styles.cellLbl} numberOfLines={1}>{s.label}</Text>
-              </View>
-            ))}
-            {/* Panels don't all divide by three (fielding has 3, hockey 4).
-                Blank cells finish the last row so its rule spans the card
-                instead of stopping a third of the way across. */}
-            {Array.from({ length: (3 - tabStats.length % 3) % 3 }, (_, k) => {
-              const i = tabStats.length + k;
-              return <View key={`pad${k}`} style={[styles.cell, i >= 3 && styles.cellRule, i % 3 !== 0 && styles.cellDivide]} />;
-            })}
+            <View style={styles.grid}>
+              {tabStats.map((s, i) => (
+                <StatCell key={s.label} s={s} i={i} styles={styles} />
+              ))}
+            </View>
           </View>
         )}
 
@@ -275,11 +497,12 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
               <Text style={styles.cardLabel}>{chartTitle.toUpperCase()} · LAST {chartData.length}</Text>
               <Text style={styles.cardMetaText}>avg {chartAvg}</Text>
             </View>
-            {chartW > 0 && <TrendChart values={chartData} color={chartColor} width={chartW} />}
+            {chartW > 0 && <TrendChart values={chartData} color={chartColor} areaColor={chartAreaColor} width={chartW} />}
           </View>
         )}
 
         {children}
+        </Reanimated.View>
       </ViewShot>
     </View>
   );
@@ -302,15 +525,24 @@ export function hasCareer(stats, sportId) {
 const makeStyles = (DS) => StyleSheet.create({
   wrap: { gap: 10 },
 
-  /* Panel segment — same shape as the Players/Teams toggle on Rankings. */
+  /* Panel segment — Level 2 tabs (underline style) */
   segment: {
-    flexDirection: 'row', gap: 4, padding: 3,
-    backgroundColor: DS.surfaceHigh, borderRadius: 999, borderWidth: 1, borderColor: DS.faint,
+    flexDirection: 'row', 
+    borderBottomWidth: 1, 
+    borderColor: '#e2e8f0',
+    marginBottom: 6,
   },
-  segBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 7, borderRadius: 999 },
-  segBtnOn: { backgroundColor: DS.lime },
-  segText: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
-  segTextOn: { color: DS.onLime, fontWeight: '900' },
+  segBtn: { 
+    flex: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    paddingVertical: 12, 
+    borderBottomWidth: 2, 
+    borderBottomColor: 'transparent' 
+  },
+  segBtnOn: { borderBottomColor: '#0f4c3a' },
+  segText: { fontSize: 14, fontWeight: '600', color: '#475569' },
+  segTextOn: { color: '#0f4c3a', fontWeight: 'bold' },
 
   /* Shared card chrome — one surface, a hairline, a tiny caps label. */
   card: { backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 13, paddingVertical: 12, gap: 11 },
@@ -318,41 +550,40 @@ const makeStyles = (DS) => StyleSheet.create({
   cardLabel: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.7 },
   cardMetaText: { fontSize: 11, fontWeight: '700', color: DS.textVariant, fontVariant: ['tabular-nums'] },
 
-  /* Honours: outlined for a match award, filled for a tournament one — so the
-     rare thing looks rare without reaching for a second colour. */
-  honours: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  /* Honours: match the slate-50 background and text-slate-600 */
+  honours: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   honour: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999,
-    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
+    backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0',
   },
-  honourMajor: { backgroundColor: DS.lime, borderColor: DS.lime },
-  honourCount: { fontSize: 11, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
-  honourLabel: { fontSize: 9.5, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.3, textTransform: 'uppercase' },
-  honourTextMajor: { color: DS.onLime },
+  honourMajor: {},
+  honourCount: { fontSize: 10, fontWeight: '500', color: '#475569', textTransform: 'uppercase' },
+  honourLabel: { fontSize: 10, fontWeight: '500', color: '#475569', textTransform: 'uppercase' },
+  honourTextMajor: {},
 
   /* Last five results: won / lost / tied, tappable through to the match. */
-  formRow: { flexDirection: 'row', gap: 8 },
-  formCol: { flex: 1, alignItems: 'center', gap: 5 },
-  formDisc: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  formDiscText: { fontSize: 13, fontWeight: '900' },
-  // Badges any award won in that match, not just Man of the Match — the glyph
-  // is the same one the post-match popup used to hand it over with.
-  formStar: { position: 'absolute', top: -4, right: -5, width: 16, height: 16, borderRadius: 8, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: DS.surface },
-  formSub: { fontSize: 10.5, fontWeight: '800', color: DS.textMuted, fontVariant: ['tabular-nums'] },
-  // The strip runs oldest → latest, like the chart below it; the most recent
-  // match is the one lit up, so which end is "now" needs no caption.
-  formSubLatest: { color: DS.textPrimary },
+  formRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8, marginBottom: 8 },
+  formCol: { alignItems: 'center' },
+  formDisc: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 },
+  formDiscText: { fontSize: 14, fontWeight: '700' },
+  formStar: { position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: 8, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
+  formSub: { fontSize: 12, fontWeight: '500', color: '#64748b', fontVariant: ['tabular-nums'], marginTop: 4 },
+  formSubLatest: { color: '#475569' },
 
-  /* Career table: one card ruled into thirds instead of a grid of tiles. */
-  grid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, overflow: 'hidden' },
-  gridHead: { width: '100%', paddingHorizontal: 11, paddingTop: 12, paddingBottom: 1 },
-  cell: { width: '33.333%', paddingVertical: 12, paddingHorizontal: 11, gap: 3 },
-  cellRule: { borderTopWidth: 1, borderTopColor: DS.border },
-  cellDivide: { borderLeftWidth: 1, borderLeftColor: DS.border },
-  cellVal: { fontSize: 19, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'], letterSpacing: -0.4 },
-  cellValLead: { color: DS.lime },
-  cellLbl: { fontSize: 9.5, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.4, textTransform: 'uppercase' },
+  /* Bento-box stats layout */
+  gridWrap: { marginTop: 12 },
+  gridHead: { width: '100%', marginBottom: 8, paddingHorizontal: 4 },
+  gridHeadText: { fontSize: 11, fontWeight: '800', color: '#64748b', letterSpacing: 0.8 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  cell: { 
+    paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#ffffff', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1
+  },
+  cellValLead: { color: '#0f4c3a', fontSize: 19, fontWeight: '800' },
+  cellVal: { fontSize: 17, fontWeight: '700', color: '#1e293b', marginBottom: 2 },
+  cellLbl: { fontSize: 11, fontWeight: '600', color: '#64748b', textAlign: 'center', textTransform: 'uppercase' },
 
-  chartCard: { backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 13, paddingVertical: 12, gap: 8 },
+  chartCard: { backgroundColor: '#ecfdf5', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 16, paddingVertical: 12, gap: 16, marginBottom: 16 },
 });
