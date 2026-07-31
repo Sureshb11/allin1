@@ -10,6 +10,8 @@ import { getSelectedSport } from '../utils/selectedSport';
 /* ── Design System ── */
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { makeControls } from '../theme/controls';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { useFilterSwipe } from '../utils/useFilterSwipe';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import BrandLogo from "../components/BrandLogo";
 import PressableScale from '../components/PressableScale';
@@ -160,6 +162,8 @@ const TournamentsScreen = ({ navigation, inline }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('All');
+  // Swipe steps All → Open → Ongoing → Completed.
+  const filterSwipe = useFilterSwipe(FILTERS, filter, setFilter);
 
   useLayoutEffect(() => {
     if (!inline) {
@@ -244,6 +248,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
       )}
 
       {/* Moved fixed items to ListHeaderComponent */}
+      <GestureDetector gesture={filterSwipe}>
       <FlatList
         {...hideTabBar}
         data={filtered}
@@ -309,6 +314,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
           </View>
         }
       />
+      </GestureDetector>
       {/* Clear the floating dock — it covered the + entirely. */}
       <AnimatedPulse style={[styles.fabWrap, { bottom: 24 + tabClear }]}>
         <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateTournament')}>

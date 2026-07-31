@@ -6,6 +6,8 @@ import {
   FlatList, TextInput, Image
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { useFilterSwipe } from '../utils/useFilterSwipe';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { SPORTS, getDashboard } from '../sports/dashboard';
@@ -138,6 +140,8 @@ export default function HomeScreen({ navigation }) {
   const contentAnim                           = useRef(new Animated.Value(1)).current;
 
   const cfg = getDashboard(currentSport.id);
+  // Swipe left/right across the feed steps the match filter.
+  const filterSwipe = useFilterSwipe(FILTERS, status, setStatus);
 
   const load = async () => {
     try {
@@ -303,6 +307,7 @@ export default function HomeScreen({ navigation }) {
       {/* ── CONTENT ──────────────────────────── */}
       <Animated.View style={[{ flex: 1 }, { opacity: contentAnim }]}>
         {activeNavTab === 0 && (
+          <GestureDetector gesture={filterSwipe}>
           <FlatList
             style={styles.feed}
             contentContainerStyle={[styles.feedContent, { paddingBottom: 16 + tabClear }]}
@@ -401,6 +406,7 @@ export default function HomeScreen({ navigation }) {
             }
             ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
           />
+          </GestureDetector>
         )}
         {activeNavTab === 1 && <View style={{ flex: 1 }}><TeamManagementScreen navigation={navigation} inline={true} /></View>}
         {activeNavTab === 2 && <View style={{ flex: 1 }}><TournamentsScreen navigation={navigation} inline={true} /></View>}

@@ -1,5 +1,11 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
-import { makeControls, CONTROL } from '../theme/controls';import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { makeControls, CONTROL } from '../theme/controls';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { useFilterSwipe } from '../utils/useFilterSwipe';
+
+// The category tabs, in the order they're drawn — module scope so the swipe
+// gesture isn't rebuilt on every render.
+const TEAM_TABS = ['mine', 'opponents', 'followed'];import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -54,6 +60,8 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
   const [tab, setTab] = useState('mine');   // mine | opponents | followed
+  // Swipe steps My Teams → Opponents → Followed, same as the Matches feed.
+  const teamSwipe = useFilterSwipe(TEAM_TABS, tab, setTab);
   const [categorized, setCategorized] = useState({ mine: [], opponents: [], followed: [] });
   const [followedIds, setFollowedIds] = useState(new Set());
   const [players, setPlayers] = useState([]);
@@ -469,6 +477,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
       )}
 
       {/* Tabs moved to ListHeaderComponent */}
+      <GestureDetector gesture={teamSwipe}>
       <FlatList
         data={categorized[tab].filter(t => t.name.toLowerCase().includes(teamSearchQuery.toLowerCase()))}
         renderItem={renderTeam}
@@ -531,6 +540,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
             </Text>
           </View>
         } />
+      </GestureDetector>
 
 
       <Modal
