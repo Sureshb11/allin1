@@ -20,6 +20,7 @@ import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import AppHeader from '../components/AppHeader';
 import HexAvatar from '../components/HexAvatar';
 import { sportColor as sportColorFor } from '../sports/colors';
+import { makeControls, CONTROL } from '../theme/controls';
 
 const { width } = Dimensions.get('window');
 
@@ -106,6 +107,8 @@ export default function HomeScreen({ navigation }) {
   const { colors: DS, mode, isDark, typography } = useTheme();
   const styles = useMemo(() => makeStyles(DS, typography), [DS, typography]);
   const lcStyles = useThemedStyles(makeLcStyles);
+  // The shared Pavilion control language — tabs, filters, buttons, cards.
+  const C = useThemedStyles(makeControls);
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
   const meUser = useCurrentUser();
@@ -267,23 +270,31 @@ export default function HomeScreen({ navigation }) {
         {/* Unified App Header */}
         <AppHeader />
 
-        {/* ── NAV TABS ──────────────────────── */}
-        <View style={styles.navTabs}>
-          {cfg.navTabs.map((tab, i) => (
-            <TouchableOpacity
-              key={tab.label}
-              style={[styles.navTab, activeNavTab === i && styles.navTabActive]}
-              onPress={() => handleNavTab(i)}
-            >
-              <Icon name={tab.icon} size={18} color={activeNavTab === i ? DS.lime : DS.textVariant} />
-              <Text
-                style={[styles.navTabText, activeNavTab === i && styles.navTabTextActive]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
-              >{tab.label}</Text>
-            </TouchableOpacity>
-          ))}
+        {/* ── NAV TABS ────────────────────────
+            The Pavilion's L1 pills (theme/controls.js), not the icon-over-label
+            tile with a lime glow this used to be — it's the same control doing
+            the same job, so it should look the same. Four tabs instead of
+            Pavilion's three, hence the tighter variant. */}
+        <View style={C.navRow}>
+          {cfg.navTabs.map((tab, i) => {
+            const on = activeNavTab === i;
+            return (
+              <TouchableOpacity
+                key={tab.label}
+                style={[C.navPillTight, on ? C.navPillActive : C.navPillInactive]}
+                onPress={() => handleNavTab(i)}
+                activeOpacity={0.85}
+              >
+                {on && <Icon name={tab.icon} size={15} color={CONTROL.onGreen} />}
+                <Text
+                  style={[C.navPillTextTight, { color: on ? CONTROL.onGreen : CONTROL.slate }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                >{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
@@ -581,16 +592,6 @@ const makeStyles = (DS, typography, radii, shadows) => StyleSheet.create({
   sportSelectorHint: { fontSize: 11, color: DS.textMuted, fontWeight: '500' },
 
   // Nav tabs
-  navTabs: { flexDirection: 'row', paddingTop: 12, paddingBottom: 8, paddingHorizontal: 6, gap: 4, backgroundColor: 'transparent' },
-  navTab: { flex: 1, alignItems: 'center', paddingVertical: 6, gap: 2, borderRadius: 14 },
-  navTabActive: {
-    backgroundColor: DS.surfaceHighest,
-    shadowColor: DS.lime, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4,
-    borderWidth: 1, borderColor: DS.border,
-    borderRadius: radii?.pill || 14,
-  },
-  navTabText: { fontSize: 10, fontWeight: '700', color: DS.textVariant, letterSpacing: 0.5 },
-  navTabTextActive: { color: DS.lime },
 
   // Feed
   feed: { flex: 1 },

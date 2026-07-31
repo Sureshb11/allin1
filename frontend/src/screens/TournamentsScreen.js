@@ -9,6 +9,7 @@ import { getSelectedSport } from '../utils/selectedSport';
 
 /* ── Design System ── */
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { makeControls } from '../theme/controls';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import BrandLogo from "../components/BrandLogo";
 import PressableScale from '../components/PressableScale';
@@ -151,6 +152,7 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
 const TournamentsScreen = ({ navigation, inline }) => {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
+  const C = useThemedStyles(makeControls);
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
   const [tournaments, setTournaments] = useState([]);
@@ -271,16 +273,23 @@ const TournamentsScreen = ({ navigation, inline }) => {
             </View>
 
             {/* Filter chips */}
-            <View style={styles.filterRow}>
-              {FILTERS.map(f => (
-                <TouchableOpacity
-                  key={f}
-                  style={[styles.filterChip, filter === f && styles.filterChipActive]}
-                  onPress={() => setFilter(f)}
-                >
-                  <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
-                </TouchableOpacity>
-              ))}
+            {/* Rankings' board filters (theme/controls.js): an underline, not a
+                filled pill — a filter sits under the thing it filters, so it
+                shouldn't read as a second row of tabs. */}
+            <View style={[C.filterBar, { flexDirection: 'row' }]}>
+              {FILTERS.map(f => {
+                const on = filter === f;
+                return (
+                  <TouchableOpacity
+                    key={f}
+                    style={[C.filterChip, on && C.filterChipActive]}
+                    onPress={() => setFilter(f)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[C.filterText, on && C.filterTextActive]}>{f}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         }
@@ -425,18 +434,6 @@ const makeStyles = (DS) => StyleSheet.create({
   searchInput: { flex: 1, fontSize: 13, fontWeight: '500', color: DS.textPrimary, padding: 0 },
 
   /* Filters */
-  filterRow: {
-    flexDirection: 'row', backgroundColor: DS.surfaceLow,
-    marginHorizontal: 16, marginTop: 4, marginBottom: 14,
-    borderRadius: 14, padding: 4,
-  },
-  filterChip: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 10, borderRadius: 10, backgroundColor: 'transparent',
-  },
-  filterChipActive: { backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
-  filterText: { fontSize: 11, fontWeight: '700', color: DS.textMuted },
-  filterTextActive: { color: DS.bg },
 
   /* List */
   list: { paddingHorizontal: 16, gap: 10, paddingBottom: 28 },

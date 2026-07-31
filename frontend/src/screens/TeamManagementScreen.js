@@ -1,4 +1,5 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";
+import { makeControls, CONTROL } from '../theme/controls';import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -49,7 +50,7 @@ const AnimatedPulse = ({ children, style }) => {
   return <Animated.View style={[style, { transform: [{ scale: pulseAnim }] }]}>{children}</Animated.View>;
 };
 
-const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const C = useThemedStyles(makeControls);
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
   const [tab, setTab] = useState('mine');   // mine | opponents | followed
@@ -492,16 +493,22 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
                 </TouchableOpacity>
               )}
             </View>
-            <View style={styles.tabBar}>
-              {[['mine', 'My Teams'], ['opponents', 'Opponents'], ['followed', 'Followed']].map(([key, label]) => (
-                <TouchableOpacity key={key} style={[styles.tabBtn, tab === key && styles.tabBtnActive]} onPress={() => setTab(key)} activeOpacity={0.8}>
-                  <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
-                  {categorized[key].length > 0 &&
-                    <View style={[styles.tabCount, tab === key && styles.tabCountActive]}>
-                      <Text style={[styles.tabCountText, tab === key && { color: DS.bg }]}>{categorized[key].length}</Text>
-                    </View>}
-                </TouchableOpacity>
-              ))}
+            {/* Rankings' Players/Teams toggle (theme/controls.js) — this was a
+                lime fill with DS.bg text, which is the same control as that one
+                doing the same job in a different colour. */}
+            <View style={[C.segment, { marginTop: 4, marginBottom: 12 }]}>
+              {[['mine', 'My Teams'], ['opponents', 'Opponents'], ['followed', 'Followed']].map(([key, label]) => {
+                const on = tab === key;
+                return (
+                  <TouchableOpacity key={key} style={[C.segBtn, on && C.segBtnOn]} onPress={() => setTab(key)} activeOpacity={0.8}>
+                    <Text style={[C.segText, on && C.segTextOn]}>{label}</Text>
+                    {categorized[key].length > 0 &&
+                      <View style={[C.segCount, on && C.segCountOn]}>
+                        <Text style={[C.segCountText, on && C.segCountTextOn]}>{categorized[key].length}</Text>
+                      </View>}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
             {tab !== 'mine' && (
               <Text style={styles.tabHint}>
@@ -821,24 +828,6 @@ const makeStyles = (DS) => StyleSheet.create({
   actionChipActive: { backgroundColor: DS.lime, borderColor: DS.lime },
 
   // Category tabs
-  tabBar: {
-    flexDirection: 'row', backgroundColor: DS.surfaceLow,
-    marginTop: 4, marginBottom: 12,
-    borderRadius: 14, padding: 4,
-  },
-  tabBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 10, borderRadius: 10, backgroundColor: 'transparent',
-  },
-  tabBtnActive: { backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
-  tabText: { fontSize: 13, fontWeight: '800', color: DS.textMuted },
-  tabTextActive: { color: DS.bg },
-  tabCount: {
-    minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5,
-    backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center',
-  },
-  tabCountActive: { backgroundColor: 'rgba(0,0,0,0.18)' },
-  tabCountText: { fontSize: 10, fontWeight: '900', color: DS.textMuted },
   tabHint: { color: DS.textMuted, fontSize: 12.5, marginBottom: 12, lineHeight: 18 },
   emptyBox: { alignItems: 'center', paddingVertical: 48, gap: 10 },
   emptyText: { color: DS.textMuted, fontSize: 13.5, textAlign: 'center', paddingHorizontal: 30 },
