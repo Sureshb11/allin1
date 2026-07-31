@@ -30,7 +30,6 @@ const makeCfg = (sport, matchLabel, ctaSubtitle, features, emptyTitle, emptySub)
     { label: matchLabel, icon: sport.icon,                          screen: null },
     { label: 'TEAMS',    icon: 'account-group-outline',            screen: null },
     { label: 'LEAGUES',  icon: 'trophy-outline',                   screen: null },
-    { label: 'STATS',    icon: 'chart-bar',                        screen: null },
   ],
   // Every entry navigates somewhere real — no dead (screen: null) tiles.
   // `primary` renders as the solid electric-blue Action-Taker tile.
@@ -55,7 +54,6 @@ const _buildConfigs = () => {
         { label: 'MATCHES',     icon: 'cricket',                          screen: null },
         { label: 'TEAMS',       icon: 'account-group-outline',            screen: null },
         { label: 'TOURNAMENTS', icon: 'trophy-outline',                   screen: null },
-        { label: 'STATS',       icon: 'chart-bar',                        screen: null },
       ],
       // Live Scores (dead) + Insights (duplicate of STATS) removed — every tile
       // navigates to a working screen. Start-a-Match is the blue primary tile.

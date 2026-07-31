@@ -41,17 +41,17 @@ export const makeControls = (DS) => StyleSheet.create({
   navPillActive: { backgroundColor: CONTROL.green },
   navPillInactive: { backgroundColor: CONTROL.grey },
   navPillText: { fontSize: 15, fontWeight: '900', letterSpacing: 0.2 },
-  // Four tabs don't fit at Pavilion's padding: on a 411dp screen, four pills at
-  // paddingHorizontal 20 leave ~46dp of label each, and "TOURNAMENTS" needs ~80.
-  // It clipped to "TOURNAMEN" — adjustsFontSizeToFit did not save it (it is
-  // unreliable on Android). So the tight variant drops the padding to 8, the
-  // label to 11, and its letter-spacing to 0, which fits the longest tab label
-  // any sport uses. Same pill, same colours, just sized for four.
+  // Equal-width variant, for a row that has to fit the longest label a sport
+  // uses ("TOURNAMENTS") rather than sizing to its content. On a 411dp screen
+  // three pills leave ~102dp of label each, which fits it at 13 with room over;
+  // at four it was ~46dp and clipped to "TOURNAMEN". No icon: at four tabs the
+  // icon and its gap cost ~19dp and clipped the label again, but only on the
+  // SELECTED pill — and the fill already says which one that is.
   navPillTight: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
     paddingHorizontal: 8, paddingVertical: 10, borderRadius: 999,
   },
-  navPillTextTight: { fontSize: 11, fontWeight: '900', letterSpacing: 0, flexShrink: 1 },
+  navPillTextTight: { fontSize: 13, fontWeight: '900', letterSpacing: 0, flexShrink: 1 },
 
   /* ── L2: local view-mode toggle (Rankings' Players / Teams) ────────────────
      Equal-width buttons on their own fill; the selected one goes pale green

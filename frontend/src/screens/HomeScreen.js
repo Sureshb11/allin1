@@ -14,7 +14,6 @@ import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHid
 import { MatchCard, FILTERS, FILTER_STATUS_MAP } from './MyMatchesScreen';
 import TeamManagementScreen from './TeamManagementScreen';
 import TournamentsScreen from './TournamentsScreen';
-import StatisticsScreen from './StatisticsScreen';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import AppHeader from '../components/AppHeader';
@@ -406,7 +405,6 @@ export default function HomeScreen({ navigation }) {
         )}
         {activeNavTab === 1 && <View style={{ flex: 1 }}><TeamManagementScreen navigation={navigation} inline={true} /></View>}
         {activeNavTab === 2 && <View style={{ flex: 1 }}><TournamentsScreen navigation={navigation} inline={true} /></View>}
-        {activeNavTab === 3 && <View style={{ flex: 1 }}><StatisticsScreen navigation={navigation} inline={true} /></View>}
       </Animated.View>
 
       {/* ── MORE SHEET ─────────────────────── */}
