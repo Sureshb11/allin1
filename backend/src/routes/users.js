@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { publicUser } from '../lib/publicUser.js';
 import { authMiddleware } from '../lib/auth.js';
 import { entitlementsFor } from '../lib/entitlements.js';
+import { careerAwards } from '../lib/awards.js';
 
 const router = Router();
 
@@ -83,7 +84,7 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
   // run-outs write to the same column, and counting them as catches would make
   // every fielder a slip.
   const fieldName = (player.name || '').trim();
-  const [batBalls, dismissals, bowlBalls, xiMatches, momCount, catches, runOuts, fieldBalls] = await Promise.all([
+  const [batBalls, dismissals, bowlBalls, xiMatches, awards, catches, runOuts, fieldBalls] = await Promise.all([
     prisma.ball.findMany({
       where: { batterId: player.id },
       select: { runs: true, extraType: true, over: { select: { inningId: true } } },
@@ -94,8 +95,12 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
       select: { runs: true, extras: true, extraType: true, isWicket: true, wicketType: true, over: { select: { inningId: true } } },
     }),
     prisma.matchPlayer.count({ where: { playerId: player.id } }),
-    // Career Player-of-the-Match count — the profile's star badge reads this.
-    prisma.matchMVP.count({ where: { playerId: player.id } }),
+    // The honours cabinet: Man of the Match, Fighter, Best Batter / Bowler /
+    // Fielder, plus the series awards. This used to be a bare count of every
+    // MatchMVP row for the player — a table nothing wrote to, so the profile's
+    // star badge has always read 0. It now holds a row per squad player per
+    // match, so a plain count would report every appearance as a MOM.
+    careerAwards(player.id),
     prisma.ball.count({ where: { isWicket: true, wicketType: 'caught', wicketAssists: fieldName } }),
     prisma.ball.count({ where: { isWicket: true, wicketType: 'runout', wicketAssists: fieldName } }),
     // Per-innings fielding, for the trend chart below.
@@ -183,13 +188,24 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
         where: { over: { bowlerId: player.id, inning: { matchId: { in: formMatchIds } } } },
         select: { isWicket: true, wicketType: true, over: { select: { inning: { select: { matchId: true } } } } },
       }),
-      // Player-of-the-match awards this player won in these matches.
-      prisma.matchMVP.findMany({
+      // Awards this player won in these matches. Reads the award table, not the
+      // MVP points ledger — that has a row per squad player per match, so
+      // counting it was counting every appearance as a Man of the Match.
+      prisma.matchAward.findMany({
         where: { playerId: player.id, matchId: { in: formMatchIds } },
-        select: { matchId: true },
+        select: { matchId: true, kind: true },
       }),
     ]);
-    const momIds = new Set(moms.map((m) => m.matchId));
+    const momIds = new Set(moms.filter((m) => m.kind === 'motm').map((m) => m.matchId));
+    // The best thing you took home from each match, so the form strip can mark
+    // it — a top-scoring all-rounder often wins three in one game, and the badge
+    // should say Man of the Match rather than whichever row came back first.
+    const AWARD_RANK = ['motm', 'fighter', 'batter', 'bowler', 'fielder'];
+    const awardIn = {};
+    for (const m of moms) {
+      const held = awardIn[m.matchId];
+      if (!held || AWARD_RANK.indexOf(m.kind) < AWARD_RANK.indexOf(held)) awardIn[m.matchId] = m.kind;
+    }
     const runsBy = {}, wktsBy = {};
     for (const b of fBat) {
       const id = b.over.inning.matchId;
@@ -215,6 +231,9 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
         runs: runsBy[m.id] ?? null,
         wickets: wktsBy[m.id] ?? null,
         isMOM: momIds.has(m.id),
+        // 'motm' | 'fighter' | 'batter' | 'bowler' | 'fielder' | undefined —
+        // what you took home from that match, if anything.
+        award: awardIn[m.id] || null,
       };
     });
   }
@@ -240,7 +259,8 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
         matches: played || seasonMatches,
         eventTotals: byType,               // { goal: 5, 'yellow-card': 2, … }
         seasonMatches,
-        momCount,
+        awards,
+        momCount: awards.motm,             // kept for older clients
         recentForm,
       },
       sport: player.sport,
@@ -306,7 +326,10 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
     recentWickets: seriesFor(wktsByInning),
     recentCatches: seriesFor(fieldByInning),
     seasonMatches,
-    momCount,
+    // The honours cabinet: { motm, fighter, batter, bowler, fielder, series,
+    // seriesBatter, seriesBowler, seriesFielder, total }.
+    awards,
+    momCount: awards.motm,                  // kept for older clients
     recentForm,
   };
   res.json({ stats, sport: player.sport, role: player.role, team: player.team?.name || null, linked: true });

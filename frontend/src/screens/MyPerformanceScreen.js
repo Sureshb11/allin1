@@ -13,6 +13,28 @@ import { getCareerPanels, readStat } from '../sports/careerStats';
 import { useCurrentUser } from '../utils/currentUser';
 import { haptic } from '../utils/haptics';
 
+// ── The honours cabinet ──────────────────────────────────────────────────────
+// The five match awards the scorer's post-match popup has always handed out
+// (lib/mvp.js) plus the four series ones, in the order they're worth bragging
+// about. Icons match the popup, so an award looks the same the day you win it
+// and every day after. `major` = a tournament honour: filled, not outlined.
+const AWARD_KINDS = [
+  { key: 'series',        label: 'Series',       icon: 'trophy-variant',   major: true },
+  { key: 'motm',          label: 'MOM',          icon: 'star-four-points' },
+  { key: 'fighter',       label: 'Fighter',      icon: 'arm-flex' },
+  { key: 'batter',        label: 'Best Bat',     icon: 'cricket' },
+  { key: 'bowler',        label: 'Best Bowl',    icon: 'bowling' },
+  { key: 'fielder',       label: 'Best Field',   icon: 'hand-back-right' },
+  { key: 'seriesBatter',  label: 'Series Bat',   icon: 'cricket',          major: true },
+  { key: 'seriesBowler',  label: 'Series Bowl',  icon: 'bowling',          major: true },
+  { key: 'seriesFielder', label: 'Series Field', icon: 'hand-back-right',  major: true },
+];
+const AWARD_ICON = Object.fromEntries(AWARD_KINDS.map((a) => [a.key, a.icon]));
+const AWARD_NAME = {
+  motm: 'Man of the Match', fighter: 'Fighter of the Match',
+  batter: 'Best Batter', bowler: 'Best Bowler', fielder: 'Best Fielder',
+};
+
 // 1,284 reads faster than 1284 in a table of career totals.
 const group = (v) => (typeof v === 'number' && Number.isInteger(v) && Math.abs(v) >= 1000)
   ? String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
@@ -163,7 +185,14 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
   // the panels no longer repeat "Matches" as a table cell.
   const sportName = getSport(sportId)?.name || 'Cricket';
   const matches = stats?.matches ?? 0;
-  const momCount = stats?.momCount ?? 0;
+  // What you've actually won. The awards were being computed for the post-match
+  // popup and then discarded, so there was nothing to show here; they're filed
+  // now (backend lib/awards.js) and this is the cabinet. Older payloads only
+  // carried momCount, so that still stands in for the Man of the Match count.
+  const awardCounts = stats?.awards || { motm: stats?.momCount ?? 0 };
+  const honours = AWARD_KINDS
+    .map((a) => ({ ...a, n: awardCounts[a.key] || 0 }))
+    .filter((a) => a.n > 0);
   // Last five completed matches, real results. The API has sent these since the
   // profile's form section was built; this screen drew a bar chart of the trend
   // series instead and called it "recent form" — the same numbers the chart
@@ -260,37 +289,33 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
             <View style={styles.card}>
               <View style={styles.cardHead}>
                 <Text style={styles.cardLabel}>{sportName.toUpperCase()} CAREER</Text>
-                <View style={styles.cardMeta}>
-                  <Text style={styles.cardMetaText}>{matches} {matches === 1 ? 'match' : 'matches'}</Text>
-                  {momCount > 0 && (
-                    <View style={styles.momChip}>
-                      <Icon name="star" size={9} color={DS.onLime} />
-                      <Text style={styles.momChipText}>{momCount} MOM</Text>
-                    </View>
-                  )}
-                </View>
+                <Text style={styles.cardMetaText}>{matches} {matches === 1 ? 'match' : 'matches'}</Text>
               </View>
               {form.length > 0 && (
                 <View style={styles.formRow}>
                   {form.map((m, i) => {
                     const won = m.result === 'W', lost = m.result === 'L';
                     const latest = i === form.length - 1;
+                    // What you took home from that match, if anything. `isMOM` is
+                    // the older field and only ever meant Man of the Match.
+                    const award = m.award || (m.isMOM ? 'motm' : null);
                     return (
                       <TouchableOpacity
                         key={m.matchId || i}
                         style={styles.formCol}
                         activeOpacity={m.matchId ? 0.7 : 1}
                         onPress={() => openMatch(m)}
-                        accessibilityLabel={`${won ? 'Won' : lost ? 'Lost' : 'Tied'} vs ${m.opponent || 'unknown'}`}>
+                        accessibilityLabel={`${won ? 'Won' : lost ? 'Lost' : 'Tied'} vs ${m.opponent || 'unknown'}`
+                          + (award ? `, ${AWARD_NAME[award] || 'award'}` : '')}>
                         <View style={[styles.formDisc, {
                           backgroundColor: won ? DS.lime : lost ? DS.coral : DS.surfaceHighest,
                         }]}>
                           <Text style={[styles.formDiscText, {
                             color: won ? DS.onLime : lost ? '#fff' : DS.textMuted,
                           }]}>{m.result || 'T'}</Text>
-                          {m.isMOM && (
+                          {award && (
                             <View style={styles.formStar}>
-                              <Icon name="star" size={8} color={DS.onLime} />
+                              <Icon name={AWARD_ICON[award] || 'star'} size={9} color={DS.onLime} />
                             </View>
                           )}
                         </View>
@@ -306,6 +331,20 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
                       card — the strip always keeps its five-match pitch. */}
                   {Array.from({ length: Math.max(0, 5 - form.length) }, (_, k) => (
                     <View key={`gap${k}`} style={styles.formCol} />
+                  ))}
+                </View>
+              )}
+
+              {/* Honours. Nothing renders for a career without any — an empty
+                  trophy shelf is worse than no shelf. */}
+              {honours.length > 0 && (
+                <View style={styles.honours}>
+                  {honours.map((a) => (
+                    <View key={a.key} style={[styles.honour, a.major && styles.honourMajor]}>
+                      <Icon name={a.icon} size={11} color={a.major ? DS.onLime : DS.lime} />
+                      <Text style={[styles.honourCount, a.major && styles.honourTextMajor]}>{a.n}</Text>
+                      <Text style={[styles.honourLabel, a.major && styles.honourTextMajor]}>{a.label}</Text>
+                    </View>
                   ))}
                 </View>
               )}
@@ -398,17 +437,29 @@ const makeStyles = (DS) => StyleSheet.create({
   card: { backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 13, paddingVertical: 12, gap: 11 },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   cardLabel: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.7 },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   cardMetaText: { fontSize: 11, fontWeight: '700', color: DS.textVariant, fontVariant: ['tabular-nums'] },
-  momChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: DS.lime, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
-  momChipText: { fontSize: 9.5, fontWeight: '900', color: DS.onLime, letterSpacing: 0.3 },
+
+  /* Honours: outlined for a match award, filled for a tournament one — so the
+     rare thing looks rare without reaching for a second colour. */
+  honours: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  honour: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999,
+    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border,
+  },
+  honourMajor: { backgroundColor: DS.lime, borderColor: DS.lime },
+  honourCount: { fontSize: 11, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
+  honourLabel: { fontSize: 9.5, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.3, textTransform: 'uppercase' },
+  honourTextMajor: { color: DS.onLime },
 
   /* Last five results: won / lost / tied, tappable through to the match. */
   formRow: { flexDirection: 'row', gap: 8 },
   formCol: { flex: 1, alignItems: 'center', gap: 5 },
   formDisc: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   formDiscText: { fontSize: 13, fontWeight: '900' },
-  formStar: { position: 'absolute', top: -3, right: -4, width: 13, height: 13, borderRadius: 7, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: DS.surface },
+  // Badges any award won in that match, not just Man of the Match — the glyph
+  // is the same one the post-match popup used to hand it over with.
+  formStar: { position: 'absolute', top: -4, right: -5, width: 16, height: 16, borderRadius: 8, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: DS.surface },
   formSub: { fontSize: 10.5, fontWeight: '800', color: DS.textMuted, fontVariant: ['tabular-nums'] },
   // The strip runs oldest → latest, like the chart below it; the most recent
   // match is the one lit up, so which end is "now" needs no caption.

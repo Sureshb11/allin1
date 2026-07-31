@@ -14,6 +14,10 @@ import { useHideTabBarOnScroll } from '../components/AutoHideTabBar';
 
 const TABS = ['Overview', 'Points Table', 'Schedule', 'Leaders'];
 
+// Series honours, iconed the same as the post-match awards popup — the same
+// award should look the same wherever it's won.
+const SERIES_AWARD_ICON = { batter: 'cricket', bowler: 'bowling', fielder: 'hand-back-right' };
+
 // Single-accent: all avatars are the deep green (white initials read on both themes).
 const avatarColor = () => '#0a5227';
 const captainOf = (team) => team?.captain?.name || team?.captainName || (team?.players && team.players[0]?.name) || 'TBD';
@@ -59,7 +63,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const [autoSplit, setAutoSplit] = useState(true);
   const [manualGroups, setManualGroups] = useState({});
   // Record-result modal state
-  const [leaderboard, setLeaderboard] = useState(null); // { batsmen, bowlers, mvp }
+  const [leaderboard, setLeaderboard] = useState(null); // { batsmen, bowlers, awards }
   const [scheduleView, setScheduleView] = useState(route.params?.bracket ? 'bracket' : 'fixtures'); // Schedule tab sub-view
   const [resultFixture, setResultFixture] = useState(null); // fixture being scored
   const [scoreA, setScoreA] = useState('');
@@ -121,7 +125,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   useEffect(() => {
     if (activeTab === 'Leaders' && !leaderboard) {
       legendsApi.getTournamentLeaderboard(tournamentId).then(r =>
-        setLeaderboard(r.success ? r.data : { batsmen: [], bowlers: [], mvp: [] }));
+        setLeaderboard(r.success ? r.data : { batsmen: [], bowlers: [], awards: [] }));
     }
   }, [activeTab, leaderboard, tournamentId]);
 
@@ -911,7 +915,14 @@ export default function TournamentDetailScreen({ route, navigation }) {
     if (!leaderboard) {
       return <View style={styles.centered}><ActivityIndicator color={DS.lime} /></View>;
     }
-    const { batsmen, bowlers, mvp } = leaderboard;
+    // `awards` are the real honours — Player of the Series and the best batter /
+    // bowler / fielder, on the same MVP points that decide Man of the Match, so
+    // a series award means what a match award means. `mvp` is the older
+    // fantasy-points list (runs + boundaries + 20/wicket) that used to fill the
+    // hero card and disagreed with the awards the scorer had just handed out.
+    const { batsmen, bowlers, awards = [] } = leaderboard;
+    const series = awards.find((a) => a.kind === 'series');
+    const minorAwards = awards.filter((a) => a.kind !== 'series');
     if (!batsmen.length && !bowlers.length) {
       return (
         <View style={styles.empty}>
@@ -936,14 +947,34 @@ export default function TournamentDetailScreen({ route, navigation }) {
     );
     return (
       <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
-        {mvp[0] && (
+        {series && (
           <View style={styles.mvpCard}>
-            <Icon name="star-circle" size={22} color={DS.bg} />
+            <Icon name="trophy-variant" size={22} color={DS.bg} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.mvpLabel}>Player of the Tournament</Text>
-              <Text style={styles.mvpName} numberOfLines={1}>{mvp[0].name}</Text>
+              <Text style={styles.mvpLabel}>Player of the Series</Text>
+              <Text style={styles.mvpName} numberOfLines={1}>{series.playerName}</Text>
+              {!!series.teamName && <Text style={styles.mvpSub} numberOfLines={1}>{series.teamName} · {series.detail}</Text>}
             </View>
-            <Text style={styles.mvpStat}>{mvp[0].runs} runs · {mvp[0].wickets} wkts</Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.mvpStat}>{series.points}</Text>
+              <Text style={styles.mvpLabel}>MVP pts</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Best batter / bowler / fielder of the series, alongside the caps
+            below: the caps rank on raw runs and wickets, these on MVP points,
+            so a 30-ball 40 that won a game can beat a slow 60 that didn't. */}
+        {minorAwards.length > 0 && (
+          <View style={styles.awardRow}>
+            {minorAwards.map((a) => (
+              <View key={a.kind} style={styles.awardCard}>
+                <Icon name={SERIES_AWARD_ICON[a.kind] || 'medal'} size={15} color={DS.lime} />
+                <Text style={styles.awardLabel} numberOfLines={1}>{a.label}</Text>
+                <Text style={styles.awardName} numberOfLines={1}>{a.playerName}</Text>
+                <Text style={styles.awardPts}>{a.points} pts</Text>
+              </View>
+            ))}
           </View>
         )}
 
@@ -1233,10 +1264,17 @@ const makeStyles = (DS) => StyleSheet.create({
   leaderMain: { fontSize: 18, fontWeight: '800', color: DS.textPrimary, minWidth: 42, textAlign: 'right', fontVariant: ['tabular-nums'] },
   orangeLead: { borderLeftWidth: 3, borderLeftColor: '#ff8c1a' },
   purpleLead: { borderLeftWidth: 3, borderLeftColor: '#a855f7' },
-  mvpCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: DS.lime, borderRadius: 14, padding: 14, marginBottom: 20 },
-  mvpLabel: { fontSize: 10, fontWeight: '700', color: DS.bg, opacity: 0.7, letterSpacing: 0.5, textTransform: 'uppercase' },
-  mvpName: { fontSize: 18, fontWeight: '800', color: DS.bg },
-  mvpStat: { fontSize: 12, fontWeight: '700', color: DS.bg },
+  mvpCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: DS.lime, borderRadius: 14, padding: 14, marginBottom: 12 },
+  mvpLabel: { fontSize: 10, fontWeight: '700', color: DS.onLime, opacity: 0.75, letterSpacing: 0.5, textTransform: 'uppercase' },
+  mvpName: { fontSize: 18, fontWeight: '800', color: DS.onLime },
+  mvpSub: { fontSize: 11, fontWeight: '600', color: DS.onLime, opacity: 0.8, marginTop: 1 },
+  mvpStat: { fontSize: 18, fontWeight: '900', color: DS.onLime, fontVariant: ['tabular-nums'] },
+  /* The other three series honours, three across under the hero card. */
+  awardRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  awardCard: { flex: 1, gap: 3, backgroundColor: DS.surface, borderRadius: 12, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 10, paddingVertical: 10 },
+  awardLabel: { fontSize: 9, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.4, textTransform: 'uppercase' },
+  awardName: { fontSize: 13, fontWeight: '800', color: DS.textPrimary },
+  awardPts: { fontSize: 10, fontWeight: '700', color: DS.textMuted, fontVariant: ['tabular-nums'] },
   statusText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   tabs: { flexDirection: 'row', backgroundColor: DS.bg, borderBottomWidth: 1, borderBottomColor: DS.faint },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },

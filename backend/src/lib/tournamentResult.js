@@ -11,6 +11,7 @@ import { prisma } from './prisma.js';
 import { persistStandings, computeStandings } from './standings.js';
 import { resolveBracket } from './bracket.js';
 import { notifyTeams, notifyAllParticipants, safeNotify } from './notify.js';
+import { persistSeriesAwards } from './awards.js';
 
 // Apply a finished result to a fixture and run the full downstream pipeline.
 // result = { tmId, winnerTeamId?, resultKind, stats }
@@ -79,6 +80,25 @@ async function maybeCompleteTournament(tournamentId, tName) {
   }
 
   await prisma.tournament.update({ where: { id: tournamentId }, data: { status: 'completed', championId } });
+
+  // Honours: Player of the Series and the best batter / bowler / fielder across
+  // it, from the match awards already filed for every fixture. Best-effort —
+  // a tournament is still finished even if nobody can be crowned (a league with
+  // no ball-by-ball scoring has no MVP ledger to sum).
+  const honours = await persistSeriesAwards(tournamentId).catch((e) => {
+    console.error('[series awards]', e.message);
+    return 0;
+  });
+  if (honours) {
+    const [pots] = await prisma.tournamentAward.findMany({ where: { tournamentId, kind: 'series' } });
+    if (pots) {
+      await safeNotify(() => notifyAllParticipants(tournamentId, {
+        title: '⭐ Player of the Series',
+        message: `${pots.playerName || 'A player'} is Player of the Series in ${tName}.`,
+        data: { tournamentId },
+      }));
+    }
+  }
 
   if (championId) {
     const champ = await prisma.team.findUnique({ where: { id: championId }, select: { name: true } });

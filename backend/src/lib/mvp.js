@@ -279,11 +279,26 @@ export function computeAwards(match) {
       // Squad players key on their Player id (off-squad fielders key on "name:…"),
       // so callers can resolve an award back to the account behind it.
       playerId: p.key && !String(p.key).startsWith('name:') ? p.key : null,
+      // Which side they were on — the awards ledger stores it, so a career
+      // honour can say who you won it for.
+      teamId: p.teamId || null,
       name: p.name, teamName: p.teamName,
       total: +(bat + bowl + field).toFixed(2), bat, bowl, field,
       batLine: p.batLine, bowlLine: p.bowlLine, fieldCount: p.fieldCount || 0,
     };
   };
+
+  // Nobody scored anything: no innings, no balls — a non-cricket match (this is
+  // a cricket algorithm), or a result typed straight in by an organiser. An MVP
+  // calculation with nothing to weigh has no winner. Without this the fallback
+  // below ("else the overall leader") handed Man of the Match to whoever sorted
+  // first on zero points, and notifyMatchResult pushed them a trophy for it.
+  if (!list.some((p) => p.total > 0)) {
+    return {
+      manOfMatch: null, fighter: null, bestBatter: null, bestBowler: null, bestFielder: null,
+      mvp: list.map(out), winnerTeamId,
+    };
+  }
 
   // Man of the Match: top-3 winning-team player, else overall leader.
   let motm = null;

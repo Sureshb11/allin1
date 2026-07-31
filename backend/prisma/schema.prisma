@@ -685,14 +685,76 @@ model TournamentMatch {
   tournament   Tournament       @relation(fields: [tournamentId], references: [id])
 }
 
+// One row per squad player per completed match: what their MVP points were.
+// Written by lib/awards.js when a match completes (and lazily, on first read of
+// /matches/:id/awards, for matches that finished before this existed).
+//
+// The table predates all of that and was never written to — `momCount` on the
+// profile counted rows that nothing ever created, so every player's Man of the
+// Match tally has always been 0. Awards were computed live for the post-match
+// popup and then thrown away, which is why a career had no honours in it.
+//
+// Storing the whole squad's points (not just the winners') is what makes the
+// series awards cheap: Player of the Series is a sum over these rows rather
+// than a re-read of every ball in the tournament.
 model MatchMVP {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  matchId   String
-  playerId  String
-  teamId    String
-  reason    String?
-  votes     Int      @default(0)
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  matchId    String
+  playerId   String
+  teamId     String
+  playerName String?
+  points     Float    @default(0)
+  bat        Float    @default(0)
+  bowl       Float    @default(0)
+  field      Float    @default(0)
+  reason     String?
+  votes      Int      @default(0)
+
+  // Re-running the awards for a match must not duplicate anyone.
+  @@unique([matchId, playerId])
+  @@index([playerId])
+  @@index([matchId])
+}
+
+// Who won what in a match: Man of the Match, Fighter, Best Batter / Bowler /
+// Fielder. Its own table because an award belongs to a (match, kind) — there is
+// exactly one Man of the Match — while one player routinely wins several in the
+// same match. Hanging the award off the MVP row instead meant a top-scoring
+// all-rounder's Man of the Match was overwritten by their Best Bowler.
+model MatchAward {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  matchId    String
+  // 'motm' | 'fighter' | 'batter' | 'bowler' | 'fielder'
+  kind       String
+  playerId   String
+  playerName String?
+  teamId     String?
+  points     Float    @default(0)
+
+  @@unique([matchId, kind])
+  @@index([playerId, kind])
+}
+
+// Tournament honours: Player of the Series and the best batter / bowler /
+// fielder across it, decided on the same MVP points as the match awards so a
+// series award means the same thing as the match ones. Written when the last
+// fixture completes; recomputed on demand while a tournament is still running.
+model TournamentAward {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  tournamentId String
+  // 'series' | 'batter' | 'bowler' | 'fielder' | 'motm-count'
+  kind         String
+  playerId     String
+  playerName   String?
+  teamName     String?
+  points       Float    @default(0)
+  detail       String?
+
+  @@unique([tournamentId, kind])
+  @@index([playerId])
 }
 
 model Post {

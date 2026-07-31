@@ -6,6 +6,7 @@ import { computeStandings } from '../lib/standings.js';
 import { applyTournamentResult } from '../lib/tournamentResult.js';
 import { notifyTeams, notifyUsers, notifyAllParticipants, safeNotify } from '../lib/notify.js';
 import { tournamentLeaderboard } from '../lib/leaderboard.js';
+import { seriesAwards } from '../lib/awards.js';
 
 const router = Router();
 
@@ -40,9 +41,23 @@ router.get('/:id/standings', async (req, res) => {
 
 // Tournament leaderboard: Orange Cap (runs), Purple Cap (wickets), MVP — from
 // the ball-by-ball data of every fixture played through a real match.
+//
+// `awards` rides along: Player of the Series and the best batter / bowler /
+// fielder of it, summed from the match awards already filed for each fixture.
+// They're recomputed on every read so a running tournament shows who is leading
+// the honours; the copy written when the last fixture lands is the permanent
+// record a career counts (lib/awards.js).
+//
+// Note `mvp` in this payload is a different, older thing: a fantasy-points
+// ranking (runs + boundaries + 20/wicket) that predates the MVP algorithm the
+// match awards use. It stays for older clients; `awards` is the real honour.
 router.get('/:id/leaderboard', async (req, res) => {
   try {
-    res.json(await tournamentLeaderboard(req.params.id));
+    const [board, awards] = await Promise.all([
+      tournamentLeaderboard(req.params.id),
+      seriesAwards(req.params.id),
+    ]);
+    res.json({ ...board, awards });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

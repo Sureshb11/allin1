@@ -1315,7 +1315,15 @@ class LegendsApi {
   async getTournamentLeaderboard(tournamentId) {
     try {
       const json = await this.request(`/tournaments/${tournamentId}/leaderboard`);
-      return { success: true, data: { batsmen: json.batsmen || [], bowlers: json.bowlers || [], mvp: json.mvp || [] } };
+      // `awards` = the series honours (Player of the Series, best batter /
+      // bowler / fielder). `mvp` is the older fantasy-points list it replaced.
+      return {
+        success: true,
+        data: {
+          batsmen: json.batsmen || [], bowlers: json.bowlers || [],
+          mvp: json.mvp || [], awards: json.awards || [],
+        },
+      };
     } catch (error) {
       return { success: false, error: error.message };
     }

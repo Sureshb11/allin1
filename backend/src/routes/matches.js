@@ -7,6 +7,7 @@ import { checkMatchMilestones } from '../lib/milestones.js';
 import { pushMatchResultCard } from '../lib/feed.js';
 import { reportMatchToTournament } from '../lib/tournamentResult.js';
 import { computeAwards } from '../lib/mvp.js';
+import { persistMatchAwards, hasMatchAwards } from '../lib/awards.js';
 import { safeNotify, notifyMatchLive, notifyMatchResult, pingMatchWatchers } from '../lib/notify.js';
 
 const router = Router();
@@ -59,6 +60,12 @@ router.get('/:id/awards', async (req, res) => {
     const match = await loadMatchForAwards(req.params.id);
     if (!match) return res.status(404).json({ error: 'Match not found' });
     const awards = computeAwards(match);
+    // Backfill: matches that finished before the ledger existed have honours
+    // nobody ever recorded. Opening a scorecard files them, so a career fills in
+    // as old matches are looked at rather than needing a one-off script.
+    if (match.status === 'completed' && !(await hasMatchAwards(match.id))) {
+      await persistMatchAwards(match, awards).catch((e) => console.error('[awards backfill]', e.message));
+    }
     res.json({ awards, result: match.result || null });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -883,16 +890,20 @@ router.put('/:id', authMiddleware, async (req, res) => {
     if (status === 'completed') {
       await pushMatchResultCard(match).catch(() => {});
       await checkMatchMilestones(match.id);
+      // Awards are FILED first, before anything downstream reads them. They used
+      // to be computed for the push notification and then thrown away, which is
+      // why no profile has ever shown a Man of the Match. And if this was a
+      // tournament's last fixture, the report below crowns a Player of the
+      // Series by summing this ledger — so the deciding match has to be in it.
+      const full = await loadMatchForAwards(match.id);
+      const awards = full ? computeAwards(full) : null;
+      if (full) await persistMatchAwards(full, awards).catch((e) => console.error('[awards]', e.message));
       // If this match is a tournament fixture, auto-finalize it (score → standings
-      // → bracket → notifications). Guarded so it can't fail the completion.
+      // → bracket → honours → notifications). Guarded so it can't fail the completion.
       await reportMatchToTournament(match).catch((e) => console.error('[tournament report]', e.message));
       // Result + award notifications: winners get a personal "you won X" card,
       // the rest of both teams' circles get the round-up.
-      await safeNotify(async () => {
-        const full = await loadMatchForAwards(match.id);
-        if (!full) return 0;
-        return notifyMatchResult(full, computeAwards(full));
-      });
+      if (full) await safeNotify(() => notifyMatchResult(full, awards));
     }
     res.json({ match });
   } catch (e) {
