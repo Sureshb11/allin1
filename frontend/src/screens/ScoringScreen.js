@@ -100,6 +100,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // Bowling spell tracking → per-bowler over limit + no consecutive overs.
   const [bowlerOvers, setBowlerOvers] = useState({});      // bowlerId -> overs bowled
   const [lastOverBowlerId, setLastOverBowlerId] = useState(null);
+  // bowlerId -> the over number they last finished. Powers the bowler picker's
+  // order: picking for over 3, over 2's bowler is barred by the no-consecutive
+  // rule, so over 1's bowler is the one you almost always want — and they were
+  // sitting wherever the XI happened to list them.
+  const [bowlerLastOver, setBowlerLastOver] = useState({});
   // Real per-player figures for the live cards (not team totals):
   //   batStats:  playerId -> { runs, balls, fours, sixes }
   //   bowlStats: playerId -> { balls, runs, wickets, maidens, overRuns }
@@ -637,6 +642,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // carry these keys.
     if (prev.bowlerOvers) setBowlerOvers(prev.bowlerOvers);
     if ('lastOverBowlerId' in prev) setLastOverBowlerId(prev.lastOverBowlerId);
+    if (prev.bowlerLastOver) setBowlerLastOver(prev.bowlerLastOver);
     if ('freeHit' in prev) setFreeHit(prev.freeHit);
     if (prev.retiredBatters) setRetiredBatters(prev.retiredBatters);
     if ('pnrStartRuns' in prev) setPnrStartRuns(prev.pnrStartRuns);
@@ -742,7 +748,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       // it (the no-consecutive-overs rule). Undo used to leave both advanced, so
       // winding back past an over boundary left a bowler wrongly barred, or a
       // spell over-counted — invisible until the picker refused them.
-      bowlerOvers: { ...bowlerOvers }, lastOverBowlerId,
+      bowlerOvers: { ...bowlerOvers }, lastOverBowlerId, bowlerLastOver: { ...bowlerLastOver },
       freeHit, retiredBatters: [...retiredBatters],
       pnrStartRuns, pnrBalls,
     };
@@ -907,6 +913,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       if (currentBowler) {
         setBowlerOvers((prev) => ({ ...prev, [currentBowler.id]: (prev[currentBowler.id] || 0) + 1 }));
         setLastOverBowlerId(currentBowler.id);
+        setBowlerLastOver((prev) => ({ ...prev, [currentBowler.id]: newScore.overs }));
         // Maiden = 0 runs charged to the bowler this over; then reset the tally.
         setBowlStats((prev) => {
           const c = prev[currentBowler.id];
@@ -1050,7 +1057,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       setCurrentScore({ runs: 0, wickets: 0, overs: 0, balls: 0 });
       setCurrentOver([]); setLastOverBalls([]); setBallCount(0); setHistory([]); setOverComplete(null);
       // Fresh innings → reset per-player figures + bowling spell tracking + dismissals.
-      setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setOutBatters([]); setRetiredBatters([]); setPendingCreaseSwap(false);
+      setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setBowlerLastOver({}); setOutBatters([]); setRetiredBatters([]); setPendingCreaseSwap(false);
       setPnrStartRuns(0); setPnrBalls(0);   // fresh openers → new partnership
       milestoneRef.current = { bat: {}, bowl: {}, streak: { id: null, n: 0 } };   // fresh milestones for the new innings
       setBattingTeamName(bowlingTeamName); setBowlingTeamName(battingTeamName);
@@ -1126,7 +1133,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       score: { ...currentScore }, over: [...currentOver], lastOver: [...lastOverBalls], ballCount,
       striker, nonStriker, bowler: currentBowler,
       batStats: { ...batStats }, bowlStats: { ...bowlStats }, outBatters: [...outBatters],
-      bowlerOvers: { ...bowlerOvers }, lastOverBowlerId,
+      bowlerOvers: { ...bowlerOvers }, lastOverBowlerId, bowlerLastOver: { ...bowlerLastOver },
       freeHit, retiredBatters: [...retiredBatters],
     }]);
     haptic.warn();
@@ -1920,7 +1927,14 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                 // because it's the same over continuing.
                 const eligible = bowlingXI.filter((p) =>
                   (bowlerOvers[p.id] || 0) < maxOversPerBowler &&
-                  (mustPickBowler ? p.id !== lastOverBowlerId : p.id !== currentBowler?.id));
+                  (mustPickBowler ? p.id !== lastOverBowlerId : p.id !== currentBowler?.id))
+                  // Most recently bowled first. A bowling attack rotates between
+                  // two ends, so picking for over 3 the man you want is over 1's
+                  // bowler — over 2's is barred above by the consecutive rule.
+                  // He used to sit wherever the XI listed him, which on a full
+                  // squad meant hunting for a name you'd tapped two minutes ago.
+                  // Bowlers who haven't bowled keep their XI order, after.
+                  .slice().sort((a, b) => (bowlerLastOver[b.id] || 0) - (bowlerLastOver[a.id] || 0));
                 if (eligible.length === 0) {
                   return <Text style={[styles.modalSub, { textAlign: 'center', marginVertical: 16 }]}>No eligible bowlers left.</Text>;
                 }
@@ -1933,6 +1947,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                       <Text style={[styles.playerInitial, { color: DS.lime }]}>{p.name.charAt(0).toUpperCase()}</Text>
                     </View>
                     <Text style={[styles.playerName, { flex: 1 }, picked && styles.playerNamePicked]}>{p.name}</Text>
+                    {/* Says WHY this name is at the top, so the order doesn't
+                        look arbitrary. */}
+                    {bowlerLastOver[p.id] ? (
+                      <Text style={[styles.modalSub, { marginBottom: 0, marginRight: 8 }]}>
+                        last ov {bowlerLastOver[p.id]}
+                      </Text>
+                    ) : null}
                     <Text style={[styles.modalSub, { marginBottom: 0 }]}>{bowlerOvers[p.id] || 0}/{maxOversPerBowler} ov</Text>
                     <Icon
                       name={picked ? 'check-circle' : 'checkbox-blank-circle-outline'}
