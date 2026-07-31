@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
 import { isTeamAdmin } from '../lib/teamAuth.js';
+import { playerCareer } from '../lib/playerCareer.js';
 
 const router = Router();
 
@@ -235,6 +236,29 @@ router.get('/:id', async (req, res) => {
   res.json({ player: enriched });
 });
 
+// One player's full career, in the exact shape GET /users/me/stats returns.
+// Tapping a player in Rankings opens the same board of numbers as My Stats, so
+// it has to be the same computation — see lib/playerCareer.js for the three
+// disagreeing implementations this replaced.
+router.get('/:id/career', async (req, res) => {
+  try {
+    const player = await prisma.player.findUnique({
+      where: { id: req.params.id },
+      include: { team: true, user: { select: { id: true, avatarUrl: true } } },
+    });
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+    const career = await playerCareer(player);
+    res.json({
+      ...career,
+      // The header this feeds draws a face and a name, which the career itself
+      // knows nothing about.
+      player: { id: player.id, name: player.name, role: player.role, avatarUrl: player.user?.avatarUrl || null },
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 const PlayerSchema = z.object({
   name: z.string().min(1),
   role: z.string().min(1),
@@ -329,35 +353,33 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Player insights - computed from ball-by-ball data
+// Player insights — the qualitative read on a career: what they're good at,
+// what to work on, what to do next.
+//
+// The numbers behind it come from lib/playerCareer.js, the same computation the
+// career board draws. They used to be worked out here, a third time, and more
+// crudely: oversBowled counted Over ROWS (a two-ball over was a whole over, so
+// economy was runs ÷ overs-started), fours counted byes, and runs conceded came
+// off the Over aggregate with byes included. So this screen could tell a player
+// their economy was fine while the scorecard and My Stats both said otherwise.
 router.get('/:id/insights', async (req, res) => {
   try {
     const playerId = req.params.id;
     const player = await prisma.player.findUnique({ where: { id: playerId }, include: { team: true } });
     if (!player) return res.status(404).json({ error: 'Player not found' });
 
-    // Batting stats
-    const battingBalls = await prisma.ball.findMany({ where: { batterId: playerId } });
-    const totalRuns = battingBalls.reduce((sum, b) => sum + b.runs, 0);
-    const ballsFaced = battingBalls.filter(b => !b.extraType || (b.extraType !== 'wide')).length;
-    const dismissals = await prisma.ball.count({ where: { dismissedPlayerId: playerId, isWicket: true } });
-    const fours = battingBalls.filter(b => b.runs === 4).length;
-    const sixes = battingBalls.filter(b => b.runs === 6).length;
-    const battingAverage = dismissals > 0 ? (totalRuns / dismissals).toFixed(2) : totalRuns > 0 ? totalRuns.toFixed(2) : '0.00';
-    const strikeRate = ballsFaced > 0 ? ((totalRuns / ballsFaced) * 100).toFixed(2) : '0.00';
+    const { stats } = await playerCareer(player);
+    const num = (v) => (v == null ? 0 : Number(v) || 0);
+    const totalRuns    = num(stats.runs);
+    const ballsFaced   = num(stats.ballsFaced);
+    const strikeRate   = num(stats.strikeRate);
+    const battingAvg   = num(stats.average);
+    const boundaries   = num(stats.fours) + num(stats.sixes);
+    const wicketsTaken = num(stats.wickets);
+    const economy      = num(stats.economy);
+    const ballsBowled  = num(stats.ballsBowled);
+    const matchCount   = num(stats.matches);
 
-    // Bowling stats
-    const overs = await prisma.over.findMany({ where: { bowlerId: playerId }, include: { balls: true } });
-    const runsConceded = overs.reduce((sum, o) => sum + o.runs + o.extras, 0);
-    const wicketsTaken = overs.reduce((sum, o) => sum + o.wickets, 0);
-    const oversBowled = overs.length;
-    const economy = oversBowled > 0 ? (runsConceded / oversBowled).toFixed(2) : '0.00';
-    const bowlingAverage = wicketsTaken > 0 ? (runsConceded / wicketsTaken).toFixed(2) : '0.00';
-
-    // Matches played
-    const matchCount = await prisma.matchPlayer.count({ where: { playerId } });
-
-    // Recent form (last 5 matches batting performance)
     let recentForm = 'N/A';
     let trend = 'stable';
     const strongPoints = [];
@@ -365,23 +387,27 @@ router.get('/:id/insights', async (req, res) => {
     const recommendations = [];
 
     if (totalRuns > 0) {
-      if (parseFloat(strikeRate) > 120) strongPoints.push('Aggressive batting');
-      if (parseFloat(battingAverage) > 30) strongPoints.push('Consistent run scorer');
-      if (fours + sixes > 10) strongPoints.push('Good boundary hitting');
+      if (strikeRate > 120) strongPoints.push('Aggressive batting');
+      if (battingAvg > 30) strongPoints.push('Consistent run scorer');
+      if (boundaries > 10) strongPoints.push('Good boundary hitting');
     }
     if (wicketsTaken > 0) {
-      if (parseFloat(economy) < 6) strongPoints.push('Economical bowling');
+      if (economy < 6) strongPoints.push('Economical bowling');
       if (wicketsTaken > 5) strongPoints.push('Regular wicket taker');
     }
+    // Dots are pressure, and the ledger now counts them properly.
+    if (ballsBowled >= 12 && num(stats.dotBalls) / ballsBowled > 0.4) strongPoints.push('Builds pressure with dots');
     if (strongPoints.length === 0) strongPoints.push(player.role || 'All-rounder');
 
-    if (parseFloat(strikeRate) < 80 && ballsFaced > 10) improvementAreas.push('Strike rate needs improvement');
-    if (parseFloat(economy) > 8 && oversBowled > 3) improvementAreas.push('Economy rate too high');
+    if (strikeRate < 80 && ballsFaced > 10) improvementAreas.push('Strike rate needs improvement');
+    // 3 overs, in balls — the old test compared against a count of Over rows.
+    if (economy > 8 && ballsBowled > 18) improvementAreas.push('Economy rate too high');
+    if (num(stats.sixesConceded) > 5) improvementAreas.push('Going for too many sixes');
     if (matchCount < 3) improvementAreas.push('Needs more match experience');
 
     if (matchCount >= 3) {
-      recentForm = parseFloat(battingAverage) > 25 ? 'Good' : 'Average';
-      trend = parseFloat(strikeRate) > 100 ? 'upward' : 'stable';
+      recentForm = battingAvg > 25 ? 'Good' : 'Average';
+      trend = strikeRate > 100 ? 'upward' : 'stable';
     }
 
     if (improvementAreas.length > 0) recommendations.push('Focus on ' + improvementAreas[0].toLowerCase());
@@ -391,20 +417,9 @@ router.get('/:id/insights', async (req, res) => {
     res.json({
       insights: {
         performance: { recentForm, trend, strongPoints, improvementAreas },
-        statistics: {
-          matches: matchCount,
-          totalRuns,
-          ballsFaced,
-          fours,
-          sixes,
-          battingAverage,
-          strikeRate,
-          oversBowled,
-          runsConceded,
-          wicketsTaken,
-          economy,
-          bowlingAverage,
-        },
+        // The full career rides along, so a caller needing numbers uses the same
+        // ones rather than a second, differently-computed set.
+        statistics: stats,
         recommendations,
       },
     });

@@ -1,25 +1,30 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Image,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
-
+import CareerBoard, { hasCareer } from '../components/CareerBoard';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-function BentoCard({ label, value, color, icon }) {
-  const DS = useTheme().colors;
-  const styles = useThemedStyles(makeStyles);
-  const c = color || DS.lime;
-  return (
-    <View style={[styles.bentoCard, { borderTopColor: c }]}>
-      {icon && <Icon name={icon} size={16} color={c} style={{ marginBottom: 4 }} />}
-      <Text style={styles.bentoVal}>{value ?? '—'}</Text>
-      <Text style={styles.bentoLbl}>{label}</Text>
-    </View>
-  );
-}
+// A player's career, opened from Rankings.
+//
+// It draws the SAME board as My Stats (components/CareerBoard) off the SAME
+// payload (/players/:id/career → backend lib/playerCareer.js). It used to draw
+// its own: colour-tinted bento tiles in Batting / Bowling / Fielding sections,
+// fed by /players/:id/insights, which computed cricket a third way and got a
+// two-ball over counted as a whole over. So the same career read differently
+// depending on whether you were looking at yourself or at someone else, and
+// there was no way to tell which screen was right.
+//
+// What stays particular to this screen: the hero (who this is), the standing
+// carried in from the board you tapped, and the scouting read underneath.
+
+const makeTrendConfig = (DS) => ({
+  upward:   { icon: 'trending-up',      color: DS.lime,  label: 'Improving' },
+  downward: { icon: 'trending-down',    color: DS.live,  label: 'Declining' },
+  stable:   { icon: 'trending-neutral', color: DS.coral, label: 'Stable'    },
+});
 
 function Section({ title, icon, children }) {
   const DS = useTheme().colors;
@@ -35,39 +40,54 @@ function Section({ title, icon, children }) {
   );
 }
 
-const makeTrendConfig = (DS) => ({
-  upward:   { icon: 'trending-up',    color: DS.lime,  label: 'Improving'  },
-  downward: { icon: 'trending-down',  color: DS.live,  label: 'Declining'  },
-  stable:   { icon: 'trending-neutral', color: DS.coral, label: 'Stable'   },
-});
-
-// Humanised labels for the generic career stats grid.
-const STAT_LABELS = {
-  matches: 'Matches', runs: 'Runs', wickets: 'Wickets', battingAverage: 'Bat Avg',
-  average: 'Average', strikeRate: 'Strike Rate', economy: 'Economy',
-  highestScore: 'Highest', centuries: '100s', halfCenturies: '50s',
-  innings: 'Innings', oversBowled: 'Overs', catches: 'Catches', runOuts: 'Run-outs',
-  goals: 'Goals', assists: 'Assists',
-  cleanSheets: 'Clean Sheets', saves: 'Saves', points: 'Points', wins: 'Wins',
-  titles: 'Titles', fours: 'Fours', sixes: 'Sixes',
-};
-// Only these render. The old filter admitted any value that merely LOOKED
-// numeric — `/^\d/.test(String(v))` — and Player.stats is a free-form Json
-// column, so a `phone` entry sitting in there was drawn as a stat card labelled
-// "phone": a player's number on a screen anyone can open. An allowlist can't
-// leak the next unexpected key the way a blocklist would.
-const CAREER_KEYS = Object.keys(STAT_LABELS);
-const makeStatColors = (DS) => [DS.lime, DS.coral, DS.blue, '#c4b5fd', '#7dd3fc', '#fbbf24'];
+// Same shape-matching placeholder as My Stats, so both screens settle the same way.
+function BoardSkeleton({ DS }) {
+  const pulse = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 0.75, duration: 900, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0.35, duration: 900, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  const Bar = ({ w, h, r = 6 }) => (
+    <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity: pulse }} />
+  );
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, padding: 13, gap: 12 }}>
+        <Bar w="45%" h={10} />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {[0, 1, 2, 3, 4].map((i) => <Bar key={i} w={28} h={28} r={14} />)}
+        </View>
+      </View>
+      <View style={{ backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, padding: 13 }}>
+        {[0, 1, 2].map((r) => (
+          <View key={r} style={{ flexDirection: 'row', paddingVertical: 9 }}>
+            {[0, 1, 2].map((c) => (
+              <View key={c} style={{ flex: 1, gap: 6 }}>
+                <Bar w="55%" h={16} />
+                <Bar w="72%" h={8} />
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 export default function PlayerInsightsScreen({ route, navigation }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const TREND_CONFIG = makeTrendConfig(DS);
-  const STAT_COLORS = makeStatColors(DS);
   const { playerId, player: passed, standing, boardLabel } = route.params || {};
+
+  const [career, setCareer] = useState(null);
   const [insights, setInsights] = useState({});
-  const [apiPlayer, setApiPlayer] = useState(null);
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useLayoutEffect(() => {
     // This screen draws its own hero — back button, avatar, name, role and team —
@@ -76,48 +96,45 @@ export default function PlayerInsightsScreen({ route, navigation }) {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  useEffect(() => {
-    Promise.all([
-      legendsApi.getPlayerInsights(playerId),
-      legendsApi.getPlayer(playerId),
-    ]).then(([ins, pl]) => {
-      if (ins.success) setInsights(ins.data);
-      if (pl.success && pl.data) setApiPlayer(pl.data);
-    }).finally(() => setLoading(false));
-  }, [playerId]);
+  const load = useCallback(() => Promise.all([
+    legendsApi.getPlayerCareer(playerId),
+    legendsApi.getPlayerInsights(playerId),
+  ]).then(([c, ins]) => {
+    if (c.success) setCareer(c.data);
+    if (ins.success) setInsights(ins.data);
+  }), [playerId]);
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={DS.lime} />
-      </View>
-    );
-  }
+  useEffect(() => { load().finally(() => setLoading(false)); }, [load]);
 
-  const stats = insights.statistics || {};
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    load().finally(() => setRefreshing(false));
+  }, [load]);
+
   const perf  = insights.performance || {};
   const trend = TREND_CONFIG[perf.trend] || TREND_CONFIG.stable;
+  const stats = career?.stats || null;
 
-  // Player profile (from the tapped row + the API record).
-  const name = passed?.name || apiPlayer?.name || 'Player';
-  const role = passed?.role || apiPlayer?.role || 'Cricketer';
-  const teamName = passed?.team || apiPlayer?.team?.name || '';
-  const sportId = apiPlayer?.sport || passed?.sport || 'cricket';
-  const career = apiPlayer?.stats || {};
-  const initials = name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-  // Rankings passes the row through, which now carries the linked account's photo.
-  const avatarUrl = passed?.avatarUrl || passed?.user?.avatarUrl || apiPlayer?.user?.avatarUrl || null;
-  const careerCells = CAREER_KEYS
-    .filter((k) => career[k] != null && career[k] !== '')
-    .map((k) => [k, career[k]])
-    .slice(0, 6);
+  // Who this is. The tapped row already carries most of it, so the hero paints
+  // before the fetch returns.
+  const name = passed?.name || career?.player?.name || 'Player';
+  const role = passed?.role || career?.role || career?.player?.role || 'Cricketer';
+  const teamName = passed?.team || career?.team || '';
+  const sportId = career?.sport || passed?.sport || 'cricket';
+  const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  // Rankings passes the row through, which carries the linked account's photo.
+  const avatarUrl = passed?.avatarUrl || passed?.user?.avatarUrl || career?.player?.avatarUrl || null;
+
+  const strong = perf.strongPoints || [];
+  const improve = perf.improvementAreas || [];
+  const recs = insights.recommendations || [];
 
   return (
     <View style={styles.container}>
-      {/* Hero — player profile */}
+      {/* Hero — who this is, and why you opened them */}
       <View style={styles.hero}>
         {navigation && (
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={8}>
             <Icon name="arrow-left" size={22} color={DS.textPrimary} />
           </TouchableOpacity>
         )}
@@ -127,7 +144,7 @@ export default function PlayerInsightsScreen({ route, navigation }) {
         <View style={{ flex: 1 }}>
           <Text style={styles.heroTitle} numberOfLines={1}>{name}</Text>
           <Text style={styles.heroSub} numberOfLines={1}>
-            {role}{teamName ? ` · ${teamName}` : ''}{career.style ? ` · ${career.style}` : ''}
+            {role}{teamName ? ` · ${teamName}` : ''}
           </Text>
         </View>
         {/* Carried from Rankings — the reason you opened this profile. */}
@@ -139,128 +156,76 @@ export default function PlayerInsightsScreen({ route, navigation }) {
         )}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}>
         <View style={styles.body}>
-          {/* Career bento is the fallback for sports with no dedicated sections
-              below. For cricket it just restated Batting and Bowling. */}
-          {sportId !== 'cricket' && careerCells.length > 0 && (
-            <Section title="Career" icon="chart-box-outline">
-              <View style={styles.bentoGrid}>
-                {careerCells.map(([k, v], i) => (
-                  <BentoCard key={k} label={STAT_LABELS[k] || k} value={String(v)}
-                    color={STAT_COLORS[i % STAT_COLORS.length]} />
-                ))}
+          {loading ? (
+            <BoardSkeleton DS={DS} />
+          ) : hasCareer(stats, sportId) ? (
+            <CareerBoard stats={stats} sportId={sportId} navigation={navigation} />
+          ) : (
+            <View style={styles.empty}>
+              <Icon name="chart-line" size={44} color={DS.textMuted} />
+              <Text style={styles.emptyTitle}>No career numbers yet</Text>
+              <Text style={styles.emptySub}>{name} hasn't played a scored match on Local Legends.</Text>
+            </View>
+          )}
+
+          {/* The scouting read — what the board above adds up to. Its thresholds
+              run on those same numbers now, so it can't tell you an economy is
+              fine while the table over it says otherwise. */}
+          {!loading && (strong.length > 0 || improve.length > 0) && (
+            <Section title="Analysis" icon="chart-donut">
+              <View style={styles.trendRow}>
+                <Icon name={trend.icon} size={18} color={trend.color} />
+                <Text style={[styles.trendLabel, { color: trend.color }]}>{trend.label}</Text>
+                {!!perf.recentForm && perf.recentForm !== 'N/A' && (
+                  <Text style={styles.trendForm}>· form {perf.recentForm.toLowerCase()}</Text>
+                )}
+              </View>
+              <View style={styles.analysisRow}>
+                <View style={styles.analysisBox}>
+                  <View style={styles.analysisHeader}>
+                    <Icon name="star-circle" size={14} color={DS.lime} />
+                    <Text style={[styles.analysisTitle, { color: DS.lime }]}>Strong Points</Text>
+                  </View>
+                  {strong.length > 0
+                    ? strong.map((p, i) => (
+                      <View key={i} style={styles.bulletRow}>
+                        <View style={[styles.bullet, { backgroundColor: DS.lime }]} />
+                        <Text style={styles.bulletText}>{p}</Text>
+                      </View>
+                    ))
+                    : <Text style={styles.noData}>No data yet</Text>}
+                </View>
+                <View style={styles.analysisBox}>
+                  <View style={styles.analysisHeader}>
+                    <Icon name="arrow-up-circle" size={14} color={DS.coral} />
+                    <Text style={[styles.analysisTitle, { color: DS.coral }]}>To Improve</Text>
+                  </View>
+                  {improve.length > 0
+                    ? improve.map((a, i) => (
+                      <View key={i} style={styles.bulletRow}>
+                        <View style={[styles.bullet, { backgroundColor: DS.coral }]} />
+                        <Text style={styles.bulletText}>{a}</Text>
+                      </View>
+                    ))
+                    : <Text style={styles.noData}>No data yet</Text>}
+                </View>
               </View>
             </Section>
           )}
 
-          {/* Cricket-specific analytics (ball-by-ball derived) */}
-          {sportId === 'cricket' && (<>
-          {/* Overview strip */}
-          <View style={styles.overviewRow}>
-            <View style={styles.formChip}>
-              <Text style={[styles.formLabel, perf.recentForm === 'Good' ? { color: DS.lime } : { color: DS.live }]}>
-                {perf.recentForm || 'N/A'}
-              </Text>
-              <Text style={styles.formSub}>Recent Form</Text>
-            </View>
-            <View style={styles.trendChip}>
-              <Icon name={trend.icon} size={22} color={trend.color} />
-              <Text style={[styles.trendLabel, { color: trend.color }]}>{trend.label}</Text>
-              <Text style={styles.formSub}>Trend</Text>
-            </View>
-            <View style={styles.formChip}>
-              <Text style={styles.formLabel}>{stats.matches ?? 0}</Text>
-              <Text style={styles.formSub}>Matches</Text>
-            </View>
-          </View>
-
-          {/* Batting bento grid */}
-          <Section title="Batting" icon="cricket">
-            <View style={styles.bentoGrid}>
-              <BentoCard label="Runs"        value={stats.totalRuns}       color={DS.coral}  icon="cricket" />
-              <BentoCard label="Average"     value={stats.battingAverage}  color={DS.lime}   icon="chart-line" />
-              <BentoCard label="Strike Rate" value={stats.strikeRate}      color="#c4b5fd"    icon="lightning-bolt" />
-              <BentoCard label="4s / 6s"    value={stats.fours != null ? `${stats.fours}/${stats.sixes ?? 0}` : null}
-                color={DS.blue} icon="numeric" />
-            </View>
-          </Section>
-
-          {/* Bowling bento grid */}
-          <Section title="Bowling" icon="weather-windy">
-            <View style={styles.bentoGrid}>
-              <BentoCard label="Wickets"      value={stats.wicketsTaken}   color={DS.lime}   icon="weather-windy" />
-              <BentoCard label="Bowling Avg"  value={stats.bowlingAverage} color={DS.coral}   icon="numeric" />
-              <BentoCard label="Economy"      value={stats.economy}        color={DS.blue}    icon="speedometer" />
-              <BentoCard label="Overs"        value={stats.oversBowled}    color="#7dd3fc"     icon="timer-outline" />
-            </View>
-          </Section>
-
-          {/* Fielding — catches and run-outs credited to this player. The
-              scorer has always recorded them; nothing ever showed them. */}
-          <Section title="Fielding" icon="hand-back-right-outline">
-            <View style={styles.bentoGrid}>
-              <BentoCard label="Catches"  value={career.catches ?? 0}  color={DS.lime}  icon="hand-back-right-outline" />
-              <BentoCard label="Run-outs" value={career.runOuts ?? 0}  color={DS.coral} icon="run-fast" />
-              <BentoCard label="Dismissals"
-                value={(career.catches ?? 0) + (career.runOuts ?? 0)}
-                color={DS.blue} icon="sigma" />
-            </View>
-          </Section>
-
-          {/* Strengths & Improvements */}
-          <Section title="Analysis" icon="chart-donut">
-            <View style={styles.analysisRow}>
-              <View style={styles.strengthBox}>
-                <View style={styles.analysisHeader}>
-                  <Icon name="star-circle" size={14} color={DS.lime} />
-                  <Text style={[styles.analysisTitle, { color: DS.lime }]}>Strong Points</Text>
-                </View>
-                {(perf.strongPoints || []).length > 0
-                  ? perf.strongPoints.map((p, i) => (
-                    <View key={i} style={styles.bulletRow}>
-                      <View style={[styles.bullet, { backgroundColor: DS.lime }]} />
-                      <Text style={styles.bulletText}>{p}</Text>
-                    </View>
-                  ))
-                  : <Text style={styles.emptyText}>No data yet</Text>}
-              </View>
-              <View style={styles.improveBox}>
-                <View style={styles.analysisHeader}>
-                  <Icon name="arrow-up-circle" size={14} color={DS.coral} />
-                  <Text style={[styles.analysisTitle, { color: DS.coral }]}>To Improve</Text>
-                </View>
-                {(perf.improvementAreas || []).length > 0
-                  ? perf.improvementAreas.map((a, i) => (
-                    <View key={i} style={styles.bulletRow}>
-                      <View style={[styles.bullet, { backgroundColor: DS.coral }]} />
-                      <Text style={styles.bulletText}>{a}</Text>
-                    </View>
-                  ))
-                  : <Text style={styles.emptyText}>No data yet</Text>}
-              </View>
-            </View>
-          </Section>
-
-          {/* Recommendations */}
-          <Section title="Recommendations" icon="lightbulb-outline">
-            {(insights.recommendations || []).length > 0
-              ? insights.recommendations.map((rec, i) => (
+          {!loading && recs.length > 0 && (
+            <Section title="Recommendations" icon="lightbulb-outline">
+              {recs.map((rec, i) => (
                 <View key={i} style={styles.recRow}>
-                  <View style={styles.recNum}>
-                    <Text style={styles.recNumText}>{i + 1}</Text>
-                  </View>
+                  <View style={styles.recNum}><Text style={styles.recNumText}>{i + 1}</Text></View>
                   <Text style={styles.recText}>{rec}</Text>
                 </View>
-              ))
-              : (
-                <View style={styles.emptyState}>
-                  <Icon name="cricket" size={36} color={DS.textMuted} />
-                  <Text style={styles.emptyStateText}>Play more matches to get recommendations</Text>
-                </View>
-              )}
-          </Section>
-          </>)}
+              ))}
+            </Section>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -269,7 +234,6 @@ export default function PlayerInsightsScreen({ route, navigation }) {
 
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
 
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -278,6 +242,9 @@ const makeStyles = (DS) => StyleSheet.create({
   backBtn: { padding: 4 },
   heroAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
   heroAvatarImg: { width: 44, height: 44, borderRadius: 22, backgroundColor: DS.surfaceHighest },
+  heroAvatarTxt: { color: DS.onLime, fontWeight: '800', fontSize: 16 },
+  heroTitle: { fontSize: 20, fontWeight: '800', color: DS.textPrimary },
+  heroSub: { fontSize: 12, color: DS.textMuted, marginTop: 2 },
   rankPill: {
     alignItems: 'center', justifyContent: 'center', minWidth: 54,
     paddingHorizontal: 10, paddingVertical: 5,
@@ -285,52 +252,34 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   rankPillNum: { fontSize: 16, fontWeight: '900', color: DS.lime, letterSpacing: -0.4 },
   rankPillLbl: { fontSize: 8.5, fontWeight: '800', color: DS.lime, letterSpacing: 0.4, textTransform: 'uppercase' },
-  heroAvatarTxt: { color: DS.bg, fontWeight: '800', fontSize: 16 },
-  heroTitle: { fontSize: 20, fontWeight: '800', color: DS.textPrimary },
-  heroSub: { fontSize: 12, color: DS.textMuted, marginTop: 2 },
 
-  body: { padding: 16, gap: 12, paddingBottom: 32 },
+  body: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 32, gap: 10 },
 
-  overviewRow: {
-    flexDirection: 'row', backgroundColor: DS.surfaceHigh, borderRadius: 16,
-  },
-  formChip: { flex: 1, alignItems: 'center', paddingVertical: 16, gap: 4 },
-  trendChip: { flex: 1, alignItems: 'center', paddingVertical: 14, gap: 2,
-    backgroundColor: DS.surfaceHighest, borderRadius: 12, marginVertical: 4 },
-  formLabel: { fontSize: 18, fontWeight: '900', color: DS.textPrimary },
-  trendLabel: { fontSize: 12, fontWeight: '700' },
-  formSub: { fontSize: 10, color: DS.textMuted, fontWeight: '600' },
+  empty: { alignItems: 'center', paddingVertical: 48, gap: 8 },
+  emptyTitle: { fontSize: 15, fontWeight: '700', color: DS.textVariant, marginTop: 6 },
+  emptySub: { fontSize: 12.5, color: DS.textMuted, textAlign: 'center', paddingHorizontal: 28, lineHeight: 18 },
 
-  section: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16, gap: 10 },
+  /* Scouting read — same card chrome as the board above it. */
+  section: { backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, padding: 13, gap: 10 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sectionTitle: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
-
-  bentoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  bentoCard: {
-    width: '47%', backgroundColor: DS.surfaceLow, borderRadius: 12,
-    borderTopWidth: 3, padding: 12,
-  },
-  bentoVal: { fontSize: 22, fontWeight: '900', color: DS.textPrimary, marginBottom: 2 },
-  bentoLbl: { fontSize: 11, color: DS.textVariant, fontWeight: '600' },
-
-  analysisRow: { flexDirection: 'row', gap: 10 },
-  strengthBox: { flex: 1, gap: 6 },
-  improveBox: { flex: 1, gap: 6 },
+  sectionTitle: { fontSize: 13, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.2 },
+  trendRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  trendLabel: { fontSize: 12.5, fontWeight: '800' },
+  trendForm: { fontSize: 11.5, color: DS.textMuted, fontWeight: '600' },
+  analysisRow: { flexDirection: 'row', gap: 12 },
+  analysisBox: { flex: 1, gap: 6 },
   analysisHeader: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  analysisTitle: { fontSize: 12, fontWeight: '800' },
+  analysisTitle: { fontSize: 11.5, fontWeight: '800' },
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  bullet: { width: 6, height: 6, borderRadius: 3, marginTop: 5 },
+  bullet: { width: 5, height: 5, borderRadius: 2.5, marginTop: 6 },
   bulletText: { flex: 1, fontSize: 12, color: DS.textPrimary, lineHeight: 18 },
-  emptyText: { fontSize: 12, color: DS.textMuted, fontStyle: 'italic' },
+  noData: { fontSize: 11.5, color: DS.textMuted, fontStyle: 'italic' },
 
   recRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   recNum: {
-    width: 22, height: 22, borderRadius: 11,
+    width: 20, height: 20, borderRadius: 10,
     backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', marginTop: 1,
   },
-  recNumText: { fontSize: 11, fontWeight: '900', color: DS.bg },
-  recText: { flex: 1, fontSize: 13, color: DS.textPrimary, lineHeight: 20 },
-
-  emptyState: { alignItems: 'center', paddingVertical: 20, gap: 8 },
-  emptyStateText: { fontSize: 13, color: DS.textVariant, textAlign: 'center' },
+  recNumText: { fontSize: 10.5, fontWeight: '900', color: DS.onLime },
+  recText: { flex: 1, fontSize: 12.5, color: DS.textPrimary, lineHeight: 19 },
 });

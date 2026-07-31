@@ -1207,6 +1207,18 @@ class LegendsApi {
     }
   }
 
+  // One player's career in the SAME shape as getUserStats — same endpoint family,
+  // same computation (backend lib/playerCareer.js) — so a tapped player and My
+  // Stats draw from identical data through the same CareerBoard.
+  async getPlayerCareer(playerId) {
+    try {
+      const json = await this.request(`/players/${playerId}/career`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Tournament listing
   async getTournaments(params = {}) {
     try {
