@@ -42,16 +42,24 @@ export const makeControls = (DS) => StyleSheet.create({
   navPillInactive: { backgroundColor: CONTROL.grey },
   navPillText: { fontSize: 15, fontWeight: '900', letterSpacing: 0.2 },
   // Equal-width variant, for a row that has to fit the longest label a sport
-  // uses ("TOURNAMENTS") rather than sizing to its content. On a 411dp screen
-  // three pills leave ~102dp of label each, which fits it at 13 with room over;
-  // at four it was ~46dp and clipped to "TOURNAMEN". No icon: at four tabs the
-  // icon and its gap cost ~19dp and clipped the label again, but only on the
-  // SELECTED pill — and the fill already says which one that is.
+  // uses rather than sizing to its content. Three pills on a 411dp screen:
+  // 118dp each, less 12 padding, 14 icon and 5 gap, leaves 87dp. "TOURNAMENTS"
+  // measures ~90dp at 12 and ~82 at 11 — measured off a screenshot, because the
+  // arithmetic estimate said 82 at 12 and it clipped anyway. At four tabs the
+  // budget was ~46dp and it clipped to "TOURNAMEN".
+  //
+  // adjustsFontSizeToFit is on the label as a backstop but does NOT rescue this
+  // on Android, so the size has to be right on its own.
+  //
+  // Every pill carries its icon, not just the selected one as Pavilion does.
+  // With icon-on-active the label budget SHRINKS by 19dp the moment you tap a
+  // tab, so a label can fit while inactive and clip while active — which is
+  // exactly how this broke before. A constant budget can't do that.
   navPillTight: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-    paddingHorizontal: 8, paddingVertical: 10, borderRadius: 999,
+    paddingHorizontal: 6, paddingVertical: 10, borderRadius: 999,
   },
-  navPillTextTight: { fontSize: 13, fontWeight: '900', letterSpacing: 0, flexShrink: 1 },
+  navPillTextTight: { fontSize: 11, fontWeight: '900', letterSpacing: 0, flexShrink: 1 },
 
   /* ── L2: local view-mode toggle (Rankings' Players / Teams) ────────────────
      Equal-width buttons on their own fill; the selected one goes pale green

@@ -284,11 +284,10 @@ export default function HomeScreen({ navigation }) {
                 onPress={() => handleNavTab(i)}
                 activeOpacity={0.85}
               >
-                {/* No icon in the tight variant. Pavilion shows one on the
-                    active pill, but with four tabs the icon + gap costs ~19dp of
-                    a ~70dp label and clipped "TOURNAMENTS" to "TOURNAMENT" only
-                    while it was selected. The deep-green fill already says which
-                    tab is active. */}
+                {/* Every pill carries its icon, not just the active one —
+                    see navPillTight: an icon that appears on selection steals
+                    19dp from the label at the moment you tap it. */}
+                <Icon name={tab.icon} size={14} color={on ? CONTROL.onGreen : CONTROL.slate} />
                 <Text
                   style={[C.navPillTextTight, { color: on ? CONTROL.onGreen : CONTROL.slate }]}
                   numberOfLines={1}
