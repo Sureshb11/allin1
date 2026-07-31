@@ -130,18 +130,38 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
     computed.notOuts       = Math.max(0, innScores.length - dismissals);
   }
   if (bowlBalls.length) {
-    // Penalty runs are a team award, not the bowler's fault — exclude them from
-    // legal-ball count and runs conceded.
+    // ── What a delivery costs its bowler ──────────────────────────────────────
+    // These two rules are the scorecard's (ScorecardScreen → computeBowling, and
+    // the same in lib/mvp.js and lib/leaderboard.js). This route had its own,
+    // looser pair — everything except a penalty was a legal ball, and every run
+    // on the ball was charged — so byes and leg-byes were billed to the bowler
+    // and retirements counted as deliveries. A player's economy here therefore
+    // read worse than the scorecard printed for the very same spell.
+    //
+    // Charged: wides cost their extras, a no-ball costs the extras and whatever
+    // was hit off it, byes and leg-byes cost nothing (they aren't the bowler's),
+    // and a penalty or retirement isn't a delivery at all.
+    const chargedRuns = (b) =>
+      b.extraType === 'wide' ? b.extras
+      : b.extraType === 'noBall' ? b.runs + b.extras
+      : (b.extraType && b.extraType !== 'bye' && b.extraType !== 'legBye') ? 0
+      : (b.extraType ? 0 : b.runs);
+    // One of the over's six. Wides and no-balls are re-bowled; a penalty,
+    // retirement or dead ball was never bowled.
+    const isLegal = (b) => !['wide', 'noBall', 'penalty', 'retired', 'deadBall'].includes(b.extraType);
+    // A boundary is one hit off the bat — four byes are not the bowler's four.
+    const offTheBat = (b) => !b.extraType || b.extraType === 'noBall';
+
     const bowled = bowlBalls.filter((b) => b.extraType !== 'penalty');
-    const legal = bowled.filter((b) => b.extraType !== 'wide' && b.extraType !== 'noBall').length;
-    const conceded = bowled.reduce((t, b) => t + b.runs + b.extras, 0);
+    const legal = bowled.filter(isLegal).length;
+    const conceded = bowled.reduce((t, b) => t + chargedRuns(b), 0);
     const wickets = bowled.filter((b) => b.isWicket && b.wicketType !== 'runOut').length;
     // Per-innings figures → best bowling ("3/12") + five-wicket hauls.
     const fig = {};
     for (const b of bowled) {
       const k = b.over.inningId;
       fig[k] = fig[k] || { w: 0, r: 0 };
-      fig[k].r += b.runs + b.extras;
+      fig[k].r += chargedRuns(b);
       if (b.isWicket && b.wicketType !== 'runOut') fig[k].w += 1;
     }
     const best = Object.values(fig).sort((a, b) => b.w - a.w || a.r - b.r)[0];
@@ -153,6 +173,12 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
     computed.bowlingAverage = wickets ? +(conceded / wickets).toFixed(1) : null;
     computed.bestBowling    = best ? `${best.w}/${best.r}` : null;
     computed.fiveWickets    = Object.values(fig).filter((f) => f.w >= 5).length;
+    // A dot is a delivery that cost the bowler nothing — the same test the
+    // scorecard applies six times over to call an over a maiden, so a leg-bye
+    // scampered off a good ball doesn't take the dot away from the bowler.
+    computed.dotBalls       = bowled.filter((b) => isLegal(b) && chargedRuns(b) === 0).length;
+    computed.foursConceded  = bowled.filter((b) => offTheBat(b) && b.runs === 4).length;
+    computed.sixesConceded  = bowled.filter((b) => offTheBat(b) && b.runs === 6).length;
   }
   if (xiMatches) computed.matches = xiMatches;
 

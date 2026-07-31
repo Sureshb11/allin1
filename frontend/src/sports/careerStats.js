@@ -39,6 +39,11 @@ const CRICKET = [
     { label: 'Bowling Avg',  key: 'bowlingAverage' },
     { label: 'Best Figures', key: 'bestBowling' },
     { label: '5-wkt Hauls',  key: 'fiveWickets' },
+    // What the spell felt like from the other end: pressure built, and what it
+    // cost when it broke.
+    { label: 'Dot Balls',    key: 'dotBalls' },
+    { label: 'Fours Given',  key: 'foursConceded' },
+    { label: 'Sixes Given',  key: 'sixesConceded' },
   ]},
   // Cricket lost its fielding panel when these tables replaced the screen's
   // hardcoded tabs, and the payload had nothing to fill one with — even though
