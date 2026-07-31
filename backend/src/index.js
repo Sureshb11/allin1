@@ -52,10 +52,22 @@ app.get('/', (req, res) => res.json({
   health: '/health',
 }));
 
+// Which build is actually serving. Vercel injects VERCEL_GIT_COMMIT_SHA into the
+// deployment's environment, and until this was reported nothing did — so "is my
+// change live?" could only be answered by finding some public route whose output
+// had changed, and a route that returns the same shape either way (a new field
+// on an authenticated response, say) couldn't be checked at all. A deploy that
+// silently didn't happen looks exactly like a bug in the code you just wrote.
+const COMMIT = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || null;
+
 app.get('/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ ok: true, service: 'local-legends-api', version: '1.0.1' });
+    res.json({
+      ok: true, service: 'local-legends-api', version: '1.0.1',
+      commit: COMMIT ? COMMIT.slice(0, 7) : 'unknown',
+      deployedAt: process.env.VERCEL_DEPLOYMENT_ID ? undefined : 'local',
+    });
   } catch (e) {
     res.status(500).json({ ok: false, error: 'db' });
   }
