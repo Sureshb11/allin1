@@ -5,6 +5,7 @@ import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, cancelAnimation, runOnJS } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { makeControls, controlColors } from '../theme/controls';
 
 import MyPerformanceScreen from './MyPerformanceScreen';
 import StatisticsScreen from './StatisticsScreen';
@@ -75,6 +76,9 @@ function PagerPage({ index, tx, children }) {
 export default function PavilionScreen({ navigation, route }) {
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  // The L1 pill is the shared one, so Pavilion and Home draw the same control.
+  const C = useThemedStyles(makeControls);
+  const CONTROL = controlColors(DS);
   const P = pav(DS);
   const meUser = useCurrentUser();
   const tabClear = useTabBarClearance();
@@ -184,19 +188,31 @@ export default function PavilionScreen({ navigation, route }) {
       {/* ── HEADER ──────────────────────── */}
       <AppHeader />
 
-      {/* ── L1 NAV (separate pills; active = green + icon) ──────────── */}
-      <View style={styles.navRow}>
+      {/* ── L1 NAV ──────────────────────────────────────────────────────
+          Was this screen's own copy of the pill: content-sized, 20pt of side
+          padding and a 15pt label. Three of those don't fit 411dp, so Scout was
+          cut off at the right edge with no way to see it was there.
+
+          The shared tight variant instead — equal thirds, so the row fits
+          whatever the labels are, and the same pill Home draws for MATCHES /
+          TEAMS / TOURNAMENTS. Same control, same size, both places. */}
+      <View style={C.navRow}>
         {TABS.map((tab, i) => {
           const isActive = activeTab === i;
           return (
             <TouchableOpacity
               key={tab.label}
-              style={[styles.navPill, isActive ? styles.navPillActive : styles.navPillInactive]}
+              style={[C.navPillTight, isActive ? C.navPillActive : C.navPillInactive]}
               onPress={() => goToTab(i)}
               activeOpacity={0.85}
             >
-              <Icon name={tab.icon} size={16} color={isActive ? "#ffffff" : "#475569"} />
-              <Text style={[styles.navPillText, isActive ? styles.navPillTextActive : styles.navPillTextInactive]}>{tab.label}</Text>
+              <Icon name={tab.icon} size={14} color={isActive ? CONTROL.onGreen : CONTROL.slate} />
+              <Text
+                style={[C.navPillTextTight, { color: isActive ? CONTROL.onGreen : CONTROL.slate }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >{tab.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -240,16 +256,6 @@ export default function PavilionScreen({ navigation, route }) {
 
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
-
-  // L1 nav: three separate rounded pills. Inactive = grey, text-only; active =
-  // green with its icon (matches the reference's single filled tab).
-  navRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
-  navPill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999 },
-  navPillActive: { backgroundColor: '#0f4c3a' },
-  navPillInactive: { backgroundColor: '#f1f5f9' },
-  navPillText: { fontSize: 15, fontWeight: '900', letterSpacing: 0.2 },
-  navPillTextActive: { color: '#ffffff' },
-  navPillTextInactive: { color: '#475569' },
 
   // Green primary; a rounded rectangle (not a full pill). `bottom` is dock clearance.
   fab: {
