@@ -62,7 +62,7 @@ const AnimatedPulse = ({ children, style }) => {
   useEffect(() => {
     const anim = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.15, duration: 1200, useNativeDriver: true }),
         Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
       ])
     );
@@ -627,13 +627,13 @@ export default function MyMatchesScreen({ navigation }) {
       </GestureDetector>
 
       {/* Floating Action Button for Quick Match */}
-      <AnimatedPulse style={[styles.fabContainer, { bottom: tabClear + 16 }]}>
+      <AnimatedPulse style={[styles.fabContainer, { bottom: 24 + tabClear }]}>
         <TouchableOpacity 
           style={styles.fab} 
           activeOpacity={0.9}
           onPress={() => navigation.navigate('StartMatch')}
         >
-          <Icon name="plus" size={30} color="#000" />
+          <Icon name="plus" size={24} color="#000" />
         </TouchableOpacity>
       </AnimatedPulse>
     </View>
@@ -744,8 +744,9 @@ const makeStyles = (DS) => StyleSheet.create({
   // FAB
   fabContainer: {
     position: 'absolute',
-    right: 16,
-    zIndex: 100,
+    bottom: 24,
+    right: 24,
+    zIndex: 999,
   },
   fab: {
     width: 56,
@@ -754,11 +755,12 @@ const makeStyles = (DS) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: DS.lime,
+    elevation: 8,
+    zIndex: 999,
     shadowColor: DS.lime,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.5,
     shadowRadius: 10,
-    elevation: 8,
   },
 
   broadcastLayout: { paddingHorizontal: 16, paddingVertical: 12, gap: 16 },

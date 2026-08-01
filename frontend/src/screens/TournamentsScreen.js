@@ -107,28 +107,27 @@ const getAlbumColor = (str) => {
 
 const DynamicFAB = ({ tabClear, onPress, DS }) => {
   return (
-    <Animated.View style={{
-      position: 'absolute',
-      bottom: 24 + tabClear,
-      right: 16,
-      height: 56,
-      width: 56,
-      backgroundColor: DS.lime,
-      borderRadius: 28,
-      elevation: 6,
-      shadowColor: DS.lime,
-      shadowOpacity: 0.4,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 4 },
-      overflow: 'hidden'
-    }}>
+    <AnimatedPulse style={{ position: 'absolute', bottom: 24 + tabClear, right: 24, zIndex: 999 }}>
       <TouchableOpacity 
-        style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: DS.lime,
+          alignItems: 'center',
+          justifyContent: 'center',
+          elevation: 8,
+          shadowColor: DS.lime,
+          shadowOpacity: 0.5,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 6 },
+        }}
         onPress={() => { ReactNativeHapticFeedback.trigger('impactLight'); onPress(); }}
+        activeOpacity={0.9}
       >
-        <Icon name="plus" size={32} color="#fff" />
+        <Icon name="plus" size={24} color="#000" />
       </TouchableOpacity>
-    </Animated.View>
+    </AnimatedPulse>
   );
 };
 

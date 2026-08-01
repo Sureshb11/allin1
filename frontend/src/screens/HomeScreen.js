@@ -94,7 +94,7 @@ const AnimatedPulse = ({ children, style }) => {
   useEffect(() => {
     const anim = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.15, duration: 1200, useNativeDriver: true }),
         Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
       ])
     );
@@ -419,13 +419,13 @@ export default function HomeScreen({ navigation }) {
 
       {/* Floating Action Button for Quick Match (Matches Tab Only) */}
       {activeNavTab === 0 && (
-        <AnimatedPulse style={[styles.fabContainer, { bottom: tabClear + 16 }]}>
+        <AnimatedPulse style={[styles.fabContainer, { bottom: 24 + tabClear }]}>
           <TouchableOpacity 
             style={[styles.fab, { backgroundColor: sportTint, shadowColor: sportTint }]} 
             activeOpacity={0.9}
             onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
           >
-            <Icon name="plus" size={30} color={DS.bg} />
+            <Icon name="plus" size={24} color={DS.bg} />
           </TouchableOpacity>
         </AnimatedPulse>
       )}
@@ -574,8 +574,9 @@ const makeStyles = (DS, typography, radii, shadows) => StyleSheet.create({
   // FAB
   fabContainer: {
     position: 'absolute',
-    right: 16,
-    zIndex: 100,
+    bottom: 24,
+    right: 24,
+    zIndex: 999,
   },
   fab: {
     width: 56,
@@ -583,10 +584,11 @@ const makeStyles = (DS, typography, radii, shadows) => StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
     elevation: 8,
+    zIndex: 999,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
   },
 
   // Filters and Search
