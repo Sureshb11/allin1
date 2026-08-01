@@ -13,6 +13,7 @@ import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import BrandLogo from '../components/BrandLogo';
 import { teamNamePairStyle } from '../utils/teamNameSize';
+import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 
 // Single-accent: team avatars are the deep green (white initials read on it),
 // matching the hexagons on the home feed.
@@ -312,45 +313,34 @@ const FILTER_ICONS = { all: 'view-grid', live: 'circle-slice-8', upcoming: 'cale
 export const FILTER_STATUS_MAP = { all: 'all', live: 'live', upcoming: 'scheduled', completed: 'completed' };
 
 function LiveScoreTicker({ matches }) {
+  // Every hook runs before any early return — bailing out first made useTheme
+  // conditional, so the hook order changed the moment a match went live.
+  const DS = useTheme().colors;
   const liveMatches = matches.filter(m => m.status === 'live');
   if (!liveMatches.length) return null;
 
-  const DS = useTheme().colors;
-  const translateX = useSharedValue(0);
-
-  useEffect(() => {
-    // arbitrary translation distance for marquee
-    translateX.value = withRepeat(
-      withTiming(-1000, { duration: 15000, easing: Easing.linear }),
-      -1, // infinite
-      false // don't reverse
-    );
-  }, [liveMatches.length]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }]
-  }));
-
-  // Duplicate the list once to create an infinite scroll illusion
-  const renderList = [...liveMatches, ...liveMatches, ...liveMatches];
-
   return (
-    <View style={{ backgroundColor: '#111', overflow: 'hidden', paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: DS.live }}>
-      <Reanimated.View style={[{ flexDirection: 'row', gap: 40, paddingHorizontal: 16 }, animatedStyle]}>
-        {renderList.map((m, i) => (
-          <View key={`${m.id}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+    <View style={{ backgroundColor: '#111', borderBottomWidth: 2, borderBottomColor: DS.live }}>
+      <FlatList
+        data={liveMatches}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={m => m.id}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 16 }}
+        renderItem={({ item: m }) => (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#222', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DS.live, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, gap: 4 }}>
               <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#fff' }} />
               <Text style={{ fontSize: 10, fontWeight: '900', color: '#fff', letterSpacing: 0.5 }}>LIVE</Text>
             </View>
-            <Text style={{ fontSize: 14, fontWeight: '800', color: '#fff', fontVariant: ['tabular-nums'] }}>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#fff', fontVariant: ['tabular-nums'] }}>
               {m.team1 || 'TBA'} <Text style={{ color: DS.live }}>{splitScore(m.score1, m.overs).main || '-'}</Text>
               <Text style={{ color: '#666', fontWeight: '500' }}>   VS   </Text>
               {m.team2 || 'TBA'} <Text style={{ color: DS.live }}>{splitScore(m.score2, m.overs).main || '-'}</Text>
             </Text>
           </View>
-        ))}
-      </Reanimated.View>
+        )}
+      />
     </View>
   );
 }
@@ -478,24 +468,29 @@ export default function MyMatchesScreen({ navigation }) {
       
       <LiveScoreTicker matches={matches} />
 
-      {/* Toss & Play Banner Redesign - Compact */}
+      {/* Quick Match Banner Redesign (Replaces Toss & Play) */}
       <TouchableOpacity 
-        style={styles.tossPlayBanner} 
-        activeOpacity={0.9} 
+        style={[styles.tossPlayBanner, {
+          backgroundColor: DS.surfaceHigh,
+          borderWidth: 1, borderColor: DS.faint,
+          shadowColor: DS.lime, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+          paddingHorizontal: 14, paddingVertical: 12, borderRadius: 16
+        }]} 
+        activeOpacity={0.8} 
         onPress={() => navigation.navigate('StartMatch')}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 2 }}>
-          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="cricket" size={16} color={DS.white} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 2 }}>
+          <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: DS.lime + '20', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="flash" size={22} color={DS.lime} />
           </View>
           <View>
-            <Text style={styles.tossPlayTitle}>TOSS & PLAY</Text>
-            <Text style={styles.tossPlaySub}>Start scoring instantly</Text>
+            <Text style={[styles.tossPlayTitle, { color: DS.textPrimary, fontSize: 14, letterSpacing: 0.8 }]}>QUICK MATCH</Text>
+            <Text style={[styles.tossPlaySub, { color: DS.textMuted, fontSize: 11 }]}>Start scoring instantly</Text>
           </View>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, zIndex: 2, backgroundColor: '#000', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
-          <Icon name="play" size={10} color={DS.white} />
-          <Text style={{ fontSize: 9, fontWeight: '800', color: DS.white, letterSpacing: 0.5 }}>START</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, zIndex: 2, backgroundColor: DS.lime, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 }}>
+          <Icon name="play" size={14} color="#000" />
+          <Text style={{ fontSize: 11, fontWeight: '900', color: '#000', letterSpacing: 0.5 }}>START</Text>
         </View>
       </TouchableOpacity>
 
@@ -566,36 +561,38 @@ export default function MyMatchesScreen({ navigation }) {
           />
         )}
         ListFooterComponent={
-          <>
-            <TouchableOpacity style={styles.promoCard} activeOpacity={0.85}>
-            <View style={styles.promoContent}>
-              <Icon name="trophy" size={22} color={DS.lime} />
-              <View style={styles.promoTextWrap}>
-                <Text style={styles.promoTitle}>HOST YOUR OWN TOURNAMENT</Text>
-                <Text style={styles.promoSub}>Organize local matches and track every ball</Text>
+          filtered.length > 0 ? (
+            <>
+              <TouchableOpacity style={styles.promoCard} activeOpacity={0.85}>
+                <View style={styles.promoContent}>
+                  <Icon name="trophy" size={22} color={DS.lime} />
+                  <View style={styles.promoTextWrap}>
+                    <Text style={styles.promoTitle}>HOST YOUR OWN TOURNAMENT</Text>
+                    <Text style={styles.promoSub}>Organize local matches and track every ball</Text>
+                  </View>
+                </View>
+                <View style={styles.promoCta}>
+                  <Text style={styles.promoCtaText}>Get Started</Text>
+                  <Icon name="arrow-right" size={14} color={DS.white} />
+                </View>
+              </TouchableOpacity>
+              <View style={styles.bottomStatsRow}>
+                <View style={[styles.statCard, { backgroundColor: DS.surfaceLow }]}>
+                  <Icon name="trending-up" size={24} color={DS.blue} />
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={styles.statCardSub}>Top Run Scorer</Text>
+                    <Text style={styles.statCardTitle}>S. Sharma</Text>
+                    <Text style={styles.statCardValBlue}>1,240 Runs</Text>
+                  </View>
+                </View>
+                <View style={[styles.statCard, { backgroundColor: '#4b5563' }]}>
+                  <Text style={[styles.statCardSub, { color: '#d1d5db' }]}>Series MVP</Text>
+                  <Text style={[styles.statCardTitle, { color: '#fff' }]}>J. Root</Text>
+                  <Text style={styles.statCardValGreen}>24 Wickets</Text>
+                </View>
               </View>
-            </View>
-            <View style={styles.promoCta}>
-              <Text style={styles.promoCtaText}>Get Started</Text>
-              <Icon name="arrow-right" size={14} color={DS.white} />
-            </View>
-          </TouchableOpacity>
-          <View style={styles.bottomStatsRow}>
-            <View style={[styles.statCard, { backgroundColor: DS.surfaceLow }]}>
-              <Icon name="trending-up" size={24} color={DS.blue} />
-              <View style={{ marginTop: 12 }}>
-                <Text style={styles.statCardSub}>Top Run Scorer</Text>
-                <Text style={styles.statCardTitle}>S. Sharma</Text>
-                <Text style={styles.statCardValBlue}>1,240 Runs</Text>
-              </View>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: '#4b5563' }]}>
-              <Text style={[styles.statCardSub, { color: '#d1d5db' }]}>Series MVP</Text>
-              <Text style={[styles.statCardTitle, { color: '#fff' }]}>J. Root</Text>
-              <Text style={styles.statCardValGreen}>24 Wickets</Text>
-            </View>
-          </View>
-          </>
+            </>
+          ) : null
         }
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -780,7 +777,6 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: '#000', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingHorizontal: 18, paddingVertical: 12, borderRadius: 8
   },
-  scoreBtnText: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5, color: DS.white },
   
   actionBlock: { flexShrink: 0 },
 
