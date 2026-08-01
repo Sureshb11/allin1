@@ -417,16 +417,18 @@ export default function HomeScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* Floating Action Button for Quick Match */}
-      <View style={[styles.fabContainer, { bottom: tabClear + 16 }]}>
-        <TouchableOpacity 
-          style={[styles.fab, { backgroundColor: sportTint, shadowColor: sportTint }]} 
-          activeOpacity={0.9}
-          onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
-        >
-          <Icon name="plus" size={30} color={DS.bg} />
-        </TouchableOpacity>
-      </View>
+      {/* Floating Action Button for Quick Match (Matches Tab Only) */}
+      {activeNavTab === 0 && (
+        <View style={[styles.fabContainer, { bottom: tabClear + 16 }]}>
+          <TouchableOpacity 
+            style={[styles.fab, { backgroundColor: sportTint, shadowColor: sportTint }]} 
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
+          >
+            <Icon name="plus" size={30} color={DS.bg} />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
