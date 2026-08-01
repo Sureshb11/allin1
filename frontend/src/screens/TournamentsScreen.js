@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, ActivityIndicator, RefreshControl, Animated, Pressable, Image
 } from 'react-native';
-import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, Easing, withSequence, withRepeat, runOnJS } from 'react-native-reanimated';
+import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, Easing, withSequence, withRepeat, runOnJS, SlideInRight, SlideInLeft } from 'react-native-reanimated';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Defs, LinearGradient, Stop, Rect, Pattern, Path } from 'react-native-svg';
@@ -332,8 +332,14 @@ const TournamentsScreen = ({ navigation, inline }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('All');
-  // Swipe steps All → Open → Ongoing → Completed.
-  const filterSwipe = useFilterSwipe(FILTERS, filter, setFilter);
+  const swipeDir = useRef(1);
+  const handleSetFilter = (f) => {
+    const idx = FILTERS.indexOf(f);
+    const currIdx = FILTERS.indexOf(filter);
+    swipeDir.current = idx > currIdx ? 1 : -1;
+    setFilter(f);
+  };
+  const filterSwipe = useFilterSwipe(FILTERS, filter, handleSetFilter);
   // The featured carousel scrolls sideways inside a screen whose sideways swipe
   // changes the filter. Declaring it as a native gesture that blocks the outer
   // one keeps the carousel's drag to itself — the same idiom Rankings uses to
@@ -492,7 +498,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
               <TouchableOpacity
                 key={f}
                 style={[C.filterChip, on && C.filterChipActive]}
-                onPress={() => setFilter(f)}
+                onPress={() => handleSetFilter(f)}
                 activeOpacity={0.8}
               >
                 <Icon name={FILTER_ICONS[f]} size={13} color={on ? DS.lime : DS.textMuted} />
@@ -510,6 +516,11 @@ const TournamentsScreen = ({ navigation, inline }) => {
           was already built here and its GestureDetector never rendered, so the
           gesture has been dead on this screen since it was added. */}
       <GestureDetector gesture={filterSwipe}>
+        <Reanimated.View 
+          key={filter}
+          style={{ flex: 1 }}
+          entering={swipeDir.current === 1 ? SlideInRight.duration(200).withInitialValues({ transform: [{ translateX: 50 }] }) : SlideInLeft.duration(200).withInitialValues({ transform: [{ translateX: -50 }] })}
+        >
       <Animated.FlatList
         data={loading ? [1, 2, 3] : standard}
         keyExtractor={(item, index) => loading ? `skeleton-${index}` : item.id}
@@ -591,6 +602,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
           )
         }
       />
+        </Reanimated.View>
       </GestureDetector>
       <DynamicFAB scrollY={scrollY} tabClear={tabClear} DS={DS} onPress={() => navigation.navigate('CreateTournament')} />
     </View>

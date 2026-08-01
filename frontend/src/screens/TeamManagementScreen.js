@@ -629,7 +629,12 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
           dead; the rows' own Swipeable actions then claimed the drag first, so
           it stayed dead once wired. Both fixed — see renderTeam. */}
       <GestureDetector gesture={teamSwipe}>
-      <FlatList
+        <Reanimated.View 
+          key={tab}
+          style={{ flex: 1 }}
+          entering={swipeDir.current === 1 ? SlideInRight.duration(200).withInitialValues({ transform: [{ translateX: 50 }] }) : SlideInLeft.duration(200).withInitialValues({ transform: [{ translateX: -50 }] })}
+        >
+        <FlatList
         data={searchedTeams[tab]}
         renderItem={renderTeam}
         keyExtractor={(item) => item.id}
@@ -694,6 +699,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
             </Text>
           </View>
         } />
+        </Reanimated.View>
       </GestureDetector>
 
       <Modal

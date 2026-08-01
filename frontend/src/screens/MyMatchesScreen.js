@@ -4,7 +4,7 @@ import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable,
   FlatList, RefreshControl, Animated, LayoutAnimation, UIManager, Platform
 } from 'react-native';
-import Reanimated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing, runOnJS } from 'react-native-reanimated';
+import Reanimated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing, runOnJS, SlideInRight, SlideInLeft } from 'react-native-reanimated';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
@@ -377,7 +377,14 @@ export default function MyMatchesScreen({ navigation }) {
   // Swipe steps All → Live → Upcoming → Completed. The live ticker's own
   // horizontal rail sits above the list, outside this gesture, so the two don't
   // compete.
-  const filterSwipe = useFilterSwipe(FILTERS, status, setStatus);
+  const swipeDir = useRef(1);
+  const handleSetStatus = (s) => {
+    const idx = FILTERS.indexOf(s);
+    const currIdx = FILTERS.indexOf(status);
+    swipeDir.current = idx > currIdx ? 1 : -1;
+    setStatus(s);
+  };
+  const filterSwipe = useFilterSwipe(FILTERS, status, handleSetStatus);
   const [matches, setMatches]   = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading]   = useState(true);
@@ -538,7 +545,7 @@ export default function MyMatchesScreen({ navigation }) {
             <TouchableOpacity
               key={f}
               style={[C.filterChip, on && C.filterChipActive]}
-              onPress={() => setStatus(f)}
+              onPress={() => handleSetStatus(f)}
               activeOpacity={0.8}
             >
               <Icon name={FILTER_ICONS[f]} size={13} color={on ? DS.lime : DS.textMuted} />
@@ -554,18 +561,23 @@ export default function MyMatchesScreen({ navigation }) {
       {/* Swipe left/right anywhere on the list steps the filter row, the same
           as Home, My Teams and Tournaments. */}
       <GestureDetector gesture={filterSwipe}>
-      <FlatList
-        {...hideTabBar}
-        data={filtered}
-        keyExtractor={(item, i) => item.id || String(i)}
-        contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={DS.lime}
-            colors={[DS.lime]}
-          />
+        <Reanimated.View 
+          key={status}
+          style={{ flex: 1 }}
+          entering={swipeDir.current === 1 ? SlideInRight.duration(200).withInitialValues({ transform: [{ translateX: 50 }] }) : SlideInLeft.duration(200).withInitialValues({ transform: [{ translateX: -50 }] })}
+        >
+          <FlatList
+            {...hideTabBar}
+            data={filtered}
+            keyExtractor={(item, i) => item.id || String(i)}
+            contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={DS.lime}
+                colors={[DS.lime]}
+              />
         }
         renderItem={({ item }) => (
           <MatchCard
@@ -624,6 +636,7 @@ export default function MyMatchesScreen({ navigation }) {
           </View>
         }
       />
+        </Reanimated.View>
       </GestureDetector>
 
       {/* Floating Action Button for Quick Match */}
