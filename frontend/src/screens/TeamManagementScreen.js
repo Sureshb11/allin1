@@ -18,7 +18,7 @@ import {
   Pressable,
   Modal } from
 'react-native';
-import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, Easing, withSpring } from 'react-native-reanimated';
+import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, Easing, withSpring, SlideInRight, SlideInLeft } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import PressableScale from '../components/PressableScale';
@@ -139,7 +139,14 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   const tabClear = useTabBarClearance();
   const [tab, setTab] = useState('mine');   // mine | opponents | followed
   // Swipe steps My Teams → Opponents → Followed, same as the Matches feed.
-  const teamSwipe = useFilterSwipe(TEAM_TABS, tab, setTab);
+  const swipeDir = useRef(1);
+  const handleSetTab = (t) => {
+    const idx = TEAM_TABS.indexOf(t);
+    const currIdx = TEAM_TABS.indexOf(tab);
+    swipeDir.current = idx > currIdx ? 1 : -1;
+    setTab(t);
+  };
+  const teamSwipe = useFilterSwipe(TEAM_TABS, tab, handleSetTab);
   const [categorized, setCategorized] = useState({ mine: [], opponents: [], followed: [] });
   const [followedIds, setFollowedIds] = useState(new Set());
   const [players, setPlayers] = useState([]);
@@ -668,7 +675,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
                 const on = tab === key;
                 return (
                   <TouchableOpacity key={key} style={[C.filterChip, on && C.filterChipActive]}
-                                    onPress={() => setTab(key)} activeOpacity={0.8}>
+                                    onPress={() => handleSetTab(key)} activeOpacity={0.8}>
                     <Icon name={icon} size={13} color={on ? DS.lime : DS.textMuted} />
                     <Text style={[C.filterText, on && C.filterTextActive]}>{label}</Text>
                     <View style={[C.filterCount, on && C.filterCountOn]}>
