@@ -89,19 +89,19 @@ function matchStatus(ms, scheduleStr) {
   return 'UNKNOWN';
 }
 
-const AnimatedPulse = ({ children }) => {
+const AnimatedPulse = ({ children, style }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     const anim = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.02, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1200, useNativeDriver: true }),
         Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
       ])
     );
     anim.start();
     return () => anim.stop();
   }, [pulseAnim]);
-  return <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>{children}</Animated.View>;
+  return <Animated.View style={[{ transform: [{ scale: pulseAnim }] }, style]}>{children}</Animated.View>;
 };
 
 export default function HomeScreen({ navigation }) {
@@ -419,7 +419,7 @@ export default function HomeScreen({ navigation }) {
 
       {/* Floating Action Button for Quick Match (Matches Tab Only) */}
       {activeNavTab === 0 && (
-        <View style={[styles.fabContainer, { bottom: tabClear + 16 }]}>
+        <AnimatedPulse style={[styles.fabContainer, { bottom: tabClear + 16 }]}>
           <TouchableOpacity 
             style={[styles.fab, { backgroundColor: sportTint, shadowColor: sportTint }]} 
             activeOpacity={0.9}
@@ -427,7 +427,7 @@ export default function HomeScreen({ navigation }) {
           >
             <Icon name="plus" size={30} color={DS.bg} />
           </TouchableOpacity>
-        </View>
+        </AnimatedPulse>
       )}
     </View>
   );

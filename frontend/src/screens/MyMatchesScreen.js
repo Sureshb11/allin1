@@ -56,6 +56,21 @@ function TopGlow({ color }) {
     </View>
   );
 }
+// ── Animated Pulse ────────────────────────────────────────────────────────
+const AnimatedPulse = ({ children, style }) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulseAnim]);
+  return <Animated.View style={[{ transform: [{ scale: pulseAnim }] }, style]}>{children}</Animated.View>;
+};
 
 // ── Shimmer Skeleton ────────────────────────────────────────────────────────
 function MatchSkeleton({ DS }) {
@@ -612,7 +627,7 @@ export default function MyMatchesScreen({ navigation }) {
       </GestureDetector>
 
       {/* Floating Action Button for Quick Match */}
-      <View style={[styles.fabContainer, { bottom: tabClear + 16 }]}>
+      <AnimatedPulse style={[styles.fabContainer, { bottom: tabClear + 16 }]}>
         <TouchableOpacity 
           style={styles.fab} 
           activeOpacity={0.9}
@@ -620,7 +635,7 @@ export default function MyMatchesScreen({ navigation }) {
         >
           <Icon name="plus" size={30} color="#000" />
         </TouchableOpacity>
-      </View>
+      </AnimatedPulse>
     </View>
   );
 }
