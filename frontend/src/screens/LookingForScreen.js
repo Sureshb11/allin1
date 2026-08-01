@@ -750,27 +750,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     );
   };
 
-// Continuous pulsing sonar ring behind an avatar
-function SonarPulse({ size, color }) {
-  const progress = useSharedValue(0);
-  useEffect(() => {
-    progress.value = withRepeat(
-      withTiming(1, { duration: 2500, easing: Easing.out(Easing.ease) }),
-      -1,
-      false
-    );
-  }, []);
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + progress.value * 1.5 }],
-    opacity: 1 - progress.value
-  }));
-  return (
-    <Reanimated.View style={[
-      { position: 'absolute', top: 0, left: 0, width: size, height: size, borderRadius: size / 2, backgroundColor: color },
-      animStyle
-    ]} pointerEvents="none" />
-  );
-}
 
   // ── One listing = one row ──────────────────────────────────────────────────
   // Three lines, fixed shape: the ask, then who/where/when, then age + category.
@@ -824,7 +803,7 @@ function SonarPulse({ size, color }) {
               onPress={() => openDetail(item)}
             >
             <View style={{ position: 'relative' }}>
-              {index < 2 && <SonarPulse size={34} color={DS.lime} />}
+
               {item.posterName
                 ? <PlayerAvatar name={item.posterName} avatarUrl={item.posterAvatarUrl} size={34} />
                 : (
