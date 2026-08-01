@@ -618,8 +618,7 @@ export default function MyMatchesScreen({ navigation }) {
           activeOpacity={0.9}
           onPress={() => navigation.navigate('StartMatch')}
         >
-          <Icon name="flash" size={22} color="#000" />
-          <Text style={styles.fabText}>QUICK MATCH</Text>
+          <Icon name="plus" size={30} color="#000" />
         </TouchableOpacity>
       </View>
     </View>
@@ -734,24 +733,17 @@ const makeStyles = (DS) => StyleSheet.create({
     zIndex: 100,
   },
   fab: {
-    flexDirection: 'row',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: DS.lime,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 30,
     shadowColor: DS.lime,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 8,
-    gap: 8,
-  },
-  fabText: {
-    color: '#000',
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.5,
   },
 
   broadcastLayout: { paddingHorizontal: 16, paddingVertical: 12, gap: 16 },

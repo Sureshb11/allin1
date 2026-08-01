@@ -424,10 +424,7 @@ export default function HomeScreen({ navigation }) {
           activeOpacity={0.9}
           onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
         >
-          <Icon name={currentSport.id === 'cricket' ? 'flash' : currentSport.icon} size={22} color={DS.bg} />
-          <Text style={[styles.fabText, { color: DS.bg }]}>
-            {currentSport.id === 'cricket' ? 'QUICK MATCH' : `START ${currentSport.name.toUpperCase()}`}
-          </Text>
+          <Icon name="plus" size={30} color={DS.bg} />
         </TouchableOpacity>
       </View>
     </View>
@@ -579,21 +576,15 @@ const makeStyles = (DS, typography, radii, shadows) => StyleSheet.create({
     zIndex: 100,
   },
   fab: {
-    flexDirection: 'row',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 30,
+    justifyContent: 'center',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 8,
-    gap: 8,
-  },
-  fabText: {
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.5,
   },
 
   // Filters and Search
