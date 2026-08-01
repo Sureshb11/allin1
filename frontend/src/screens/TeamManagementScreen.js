@@ -1,6 +1,6 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { makeControls, CONTROL } from '../theme/controls';
-import { GestureDetector } from 'react-native-gesture-handler';
+import { GestureDetector, Swipeable } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
 
 // The category tabs, in the order they're drawn — module scope so the swipe
@@ -17,8 +17,10 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  Pressable,
   Modal } from
 'react-native';
+import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, Easing, withSpring } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import PressableScale from '../components/PressableScale';
@@ -27,6 +29,34 @@ import { getSelectedSport } from '../utils/selectedSport';
 import { showToast } from '../components/Toast';
 import BrandLogo from "../components/BrandLogo";
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
+import Svg, { Polygon, Line, Circle } from 'react-native-svg';
+
+const MiniRadarChart = ({ w, l, d, DS }) => {
+  const total = (w + l + d) || 1;
+  const nw = Math.max(0.2, w / total);
+  const nl = Math.max(0.2, l / total);
+  const nd = Math.max(0.2, d / total);
+  const cx = 25, cy = 25, r = 20;
+  const wx = cx;
+  const wy = cy - r * nw;
+  const lx = cx + r * nl * Math.cos(Math.PI / 6);
+  const ly = cy + r * nl * Math.sin(Math.PI / 6);
+  const dx = cx - r * nd * Math.cos(Math.PI / 6);
+  const dy = cy + r * nd * Math.sin(Math.PI / 6);
+  const points = `${wx},${wy} ${lx},${ly} ${dx},${dy}`;
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width="50" height="50">
+        <Circle cx="25" cy="25" r="20" stroke={DS.border} strokeWidth="1" fill="none" />
+        <Circle cx="25" cy="25" r="10" stroke={DS.border} strokeWidth="1" fill="none" />
+        <Line x1="25" y1="25" x2="25" y2="5" stroke={DS.border} strokeWidth="1" />
+        <Line x1="25" y1="25" x2={25 + 20 * Math.cos(Math.PI / 6)} y2={25 + 20 * Math.sin(Math.PI / 6)} stroke={DS.border} strokeWidth="1" />
+        <Line x1="25" y1="25" x2={25 - 20 * Math.cos(Math.PI / 6)} y2={25 + 20 * Math.sin(Math.PI / 6)} stroke={DS.border} strokeWidth="1" />
+        <Polygon points={points} fill={DS.lime + '40'} stroke={DS.lime} strokeWidth="1.5" />
+      </Svg>
+    </View>
+  );
+};
 
 
 
@@ -54,6 +84,45 @@ const AnimatedPulse = ({ children, style }) => {
     return () => anim.stop();
   }, [pulseAnim]);
   return <Animated.View style={[style, { transform: [{ scale: pulseAnim }] }]}>{children}</Animated.View>;
+};
+
+const Pressable3D = ({ children, style, onPress }) => {
+  const rotateX = useSharedValue(0);
+  const rotateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { perspective: 800 },
+      { scale: scale.value },
+      { rotateX: `${rotateX.value}deg` },
+      { rotateY: `${rotateY.value}deg` }
+    ]
+  }));
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={(e) => {
+        const { locationX, locationY } = e.nativeEvent;
+        // Map touch coords to tilt angles. Card is approx 350x150.
+        const rx = (locationY - 75) / -5; 
+        const ry = (locationX - 175) / 10;
+        rotateX.value = withTiming(rx, { duration: 150 });
+        rotateY.value = withTiming(ry, { duration: 150 });
+        scale.value = withTiming(0.95, { duration: 150 });
+      }}
+      onPressOut={() => {
+        rotateX.value = withSpring(0, { damping: 10, stiffness: 100 });
+        rotateY.value = withSpring(0, { damping: 10, stiffness: 100 });
+        scale.value = withSpring(1, { damping: 10, stiffness: 100 });
+      }}
+    >
+      <Reanimated.View style={[style, animatedStyle]}>
+        {children}
+      </Reanimated.View>
+    </Pressable>
+  );
 };
 
 const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const C = useThemedStyles(makeControls);
@@ -178,72 +247,145 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     if (res.success) loadData();
   };
 
+  const HoneycombPreview = ({ teamIdStr, count }) => {
+    const size = 28;
+    const teamId = parseInt((teamIdStr || '').replace(/\D/g, '') || '0', 10);
+    const numAvatars = Math.min(count, 4);
+    if (numAvatars === 0) return null;
+    
+    const avatars = Array.from({ length: numAvatars }).map((_, i) => {
+      const charCode1 = 65 + ((teamId + i * 3) % 26);
+      const charCode2 = 65 + ((teamId + i * 7 + 12) % 26);
+      const colorIdx = (teamId + i * 5) % AVATAR_COLORS.length;
+      return {
+        id: i,
+        initials: String.fromCharCode(charCode1) + String.fromCharCode(charCode2),
+        color: AVATAR_COLORS[colorIdx]
+      };
+    });
+
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {avatars.map((av, i) => (
+          <View key={av.id} style={{ marginLeft: i === 0 ? 0 : -10, zIndex: 10 - i }}>
+            <HexAvatar size={size} color={av.color} style={{ borderWidth: 1, borderColor: DS.surface }}>
+              <Text style={{ fontSize: 9, fontWeight: '700', color: '#fff' }}>{av.initials}</Text>
+            </HexAvatar>
+          </View>
+        ))}
+        {count > 4 && (
+          <View style={{ marginLeft: 6 }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: DS.textMuted }}>+{count - 4}</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderLeftActions = (progress, dragX, item) => {
+    const scale = dragX.interpolate({ inputRange: [0, 50, 100], outputRange: [0, 0.5, 1], extrapolate: 'clamp' });
+    return (
+      <View style={{ backgroundColor: '#ef4444', justifyContent: 'center', marginBottom: 10, borderRadius: 14, width: 100, alignItems: 'center' }}>
+        <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
+          <Icon name="exit-run" size={24} color="#fff" />
+          <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 12 }}>Leave</Text>
+        </Animated.View>
+      </View>
+    );
+  };
+
+  const renderRightActions = (progress, dragX, item) => {
+    const scale = dragX.interpolate({ inputRange: [-100, -50, 0], outputRange: [1, 0.5, 0], extrapolate: 'clamp' });
+    return (
+      <View style={{ backgroundColor: DS.blueDeep, justifyContent: 'center', marginBottom: 10, borderRadius: 14, width: 100, alignItems: 'center' }}>
+        <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
+          <Icon name="account-cog" size={24} color="#fff" />
+          <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 12 }}>Manage</Text>
+        </Animated.View>
+      </View>
+    );
+  };
+
   const renderTeam = ({ item }) => {
     const losses = item.matches - item.wins;
     const draws = 0;
     const isFollowed = followedIds.has(item.id);
     const mineTab = tab === 'mine';
     return (
-      <PressableScale
-        style={styles.teamCard}
-        onPress={() => mineTab ? navigation.navigate('TeamProfile', { teamId: item.id }) : navigation.navigate('TeamInsights', { teamId: item.id })}>
-        <View style={styles.teamCardTop}>
-          <HexAvatar size={40} color={getAvatarColor(item.name)} style={{ marginRight: 10 }}>
-            <Text style={styles.teamAvatarText}>{getInitials(item.name)}</Text>
-          </HexAvatar>
-          <View style={styles.teamInfo}>
-            <Text style={styles.teamName}>{item.name}</Text>
-            <Text style={styles.teamSubtitle}>
-              <Text style={styles.memberCount}>{item.players} members</Text>
-            </Text>
-            <Text style={styles.roleTag}>CAPTAIN</Text>
+      <Swipeable
+        renderLeftActions={mineTab ? (p, d) => renderLeftActions(p, d, item) : undefined}
+        renderRightActions={mineTab ? (p, d) => renderRightActions(p, d, item) : undefined}
+        onSwipeableLeftOpen={() => showToast('Left team')}
+        onSwipeableRightOpen={() => setSelectedTeam(item)}
+      >
+        <Pressable3D
+          style={styles.teamCard}
+          onPress={() => mineTab ? navigation.navigate('TeamProfile', { teamId: item.id }) : navigation.navigate('TeamInsights', { teamId: item.id })}>
+          <View style={styles.teamCardTop}>
+            <HexAvatar size={40} color={getAvatarColor(item.name)} style={{ marginRight: 10 }}>
+              <Text style={styles.teamAvatarText}>{getInitials(item.name)}</Text>
+            </HexAvatar>
+            <View style={styles.teamInfo}>
+              <Text style={styles.teamName}>{item.name}</Text>
+              <Text style={styles.teamSubtitle}>
+                <Text style={styles.memberCount}>{item.players} members</Text>
+              </Text>
+              {mineTab && <Text style={styles.roleTag}>CAPTAIN</Text>}
+            </View>
+            <View style={{ flex: 1, alignItems: 'flex-end', justifyContent: 'center' }}>
+               <HoneycombPreview teamIdStr={item.id} count={item.players} />
+            </View>
           </View>
-        </View>
-        <View style={styles.statsRow}>
-          <View style={styles.statBlock}>
-            <Text style={styles.statNumber}>{item.wins}</Text>
-            <Text style={styles.statLabel}>W</Text>
+          <View style={[styles.statsRow, { justifyContent: 'space-between' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={styles.statBlock}>
+                <Text style={styles.statNumber}>{item.wins}</Text>
+                <Text style={styles.statLabel}>W</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statBlock}>
+                <Text style={styles.statNumber}>{losses}</Text>
+                <Text style={styles.statLabel}>L</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statBlock}>
+                <Text style={styles.statNumber}>{draws}</Text>
+                <Text style={styles.statLabel}>D</Text>
+              </View>
+            </View>
+            <MiniRadarChart w={item.wins} l={losses} d={draws} DS={DS} />
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBlock}>
-            <Text style={styles.statNumber}>{losses}</Text>
-            <Text style={styles.statLabel}>L</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBlock}>
-            <Text style={styles.statNumber}>{draws}</Text>
-            <Text style={styles.statLabel}>D</Text>
-          </View>
-        </View>
-        {item.matches > 0 && (
-          <View style={styles.winRateBar}>
-            <View style={[styles.winRateFill, { width: `${(item.wins / item.matches) * 100}%`, backgroundColor: DS.success }]} />
-            <View style={[styles.winRateFill, { width: `${(losses / item.matches) * 100}%`, backgroundColor: '#ef4444' }]} />
-            <View style={[styles.winRateFill, { width: `${(draws / item.matches) * 100}%`, backgroundColor: DS.textMuted }]} />
-          </View>
-        )}
-        <View style={styles.actionRow}>
-          {mineTab ? (
-            <TouchableOpacity style={styles.actionChip} onPress={() => setSelectedTeam(item)}>
-              <Icon name="account-group" size={14} color={DS.textVariant} />
-              <Text style={styles.actionChipText}>SQUAD</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[styles.actionChip, isFollowed && styles.actionChipActive]}
-              onPress={() => toggleFollow(item)}>
-              <Icon name={isFollowed ? 'heart' : 'heart-outline'} size={14} color={isFollowed ? DS.bg : DS.textVariant} />
-              <Text style={[styles.actionChipText, isFollowed && { color: DS.bg }]}>{isFollowed ? 'FOLLOWING' : 'FOLLOW'}</Text>
-            </TouchableOpacity>
+          {item.matches > 0 && (
+            <View style={styles.winRateBar}>
+              <View style={[styles.winRateFill, { width: `${(item.wins / item.matches) * 100}%`, backgroundColor: DS.success }]} />
+              <View style={[styles.winRateFill, { width: `${(losses / item.matches) * 100}%`, backgroundColor: '#ef4444' }]} />
+              <View style={[styles.winRateFill, { width: `${(draws / item.matches) * 100}%`, backgroundColor: DS.textMuted }]} />
+            </View>
           )}
-          <TouchableOpacity
-            style={styles.statsChip}
-            onPress={() => navigation.navigate('TeamInsights', { teamId: item.id })}>
-            <Icon name="chart-line" size={14} color={DS.white} />
-            <Text style={[styles.actionChipText, { color: DS.white }]}>STATS</Text>
-          </TouchableOpacity>
-        </View>
-      </PressableScale>);
+          <View style={styles.actionRow}>
+            {mineTab ? (
+              <TouchableOpacity style={styles.actionChip} onPress={() => setSelectedTeam(item)}>
+                <Icon name="account-group" size={14} color={DS.white} />
+                <Text style={styles.actionChipText}>SQUAD</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.actionChip, isFollowed && styles.actionChipActive]}
+                onPress={() => toggleFollow(item)}>
+                <Icon name={isFollowed ? 'heart' : 'heart-outline'} size={14} color={isFollowed ? '#000' : DS.white} />
+                <Text style={[styles.actionChipText, isFollowed && { color: '#000' }]}>{isFollowed ? 'FOLLOWING' : 'FOLLOW'}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.statsChip}
+              onPress={() => navigation.navigate('TeamInsights', { teamId: item.id })}>
+              <Icon name="chart-line" size={14} color={DS.textPrimary} />
+              <Text style={styles.statsChipText}>STATS</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable3D>
+      </Swipeable>
+    );
 
   };
 
@@ -477,7 +619,6 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
       )}
 
       {/* Tabs moved to ListHeaderComponent */}
-      <GestureDetector gesture={teamSwipe}>
       <FlatList
         data={categorized[tab].filter(t => t.name.toLowerCase().includes(teamSearchQuery.toLowerCase()))}
         renderItem={renderTeam}
@@ -540,8 +681,6 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
             </Text>
           </View>
         } />
-      </GestureDetector>
-
 
       <Modal
         visible={showCreateTeamModal}
@@ -812,11 +951,9 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: DS.faint,
-    paddingVertical: 8,
-    borderRadius: 10,
+    backgroundColor: '#000',
+    paddingVertical: 10,
+    borderRadius: 8,
     gap: 6
   },
   statsChip: {
@@ -824,15 +961,23 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: DS.blueDeep,
-    paddingVertical: 8,
-    borderRadius: 10,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: DS.faint,
+    paddingVertical: 10,
+    borderRadius: 8,
     gap: 6
   },
   actionChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: DS.textVariant,
+    color: DS.white,
+    letterSpacing: 0.8
+  },
+  statsChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: DS.textPrimary,
     letterSpacing: 0.8
   },
   actionChipActive: { backgroundColor: DS.lime, borderColor: DS.lime },

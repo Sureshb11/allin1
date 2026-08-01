@@ -3,7 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl, Image, PanResponder } from 'react-native';
-import Reanimated, { useAnimatedRef, useSharedValue, scrollTo, FadeIn, FadeInDown, SlideInRight, SlideInLeft, SlideOutRight, LinearTransition, useAnimatedStyle, runOnJS, withRepeat, withSequence, withTiming, withDelay, withSpring, interpolateColor } from 'react-native-reanimated';
+import Reanimated, { useAnimatedRef, useSharedValue, scrollTo, FadeIn, FadeInDown, SlideInRight, SlideInLeft, SlideOutRight, SlideInDown, LinearTransition, useAnimatedStyle, runOnJS, withRepeat, withSequence, withTiming, withDelay, withSpring, interpolateColor } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
@@ -367,13 +367,18 @@ function Podium({ rows, board, myId, onPress, styles, DS }) {
   return (
     <View style={styles.podium}>
       {order.map(({ p, place, h, av, val }) => (
-        <AnimatedPressable
+        <Reanimated.View
           key={p.id}
+          entering={SlideInDown.springify().damping(15).delay(place === 1 ? 300 : place === 2 ? 0 : 150)}
           style={[styles.podiumCol, place === 1 && styles.podiumColLead]}
-          activeOpacity={0.8}
-          scaleTo={0.92}
-          onPress={() => onPress(p)}>
-          <LevitatingAvatar place={place} style={[styles.avatarGlow, place === 1 && styles.avatarGlowLead]}>
+        >
+          <AnimatedPressable
+            style={{ width: '100%', alignItems: 'center' }}
+            contentStyle={{ alignItems: 'center', gap: 4 }}
+            activeOpacity={0.8}
+            scaleTo={0.92}
+            onPress={() => onPress(p)}>
+            <LevitatingAvatar place={place} style={[styles.avatarGlow, place === 1 && styles.avatarGlowLead]}>
             {place === 1 && <LeaderPulse av={av} />}
             {p.avatarUrl ? (
               <Image source={{ uri: p.avatarUrl }} style={{ width: av, height: av, borderRadius: av / 2, backgroundColor: DS.surfaceHighest }} />
@@ -404,7 +409,8 @@ function Podium({ rows, board, myId, onPress, styles, DS }) {
               {place === 1 ? '1st' : place === 2 ? '2nd' : '3rd'}
             </Text>
           </View>
-        </AnimatedPressable>
+          </AnimatedPressable>
+        </Reanimated.View>
       ))}
     </View>
   );

@@ -1,21 +1,26 @@
 import React, { useEffect, useMemo, useState, useLayoutEffect, useRef } from 'react';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable, ScrollView,
-  FlatList, RefreshControl, Animated
+  FlatList, RefreshControl, Animated, LayoutAnimation, UIManager, Platform
 } from 'react-native';
+import Reanimated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing, runOnJS } from 'react-native-reanimated';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import HexAvatar from '../components/HexAvatar';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import BrandLogo from '../components/BrandLogo';
-import HexAvatar from '../components/HexAvatar';
-import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { teamNamePairStyle } from '../utils/teamNameSize';
 
 // Single-accent: team avatars are the deep green (white initials read on it),
 // matching the hexagons on the home feed.
 const getTeamColor = () => '#0a5227';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // Split a score into its runs part and an overs part so the overs can render
 // smaller: "217/4 (11.0)" + total 20 → { main: '217/4', ov: '(11.0/20)' }.
@@ -92,19 +97,62 @@ function MatchSkeleton({ DS }) {
   );
 }
 
+const MomentumBar = ({ m }) => {
+  const DS = useTheme().colors;
+  const momentum = useSharedValue(0.5);
+  
+  useEffect(() => {
+    const t1len = (m.team1 || 'A').length;
+    const t2len = (m.team2 || 'B').length;
+    const base = t1len / (t1len + t2len);
+    const target = Math.max(0.2, Math.min(0.8, base));
+    momentum.value = target;
+
+    momentum.value = withRepeat(
+      withTiming(target + (Math.random() > 0.5 ? 0.15 : -0.15), { duration: 3500, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  const t1Style = useAnimatedStyle(() => ({
+    width: `${momentum.value * 100}%`
+  }));
+  const t2Style = useAnimatedStyle(() => ({
+    width: `${(1 - momentum.value) * 100}%`
+  }));
+
+  const t1Color = getTeamColor(m.team1, 0);
+  const t2Color = getTeamColor(m.team2, 1);
+
+  return (
+    <View style={{ marginTop: 16, marginHorizontal: 16 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+        <Text style={{ fontSize: 9, fontWeight: '800', color: DS.textMuted, letterSpacing: 1 }}>WIN PREDICTOR</Text>
+      </View>
+      <View style={{ height: 6, borderRadius: 3, flexDirection: 'row', overflow: 'hidden', backgroundColor: DS.surfaceLow }}>
+        <Reanimated.View style={[t1Style, { backgroundColor: t1Color }]} />
+        <Reanimated.View style={[t2Style, { backgroundColor: t2Color }]} />
+      </View>
+    </View>
+  );
+};
+
 export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const STATUS_META = makeStatusMeta(DS);
   const meta = STATUS_META[m.status] || STATUS_META.scheduled;
-  // Both names share a size, taken from the longer, so the two sides match.
   const nameFit = teamNamePairStyle(m.team1, m.team2);
   const t1Init = (m.team1 || 'T')[0].toUpperCase();
   const t2Init = (m.team2 || 'T')[0].toUpperCase();
   const t1Color = getTeamColor(m.team1, 0);
   const t2Color = getTeamColor(m.team2, 1);
 
+  const [expanded, setExpanded] = useState(false);
+
   const pulse = useRef(new Animated.Value(1)).current;
+  const breathing = useSharedValue(0.2);
   useEffect(() => {
     if (m.status === 'live') {
       Animated.loop(
@@ -113,50 +161,94 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
           Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true })
         ])
       ).start();
+      breathing.value = withRepeat(
+        withTiming(0.8, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true
+      );
     }
   }, [m.status]);
 
+  const breathingStyle = useAnimatedStyle(() => {
+    if (m.status !== 'live') return {};
+    return {
+      borderColor: DS.live,
+      borderWidth: 2,
+      shadowColor: DS.live,
+      shadowOpacity: breathing.value,
+      shadowRadius: 15,
+      elevation: 6
+    };
+  });
+
+  const triggerHaptic = () => {
+    const options = {
+      enableVibrateFallback: true,
+      ignoreAndroidSystemSettings: false
+    };
+    ReactNativeHapticFeedback.trigger("impactLight", options);
+  };
+
+  const toggleExpand = () => {
+    triggerHaptic();
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded(!expanded);
+  };
+
+  const handleCardPress = () => {
+    if (m.status === 'live') toggleExpand();
+    else onPress(m);
+  };
+
   return (
-    <Pressable onPress={onPress}>
+    <Pressable onPress={handleCardPress}>
       {({ pressed }) => (
-        <Animated.View style={[styles.card, { transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+        <Reanimated.View style={[styles.card, m.status === 'live' ? breathingStyle : {}, { transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
           <View style={styles.cardHeader}>
-            <View style={[styles.statusPill, { backgroundColor: meta.bg, shadowColor: meta.glow, shadowOpacity: 0.5, shadowRadius: 8, elevation: 4 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {m.status === 'live' && <Animated.View style={[styles.liveDot, { opacity: pulse }]} />}
-              <Text style={[styles.statusPillText, { color: meta.color }]}>{meta.label}</Text>
+              <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
             </View>
-            <View style={styles.formatBadge}>
-              <Text style={styles.formatBadgeText}>{m.matchType || 'T20'}</Text>
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+              {m.createdAt ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                  <Icon name="calendar-outline" size={10} color={DS.textMuted} />
+                  <Text style={{ fontSize: 9, color: DS.textMuted }} numberOfLines={1}>
+                    {new Date(m.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  </Text>
+                </View>
+              ) : null}
+              {m.venue ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                  <Icon name="map-marker-outline" size={10} color={DS.textMuted} />
+                  <Text style={{ fontSize: 9, color: DS.textMuted, maxWidth: 60 }} numberOfLines={1}>{m.venue}</Text>
+                </View>
+              ) : null}
+              <Text style={styles.formatText}>{m.matchType || 'T20'}</Text>
             </View>
           </View>
 
-          <View style={styles.teamsVerticalRow}>
-            <View style={styles.teamSideVertical}>
-              <HexAvatar size={36} color={t1Color}>
-                <Text style={styles.teamAvatarText}>{t1Init}</Text>
-              </HexAvatar>
-              <Text style={[styles.teamNameVertical, nameFit]} numberOfLines={1}
-                adjustsFontSizeToFit minimumFontScale={0.8}>{m.team1 || 'TBD'}</Text>
-              <Text style={styles.teamScoreVertical}>
-                {splitScore(m.score1, m.overs).main}
-                {splitScore(m.score1, m.overs).ov ? <Text style={styles.teamScoreOvers}> {splitScore(m.score1, m.overs).ov}</Text> : null}
-              </Text>
+          <View style={[styles.broadcastLayout, { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8, paddingHorizontal: 10 }]}>
+            <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+              <HexAvatar size={28} color={t1Color}><Text style={[styles.teamAvatarText, { fontSize: 10 }]}>{t1Init}</Text></HexAvatar>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: DS.textPrimary, textAlign: 'center' }} numberOfLines={2}>{m.team1 || 'TBD'}</Text>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 14, fontWeight: '900', color: DS.textPrimary }}>{splitScore(m.score1, m.overs).main || '-'}</Text>
+                {splitScore(m.score1, m.overs).ov ? <Text style={{ fontSize: 10, fontWeight: '700', color: DS.textMuted }}>{splitScore(m.score1, m.overs).ov}</Text> : null}
+              </View>
+            </View>
+            
+            <View style={{ paddingHorizontal: 8, paddingTop: 12 }}>
+              <Text style={{ fontSize: 10, fontWeight: '900', color: DS.textMuted, fontStyle: 'italic' }}>VS</Text>
             </View>
 
-            <View style={styles.vsVerticalBlock}>
-              <Text style={styles.vsTextVertical}>VS</Text>
-            </View>
-
-            <View style={styles.teamSideVertical}>
-              <HexAvatar size={36} color={t2Color}>
-                <Text style={styles.teamAvatarText}>{t2Init}</Text>
-              </HexAvatar>
-              <Text style={[styles.teamNameVertical, nameFit]} numberOfLines={1}
-                adjustsFontSizeToFit minimumFontScale={0.8}>{m.team2 || 'TBD'}</Text>
-              <Text style={styles.teamScoreVertical}>
-                {splitScore(m.score2, m.overs).main}
-                {splitScore(m.score2, m.overs).ov ? <Text style={styles.teamScoreOvers}> {splitScore(m.score2, m.overs).ov}</Text> : null}
-              </Text>
+            <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+              <HexAvatar size={28} color={t2Color}><Text style={[styles.teamAvatarText, { fontSize: 10 }]}>{t2Init}</Text></HexAvatar>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: DS.textPrimary, textAlign: 'center' }} numberOfLines={2}>{m.team2 || 'TBD'}</Text>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 14, fontWeight: '900', color: DS.textPrimary }}>{splitScore(m.score2, m.overs).main || '-'}</Text>
+                {splitScore(m.score2, m.overs).ov ? <Text style={{ fontSize: 10, fontWeight: '700', color: DS.textMuted }}>{splitScore(m.score2, m.overs).ov}</Text> : null}
+              </View>
             </View>
           </View>
 
@@ -166,45 +258,50 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
             </View>
           ) : null}
 
-          <View style={styles.cardFooter}>
-            <View style={styles.detailsRow}>
-              {m.venue ? (
-                <View style={styles.detailChip}>
-                  <Icon name="map-marker-outline" size={12} color={DS.textMuted} />
-                  <Text style={styles.detailChipText} numberOfLines={1}>{m.venue}</Text>
-                </View>
-              ) : null}
-              {m.createdAt ? (
-                <View style={styles.detailChip}>
-                  <Icon name="calendar-outline" size={12} color={DS.textMuted} />
-                  <Text style={styles.detailChipText}>{new Date(m.createdAt).toLocaleDateString()}</Text>
-                </View>
-              ) : null}
-            </View>
+          {m.status === 'live' && <MomentumBar m={m} />}
 
-            <View style={styles.actionBlock}>
-              {/* Only the assigned scorer (creator by default) can start/score a match.
-                  Everyone else just views the match info — see [[assertScorer]] on the
-                  backend, which rejects scoring from non-scorers too. */}
-              {m.status === 'scheduled' && isScorer ? (
-                <TouchableOpacity onPress={() => onStart(m)} style={[styles.scoreBtn, styles.startBtn]}>
-                  <Icon name="play" size={13} color={DS.onBlue} />
-                  <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>START MATCH</Text>
-                </TouchableOpacity>
-              ) : m.status === 'live' && isScorer ? (
-                <TouchableOpacity onPress={() => onResume(m)} style={[styles.scoreBtn, styles.startBtn]}>
-                  <Icon name="play" size={13} color={DS.onBlue} />
-                  <Text style={[styles.scoreBtnText, { color: DS.onBlue }]}>SCORE</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity onPress={onPress} style={styles.scoreBtn}>
-                  <Icon name={isScorer ? 'play' : 'information-outline'} size={14} color={DS.white} />
-                  <Text style={styles.scoreBtnText}>{isScorer ? 'SCORE' : 'MATCH INFO'}</Text>
-                </TouchableOpacity>
-              )}
+          {expanded && m.status === 'live' && (
+            <View style={styles.liveDrawer}>
+              <View style={styles.liveDrawerHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.liveDrawerTitle}>Current Over</Text>
+                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+                    {['1', '4', '0', 'W', '6', '1'].map((ball, i) => (
+                      <View key={i} style={[styles.ballCircle, ball === 'W' ? { backgroundColor: '#ef4444' } : ball === '6' || ball === '4' ? { backgroundColor: DS.success } : null]}>
+                        <Text style={[styles.ballCircleText, (ball === 'W' || ball === '6' || ball === '4') && { color: '#fff' }]}>{ball}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.liveDrawerTitle}>In the Middle</Text>
+                  <View style={{ marginTop: 6, gap: 2 }}>
+                    <Text style={styles.livePlayerText}>🏏 S. Sharma <Text style={{ fontWeight: '400' }}>(34*)</Text></Text>
+                    <Text style={styles.livePlayerText}>🎾 A. Patel <Text style={{ fontWeight: '400' }}>(2/14)</Text></Text>
+                  </View>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.liveDrawerBtn} onPress={() => onPress(m)}>
+                <Text style={styles.liveDrawerBtnText}>FULL SCORECARD</Text>
+                <Icon name="arrow-right" size={16} color={DS.lime} />
+              </TouchableOpacity>
             </View>
-          </View>
-        </Animated.View>
+          )}
+
+          {isScorer && (m.status === 'scheduled' || m.status === 'live') && (
+            <View style={{ borderTopWidth: 1, borderTopColor: DS.faint }}>
+              <TouchableOpacity 
+                onPress={() => m.status === 'live' ? onResume(m) : onStart(m)} 
+                style={{ paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, backgroundColor: DS.surfaceHigh }}
+              >
+                <Icon name="play-circle" size={16} color={DS.textPrimary} />
+                <Text style={{ fontSize: 12, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.5 }}>
+                  {m.status === 'live' ? 'RESUME SCORING' : 'START MATCH'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </Reanimated.View>
       )}
     </Pressable>
   );
@@ -213,6 +310,50 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
 export const FILTERS = ['all', 'live', 'upcoming', 'completed'];
 const FILTER_ICONS = { all: 'view-grid', live: 'circle-slice-8', upcoming: 'calendar-clock', completed: 'check-circle' };
 export const FILTER_STATUS_MAP = { all: 'all', live: 'live', upcoming: 'scheduled', completed: 'completed' };
+
+function LiveScoreTicker({ matches }) {
+  const liveMatches = matches.filter(m => m.status === 'live');
+  if (!liveMatches.length) return null;
+
+  const DS = useTheme().colors;
+  const translateX = useSharedValue(0);
+
+  useEffect(() => {
+    // arbitrary translation distance for marquee
+    translateX.value = withRepeat(
+      withTiming(-1000, { duration: 15000, easing: Easing.linear }),
+      -1, // infinite
+      false // don't reverse
+    );
+  }, [liveMatches.length]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }]
+  }));
+
+  // Duplicate the list once to create an infinite scroll illusion
+  const renderList = [...liveMatches, ...liveMatches, ...liveMatches];
+
+  return (
+    <View style={{ backgroundColor: '#111', overflow: 'hidden', paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: DS.live }}>
+      <Reanimated.View style={[{ flexDirection: 'row', gap: 40, paddingHorizontal: 16 }, animatedStyle]}>
+        {renderList.map((m, i) => (
+          <View key={`${m.id}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DS.live, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, gap: 4 }}>
+              <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#fff' }} />
+              <Text style={{ fontSize: 10, fontWeight: '900', color: '#fff', letterSpacing: 0.5 }}>LIVE</Text>
+            </View>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: '#fff', fontVariant: ['tabular-nums'] }}>
+              {m.team1 || 'TBA'} <Text style={{ color: DS.live }}>{splitScore(m.score1, m.overs).main || '-'}</Text>
+              <Text style={{ color: '#666', fontWeight: '500' }}>   VS   </Text>
+              {m.team2 || 'TBA'} <Text style={{ color: DS.live }}>{splitScore(m.score2, m.overs).main || '-'}</Text>
+            </Text>
+          </View>
+        ))}
+      </Reanimated.View>
+    </View>
+  );
+}
 
 export default function MyMatchesScreen({ navigation }) {
   const DS = useTheme().colors;
@@ -334,20 +475,29 @@ export default function MyMatchesScreen({ navigation }) {
           <Icon name="account" size={18} color={DS.textPrimary} />
         </View>
       </View>
-      {/* Toss & Play Banner */}
-      <View style={styles.tossPlayBanner}>
-        <View style={styles.tossPlayIconWrap}>
-          <Icon name="cricket" size={28} color={DS.white} />
+      
+      <LiveScoreTicker matches={matches} />
+
+      {/* Toss & Play Banner Redesign - Compact */}
+      <TouchableOpacity 
+        style={styles.tossPlayBanner} 
+        activeOpacity={0.9} 
+        onPress={() => navigation.navigate('StartMatch')}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, zIndex: 2 }}>
+          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="cricket" size={16} color={DS.white} />
+          </View>
+          <View>
+            <Text style={styles.tossPlayTitle}>TOSS & PLAY</Text>
+            <Text style={styles.tossPlaySub}>Start scoring instantly</Text>
+          </View>
         </View>
-        <View style={styles.tossPlayTextWrap}>
-          <Text style={styles.tossPlayTitle}>TOSS & PLAY</Text>
-          <Text style={styles.tossPlaySub}>Ball-by-ball live scoring</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, zIndex: 2, backgroundColor: '#000', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
+          <Icon name="play" size={10} color={DS.white} />
+          <Text style={{ fontSize: 9, fontWeight: '800', color: DS.white, letterSpacing: 0.5 }}>START</Text>
         </View>
-        <TouchableOpacity style={styles.tossPlayBtn} activeOpacity={0.8}>
-          <Text style={styles.tossPlayBtnText}>GO</Text>
-          <Icon name="chevron-right" size={18} color={DS.white} />
-        </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
 
 
       {/* Search */}
@@ -380,8 +530,8 @@ export default function MyMatchesScreen({ navigation }) {
                 onPress={() => setStatus(f)}
                 activeOpacity={0.8}
               >
-                <Icon name={FILTER_ICONS[f]} size={16} color={active ? DS.lime : DS.textMuted} />
-                {active && <Text style={styles.filterTabTextActive}>{f.toUpperCase()}</Text>}
+                <Icon name={FILTER_ICONS[f]} size={16} color={active ? DS.bg : DS.textMuted} />
+                <Text style={active ? styles.filterTabTextActive : styles.filterTabTextInactive}>{f.toUpperCase()}</Text>
               </TouchableOpacity>
             );
           })}
@@ -490,40 +640,32 @@ const makeStyles = (DS) => StyleSheet.create({
   /* Search */
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: DS.surface, marginHorizontal: 16, marginTop: 16,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    backgroundColor: DS.surface, marginHorizontal: 16, marginTop: 8,
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
     borderWidth: 1, borderColor: DS.faint,
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 1,
   },
   searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary, fontWeight: '500' },
 
   /* Filter tabs — X-style (icon + underline on the selected one) */
-  filtersRow: {
-    paddingTop: 10, paddingBottom: 4,
-  },
-  filtersContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    gap: 4,
-    alignItems: 'center',
-  },
+  filtersRow: { marginTop: 8, marginBottom: 0 },
+  filtersContainer: { paddingHorizontal: 16, gap: 6 },
   filterTab: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 9,
-    borderBottomWidth: 2, borderBottomColor: 'transparent',
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 12, backgroundColor: DS.surface,
+    borderWidth: 1, borderColor: DS.faint
   },
-  filterTabActive: { borderBottomColor: DS.lime },
-  filterTabTextActive: {
-    fontSize: 12, color: DS.lime, fontWeight: '800',
-    textTransform: 'uppercase', letterSpacing: 0.5, includeFontPadding: false,
-  },
+  filterTabActive: { backgroundColor: DS.textPrimary, borderColor: DS.textPrimary },
+  filterTabTextActive: { fontSize: 12, fontWeight: '800', color: DS.bg, letterSpacing: 0.5 },
+  filterTabTextInactive: { fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
 
   /* Count */
   countRow: { paddingHorizontal: 16, paddingBottom: 6 },
   countText: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
 
   /* List */
-  list: { padding: 16, paddingTop: 4, gap: 10 },
+  list: { padding: 12, paddingTop: 4, gap: 8 },
 
   /* Card */
   card: {
@@ -533,44 +675,84 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 2,
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 2,
   },
-  statusPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4,
-  },
+  statusText: { fontSize: 11, fontWeight: '900', letterSpacing: 1.2, textTransform: 'uppercase' },
   liveDot: {
-    width: 6, height: 6, borderRadius: 3, backgroundColor: DS.live,
+    width: 8, height: 8, borderRadius: 4, backgroundColor: DS.live,
   },
-  statusPillText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.6 },
-  formatBadge: {
-    backgroundColor: DS.surfaceLow, borderRadius: 8,
-    borderWidth: 1, borderColor: DS.faint,
-    paddingHorizontal: 10, paddingVertical: 4,
-  },
-  formatBadgeText: { fontSize: 10, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.5 },
+  formatText: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 1 },
 
   
+  /* Live Drawer */
+  liveDrawer: {
+    backgroundColor: '#111827',
+    padding: 16,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  liveDrawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  liveDrawerTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#9ca3af',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  livePlayerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#f9fafb',
+  },
+  ballCircle: {
+    width: 22, height: 22,
+    borderRadius: 11,
+    backgroundColor: '#374151',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  ballCircleText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#d1d5db',
+  },
+  liveDrawerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: DS.lime + '11',
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  liveDrawerBtnText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: DS.lime,
+    letterSpacing: 1,
+  },
+
   /* New layout additions */
   tossPlayBanner: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: DS.blueDeep,
-    marginHorizontal: 16, marginTop: 16, borderRadius: 12, padding: 16,
-    elevation: 4, shadowColor: DS.blueDeep, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 },
-  },
-  tossPlayIconWrap: {
-    width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center', justifyContent: 'center', marginRight: 14,
-  },
-  tossPlayTextWrap: { flex: 1 },
-  tossPlayTitle: { fontSize: 16, fontWeight: '900', color: DS.white, letterSpacing: 0.5 },
-  tossPlaySub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
-  tossPlayBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  tossPlayBtnText: { fontSize: 14, fontWeight: '800', color: DS.white },
-
-  teamsVerticalRow: {
+    marginHorizontal: 16, marginTop: 8, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: DS.blue, overflow: 'hidden',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 8,
+    shadowColor: DS.blue, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6,
   },
+  tossPlayTitle: { fontSize: 13, fontWeight: '900', color: DS.white, letterSpacing: 0.5 },
+  tossPlaySub: { fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: '500' },
+  broadcastLayout: { paddingHorizontal: 16, paddingVertical: 12, gap: 16 },
+  teamRowBroadcast: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  teamLeftBroadcast: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  teamNameBroadcast: { fontSize: 18, fontWeight: '700', color: DS.textPrimary, flex: 1 },
+  scoreRightBroadcast: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  scoreMainBroadcast: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
+  oversBroadcast: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
   teamSideVertical: { alignItems: 'center', flex: 1, gap: 6 },
   teamNameVertical: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, textAlign: 'center', minHeight: 17 },
   teamScoreVertical: { fontSize: 20, fontWeight: '900', color: DS.textPrimary, textAlign: 'center', letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
@@ -579,8 +761,8 @@ const makeStyles = (DS) => StyleSheet.create({
   vsTextVertical: { fontSize: 13, fontWeight: '900', color: DS.blueSoft, fontStyle: 'italic' },
   
   resultBanner: {
-    backgroundColor: DS.success + '14', paddingVertical: 7, paddingHorizontal: 14,
-    alignItems: 'center', marginHorizontal: 16, borderRadius: 8, marginBottom: 12,
+    backgroundColor: DS.success + '14', paddingVertical: 4, paddingHorizontal: 10,
+    alignItems: 'center', marginHorizontal: 12, borderRadius: 6, marginBottom: 8,
   },
   resultBannerText: { fontSize: 13, fontWeight: '800', color: DS.success },
 
@@ -590,9 +772,15 @@ const makeStyles = (DS) => StyleSheet.create({
     justifyContent: 'space-between', minHeight: 120,
   },
   statCardSub: { fontSize: 11, fontWeight: '700', color: DS.textMuted },
-  statCardTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginVertical: 4 },
-  statCardValBlue: { fontSize: 13, fontWeight: '900', color: DS.blue, fontVariant: ['tabular-nums'] },
-  statCardValGreen: { fontSize: 13, fontWeight: '900', color: DS.success, fontVariant: ['tabular-nums'] },
+  statCardTitle: { fontSize: 16, fontWeight: '900', color: DS.textPrimary, marginTop: 2, marginBottom: 2 },
+  statCardValBlue: { fontSize: 14, fontWeight: '800', color: DS.blue },
+  statCardValGreen: { fontSize: 14, fontWeight: '800', color: DS.lime },
+
+  scoreBtnBlack: {
+    backgroundColor: '#000', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingHorizontal: 18, paddingVertical: 12, borderRadius: 8
+  },
+  scoreBtnText: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5, color: DS.white },
   
   actionBlock: { flexShrink: 0 },
 
@@ -622,7 +810,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Details row */
   detailsRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1,
   },
   detailChip: {
     flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -634,10 +822,10 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Footer */
   cardFooter: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingBottom: 12, gap: 10,
     borderTopWidth: 1, borderTopColor: DS.faint,
-    paddingTop: 10,
+    paddingTop: 12,
   },
   resultWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   resultText: { flex: 1, fontSize: 12, fontWeight: '600', color: DS.lime },

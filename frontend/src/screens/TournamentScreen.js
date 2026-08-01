@@ -1,11 +1,12 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert, ActivityIndicator, ScrollView, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import GradientButton from '../components/GradientButton';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { showToast } from '../components/Toast';
+import { pickAndUploadImage } from '../utils/imageUpload';
 
 
 
@@ -31,7 +32,7 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
   // The logged-in user is the organiser of anything they create — stamped onto the
   // tournament so it shows in the Overview's "Organizer" section.
   const [organizerName, setOrganizerName] = useState('');
-  const [form, setForm] = useState({ name: '', format: 'T20', overs: '20', ballType: 'Leather', venue: '', prizePool: '', maxTeams: '' });
+  const [form, setForm] = useState({ name: '', format: 'T20', overs: '20', ballType: 'Leather', venue: '', prizePool: '', maxTeams: '', logoUrl: '', banner: '' });
 
   // No nav header. Reached as "Create Tournament", it stacked three titles: the
   // nav bar, this screen's own "Tournaments" heading, and the form's "Create New
@@ -73,6 +74,8 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
         venue: form.venue.trim() || undefined,
         prizePool: form.prizePool.trim() || undefined,
         maxTeams: form.maxTeams ? parseInt(form.maxTeams, 10) : undefined,
+        logoUrl: form.logoUrl.trim() || undefined,
+        banner: form.banner.trim() || undefined,
         organizer: organizerName || undefined,
         status: 'upcoming',
         // Without this the tournament is created as cricket and then never
@@ -82,7 +85,7 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
       if (res.success) {
         showToast('Tournament created!', 'success');
         setShowCreateForm(false);
-        setForm({ name: '', format: 'T20', overs: '20', ballType: 'Leather', venue: '', prizePool: '', maxTeams: '' });
+        setForm({ name: '', format: 'T20', overs: '20', ballType: 'Leather', venue: '', prizePool: '', maxTeams: '', logoUrl: '', banner: '' });
         loadTournaments();
       } else showToast(res.error || 'Failed to create', 'error');
     } catch (e) {showToast('Something went wrong', 'error');} finally {setCreating(false);}
@@ -95,6 +98,15 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
       showToast(`${t.name} is live!`, 'success');
       loadTournaments();
     } else showToast(res.error || 'Could not start tournament', 'error');
+  };
+
+  const handlePickImage = async (field) => {
+    const r = await pickAndUploadImage('tournaments');
+    if (r.url) {
+      setForm({ ...form, [field]: r.url });
+    } else if (r.error) {
+      showToast(r.error, 'error');
+    }
   };
 
   const getStatusColor = (status) => {
@@ -197,6 +209,36 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
           <TextInput style={styles.formInput} placeholder="Venue" placeholderTextColor={DS.textMuted} value={form.venue} onChangeText={(t) => setForm({ ...form, venue: t })} />
           <TextInput style={styles.formInput} placeholder="Prize Pool (e.g. ₹5,00,000)" placeholderTextColor={DS.textMuted} value={form.prizePool} onChangeText={(t) => setForm({ ...form, prizePool: t })} />
           <TextInput style={styles.formInput} placeholder="Max Teams" placeholderTextColor={DS.textMuted} value={form.maxTeams} onChangeText={(t) => setForm({ ...form, maxTeams: t })} keyboardType="numeric" />
+          
+          <Text style={[styles.formLabel, { marginTop: 16 }]}>Branding (Optional)</Text>
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 15 }}>
+            <TouchableOpacity 
+              style={[styles.imageUploadBtn, form.logoUrl ? { padding: 0, borderWidth: 0 } : {}]} 
+              onPress={() => handlePickImage('logoUrl')}>
+              {form.logoUrl ? (
+                <Image source={{ uri: form.logoUrl }} style={{ width: '100%', height: '100%', borderRadius: 8 }} />
+              ) : (
+                <>
+                  <Icon name="image-plus" size={24} color={DS.textMuted} />
+                  <Text style={styles.imageUploadText}>Add Logo</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.imageUploadBtn, { flex: 2 }, form.banner ? { padding: 0, borderWidth: 0 } : {}]} 
+              onPress={() => handlePickImage('banner')}>
+              {form.banner ? (
+                <Image source={{ uri: form.banner }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
+              ) : (
+                <>
+                  <Icon name="panorama-variant-outline" size={24} color={DS.textMuted} />
+                  <Text style={styles.imageUploadText}>Add Cover Banner</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
           <GradientButton
             label="Create Tournament"
             icon="trophy-outline"
@@ -239,6 +281,8 @@ const makeStyles = (DS) => StyleSheet.create({
   formatChipTextActive: { color: DS.bg },
   createFormButton: { backgroundColor: DS.lime, paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 5 },
   createFormButtonText: { color: DS.bg, fontSize: 14, fontWeight: '700' },
+  imageUploadBtn: { flex: 1, height: 80, backgroundColor: DS.surfaceHighest, borderRadius: 8, borderWidth: 1, borderColor: DS.surfaceLow, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+  imageUploadText: { color: DS.textMuted, fontSize: 11, marginTop: 4, fontWeight: '600' },
   tournamentsList: { padding: 15 },
   tournamentCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 20, marginBottom: 15 },
   tournamentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 },

@@ -312,6 +312,7 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
   const panels = getCareerPanels(sportId);
   const [tab, setTab] = useState(panels[0].id);
   const [chartW, setChartW] = useState(0);
+  const [radarW, setRadarW] = useState(0);
 
   const activePanel = panels.find((p) => p.id === tab) || panels[0];
   const tabStats = stats
@@ -475,6 +476,12 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
           )}
         </View>
 
+        {sportId === 'cricket' && (
+          <View style={{ width: '100%', alignItems: 'center' }} onLayout={(e) => setRadarW(e.nativeEvent.layout.width)}>
+            {radarW > 0 && <CricketRadarChart stats={stats} width={radarW} />}
+          </View>
+        )}
+
         {/* Career table: one surface ruled into thirds, not a grid of tiles. */}
         {tabStats.length > 0 && (
           <View style={styles.gridWrap}>
@@ -504,6 +511,82 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
         {children}
         </Reanimated.View>
       </ViewShot>
+    </View>
+  );
+}
+
+function CricketRadarChart({ stats, width }) {
+  const DS = useTheme().colors;
+  const H = 240;
+  const cx = width / 2;
+  const cy = H / 2;
+  const radius = Math.min(cx, cy) - 25;
+  const axes = [
+    { label: 'Runs', val: stats?.runs || 0, max: 500 },
+    { label: 'Average', val: stats?.battingAverage || 0, max: 50 },
+    { label: 'Strike Rate', val: stats?.battingStrikeRate || 0, max: 200 },
+    { label: 'Highest', val: stats?.highestScore || 0, max: 100 },
+    { label: 'Boundaries', val: (stats?.fours || 0) + (stats?.sixes || 0), max: 50 }
+  ];
+
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    anim.setValue(0);
+    Animated.spring(anim, { toValue: 1, useNativeDriver: true, tension: 50, friction: 7 }).start();
+  }, [stats]);
+
+  const angleStep = (Math.PI * 2) / axes.length;
+  const getPoint = (val, max, i, r) => {
+    const norm = Math.max(0, Math.min(val / (max || 1), 1));
+    const angle = i * angleStep - Math.PI / 2;
+    return {
+      x: cx + r * norm * Math.cos(angle),
+      y: cy + r * norm * Math.sin(angle)
+    };
+  };
+
+  const bgPoints = [0.2, 0.4, 0.6, 0.8, 1].map(scale => {
+    return axes.map((_, i) => {
+      const angle = i * angleStep - Math.PI / 2;
+      return `${cx + radius * scale * Math.cos(angle)},${cy + radius * scale * Math.sin(angle)}`;
+    }).join(' ');
+  });
+
+  const dataPoints = axes.map((axis, i) => {
+    const pt = getPoint(axis.val, axis.max, i, radius);
+    return `${pt.x},${pt.y}`;
+  }).join(' ');
+
+  return (
+    <View style={{ width, height: H, alignItems: 'center', justifyContent: 'center', marginVertical: 16 }}>
+      <Svg width={width} height={H}>
+        {bgPoints.map((pts, i) => (
+          <Polygon key={i} points={pts} fill="none" stroke={DS.border} strokeWidth={1} />
+        ))}
+        {axes.map((_, i) => {
+          const angle = i * angleStep - Math.PI / 2;
+          return <Line key={i} x1={cx} y1={cy} x2={cx + radius * Math.cos(angle)} y2={cy + radius * Math.sin(angle)} stroke={DS.border} strokeWidth={1} />
+        })}
+        {axes.map((axis, i) => {
+          const angle = i * angleStep - Math.PI / 2;
+          const x = cx + (radius + 15) * Math.cos(angle);
+          const y = cy + (radius + 15) * Math.sin(angle);
+          return (
+            <SvgText key={i} x={x} y={y + 4} fontSize="9" fontWeight="800" fill={DS.textMuted} textAnchor="middle">
+              {axis.label.toUpperCase()}
+            </SvgText>
+          );
+        })}
+      </Svg>
+      <Animated.View style={{ position: 'absolute', opacity: anim, transform: [{ scale: anim }] }}>
+        <Svg width={width} height={H}>
+          <Polygon points={dataPoints} fill="#10b981" fillOpacity={0.3} stroke="#0f4c3a" strokeWidth={2} strokeLinejoin="round" />
+          {axes.map((axis, i) => {
+            const pt = getPoint(axis.val, axis.max, i, radius);
+            return <Circle key={i} cx={pt.x} cy={pt.y} r={3} fill="#0f4c3a" />
+          })}
+        </Svg>
+      </Animated.View>
     </View>
   );
 }

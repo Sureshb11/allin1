@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, ActivityIndicator, RefreshControl, Animated
+  TextInput, ActivityIndicator, RefreshControl, Animated, Pressable, Image
 } from 'react-native';
+import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, Easing, withSequence, withRepeat, runOnJS } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Svg, { Defs, LinearGradient, Stop, Rect, Pattern, Path } from 'react-native-svg';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 
@@ -41,6 +44,45 @@ const AnimatedPulse = ({ children, style }) => {
   return <Animated.View style={[style, { transform: [{ scale: pulseAnim }] }]}>{children}</Animated.View>;
 };
 
+const SkeletonShimmer = ({ style, DS }) => {
+  const fadeAnim = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 0.3, duration: 1000, useNativeDriver: true })
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [fadeAnim]);
+  return <Animated.View style={[style, { backgroundColor: DS.surfaceHighest, opacity: fadeAnim }]} />;
+};
+
+const TournamentSkeleton = ({ DS }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.card}>
+      <SkeletonShimmer DS={DS} style={[styles.heroBanner, { backgroundColor: DS.surfaceHighest }]} />
+      <View style={styles.cardBody}>
+        <View style={styles.cardBodyLeft}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <SkeletonShimmer DS={DS} style={{ width: 44, height: 44, borderRadius: 22 }} />
+            <View style={{ flex: 1, gap: 8 }}>
+              <SkeletonShimmer DS={DS} style={{ height: 16, width: '80%', borderRadius: 4 }} />
+              <SkeletonShimmer DS={DS} style={{ height: 12, width: '50%', borderRadius: 4 }} />
+            </View>
+          </View>
+          <View style={styles.cardStatsRow}>
+             <SkeletonShimmer DS={DS} style={{ height: 16, width: 80, borderRadius: 4 }} />
+             <SkeletonShimmer DS={DS} style={{ height: 16, width: 80, borderRadius: 4 }} />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 /* ── Stats Pill ── */
 function StatPill({ value, label }) {
   const styles = useThemedStyles(makeStyles);
@@ -52,6 +94,90 @@ function StatPill({ value, label }) {
   );
 }
 
+const ALBUM_PALETTE = ['#1a365d', '#312e81', '#4c1d95', '#701a75', '#831843', '#064e3b', '#0f766e', '#0c4a6e', '#1e3a8a'];
+const getAlbumColor = (str) => {
+  let hash = 0;
+  for (let i = 0; i < (str || '').length; i++) hash = (str || '').charCodeAt(i) + ((hash << 5) - hash);
+  return ALBUM_PALETTE[Math.abs(hash) % ALBUM_PALETTE.length];
+};
+
+const DynamicFAB = ({ tabClear, onPress, DS }) => {
+  return (
+    <Animated.View style={{
+      position: 'absolute',
+      bottom: 24 + tabClear,
+      right: 16,
+      height: 56,
+      width: 56,
+      backgroundColor: DS.lime,
+      borderRadius: 28,
+      elevation: 6,
+      shadowColor: DS.lime,
+      shadowOpacity: 0.4,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      overflow: 'hidden'
+    }}>
+      <TouchableOpacity 
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        onPress={() => { ReactNativeHapticFeedback.trigger('impactLight'); onPress(); }}
+      >
+        <Icon name="plus" size={32} color="#fff" />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const LiveRing = ({ DS }) => {
+  const opacity = useSharedValue(0.3);
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 800 }),
+        withTiming(0.3, { duration: 800 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value
+  }));
+  return (
+    <Reanimated.View style={[{
+      position: 'absolute', top: -3, left: -3, right: -3, bottom: -3,
+      borderRadius: 9,
+      borderWidth: 1.5,
+      borderColor: DS.lime,
+    }, animatedStyle]} />
+  );
+};
+
+const TodayTabCard = ({ children, style, onPress }) => {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }]
+  }));
+
+  const handlePress = () => {
+    scale.value = withSequence(
+      withTiming(0.95, { duration: 100 }),
+      withTiming(1.05, { duration: 150 }),
+      withTiming(1, { duration: 150 }, (finished) => {
+        if (finished && onPress) runOnJS(onPress)();
+      })
+    );
+  };
+
+  return (
+    <Pressable onPress={handlePress}>
+      <Reanimated.View style={[style, animatedStyle]}>
+        {children}
+      </Reanimated.View>
+    </Pressable>
+  );
+};
+
 /* ── Tournament Card ── */
 function TournamentCard({ item, onJoin, onPress, onOpen }) {
   const DS = useTheme().colors;
@@ -62,15 +188,59 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
   const progress = (item.teams || 0) / (item.maxTeams || 16);
 
   const isGold = item.status === 'Ongoing' || item.status === 'Active';
+  const albumColor = getAlbumColor(item.name);
 
   return (
-    <PressableScale
+    <TodayTabCard
       style={[styles.card, isGold && { borderColor: DS.lime, borderWidth: 2, shadowColor: DS.lime, shadowOpacity: 0.15, shadowRadius: 10, elevation: 4 }]}
       onPress={onPress}>
+      
+      {/* Hero Banner */}
+      <View style={styles.heroBanner}>
+        {item.coverPic || item.banner ? (
+          <Image source={{ uri: item.coverPic || item.banner }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        ) : (
+          <Svg width="100%" height="100%" preserveAspectRatio="none">
+            <Defs>
+              <LinearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor={albumColor} stopOpacity="0.8" />
+                <Stop offset="1" stopColor={DS.bg} stopOpacity="1" />
+              </LinearGradient>
+              <Pattern id="pattern" width="40" height="40" patternUnits="userSpaceOnUse">
+                <Path d="M0 40L40 0H20L0 20M40 40V20L20 40" fill={statusColor} fillOpacity="0.05" />
+              </Pattern>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#grad)" />
+            <Rect width="100%" height="100%" fill="url(#pattern)" />
+          </Svg>
+        )}
+        <View style={[{ position: 'absolute', top: 12, right: 12 }]}>
+          <View style={[styles.statusBadge, { backgroundColor: statusColor + '40', borderColor: statusColor + '80', borderWidth: 1 }]}>
+            <Text style={[styles.statusBadgeText, { color: DS.bg }]}>
+              {item.status ? item.status.toUpperCase() : 'UPCOMING'}
+            </Text>
+          </View>
+          {isGold && <LiveRing DS={DS} />}
+        </View>
+        {!!item.format && (
+          <View style={styles.bannerFormat}>
+            <Icon name="trophy" size={14} color={DS.lime} />
+            <Text style={styles.bannerFormatText}>
+              {item.format === 'Custom' && item.overs ? `${item.overs} Overs` : item.format}
+            </Text>
+          </View>
+        )}
+      </View>
+
       {/* Body: info on the left, status + actions stacked top-right */}
       <View style={styles.cardBody}>
         <View style={styles.cardBodyLeft}>
-          <Text style={styles.cardName} numberOfLines={2}>{item.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {(item.logo || item.logoUrl) ? (
+              <Image source={{ uri: item.logo || item.logoUrl }} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: DS.surfaceHighest }} />
+            ) : null}
+            <Text style={[styles.cardName, { flex: 1 }]} numberOfLines={2}>{item.name}</Text>
+          </View>
 
           {/* Date & location */}
           <View style={styles.cardMeta}>
@@ -90,18 +260,19 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
               it. The format chip used to be a hardcoded "T20" with a cricket
               bat icon, on every tournament of every sport. */}
           <View style={styles.cardStatsRow}>
-            <View style={styles.cardStatItem}>
-              <Icon name="account-group-outline" size={14} color={DS.textMuted} />
-              <Text style={styles.cardStatText}>
-                {item.maxTeams ? `${item.teams}/${item.maxTeams} teams` : `${item.teams} teams`}
-              </Text>
-            </View>
-            {!!item.format && (
+            <View style={styles.cardStatItemContainer}>
               <View style={styles.cardStatItem}>
-                <Icon name="trophy-outline" size={14} color={DS.textMuted} />
-                <Text style={styles.cardStatText}>{item.format}</Text>
+                <Icon name="account-group-outline" size={14} color={DS.textMuted} />
+                <Text style={styles.cardStatText}>
+                  {item.maxTeams ? `${item.teams}/${item.maxTeams} teams` : `${item.teams} teams`}
+                </Text>
               </View>
-            )}
+              {!!item.maxTeams && (
+                <View style={{ marginTop: 6, height: 4, backgroundColor: DS.surfaceHighest, borderRadius: 2, overflow: 'hidden', width: '100%' }}>
+                  <View style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%`, height: '100%', backgroundColor: progress > 0.8 ? DS.danger : DS.lime }} />
+                </View>
+              )}
+            </View>
             {!!item.prize && (
               <View style={styles.cardStatItem}>
                 <Icon name="currency-inr" size={14} color={DS.textMuted} />
@@ -115,24 +286,20 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
           )}
         </View>
 
-        {/* Right column: status badge + stacked actions */}
+        {/* Right column: stacked actions */}
         <View style={styles.cardHeaderRight}>
-          <View style={[styles.statusBadge, { backgroundColor: statusColor + '1A' }]}>
-            <Text style={[styles.statusBadgeText, { color: statusColor }]}>
-              {item.status ? item.status.toUpperCase() : 'UPCOMING'}
-            </Text>
-          </View>
           {item.status !== 'Open' && (
             <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.chipBtn} onPress={() => onOpen('Schedule', { bracket: true })}>
+              <PressableScale style={styles.chipBtn} onPress={() => { ReactNativeHapticFeedback.trigger('impactLight'); onOpen('Schedule', { bracket: true }); }}>
                 <Text style={styles.chipBtnText}>BRACKET</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.chipBtn} onPress={() => onOpen('Points Table')}>
-                <Text style={styles.chipBtnText}>STANDINGS</Text>
-              </TouchableOpacity>
+              </PressableScale>
+              <PressableScale style={styles.chipBtnBlack} onPress={() => { ReactNativeHapticFeedback.trigger('impactLight'); onOpen('Points Table'); }}>
+                <Text style={styles.chipBtnTextBlack}>STANDINGS</Text>
+              </PressableScale>
             </View>
           )}
         </View>
+
       </View>
 
       {/* Footer: only Open tournaments show slots + JOIN */}
@@ -141,12 +308,12 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
           <Text style={styles.slotsLeft}>
             {teamsLeft > 0 ? `${teamsLeft} slots left` : 'Full'}
           </Text>
-          <TouchableOpacity style={styles.joinBtn} onPress={() => onJoin(item)}>
+          <PressableScale style={styles.joinBtn} onPress={() => { ReactNativeHapticFeedback.trigger('impactLight'); onJoin(item); }}>
             <Text style={styles.joinBtnText}>JOIN</Text>
-          </TouchableOpacity>
+          </PressableScale>
         </View>
       )}
-    </PressableScale>
+    </TodayTabCard>
   );
 }
 
@@ -164,6 +331,28 @@ const TournamentsScreen = ({ navigation, inline }) => {
   const [filter, setFilter] = useState('All');
   // Swipe steps All → Open → Ongoing → Completed.
   const filterSwipe = useFilterSwipe(FILTERS, filter, setFilter);
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Sync scrollY with AutoHideTabBar
+  useEffect(() => {
+    const id = scrollY.addListener((state) => {
+      if (hideTabBar.onScroll) {
+        hideTabBar.onScroll({ nativeEvent: { contentOffset: { y: state.value } } });
+      }
+    });
+    return () => scrollY.removeListener(id);
+  }, [scrollY, hideTabBar]);
+
+  const headerTranslateY = scrollY.interpolate({
+    inputRange: [0, 80],
+    outputRange: [0, -80],
+    extrapolate: 'clamp'
+  });
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 60],
+    outputRange: [1, 0],
+    extrapolate: 'clamp'
+  });
 
   useLayoutEffect(() => {
     if (!inline) {
@@ -223,17 +412,12 @@ const TournamentsScreen = ({ navigation, inline }) => {
 
   const handleJoin = (tournament) => navigation.navigate('TournamentRegistration', { tournament });
 
+  const featured = (filter === 'All' && !searchQuery) ? tournaments.filter(t => t.status === 'Open') : [];
+  const standard = (filter === 'All' && !searchQuery) ? filtered.filter(t => t.status !== 'Open') : filtered;
+
   /* Aggregate stats */
   const activeCount  = tournaments.filter(t => t.status === 'Open' || t.status === 'Ongoing').length;
   const totalTeams   = tournaments.reduce((s, t) => s + (t.teams || 0), 0);
-
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={DS.lime} />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -247,80 +431,131 @@ const TournamentsScreen = ({ navigation, inline }) => {
         </View>
       )}
 
-      {/* Moved fixed items to ListHeaderComponent */}
-      <GestureDetector gesture={filterSwipe}>
-      <FlatList
-        {...hideTabBar}
-        data={filtered}
-        keyExtractor={item => item.id}
-        contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}
+      {/* Parallax Header */}
+      <Animated.View style={{
+        position: 'absolute',
+        top: inline ? 0 : 88, // Below brand header
+        left: 0,
+        right: 0,
+        zIndex: 5,
+        backgroundColor: DS.bg + 'F0',
+        paddingHorizontal: 0,
+        paddingBottom: 8,
+        transform: [{ translateY: headerTranslateY }],
+        opacity: headerOpacity
+      }}>
+        {/* Search */}
+        <View style={styles.searchWrap}>
+          <Icon name="magnify" size={18} color={DS.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Find a tournament..."
+            placeholderTextColor={DS.faint}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+              <Icon name="close-circle" size={18} color={DS.faint} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Filter chips */}
+        <View style={[C.filterBar, { flexDirection: 'row' }]}>
+          {FILTERS.map(f => {
+            const on = filter === f;
+            return (
+              <TouchableOpacity
+                key={f}
+                style={[C.filterChip, on && C.filterChipActive]}
+                onPress={() => setFilter(f)}
+                activeOpacity={0.8}
+              >
+                <Text style={[C.filterText, on && C.filterTextActive]}>{f}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Animated.View>
+
+      <Animated.FlatList
+        data={loading ? [1, 2, 3] : standard}
+        keyExtractor={(item, index) => loading ? `skeleton-${index}` : item.id}
+        contentContainerStyle={[styles.list, { paddingBottom: tabClear, paddingTop: 130 }]}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
         ListHeaderComponent={
           <View>
-            {/* Removed CTA Card for floating button */}
-
-            {/* Search */}
-            <View style={styles.searchWrap}>
-              <Icon name="magnify" size={18} color={DS.textMuted} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Find a tournament..."
-                placeholderTextColor={DS.faint}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-                  <Icon name="close-circle" size={18} color={DS.faint} />
-                </TouchableOpacity>
+            
+            {/* Featured Carousel */}
+            {!loading && featured.length > 0 && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ paddingHorizontal: 16, fontSize: 16, fontWeight: '800', color: DS.textPrimary, marginBottom: 12, marginTop: 4 }}>
+                  Featured Tournaments
+                </Text>
+                <FlatList
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  data={featured}
+                  keyExtractor={item => 'featured-' + item.id}
+                  contentContainerStyle={{ paddingHorizontal: 16, gap: 16 }}
+                  snapToInterval={300 + 16}
+                  decelerationRate="fast"
+                  renderItem={({ item }) => (
+                    <View style={{ width: 300 }}>
+                      <TournamentCard
+                        item={item}
+                        onJoin={handleJoin}
+                        onPress={() => navigation.navigate('TournamentDetail', { tournamentId: item.id })}
+                        onOpen={(tab, extra) => navigation.navigate('TournamentDetail', { tournamentId: item.id, initialTab: tab, ...extra })}
+                      />
+                    </View>
+                  )}
+                />
+              </View>
+            )}
+          </View>
+        }
+        renderItem={({ item }) => {
+          if (loading) return <TournamentSkeleton DS={DS} />;
+          return (
+            <TournamentCard
+              item={item}
+              onJoin={handleJoin}
+              onPress={() => navigation.navigate('TournamentDetail', { tournamentId: item.id })}
+              onOpen={(tab, extra) => navigation.navigate('TournamentDetail', { tournamentId: item.id, initialTab: tab, ...extra })}
+            />
+          );
+        }}
+        ListEmptyComponent={
+          !loading && (
+            <View style={[styles.empty, { marginTop: 40 }]}>
+              <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                <Icon name="trophy-variant-outline" size={56} color={DS.textMuted} />
+              </View>
+              <Text style={[styles.emptyTitle, { fontSize: 20, color: DS.textPrimary, fontWeight: '800' }]}>No Tournaments Yet</Text>
+              <Text style={[styles.emptySub, { textAlign: 'center', marginHorizontal: 40, marginTop: 10, lineHeight: 22 }]}>
+                {searchQuery ? "We couldn't find any tournaments matching your search." : "Be the first to host a tournament and bring the community together!"}
+              </Text>
+              {!searchQuery && (
+                <PressableScale 
+                  style={{ backgroundColor: DS.lime, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12, marginTop: 30 }}
+                  onPress={() => { ReactNativeHapticFeedback.trigger('impactLight'); navigation.navigate('CreateTournament'); }}
+                >
+                  <Text style={{ color: DS.bg, fontWeight: '800', fontSize: 14, letterSpacing: 0.5 }}>HOST A TOURNAMENT</Text>
+                </PressableScale>
               )}
             </View>
-
-            {/* Filter chips */}
-            {/* Rankings' board filters (theme/controls.js): an underline, not a
-                filled pill — a filter sits under the thing it filters, so it
-                shouldn't read as a second row of tabs. */}
-            <View style={[C.filterBar, { flexDirection: 'row' }]}>
-              {FILTERS.map(f => {
-                const on = filter === f;
-                return (
-                  <TouchableOpacity
-                    key={f}
-                    style={[C.filterChip, on && C.filterChipActive]}
-                    onPress={() => setFilter(f)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[C.filterText, on && C.filterTextActive]}>{f}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <TournamentCard
-            item={item}
-            onJoin={handleJoin}
-            onPress={() => navigation.navigate('TournamentDetail', { tournamentId: item.id })}
-            onOpen={(tab, extra) => navigation.navigate('TournamentDetail', { tournamentId: item.id, initialTab: tab, ...extra })}
-          />
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Icon name="trophy-outline" size={52} color={DS.textMuted} />
-            <Text style={styles.emptyTitle}>No tournaments found</Text>
-            <Text style={styles.emptySub}>Try changing your search or filter</Text>
-          </View>
+          )
         }
       />
-      </GestureDetector>
-      {/* Clear the floating dock — it covered the + entirely. */}
-      <AnimatedPulse style={[styles.fabWrap, { bottom: 24 + tabClear }]}>
-        <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreateTournament')}>
-          <Icon name="plus" size={28} color="#fff" />
-        </TouchableOpacity>
-      </AnimatedPulse>
+      <DynamicFAB scrollY={scrollY} tabClear={tabClear} DS={DS} onPress={() => navigation.navigate('CreateTournament')} />
     </View>
   );
 };
@@ -346,6 +581,49 @@ const makeStyles = (DS) => StyleSheet.create({
   titleRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16,
+  },
+  /* Tournament Card */
+  card: {
+    backgroundColor: DS.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: DS.border,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 2,
+  },
+  heroBanner: {
+    height: 80,
+    width: '100%',
+    position: 'relative',
+    borderBottomWidth: 1,
+    borderBottomColor: DS.border,
+  },
+  bannerFormat: {
+    position: 'absolute',
+    bottom: -14,
+    left: 16,
+    backgroundColor: DS.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: DS.border,
+    gap: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 1,
+  },
+  bannerFormatText: {
+    color: DS.textPrimary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  cardBody: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    paddingTop: 24,
   },
   ctaCard: {
     backgroundColor: DS.surface,
@@ -502,10 +780,15 @@ const makeStyles = (DS) => StyleSheet.create({
   joinBtnText: { fontSize: 13, fontWeight: '900', color: DS.white },
   chipBtn: {
     backgroundColor: 'transparent', borderRadius: 8, alignItems: 'center',
-    borderWidth: 1.5, borderColor: DS.textPrimary,
+    borderWidth: 1.5, borderColor: DS.faint,
     paddingHorizontal: 14, paddingVertical: 7,
   },
   chipBtnText: { fontSize: 11, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.5 },
+  chipBtnBlack: {
+    backgroundColor: '#000', borderRadius: 8, alignItems: 'center',
+    paddingHorizontal: 14, paddingVertical: 7,
+  },
+  chipBtnTextBlack: { fontSize: 11, fontWeight: '800', color: DS.white, letterSpacing: 0.5 },
 
   /* Empty */
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
