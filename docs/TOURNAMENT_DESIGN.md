@@ -207,11 +207,26 @@ Guards:
 ```
 Draft → Submitted → UnderReview → Approved
                                 ↘ Rejected  (reason required)
-                  ↘ Withdrawn
 ```
 
 Approval is what admits a team to fixture generation. `Submitted` teams are
 **not** counted toward `MinimumTeams`.
+
+**There is no withdrawal.** Once a team is approved it is in the tournament
+until it ends. A team that fails to appear **forfeits that match** (§7.4) — it
+does not leave the competition, and its completed results stand.
+
+This is the right call, and not only for simplicity. Withdrawal mid-tournament
+is the single most corrosive event in a league: every opponent's record changes
+depending on whether they had already played the departing team, so the table
+becomes a function of *fixture order* rather than performance. Forfeits keep the
+schedule intact and put the cost on the absent team alone.
+
+**Organiser removal is the one exception**, and it must be guarded. Removing a
+team that has already played is not an administrative tidy-up — it silently
+rewrites other teams' records. Removal is therefore allowed only while the
+tournament has **no completed matches involving that team**; after that the
+remedy is forfeiting their remaining fixtures, not deletion.
 
 ### 4.3 Match
 
@@ -401,12 +416,12 @@ Implement it as a sub-table, or it produces nonsense in three-way ties.
 ### 7.5 Recalculation
 
 Triggered by: match completion, result edit, ball edit on a completed match,
-points-rule change, team withdrawal.
+points-rule change, organiser removal of a team that has played nothing.
 
-Withdrawal needs a stated policy: either all that team's matches are void and
-removed from every opponent's record, or completed matches stand and the
-remainder are forfeits. **Both are defensible; pick one and record it**, because
-the two produce different champions.
+There is no withdrawal path to handle (§4.2). A team that stops appearing
+forfeits each remaining fixture, so its completed matches stand and its
+opponents' records are untouched — the table stays a function of results rather
+than of who happened to play the departing team first.
 
 ---
 
@@ -498,7 +513,7 @@ failure is visible rather than silent.
 Append-only. Every entry: who, when, entity, action, before, after, reason.
 
 Auditable actions: tournament created/published/cancelled, rule changed, fixture
-generated/edited/deleted, registration approved/rejected/withdrawn, player
+generated/edited/deleted, registration approved/rejected, team removed, player
 transferred/replaced, match result entered or **changed**, points recomputed,
 any manual override.
 
@@ -530,7 +545,7 @@ The app has a working tournament module. This is the honest gap analysis.
 `Registration`, `Payment`, `PlayerStatistics`, `TeamStatistics`, `AuditLog`,
 `Media`.
 
-### Four places the design contradicts the current schema
+### Five places the design contradicts the current schema
 
 1. **Standings are denormalised onto `TournamentTeam`** (`points`, `played`,
    `won`, `lost`, `tied`, `nrr`). This design wants a separate, rebuildable
@@ -551,6 +566,14 @@ The app has a working tournament module. This is the honest gap analysis.
    happening on live data. Storing the id fixes it going forward but does not
    repair existing rows.
 
+5. **Removing a team is a hard delete.** `DELETE /:id/teams/:teamId` is
+   organiser-only — so a team already cannot withdraw itself, which is the rule
+   in §4.2 — but it drops the `TournamentTeam` row outright. Once that team has
+   played, its results are orphaned: the matches still exist and still count
+   against opponents, while the side that played them is gone from the table.
+   The endpoint needs the §4.2 guard — refuse when the team has any completed
+   match, and forfeit the remaining fixtures instead.
+
 ### Suggested order
 
 1. `TournamentSettings` + `TournamentRule` — unblocks everything rule-driven
@@ -561,6 +584,9 @@ The app has a working tournament module. This is the honest gap analysis.
 5. `PlayerStatistics` / `TeamStatistics` projections.
 6. `Registration` / `Payment`.
 7. `AuditLog`.
+
+Item 5 above is the cheap one and is a correctness bug today — it is a guard on
+one endpoint, not a migration.
 
 Steps 3 and 4 are migrations with real data behind them and want their own
 plan — including what happens to fielding stats accumulated under the name-match.
