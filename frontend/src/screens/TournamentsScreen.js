@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, ActivityIndicator, RefreshControl, Animated, Pressable, Image
@@ -14,7 +14,7 @@ import { getSelectedSport } from '../utils/selectedSport';
 /* ── Design System ── */
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { makeControls } from '../theme/controls';
-import { GestureDetector } from 'react-native-gesture-handler';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import BrandLogo from "../components/BrandLogo";
@@ -335,6 +335,11 @@ const TournamentsScreen = ({ navigation, inline }) => {
   const [filter, setFilter] = useState('All');
   // Swipe steps All → Open → Ongoing → Completed.
   const filterSwipe = useFilterSwipe(FILTERS, filter, setFilter);
+  // The featured carousel scrolls sideways inside a screen whose sideways swipe
+  // changes the filter. Declaring it as a native gesture that blocks the outer
+  // one keeps the carousel's drag to itself — the same idiom Rankings uses to
+  // stop its board row from driving the Pavilion pager.
+  const featuredScroll = useMemo(() => Gesture.Native().blocksExternalGesture(filterSwipe), [filterSwipe]);
   const scrollY = useRef(new Animated.Value(0)).current;
 
   // Sync scrollY with AutoHideTabBar
@@ -502,6 +507,10 @@ const TournamentsScreen = ({ navigation, inline }) => {
         </View>
       </Animated.View>
 
+      {/* Swipe left/right anywhere on the list steps the filter row. The hook
+          was already built here and its GestureDetector never rendered, so the
+          gesture has been dead on this screen since it was added. */}
+      <GestureDetector gesture={filterSwipe}>
       <Animated.FlatList
         data={loading ? [1, 2, 3] : standard}
         keyExtractor={(item, index) => loading ? `skeleton-${index}` : item.id}
@@ -522,6 +531,10 @@ const TournamentsScreen = ({ navigation, inline }) => {
                 <Text style={{ paddingHorizontal: 16, fontSize: 16, fontWeight: '800', color: DS.textPrimary, marginBottom: 12, marginTop: 4 }}>
                   Featured Tournaments
                 </Text>
+                {/* Its own horizontal scroll, claimed before the filter swipe
+                    can see it — otherwise flicking through the carousel changes
+                    the filter underneath you. */}
+                <GestureDetector gesture={featuredScroll}>
                 <FlatList
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -541,6 +554,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
                     </View>
                   )}
                 />
+                </GestureDetector>
               </View>
             )}
           </View>
@@ -578,6 +592,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
           )
         }
       />
+      </GestureDetector>
       <DynamicFAB scrollY={scrollY} tabClear={tabClear} DS={DS} onPress={() => navigation.navigate('CreateTournament')} />
     </View>
   );

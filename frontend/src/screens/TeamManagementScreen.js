@@ -645,6 +645,12 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
       )}
 
       {/* Tabs moved to ListHeaderComponent */}
+      {/* Swipe left/right steps My Teams → Opponents → Followed. The hook was
+          built here and its GestureDetector never rendered, so the gesture has
+          been dead on this screen. On the My Teams tab the rows carry their own
+          Swipeable actions and activate first — a row's swipe beats a filter
+          change, which is the right way round. */}
+      <GestureDetector gesture={teamSwipe}>
       <FlatList
         data={searchedTeams[tab]}
         renderItem={renderTeam}
@@ -710,6 +716,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
             </Text>
           </View>
         } />
+      </GestureDetector>
 
       <Modal
         visible={showCreateTeamModal}

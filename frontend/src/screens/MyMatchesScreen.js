@@ -15,6 +15,8 @@ import BrandLogo from '../components/BrandLogo';
 import { teamNamePairStyle } from '../utils/teamNameSize';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { makeControls } from '../theme/controls';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { useFilterSwipe } from '../utils/useFilterSwipe';
 
 // Single-accent: team avatars are the deep green (white initials read on it),
 // matching the hexagons on the home feed.
@@ -357,6 +359,10 @@ export default function MyMatchesScreen({ navigation }) {
   const tabClear = useTabBarClearance();
   const [query, setQuery]       = useState('');
   const [status, setStatus]     = useState('all');
+  // Swipe steps All → Live → Upcoming → Completed. The live ticker's own
+  // horizontal rail sits above the list, outside this gesture, so the two don't
+  // compete.
+  const filterSwipe = useFilterSwipe(FILTERS, status, setStatus);
   const [matches, setMatches]   = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading]   = useState(true);
@@ -561,6 +567,9 @@ export default function MyMatchesScreen({ navigation }) {
         })}
       </View>
 
+      {/* Swipe left/right anywhere on the list steps the filter row, the same
+          as Home, My Teams and Tournaments. */}
+      <GestureDetector gesture={filterSwipe}>
       <FlatList
         {...hideTabBar}
         data={filtered}
@@ -631,6 +640,7 @@ export default function MyMatchesScreen({ navigation }) {
           </View>
         }
       />
+      </GestureDetector>
     </View>
   );
 }
