@@ -582,16 +582,8 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16,
   },
-  /* Tournament Card */
-  card: {
-    backgroundColor: DS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: DS.border,
-    marginBottom: 16,
-    overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 2,
-  },
+  /* Tournament Card — see the live `card` further down; this one was
+     overridden by it and never rendered. */
   heroBanner: {
     height: 80,
     width: '100%',
@@ -619,12 +611,7 @@ const makeStyles = (DS) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  cardBody: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-    paddingTop: 24,
-  },
+
   ctaCard: {
     backgroundColor: DS.surface,
     borderRadius: 16,

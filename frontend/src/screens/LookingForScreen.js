@@ -838,7 +838,7 @@ function SonarPulse({ size, color }) {
           onSwipeableLeftOpen={() => {
             haptic.success();
             islandRef.current?.show(isMine ? 'Marked as filled' : 'Connection sent', isMine ? 'check-circle' : 'handshake');
-            if (!isMine) openConnect(item);
+            if (!isMine) handleConnect(item.id);
           }}
           overshootLeft={false}
           containerStyle={{ flex: 1 }}
@@ -1340,7 +1340,6 @@ const makeStyles = (DS) => StyleSheet.create({
   swipeConnectBox: { flex: 1, backgroundColor: '#059669', borderRadius: 16, justifyContent: 'center', alignItems: 'flex-start', paddingLeft: 24 },
   swipeConnectIcon: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   swipeConnectText: { color: '#ffffff', fontSize: 16, fontWeight: '800' },
-  rowTap: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   row: { 
     flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 14,
     backgroundColor: '#ffffff', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', 
