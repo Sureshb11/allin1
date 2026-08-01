@@ -247,25 +247,7 @@ export default function HomeScreen({ navigation }) {
   // "My Cricket" summary — prefer the logged-in user; in dev (auth bypassed,
   // no token) fall back to the first real DB player as a stand-in.
   const authedUser = me?.user;          // `me` state holds { user, player } from getMe()
-  const authedPlayer = me?.player;       // may be null if no matching player
-  const fallbackPlayer = players[0];
-  const profilePlayer = authedUser ? authedPlayer : fallbackPlayer;
-  const profileName = authedUser
-    ? (`${authedUser.firstName || ''} ${authedUser.lastName || ''}`.trim() || 'Your Profile')
-    : (fallbackPlayer?.name || 'Your Profile');
-  const meInitials = profileName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'ME';
-  const meRole = profilePlayer
-    ? `${profilePlayer.role || 'Cricketer'}${profilePlayer.team?.name ? ' · ' + profilePlayer.team.name : ''}`
-    : 'Set up your profile';
-  const meStats = profilePlayer?.stats || {};
-  const profileId = profilePlayer?.id;
-  const meSports = me?.sports || [];   // [{ sport, isPrimary, … }]
-  const meCells = [
-    [String(meStats.matches ?? '—'), 'Matches'],
-    [meStats.runs != null ? Number(meStats.runs).toLocaleString() : '—', 'Runs'],
-    [String(meStats.wickets ?? '—'), 'Wickets'],
-    [meStats.battingAverage != null ? String(meStats.battingAverage) : '—', 'Bat Avg'],
-  ];
+
 
   return (
     <View style={styles.root}>
@@ -321,36 +303,6 @@ export default function HomeScreen({ navigation }) {
             {...hideTabBar}
             ListHeaderComponent={
               <View>
-                {/* My Dashboard */}
-                <TouchableOpacity 
-                  style={[styles.dashboardCard, { backgroundColor: DS.surface, borderColor: DS.border }]} 
-                  activeOpacity={0.9} 
-                  onPress={() => navigation.navigate('ProfileTab')}
-                >
-                  <View style={styles.dashboardHeader}>
-                    {authedUser?.avatarUrl ? (
-                      <Image source={{ uri: authedUser.avatarUrl }} style={styles.dashboardAvatar} />
-                    ) : (
-                      <View style={[styles.dashboardAvatarFallback, { backgroundColor: DS.surfaceHighest }]}>
-                        <Text style={[styles.dashboardAvatarText, { color: DS.textPrimary }]}>{meInitials}</Text>
-                      </View>
-                    )}
-                    <View style={styles.dashboardNameBlock}>
-                      <Text style={[styles.dashboardName, { color: DS.textPrimary }]}>{profileName}</Text>
-                      <Text style={[styles.dashboardRole, { color: DS.textMuted }]}>{meRole}</Text>
-                    </View>
-                    <Icon name="chevron-right" size={24} color={DS.textMuted} />
-                  </View>
-                  <View style={[styles.dashboardStatsRow, { borderTopColor: DS.faint }]}>
-                    {meCells.map(([val, lbl], idx) => (
-                      <View key={idx} style={styles.dashboardStatBox}>
-                        <Text style={[styles.dashboardStatValue, { color: DS.textPrimary }]}>{val}</Text>
-                        <Text style={[styles.dashboardStatLabel, { color: DS.textMuted }]}>{lbl}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </TouchableOpacity>
-
                 {/* Start Match CTA */}
                 <AnimatedPulse>
                   <TouchableOpacity
@@ -640,20 +592,6 @@ const makeStyles = (DS, typography, radii, shadows) => StyleSheet.create({
   feedContent: { paddingHorizontal: 16, paddingBottom: 16 },
 
   // Start Match CTA
-  // Dashboard Card
-  dashboardCard: { borderRadius: radii?.lg || 20, padding: 16, marginBottom: 16, borderWidth: 1, ...(shadows?.sm || {}) },
-  dashboardHeader: { flexDirection: 'row', alignItems: 'center' },
-  dashboardAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: DS.surfaceHighest },
-  dashboardAvatarFallback: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  dashboardAvatarText: { fontSize: 18, fontWeight: '900' },
-  dashboardNameBlock: { flex: 1, marginLeft: 12 },
-  dashboardName: { fontSize: 16, fontWeight: '800' },
-  dashboardRole: { fontSize: 13, marginTop: 2 },
-  dashboardStatsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, paddingTop: 16, borderTopWidth: 1 },
-  dashboardStatBox: { flex: 1, alignItems: 'center' },
-  dashboardStatValue: { fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  dashboardStatLabel: { fontSize: 11, fontWeight: '600', marginTop: 4, letterSpacing: 0.5 },
-
   startMatchCTA: {}, // Keeping key to avoid errors, replaced by inline styles
 
   // Filters and Search
