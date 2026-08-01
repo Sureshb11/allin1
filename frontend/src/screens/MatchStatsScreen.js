@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { teamNamePairStyle } from '../utils/teamNameSize';
 
 
 
@@ -145,14 +146,16 @@ export default function MatchStatsScreen({ navigation, route }) {const A = useAr
           <View style={s.scoreCard}>
             <View style={s.teamCol}>
               <View style={s.badge}><Text style={s.badgeTxt}>{t1.slice(0, 2).toUpperCase()}</Text></View>
-              <Text style={s.teamName} numberOfLines={2}>{t1}</Text>
+              <Text style={[s.teamName, teamNamePairStyle(t1, t2)]} numberOfLines={1}
+                adjustsFontSizeToFit minimumFontScale={0.8}>{t1}</Text>
             </View>
             <View style={s.scoreMid}>
               <Text style={s.score}>{sc1} <Text style={s.scoreDash}>–</Text> {sc2}</Text>
             </View>
             <View style={s.teamCol}>
               <View style={s.badge}><Text style={s.badgeTxt}>{t2.slice(0, 2).toUpperCase()}</Text></View>
-              <Text style={s.teamName} numberOfLines={2}>{t2}</Text>
+              <Text style={[s.teamName, teamNamePairStyle(t1, t2)]} numberOfLines={1}
+                adjustsFontSizeToFit minimumFontScale={0.8}>{t2}</Text>
             </View>
           </View>
 

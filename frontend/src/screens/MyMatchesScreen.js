@@ -11,6 +11,7 @@ import BrandLogo from '../components/BrandLogo';
 import HexAvatar from '../components/HexAvatar';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
+import { teamNamePairStyle } from '../utils/teamNameSize';
 
 // Single-accent: team avatars are the deep green (white initials read on it),
 // matching the hexagons on the home feed.
@@ -96,6 +97,8 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
   const styles = useThemedStyles(makeStyles);
   const STATUS_META = makeStatusMeta(DS);
   const meta = STATUS_META[m.status] || STATUS_META.scheduled;
+  // Both names share a size, taken from the longer, so the two sides match.
+  const nameFit = teamNamePairStyle(m.team1, m.team2);
   const t1Init = (m.team1 || 'T')[0].toUpperCase();
   const t2Init = (m.team2 || 'T')[0].toUpperCase();
   const t1Color = getTeamColor(m.team1, 0);
@@ -132,7 +135,8 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
               <HexAvatar size={36} color={t1Color}>
                 <Text style={styles.teamAvatarText}>{t1Init}</Text>
               </HexAvatar>
-              <Text style={styles.teamNameVertical} numberOfLines={1}>{m.team1 || 'TBD'}</Text>
+              <Text style={[styles.teamNameVertical, nameFit]} numberOfLines={1}
+                adjustsFontSizeToFit minimumFontScale={0.8}>{m.team1 || 'TBD'}</Text>
               <Text style={styles.teamScoreVertical}>
                 {splitScore(m.score1, m.overs).main}
                 {splitScore(m.score1, m.overs).ov ? <Text style={styles.teamScoreOvers}> {splitScore(m.score1, m.overs).ov}</Text> : null}
@@ -147,7 +151,8 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
               <HexAvatar size={36} color={t2Color}>
                 <Text style={styles.teamAvatarText}>{t2Init}</Text>
               </HexAvatar>
-              <Text style={styles.teamNameVertical} numberOfLines={1}>{m.team2 || 'TBD'}</Text>
+              <Text style={[styles.teamNameVertical, nameFit]} numberOfLines={1}
+                adjustsFontSizeToFit minimumFontScale={0.8}>{m.team2 || 'TBD'}</Text>
               <Text style={styles.teamScoreVertical}>
                 {splitScore(m.score2, m.overs).main}
                 {splitScore(m.score2, m.overs).ov ? <Text style={styles.teamScoreOvers}> {splitScore(m.score2, m.overs).ov}</Text> : null}

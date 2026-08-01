@@ -28,6 +28,7 @@ import { splitScore } from './MyMatchesScreen';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
 import { sportColor } from '../sports/colors';
+import { teamNamePairStyle } from '../utils/teamNameSize';
 
 const SW = Dimensions.get('window').width;
 const CARD_GAP = 12;
@@ -185,6 +186,10 @@ function CircleMatchCard({ match, onPress }) {
   const progress = batting && match.overs ? Math.min(batting.overs / match.overs, 1) : 0;
   const league = (match.matchType || 'T20').toUpperCase() + ' LEAGUE';
 
+  // Both sides share one size, taken from the longer name, so a card never
+  // shows one team's name visibly smaller than its opponent's.
+  const nameFit = teamNamePairStyle(match.a.name, match.b.name);
+
   const Team = ({ t, muted }) => {
     const { main, ov } = splitScore(t.score, match.overs);
     return (
@@ -192,7 +197,8 @@ function CircleMatchCard({ match, onPress }) {
         <HexAvatar size={40} color={t.color}>
           <Text style={c.teamAvatarTxt}>{t.short}</Text>
         </HexAvatar>
-        <Text style={c.teamName} numberOfLines={2}>{t.name}</Text>
+        <Text style={[c.teamName, nameFit]} numberOfLines={1}
+          adjustsFontSizeToFit minimumFontScale={0.8}>{t.name}</Text>
         <Text style={[c.teamScore, muted && c.teamScoreMuted]}>
           {main}{ov ? <Text style={[c.teamScoreOvers, muted && c.teamScoreMuted]}> {ov}</Text> : null}
         </Text>
