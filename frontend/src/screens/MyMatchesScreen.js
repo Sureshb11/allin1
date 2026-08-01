@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useLayoutEffect, useRef } from 'react';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable, ScrollView,
+  View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable,
   FlatList, RefreshControl, Animated, LayoutAnimation, UIManager, Platform
 } from 'react-native';
 import Reanimated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing, runOnJS } from 'react-native-reanimated';
@@ -14,6 +14,7 @@ import { getSelectedSport } from '../utils/selectedSport';
 import BrandLogo from '../components/BrandLogo';
 import { teamNamePairStyle } from '../utils/teamNameSize';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
+import { makeControls } from '../theme/controls';
 
 // Single-accent: team avatars are the deep green (white initials read on it),
 // matching the hexagons on the home feed.
@@ -348,6 +349,10 @@ function LiveScoreTicker({ matches }) {
 export default function MyMatchesScreen({ navigation }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
+  // Search + filters come from the shared control language, so this screen,
+  // My Teams and Tournaments switch their lists with the same control instead
+  // of three that each look like a different app (theme/controls.js).
+  const C = useThemedStyles(makeControls);
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
   const [query, setQuery]       = useState('');
@@ -417,6 +422,24 @@ export default function MyMatchesScreen({ navigation }) {
         team2: typeof m.team2 === 'object' ? m.team2?.name : m.team2,
       }));
   }, [matches, status, query]);
+
+  // What each chip would show if you tapped it — counted after the search, so
+  // the numbers describe the list you'd actually get rather than the whole
+  // collection. These are one player's own matches, so counting them is cheap.
+  const counts = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const searched = matches.filter((m) => {
+      if (!q) return true;
+      const t1 = typeof m.team1 === 'object' ? m.team1?.name : m.team1;
+      const t2 = typeof m.team2 === 'object' ? m.team2?.name : m.team2;
+      return [t1, t2, m.venue, m.matchType].join(' ').toLowerCase().includes(q);
+    });
+    return FILTERS.reduce((acc, f) => {
+      const want = FILTER_STATUS_MAP[f];
+      acc[f] = want === 'all' ? searched.length : searched.filter((m) => (m.status || '') === want).length;
+      return acc;
+    }, {});
+  }, [matches, query]);
 
   if (loading) {
     return (
@@ -496,46 +519,46 @@ export default function MyMatchesScreen({ navigation }) {
 
 
       {/* Search */}
-      <View style={styles.searchWrap}>
+      <View style={[C.searchField, styles.searchRow]}>
         <Icon name="magnify" size={18} color={DS.textMuted} />
         <TextInput
-          style={styles.searchInput}
+          style={C.searchFieldInput}
           placeholder="Search teams, venue, type..."
           placeholderTextColor={DS.textMuted}
           value={query}
           onChangeText={setQuery}
         />
         {query.length > 0 && (
-          <TouchableOpacity onPress={() => setQuery('')}>
-            <Icon name="close-circle" size={16} color={DS.textMuted} />
+          <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Icon name="close-circle" size={18} color={DS.faint} />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Filter tabs — app-standard X-style: icon-only, the selected filter shows
-          its name (green) with an underline. */}
-      <View style={styles.filtersRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersContainer}>
-          {FILTERS.map((f) => {
-            const active = status === f;
-            return (
-              <TouchableOpacity
-                key={f}
-                style={[styles.filterTab, active && styles.filterTabActive]}
-                onPress={() => setStatus(f)}
-                activeOpacity={0.8}
-              >
-                <Icon name={FILTER_ICONS[f]} size={16} color={active ? DS.bg : DS.textMuted} />
-                <Text style={active ? styles.filterTabTextActive : styles.filterTabTextInactive}>{f.toUpperCase()}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Match count */}
-      <View style={styles.countRow}>
-        <Text style={styles.countText}>{filtered.length} match{filtered.length !== 1 ? 'es' : ''}</Text>
+      {/* Filters. Was a row of solid pills that inverted to a black fill — a
+          third control doing the job My Teams did with a green segment and
+          Tournaments did with this underline. The count moved onto the chip;
+          the separate "N matches" line under the bar said the same thing a
+          second time. */}
+      <View style={[C.filterBar, { flexDirection: 'row' }]}>
+        {FILTERS.map((f) => {
+          const on = status === f;
+          const n = counts[f];
+          return (
+            <TouchableOpacity
+              key={f}
+              style={[C.filterChip, on && C.filterChipActive]}
+              onPress={() => setStatus(f)}
+              activeOpacity={0.8}
+            >
+              <Icon name={FILTER_ICONS[f]} size={13} color={on ? DS.lime : DS.textMuted} />
+              <Text style={[C.filterText, on && C.filterTextActive]}>{f[0].toUpperCase() + f.slice(1)}</Text>
+              <View style={[C.filterCount, on && C.filterCountOn]}>
+                <Text style={[C.filterCountText, on && C.filterCountTextOn]}>{n}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <FlatList
@@ -634,32 +657,8 @@ const makeStyles = (DS) => StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },
 
-  /* Search */
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: DS.surface, marginHorizontal: 16, marginTop: 8,
-    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
-    borderWidth: 1, borderColor: DS.faint,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 1,
-  },
-  searchInput: { flex: 1, fontSize: 14, color: DS.textPrimary, fontWeight: '500' },
-
-  /* Filter tabs — X-style (icon + underline on the selected one) */
-  filtersRow: { marginTop: 8, marginBottom: 0 },
-  filtersContainer: { paddingHorizontal: 16, gap: 6 },
-  filterTab: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 12, backgroundColor: DS.surface,
-    borderWidth: 1, borderColor: DS.faint
-  },
-  filterTabActive: { backgroundColor: DS.textPrimary, borderColor: DS.textPrimary },
-  filterTabTextActive: { fontSize: 12, fontWeight: '800', color: DS.bg, letterSpacing: 0.5 },
-  filterTabTextInactive: { fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
-
-  /* Count */
-  countRow: { paddingHorizontal: 16, paddingBottom: 6 },
-  countText: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
+  /* Search — the box itself is C.searchField; this is only where it sits. */
+  searchRow: { marginHorizontal: 16, marginTop: 8 },
 
   /* List */
   list: { padding: 12, paddingTop: 4, gap: 8 },

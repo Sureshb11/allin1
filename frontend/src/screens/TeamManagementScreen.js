@@ -1,11 +1,18 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
-import { makeControls, CONTROL } from '../theme/controls';
+import { makeControls } from '../theme/controls';
 import { GestureDetector, Swipeable } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
 
 // The category tabs, in the order they're drawn — module scope so the swipe
 // gesture isn't rebuilt on every render.
-const TEAM_TABS = ['mine', 'opponents', 'followed'];import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+const TEAM_TABS = ['mine', 'opponents', 'followed'];
+// One place for the label and icon of each, so the filter bar and the swipe
+// order can't drift apart.
+const TEAM_FILTERS = [
+  { key: 'mine',      label: 'My Teams',  icon: 'shield-account-outline' },
+  { key: 'opponents', label: 'Opponents', icon: 'sword-cross' },
+  { key: 'followed',  label: 'Followed',  icon: 'heart-outline' },
+];import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -144,6 +151,25 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
+
+  // Search applies to all three categories at once, so the chip counts describe
+  // the list you'd get by tapping — not the whole category. Searching used to
+  // filter only the visible tab, which left the counts claiming teams the
+  // search had already excluded.
+  const searchedTeams = useMemo(() => {
+    const q = teamSearchQuery.trim().toLowerCase();
+    const match = (t) => !q || (t.name || '').toLowerCase().includes(q);
+    return {
+      mine: categorized.mine.filter(match),
+      opponents: categorized.opponents.filter(match),
+      followed: categorized.followed.filter(match),
+    };
+  }, [categorized, teamSearchQuery]);
+  const teamCounts = {
+    mine: searchedTeams.mine.length,
+    opponents: searchedTeams.opponents.length,
+    followed: searchedTeams.followed.length,
+  };
 
   useLayoutEffect(() => {
     if (!inline) {
@@ -620,7 +646,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
 
       {/* Tabs moved to ListHeaderComponent */}
       <FlatList
-        data={categorized[tab].filter(t => t.name.toLowerCase().includes(teamSearchQuery.toLowerCase()))}
+        data={searchedTeams[tab]}
         renderItem={renderTeam}
         keyExtractor={(item) => item.id}
         {...hideTabBar}
@@ -628,10 +654,10 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
-            <View style={styles.searchWrap}>
+            <View style={[C.searchField, styles.teamSearchRow]}>
               <Icon name="magnify" size={18} color={DS.textMuted} />
               <TextInput
-                style={styles.searchInput}
+                style={C.searchFieldInput}
                 placeholder="Search teams..."
                 placeholderTextColor={DS.faint}
                 value={teamSearchQuery}
@@ -643,19 +669,22 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
                 </TouchableOpacity>
               )}
             </View>
-            {/* Rankings' Players/Teams toggle (theme/controls.js) — this was a
-                lime fill with DS.bg text, which is the same control as that one
-                doing the same job in a different colour. */}
-            <View style={[C.segment, { marginTop: 4, marginBottom: 12 }]}>
-              {[['mine', 'My Teams'], ['opponents', 'Opponents'], ['followed', 'Followed']].map(([key, label]) => {
+            {/* The same filter bar Matches and Tournaments use. This was the
+                pale-green segment, which in the control language means a local
+                view-mode toggle — but mine / opponents / followed subdivides one
+                list, which is what the underline filter is for. Counts stay:
+                they're your own teams, not a board over every player in the app. */}
+            <View style={[C.filterBar, { flexDirection: 'row' }]}>
+              {TEAM_FILTERS.map(({ key, label, icon }) => {
                 const on = tab === key;
                 return (
-                  <TouchableOpacity key={key} style={[C.segBtn, on && C.segBtnOn]} onPress={() => setTab(key)} activeOpacity={0.8}>
-                    <Text style={[C.segText, on && C.segTextOn]}>{label}</Text>
-                    {categorized[key].length > 0 &&
-                      <View style={[C.segCount, on && C.segCountOn]}>
-                        <Text style={[C.segCountText, on && C.segCountTextOn]}>{categorized[key].length}</Text>
-                      </View>}
+                  <TouchableOpacity key={key} style={[C.filterChip, on && C.filterChipActive]}
+                                    onPress={() => setTab(key)} activeOpacity={0.8}>
+                    <Icon name={icon} size={13} color={on ? DS.lime : DS.textMuted} />
+                    <Text style={[C.filterText, on && C.filterTextActive]}>{label}</Text>
+                    <View style={[C.filterCount, on && C.filterCountOn]}>
+                      <Text style={[C.filterCountText, on && C.filterCountTextOn]}>{teamCounts[key]}</Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -822,13 +851,10 @@ const makeStyles = (DS) => StyleSheet.create({
     letterSpacing: 0.5
   },
   /* Search */
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: DS.surface, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 9, marginTop: 14, marginBottom: 8,
-    borderWidth: 1, borderColor: DS.faint,
-  },
-  searchInput: { flex: 1, fontSize: 13, fontWeight: '500', color: DS.textPrimary, padding: 0 },
+  // The box itself is C.searchField; this is only where it sits. Named for the
+  // team search specifically — `searchRow` is already the add-player field's
+  // layout further down, and the duplicate key silently won.
+  teamSearchRow: { marginTop: 14, marginBottom: 8 },
   fabWrap: { position: 'absolute', bottom: 24, right: 24, zIndex: 999 },
   fab: {
     width: 56,

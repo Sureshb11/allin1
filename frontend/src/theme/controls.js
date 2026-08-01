@@ -16,11 +16,12 @@ import { StyleSheet } from 'react-native';
 //
 //   const C = useThemedStyles(makeControls);
 //
-// NOTE: the palette below is deliberately literal, matching the Pavilion screens
-// as they stand. It is a LIGHT-theme palette — these hexes don't flip with
-// DS.mode, so a dark-theme pass has to happen here (one file) rather than in
-// every screen that copied them.
-export const CONTROL = {
+// The light values are the literal Pavilion hexes, unchanged — those screens are
+// signed off and this file is not the place to redecorate them. What's new is
+// that they no longer apply in the dark theme, where slate-on-charcoal was
+// unreadable and a #f1f5f9 fill was a white slab. Dark maps each role onto the
+// palette that already flips.
+const LIGHT = {
   green:     '#0f4c3a',   // active pill fill / underline / selected label
   greenSoft: '#e6f4ea',   // selected segment fill
   onGreen:   '#ffffff',   // label on the deep-green fill
@@ -29,7 +30,18 @@ export const CONTROL = {
   hairline:  '#e2e8f0',   // rule under a filter bar
 };
 
-export const makeControls = (DS) => StyleSheet.create({
+export const controlColors = (DS) => (DS.mode === 'dark' ? {
+  green:     DS.lime,
+  greenSoft: DS.lime + '26',
+  onGreen:   DS.onLime,
+  grey:      DS.surfaceHigh,
+  slate:     DS.textVariant,
+  hairline:  DS.border,
+} : LIGHT);
+
+export const makeControls = (DS) => {
+  const CONTROL = controlColors(DS);
+  return StyleSheet.create({
   /* ── L1: top-level tabs (Pavilion's My Stats / Rankings / Scout) ───────────
      A row of separate pills. Active is the deep green with its icon; inactive
      is the grey fill, label only. */
@@ -92,6 +104,17 @@ export const makeControls = (DS) => StyleSheet.create({
   filterChipActive: { borderBottomColor: CONTROL.green },
   filterText: { fontSize: 12, fontWeight: '600', color: CONTROL.slate },
   filterTextActive: { color: CONTROL.green, fontWeight: 'bold' },
+  // How many rows sit behind this filter. The number belongs on the chip, not
+  // in a separate "N matches" line under the bar — one control, one place to
+  // look. Only for lists scoped to one person; a board over every player in the
+  // app can't count itself and shouldn't try.
+  filterCount: {
+    minWidth: 17, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 999,
+    backgroundColor: CONTROL.grey, alignItems: 'center',
+  },
+  filterCountOn: { backgroundColor: CONTROL.green },
+  filterCountText: { fontSize: 10, fontWeight: '800', color: CONTROL.slate, fontVariant: ['tabular-nums'] },
+  filterCountTextOn: { color: CONTROL.onGreen },
 
   /* ── Search ────────────────────────────────────────────────────────────────
      Collapsed to its icon until wanted, taking the row when it is. */
@@ -105,6 +128,15 @@ export const makeControls = (DS) => StyleSheet.create({
     borderWidth: 1, borderColor: DS.lime,
   },
   searchInput: { flex: 1, fontSize: 14, fontWeight: '600', color: DS.textPrimary, padding: 0 },
+  // Always-on variant: a search box that lives above a filter bar rather than
+  // collapsing into an icon. Matches, Teams and Tournaments each had their own —
+  // same three declarations at 8/10/10 radius, 13/13/14pt, one with a shadow.
+  searchField: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: DS.surface, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
+    borderWidth: 1, borderColor: DS.faint,
+  },
+  searchFieldInput: { flex: 1, fontSize: 13, fontWeight: '500', color: DS.textPrimary, padding: 0 },
 
   /* ── Cards ─────────────────────────────────────────────────────────────────
      One surface, a hairline, a tiny caps label — the career board's chrome. */
@@ -142,6 +174,7 @@ export const makeControls = (DS) => StyleSheet.create({
     elevation: 8,
   },
   fabText: { fontSize: 14, fontWeight: '800', color: CONTROL.onGreen, letterSpacing: 0.5 },
-});
+  });
+};
 
 export default makeControls;

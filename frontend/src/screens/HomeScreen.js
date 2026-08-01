@@ -21,7 +21,7 @@ import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import AppHeader from '../components/AppHeader';
 import HexAvatar from '../components/HexAvatar';
 import { sportColor as sportColorFor } from '../sports/colors';
-import { makeControls, CONTROL } from '../theme/controls';
+import { makeControls, controlColors } from '../theme/controls';
 
 const { width } = Dimensions.get('window');
 
@@ -110,6 +110,9 @@ export default function HomeScreen({ navigation }) {
   const lcStyles = useThemedStyles(makeLcStyles);
   // The shared Pavilion control language — tabs, filters, buttons, cards.
   const C = useThemedStyles(makeControls);
+  // The pill's own colours, for the icon and label drawn inline. Theme-derived
+  // now — the literals underneath were light-only.
+  const CONTROL = controlColors(DS);
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
   const meUser = useCurrentUser();

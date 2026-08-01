@@ -21,6 +21,9 @@ import BrandLogo from "../components/BrandLogo";
 import PressableScale from '../components/PressableScale';
 
 const FILTERS = ['All', 'Open', 'Ongoing', 'Completed'];
+// Matches and Teams label their filters with an icon too — same control, same
+// anatomy, so the three screens read as one app.
+const FILTER_ICONS = { All: 'view-grid-outline', Open: 'door-open', Ongoing: 'circle-slice-8', Completed: 'check-circle-outline' };
 
 const makeStatusColors = (DS) => ({
   Open:      DS.lime,
@@ -417,6 +420,17 @@ const TournamentsScreen = ({ navigation, inline }) => {
 
   const handleJoin = (tournament) => navigation.navigate('TournamentRegistration', { tournament });
 
+  // Per-chip totals, counted after the search so a chip never promises rows the
+  // search has already removed.
+  const searched = tournaments.filter(t => {
+    const q = searchQuery.toLowerCase();
+    return !q || (t.name || '').toLowerCase().includes(q) || (t.location || '').toLowerCase().includes(q);
+  });
+  const counts = FILTERS.reduce((acc, f) => {
+    acc[f] = f === 'All' ? searched.length : searched.filter(t => t.status === f).length;
+    return acc;
+  }, {});
+
   const featured = (filter === 'All' && !searchQuery) ? tournaments.filter(t => t.status === 'Open') : [];
   const standard = (filter === 'All' && !searchQuery) ? filtered.filter(t => t.status !== 'Open') : filtered;
 
@@ -450,10 +464,10 @@ const TournamentsScreen = ({ navigation, inline }) => {
         opacity: headerOpacity
       }}>
         {/* Search */}
-        <View style={styles.searchWrap}>
+        <View style={[C.searchField, styles.searchRow]}>
           <Icon name="magnify" size={18} color={DS.textMuted} />
           <TextInput
-            style={styles.searchInput}
+            style={C.searchFieldInput}
             placeholder="Find a tournament..."
             placeholderTextColor={DS.faint}
             value={searchQuery}
@@ -466,7 +480,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
           )}
         </View>
 
-        {/* Filter chips */}
+        {/* Filters — the same bar as My Matches and My Teams. */}
         <View style={[C.filterBar, { flexDirection: 'row' }]}>
           {FILTERS.map(f => {
             const on = filter === f;
@@ -477,7 +491,11 @@ const TournamentsScreen = ({ navigation, inline }) => {
                 onPress={() => setFilter(f)}
                 activeOpacity={0.8}
               >
+                <Icon name={FILTER_ICONS[f]} size={13} color={on ? DS.lime : DS.textMuted} />
                 <Text style={[C.filterText, on && C.filterTextActive]}>{f}</Text>
+                <View style={[C.filterCount, on && C.filterCountOn]}>
+                  <Text style={[C.filterCountText, on && C.filterCountTextOn]}>{counts[f]}</Text>
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -701,13 +719,8 @@ const makeStyles = (DS) => StyleSheet.create({
   statLabel: { fontSize: 11, fontWeight: '600', color: DS.textMuted, marginTop: 2, letterSpacing: 0.5 },
 
   /* Search */
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: DS.surface, marginHorizontal: 20, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 9, marginBottom: 14,
-    borderWidth: 1, borderColor: DS.faint,
-  },
-  searchInput: { flex: 1, fontSize: 13, fontWeight: '500', color: DS.textPrimary, padding: 0 },
+  // The box itself is C.searchField; this is only where it sits.
+  searchRow: { marginHorizontal: 20, marginBottom: 14 },
 
   /* Filters */
 
