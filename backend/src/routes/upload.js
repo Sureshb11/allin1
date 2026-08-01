@@ -5,7 +5,14 @@ import { authMiddleware } from '../lib/auth.js';
 const router = express.Router();
 
 // Allowed upload folders → keeps the blob store tidy and prevents arbitrary paths.
-const FOLDERS = new Set(['avatars', 'feed', 'gallery', 'marketplace', 'teams']);
+//
+// This list is the whole contract for uploads and the app can't see it, so a
+// folder the app asks for and this set doesn't have fails every single time
+// with nothing to go on. That is exactly what happened to `tournaments`: the
+// create screen has always uploaded a logo and a banner to it, and every one of
+// those uploads came back 400 "invalid folder". scripts/check-shared-enums.mjs
+// now compares this set against the folders the app actually passes.
+const FOLDERS = new Set(['avatars', 'feed', 'gallery', 'marketplace', 'teams', 'tournaments']);
 const MIME_EXT = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
 
 // A connected Blob store injects a token whose var name depends on the store name
@@ -28,7 +35,11 @@ router.post('/', authMiddleware, async (req, res) => {
   try {
     const { folder = 'feed', contentType = 'image/jpeg', dataBase64 } = req.body || {};
     if (!dataBase64) return res.status(400).json({ error: 'dataBase64 required' });
-    if (!FOLDERS.has(folder)) return res.status(400).json({ error: 'invalid folder' });
+    // Name the ones that are valid — "invalid folder" alone sends whoever hits
+    // this to read the source to find out what it wanted.
+    if (!FOLDERS.has(folder)) {
+      return res.status(400).json({ error: `Unknown upload folder "${folder}" — expected one of: ${[...FOLDERS].join(', ')}` });
+    }
     const ext = MIME_EXT[contentType] || 'jpg';
     // Strip a data-URL prefix if present, then decode.
     const raw = String(dataBase64).replace(/^data:[^;]+;base64,/, '');

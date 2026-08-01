@@ -20,6 +20,17 @@ import { fileURLToPath } from 'url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
+// Every .js under a directory, so a check can look at call sites rather than a
+// declared list — the folder an upload asks for is an argument, not a constant.
+const walk = (dir, out = []) => {
+  for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+    const rel = path.join(dir, e.name);
+    if (e.isDirectory()) walk(rel, out);
+    else if (e.name.endsWith('.js')) out.push(rel);
+  }
+  return out;
+};
+
 const listFrom = (src, re, label) => {
   const m = src.match(re);
   if (!m) throw new Error(`Could not find ${label} — has it been renamed or reformatted?`);
@@ -46,6 +57,38 @@ const CHECKS = [
       ),
     },
   },
+  {
+    // The second instance of the same bug. Create Tournament uploaded its logo
+    // and banner to a `tournaments` folder that the upload route's allow-list
+    // didn't have, so every one of those uploads 400'd — silently, because a
+    // failed image upload just leaves the tile empty.
+    name: 'Image upload folders',
+    // Subset, not equality: the server may allow a folder nothing uses yet.
+    // What must never happen is the app asking for one the server rejects.
+    mode: 'subset',
+    a: {
+      label: 'folders the app uploads to',
+      get: () => {
+        const found = new Set();
+        for (const f of walk('frontend/src')) {
+          const src = read(f);
+          for (const m of src.matchAll(/(?:pickAndUploadImage|captureAndUploadImage)\(\s*(?:'([^']*)')?/g)) {
+            found.add(m[1] || 'feed');   // the helpers default to 'feed'
+          }
+          for (const m of src.matchAll(/uploadImage\(\{[^}]*folder:\s*'([^']*)'/g)) found.add(m[1]);
+        }
+        return [...found].sort();
+      },
+    },
+    b: {
+      label: 'FOLDERS in upload.js',
+      get: () => listFrom(
+        read('backend/src/routes/upload.js'),
+        /const FOLDERS = new Set\(\[([\s\S]*?)\]\)/,
+        'the FOLDERS set in upload.js',
+      ),
+    },
+  },
 ];
 
 let failed = false;
@@ -61,13 +104,15 @@ for (const check of CHECKS) {
   }
   const onlyA = a.filter((x) => !b.includes(x));
   const onlyB = b.filter((x) => !a.includes(x));
-  if (onlyA.length || onlyB.length) {
+  const subset = check.mode === 'subset';
+  if (onlyA.length || (!subset && onlyB.length)) {
     failed = true;
     console.error(`✗ ${check.name} disagree:`);
     if (onlyA.length) console.error(`    only in ${check.a.label}: ${onlyA.join(', ')}`);
-    if (onlyB.length) console.error(`    only in ${check.b.label}: ${onlyB.join(', ')}`);
+    if (onlyB.length && !subset) console.error(`    only in ${check.b.label}: ${onlyB.join(', ')}`);
   } else {
-    console.log(`✓ ${check.name} — ${a.length} values, both sides agree`);
+    const spare = subset && onlyB.length ? ` (${onlyB.length} allowed but unused)` : '';
+    console.log(`✓ ${check.name} — ${a.length} values, both sides agree${spare}`);
   }
 }
 
