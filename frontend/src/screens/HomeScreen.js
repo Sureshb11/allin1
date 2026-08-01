@@ -353,34 +353,35 @@ export default function HomeScreen({ navigation }) {
 
                 {/* Start Match CTA */}
                 <AnimatedPulse>
-                  <View style={{ alignItems: 'stretch' }}>
-                    <TouchableOpacity
-                      // Same colour the Arena picker showed for this sport, so
-                      // the choice carries inside the app. Cricket resolves to
-                      // the brand green, i.e. unchanged.
-                      style={[styles.startMatchCTA, { backgroundColor: sportTint, shadowColor: sportTint }]}
-                      onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
-                      activeOpacity={0.88}
-                    >
-                      <View style={styles.startMatchLeft}>
-                        <View style={styles.startMatchIconBox}>
-                          <Icon name={currentSport.icon} size={26} color={DS.white} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          {/* One line, shrink-to-fit: "TOSS & PLAY" is short but
-                              "START A FOOTBALL MATCH" clipped off the card edge. */}
-                          <Text style={styles.startMatchTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                            {currentSport.id === 'cricket' ? 'Toss & Play' : `Start a ${currentSport.name} Match`}
-                          </Text>
-                          <Text style={styles.startMatchSub} numberOfLines={1}>{cfg.ctaSubtitle}</Text>
-                        </View>
+                  <TouchableOpacity
+                    style={[styles.startMatchCTA, {
+                      backgroundColor: DS.surfaceHigh,
+                      borderWidth: 1, borderColor: DS.faint,
+                      shadowColor: sportTint, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+                      paddingHorizontal: 14, paddingVertical: 12, borderRadius: 16, marginBottom: 12,
+                      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'
+                    }]}
+                    onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
+                    activeOpacity={0.88}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: sportTint + '20', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon name={currentSport.id === 'cricket' ? 'flash' : currentSport.icon} size={22} color={sportTint} />
                       </View>
-                      <View style={styles.startMatchRight}>
-                        <Text style={styles.startMatchGo}>GO</Text>
-                        <Icon name="chevron-right" size={20} color={DS.onBlue} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: DS.textPrimary, fontSize: 14, letterSpacing: 0.8, fontWeight: '800' }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                          {currentSport.id === 'cricket' ? 'QUICK MATCH' : `START ${currentSport.name.toUpperCase()}`}
+                        </Text>
+                        <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '600', marginTop: 2 }} numberOfLines={1}>
+                          {currentSport.id === 'cricket' ? 'Start scoring instantly' : cfg.ctaSubtitle}
+                        </Text>
                       </View>
-                    </TouchableOpacity>
-                  </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: sportTint, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, marginLeft: 8 }}>
+                      <Icon name="play" size={14} color={DS.bg} />
+                      <Text style={{ fontSize: 11, fontWeight: '900', color: DS.bg, letterSpacing: 0.5 }}>START</Text>
+                    </View>
+                  </TouchableOpacity>
                 </AnimatedPulse>
 
                 {/* Filter tabs + count on one line (reclaims a full row) */}
@@ -639,33 +640,21 @@ const makeStyles = (DS, typography, radii, shadows) => StyleSheet.create({
   feedContent: { paddingHorizontal: 16, paddingBottom: 16 },
 
   // Start Match CTA
-  // My Cricket summary card
-  mcCard: { backgroundColor: DS.surface, borderRadius: radii?.lg || 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}) },
-  mcHeadRow: { flexDirection: 'row', alignItems: 'center' },
-  mcAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
-  mcAvatarTxt: { color: DS.bg, fontSize: 17, fontWeight: '900' },
-  mcName: { color: DS.textPrimary, fontSize: 16, fontWeight: '800' },
-  mcRole: { color: DS.textMuted, fontSize: 12, marginTop: 2 },
-  mcProfileBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  mcProfileTxt: { color: DS.lime, fontSize: 13, fontWeight: '700' },
-  mcStatsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: DS.border },
-  mcSportsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 7, marginTop: 13, paddingTop: 13, borderTopWidth: 1, borderTopColor: DS.border },
-  mcSportsLbl: { color: DS.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 1, marginRight: 2 },
-  mcSportChip: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 14, backgroundColor: DS.surfaceHighest },
-  mcSportChipPrimary: { backgroundColor: DS.lime },
-  mcSportChipTxt: { color: DS.textVariant, fontSize: 12, fontWeight: '700' },
-  mcSportChipTxtPrimary: { color: DS.bg },
-  mcStat: { flex: 1, alignItems: 'center' },
-  mcStatVal: { color: DS.lime, fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
-  mcStatLbl: { color: DS.textMuted, fontSize: 10.5, fontWeight: '600', marginTop: 2, letterSpacing: 0.3 },
+  // Dashboard Card
+  dashboardCard: { borderRadius: radii?.lg || 20, padding: 16, marginBottom: 16, borderWidth: 1, ...(shadows?.sm || {}) },
+  dashboardHeader: { flexDirection: 'row', alignItems: 'center' },
+  dashboardAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: DS.surfaceHighest },
+  dashboardAvatarFallback: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  dashboardAvatarText: { fontSize: 18, fontWeight: '900' },
+  dashboardNameBlock: { flex: 1, marginLeft: 12 },
+  dashboardName: { fontSize: 16, fontWeight: '800' },
+  dashboardRole: { fontSize: 13, marginTop: 2 },
+  dashboardStatsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, paddingTop: 16, borderTopWidth: 1 },
+  dashboardStatBox: { flex: 1, alignItems: 'center' },
+  dashboardStatValue: { fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  dashboardStatLabel: { fontSize: 11, fontWeight: '600', marginTop: 4, letterSpacing: 0.5 },
 
-  startMatchCTA: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radii?.lg || 16, paddingVertical: 11, paddingHorizontal: 18, marginBottom: 12, backgroundColor: DS.blueDeep, elevation: 8, shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 } },
-  startMatchLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, marginRight: 8 },
-  startMatchIconBox: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  startMatchTitle: { fontSize: 17, fontWeight: '800', color: DS.onBlue, textTransform: 'uppercase', letterSpacing: 0.4 },
-  startMatchSub: { fontSize: 12, fontWeight: '600', color: DS.onBlue, marginTop: 2, letterSpacing: 0.3, opacity: 0.8 },
-  startMatchRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  startMatchGo: { fontSize: 14, fontWeight: '800', color: DS.onBlue, letterSpacing: 1 },
+  startMatchCTA: {}, // Keeping key to avoid errors, replaced by inline styles
 
   // Filters and Search
   searchWrap: {
