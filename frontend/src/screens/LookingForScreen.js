@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo, forwardRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, PanResponder, Linking, Alert, LayoutAnimation
+  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, Linking, Alert, LayoutAnimation
 } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { useFilterSwipe } from '../utils/useFilterSwipe';
 import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import Reanimated, { FadeIn, SlideInRight, SlideInLeft, FadeInDown, useAnimatedRef, useSharedValue, scrollTo, LinearTransition, useAnimatedStyle, runOnJS, withSpring, withTiming, withRepeat, Easing } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -349,14 +350,15 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     selectTypeRef.current?.(FILTER_TYPES[next]);
     scrollChipIntoView(next);
   }, [scrollChipIntoView]);
-  const swipe = useRef(PanResponder.create({
-    // Only claim clearly-horizontal drags; vertical drags fall through to the list.
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4,
-    onPanResponderRelease: (_, g) => {
-      if (g.dx <= -45) stepFilter(1);        // swipe left → next filter
-      else if (g.dx >= 45) stepFilter(-1);   // swipe right → previous filter
-    },
-  })).current;
+  // Was a PanResponder with its own thresholds — 18px to claim, 45 to commit,
+  // no velocity path. The shared hook now, so a swipe here commits at the same
+  // distance and ticks the same way as one on Matches, Teams or Rankings.
+  const swipe = useFilterSwipe(FILTER_TYPES, activeType, (t) => {
+    stepFilter(FILTER_TYPES.indexOf(t) > FILTER_TYPES.indexOf(activeType) ? 1 : -1);
+  });
+  // Dragging the chip row scrolls the chips and nothing else — otherwise the
+  // same drag scrolls the row AND steps the filter under it.
+  const filterPanBlocking = useMemo(() => filterPan.blocksExternalGesture(swipe), [filterPan, swipe]);
 
   // Mirrors `query` for callbacks that must not be rebuilt on every keystroke —
   // same reason activeTypeRef exists. The focus effect holds stable deps, so it
@@ -995,7 +997,7 @@ function SonarPulse({ size, color }) {
         { translateY: scrollY.interpolate({ inputRange: [-100, 0, 100], outputRange: [0, 0, -25], extrapolate: 'clamp' }) },
         { scale: scrollY.interpolate({ inputRange: [-100, 0], outputRange: [1.1, 1], extrapolateRight: 'clamp' }) }
       ] }}>
-        <GestureDetector gesture={filterPan}>
+        <GestureDetector gesture={filterPanBlocking}>
           <Reanimated.ScrollView
             ref={filterScroll}
             horizontal
@@ -1038,7 +1040,8 @@ function SonarPulse({ size, color }) {
         </GestureDetector>
       </Animated.View>
 
-      <View style={{ flex: 1 }} {...swipe.panHandlers}>
+      <GestureDetector gesture={swipe}>
+      <View style={{ flex: 1 }}>
       {loading ? (
         <ScoutSkeleton DS={DS} />
       ) : (
@@ -1125,6 +1128,7 @@ function SonarPulse({ size, color }) {
         </Reanimated.View>
       )}
       </View>
+      </GestureDetector>
 
       {/* Create Modal */}
       <BottomSheetModal

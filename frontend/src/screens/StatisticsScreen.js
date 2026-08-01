@@ -2,9 +2,10 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMe
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl, Image, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl, Image } from 'react-native';
 import Reanimated, { useAnimatedRef, useSharedValue, scrollTo, FadeIn, FadeInDown, SlideInRight, SlideInLeft, SlideOutRight, SlideInDown, LinearTransition, useAnimatedStyle, runOnJS, withRepeat, withSequence, withTiming, withDelay, withSpring, interpolateColor } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { useFilterSwipe } from '../utils/useFilterSwipe';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import AnimatedPressable from '../components/AnimatedPressable';
@@ -725,13 +726,17 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [boards, boardId, scrollChipIntoView]);
 
-  const swipe = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4,
-    onPanResponderRelease: (_, g) => {
-      if (g.dx <= -45) stepBoard(1);
-      else if (g.dx >= 45) stepBoard(-1);
-    },
-  })).current;
+  // Was a PanResponder claiming at 18px and committing at 45, with no velocity
+  // path — its own thresholds, unlike the four screens that step a filter with
+  // useFilterSwipe. Same hook now, so a swipe feels the same wherever you are.
+  const boardIds = useMemo(() => boards.map((b) => b.id), [boards]);
+  const swipe = useFilterSwipe(boardIds, boardId, (id) => {
+    stepBoard(boardIds.indexOf(id) > boardIds.indexOf(boardId) ? 1 : -1);
+  });
+  // Dragging the chip row scrolls the chips and nothing else. Without this the
+  // same drag also steps the board underneath it — the row would scroll AND the
+  // leaderboard would change.
+  const boardPanBlocking = useMemo(() => boardPan.blocksExternalGesture(swipe), [boardPan, swipe]);
 
   return (
     <View style={styles.container}>
@@ -771,7 +776,8 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
           <StatSkeleton DS={DS} />
         </View>
       ) : (
-        <View style={{ flex: 1 }} {...swipe.panHandlers}>
+        <GestureDetector gesture={swipe}>
+        <View style={{ flex: 1 }}>
           {/* A vertical ScrollView (not a FlatList): a VirtualizedList grabs the
               horizontal drag and blocks the Pavilion pager's swipe; 45 rows don't
               need windowing, and this lets a swipe directional-lock cleanly. */}
@@ -856,7 +862,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
 
               {/* Board selector — what this leaderboard is actually ranking. Drag
                   to scroll (self-driven, blocks the pager); tap scrolls into view. */}
-              <GestureDetector gesture={boardPan}>
+              <GestureDetector gesture={boardPanBlocking}>
                 <Reanimated.ScrollView horizontal scrollEnabled={false}
                   ref={boardScroll} showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.boardBar}
@@ -954,6 +960,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
             </Reanimated.View>
           </Animated.ScrollView>
         </View>
+        </GestureDetector>
       )}
       <DynamicIsland ref={islandRef} />
     </View>);

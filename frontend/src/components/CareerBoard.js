@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import Reanimated, { SlideInRight, SlideInLeft, useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate } from 'react-native-reanimated';
 import Svg, { Polyline, Polygon, Circle, Line, Text as SvgText } from 'react-native-svg';
 import ViewShot from 'react-native-view-shot';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { useFilterSwipe } from '../utils/useFilterSwipe';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { getSport } from '../sports';
 import { getCareerPanels, readStat } from '../sports/careerStats';
@@ -379,16 +380,17 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
     selectPanel(panels[next].id);
   }, [panels, tab]);
 
-  const swipe = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4,
-    onPanResponderRelease: (_, g) => {
-      if (g.dx <= -45) stepPanel(1);
-      else if (g.dx >= 45) stepPanel(-1);
-    },
-  })).current;
+  // Was a PanResponder with its own 18/45 thresholds. The shared hook now, so
+  // stepping Batting → Bowling → Fielding on My Stats commits at the same
+  // distance as stepping a filter anywhere else in the app.
+  const panelIds = React.useMemo(() => panels.map((p) => p.id), [panels]);
+  const swipe = useFilterSwipe(panelIds, tab, (id) => {
+    stepPanel(panelIds.indexOf(id) > panelIds.indexOf(tab) ? 1 : -1);
+  });
 
   return (
-    <View style={styles.wrap} {...swipe.panHandlers}>
+    <GestureDetector gesture={swipe}>
+    <View style={styles.wrap}>
       {/* Panel segment — a one-panel sport has nothing to switch between, so the
           control doesn't render. Same pill shape and position as Rankings. */}
       {panels.length > 1 && (
@@ -512,6 +514,7 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
         </Reanimated.View>
       </ViewShot>
     </View>
+    </GestureDetector>
   );
 }
 
