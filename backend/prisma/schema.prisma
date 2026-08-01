@@ -376,26 +376,55 @@ model UserBadge {
   user     User     @relation(fields: [userId], references: [id])
 }
 
+// A tournament's identity and the handful of fields that lists, cards and
+// filters actually read — plus its configuration, grouped.
+//
+// The configuration is deliberately NOT forty columns. docs/TOURNAMENT_DESIGN.md
+// §1.4: a boolean column per rule means a migration every time a rule is added
+// and nowhere to carry a rule's value (how many powerplay overs, what penalty).
+// The Json blocks below are grouped on exactly the boundaries the doc gives to
+// TournamentSettings / TournamentRegistration / TournamentRule /
+// TournamentPointsRule / TournamentPrize, so promoting any one of them to its
+// own table later is a data move rather than a redesign. Nothing queries or
+// sorts by their contents; the moment something needs to, that block is the one
+// to promote.
 model Tournament {
-  id          String            @id @default(cuid())
-  createdAt   DateTime          @default(now())
-  name        String
-  format      String
-  status      String
-  startDate   DateTime?
-  endDate     DateTime?
-  venue       String?
-  maxTeams    Int?
-  prizePool   String?
-  description String?
-  organizer   String?
-  sport       String            @default("cricket")
-  ballType    String?
-  overs       Int?
-  championId  String?
-  organizerId String?
-  matches     TournamentMatch[]
-  teams       TournamentTeam[]
+  id           String            @id @default(cuid())
+  createdAt    DateTime          @default(now())
+  name         String
+  shortName    String?
+  format       String
+  category     String? // League / Knockout / League + Knockout / Round Robin / …
+  status       String
+  startDate    DateTime?
+  endDate      DateTime?
+  venue        String?
+  city         String?
+  maxTeams     Int?
+  prizePool    String?
+  description  String?
+  organizer    String?
+  sport        String            @default("cricket")
+  ballType     String?
+  overs        Int?
+  championId   String?
+  organizerId  String?
+  // The create screen has uploaded these since it was written; there were no
+  // columns to put them in, and the create route's schema silently dropped
+  // them, so every logo and banner anyone picked was discarded on save.
+  logoUrl      String?
+  banner       String?
+  // Grouped configuration. See the note above.
+  contact      Json? // organiser phone / email / website / whatsapp
+  location     Json? // ground, address, state, country
+  regWindow    Json? // registration opens/closes, first-match time, time zone
+  registration Json? // squad limits, playing XI, entry fee, currency, how teams get in
+  rules        Json? // wide/no-ball/free-hit/… toggles + powerplay & bowler quotas
+  pointsRules  Json? // points per outcome, bonus point, tie-break order
+  prizes       Json? // winner / runner-up / semi-finalist
+  flags        Json? // visibility, live score, spectators
+  matches      TournamentMatch[]
+  teams        TournamentTeam[]
 
   @@index([sport])
 }

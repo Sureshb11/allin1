@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { authMiddleware } from '../lib/auth.js';
+import { authMiddleware, optionalAuth } from '../lib/auth.js';
 import { computeStandings } from '../lib/standings.js';
 import { applyTournamentResult } from '../lib/tournamentResult.js';
 import { notifyTeams, notifyUsers, notifyAllParticipants, safeNotify } from '../lib/notify.js';
@@ -161,7 +161,7 @@ router.get('/', async (req, res) => {
   res.json({ tournaments });
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', optionalAuth, async (req, res) => {
   const tournament = await prisma.tournament.findUnique({
     where: { id: req.params.id },
     include: {
@@ -172,6 +172,10 @@ router.get('/:id', async (req, res) => {
     },
   });
   if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+  // The organiser's phone, WhatsApp and email exist so a captain can ask about
+  // entering — not so anyone holding a tournament id can scrape them. This
+  // route takes no token, so contact details go to signed-in callers only.
+  if (!req.user) tournament.contact = null;
   res.json({ tournament });
 });
 
@@ -932,21 +936,112 @@ router.put('/:id/points-table/:teamId', authMiddleware, requireOrganizer, async 
   }
 });
 
+// ICC's bowling quota: nobody bowls more than a fifth of the innings. 20 overs
+// → 4, 50 → 10, and an innings that doesn't divide by five rounds up (a 6-over
+// game allows 2). The client shows this as a hint; the server is what enforces
+// it, because a hint is only ever advice.
+const maxOversPerBowler = (overs) => (overs > 0 ? Math.ceil(overs / 5) : null);
+
+// Anything not listed here is dropped by zod without a word — which is exactly
+// how the logo and banner the create screen uploads went missing for so long.
 const TournamentSchema = z.object({
   name:        z.string().min(1),
+  shortName:   z.string().max(10).optional(),
   format:      z.string().min(1),
-  overs:       z.number().int().optional(),
+  category:    z.string().optional(),
+  overs:       z.number().int().positive().optional(),
   ballType:    z.string().optional(),
   status:      z.string().min(1),
   startDate:   z.string().datetime().optional(),
   endDate:     z.string().datetime().optional(),
   venue:       z.string().optional(),
+  city:        z.string().optional(),
   maxTeams:    z.number().int().optional(),
   prizePool:   z.string().optional(),
   description: z.string().optional(),
   organizer:   z.string().optional(),
   sport:       z.string().optional(),   // was dropped → every tournament saved as cricket
-});
+  logoUrl:     z.string().optional(),
+  banner:      z.string().optional(),
+
+  // Grouped configuration — see the note on the model. Passthrough on each
+  // block so adding a rule to the app doesn't need a server release, while the
+  // fields the server validates below stay typed.
+  contact:      z.object({
+    phone:    z.string().optional(),
+    email:    z.string().email().optional().or(z.literal('')),
+    website:  z.string().optional(),
+    whatsapp: z.string().optional(),
+  }).passthrough().optional(),
+  location:     z.object({
+    ground:  z.string().optional(),
+    address: z.string().optional(),
+    state:   z.string().optional(),
+    country: z.string().optional(),
+  }).passthrough().optional(),
+  regWindow:    z.object({
+    opensAt:   z.string().datetime().optional(),
+    closesAt:  z.string().datetime().optional(),
+    startTime: z.string().optional(),   // "HH:mm", first ball of a match day
+    timeZone:  z.string().optional(),
+  }).passthrough().optional(),
+  registration: z.object({
+    minTeams:    z.number().int().nonnegative().optional(),
+    minPlayers:  z.number().int().nonnegative().optional(),
+    maxPlayers:  z.number().int().nonnegative().optional(),
+    playingXi:   z.number().int().positive().optional(),
+    substitutes: z.number().int().nonnegative().optional(),
+    entryFee:    z.number().nonnegative().optional(),
+    currency:    z.string().optional(),
+    type:        z.enum(['open', 'invite', 'approval']).optional(),
+  }).passthrough().optional(),
+  rules:        z.object({
+    powerplayOvers:    z.number().int().nonnegative().optional(),
+    maxOversPerBowler: z.number().int().positive().optional(),
+  }).passthrough().optional(),
+  pointsRules:  z.object({
+    win:      z.number().optional(),
+    tie:      z.number().optional(),
+    noResult: z.number().optional(),
+    loss:     z.number().optional(),
+    bonus:    z.boolean().optional(),
+    tieBreak: z.array(z.string()).optional(),
+  }).passthrough().optional(),
+  prizes:       z.object({}).passthrough().optional(),
+  flags:        z.object({}).passthrough().optional(),
+})
+  // Cross-field rules. Each of these is a tournament that can be created but
+  // never run: fixtures that start before teams can enter, a playing XI larger
+  // than the squad it's picked from, a minimum nobody can reach.
+  .superRefine((d, ctx) => {
+    const err = (path, message) => ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
+    const start = d.startDate ? new Date(d.startDate) : null;
+    const end = d.endDate ? new Date(d.endDate) : null;
+    const closes = d.regWindow?.closesAt ? new Date(d.regWindow.closesAt) : null;
+    const opens = d.regWindow?.opensAt ? new Date(d.regWindow.opensAt) : null;
+    const r = d.registration || {};
+
+    if (start && end && end < start) err(['endDate'], 'The tournament cannot end before it starts');
+    if (opens && closes && closes < opens) err(['regWindow', 'closesAt'], 'Registration cannot close before it opens');
+    if (closes && start && closes > start) err(['regWindow', 'closesAt'], 'Registration must close before the first match');
+    if (r.minPlayers != null && r.maxPlayers != null && r.minPlayers > r.maxPlayers)
+      err(['registration', 'minPlayers'], 'Minimum players cannot exceed the maximum');
+    if (r.playingXi != null && r.maxPlayers != null && r.playingXi > r.maxPlayers)
+      err(['registration', 'playingXi'], 'The playing XI cannot be bigger than the squad');
+    if (r.minTeams != null && d.maxTeams != null && r.minTeams > d.maxTeams)
+      err(['registration', 'minTeams'], 'Minimum teams cannot exceed the maximum');
+
+    const quota = maxOversPerBowler(d.overs);
+    if (quota && d.rules?.maxOversPerBowler && d.rules.maxOversPerBowler > quota)
+      err(['rules', 'maxOversPerBowler'], `A bowler may bowl at most ${quota} of ${d.overs} overs`);
+    if (d.rules?.powerplayOvers != null && d.overs && d.rules.powerplayOvers > d.overs)
+      err(['rules', 'powerplayOvers'], 'The powerplay cannot be longer than the innings');
+  });
+
+// zod's message for a failed .parse is a JSON dump of every issue — fine in a
+// log, unreadable in the toast the app shows. Send the first real sentence.
+const firstIssue = (e) =>
+  (e?.issues?.length ? e.issues[0].message : null) || e?.message || 'Invalid tournament';
 
 router.post('/', authMiddleware, async (req, res) => {
   try {
@@ -955,7 +1050,7 @@ router.post('/', authMiddleware, async (req, res) => {
     const t = await prisma.tournament.create({ data: { ...data, organizerId: req.user.sub } });
     res.status(201).json({ tournament: t });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(400).json({ error: firstIssue(e) });
   }
 });
 
