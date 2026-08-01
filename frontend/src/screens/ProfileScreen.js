@@ -225,7 +225,7 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <AppHeader hideProfileIcon />
+      <AppHeader />
       <ScrollView showsVerticalScrollIndicator={false}
         {...hideTabBar} contentContainerStyle={{ paddingBottom: tabClear }}>
       {/* Hero Header */}

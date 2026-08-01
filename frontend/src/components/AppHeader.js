@@ -6,10 +6,9 @@ import { useTheme } from '../theme/ThemeContext';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo from './BrandLogo';
 
-export default function AppHeader({ onComposePress, showCompose = false, hideProfileIcon = false }) {
+export default function AppHeader({ onComposePress, showCompose = false }) {
   const navigation = useNavigation();
   const DS = useTheme().colors;
-  const meUser = useCurrentUser();
 
   return (
     <View style={[styles.topBar, { borderBottomColor: DS.border, backgroundColor: DS.surfaceLow }]}>
@@ -48,17 +47,6 @@ export default function AppHeader({ onComposePress, showCompose = false, hidePro
         <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Notification')}>
           <Icon name="bell-outline" size={22} color={DS.textPrimary} />
         </TouchableOpacity>
-
-        {/* Profile */}
-        {!hideProfileIcon && (
-          <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('ProfileTab')}>
-            {meUser?.avatarUrl ? (
-              <Image source={{ uri: meUser.avatarUrl }} style={[styles.avatar, { backgroundColor: DS.surfaceHighest }]} />
-            ) : (
-              <Icon name="account-circle-outline" size={26} color={DS.textPrimary} />
-            )}
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );

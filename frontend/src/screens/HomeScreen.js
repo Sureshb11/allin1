@@ -321,6 +321,36 @@ export default function HomeScreen({ navigation }) {
             {...hideTabBar}
             ListHeaderComponent={
               <View>
+                {/* My Dashboard */}
+                <TouchableOpacity 
+                  style={[styles.dashboardCard, { backgroundColor: DS.surface, borderColor: DS.border }]} 
+                  activeOpacity={0.9} 
+                  onPress={() => navigation.navigate('ProfileTab')}
+                >
+                  <View style={styles.dashboardHeader}>
+                    {authedUser?.avatarUrl ? (
+                      <Image source={{ uri: authedUser.avatarUrl }} style={styles.dashboardAvatar} />
+                    ) : (
+                      <View style={[styles.dashboardAvatarFallback, { backgroundColor: DS.surfaceHighest }]}>
+                        <Text style={[styles.dashboardAvatarText, { color: DS.textPrimary }]}>{meInitials}</Text>
+                      </View>
+                    )}
+                    <View style={styles.dashboardNameBlock}>
+                      <Text style={[styles.dashboardName, { color: DS.textPrimary }]}>{profileName}</Text>
+                      <Text style={[styles.dashboardRole, { color: DS.textMuted }]}>{meRole}</Text>
+                    </View>
+                    <Icon name="chevron-right" size={24} color={DS.textMuted} />
+                  </View>
+                  <View style={[styles.dashboardStatsRow, { borderTopColor: DS.faint }]}>
+                    {meCells.map(([val, lbl], idx) => (
+                      <View key={idx} style={styles.dashboardStatBox}>
+                        <Text style={[styles.dashboardStatValue, { color: DS.textPrimary }]}>{val}</Text>
+                        <Text style={[styles.dashboardStatLabel, { color: DS.textMuted }]}>{lbl}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </TouchableOpacity>
+
                 {/* Start Match CTA */}
                 <AnimatedPulse>
                   <View style={{ alignItems: 'stretch' }}>

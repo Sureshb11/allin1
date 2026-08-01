@@ -457,7 +457,6 @@ export default function MyMatchesScreen({ navigation }) {
             </TouchableOpacity>
             <BrandLogo scale={0.8} />
           </View>
-          <View style={styles.profileIcon}><Icon name="account" size={18} color={DS.textPrimary} /></View>
         </View>
       {/* Toss & Play Banner */}
       <View style={styles.tossPlayBanner}>
@@ -489,9 +488,6 @@ export default function MyMatchesScreen({ navigation }) {
             <Icon name="arrow-left" size={22} color={DS.textPrimary} />
           </TouchableOpacity>
           <BrandLogo scale={0.8} />
-        </View>
-        <View style={styles.profileIcon}>
-          <Icon name="account" size={18} color={DS.textPrimary} />
         </View>
       </View>
       

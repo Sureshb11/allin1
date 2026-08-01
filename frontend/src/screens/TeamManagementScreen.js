@@ -3,16 +3,7 @@ import { makeControls } from '../theme/controls';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
 
-// The category tabs, in the order they're drawn — module scope so the swipe
-// gesture isn't rebuilt on every render.
-const TEAM_TABS = ['mine', 'opponents', 'followed'];
-// One place for the label and icon of each, so the filter bar and the swipe
-// order can't drift apart.
-const TEAM_FILTERS = [
-  { key: 'mine',      label: 'My Teams',  icon: 'shield-account-outline' },
-  { key: 'opponents', label: 'Opponents', icon: 'sword-cross' },
-  { key: 'followed',  label: 'Followed',  icon: 'heart-outline' },
-];import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -37,6 +28,17 @@ import { showToast } from '../components/Toast';
 import BrandLogo from "../components/BrandLogo";
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import Svg, { Polygon, Line, Circle } from 'react-native-svg';
+
+// The category tabs, in the order they're drawn — module scope so the swipe
+// gesture isn't rebuilt on every render.
+const TEAM_TABS = ['mine', 'opponents', 'followed'];
+// One place for the label and icon of each, so the filter bar and the swipe
+// order can't drift apart.
+const TEAM_FILTERS = [
+  { key: 'mine',      label: 'My Teams',  icon: 'shield-account-outline' },
+  { key: 'opponents', label: 'Opponents', icon: 'sword-cross' },
+  { key: 'followed',  label: 'Followed',  icon: 'heart-outline' },
+];
 
 const MiniRadarChart = ({ w, l, d, DS }) => {
   const total = (w + l + d) || 1;
@@ -618,9 +620,6 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
             <BrandLogo scale={0.75} />
             <Text style={styles.hubLabel}>ATHLETE HUB</Text>
           </View>
-          <TouchableOpacity style={styles.profileIcon}>
-            <Icon name="account-circle" size={32} color={DS.textMuted} />
-          </TouchableOpacity>
         </View>
       )}
 
