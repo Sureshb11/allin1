@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Animated, Linking, Alert, LayoutAnimation
 } from 'react-native';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
+
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
 import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
@@ -807,26 +807,7 @@ function SonarPulse({ size, color }) {
       ['human', 'Age group', item.ageGroup],
     ].filter(([, , v]) => !!v);
 
-    const renderLeftActions = (progress, dragX) => {
-      const scale = dragX.interpolate({
-        inputRange: [0, 80, 120],
-        outputRange: [0, 1, 1.15],
-        extrapolate: 'clamp',
-      });
-      const rotate = dragX.interpolate({
-        inputRange: [0, 80],
-        outputRange: ['-45deg', '0deg'],
-        extrapolate: 'clamp',
-      });
-      return (
-        <View style={styles.swipeConnectBox}>
-          <Animated.View style={[styles.swipeConnectIcon, { transform: [{ scale }, { rotate }] }]}>
-            <Icon name="handshake" size={24} color="#ffffff" />
-            <Text style={styles.swipeConnectText}>Connect</Text>
-          </Animated.View>
-        </View>
-      );
-    };
+
 
     return (
       <Reanimated.View
@@ -834,17 +815,7 @@ function SonarPulse({ size, color }) {
         style={styles.rowWrapper}
         layout={LinearTransition.springify()}
       >
-        <Swipeable 
-          renderLeftActions={renderLeftActions} 
-          onSwipeableWillOpen={() => haptic.impact()}
-          onSwipeableLeftOpen={() => {
-            haptic.success();
-            islandRef.current?.show(isMine ? 'Marked as filled' : 'Connection sent', isMine ? 'check-circle' : 'handshake');
-            if (!isMine) handleConnect(item.id);
-          }}
-          overshootLeft={false}
-          containerStyle={{ flex: 1 }}
-        >
+
           <View style={styles.row}>
             <AnimatedPressable 
               style={styles.rowTap} 
@@ -910,7 +881,7 @@ function SonarPulse({ size, color }) {
               )}
             </View>
           )}
-        </Swipeable>
+
       </Reanimated.View>
     );
   };
@@ -1341,9 +1312,7 @@ const makeStyles = (DS) => StyleSheet.create({
   sep: { display: 'none' },
 
   rowWrapper: { marginBottom: 12 },
-  swipeConnectBox: { flex: 1, backgroundColor: '#059669', borderRadius: 16, justifyContent: 'center', alignItems: 'flex-start', paddingLeft: 24 },
-  swipeConnectIcon: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  swipeConnectText: { color: '#ffffff', fontSize: 16, fontWeight: '800' },
+
   row: { 
     flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 14,
     backgroundColor: '#ffffff', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', 
