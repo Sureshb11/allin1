@@ -1,6 +1,6 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { makeControls } from '../theme/controls';
-import { GestureDetector, Swipeable } from 'react-native-gesture-handler';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
 
 // The category tabs, in the order they're drawn — module scope so the swipe
@@ -308,29 +308,16 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     );
   };
 
-  const renderLeftActions = (progress, dragX, item) => {
-    const scale = dragX.interpolate({ inputRange: [0, 50, 100], outputRange: [0, 0.5, 1], extrapolate: 'clamp' });
-    return (
-      <View style={{ backgroundColor: '#ef4444', justifyContent: 'center', marginBottom: 10, borderRadius: 14, width: 100, alignItems: 'center' }}>
-        <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
-          <Icon name="exit-run" size={24} color="#fff" />
-          <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 12 }}>Leave</Text>
-        </Animated.View>
-      </View>
-    );
-  };
-
-  const renderRightActions = (progress, dragX, item) => {
-    const scale = dragX.interpolate({ inputRange: [-100, -50, 0], outputRange: [1, 0.5, 0], extrapolate: 'clamp' });
-    return (
-      <View style={{ backgroundColor: DS.blueDeep, justifyContent: 'center', marginBottom: 10, borderRadius: 14, width: 100, alignItems: 'center' }}>
-        <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
-          <Icon name="account-cog" size={24} color="#fff" />
-          <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 12 }}>Manage</Text>
-        </Animated.View>
-      </View>
-    );
-  };
+  // The row's left/right swipe actions are gone, and with them the reason the
+  // filter swipe never fired on this screen: Swipeable claims a horizontal drag
+  // at ~10px, well before the filter's 24px, so every swipe over a team card
+  // opened a row action instead of stepping My Teams → Opponents → Followed.
+  //
+  // Nothing is lost. "Manage" did exactly what the SQUAD chip on the card does —
+  // setSelectedTeam(item) — so it's still one tap away, in a control you can
+  // see. "Leave" never left anything: it called showToast('Left team') and no
+  // API, so the toast was the whole feature. Leaving a team for real lives on
+  // the team's own profile, which tapping the card opens.
 
   const renderTeam = ({ item }) => {
     const losses = item.matches - item.wins;
@@ -338,79 +325,72 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     const isFollowed = followedIds.has(item.id);
     const mineTab = tab === 'mine';
     return (
-      <Swipeable
-        renderLeftActions={mineTab ? (p, d) => renderLeftActions(p, d, item) : undefined}
-        renderRightActions={mineTab ? (p, d) => renderRightActions(p, d, item) : undefined}
-        onSwipeableLeftOpen={() => showToast('Left team')}
-        onSwipeableRightOpen={() => setSelectedTeam(item)}
-      >
-        <Pressable3D
-          style={styles.teamCard}
-          onPress={() => mineTab ? navigation.navigate('TeamProfile', { teamId: item.id }) : navigation.navigate('TeamInsights', { teamId: item.id })}>
-          <View style={styles.teamCardTop}>
-            <HexAvatar size={40} color={getAvatarColor(item.name)} style={{ marginRight: 10 }}>
-              <Text style={styles.teamAvatarText}>{getInitials(item.name)}</Text>
-            </HexAvatar>
-            <View style={styles.teamInfo}>
-              <Text style={styles.teamName}>{item.name}</Text>
-              <Text style={styles.teamSubtitle}>
-                <Text style={styles.memberCount}>{item.players} members</Text>
-              </Text>
-              {mineTab && <Text style={styles.roleTag}>CAPTAIN</Text>}
+      <Pressable3D
+        style={styles.teamCard}
+        onPress={() => mineTab ? navigation.navigate('TeamProfile', { teamId: item.id }) : navigation.navigate('TeamInsights', { teamId: item.id })}>
+        <View style={styles.teamCardTop}>
+          <HexAvatar size={40} color={getAvatarColor(item.name)} style={{ marginRight: 10 }}>
+            <Text style={styles.teamAvatarText}>{getInitials(item.name)}</Text>
+          </HexAvatar>
+          <View style={styles.teamInfo}>
+            <Text style={styles.teamName}>{item.name}</Text>
+            <Text style={styles.teamSubtitle}>
+              <Text style={styles.memberCount}>{item.players} members</Text>
+            </Text>
+            {mineTab && <Text style={styles.roleTag}>CAPTAIN</Text>}
+          </View>
+          <View style={{ flex: 1, alignItems: 'flex-end', justifyContent: 'center' }}>
+             <HoneycombPreview teamIdStr={item.id} count={item.players} />
+          </View>
+        </View>
+        <View style={[styles.statsRow, { justifyContent: 'space-between' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={styles.statBlock}>
+              <Text style={styles.statNumber}>{item.wins}</Text>
+              <Text style={styles.statLabel}>W</Text>
             </View>
-            <View style={{ flex: 1, alignItems: 'flex-end', justifyContent: 'center' }}>
-               <HoneycombPreview teamIdStr={item.id} count={item.players} />
+            <View style={styles.statDivider} />
+            <View style={styles.statBlock}>
+              <Text style={styles.statNumber}>{losses}</Text>
+              <Text style={styles.statLabel}>L</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBlock}>
+              <Text style={styles.statNumber}>{draws}</Text>
+              <Text style={styles.statLabel}>D</Text>
             </View>
           </View>
-          <View style={[styles.statsRow, { justifyContent: 'space-between' }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={styles.statBlock}>
-                <Text style={styles.statNumber}>{item.wins}</Text>
-                <Text style={styles.statLabel}>W</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statBlock}>
-                <Text style={styles.statNumber}>{losses}</Text>
-                <Text style={styles.statLabel}>L</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statBlock}>
-                <Text style={styles.statNumber}>{draws}</Text>
-                <Text style={styles.statLabel}>D</Text>
-              </View>
-            </View>
-            <MiniRadarChart w={item.wins} l={losses} d={draws} DS={DS} />
+          <MiniRadarChart w={item.wins} l={losses} d={draws} DS={DS} />
+        </View>
+        {item.matches > 0 && (
+          <View style={styles.winRateBar}>
+            <View style={[styles.winRateFill, { width: `${(item.wins / item.matches) * 100}%`, backgroundColor: DS.success }]} />
+            <View style={[styles.winRateFill, { width: `${(losses / item.matches) * 100}%`, backgroundColor: '#ef4444' }]} />
+            <View style={[styles.winRateFill, { width: `${(draws / item.matches) * 100}%`, backgroundColor: DS.textMuted }]} />
           </View>
-          {item.matches > 0 && (
-            <View style={styles.winRateBar}>
-              <View style={[styles.winRateFill, { width: `${(item.wins / item.matches) * 100}%`, backgroundColor: DS.success }]} />
-              <View style={[styles.winRateFill, { width: `${(losses / item.matches) * 100}%`, backgroundColor: '#ef4444' }]} />
-              <View style={[styles.winRateFill, { width: `${(draws / item.matches) * 100}%`, backgroundColor: DS.textMuted }]} />
-            </View>
-          )}
-          <View style={styles.actionRow}>
-            {mineTab ? (
-              <TouchableOpacity style={styles.actionChip} onPress={() => setSelectedTeam(item)}>
-                <Icon name="account-group" size={14} color={DS.white} />
-                <Text style={styles.actionChipText}>SQUAD</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.actionChip, isFollowed && styles.actionChipActive]}
-                onPress={() => toggleFollow(item)}>
-                <Icon name={isFollowed ? 'heart' : 'heart-outline'} size={14} color={isFollowed ? '#000' : DS.white} />
-                <Text style={[styles.actionChipText, isFollowed && { color: '#000' }]}>{isFollowed ? 'FOLLOWING' : 'FOLLOW'}</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={styles.statsChip}
-              onPress={() => navigation.navigate('TeamInsights', { teamId: item.id })}>
-              <Icon name="chart-line" size={14} color={DS.textPrimary} />
-              <Text style={styles.statsChipText}>STATS</Text>
+        )}
+        <View style={styles.actionRow}>
+          {mineTab ? (
+            <TouchableOpacity style={styles.actionChip} onPress={() => setSelectedTeam(item)}>
+              <Icon name="account-group" size={14} color={DS.white} />
+              <Text style={styles.actionChipText}>SQUAD</Text>
             </TouchableOpacity>
-          </View>
-        </Pressable3D>
-      </Swipeable>
+          ) : (
+            <TouchableOpacity
+              style={[styles.actionChip, isFollowed && styles.actionChipActive]}
+              onPress={() => toggleFollow(item)}>
+              <Icon name={isFollowed ? 'heart' : 'heart-outline'} size={14} color={isFollowed ? '#000' : DS.white} />
+              <Text style={[styles.actionChipText, isFollowed && { color: '#000' }]}>{isFollowed ? 'FOLLOWING' : 'FOLLOW'}</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={styles.statsChip}
+            onPress={() => navigation.navigate('TeamInsights', { teamId: item.id })}>
+            <Icon name="chart-line" size={14} color={DS.textPrimary} />
+            <Text style={styles.statsChipText}>STATS</Text>
+          </TouchableOpacity>
+        </View>
+      </Pressable3D>
     );
 
   };
@@ -646,10 +626,9 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
 
       {/* Tabs moved to ListHeaderComponent */}
       {/* Swipe left/right steps My Teams → Opponents → Followed. The hook was
-          built here and its GestureDetector never rendered, so the gesture has
-          been dead on this screen. On the My Teams tab the rows carry their own
-          Swipeable actions and activate first — a row's swipe beats a filter
-          change, which is the right way round. */}
+          built here and its GestureDetector never rendered, so the gesture was
+          dead; the rows' own Swipeable actions then claimed the drag first, so
+          it stayed dead once wired. Both fixed — see renderTeam. */}
       <GestureDetector gesture={teamSwipe}>
       <FlatList
         data={searchedTeams[tab]}
