@@ -125,7 +125,7 @@ const DynamicFAB = ({ tabClear, onPress, DS }) => {
         onPress={() => { ReactNativeHapticFeedback.trigger('impactLight'); onPress(); }}
         activeOpacity={0.9}
       >
-        <Icon name="plus" size={24} color="#000" />
+        <Icon name="plus" size={24} color="#fff" />
       </TouchableOpacity>
     </AnimatedPulse>
   );
