@@ -496,9 +496,32 @@ router.post('/:id/join-requests/:teamId/reject', authMiddleware, requireOrganize
   }
 });
 
-// Remove a team from the tournament
+// Remove a team from the tournament.
+//
+// Organiser-only, and there is deliberately no self-withdrawal: once a team is
+// in, it is in (docs/TOURNAMENT_DESIGN.md §4.2). A team that stops turning up
+// forfeits its remaining fixtures rather than leaving, because a mid-tournament
+// exit rewrites every opponent's record depending on whether they had already
+// played it.
+//
+// Which is also why this delete is guarded. It drops the TournamentTeam row
+// outright, so removing a team that has already played orphans those results:
+// the matches survive and still count against the other side, while the team
+// itself is gone from the standings. Allowed only before they have played.
 router.delete('/:id/teams/:teamId', authMiddleware, requireOrganizer, async (req, res) => {
   try {
+    const played = await prisma.tournamentMatch.count({
+      where: {
+        tournamentId: req.params.id,
+        status: 'completed',
+        OR: [{ team1Id: req.params.teamId }, { team2Id: req.params.teamId }],
+      },
+    });
+    if (played > 0) {
+      return res.status(409).json({
+        error: 'This team has already played. Removing it would leave those results counting against their opponents — forfeit their remaining fixtures instead.',
+      });
+    }
     await prisma.tournamentTeam.delete({
       where: {
         tournamentId_teamId: {

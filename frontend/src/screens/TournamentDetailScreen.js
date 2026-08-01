@@ -217,14 +217,35 @@ export default function TournamentDetailScreen({ route, navigation }) {
     }
   };
 
-  const handleRemoveTeam = async (teamId) => {
+  // Has this team played anything that counts? Removing one that has is what
+  // the server now refuses (409): the fixture rows survive the delete, so their
+  // opponents keep the points while the team vanishes from the table. The check
+  // is repeated here only so the trash icon can disappear before it is tapped —
+  // the server is the one that decides.
+  const hasPlayed = (teamId) =>
+    schedule.some((m) => m.status === 'completed' && (m.team1?.id === teamId || m.team2?.id === teamId));
+
+  const handleRemoveTeam = (teamId, teamName) => {
+    // Was a bare one-tap delete. A mis-tap on a 20pt icon dropped a team out of
+    // a live tournament with no way back.
+    Alert.alert(
+      'Remove team?',
+      `${teamName || 'This team'} will be taken out of the tournament. They can be added again, but any groups or fixtures they're in will need redoing.`,
+      [
+        { text: 'Keep', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => doRemoveTeam(teamId) },
+      ],
+    );
+  };
+
+  const doRemoveTeam = async (teamId) => {
     setProcessing(true);
     const res = await legendsApi.removeTeamFromTournament(tournamentId, teamId);
     if (res.success) {
       const tRes = await legendsApi.getTournament(tournamentId);
       if (tRes.success) setTournament(tRes.data);
     } else {
-      alert(res.error || 'Failed to remove team');
+      showToast(res.error || 'Failed to remove team', 'error');
     }
     setProcessing(false);
   };
@@ -448,8 +469,8 @@ export default function TournamentDetailScreen({ route, navigation }) {
               <View style={styles.groupBadge}>
                 <Text style={styles.groupText}>Grp {group}</Text>
               </View>
-              {isOrganizer && ['upcoming', 'ongoing'].includes(tournament.status) && (
-                <TouchableOpacity onPress={() => handleRemoveTeam(team.id)} disabled={processing} style={{ marginLeft: 12 }}>
+              {isOrganizer && ['upcoming', 'ongoing'].includes(tournament.status) && !hasPlayed(team.id) && (
+                <TouchableOpacity onPress={() => handleRemoveTeam(team.id, team.name)} disabled={processing} style={{ marginLeft: 12 }}>
                   <Icon name="trash-can-outline" size={20} color={DS.coral} />
                 </TouchableOpacity>
               )}
