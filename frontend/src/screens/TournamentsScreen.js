@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, ActivityIndicator, RefreshControl, Animated, Pressable, Image
 } from 'react-native';
 import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, Easing, withSequence, withRepeat, runOnJS } from 'react-native-reanimated';
+import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Defs, LinearGradient, Stop, Rect, Pattern, Path } from 'react-native-svg';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
@@ -364,7 +365,11 @@ const TournamentsScreen = ({ navigation, inline }) => {
     }
   }, [navigation, inline]);
 
-  useEffect(() => { loadTournaments(); }, []);
+  // On focus, not just mount: creating a tournament returns here, and so does
+  // backing out of a tournament's detail. Mount-only meant the list you came
+  // back to was whatever it held when the screen first opened — a tournament you
+  // had just created simply wasn't in it.
+  useFocusEffect(useCallback(() => { loadTournaments(); }, []));   // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadTournaments = async () => {
     try {

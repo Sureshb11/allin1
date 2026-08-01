@@ -1,5 +1,5 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert, ActivityIndicator, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
@@ -24,10 +24,6 @@ import { pickAndUploadImage } from '../utils/imageUpload';
 const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
-  const [tournaments, setTournaments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  // Opened via the "Create Tournament" route → start with the form open.
-  const [showCreateForm, setShowCreateForm] = useState(route?.params?.openCreate ?? true);
   const [creating, setCreating] = useState(false);
   // The logged-in user is the organiser of anything they create — stamped onto the
   // tournament so it shows in the Overview's "Organizer" section.
@@ -42,7 +38,7 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  useEffect(() => {loadTournaments(); loadOrganizer();}, []);
+  useEffect(() => { loadOrganizer(); }, []);
 
   const loadOrganizer = async () => {
     try {
@@ -55,12 +51,6 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
     } catch (e) {}
   };
 
-  const loadTournaments = async () => {
-    try {
-      const res = await legendsApi.getTournaments({ sport: getSelectedSport().sport?.id });
-      if (res.success) setTournaments(res.data);
-    } catch (e) {} finally {setLoading(false);}
-  };
 
   const createTournament = async () => {
     if (!form.name.trim()) return showToast('Tournament name is required', 'error');
@@ -84,21 +74,19 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
       });
       if (res.success) {
         showToast('Tournament created!', 'success');
-        setShowCreateForm(false);
         setForm({ name: '', format: 'T20', overs: '20', ballType: 'Leather', venue: '', prizePool: '', maxTeams: '', logoUrl: '', banner: '' });
-        loadTournaments();
+        // Back to the Tournaments list you came from — which reloads on focus,
+        // so the new tournament is there. This used to flip a local flag and
+        // reveal a SECOND list rendered inside this screen: a different list
+        // from the one you'd browse to, with its own cards and empty state.
+        // goBack rather than navigate, so the stack doesn't end up holding two
+        // copies of the same list.
+        navigation.goBack();
       } else showToast(res.error || 'Failed to create', 'error');
     } catch (e) {showToast('Something went wrong', 'error');} finally {setCreating(false);}
   };
 
   // Start button was previously dead (no handler) — kicks the tournament live.
-  const startTournament = async (t) => {
-    const res = await legendsApi.updateTournament(t.id, { status: 'ongoing' });
-    if (res.success) {
-      showToast(`${t.name} is live!`, 'success');
-      loadTournaments();
-    } else showToast(res.error || 'Could not start tournament', 'error');
-  };
 
   const handlePickImage = async (field) => {
     const r = await pickAndUploadImage('tournaments');
@@ -109,40 +97,7 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'ongoing':return '#ff4d4d';
-      case 'upcoming':return DS.coral;
-      case 'completed':return '#6ee76e';
-      default:return DS.textMuted;
-    }
-  };
 
-  const renderTournament = ({ item }) =>
-  <TouchableOpacity style={styles.tournamentCard}>
-      <View style={styles.tournamentHeader}>
-        <View>
-          <Text style={styles.tournamentName}>{item.name}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Text style={styles.statusText}>{(item.status || '').toUpperCase()}</Text>
-          </View>
-        </View>
-        {item.status === 'upcoming' && (
-          <TouchableOpacity style={styles.startButton} onPress={() => startTournament(item)}>
-            <Icon name="play-circle-outline" size={20} color={DS.onBlue} />
-            <Text style={styles.startButtonText}>Start</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      <View style={styles.tournamentDetails}>
-        <View style={styles.detailRow}><Text style={styles.detailLabel}>Format:</Text><Text style={styles.detailValue}>{item.format}{item.overs ? ` · ${item.overs} ov` : ''}</Text></View>
-        {item.ballType && <View style={styles.detailRow}><Text style={styles.detailLabel}>Ball:</Text><Text style={styles.detailValue}>{item.ballType}</Text></View>}
-        {item.venue && <View style={styles.detailRow}><Text style={styles.detailLabel}>Venue:</Text><Text style={styles.detailValue}>{item.venue}</Text></View>}
-        {item.prizePool && <View style={styles.detailRow}><Text style={styles.detailLabel}>Prize Pool:</Text><Text style={styles.detailValue}>{item.prizePool}</Text></View>}
-        {item.maxTeams && <View style={styles.detailRow}><Text style={styles.detailLabel}>Max Teams:</Text><Text style={styles.detailValue}>{item.maxTeams}</Text></View>}
-        {item.startDate && <View style={styles.detailRow}><Text style={styles.detailLabel}>Start:</Text><Text style={styles.detailValue}>{new Date(item.startDate).toLocaleDateString()}</Text></View>}
-      </View>
-    </TouchableOpacity>;
 
 
   return (
@@ -151,23 +106,20 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={10}>
           <Icon name="arrow-left" size={22} color={DS.textPrimary} />
         </TouchableOpacity>
-        {/* Say which job this screen is doing. Opened to create, it said
-            "Tournaments" over a form headed "Create New Tournament". */}
-        <Text style={styles.headerTitle}>{showCreateForm ? 'New Tournament' : 'Tournaments'}</Text>
-        <TouchableOpacity style={styles.createButton} onPress={() => setShowCreateForm(!showCreateForm)}>
-          <Text style={styles.createButtonText}>{showCreateForm ? 'Cancel' : '+ Create'}</Text>
+        {/* This screen does exactly one job now. */}
+        <Text style={styles.headerTitle}>New Tournament</Text>
+        <TouchableOpacity style={styles.createButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.createButtonText}>Cancel</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Form OR list — never both. They used to render together (the form was a
-          plain View that simply pushed the list off-screen); once the form
-          became a flex ScrollView the two competed for the same space and the
-          list won, so opening "New Tournament" showed the list instead.
+      {/* Just the form. This screen also rendered a full tournament LIST, and
+          creating one flipped to it — so you ended up on a second list with its
+          own cards and its own empty state, not the Tournaments screen you'd
+          reach any other way. Creating now hands off to that real list.
           Scrollable + dock clearance because the form is taller than the screen:
-          "Create Tournament" at its foot sat under the floating dock, untappable.
-          The form's own heading is gone — the header already says
-          "New Tournament", so repeating it just cost a row. */}
-      {showCreateForm ?
+          "Create Tournament" at its foot sat under the floating dock,
+          untappable. */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: tabClear + 24 }}
                   keyboardShouldPersistTaps="handled" {...hideTabBar}>
         <View style={styles.createForm}>
@@ -249,15 +201,6 @@ const TournamentScreen = ({ navigation, route }) => {const DS = useTheme().color
           />
         </View>
       </ScrollView>
-      : loading ?
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={DS.lime} /></View> :
-
-      <FlatList data={tournaments} renderItem={renderTournament} keyExtractor={(item) => item.id}
-      {...hideTabBar}
-      contentContainerStyle={[styles.tournamentsList, { paddingBottom: 15 + tabClear }]}
-      ListEmptyComponent={<View style={{ alignItems: 'center', paddingTop: 60 }}><Text style={{ fontSize: 16, color: DS.textMuted }}>No tournaments yet</Text></View>} />
-
-      }
     </View>);
 
 };
@@ -279,23 +222,9 @@ const makeStyles = (DS) => StyleSheet.create({
   formatChipActive: { backgroundColor: DS.lime },
   formatChipText: { color: DS.textVariant, fontWeight: '600' },
   formatChipTextActive: { color: DS.bg },
-  createFormButton: { backgroundColor: DS.lime, paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 5 },
-  createFormButtonText: { color: DS.bg, fontSize: 14, fontWeight: '700' },
   imageUploadBtn: { flex: 1, height: 80, backgroundColor: DS.surfaceHighest, borderRadius: 8, borderWidth: 1, borderColor: DS.surfaceLow, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
   imageUploadText: { color: DS.textMuted, fontSize: 11, marginTop: 4, fontWeight: '600' },
-  tournamentsList: { padding: 15 },
-  tournamentCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 20, marginBottom: 15 },
-  tournamentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 },
-  tournamentName: { fontSize: 18, fontWeight: '600', color: DS.textPrimary, flex: 1, marginRight: 10 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  statusText: { fontSize: 10, color: DS.bg, fontWeight: '700' },
   // Solid electric-blue Action-Taker per the design system.
-  startButton: { flexDirection: 'row', backgroundColor: DS.blueDeep, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, alignItems: 'center', gap: 6 },
-  startButtonText: { color: DS.onBlue, fontSize: 12, fontWeight: '700' },
-  tournamentDetails: { marginBottom: 5 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  detailLabel: { fontSize: 14, color: DS.textMuted, flex: 1 },
-  detailValue: { fontSize: 14, color: DS.textPrimary, fontWeight: '500', flex: 2, textAlign: 'right' }
 });
 
 export default TournamentScreen;
