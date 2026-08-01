@@ -586,9 +586,15 @@ const TournamentsScreen = ({ navigation, inline }) => {
               <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
                 <Icon name="trophy-variant-outline" size={56} color={DS.textMuted} />
               </View>
-              <Text style={[styles.emptyTitle, { fontSize: 20, color: DS.textPrimary, fontWeight: '800' }]}>No Tournaments Yet</Text>
+              <Text style={[styles.emptyTitle, { fontSize: 20, color: DS.textPrimary, fontWeight: '800' }]}>
+                {filter === 'All' ? 'No Tournaments Yet' : `No ${filter} Tournaments`}
+              </Text>
               <Text style={[styles.emptySub, { textAlign: 'center', marginHorizontal: 40, marginTop: 10, lineHeight: 22 }]}>
-                {searchQuery ? "We couldn't find any tournaments matching your search." : "Be the first to host a tournament and bring the community together!"}
+                {searchQuery 
+                  ? "We couldn't find any tournaments matching your search." 
+                  : filter === 'All' 
+                    ? "Be the first to host a tournament and bring the community together!"
+                    : `There are no ${filter.toLowerCase()} tournaments right now.`}
               </Text>
               {!searchQuery && (
                 <PressableScale 
