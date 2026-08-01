@@ -874,7 +874,14 @@ export default function TournamentDetailScreen({ route, navigation }) {
   // Visual knockout bracket: rounds as columns (QF → SF → Final), later rounds
   // vertically centered so it reads as a tree. Group-stage matches are excluded.
   const renderBracket = () => {
-    const ko = schedule.filter((m) => m.round && !m.round.startsWith('Group ') && m.round !== 'Fixtures');
+    // A fixture is a knockout one because its PHASE says so, not because its
+    // round label happens not to begin with "Group ". That test read
+    // "Super 8 Group 1" as a knockout round and drew twelve round-robin
+    // fixtures into the bracket alongside the semis and the final.
+    // The label test stays as the fallback for tournaments with no phases.
+    const ko = schedule.filter((m) =>
+      m.phase ? m.phase.type === 'knockout'
+        : m.round && !m.round.startsWith('Group ') && m.round !== 'Fixtures');
     if (!ko.length) {
       return (
         <View style={styles.empty}>

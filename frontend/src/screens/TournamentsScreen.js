@@ -581,7 +581,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
           );
         }}
         ListEmptyComponent={
-          !loading && (
+          !loading && featured.length === 0 && (
             <View style={[styles.empty, { marginTop: 40 }]}>
               <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
                 <Icon name="trophy-variant-outline" size={56} color={DS.textMuted} />
