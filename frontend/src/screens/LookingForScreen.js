@@ -320,6 +320,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   const [connections, setConnections] = useState([]);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [activeType, setActiveType] = useState(initialType);
   // Swipe the listings left/right to step through the filter tabs. A ref mirrors
   // the current filter so the (once-created) responder never reads a stale value,
@@ -489,16 +490,21 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
   const load = useCallback(async (typeArg, queryArg) => {
     const rid = ++reqIdRef.current;
+    setIsFetching(true);
     const res = await legendsApi.getLookingForPosts({
       sport: getSelectedSport().sport?.id,
       type: typeArg && typeArg !== 'all' ? typeArg : undefined,
       q: (queryArg || '').trim() || undefined,
     });
-    if (!res.success || rid !== reqIdRef.current) return;
-    setPosts(res.data);
-    setCounts(res.counts);
-    setTotal(res.total);
-    setCursor(res.nextCursor);
+    if (rid === reqIdRef.current) {
+      setIsFetching(false);
+      if (res.success) {
+        setPosts(res.data);
+        setCounts(res.counts);
+        setTotal(res.total);
+        setCursor(res.nextCursor);
+      }
+    }
   }, []);
 
   const loadMore = useCallback(async () => {
@@ -1030,6 +1036,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
               </View>
             ) : null}
           ListEmptyComponent={
+            isFetching ? <View style={{ paddingTop: 60 }}><ActivityIndicator color={DS.lime} /></View> :
             <View style={styles.empty}>
               <View style={styles.emptyBox}>
                 <View style={styles.emptyIconWrap}>
