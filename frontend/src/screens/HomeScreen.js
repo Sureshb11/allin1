@@ -303,38 +303,6 @@ export default function HomeScreen({ navigation }) {
             {...hideTabBar}
             ListHeaderComponent={
               <View>
-                {/* Start Match CTA */}
-                <AnimatedPulse>
-                  <TouchableOpacity
-                    style={[styles.startMatchCTA, {
-                      backgroundColor: DS.surfaceHigh,
-                      borderWidth: 1, borderColor: DS.faint,
-                      shadowColor: sportTint, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
-                      paddingHorizontal: 14, paddingVertical: 12, borderRadius: 16, marginBottom: 12,
-                      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'
-                    }]}
-                    onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
-                    activeOpacity={0.88}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: sportTint + '20', alignItems: 'center', justifyContent: 'center' }}>
-                        <Icon name={currentSport.id === 'cricket' ? 'flash' : currentSport.icon} size={22} color={sportTint} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: DS.textPrimary, fontSize: 14, letterSpacing: 0.8, fontWeight: '800' }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                          {currentSport.id === 'cricket' ? 'QUICK MATCH' : `START ${currentSport.name.toUpperCase()}`}
-                        </Text>
-                        <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '600', marginTop: 2 }} numberOfLines={1}>
-                          {currentSport.id === 'cricket' ? 'Start scoring instantly' : cfg.ctaSubtitle}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: sportTint, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, marginLeft: 8 }}>
-                      <Icon name="play" size={14} color={DS.bg} />
-                      <Text style={{ fontSize: 11, fontWeight: '900', color: DS.bg, letterSpacing: 0.5 }}>START</Text>
-                    </View>
-                  </TouchableOpacity>
-                </AnimatedPulse>
 
                 {/* Filter tabs + count on one line (reclaims a full row) */}
                 <View style={[C.filterBar, { flexDirection: 'row', marginBottom: 12 }]}>
@@ -449,6 +417,19 @@ export default function HomeScreen({ navigation }) {
         </View>
       </Modal>
 
+      {/* Floating Action Button for Quick Match */}
+      <View style={[styles.fabContainer, { bottom: tabClear + 16 }]}>
+        <TouchableOpacity 
+          style={[styles.fab, { backgroundColor: sportTint, shadowColor: sportTint }]} 
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('StartMatch', { sport: currentSport })}
+        >
+          <Icon name={currentSport.id === 'cricket' ? 'flash' : currentSport.icon} size={22} color={DS.bg} />
+          <Text style={[styles.fabText, { color: DS.bg }]}>
+            {currentSport.id === 'cricket' ? 'QUICK MATCH' : `START ${currentSport.name.toUpperCase()}`}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -591,8 +572,29 @@ const makeStyles = (DS, typography, radii, shadows) => StyleSheet.create({
   feed: { flex: 1 },
   feedContent: { paddingHorizontal: 16, paddingBottom: 16 },
 
-  // Start Match CTA
-  startMatchCTA: {}, // Keeping key to avoid errors, replaced by inline styles
+  // FAB
+  fabContainer: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 100,
+  },
+  fab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+    gap: 8,
+  },
+  fabText: {
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
 
   // Filters and Search
   searchWrap: {

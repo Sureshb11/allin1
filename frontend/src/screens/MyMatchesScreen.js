@@ -493,33 +493,6 @@ export default function MyMatchesScreen({ navigation }) {
       
       <LiveScoreTicker matches={matches} />
 
-      {/* Quick Match Banner Redesign (Replaces Toss & Play) */}
-      <TouchableOpacity 
-        style={[styles.tossPlayBanner, {
-          backgroundColor: DS.surfaceHigh,
-          borderWidth: 1, borderColor: DS.faint,
-          shadowColor: DS.lime, shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
-          paddingHorizontal: 14, paddingVertical: 12, borderRadius: 16
-        }]} 
-        activeOpacity={0.8} 
-        onPress={() => navigation.navigate('StartMatch')}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 2 }}>
-          <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: DS.lime + '20', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="flash" size={22} color={DS.lime} />
-          </View>
-          <View>
-            <Text style={[styles.tossPlayTitle, { color: DS.textPrimary, fontSize: 14, letterSpacing: 0.8 }]}>QUICK MATCH</Text>
-            <Text style={[styles.tossPlaySub, { color: DS.textMuted, fontSize: 11 }]}>Start scoring instantly</Text>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, zIndex: 2, backgroundColor: DS.lime, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 }}>
-          <Icon name="play" size={14} color="#000" />
-          <Text style={{ fontSize: 11, fontWeight: '900', color: '#000', letterSpacing: 0.5 }}>START</Text>
-        </View>
-      </TouchableOpacity>
-
-
       {/* Search */}
       <View style={[C.searchField, styles.searchRow]}>
         <Icon name="magnify" size={18} color={DS.textMuted} />
@@ -637,6 +610,18 @@ export default function MyMatchesScreen({ navigation }) {
         }
       />
       </GestureDetector>
+
+      {/* Floating Action Button for Quick Match */}
+      <View style={[styles.fabContainer, { bottom: tabClear + 16 }]}>
+        <TouchableOpacity 
+          style={styles.fab} 
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('StartMatch')}
+        >
+          <Icon name="flash" size={22} color="#000" />
+          <Text style={styles.fabText}>QUICK MATCH</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -740,14 +725,35 @@ const makeStyles = (DS) => StyleSheet.create({
   },
 
   /* New layout additions */
-  tossPlayBanner: {
-    marginHorizontal: 16, marginTop: 8, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8,
-    backgroundColor: DS.blue, overflow: 'hidden',
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    shadowColor: DS.blue, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6,
+  tossPlayBanner: {},
+  
+  // FAB
+  fabContainer: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 100,
   },
-  tossPlayTitle: { fontSize: 13, fontWeight: '900', color: DS.white, letterSpacing: 0.5 },
-  tossPlaySub: { fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: '500' },
+  fab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: DS.lime,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    shadowColor: DS.lime,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+    gap: 8,
+  },
+  fabText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+
   broadcastLayout: { paddingHorizontal: 16, paddingVertical: 12, gap: 16 },
   teamRowBroadcast: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   teamLeftBroadcast: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
