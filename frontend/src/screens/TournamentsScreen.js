@@ -25,6 +25,24 @@ const FILTERS = ['All', 'Open', 'Ongoing', 'Completed'];
 // anatomy, so the three screens read as one app.
 const FILTER_ICONS = { All: 'view-grid-outline', Open: 'door-open', Ongoing: 'circle-slice-8', Completed: 'check-circle-outline' };
 
+// The database stores upcoming | ongoing | completed; the loader capitalises
+// the first letter, so this screen sees Upcoming | Ongoing | Completed. Its
+// vocabulary, though, is Open | Ongoing | Active | Upcoming | Completed, and it
+// compares with ===. Ongoing and Completed line up by luck. "Open" never does —
+// nothing is ever stored as "open" — so everything gated on it has never once
+// rendered: the Featured rail, the "N slots left" footer, and the JOIN button
+// itself. The Open filter chip returned nothing at all.
+//
+// One normaliser, used everywhere the screen asks what state a tournament is
+// in. Anything unrecognised counts as still accepting entries, which is the
+// safe end: worst case a card offers JOIN and the server refuses.
+const statusKey = (s) => {
+  const v = String(s || '').toLowerCase();
+  if (v === 'ongoing' || v === 'active' || v === 'live') return 'Ongoing';
+  if (v === 'completed' || v === 'finished' || v === 'cancelled') return 'Completed';
+  return 'Open';
+};
+
 const makeStatusColors = (DS) => ({
   Open:      DS.lime,
   Ongoing:   '#fbbf24', // Gold
@@ -186,11 +204,12 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const STATUS_COLORS = makeStatusColors(DS);
-  const statusColor = STATUS_COLORS[item.status] || DS.textMuted;
+  const state = statusKey(item.status);
+  const statusColor = STATUS_COLORS[state] || DS.textMuted;
   const teamsLeft = (item.maxTeams || 16) - (item.teams || 0);
   const progress = (item.teams || 0) / (item.maxTeams || 16);
 
-  const isGold = item.status === 'Ongoing' || item.status === 'Active';
+  const isGold = state === 'Ongoing';
   const albumColor = getAlbumColor(item.name);
 
   return (
@@ -220,7 +239,7 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
         <View style={[{ position: 'absolute', top: 12, right: 12 }]}>
           <View style={[styles.statusBadge, { backgroundColor: statusColor + '40', borderColor: statusColor + '80', borderWidth: 1 }]}>
             <Text style={[styles.statusBadgeText, { color: DS.bg }]}>
-              {item.status ? item.status.toUpperCase() : 'UPCOMING'}
+              {state.toUpperCase()}
             </Text>
           </View>
           {isGold && <LiveRing DS={DS} />}
@@ -291,7 +310,7 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
 
         {/* Right column: stacked actions */}
         <View style={styles.cardHeaderRight}>
-          {item.status !== 'Open' && (
+          {state !== 'Open' && (
             <View style={styles.headerActions}>
               <PressableScale style={styles.chipBtn} onPress={() => { ReactNativeHapticFeedback.trigger('impactLight'); onOpen('Schedule', { bracket: true }); }}>
                 <Text style={styles.chipBtnText}>BRACKET</Text>
@@ -305,8 +324,8 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
 
       </View>
 
-      {/* Footer: only Open tournaments show slots + JOIN */}
-      {item.status === 'Open' && (
+      {/* Footer: only tournaments still taking entries show slots + JOIN */}
+      {state === 'Open' && (
         <View style={styles.cardFooter}>
           <Text style={styles.slotsLeft}>
             {teamsLeft > 0 ? `${teamsLeft} slots left` : 'Full'}
@@ -422,7 +441,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
   };
 
   const filtered = tournaments.filter(t => {
-    const f = filter === 'All' || t.status === filter;
+    const f = filter === 'All' || statusKey(t.status) === filter;
     const q = searchQuery.toLowerCase();
     const s = !q || (t.name || '').toLowerCase().includes(q) || (t.location || '').toLowerCase().includes(q);
     return f && s;
@@ -437,15 +456,15 @@ const TournamentsScreen = ({ navigation, inline }) => {
     return !q || (t.name || '').toLowerCase().includes(q) || (t.location || '').toLowerCase().includes(q);
   });
   const counts = FILTERS.reduce((acc, f) => {
-    acc[f] = f === 'All' ? searched.length : searched.filter(t => t.status === f).length;
+    acc[f] = f === 'All' ? searched.length : searched.filter(t => statusKey(t.status) === f).length;
     return acc;
   }, {});
 
-  const featured = (filter === 'All' && !searchQuery) ? tournaments.filter(t => t.status === 'Open') : [];
-  const standard = (filter === 'All' && !searchQuery) ? filtered.filter(t => t.status !== 'Open') : filtered;
+  const featured = (filter === 'All' && !searchQuery) ? tournaments.filter(t => statusKey(t.status) === 'Open') : [];
+  const standard = (filter === 'All' && !searchQuery) ? filtered.filter(t => statusKey(t.status) !== 'Open') : filtered;
 
   /* Aggregate stats */
-  const activeCount  = tournaments.filter(t => t.status === 'Open' || t.status === 'Ongoing').length;
+  const activeCount  = tournaments.filter(t => statusKey(t.status) !== 'Completed').length;
   const totalTeams   = tournaments.reduce((s, t) => s + (t.teams || 0), 0);
 
   return (
