@@ -517,25 +517,49 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const enabledRules = Object.keys(RULE_LABELS).filter((k) => rules[k]);
   // Whether a team can ask to join, and why not when it can't.
   const policy = joinPolicy(tournament, (tournament.teams || []).length);
+  // Anything drawn over the cover photo needs the light treatment; without a
+  // cover the header is an ordinary surface and keeps the theme's colours.
+  const onCover = !!tournament.banner;
+
+  // "15–16 Aug 2026" rather than two cards. Same month and year collapse; a
+  // range spanning either keeps what it needs to stay unambiguous.
+  const dateRange = (() => {
+    const a = tournament.startDate ? new Date(tournament.startDate) : null;
+    const b = tournament.endDate ? new Date(tournament.endDate) : null;
+    if (!a && !b) return null;
+    const d = (x, opts) => x.toLocaleDateString('en-IN', opts);
+    if (!b) return d(a, { day: 'numeric', month: 'short', year: 'numeric' });
+    if (!a) return d(b, { day: 'numeric', month: 'short', year: 'numeric' });
+    const sameYear = a.getFullYear() === b.getFullYear();
+    const sameMonth = sameYear && a.getMonth() === b.getMonth();
+    if (a.getTime() === b.getTime()) return d(a, { day: 'numeric', month: 'short', year: 'numeric' });
+    if (sameMonth) return `${a.getDate()}–${d(b, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    if (sameYear) return `${d(a, { day: 'numeric', month: 'short' })} – ${d(b, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    return `${d(a, { day: 'numeric', month: 'short', year: 'numeric' })} – ${d(b, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  })();
 
   const renderOverview = () => (
     <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
       {/* Info Grid */}
+      {/* Five cards, not eight. Type moved to a header chip and Venue has its
+          own section below, so both were being said twice; Start and End were
+          two cards describing one range. What's left is what nothing else on
+          the screen tells you. */}
       <View style={styles.infoGrid}>
         {[
-          { icon: 'trophy-outline', label: 'Format', value: tournament.format },
-          { icon: 'account-group-outline', label: 'Teams', value: `${(tournament.teams || []).length} / ${tournament.maxTeams || '—'}` },
-          { icon: 'map-marker-outline', label: 'Venue', value: tournament.venue || 'TBD' },
-          { icon: 'calendar-start', label: 'Start', value: tournament.startDate ? new Date(tournament.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD' },
-          { icon: 'calendar-end', label: 'End', value: tournament.endDate ? new Date(tournament.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD' },
-          { icon: 'currency-inr', label: 'Prize Pool', value: tournament.prizePool ? `${sign}${tournament.prizePool}` : 'TBD' },
-          { icon: 'sitemap-outline', label: 'Type', value: tournament.category },
+          { icon: 'trophy-outline', label: 'Format',
+            value: tournament.overs ? `${tournament.format} · ${tournament.overs} ov` : tournament.format },
+          { icon: 'account-group-outline', label: 'Teams',
+            value: `${(tournament.teams || []).length} / ${tournament.maxTeams || '—'}` },
+          { icon: 'calendar-range', label: 'Dates', value: dateRange },
+          { icon: 'currency-inr', label: 'Prize Pool',
+            value: tournament.prizePool ? `${sign}${tournament.prizePool}` : null },
           { icon: 'cricket', label: 'Ball', value: tournament.ballType },
         ].filter((c) => c.value).map(({ icon, label, value }) => (
           <View key={label} style={styles.infoCard}>
             <Icon name={icon} size={20} color={DS.blue} />
             <Text style={styles.infoLabel}>{label}</Text>
-            <Text style={styles.infoValue}>{value || '—'}</Text>
+            <Text style={styles.infoValue} numberOfLines={2}>{value}</Text>
           </View>
         ))}
       </View>
@@ -1246,48 +1270,76 @@ export default function TournamentDetailScreen({ route, navigation }) {
             <View style={styles.coverScrim} />
           </>
         )}
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={22} color={tournament.banner ? '#fff' : DS.textPrimary} />
-        </TouchableOpacity>
-        {!!tournament.logoUrl && (
-          <Image source={{ uri: tournament.logoUrl }} style={styles.logoImg} resizeMode="cover" />
-        )}
-        <View style={{ flex: 1 }}>
-          <View style={styles.eyebrowRow}>
-            <Icon name="trophy-outline" size={14} color={tournament.banner ? '#ffffffcc' : DS.textMuted} />
-            <Text style={[styles.eyebrowText, tournament.banner && { color: '#ffffffcc' }]}>
-              {tournament.shortName || 'TOURNAMENT DETAILS'}
+
+        {/* Three rows, not one.
+            Back, logo, title and Edit were all siblings in a single row, so the
+            title got whatever width the other three left it — about 230 of 411
+            — and a name like "Maduravoyal Premier League" truncated at two
+            lines while the chips underneath wrapped and staggered inside the
+            same narrow column. The controls get their own row; the name and the
+            chips get the full width. */}
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={8}>
+            <Icon name="arrow-left" size={22} color={onCover ? '#fff' : DS.textPrimary} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
+          {/* Everything the organiser typed on the way in is editable on the
+              way back — the create wizard reopens with this tournament. */}
+          {isOrganizer && (
+            <TouchableOpacity
+              style={[styles.editBtn, onCover && { borderColor: '#fff', backgroundColor: '#00000040' }]}
+              onPress={() => navigation.navigate('CreateTournament', { tournamentId })}
+              activeOpacity={0.85}>
+              <Icon name="pencil-outline" size={14} color={onCover ? '#fff' : DS.lime} />
+              <Text style={[styles.editBtnText, onCover && { color: '#fff' }]}>Edit</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.headerMain}>
+          {!!tournament.logoUrl && (
+            <Image source={{ uri: tournament.logoUrl }} style={styles.logoImg} resizeMode="cover" />
+          )}
+          <View style={{ flex: 1 }}>
+            <View style={styles.eyebrowRow}>
+              <Icon name="trophy-outline" size={13} color={onCover ? '#ffffffcc' : DS.textMuted} />
+              <Text style={[styles.eyebrowText, onCover && { color: '#ffffffcc' }]} numberOfLines={1}>
+                {tournament.shortName || 'TOURNAMENT DETAILS'}
+              </Text>
+            </View>
+            <Text style={[styles.headerTitle, onCover && { color: '#fff' }]} numberOfLines={2}>
+              {tournament.name}
             </Text>
           </View>
-          <Text style={[styles.headerTitle, tournament.banner && { color: '#fff' }]} numberOfLines={2}>{tournament.name}</Text>
-          <View style={styles.headerChips}>
-            <View style={[styles.statusChip, { backgroundColor: statusColor.bg }]}>
-              <Text style={[styles.statusText, { color: statusColor.text }]}>{tournament.status?.toUpperCase()}</Text>
-            </View>
-            {!!tournament.category && (
-              <View style={styles.metaChip}>
-                <Text style={styles.metaChipText}>{tournament.category}</Text>
-              </View>
-            )}
-            {!!tournament.city && (
-              <View style={styles.metaChip}>
-                <Icon name="map-marker" size={10} color={DS.textVariant} />
-                <Text style={styles.metaChipText}>{tournament.city}</Text>
-              </View>
-            )}
-          </View>
         </View>
-        {/* Everything the organiser typed on the way in is editable on the way
-            back — the create wizard reopens with this tournament loaded. */}
-        {isOrganizer && (
-          <TouchableOpacity
-            style={[styles.editBtn, tournament.banner && { borderColor: '#fff' }]}
-            onPress={() => navigation.navigate('CreateTournament', { tournamentId })}
-            activeOpacity={0.85}>
-            <Icon name="pencil-outline" size={14} color={tournament.banner ? '#fff' : DS.lime} />
-            <Text style={[styles.editBtnText, tournament.banner && { color: '#fff' }]}>Edit</Text>
-          </TouchableOpacity>
-        )}
+
+        {/* One row, left-aligned under the name, wrapping as a set. Over a cover
+            they all take the same translucent treatment so they read as one
+            group — the status pill was tinted lime-on-lime, which went to mush
+            against a photo. */}
+        <View style={styles.headerChips}>
+          <View style={[styles.statusChip, onCover
+            ? { backgroundColor: statusColor.text }
+            : { backgroundColor: statusColor.bg }]}>
+            <Text style={[styles.statusText, { color: onCover ? '#fff' : statusColor.text }]}>
+              {tournament.status?.toUpperCase()}
+            </Text>
+          </View>
+          {!!tournament.category && (
+            <View style={[styles.metaChip, onCover && styles.metaChipOnCover]}>
+              <Icon name="sitemap-outline" size={11} color={onCover ? '#fff' : DS.textVariant} />
+              <Text style={[styles.metaChipText, onCover && { color: '#fff' }]}>{tournament.category}</Text>
+            </View>
+          )}
+          {!!(tournament.city || tournament.venue) && (
+            <View style={[styles.metaChip, onCover && styles.metaChipOnCover]}>
+              <Icon name="map-marker" size={11} color={onCover ? '#fff' : DS.textVariant} />
+              <Text style={[styles.metaChipText, onCover && { color: '#fff' }]} numberOfLines={1}>
+                {tournament.city || tournament.venue}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Champion banner (once completed) */}
@@ -1553,11 +1605,14 @@ const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
   errorText: { fontSize: 18, fontWeight: '700', color: DS.coral, marginTop: 12 },
-  header: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: DS.bg, paddingTop: 48, paddingBottom: 14, paddingHorizontal: 16, gap: 8, overflow: 'hidden' },
+  header: { backgroundColor: DS.bg, paddingTop: 44, paddingBottom: 14, paddingHorizontal: 16, overflow: 'hidden' },
+  headerTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  headerMain: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   coverImg: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   coverScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000a6' },
   logoImg: { width: 46, height: 46, borderRadius: 14, backgroundColor: DS.surfaceHigh, borderWidth: 1.5, borderColor: DS.lime },
-  headerChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  headerChips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 12 },
+  metaChipOnCover: { backgroundColor: '#ffffff2e' },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: DS.lime },
   editBtnText: { fontSize: 12, fontWeight: '800', color: DS.lime },
   abandonRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: DS.border, marginTop: 4, marginBottom: 12 },
