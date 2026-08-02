@@ -8,6 +8,7 @@ import HexAvatar from '../components/HexAvatar';
 import { showToast } from '../components/Toast';
 import legendsApi from '../services/LegendsApi';
 import { getSport } from '../sports';
+import { joinPolicy } from '../utils/tournamentPolicy';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -164,8 +165,19 @@ export default function TournamentDetailScreen({ route, navigation }) {
       }
 
       setLoading(false);
+
+      // Arrived from the list's JOIN button: open the picker straight away
+      // rather than landing on Overview and making them find it again. Not for
+      // the organiser — they can't request to join their own tournament — and
+      // not once it's over.
+      const isOrg = t && (!t.organizerId || t.organizerId === myId);
+      if (route.params?.join && !isOrg && joinPolicy(t, (t?.teams || []).length).open) {
+        setPickerMode('join');
+        setShowTeamPicker(true);
+      }
     };
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournamentId]);
 
   // Coming back from an edit, the header and every section have to show what
@@ -465,6 +477,8 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const contact = tournament.contact || {};
   const sign    = CURRENCY_SIGN[entry.currency] || '';
   const enabledRules = Object.keys(RULE_LABELS).filter((k) => rules[k]);
+  // Whether a team can ask to join, and why not when it can't.
+  const policy = joinPolicy(tournament, (tournament.teams || []).length);
 
   const renderOverview = () => (
     <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
@@ -584,10 +598,12 @@ export default function TournamentDetailScreen({ route, navigation }) {
                 <TouchableOpacity style={styles.addBtn} onPress={() => { setPickerMode('add'); setShowTeamPicker(true); }}>
                   <Text style={styles.addBtnText}>+ Add Team</Text>
                 </TouchableOpacity>
-              ) : (
+              ) : policy.open ? (
                 <TouchableOpacity style={styles.addBtn} onPress={() => { setPickerMode('join'); setShowTeamPicker(true); }}>
                   <Text style={styles.addBtnText}>Request to Join</Text>
                 </TouchableOpacity>
+              ) : (
+                <Text style={styles.policyNote}>{policy.reason}</Text>
               )
             )}
           </View>
@@ -610,7 +626,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
               )}
             </View>
           ))}
-          {(tournament.teams || []).length > 0 && ['upcoming', 'ongoing'].includes(tournament.status) && (
+          {(tournament.teams || []).length > 0 && ['upcoming', 'ongoing'].includes(tournament.status) && (isOrganizer || policy.open) && (
             <TouchableOpacity onPress={() => { setPickerMode(isOrganizer ? 'add' : 'join'); setShowTeamPicker(true); }} style={{ paddingTop: 14, alignItems: 'center' }}>
               <Text style={styles.viewAllText}>{isOrganizer ? 'Add More Teams' : 'Request to Join'}</Text>
             </TouchableOpacity>
@@ -1464,6 +1480,7 @@ const makeStyles = (DS) => StyleSheet.create({
   editBtnText: { fontSize: 12, fontWeight: '800', color: DS.lime },
   metaChip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: DS.surfaceHigh },
   metaChipText: { fontSize: 10, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.3 },
+  policyNote: { fontSize: 11, fontWeight: '700', color: DS.textMuted, maxWidth: 150, textAlign: 'right' },
   detailHead: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
   detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 5 },
   detailKey: { width: 104, fontSize: 12, fontWeight: '700', color: DS.textMuted },

@@ -414,7 +414,6 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
     <Stack.Screen name="ServicesProfile" component={PlaceholderScreen} initialParams={{title: 'Services Profile'}} />
     <Stack.Screen name="QuizResult" component={PlaceholderScreen} initialParams={{title: 'Quiz Result'}} />
     <Stack.Screen name="VideoStreaming" component={PlaceholderScreen} initialParams={{title: 'Video Streaming'}} />
-    <Stack.Screen name="TournamentRegistration" component={PlaceholderScreen} initialParams={{title: 'Tournament Registration'}} />
     <Stack.Screen name="BadgeLeaderboardFilter" component={PlaceholderScreen} initialParams={{title: 'Badge Leaderboard'}} />
     <Stack.Screen name="Pavilion" component={PavilionScreen} options={{ headerShown: false }} />
   </Stack.Navigator>

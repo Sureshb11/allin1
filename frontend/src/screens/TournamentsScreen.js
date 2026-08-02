@@ -19,6 +19,7 @@ import { useFilterSwipe } from '../utils/useFilterSwipe';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import BrandLogo from "../components/BrandLogo";
 import PressableScale from '../components/PressableScale';
+import { joinPolicy } from '../utils/tournamentPolicy';
 
 const FILTERS = ['All', 'Open', 'Ongoing', 'Completed'];
 // Matches and Teams label their filters with an icon too — same control, same
@@ -207,6 +208,7 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
   const state = statusKey(item.status);
   const statusColor = STATUS_COLORS[state] || DS.textMuted;
   const teamsLeft = (item.maxTeams || 16) - (item.teams || 0);
+  const canJoin = joinPolicy(item, item.teams || 0);
   const progress = (item.teams || 0) / (item.maxTeams || 16);
 
   const isGold = state === 'Ongoing';
@@ -324,15 +326,19 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
 
       </View>
 
-      {/* Footer: only tournaments still taking entries show slots + JOIN */}
+      {/* Footer: only tournaments still taking entries show slots + JOIN. A
+          full or invite-only or closed one says which, rather than offering a
+          button the server is going to refuse. */}
       {state === 'Open' && (
         <View style={styles.cardFooter}>
           <Text style={styles.slotsLeft}>
-            {teamsLeft > 0 ? `${teamsLeft} slots left` : 'Full'}
+            {canJoin.open ? (teamsLeft > 0 ? `${teamsLeft} slots left` : 'Full') : canJoin.reason}
           </Text>
-          <PressableScale style={styles.joinBtn} onPress={() => { ReactNativeHapticFeedback.trigger('impactLight'); onJoin(item); }}>
-            <Text style={styles.joinBtnText}>JOIN</Text>
-          </PressableScale>
+          {canJoin.open && (
+            <PressableScale style={styles.joinBtn} onPress={() => { ReactNativeHapticFeedback.trigger('impactLight'); onJoin(item); }}>
+              <Text style={styles.joinBtnText}>JOIN</Text>
+            </PressableScale>
+          )}
         </View>
       )}
     </TodayTabCard>
@@ -428,6 +434,12 @@ const TournamentsScreen = ({ navigation, inline }) => {
           status:    t.status
             ? t.status.charAt(0).toUpperCase() + t.status.slice(1)
             : 'Upcoming',
+          // Carried so the card can tell whether it may offer JOIN. The mapper
+          // exists to keep the card's shape small, but dropping these meant
+          // every tournament looked equally open.
+          flags:        t.flags,
+          registration: t.registration,
+          regWindow:    t.regWindow,
         })));
       }
     } catch {}
@@ -447,7 +459,13 @@ const TournamentsScreen = ({ navigation, inline }) => {
     return f && s;
   });
 
-  const handleJoin = (tournament) => navigation.navigate('TournamentRegistration', { tournament });
+  // JOIN opens the tournament with its team picker up. It used to navigate to
+  // `TournamentRegistration`, which is a PlaceholderScreen — a dead end that
+  // nobody had ever reached, because the button gating it never rendered (see
+  // statusKey above). The working flow already exists on the detail screen:
+  // pick your team, add a note, request. This just walks you into it.
+  const handleJoin = (tournament) =>
+    navigation.navigate('TournamentDetail', { tournamentId: tournament.id, join: true });
 
   // Per-chip totals, counted after the search so a chip never promises rows the
   // search has already removed.

@@ -276,7 +276,13 @@ router.post('/:id/join-requests', authMiddleware, async (req, res) => {
     const { teamId, group = 'A', note } = req.body;
     if (!teamId) return res.status(400).json({ error: 'teamId required' });
     const [tournament, team] = await Promise.all([
-      prisma.tournament.findUnique({ where: { id: req.params.id }, select: { sport: true, name: true, organizerId: true } }),
+      prisma.tournament.findUnique({
+        where: { id: req.params.id },
+        select: {
+          sport: true, name: true, organizerId: true, status: true, maxTeams: true,
+          flags: true, registration: true, regWindow: true,
+        },
+      }),
       prisma.team.findUnique({
         where: { id: teamId },
         select: { sport: true, name: true, ownerId: true, players: { select: { userId: true } } },
@@ -297,6 +303,34 @@ router.post('/:id/join-requests', authMiddleware, async (req, res) => {
     if (team.sport !== tournament.sport) {
       return res.status(400).json({ error: `Sport mismatch: ${team.name} is a ${team.sport} team but ${tournament.name} is a ${tournament.sport} tournament.` });
     }
+    // The create wizard collects a whole registration policy — invite only, a
+    // closing date, a maximum, a "teams can request to join" switch — and none
+    // of it was enforced anywhere. A tournament that had closed, or was invite
+    // only, or was already full at its own stated maximum, accepted requests
+    // exactly like one that was open. Refusing here is what makes those answers
+    // mean something; the app hides the button, but the button is not the gate.
+    if (['completed', 'cancelled'].includes(tournament.status)) {
+      return res.status(409).json({ error: `${tournament.name} has finished.` });
+    }
+    if (tournament.flags && tournament.flags.teamRegistration === false) {
+      return res.status(409).json({ error: `${tournament.name} is not taking team registrations.` });
+    }
+    if (tournament.registration?.type === 'invite') {
+      return res.status(409).json({ error: `${tournament.name} is invite only — the organiser adds teams.` });
+    }
+    const closesAt = tournament.regWindow?.closesAt ? new Date(tournament.regWindow.closesAt) : null;
+    if (closesAt && closesAt < new Date()) {
+      return res.status(409).json({ error: `Registration for ${tournament.name} closed on ${closesAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}.` });
+    }
+    if (tournament.maxTeams) {
+      const taken = await prisma.tournamentTeam.count({
+        where: { tournamentId: req.params.id, status: 'approved' },
+      });
+      if (taken >= tournament.maxTeams) {
+        return res.status(409).json({ error: `${tournament.name} is full (${taken} of ${tournament.maxTeams} teams).` });
+      }
+    }
+
     const entry = await prisma.tournamentTeam.create({
       data: {
         tournamentId: req.params.id, teamId, group, status: 'pending', requestedById: req.user.sub,
