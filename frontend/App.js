@@ -17,7 +17,8 @@ RNTextInput.defaultProps.maxFontSizeMultiplier = MAX_FONT_SCALE;
 import {NavigationContainer, DefaultTheme, DarkTheme} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import AuthNavigator from './src/navigation/AuthNavigator';
-import { registerForPush } from './src/services/push';
+import { registerForPush, onNotificationTap } from './src/services/push';
+import { navigationRef, openFromNotification } from './src/utils/notificationRoute';
 import { loadSelectedSport } from './src/utils/selectedSport';
 import AppNavigator from './src/navigation/AppNavigator';
 import SportPickerScreen from './src/screens/SportPickerScreen';
@@ -65,6 +66,21 @@ const Root = () => {
     }).catch(() => {});
   }, []);
 
+  // Tapping a notification opens the thing it is about. The server has been
+  // attaching a deep-link payload to every push since push was added and
+  // nothing read it, so a "You advanced!" and a chat message both just brought
+  // the app forward on whatever screen it was left on.
+  //
+  // Gated on `ready`: a cold start delivers the tap before the navigator
+  // mounts, and navigating then is a no-op that loses the tap silently.
+  useEffect(() => {
+    if (!ready) return undefined;
+    return onNotificationTap((data) => {
+      // The navigator can still be a frame behind on a cold start.
+      if (!openFromNotification(data)) setTimeout(() => openFromNotification(data), 400);
+    });
+  }, [ready]);
+
   if (!ready) {
     // branded splash while we read the persisted token
     return <SplashScreen />;
@@ -87,6 +103,7 @@ const Root = () => {
           screens have no back button of their own, so hiding their header
           would have stranded them). */}
       <NavigationContainer
+        ref={navigationRef}
         theme={{
           ...(isDark ? DarkTheme : DefaultTheme),
           colors: {

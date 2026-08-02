@@ -16,7 +16,7 @@ import { Platform, PermissionsAndroid } from 'react-native';
 import { getApp } from '@react-native-firebase/app';
 import {
   getMessaging, getToken, onMessage, onTokenRefresh, requestPermission,
-  AuthorizationStatus,
+  AuthorizationStatus, onNotificationOpenedApp, getInitialNotification,
 } from '@react-native-firebase/messaging';
 import legendsApi from './LegendsApi';
 
@@ -97,6 +97,35 @@ export async function unregisterFromPush() {
  * to refresh the bell badge or show an in-app toast).
  * Returns an unsubscribe function.
  */
+/**
+ * Notification TAPS.
+ *
+ * Every push the server sends carries a deep-link payload — `tournamentId`,
+ * `matchId`, `chatId` — and the code that writes it says so in as many words:
+ * "deep-link payload → tapping opens the tournament". Nothing on this side ever
+ * read it. Tapping any notification opened the app wherever it happened to be,
+ * so a result notification, a "You advanced!", a join request and a chat
+ * message were all indistinguishable from launching from the home screen.
+ *
+ * Two cases, and both are needed: the app was in the background (opened), or it
+ * was not running at all (initial). The initial one resolves once per launch
+ * and returns null on an ordinary launch.
+ *
+ * Returns an unsubscribe function.
+ */
+export function onNotificationTap(handler) {
+  try {
+    const m = fcm();
+    getInitialNotification(m)
+      .then((msg) => { if (msg?.data) handler?.(msg.data); })
+      .catch(() => {});
+    return onNotificationOpenedApp(m, (msg) => { if (msg?.data) handler?.(msg.data); });
+  } catch (e) {
+    console.warn('[push] tap listener failed:', e.message);
+    return () => {};
+  }
+}
+
 export function onForegroundMessage(handler) {
   try {
     return onMessage(fcm(), async (msg) => {
