@@ -370,11 +370,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
     setFilter(f);
   };
   const filterSwipe = useFilterSwipe(FILTERS, filter, handleSetFilter);
-  // The featured carousel scrolls sideways inside a screen whose sideways swipe
-  // changes the filter. Declaring it as a native gesture that blocks the outer
-  // one keeps the carousel's drag to itself — the same idiom Rankings uses to
-  // stop its board row from driving the Pavilion pager.
-  const featuredScroll = useMemo(() => Gesture.Native().blocksExternalGesture(filterSwipe), [filterSwipe]);
+  // The featured carousel was removed.
   const scrollY = useRef(new Animated.Value(0)).current;
 
   // Sync scrollY with AutoHideTabBar
@@ -490,8 +486,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
     return acc;
   }, {});
 
-  const featured = (filter === 'All' && !searchQuery) ? tournaments.filter(t => statusKey(t.status) === 'Open') : [];
-  const standard = (filter === 'All' && !searchQuery) ? filtered.filter(t => statusKey(t.status) !== 'Open') : filtered;
+  const standard = filtered;
 
   /* Aggregate stats */
   const activeCount  = tournaments.filter(t => statusKey(t.status) !== 'Completed').length;
@@ -581,43 +576,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
           { useNativeDriver: false }
         )}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
-        ListHeaderComponent={
-          <View>
-            
-            {/* Featured Carousel */}
-            {!loading && featured.length > 0 && (
-              <View style={{ marginBottom: 16 }}>
-                <Text style={{ paddingHorizontal: 16, fontSize: 16, fontWeight: '800', color: DS.textPrimary, marginBottom: 12, marginTop: 4 }}>
-                  Featured Tournaments
-                </Text>
-                {/* Its own horizontal scroll, claimed before the filter swipe
-                    can see it — otherwise flicking through the carousel changes
-                    the filter underneath you. */}
-                <GestureDetector gesture={featuredScroll}>
-                <FlatList
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  data={featured}
-                  keyExtractor={item => 'featured-' + item.id}
-                  contentContainerStyle={{ paddingHorizontal: 16, gap: 16 }}
-                  snapToInterval={300 + 16}
-                  decelerationRate="fast"
-                  renderItem={({ item }) => (
-                    <View style={{ width: 300 }}>
-                      <TournamentCard
-                        item={item}
-                        onJoin={handleJoin}
-                        onPress={() => navigation.navigate('TournamentDetail', { tournamentId: item.id })}
-                        onOpen={(tab, extra) => navigation.navigate('TournamentDetail', { tournamentId: item.id, initialTab: tab, ...extra })}
-                      />
-                    </View>
-                  )}
-                />
-                </GestureDetector>
-              </View>
-            )}
-          </View>
-        }
+        ListHeaderComponent={null}
         renderItem={({ item }) => {
           if (loading) return <TournamentSkeleton DS={DS} />;
           return (
@@ -630,7 +589,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
           );
         }}
         ListEmptyComponent={
-          !loading && featured.length === 0 && (
+          !loading && (
             <View style={[styles.empty, { marginTop: 40 }]}>
               <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
                 <Icon name="trophy-variant-outline" size={56} color={DS.textMuted} />
