@@ -9,6 +9,7 @@ import { showToast } from '../components/Toast';
 import legendsApi from '../services/LegendsApi';
 import { getSport } from '../sports';
 import { joinPolicy } from '../utils/tournamentPolicy';
+import FocusedImage from '../components/FocusedImage';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -1240,7 +1241,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
       <View style={styles.header}>
         {!!tournament.banner && (
           <>
-            <Image source={{ uri: tournament.banner }} style={styles.coverImg} resizeMode="cover" />
+            <FocusedImage uri={tournament.banner} focus={tournament.media?.bannerFocus} style={styles.coverImg} />
             {/* The title has to stay readable on whatever photo lands here. */}
             <View style={styles.coverScrim} />
           </>

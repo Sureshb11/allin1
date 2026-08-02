@@ -1,0 +1,11 @@
+-- Where a cover image should be focused.
+--
+-- A tournament cover is uploaded wide and drawn short — 80dp on a list card,
+-- taller behind the detail header — so `resizeMode: cover` crops it, and it
+-- crops from the centre. A team photo with the players along the bottom, or a
+-- poster with its title at the top, loses exactly the part worth showing.
+--
+-- media.bannerFocus = { x, y }, each 0..1, is the point that must stay visible.
+-- Null means centre, which is what every existing tournament gets and what the
+-- old behaviour already was.
+ALTER TABLE "Tournament" ADD COLUMN "media" JSONB;

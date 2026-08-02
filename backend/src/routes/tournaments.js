@@ -1092,6 +1092,15 @@ const TournamentFields = z.object({
     tieBreak: z.array(z.string()).optional(),
   }).passthrough().optional(),
   prizes:       z.object({}).passthrough().optional(),
+  // How to draw the images. bannerFocus is the point kept visible when a wide
+  // cover is cropped short; 0..1 each, clamped so a bad client can't push the
+  // crop off the image.
+  media:        z.object({
+    bannerFocus: z.object({
+      x: z.number().min(0).max(1),
+      y: z.number().min(0).max(1),
+    }).optional(),
+  }).passthrough().optional(),
   flags:        z.object({}).passthrough().optional(),
 });
 

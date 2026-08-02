@@ -15,6 +15,7 @@ import {
   SectionCard, Field, ChoiceField, Stepper, ToggleRow, SelectField,
   DateField, ImageField, ReorderList,
 } from '../components/FormKit';
+import CoverFocusPicker from '../components/CoverFocusPicker';
 
 // Create Tournament.
 //
@@ -137,6 +138,9 @@ const blank = () => ({
   pointsRules: { win: 2, tie: 1, noResult: 1, loss: 0, bonus: false, tieBreak: TIE_BREAKS.map((t) => t.value) },
   prizes: { winner: '', runnerUp: '', semiFinal: '' },
   flags: { visibility: 'public', liveScore: true, teamRegistration: true, spectators: true },
+  // Centre is what plain `cover` already does, so an untouched cover looks
+  // exactly as it did before this existed.
+  media: { bannerFocus: { x: 0.5, y: 0.5 } },
 });
 
 // Server row → form. The form keeps numbers as numbers and money as strings
@@ -177,6 +181,7 @@ const fromTournament = (t) => {
     pointsRules: { ...b.pointsRules, ...(t.pointsRules || {}) },
     prizes: { ...b.prizes, ...(t.prizes || {}) },
     flags: { ...b.flags, ...(t.flags || {}) },
+    media: { ...b.media, ...(t.media || {}) },
   };
 };
 
@@ -466,6 +471,7 @@ export default function TournamentScreen({ navigation, route }) {
       pointsRules: form.pointsRules,
       prizes: form.prizes,
       flags: form.flags,
+      media: form.banner ? form.media : undefined,
     };
     // An edit keeps the tournament's own status and sport — those are decided
     // by where it is in its life, not by this form.
@@ -499,12 +505,17 @@ export default function TournamentScreen({ navigation, route }) {
                hint="Used where there's no room for the full name — scoreboards, fixture lists" />
         <Field label="Description" value={form.description} multiline
                onChangeText={(t) => set({ description: t })} maxLength={500} />
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 2 }}>
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 2, marginBottom: 14 }}>
           <ImageField label="Logo" uri={form.logoUrl} busy={busy === 'logoUrl'}
                       onPick={() => pickImage('logoUrl')} onClear={() => set({ logoUrl: '' })} />
           <ImageField label="Banner" aspect={2} hint="Wide cover image" uri={form.banner} busy={busy === 'banner'}
                       onPick={() => pickImage('banner')} onClear={() => set({ banner: '' })} />
         </View>
+        {/* Only once there's a cover to frame. */}
+        <CoverFocusPicker
+          uri={form.banner}
+          focus={form.media?.bannerFocus}
+          onChange={(f) => setIn('media', { bannerFocus: f })} />
       </SectionCard>
 
       <SectionCard title="Organizer" subtitle="Shown to teams asking about entry" icon="account-tie-outline">

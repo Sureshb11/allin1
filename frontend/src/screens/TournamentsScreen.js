@@ -20,6 +20,7 @@ import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHid
 import BrandLogo from "../components/BrandLogo";
 import PressableScale from '../components/PressableScale';
 import { joinPolicy } from '../utils/tournamentPolicy';
+import FocusedImage from '../components/FocusedImage';
 
 const FILTERS = ['All', 'Open', 'Ongoing', 'Completed'];
 // Matches and Teams label their filters with an icon too — same control, same
@@ -222,7 +223,11 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
       {/* Hero Banner */}
       <View style={styles.heroBanner}>
         {item.coverPic || item.banner ? (
-          <Image source={{ uri: item.coverPic || item.banner }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          // Cropped around the organiser's chosen point, not the centre.
+          <FocusedImage
+            uri={item.coverPic || item.banner}
+            focus={item.media?.bannerFocus}
+            style={StyleSheet.absoluteFill} />
         ) : (
           <Svg width="100%" height="100%" preserveAspectRatio="none">
             <Defs>
@@ -440,6 +445,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
           // initial. Same omission as the policy fields below.
           logoUrl:      t.logoUrl,
           banner:       t.banner,
+          media:        t.media,
           // Carried so the card can tell whether it may offer JOIN. The mapper
           // exists to keep the card's shape small, but dropping these meant
           // every tournament looked equally open.

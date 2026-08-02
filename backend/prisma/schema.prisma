@@ -423,6 +423,12 @@ model Tournament {
   pointsRules  Json? // points per outcome, bonus point, tie-break order
   prizes       Json? // winner / runner-up / semi-finalist
   flags        Json? // visibility, live score, spectators
+  // How the uploaded images should be DRAWN, as opposed to what they are.
+  // { bannerFocus: { x, y } } — 0..1 across the image, the point that must stay
+  // visible when a wide cover is cropped into a short card. Presentation, not
+  // content, and a second image or a logo crop belongs here too rather than as
+  // another pair of columns.
+  media        Json?
   matches      TournamentMatch[]
   teams        TournamentTeam[]
 
