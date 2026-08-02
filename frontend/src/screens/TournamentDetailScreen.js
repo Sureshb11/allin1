@@ -65,6 +65,9 @@ function DetailSection({ title, icon, rows, children }) {
 
 // Series honours, iconed the same as the post-match awards popup — the same
 // award should look the same wherever it's won.
+// How many registered teams the Overview shows before it needs a tap.
+const TEAMS_COLLAPSED = 5;
+
 const SERIES_AWARD_ICON = { batter: 'cricket', bowler: 'bowling', fielder: 'hand-back-right' };
 
 // Single-accent: all avatars are the deep green (white initials read on both themes).
@@ -100,6 +103,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   // predates stages.
   const [stages, setStages] = useState([]);
   const [schedule, setSchedule] = useState([]);
+  const [showAllTeams, setShowAllTeams] = useState(false);
   const [activeTab, setActiveTab] = useState(TABS.includes(route.params?.initialTab) ? route.params.initialTab : 'Overview');
   const [loading, setLoading] = useState(true);
   const [showTeamPicker, setShowTeamPicker] = useState(false);
@@ -669,7 +673,11 @@ export default function TournamentDetailScreen({ route, navigation }) {
               )
             )}
           </View>
-          {(tournament.teams || []).slice(0, 5).map(({ team, group }) => (
+          {/* The count badge above says 16 while this listed 5 — the slice had no
+              "show the rest" anywhere, so eleven teams simply weren't in the UI.
+              Still collapsed by default (a 20-team overview is a wall), but now
+              it says how many it's holding back and opens. */}
+          {(showAllTeams ? (tournament.teams || []) : (tournament.teams || []).slice(0, TEAMS_COLLAPSED)).map(({ team, group }) => (
             <View key={team.id} style={styles.teamRow}>
               <HexAvatar size={38} color={avatarColor(team.name)}>
                 <Text style={styles.teamAvatarText}>{team.name?.charAt(0).toUpperCase()}</Text>
@@ -688,6 +696,19 @@ export default function TournamentDetailScreen({ route, navigation }) {
               )}
             </View>
           ))}
+          {(tournament.teams || []).length > TEAMS_COLLAPSED && (
+            <TouchableOpacity
+              onPress={() => setShowAllTeams((v) => !v)}
+              style={styles.showAllRow}
+              activeOpacity={0.7}>
+              <Text style={styles.viewAllText}>
+                {showAllTeams
+                  ? 'Show fewer'
+                  : `Show all ${(tournament.teams || []).length} teams`}
+              </Text>
+              <Icon name={showAllTeams ? 'chevron-up' : 'chevron-down'} size={18} color={DS.lime} />
+            </TouchableOpacity>
+          )}
           {(tournament.teams || []).length > 0 && ['upcoming', 'ongoing'].includes(tournament.status) && (isOrganizer || policy.open) && (
             <TouchableOpacity onPress={() => { setPickerMode(isOrganizer ? 'add' : 'join'); setShowTeamPicker(true); }} style={{ paddingTop: 14, alignItems: 'center' }}>
               <Text style={styles.viewAllText}>{isOrganizer ? 'Add More Teams' : 'Request to Join'}</Text>
@@ -1681,6 +1702,7 @@ const makeStyles = (DS) => StyleSheet.create({
   groupText: { fontSize: 11, color: DS.textVariant, fontWeight: '700' },
   countBadge: { backgroundColor: DS.surfaceHigh, minWidth: 26, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, alignItems: 'center' },
   countBadgeText: { fontSize: 12, fontWeight: '800', color: DS.textVariant },
+  showAllRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingTop: 14 },
   viewAllText: { fontSize: 14, fontWeight: '700', color: DS.blue },
   mediaCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 14, marginTop: 4 },
   mediaThumb: { width: 72, height: 72, borderRadius: 12, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
