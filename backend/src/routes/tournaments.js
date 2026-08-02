@@ -960,7 +960,7 @@ const maxOversPerBowler = (overs) => (overs > 0 ? Math.ceil(overs / 5) : null);
 
 // Anything not listed here is dropped by zod without a word — which is exactly
 // how the logo and banner the create screen uploads went missing for so long.
-const TournamentSchema = z.object({
+const TournamentFields = z.object({
   name:        z.string().min(1),
   shortName:   z.string().max(10).optional(),
   format:      z.string().min(1),
@@ -1025,11 +1025,16 @@ const TournamentSchema = z.object({
   }).passthrough().optional(),
   prizes:       z.object({}).passthrough().optional(),
   flags:        z.object({}).passthrough().optional(),
-})
-  // Cross-field rules. Each of these is a tournament that can be created but
-  // never run: fixtures that start before teams can enter, a playing XI larger
-  // than the squad it's picked from, a minimum nobody can reach.
-  .superRefine((d, ctx) => {
+});
+
+// Cross-field rules. Each of these is a tournament that can be created but
+// never run: fixtures that start before teams can enter, a playing XI larger
+// than the squad it's picked from, a minimum nobody can reach.
+//
+// Every check guards on the fields being present, so the same function serves
+// the partial body of an edit — an edit that only changes the venue isn't asked
+// to prove the dates it didn't touch.
+const crossFieldRules = (d, ctx) => {
     const err = (path, message) => ctx.addIssue({ code: z.ZodIssueCode.custom, path, message });
     const start = d.startDate ? new Date(d.startDate) : null;
     const end = d.endDate ? new Date(d.endDate) : null;
@@ -1052,7 +1057,11 @@ const TournamentSchema = z.object({
       err(['rules', 'maxOversPerBowler'], `A bowler may bowl at most ${quota} of ${d.overs} overs`);
     if (d.rules?.powerplayOvers != null && d.overs && d.rules.powerplayOvers > d.overs)
       err(['rules', 'powerplayOvers'], 'The powerplay cannot be longer than the innings');
-  });
+};
+
+const TournamentSchema = TournamentFields.superRefine(crossFieldRules);
+// Same fields, all optional: an edit sends what changed.
+const TournamentUpdateSchema = TournamentFields.partial().superRefine(crossFieldRules);
 
 // zod's message for a failed .parse is a JSON dump of every issue — fine in a
 // log, unreadable in the toast the app shows. Send the first real sentence.
@@ -1096,21 +1105,23 @@ router.put('/:id/assign-groups', authMiddleware, requireOrganizer, async (req, r
 // (upcoming → ongoing) and completing/rescheduling from the app.
 router.put('/:id', authMiddleware, requireOrganizer, async (req, res) => {
   try {
-    const { status, startDate, endDate, venue, prizePool, maxTeams } = req.body;
+    // Was a six-field whitelist — status, dates, venue, prizePool, maxTeams —
+    // against a create screen that collects sixty. The logo, the ground, the
+    // entry fee, the squad limits, the rules, the points system, the prizes and
+    // every way of contacting the organiser could be set once and never
+    // corrected. A typo in the name was permanent.
+    //
+    // Same fields as create, all optional, same cross-field validation. Only
+    // what's sent is written, so an edit that changes the venue leaves the
+    // ninety other columns alone.
+    const data = TournamentUpdateSchema.parse(req.body);
     const t = await prisma.tournament.update({
       where: { id: req.params.id },
-      data: {
-        ...(status && { status }),
-        ...(startDate && { startDate: new Date(startDate) }),
-        ...(endDate && { endDate: new Date(endDate) }),
-        ...(venue !== undefined && { venue }),
-        ...(prizePool !== undefined && { prizePool }),
-        ...(maxTeams !== undefined && { maxTeams }),
-      },
+      data,
     });
     res.json({ tournament: t });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(400).json({ error: firstIssue(e) });
   }
 });
 

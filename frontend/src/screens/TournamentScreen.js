@@ -139,6 +139,47 @@ const blank = () => ({
   flags: { visibility: 'public', liveScore: true, teamRegistration: true, spectators: true },
 });
 
+// Server row → form. The form keeps numbers as numbers and money as strings
+// (the fields are text inputs), and a time as an ISO instant the picker can
+// take, so this is where the shapes are reconciled rather than in ten places.
+const timeToIso = (hhmm) => {
+  if (!hhmm) return null;
+  const [h, m] = String(hhmm).split(':').map(Number);
+  if (Number.isNaN(h)) return null;
+  const d = new Date(); d.setHours(h, m || 0, 0, 0);
+  return d.toISOString();
+};
+const fromTournament = (t) => {
+  const b = blank();
+  return {
+    ...b,
+    name: t.name || '', shortName: t.shortName || '', description: t.description || '',
+    logoUrl: t.logoUrl || '', banner: t.banner || '',
+    organizer: t.organizer || '',
+    contact: { ...b.contact, ...(t.contact || {}) },
+    category: t.category || b.category,
+    ballType: t.ballType || b.ballType,
+    format: t.format || b.format,
+    overs: t.overs ?? b.overs,
+    venue: t.venue || '', city: t.city || '',
+    location: { ...b.location, ...(t.location || {}) },
+    startDate: t.startDate || null, endDate: t.endDate || null,
+    regWindow: {
+      ...b.regWindow, ...(t.regWindow || {}),
+      startTime: timeToIso(t.regWindow?.startTime),
+    },
+    maxTeams: t.maxTeams ?? b.maxTeams,
+    registration: {
+      ...b.registration, ...(t.registration || {}),
+      entryFee: t.registration?.entryFee == null ? '' : String(t.registration.entryFee),
+    },
+    rules: { ...b.rules, ...(t.rules || {}) },
+    pointsRules: { ...b.pointsRules, ...(t.pointsRules || {}) },
+    prizes: { ...b.prizes, ...(t.prizes || {}) },
+    flags: { ...b.flags, ...(t.flags || {}) },
+  };
+};
+
 const STEPS = [
   { key: 'about', label: 'About', icon: 'trophy-outline' },
   { key: 'play', label: 'Format', icon: 'cricket' },
@@ -152,7 +193,13 @@ const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim())
 const dayOnly = (iso) => (iso ? new Date(iso).toDateString() : '');
 const fmtDay = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
-export default function TournamentScreen({ navigation }) {
+export default function TournamentScreen({ navigation, route }) {
+  // Same wizard, two jobs. With a tournamentId it loads that tournament into
+  // the form and saves back to it — because a create screen that collects sixty
+  // fields and no way to change any of them means a typo in the name is
+  // permanent. Nothing below is duplicated for editing; only the load, the
+  // button and the call differ.
+  const editingId = route?.params?.tournamentId || null;
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const tabClear = useTabBarClearance();
@@ -164,6 +211,7 @@ export default function TournamentScreen({ navigation }) {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [busy, setBusy] = useState(null);  // 'publish' | 'draft' | 'logoUrl' | 'banner'
+  const [loading, setLoading] = useState(!!editingId);
   const scrollRef = useRef(null);
   const dirty = useRef(false);
 
@@ -173,6 +221,15 @@ export default function TournamentScreen({ navigation }) {
   // and still editable for the secretary filling it in on someone's behalf.
   useEffect(() => {
     (async () => {
+      if (editingId) {
+        // An edit has no draft to restore and no organiser to guess — the
+        // tournament already answers both.
+        const res = await legendsApi.getTournament(editingId);
+        setLoading(false);
+        if (!res.success) return showToast(res.error || 'Could not load that tournament', 'error');
+        setForm(fromTournament(res.data));
+        return;
+      }
       const [me, saved] = await Promise.all([
         legendsApi.getMe().catch(() => null),
         AsyncStorage.getItem(DRAFT_KEY).catch(() => null),
@@ -200,7 +257,8 @@ export default function TournamentScreen({ navigation }) {
         }));
       }
     })();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId]);
 
   /* ── setters ────────────────────────────────────────────────────────────── */
   const set = (patch) => { dirty.current = true; setForm((f) => ({ ...f, ...patch })); };
@@ -315,6 +373,12 @@ export default function TournamentScreen({ navigation }) {
 
   const confirmLeave = () => {
     if (!dirty.current) return navigation.goBack();
+    if (editingId) {
+      return Alert.alert('Discard changes?', 'The tournament stays as it was.', [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() },
+      ]);
+    }
     Alert.alert('Leave without publishing?', 'Save it as a draft and it will be waiting next time.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Discard', style: 'destructive', onPress: async () => { await AsyncStorage.removeItem(DRAFT_KEY); navigation.goBack(); } },
@@ -348,7 +412,7 @@ export default function TournamentScreen({ navigation }) {
       ? new Date(form.regWindow.startTime).toTimeString().slice(0, 5)
       : undefined;
 
-    const res = await legendsApi.createTournament({
+    const payload = {
       name: form.name.trim(),
       shortName: form.shortName.trim() || undefined,
       description: form.description.trim() || undefined,
@@ -402,12 +466,18 @@ export default function TournamentScreen({ navigation }) {
       pointsRules: form.pointsRules,
       prizes: form.prizes,
       flags: form.flags,
-    });
+    };
+    // An edit keeps the tournament's own status and sport — those are decided
+    // by where it is in its life, not by this form.
+    if (editingId) { delete payload.status; delete payload.sport; }
+    const res = editingId
+      ? await legendsApi.updateTournament(editingId, payload)
+      : await legendsApi.createTournament(payload);
     setBusy(null);
-    if (!res.success) return showToast(res.error || 'Could not publish', 'error');
-    await AsyncStorage.removeItem(DRAFT_KEY);
+    if (!res.success) return showToast(res.error || (editingId ? 'Could not save' : 'Could not publish'), 'error');
+    if (!editingId) await AsyncStorage.removeItem(DRAFT_KEY);
     dirty.current = false;
-    showToast('Tournament published', 'success');
+    showToast(editingId ? 'Changes saved' : 'Tournament published', 'success');
     // Back to the Tournaments list, which reloads on focus. goBack rather than
     // navigate, so the stack doesn't end up holding two copies of that list.
     navigation.goBack();
@@ -727,6 +797,14 @@ export default function TournamentScreen({ navigation }) {
   const body = [stepAbout, stepPlay, stepWhen, stepRules, stepReview][step];
   const last = step === STEPS.length - 1;
 
+  if (loading) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color={DS.lime} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header: title, and the two actions that apply on every step. */}
@@ -735,14 +813,18 @@ export default function TournamentScreen({ navigation }) {
           <Icon name="close" size={20} color={DS.textPrimary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Create Tournament</Text>
+          <Text style={styles.headerTitle}>{editingId ? 'Edit Tournament' : 'Create Tournament'}</Text>
           <Text style={styles.headerSub}>Step {step + 1} of {STEPS.length} · {STEPS[step].label}</Text>
         </View>
-        <TouchableOpacity onPress={() => saveDraft(false)} disabled={busy === 'draft'} style={styles.draftBtn}>
-          {busy === 'draft'
-            ? <ActivityIndicator size="small" color={DS.lime} />
-            : <><Icon name="content-save-outline" size={14} color={DS.lime} /><Text style={styles.draftText}>Draft</Text></>}
-        </TouchableOpacity>
+        {/* A draft is for work that hasn't been published. An edit is already
+            published, so there's nothing to keep on the device. */}
+        {!editingId ? (
+          <TouchableOpacity onPress={() => saveDraft(false)} disabled={busy === 'draft'} style={styles.draftBtn}>
+            {busy === 'draft'
+              ? <ActivityIndicator size="small" color={DS.lime} />
+              : <><Icon name="content-save-outline" size={14} color={DS.lime} /><Text style={styles.draftText}>Draft</Text></>}
+          </TouchableOpacity>
+        ) : <View style={{ width: 66 }} />}
       </View>
 
       {/* Progress. Tappable backwards only — jumping ahead past a required field
@@ -804,8 +886,11 @@ export default function TournamentScreen({ navigation }) {
             ? <ActivityIndicator size="small" color={DS.onLime} />
             : (
               <>
-                <Text style={styles.nextBtnText}>{last ? 'Publish Tournament' : 'Continue'}</Text>
-                <Icon name={last ? 'rocket-launch-outline' : 'chevron-right'} size={18} color={DS.onLime} />
+                <Text style={styles.nextBtnText}>
+                  {last ? (editingId ? 'Save Changes' : 'Publish Tournament') : 'Continue'}
+                </Text>
+                <Icon name={last ? (editingId ? 'content-save-outline' : 'rocket-launch-outline') : 'chevron-right'}
+                      size={18} color={DS.onLime} />
               </>
             )}
         </TouchableOpacity>

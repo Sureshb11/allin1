@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Modal, Alert, TextInput, Image, Linking
@@ -9,6 +9,7 @@ import { showToast } from '../components/Toast';
 import legendsApi from '../services/LegendsApi';
 import { getSport } from '../sports';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { useHideTabBarOnScroll } from '../components/AutoHideTabBar';
 
@@ -166,6 +167,15 @@ export default function TournamentDetailScreen({ route, navigation }) {
     };
     load();
   }, [tournamentId]);
+
+  // Coming back from an edit, the header and every section have to show what
+  // was just saved. Mount already loaded, so the first focus is skipped rather
+  // than fetching the same thing twice.
+  const firstFocus = useRef(true);
+  useFocusEffect(useCallback(() => {
+    if (firstFocus.current) { firstFocus.current = false; return; }
+    legendsApi.getTournament(tournamentId).then((r) => { if (r.success) setTournament(r.data); });
+  }, [tournamentId]));
 
   // Lazily load the leaderboard the first time the Leaders tab is opened.
   useEffect(() => {
@@ -953,7 +963,12 @@ export default function TournamentDetailScreen({ route, navigation }) {
       if (!byRound[r]) { byRound[r] = []; rounds.push(r); }
       byRound[r].push({ f, idx: globalIdx++ });
     }
-    const isKnockout = (r) => !r.startsWith('Group ') && r !== 'Fixtures';
+    // Same rule as the bracket: the phase decides, the label is the fallback.
+    const knockoutRounds = new Set(
+      schedule.filter((m) => m.phase?.type === 'knockout').map((m) => m.round));
+    const isKnockout = (r) => (knockoutRounds.size
+      ? knockoutRounds.has(r)
+      : !r.startsWith('Group ') && r !== 'Fixtures');
     const hasBracket = rounds.some(isKnockout);
     const toggle = hasBracket && (
       <View style={styles.segment}>
@@ -1185,6 +1200,17 @@ export default function TournamentDetailScreen({ route, navigation }) {
             )}
           </View>
         </View>
+        {/* Everything the organiser typed on the way in is editable on the way
+            back — the create wizard reopens with this tournament loaded. */}
+        {isOrganizer && (
+          <TouchableOpacity
+            style={[styles.editBtn, tournament.banner && { borderColor: '#fff' }]}
+            onPress={() => navigation.navigate('CreateTournament', { tournamentId })}
+            activeOpacity={0.85}>
+            <Icon name="pencil-outline" size={14} color={tournament.banner ? '#fff' : DS.lime} />
+            <Text style={[styles.editBtnText, tournament.banner && { color: '#fff' }]}>Edit</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Champion banner (once completed) */}
@@ -1434,6 +1460,8 @@ const makeStyles = (DS) => StyleSheet.create({
   coverScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000a6' },
   logoImg: { width: 46, height: 46, borderRadius: 14, backgroundColor: DS.surfaceHigh, borderWidth: 1.5, borderColor: DS.lime },
   headerChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: DS.lime },
+  editBtnText: { fontSize: 12, fontWeight: '800', color: DS.lime },
   metaChip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: DS.surfaceHigh },
   metaChipText: { fontSize: 10, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.3 },
   detailHead: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
