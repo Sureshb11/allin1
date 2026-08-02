@@ -118,6 +118,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const [leaderboard, setLeaderboard] = useState(null); // { batsmen, bowlers, awards }
   const [scheduleView, setScheduleView] = useState(route.params?.bracket ? 'bracket' : 'fixtures'); // Schedule tab sub-view
   const [resultFixture, setResultFixture] = useState(null); // fixture being scored
+  const [abandoned, setAbandoned] = useState(false);        // washout: no result, no NRR
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
   const [oversA, setOversA] = useState('');
@@ -365,6 +366,9 @@ export default function TournamentDetailScreen({ route, navigation }) {
 
   const openResult = (fixture) => {
     setResultFixture(fixture);
+    // Re-opening a fixture already filed as a washout should show it as one,
+    // not as a blank scoreline.
+    setAbandoned(fixture.resultKind === 'noResult');
     const defOvers = tournament?.overs ? String(tournament.overs) : '';
     const s1 = fixture.resultStats?.[fixture.team1?.id];
     const s2 = fixture.resultStats?.[fixture.team2?.id];
@@ -377,23 +381,33 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const submitResult = async () => {
     const f = resultFixture;
     if (!f?.team1?.id || !f?.team2?.id) return;
-    const a = parseInt(scoreA, 10), b = parseInt(scoreB, 10);
-    if (Number.isNaN(a) || Number.isNaN(b)) { alert('Enter both scores'); return; }
-    const ovA = parseFloat(oversA) || 0, ovB = parseFloat(oversB) || 0;
-    const resultKind = a === b ? 'tie' : 'win';
-    const winnerTeamId = a === b ? null : (a > b ? f.team1.id : f.team2.id);
-    const stats = {
-      [f.team1.id]: { scored: a, conceded: b, oversFaced: ovA, oversBowled: ovB },
-      [f.team2.id]: { scored: b, conceded: a, oversFaced: ovB, oversBowled: ovA },
-    };
+
+    let resultKind = 'noResult', winnerTeamId = null, stats = {};
+    if (!abandoned) {
+      const a = parseInt(scoreA, 10), b = parseInt(scoreB, 10);
+      if (Number.isNaN(a) || Number.isNaN(b)) return showToast('Enter both scores', 'error');
+      const ovA = parseFloat(oversA) || 0, ovB = parseFloat(oversB) || 0;
+      resultKind = a === b ? 'tie' : 'win';
+      winnerTeamId = a === b ? null : (a > b ? f.team1.id : f.team2.id);
+      // An abandoned match sends no stats at all: the standings engine only
+      // reads what's here, so an empty payload is what keeps a washout out of
+      // Net Run Rate.
+      stats = {
+        [f.team1.id]: { scored: a, conceded: b, oversFaced: ovA, oversBowled: ovB },
+        [f.team2.id]: { scored: b, conceded: a, oversFaced: ovB, oversBowled: ovA },
+      };
+    }
     setProcessing(true);
     const res = await legendsApi.reportTournamentResult(tournamentId, { tmId: f.id, winnerTeamId, resultKind, stats });
     if (res.success) {
       setResultFixture(null);
+      setAbandoned(false);
       await reloadData();
-      if (res.data?.resolved > 0) alert('Result saved — next-round fixtures updated!');
+      showToast(res.data?.resolved > 0
+        ? 'Result saved — next-round fixtures updated'
+        : 'Result saved', 'success');
     } else {
-      alert(res.error || 'Failed to save result');
+      showToast(res.error || 'Failed to save result', 'error');
     }
     setProcessing(false);
   };
@@ -1475,8 +1489,29 @@ export default function TournamentDetailScreen({ route, navigation }) {
             </View>
             <Text style={styles.resultHint}>Score and overs (overs optional — used for Net Run Rate). Higher score wins; equal = tie.</Text>
 
+            {/* Abandoned matches had nowhere to go. The API has accepted a
+                noResult since it was written and the table scores it — a point
+                each, and no Net Run Rate, because a match that didn't finish
+                shouldn't move a run rate. Without this the only way to file a
+                washout was to type equal scores, which records a TIE: the same
+                points in cricket, but it drags NRR with runs nobody made and
+                shows as T in the form guide instead of N. */}
+            <TouchableOpacity
+              style={[styles.abandonRow, abandoned && styles.abandonRowOn]}
+              onPress={() => setAbandoned((v) => !v)}
+              activeOpacity={0.85}>
+              <Icon name={abandoned ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                    size={18} color={abandoned ? DS.lime : DS.textMuted} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.abandonLabel}>No result — abandoned</Text>
+                <Text style={styles.abandonHint}>Rain, bad light, or never started. A point each, no NRR.</Text>
+              </View>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.primaryBtn} onPress={submitResult} disabled={processing}>
-              <Text style={styles.primaryBtnText}>{processing ? 'Saving...' : 'Save Result'}</Text>
+              <Text style={styles.primaryBtnText}>
+                {processing ? 'Saving...' : abandoned ? 'Save as No Result' : 'Save Result'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1497,6 +1532,10 @@ const makeStyles = (DS) => StyleSheet.create({
   headerChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: DS.lime },
   editBtnText: { fontSize: 12, fontWeight: '800', color: DS.lime },
+  abandonRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: DS.border, marginTop: 4, marginBottom: 12 },
+  abandonRowOn: { borderColor: DS.lime, backgroundColor: DS.lime + '14' },
+  abandonLabel: { fontSize: 13.5, fontWeight: '800', color: DS.textPrimary },
+  abandonHint: { fontSize: 11, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
   metaChip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: DS.surfaceHigh },
   metaChipText: { fontSize: 10, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.3 },
   policyNote: { fontSize: 11, fontWeight: '700', color: DS.textMuted, maxWidth: 150, textAlign: 'right' },

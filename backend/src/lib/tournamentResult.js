@@ -40,8 +40,12 @@ export async function applyTournamentResult(tournamentId, { tmId, winnerTeamId, 
     if (resultKind === 'win' && winnerTeamId) {
       const loserId = involved.find((id) => id !== winnerTeamId);
       message = `${nameOf[winnerTeamId] || 'A team'} beat ${nameOf[loserId] || 'their opponent'} in ${tName}.`;
+    } else if (resultKind === 'noResult') {
+      // Was "ended in a noResult" — the enum key, read out loud in a push
+      // notification.
+      message = `${fixture.round || 'A'} match in ${tName} was abandoned without a result.`;
     } else {
-      message = `${fixture.round || 'A'} match in ${tName} ended in a ${resultKind}.`;
+      message = `${fixture.round || 'A'} match in ${tName} ended in a ${resultKind === 'draw' ? 'draw' : 'tie'}.`;
     }
     // Awaited (not fire-and-forget): on serverless the function suspends after
     // the response, so post-response promises may never run.
