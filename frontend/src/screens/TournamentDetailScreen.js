@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Modal, Alert, TextInput
+  ActivityIndicator, Modal, Alert, TextInput, Image, Linking
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
@@ -13,6 +13,52 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { useHideTabBarOnScroll } from '../components/AutoHideTabBar';
 
 const TABS = ['Overview', 'Points Table', 'Schedule', 'Leaders'];
+
+// Create Tournament asks for ten sections' worth of detail. This screen showed
+// six info cards, the description and the organiser's name — so a logo, a cover
+// image, the ground, the registration window, the entry fee, the squad limits,
+// the match rules, the points system, the prize breakdown and every way of
+// contacting the organiser were all collected, stored, and never shown again.
+//
+// Everything below renders only when it has something to say, so a tournament
+// created with just the twelve required fields looks the same as it did rather
+// than sprouting a screenful of dashes.
+
+const RULE_LABELS = {
+  wide: 'Wides', noBall: 'No balls', freeHit: 'Free hit', legBye: 'Leg byes', bye: 'Byes',
+  dls: 'DLS', superOver: 'Super over', powerplay: 'Powerplay', penaltyRuns: 'Penalty runs',
+};
+const TIEBREAK_LABELS = {
+  points: 'Points', nrr: 'Net Run Rate', h2h: 'Head-to-head', wins: 'Wins', boundaries: 'Boundary count',
+};
+const REG_TYPE_LABELS = { open: 'Open to any team', invite: 'Invite only', approval: 'Approval required' };
+const CURRENCY_SIGN = { INR: '₹', USD: '$', GBP: '£', AUD: '$', AED: 'د.إ', LKR: 'Rs', PKR: 'Rs', BDT: '৳', NZD: '$', ZAR: 'R' };
+
+const fmtDay = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const joinWith = (...parts) => parts.filter(Boolean).join(', ');
+
+// A titled block of label/value rows that disappears when every row is empty.
+function DetailSection({ title, icon, rows, children }) {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  const shown = (rows || []).filter(([, v]) => v !== null && v !== undefined && v !== '' && v !== '—');
+  if (!shown.length && !children) return null;
+  return (
+    <View style={styles.section}>
+      <View style={styles.detailHead}>
+        <Icon name={icon} size={15} color={DS.lime} />
+        <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{title}</Text>
+      </View>
+      {shown.map(([k, v]) => (
+        <View key={k} style={styles.detailRow}>
+          <Text style={styles.detailKey}>{k}</Text>
+          <Text style={styles.detailVal} numberOfLines={2}>{String(v)}</Text>
+        </View>
+      ))}
+      {children}
+    </View>
+  );
+}
 
 // Series honours, iconed the same as the post-match awards popup — the same
 // award should look the same wherever it's won.
@@ -398,6 +444,18 @@ export default function TournamentDetailScreen({ route, navigation }) {
     (t.players || []).some(p => p.userId && p.userId === myUserId)
   );
 
+  // The config blocks, each defaulted so a tournament created before these
+  // columns existed reads as "nothing to show" rather than throwing.
+  const loc     = tournament.location || {};
+  const reg     = tournament.regWindow || {};
+  const entry   = tournament.registration || {};
+  const rules   = tournament.rules || {};
+  const pts     = tournament.pointsRules || {};
+  const prizes  = tournament.prizes || {};
+  const contact = tournament.contact || {};
+  const sign    = CURRENCY_SIGN[entry.currency] || '';
+  const enabledRules = Object.keys(RULE_LABELS).filter((k) => rules[k]);
+
   const renderOverview = () => (
     <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
       {/* Info Grid */}
@@ -408,8 +466,10 @@ export default function TournamentDetailScreen({ route, navigation }) {
           { icon: 'map-marker-outline', label: 'Venue', value: tournament.venue || 'TBD' },
           { icon: 'calendar-start', label: 'Start', value: tournament.startDate ? new Date(tournament.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD' },
           { icon: 'calendar-end', label: 'End', value: tournament.endDate ? new Date(tournament.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD' },
-          { icon: 'currency-inr', label: 'Prize Pool', value: tournament.prizePool || 'TBD' },
-        ].map(({ icon, label, value }) => (
+          { icon: 'currency-inr', label: 'Prize Pool', value: tournament.prizePool ? `${sign}${tournament.prizePool}` : 'TBD' },
+          { icon: 'sitemap-outline', label: 'Type', value: tournament.category },
+          { icon: 'cricket', label: 'Ball', value: tournament.ballType },
+        ].filter((c) => c.value).map(({ icon, label, value }) => (
           <View key={label} style={styles.infoCard}>
             <Icon name={icon} size={20} color={DS.blue} />
             <Text style={styles.infoLabel}>{label}</Text>
@@ -425,12 +485,76 @@ export default function TournamentDetailScreen({ route, navigation }) {
         </View>
       )}
 
+      <DetailSection title="Where" icon="map-marker-outline" rows={[
+        ['Ground', loc.ground],
+        ['Venue', tournament.venue],
+        ['City', joinWith(tournament.city, loc.state, loc.country)],
+      ]} />
+
+      <DetailSection title="Registration" icon="clipboard-text-clock-outline" rows={[
+        ['Opens', fmtDay(reg.opensAt)],
+        ['Closes', fmtDay(reg.closesAt)],
+        ['First ball', joinWith(reg.startTime, reg.timeZone)],
+        ['Entry fee', entry.entryFee === 0 ? 'Free'
+          : entry.entryFee != null ? `${sign}${entry.entryFee}` : ''],
+        ['Teams', entry.minTeams ? `${entry.minTeams}–${tournament.maxTeams || '?'}` : ''],
+        ['Squad', entry.minPlayers ? `${entry.minPlayers}–${entry.maxPlayers}` : ''],
+        ['Playing XI', entry.playingXi ? `${entry.playingXi}${entry.substitutes ? ` + ${entry.substitutes} subs` : ''}` : ''],
+        ['Joining', REG_TYPE_LABELS[entry.type]],
+      ]} />
+
+      {/* Rules read as chips rather than a list of "yes" — what's ON is the
+          information; nine rows each saying Enabled is not. */}
+      {enabledRules.length > 0 && (
+        <DetailSection title="Match rules" icon="gavel" rows={[
+          ['Powerplay', rules.powerplay && rules.powerplayOvers ? `${rules.powerplayOvers} overs` : ''],
+          ['Bowler quota', rules.maxOversPerBowler ? `${rules.maxOversPerBowler} overs` : ''],
+        ]}>
+          <View style={styles.chipWrap}>
+            {enabledRules.map((k) => (
+              <View key={k} style={styles.ruleChip}>
+                <Icon name="check" size={11} color={DS.lime} />
+                <Text style={styles.ruleChipText}>{RULE_LABELS[k]}</Text>
+              </View>
+            ))}
+          </View>
+        </DetailSection>
+      )}
+
+      <DetailSection title="Points system" icon="format-list-numbered" rows={[
+        ['Win', pts.win], ['Tie', pts.tie], ['No result', pts.noResult], ['Loss', pts.loss],
+        ['Bonus point', pts.bonus ? 'Yes' : ''],
+        ['Tie-breaks', (pts.tieBreak || []).map((t) => TIEBREAK_LABELS[t] || t).join(' → ')],
+      ]} />
+
+      <DetailSection title="Prizes" icon="medal-outline" rows={[
+        ['Winner', prizes.winner ? `${sign}${prizes.winner}` : ''],
+        ['Runner-up', prizes.runnerUp ? `${sign}${prizes.runnerUp}` : ''],
+        ['Semi-finalist', prizes.semiFinal ? `${sign}${prizes.semiFinal}` : ''],
+      ]} />
+
       {!!tournament.organizer && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Organizer</Text>
-          <View style={styles.organizerRow}>
-            <Icon name="account-tie" size={18} color={DS.blue} />
-            <Text style={styles.organizerText}>{tournament.organizer}</Text>
+          <View style={styles.detailHead}>
+            <Icon name="account-tie" size={15} color={DS.lime} />
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Organizer</Text>
+          </View>
+          <Text style={styles.organizerText}>{tournament.organizer}</Text>
+          {/* Contact details are served to signed-in callers only (the API
+              nulls them otherwise), and each one is the action it describes. */}
+          <View style={styles.chipWrap}>
+            {[
+              contact.phone && { icon: 'phone', label: 'Call', url: `tel:${contact.phone}` },
+              contact.whatsapp && { icon: 'whatsapp', label: 'WhatsApp', url: `https://wa.me/${contact.whatsapp}` },
+              contact.email && !/@otp\.local$/.test(contact.email) && { icon: 'email-outline', label: 'Email', url: `mailto:${contact.email}` },
+              contact.website && { icon: 'web', label: 'Website', url: /^https?:/.test(contact.website) ? contact.website : `https://${contact.website}` },
+            ].filter(Boolean).map((c) => (
+              <TouchableOpacity key={c.label} style={styles.contactChip} activeOpacity={0.85}
+                onPress={() => Linking.openURL(c.url).catch(() => showToast('Nothing on this device can open that', 'error'))}>
+                <Icon name={c.icon} size={13} color={DS.lime} />
+                <Text style={styles.contactChipText}>{c.label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
       )}
@@ -1019,19 +1143,46 @@ export default function TournamentDetailScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header. The cover image and the logo are uploaded on the create screen
+          and were never drawn anywhere — the banner sits behind the title, the
+          logo beside it. Without either, this is the same header as before. */}
       <View style={styles.header}>
+        {!!tournament.banner && (
+          <>
+            <Image source={{ uri: tournament.banner }} style={styles.coverImg} resizeMode="cover" />
+            {/* The title has to stay readable on whatever photo lands here. */}
+            <View style={styles.coverScrim} />
+          </>
+        )}
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={22} color={DS.textPrimary} />
+          <Icon name="arrow-left" size={22} color={tournament.banner ? '#fff' : DS.textPrimary} />
         </TouchableOpacity>
+        {!!tournament.logoUrl && (
+          <Image source={{ uri: tournament.logoUrl }} style={styles.logoImg} resizeMode="cover" />
+        )}
         <View style={{ flex: 1 }}>
           <View style={styles.eyebrowRow}>
-            <Icon name="trophy-outline" size={14} color={DS.textMuted} />
-            <Text style={styles.eyebrowText}>TOURNAMENT DETAILS</Text>
+            <Icon name="trophy-outline" size={14} color={tournament.banner ? '#ffffffcc' : DS.textMuted} />
+            <Text style={[styles.eyebrowText, tournament.banner && { color: '#ffffffcc' }]}>
+              {tournament.shortName || 'TOURNAMENT DETAILS'}
+            </Text>
           </View>
-          <Text style={styles.headerTitle} numberOfLines={1}>{tournament.name}</Text>
-          <View style={[styles.statusChip, { backgroundColor: statusColor.bg, alignSelf: 'flex-start' }]}>
-            <Text style={[styles.statusText, { color: statusColor.text }]}>{tournament.status?.toUpperCase()}</Text>
+          <Text style={[styles.headerTitle, tournament.banner && { color: '#fff' }]} numberOfLines={2}>{tournament.name}</Text>
+          <View style={styles.headerChips}>
+            <View style={[styles.statusChip, { backgroundColor: statusColor.bg }]}>
+              <Text style={[styles.statusText, { color: statusColor.text }]}>{tournament.status?.toUpperCase()}</Text>
+            </View>
+            {!!tournament.category && (
+              <View style={styles.metaChip}>
+                <Text style={styles.metaChipText}>{tournament.category}</Text>
+              </View>
+            )}
+            {!!tournament.city && (
+              <View style={styles.metaChip}>
+                <Icon name="map-marker" size={10} color={DS.textVariant} />
+                <Text style={styles.metaChipText}>{tournament.city}</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -1278,7 +1429,22 @@ const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
   errorText: { fontSize: 18, fontWeight: '700', color: DS.coral, marginTop: 12 },
-  header: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: DS.bg, paddingTop: 48, paddingBottom: 14, paddingHorizontal: 16, gap: 8 },
+  header: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: DS.bg, paddingTop: 48, paddingBottom: 14, paddingHorizontal: 16, gap: 8, overflow: 'hidden' },
+  coverImg: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  coverScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000a6' },
+  logoImg: { width: 46, height: 46, borderRadius: 14, backgroundColor: DS.surfaceHigh, borderWidth: 1.5, borderColor: DS.lime },
+  headerChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  metaChip: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: DS.surfaceHigh },
+  metaChipText: { fontSize: 10, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.3 },
+  detailHead: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 5 },
+  detailKey: { width: 104, fontSize: 12, fontWeight: '700', color: DS.textMuted },
+  detailVal: { flex: 1, fontSize: 13, fontWeight: '700', color: DS.textPrimary, textAlign: 'right' },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 10 },
+  ruleChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border },
+  ruleChipText: { fontSize: 11, fontWeight: '700', color: DS.textVariant },
+  contactChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: DS.lime },
+  contactChipText: { fontSize: 12, fontWeight: '800', color: DS.lime },
   backBtn: { padding: 4, marginTop: 6 },
   eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
   eyebrowText: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 1.2 },
@@ -1319,7 +1485,6 @@ const makeStyles = (DS) => StyleSheet.create({
   section: { backgroundColor: DS.surface, borderRadius: 16, padding: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: DS.textPrimary, marginBottom: 10 },
   descText: { fontSize: 14, color: DS.textVariant, lineHeight: 20 },
-  organizerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   organizerText: { fontSize: 14, fontWeight: '600', color: DS.textPrimary },
   teamRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: DS.faint },
   teamAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
