@@ -14,7 +14,11 @@
 //   Best Batter / Bowler / Fielder — highest batting / bowling / fielding score.
 
 // ── Match-type lookup tables (keyed by the match's overs-per-side) ───────────
-const baseRunsPerWicket = (ov) =>
+// CricHeroes' table, including its Test row — which is 25, NOT the 27 that the
+// 51-99 over band gives. Keyed on overs everywhere else, so a Test has to say so
+// by name; `isTest` comes from the match's own type.
+const baseRunsPerWicket = (ov, isTest) =>
+  isTest ? 25 :
   ov <= 7 ? 12 : ov <= 12 ? 14 : ov <= 16 ? 16 : ov <= 20 ? 18 :
   ov <= 26 ? 20 : ov <= 40 ? 22 : ov <= 50 ? 25 : 27;
 
@@ -106,7 +110,10 @@ export function computeAwards(match) {
   const fromInnings = innings.map((i) => Math.ceil(i.totalOvers || 0)).filter(Number.isFinite);
   const overs = Number(match.overs) || Math.max(20, ...fromInnings, 0);
   const srPct = srBonusPct(overs);
-  const brpw = baseRunsPerWicket(overs);
+  // The Test row of every table differs from the longest overs band, so the
+  // match has to declare itself rather than be inferred from an innings length.
+  const isTest = /test/i.test(String(match.matchType || ''));
+  const brpw = baseRunsPerWicket(overs, isTest);
   const mpw = maidensPerWicket(overs);
 
   // Player registry, keyed by player id (falls back to name for off-squad fielders).

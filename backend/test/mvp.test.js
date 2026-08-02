@@ -220,3 +220,24 @@ test('every squad player is listed, ranked, even with nothing to show', () => {
   const totals = a.mvp.map((p) => p.total);
   assert.deepEqual(totals, [...totals].sort((x, y) => y - x), 'ranked highest first');
 });
+
+// CricHeroes' tables each have a Test row that differs from their longest overs
+// band — base runs per wicket is 25 for a Test, where 51-99 overs gives 27. A
+// Test cannot be recognised by innings length, so it declares itself.
+test('a Test match uses its own base runs per wicket, not the 51-99 band', () => {
+  const wicketValue = (matchType) => {
+    const m = match({
+      overs: 90,
+      oversData: [over(1, P.starc, [
+        ball({ isWicket: true, wicketType: 'bowled', dismissedPlayerId: P.rohit }),
+      ])],
+    });
+    const a = computeAwards({ ...m, matchType });
+    return by(a, 'Starc').bowl;
+  };
+  const long = wicketValue('ODI');    // 90 overs, not a Test → 27 runs a wicket
+  const test = wicketValue('Test');   // → 25 runs a wicket
+  assert.ok(long > 0 && test > 0, 'both should score for the wicket');
+  assert.equal(+long.toFixed(2), 2.7);
+  assert.equal(+test.toFixed(2), 2.5);
+});
