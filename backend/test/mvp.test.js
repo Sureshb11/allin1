@@ -153,21 +153,28 @@ test('batting + bowling + fielding always equals the total on screen', () => {
 });
 
 // ── The bowler's economy bonus, as CricHeroes publish it ────────────────────
-// (TeamSR / PlayerSR) × (TeamSR − PlayerSR) × SR%, then divided by 10 to put it
-// in the same currency as everything else (ECONOMY.divisor — see mvp.js).
-// Worked by hand so a change to the formula has to be deliberate.
+// (TeamSR / PlayerSR) × SR%, gated on TeamSR >= PlayerSR. Their published
+// formula multiplies by (TeamSR − PlayerSR), but their own UPDATE replaces that
+// factor with 1 or 0 — a gate, not a magnitude. Worked by hand so a change has
+// to be deliberate.
 test('economy bonus follows the published formula', () => {
   // T20 (8%), innings 160 off 120 balls → TeamSR 133.33.
-  // Bowler 4-0-20-1 → 24 balls, PlayerSR 83.33.
-  // ratio 1.6 × gap 50 × 0.08 = 6.4 runs → 0.64 points.
+  // Bowler 4-0-20-1 → 24 balls, PlayerSR 83.33. ratio 1.6 × 0.08 = 0.128
   const bonus = economyBonus({ teamSR: (160 / 120) * 100, playerSR: (20 / 24) * 100, srPct: 0.08, ballsBowled: 24 });
-  assert.equal(+bonus.toFixed(4), 0.64);
+  assert.equal(+bonus.toFixed(4), 0.128);
 });
 
-// The regression this scale exists for. A real 8-over match: Kuldeep Yadav
-// bowled ONE over for 11 and took NOTHING, and finished first on MVP with 8.45
-// — every point of it this bonus — ahead of a bowler who took three wickets in
-// an over. Economy is worth something; it is not worth more than wickets.
+// Equal strike rates: their update says the gate is 1 when the difference is
+// >= 0, so a bowler exactly at the innings rate still earns the ratio (1).
+test('a bowler level with the innings rate is gated in, not out', () => {
+  const bonus = economyBonus({ teamSR: 133.33, playerSR: 133.33, srPct: 0.08, ballsBowled: 24 });
+  assert.equal(+bonus.toFixed(4), 0.08);
+});
+
+// The regression this exists for. A real 8-over match: Kuldeep Yadav bowled ONE
+// over for 11 and took NOTHING, and finished first on MVP with 8.45 — every
+// point of it this bonus — ahead of a bowler who took three wickets in an over.
+// Economy is worth something; it is not worth more than wickets.
 test('a tidy wicketless over cannot outscore three wickets', () => {
   const srPct = 0.08;                       // 8 overs a side
   const teamSR = (124 / 48) * 100;          // the innings: 124 off 48 balls
@@ -177,23 +184,34 @@ test('a tidy wicketless over cannot outscore three wickets', () => {
   const threeWickets = 3 * (14 / 10) + 0.5;
   assert.ok(tidy < threeWickets,
     `a wicketless over scored ${tidy.toFixed(2)} against ${threeWickets} for three wickets`);
-  // And still worth having: tight bowling is not worthless.
-  assert.ok(tidy > 0);
+  assert.ok(tidy > 0, 'tight bowling is still worth something');
+  // And it must not even rival a single wicket.
+  assert.ok(tidy < 14 / 10, `${tidy.toFixed(2)} is more than one wicket is worth`);
 });
 
 test('economy bonus only ever adds, and never for a bowler who did not bowl', () => {
   const srPct = 0.08, teamSR = 133.33;
   // Went at more than the innings rate → no bonus, and no penalty either.
   assert.equal(economyBonus({ teamSR, playerSR: 200, srPct, ballsBowled: 24 }), 0);
-  assert.equal(economyBonus({ teamSR, playerSR: teamSR, srPct, ballsBowled: 24 }), 0);
   // Didn't bowl a ball → nothing, however tidy the arithmetic looks.
   assert.equal(economyBonus({ teamSR, playerSR: 0, srPct, ballsBowled: 0 }), 0);
 });
 
-test('conceding nothing is capped rather than infinite', () => {
+// CricHeroes are explicit about the maiden case: "in case of maiden overs, we
+// can't calculate SR bonus as Player SR will be 0. So we have devised a
+// different mechanism" — the maiden bonus. So this term pays nothing there
+// rather than dividing by zero or paying twice.
+test('a spell of nothing but maidens is paid by the maiden bonus, not this', () => {
   const b = economyBonus({ teamSR: 133.33, playerSR: 0, srPct: 0.08, ballsBowled: 6 });
+  assert.equal(b, 0);
+});
+
+// The cap guards data, not scoring: it should only bite on a spell more
+// economical than any real one.
+test('the ratio cap keeps a freak spell finite', () => {
+  const b = economyBonus({ teamSR: 133.33, playerSR: 0.001, srPct: 0.08, ballsBowled: 6 });
   assert.ok(Number.isFinite(b));
-  assert.equal(+b.toFixed(4), +(ECONOMY.ratioCap * 133.33 * 0.08 / ECONOMY.divisor).toFixed(4));
+  assert.equal(+b.toFixed(4), +(ECONOMY.ratioCap * 0.08).toFixed(4));
 });
 
 test('every squad player is listed, ranked, even with nothing to show', () => {

@@ -58,41 +58,44 @@ const chargedRuns = (b) =>
   : (b.extraType ? 0 : b.runs);
 
 // ── The bowler's economy bonus ───────────────────────────────────────────────
-// CricHeroes publish this one as:
+// CricHeroes publish this as:
 //
 //     ((Team SR) / (Player SR)) * (Team SR) — (Player SR) * SR Bonus Percentage
 //
-// i.e. (TeamSR ÷ PlayerSR) × (TeamSR − PlayerSR) × SR%, where a bowler's "SR" is
-// the runs they concede per 100 balls. Implemented literally, because matching
-// their published numbers is the point — but their write-up leaves two things
-// undefined, and both are pinned HERE so a real CricHeroes card can settle them
-// by changing one number rather than by rewriting the formula:
+// and then immediately amend it:
 //
-//   • SCALE (`divisor`). SETTLED AT 10, against a real match. Everywhere else
-//     the algorithm turns runs into points at 10 runs = 1 point, and the batting
-//     strike-rate bonus is a percentage OF the batter's own base score. This
-//     term is scaled by nothing — it is a runs-per-100-balls quantity dropped
-//     straight into a points total, so it arrived ~10x too large.
+//     "UPDATE: We have stopped penalising bowlers for now. So if
+//      (Team SR) — (Player SR) >= 0 we consider it as 1 else it's 0 in the
+//      formula."
 //
-//     What that looked like: an 8-over game where Kuldeep Yadav bowled ONE over
-//     for 11 and no wickets scored 8.45 — every point of it this bonus — and
-//     finished first, ahead of a bowler who took 3 wickets in an over and scored
-//     4.1. A wicketless over outscoring a three-wicket over is the tell.
-//     Dividing by 10 puts the term in the same currency as everything else.
+// That amendment is the whole thing. (TeamSR − PlayerSR) is a GATE — 1 or 0 —
+// not a magnitude. The surviving formula is:
 //
-//   • ZERO RUNS (`ratioCap`). TeamSR ÷ PlayerSR is undefined when a bowler has
-//     conceded nothing and runs away as they approach it, so the ratio is capped.
-//     A wicket-maiden spell is already paid for by the maiden bonus.
+//     (TeamSR / PlayerSR) × SR%,  when TeamSR >= PlayerSR;  otherwise 0
 //
-// No penalty for going at more than the innings rate: CricHeroes removed the
-// strike-rate penalty on the batting side, and their bowling formula was never
-// republished with a sign term, so this only ever adds.
-export const ECONOMY = { divisor: 10, ratioCap: 3 };
+// It is the same shape as the batting bonus above, which already reads the
+// amendment correctly (`sign = playerSR >= teamSR ? 1 : 0`). Bowling did not:
+// it multiplied by the raw gap, which is the pre-update penalising form.
+//
+// What that cost: in an 8-over match Kuldeep Yadav bowled ONE over for 11 and
+// took nothing. TeamSR 258.3, his 183.3 — a gap of 75 — so the term paid
+// 1.409 × 75 × 0.08 = 8.45 points and he finished first on MVP, ahead of a
+// bowler who took 3/18. Read as published it pays 1.409 × 0.08 = 0.11.
+//
+// No scaling factor of our own. Their own worked example puts this term at
+// −3.2 against a bowling total of 1.062, so it is already in points.
+//
+// A spell of nothing but maidens has PlayerSR 0 and no ratio; CricHeroes say so
+// explicitly and pay for it through the maiden bonus instead, so it returns 0
+// here. `ratioCap` is ours and guards data, not scoring: it only bites on a
+// spell more economical than any real one.
+export const ECONOMY = { ratioCap: 20 };
 
 export function economyBonus({ teamSR, playerSR, srPct, ballsBowled }) {
-  if (!ballsBowled || !(teamSR > playerSR)) return 0;
-  const ratio = playerSR > 0 ? Math.min(teamSR / playerSR, ECONOMY.ratioCap) : ECONOMY.ratioCap;
-  return (ratio * (teamSR - playerSR) * srPct) / ECONOMY.divisor;
+  if (!ballsBowled) return 0;
+  if (teamSR - playerSR < 0) return 0;   // went at more than the innings rate
+  if (playerSR <= 0) return 0;           // all maidens — the maiden bonus pays
+  return Math.min(teamSR / playerSR, ECONOMY.ratioCap) * srPct;
 }
 
 export function computeAwards(match) {
