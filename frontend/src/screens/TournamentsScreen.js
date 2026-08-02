@@ -19,7 +19,7 @@ import { useFilterSwipe } from '../utils/useFilterSwipe';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import BrandLogo from "../components/BrandLogo";
 import PressableScale from '../components/PressableScale';
-import { joinPolicy } from '../utils/tournamentPolicy';
+import { joinPolicy, effectiveStatus } from '../utils/tournamentPolicy';
 import FocusedImage from '../components/FocusedImage';
 
 const FILTERS = ['All', 'Open', 'Ongoing', 'Completed'];
@@ -206,7 +206,10 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const STATUS_COLORS = makeStatusColors(DS);
-  const state = statusKey(item.status);
+  // The EFFECTIVE state, not the stored one: a tournament whose start date has
+  // passed is under way even if nobody moved it off "upcoming", and it should
+  // stop saying OPEN on its card.
+  const state = statusKey(effectiveStatus(item));
   const statusColor = STATUS_COLORS[state] || DS.textMuted;
   const teamsLeft = (item.maxTeams || 16) - (item.teams || 0);
   const canJoin = joinPolicy(item, item.teams || 0);
@@ -428,6 +431,9 @@ const TournamentsScreen = ({ navigation, inline }) => {
           description: t.format ? `${t.format} tournament at ${t.venue || 'TBD'}` : `Tournament at ${t.venue || 'TBD'}`,
           startDate: (t.startDate && !isNaN(new Date(t.startDate).getTime()))
             ? new Date(t.startDate).toISOString().split('T')[0] : 'TBD',
+          // The raw date too — effectiveStatus needs an instant, not a display
+          // string, to tell whether the thing has started.
+          startsAt:  t.startDate,
           prize:     t.prizePool || null,
           teams:     Array.isArray(t.teams) ? t.teams.length : 0,
           maxTeams:  t.maxTeams ?? null,
@@ -462,7 +468,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
   };
 
   const filtered = tournaments.filter(t => {
-    const f = filter === 'All' || statusKey(t.status) === filter;
+    const f = filter === 'All' || statusKey(effectiveStatus(t)) === filter;
     const q = searchQuery.toLowerCase();
     const s = !q || (t.name || '').toLowerCase().includes(q) || (t.location || '').toLowerCase().includes(q);
     return f && s;
@@ -483,14 +489,14 @@ const TournamentsScreen = ({ navigation, inline }) => {
     return !q || (t.name || '').toLowerCase().includes(q) || (t.location || '').toLowerCase().includes(q);
   });
   const counts = FILTERS.reduce((acc, f) => {
-    acc[f] = f === 'All' ? searched.length : searched.filter(t => statusKey(t.status) === f).length;
+    acc[f] = f === 'All' ? searched.length : searched.filter(t => statusKey(effectiveStatus(t)) === f).length;
     return acc;
   }, {});
 
   const standard = filtered;
 
   /* Aggregate stats */
-  const activeCount  = tournaments.filter(t => statusKey(t.status) !== 'Completed').length;
+  const activeCount  = tournaments.filter(t => statusKey(effectiveStatus(t)) !== 'Completed').length;
   const totalTeams   = tournaments.reduce((s, t) => s + (t.teams || 0), 0);
 
   return (

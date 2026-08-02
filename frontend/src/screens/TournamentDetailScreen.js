@@ -8,7 +8,7 @@ import HexAvatar from '../components/HexAvatar';
 import { showToast } from '../components/Toast';
 import legendsApi from '../services/LegendsApi';
 import { getSport } from '../sports';
-import { joinPolicy } from '../utils/tournamentPolicy';
+import { joinPolicy, capacity, effectiveStatus } from '../utils/tournamentPolicy';
 import FocusedImage from '../components/FocusedImage';
 
 import { useFocusEffect } from '@react-navigation/native';
@@ -521,6 +521,11 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const enabledRules = Object.keys(RULE_LABELS).filter((k) => rules[k]);
   // Whether a team can ask to join, and why not when it can't.
   const policy = joinPolicy(tournament, (tournament.teams || []).length);
+  // Full, and whether it has actually started — the stored status goes stale the
+  // moment the start date passes or the last place is taken.
+  const cap = capacity(tournament, (tournament.teams || []).length);
+  const liveStatus = effectiveStatus(tournament);
+  const acceptsTeams = ['upcoming', 'ongoing'].includes(liveStatus) && !cap.full;
   // Anything drawn over the cover photo needs the light treatment; without a
   // cover the header is an ordinary surface and keeps the theme's colours.
   const onCover = !!tournament.banner;
@@ -659,7 +664,15 @@ export default function TournamentDetailScreen({ route, navigation }) {
                 <Text style={styles.countBadgeText}>{(tournament.teams || []).length}</Text>
               </View>
             </View>
-            {['upcoming', 'ongoing'].includes(tournament.status) && (
+            {/* Full is full. The organiser set the maximum; silently letting a
+                17th into a 16-team draw breaks the fixtures they'll generate
+                from it. */}
+            {cap.full ? (
+              <View style={styles.fullChip}>
+                <Icon name="check-circle" size={12} color={DS.lime} />
+                <Text style={styles.fullChipText}>Full · {cap.taken}/{cap.max}</Text>
+              </View>
+            ) : ['upcoming', 'ongoing'].includes(liveStatus) && (
               isOrganizer ? (
                 <TouchableOpacity style={styles.addBtn} onPress={() => { setPickerMode('add'); setShowTeamPicker(true); }}>
                   <Text style={styles.addBtnText}>+ Add Team</Text>
@@ -677,8 +690,11 @@ export default function TournamentDetailScreen({ route, navigation }) {
               "show the rest" anywhere, so eleven teams simply weren't in the UI.
               Still collapsed by default (a 20-team overview is a wall), but now
               it says how many it's holding back and opens. */}
-          {(showAllTeams ? (tournament.teams || []) : (tournament.teams || []).slice(0, TEAMS_COLLAPSED)).map(({ team, group }) => (
+          {(showAllTeams ? (tournament.teams || []) : (tournament.teams || []).slice(0, TEAMS_COLLAPSED)).map(({ team, group }, idx) => (
             <View key={team.id} style={styles.teamRow}>
+              {/* Position in the list. With sixteen near-identical rows, "which
+                  one was Mumbai again" is a counting exercise without it. */}
+              <Text style={styles.teamSno}>{idx + 1}</Text>
               <HexAvatar size={38} color={avatarColor(team.name)}>
                 <Text style={styles.teamAvatarText}>{team.name?.charAt(0).toUpperCase()}</Text>
               </HexAvatar>
@@ -709,10 +725,15 @@ export default function TournamentDetailScreen({ route, navigation }) {
               <Icon name={showAllTeams ? 'chevron-up' : 'chevron-down'} size={18} color={DS.lime} />
             </TouchableOpacity>
           )}
-          {(tournament.teams || []).length > 0 && ['upcoming', 'ongoing'].includes(tournament.status) && (isOrganizer || policy.open) && (
+          {(tournament.teams || []).length > 0 && acceptsTeams && (isOrganizer || policy.open) && (
             <TouchableOpacity onPress={() => { setPickerMode(isOrganizer ? 'add' : 'join'); setShowTeamPicker(true); }} style={{ paddingTop: 14, alignItems: 'center' }}>
               <Text style={styles.viewAllText}>{isOrganizer ? 'Add More Teams' : 'Request to Join'}</Text>
             </TouchableOpacity>
+          )}
+          {cap.full && (
+            <Text style={styles.fullNote}>
+              Every place is taken. Remove a team to make room, or raise the maximum in Edit.
+            </Text>
           )}
         </View>
       )}
@@ -1343,7 +1364,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
             ? { backgroundColor: statusColor.text }
             : { backgroundColor: statusColor.bg }]}>
             <Text style={[styles.statusText, { color: onCover ? '#fff' : statusColor.text }]}>
-              {tournament.status?.toUpperCase()}
+              {liveStatus.toUpperCase()}
             </Text>
           </View>
           {!!tournament.category && (
@@ -1636,6 +1657,10 @@ const makeStyles = (DS) => StyleSheet.create({
   metaChipOnCover: { backgroundColor: '#ffffff2e' },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: DS.lime },
   editBtnText: { fontSize: 12, fontWeight: '800', color: DS.lime },
+  teamSno: { width: 20, fontSize: 12, fontWeight: '800', color: DS.textMuted, fontVariant: ['tabular-nums'] },
+  fullChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: DS.lime + '1f' },
+  fullChipText: { fontSize: 11, fontWeight: '800', color: DS.lime },
+  fullNote: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, textAlign: 'center', paddingTop: 12 },
   abandonRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: DS.border, marginTop: 4, marginBottom: 12 },
   abandonRowOn: { borderColor: DS.lime, backgroundColor: DS.lime + '14' },
   abandonLabel: { fontSize: 13.5, fontWeight: '800', color: DS.textPrimary },

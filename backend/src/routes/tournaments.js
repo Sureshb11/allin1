@@ -247,13 +247,27 @@ router.post('/:id/teams', authMiddleware, requireOrganizer, async (req, res) => 
     if (!teamId) return res.status(400).json({ error: 'teamId required' });
     // Sport isolation: a team can only enter a tournament of its own sport.
     const [tournament, team] = await Promise.all([
-      prisma.tournament.findUnique({ where: { id: req.params.id }, select: { sport: true, name: true } }),
+      prisma.tournament.findUnique({ where: { id: req.params.id }, select: { sport: true, name: true, maxTeams: true } }),
       prisma.team.findUnique({ where: { id: teamId }, select: { sport: true, name: true } }),
     ]);
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
     if (!team) return res.status(404).json({ error: 'Team not found' });
     if (team.sport !== tournament.sport) {
       return res.status(400).json({ error: `Sport mismatch: ${team.name} is a ${team.sport} team but ${tournament.name} is a ${tournament.sport} tournament.` });
+    }
+    // The maximum is the organiser's own number, and it is not decoration: the
+    // fixture generator draws from whoever is approved, so a 17th team in a
+    // 16-team knockout produces a bracket that doesn't resolve. Their tournament
+    // — they can raise the maximum in Edit — but not by accident.
+    if (tournament.maxTeams) {
+      const taken = await prisma.tournamentTeam.count({
+        where: { tournamentId: req.params.id, status: 'approved', teamId: { not: teamId } },
+      });
+      if (taken >= tournament.maxTeams) {
+        return res.status(409).json({
+          error: `${tournament.name} is full — ${taken} of ${tournament.maxTeams} teams. Raise the maximum or remove a team first.`,
+        });
+      }
     }
     // Organiser adds a team directly → it's in (approved). If a join request for
     // this team is already pending, approve it rather than colliding on the unique.
