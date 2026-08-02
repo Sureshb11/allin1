@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import { makeControls, CONTROL } from '../theme/controls';
+import { makeControls, controlColors } from '../theme/controls';
 import legendsApi from '../services/LegendsApi';
 import { haptic } from '../utils/haptics';
 
@@ -38,6 +38,9 @@ export default function InningsBreakScreen({ data, matchId, venue, onContinue, o
   const DS = useTheme().colors;
   const s = useThemedStyles(makeStyles);
   const C = useThemedStyles(makeControls);
+  // controls.js resolves its palette per theme, so this has to come from the
+  // function rather than a module constant — dark mode has different greens.
+  const CONTROL = controlColors(DS);
 
   const [picking, setPicking] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -221,7 +224,9 @@ export default function InningsBreakScreen({ data, matchId, venue, onContinue, o
   );
 }
 
-const makeStyles = (DS) => StyleSheet.create({
+const makeStyles = (DS) => {
+  const CONTROL = controlColors(DS);
+  return StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.bg },
   content: { padding: 16, paddingTop: 52, gap: 12, paddingBottom: 24 },
 
@@ -277,4 +282,5 @@ const makeStyles = (DS) => StyleSheet.create({
   empty: { fontSize: 12.5, fontWeight: '600', color: DS.textMuted, lineHeight: 19, paddingVertical: 18 },
   cancel: { alignItems: 'center', paddingVertical: 14, marginTop: 6 },
   cancelTxt: { fontSize: 14, fontWeight: '800', color: DS.textMuted },
-});
+  });
+};
