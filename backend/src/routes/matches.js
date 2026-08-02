@@ -290,6 +290,10 @@ const ScoreUpdateSchema = z.object({
   // Run outs only. Absent means "not recorded", which is what every ball before
   // this column existed is — deliberately distinct from false.
   directHit:     z.boolean().optional().nullable(),
+  // A catch put down off this delivery, and how hard it was. Not a wicket and
+  // not scored by MVP — a record, so the commentary can say it happened.
+  droppedBy:      z.string().max(60).optional().nullable(),
+  dropDifficulty: z.enum(['easy', 'difficult']).optional().nullable(),
   clientEventId: z.string().optional().nullable(),   // offline idempotency key
 });
 
@@ -373,6 +377,8 @@ router.put('/:id/score', authMiddleware, async (req, res) => {
         dismissedPlayerId: data.dismissedPlayerId,
         wicketAssists: data.wicketAssists,
         directHit: data.directHit ?? null,
+        droppedBy: data.droppedBy ?? null,
+        dropDifficulty: data.dropDifficulty ?? null,
       }
     });
 

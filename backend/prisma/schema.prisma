@@ -291,6 +291,14 @@ model Ball {
   // Nullable on purpose: null is "not recorded" (every ball before this), which
   // is not the same as false.
   directHit         Boolean?
+  // Who put down a catchable chance off this delivery. Not a wicket, not a
+  // CricHeroes concept — a fielding record their algorithm has no place for,
+  // kept because in amateur cricket the drops are half the story.
+  droppedBy         String?
+  // Was it a sitter or a screamer? The scorer's call, recorded because "dropped"
+  // on its own tells a spectator nothing — a shelled dolly and a fingertip
+  // chance are not the same event.
+  dropDifficulty    String?
   dismissedPlayerId String?
   clientEventId     String? @unique
   bowlerId          String?

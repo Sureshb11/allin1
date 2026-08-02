@@ -142,6 +142,16 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // when they remember how it happened. Defaults to off: a shy of the stumps
   // relay is the common run out, and a direct hit is the thing worth claiming.
   const [runOutDirectHit, setRunOutDirectHit] = useState(false);
+
+  // ── Dropped catch — three questions, then the runs, which commits the ball.
+  // A drop is not a wicket and scores nothing: CricHeroes' algorithm has no
+  // notion of a chance missed, and every update they've published has REMOVED a
+  // penalty rather than added one. This is a record, so the commentary can say
+  // it happened and the spectator knows why the batter is still there.
+  const [dropFielderPrompt, setDropFielderPrompt] = useState(false);   // 1 · who put it down?
+  const [dropDifficultyPrompt, setDropDifficultyPrompt] = useState(false); // 2 · sitter or screamer?
+  const [dropRunsPrompt, setDropRunsPrompt] = useState(false);         // 3 · runs off the ball → commits
+  const [dropDraft, setDropDraft] = useState(null);                    // { by, difficulty }
   const [catchPrompt, setCatchPrompt] = useState(false);   // caught → who took the catch?
   // Caught behind credits the fielding side's keeper without hunting the fielder
   // list. The keeper is read off the XI roles; when the XI doesn't name one the
@@ -501,7 +511,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     idemRef.current = { base: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, n: 0, done: {} };
   };
 
-  const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true, dismissedId = null, catcher = null, directHit = null) => {
+  const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true, dismissedId = null, catcher = null, directHit = null, dropped = null) => {
     // Never skip the save silently: the local score would keep advancing (and
     // syncMatchSummary would keep updating the headline score) while the
     // ball-by-ball record stops — spectators then see totals move with no
@@ -524,6 +534,9 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       wicketAssists: catcher || null,   // catcher / keeper / run-out fielder name
       // Run outs only, and only when a fielder was named. null = not recorded.
       directHit,
+      // A chance put down on this delivery. Scores nothing; it's the record.
+      droppedBy: dropped?.by ?? null,
+      dropDifficulty: dropped?.difficulty ?? null,
       // Idempotency key — if a retry re-sends a ball that actually landed, the
       // server dedupes instead of double-counting. The base is per-delivery and
       // survives a manual Retry; the counter separates the two writes a single
@@ -718,7 +731,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // runOut = the run-out draft ({ delivery, runs, runsType, outSlot, end }) gathered
   //   by the four run-out sheets. Present ONLY for a run out — every other dismissal
   //   is a plain legal ball with no runs, which is what the null path scores.
-  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null, penaltyReason = null, isRetry = false, runOut = null) => {
+  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null, penaltyReason = null, isRetry = false, runOut = null, dropped = null) => {
     if (matchComplete || undoing) return;
     // Debounce: ignore a new tap while the previous ball is still being saved. Rapid
     // taps during the async save read a stale score and used to pile balls into one
@@ -797,7 +810,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       newScore.runs += value;
       newScore.balls += 1;
       newOver.push(value === 0 ? '·' : String(value));
-      await persistBall(value, 0, null, false, null);
+      await persistBall(value, 0, null, false, null, true, null, null, null, dropped);
       rotate(value);
     } else if (value === 'wide') {
       const tot = 1 + addRuns;                    // wide penalty + runs run
@@ -1347,6 +1360,15 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     setRunOutDirectHit(false);
     if (!d) return;
     handleScore('out', d.runs, 'runout', d.outSlot, fielderName, null, false, { ...d, directHit });
+  };
+
+  const commitDrop = (runs) => {
+    const d = dropDraft;
+    setDropRunsPrompt(false);
+    setDropDraft(null);
+    if (!d) return;
+    // An ordinary delivery in every other respect — the drop rides along on it.
+    handleScore(runs, 0, 'bowled', 'striker', null, null, false, null, d);
   };
 
   // Would this delivery close the over? Only a legal one can, and only as the 6th —
@@ -2621,6 +2643,86 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         </View>
       </Modal>
 
+      {/* ── DROPPED CATCH · 1 of 3 — who put it down? ── */}
+      <Modal visible={dropFielderPrompt} transparent animationType="slide" onRequestClose={() => setDropFielderPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Dropped catch — who?</Text>
+            <Text style={styles.modalSub}>The fielder who put the chance down</Text>
+            <ScrollView style={{ maxHeight: 320 }}>
+              {bowlingXI.map((p, i) => (
+                <TouchableOpacity key={i} style={styles.playerOption}
+                  onPress={() => { setDropDraft({ by: p.name }); setDropFielderPrompt(false); setDropDifficultyPrompt(true); }}>
+                  <View style={styles.playerAvatar}>
+                    <Text style={styles.playerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
+                  {p.id === keeper?.id && <Text style={styles.settingHint}>WK</Text>}
+                  <Icon name="chevron-right" size={18} color={DS.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setDropFielderPrompt(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── DROPPED CATCH · 2 of 3 — a sitter or a screamer? ── */}
+      <Modal visible={dropDifficultyPrompt} transparent animationType="slide" onRequestClose={() => {}}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>How hard was the chance?</Text>
+            <Text style={styles.modalSub}>{dropDraft?.by} — this is what the commentary will say</Text>
+            {[
+              ['easy', 'Easy chance', 'Straight to hand — should have been taken', 'emoticon-sad-outline'],
+              ['difficult', 'Difficult chance', 'Half a chance — diving, in the deep, sharp', 'hand-back-right-outline'],
+            ].map(([key, label, hint, icon]) => (
+              <TouchableOpacity key={key} style={styles.settingRow}
+                onPress={() => { setDropDraft((d) => ({ ...d, difficulty: key })); setDropDifficultyPrompt(false); setDropRunsPrompt(true); }}>
+                <Icon name={icon} size={20} color={key === 'easy' ? DS.coral : DS.lime} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingText}>{label}</Text>
+                  <Text style={styles.settingHint} numberOfLines={1}>{hint}</Text>
+                </View>
+                <Icon name="chevron-right" size={18} color={DS.textMuted} />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.modalClose}
+              onPress={() => { setDropDifficultyPrompt(false); setDropFielderPrompt(true); }}>
+              <Text style={styles.modalCloseText}>Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── DROPPED CATCH · 3 of 3 — runs off the ball. This commits it, so there
+          is no Cancel: 0 is a real answer and the way out. ── */}
+      <Modal visible={dropRunsPrompt} transparent animationType="slide" onRequestClose={() => {}}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Runs off the ball?</Text>
+            <Text style={styles.modalSub}>
+              {dropDraft?.by} put down {dropDraft?.difficulty === 'easy' ? 'an easy' : 'a difficult'} chance
+            </Text>
+            <View style={styles.dropRunsRow}>
+              {[0, 1, 2, 3, 4, 6].map((n) => (
+                <TouchableOpacity key={n} style={styles.dropRunBtn} onPress={() => commitDrop(n)} activeOpacity={0.85}>
+                  <Text style={styles.dropRunText}>{n}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.modalSub}>
+              A drop scores nothing for or against anyone — it's recorded so the commentary can tell the story.
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── RETIRED — which batter? then hurt (return) or out (wicket) ── */}
       <Modal visible={retiredPrompt} transparent animationType="slide" onRequestClose={() => setRetiredPrompt(false)}>
         <View style={styles.modalOverlay}>
@@ -2861,6 +2963,19 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <Text style={styles.settingHint}>
                 {shortRunEligible ? `${shortRunAttempt} → ${shortRunAttempt - 1}` : 'last ball 2 or 3'}
               </Text>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
+            {/* Dropped catch — not a wicket, so it can't go on the wicket pad, and
+                not an extra. It scores nothing; it's recorded so the commentary
+                can say why the batter is still in. Ends by asking the runs,
+                which commits the delivery. */}
+            <TouchableOpacity
+              style={[styles.settingRow, !scoringReady && { opacity: 0.4 }]}
+              disabled={!scoringReady}
+              onPress={() => { setMorePrompt(false); setDropFielderPrompt(true); }}>
+              <Icon name="hand-back-left-outline" size={20} color={DS.coral} />
+              <Text style={styles.settingText}>Dropped catch</Text>
+              <Text style={styles.settingHint}>chance put down</Text>
               <Icon name="chevron-right" size={18} color={DS.textMuted} />
             </TouchableOpacity>
             {/* Other runs — 5 off the bat, 7, anything the pad can't express.
@@ -3344,6 +3459,12 @@ const makeStyles = (DS) => StyleSheet.create({
   modalHandle: { width: 40, height: 4, backgroundColor: DS.surfaceHighest, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 18, fontWeight: '800', color: DS.textPrimary, marginBottom: 6, textAlign: 'center' },
   modalSub: { fontSize: 11, fontWeight: '600', color: DS.textMuted, marginBottom: 14, textAlign: 'center' },
+  dropRunsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginVertical: 14, justifyContent: 'center' },
+  dropRunBtn: {
+    width: 62, height: 56, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: DS.surfaceHigh, borderWidth: 1.5, borderColor: DS.border,
+  },
+  dropRunText: { fontSize: 20, fontWeight: '900', color: DS.textPrimary },
   directHitRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingVertical: 11, paddingHorizontal: 12, marginBottom: 10,

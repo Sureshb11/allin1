@@ -473,23 +473,30 @@ function ballLabel(b) {
 function ballCommentary(ball, bowlerName) {
   const batter = ball.batter?.name || 'Batter';
   const et = ball.extraType;
+  // A chance put down. Told as its own sentence at the front, because it is the
+  // story of the delivery — the runs are the footnote. "Dropped!" alone would
+  // undersell a diving miss and oversell a shelled dolly, so it says which.
+  const drop = ball.droppedBy
+    ? `Dropped! ${ball.droppedBy} puts down ${ball.dropDifficulty === 'easy' ? 'a straightforward chance'
+        : ball.dropDifficulty === 'difficult' ? 'a tough chance' : 'the chance'}. `
+    : '';
   // A run out can fall on an extra, so every extra line carries the dismissal when
   // there is one — otherwise the wicket would go unmentioned in the commentary.
   const outTail = ball.isWicket
     ? `, OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}`
     : '';
-  if (et === 'deadBall') return `${bowlerName} runs out ${batter} backing up — OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}`;
-  if (et === 'wide') return `${bowlerName} to ${batter}, wide${ball.extras > 1 ? `, ${ball.extras - 1} run${ball.extras > 2 ? 's' : ''}` : ''}${outTail}`;
-  if (et === 'noBall') return `${bowlerName} to ${batter}, no ball${ball.runs ? `, ${ball.runs} run${ball.runs > 1 ? 's' : ''}` : ''}${outTail}`;
-  if (et === 'bye') return `${bowlerName} to ${batter}, ${ball.extras} bye${ball.extras > 1 ? 's' : ''}${outTail}`;
-  if (et === 'legBye') return `${bowlerName} to ${batter}, ${ball.extras} leg bye${ball.extras > 1 ? 's' : ''}${outTail}`;
-  if (et === 'penalty') return 'Penalty awarded, 5 runs';
-  if (et === 'retired') return `${batter} retires ${String(ball.wicketType).toLowerCase() === 'retiredhurt' ? 'hurt' : 'out'}`;
-  if (ball.isWicket) return `${bowlerName} to ${batter}, OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}`;
-  if (ball.runs === 0) return `${bowlerName} to ${batter}, no run`;
-  if (ball.runs === 4) return `${bowlerName} to ${batter}, FOUR!`;
-  if (ball.runs === 6) return `${bowlerName} to ${batter}, SIX!`;
-  return `${bowlerName} to ${batter}, ${ball.runs} run${ball.runs > 1 ? 's' : ''}`;
+  if (et === 'deadBall') return drop + `${bowlerName} runs out ${batter} backing up — OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}`;
+  if (et === 'wide') return drop + `${bowlerName} to ${batter}, wide${ball.extras > 1 ? `, ${ball.extras - 1} run${ball.extras > 2 ? 's' : ''}` : ''}${outTail}`;
+  if (et === 'noBall') return drop + `${bowlerName} to ${batter}, no ball${ball.runs ? `, ${ball.runs} run${ball.runs > 1 ? 's' : ''}` : ''}${outTail}`;
+  if (et === 'bye') return drop + `${bowlerName} to ${batter}, ${ball.extras} bye${ball.extras > 1 ? 's' : ''}${outTail}`;
+  if (et === 'legBye') return drop + `${bowlerName} to ${batter}, ${ball.extras} leg bye${ball.extras > 1 ? 's' : ''}${outTail}`;
+  if (et === 'penalty') return drop + 'Penalty awarded, 5 runs';
+  if (et === 'retired') return drop + `${batter} retires ${String(ball.wicketType).toLowerCase() === 'retiredhurt' ? 'hurt' : 'out'}`;
+  if (ball.isWicket) return drop + `${bowlerName} to ${batter}, OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}`;
+  if (ball.runs === 0) return drop + `${bowlerName} to ${batter}, no run`;
+  if (ball.runs === 4) return drop + `${bowlerName} to ${batter}, FOUR!`;
+  if (ball.runs === 6) return drop + `${bowlerName} to ${batter}, SIX!`;
+  return drop + `${bowlerName} to ${batter}, ${ball.runs} run${ball.runs > 1 ? 's' : ''}`;
 }
 
 // Ball-by-ball commentary for a whole innings, newest ball first.
