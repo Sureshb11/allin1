@@ -418,7 +418,8 @@ const TournamentsScreen = ({ navigation, inline }) => {
       const sport = getSelectedSport().sport?.id;
       const res = await legendsApi.request('/tournaments' + (sport ? `?sport=${encodeURIComponent(sport)}` : ''));
       if (res && res.tournaments) {
-        setTournaments((res.tournaments || []).map(t => ({
+        const sorted = (res.tournaments || []).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        setTournaments(sorted.map(t => ({
           id:        t.id,
           name:      t.name,
           // Real values only. These were placeholders from the mock era: every
