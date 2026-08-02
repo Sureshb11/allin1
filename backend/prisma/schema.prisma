@@ -286,6 +286,11 @@ model Ball {
   isWicket          Boolean @default(false)
   wicketType        String?
   wicketAssists     String?
+  // Was the run out a direct hit? CricHeroes pay a run-out fielder full MVP
+  // points "if it is a direct hit", and nothing recorded whether it was.
+  // Nullable on purpose: null is "not recorded" (every ball before this), which
+  // is not the same as false.
+  directHit         Boolean?
   dismissedPlayerId String?
   clientEventId     String? @unique
   bowlerId          String?

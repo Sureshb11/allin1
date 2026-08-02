@@ -95,6 +95,10 @@ const chargedRuns = (b) =>
 // spell more economical than any real one.
 export const ECONOMY = { ratioCap: 20 };
 
+// What a run-out fielder earns when the wicket was NOT a direct hit — see the
+// run-out branch below. Ours, not CricHeroes'.
+export const RUN_OUT = { sharedHit: 0.5 };
+
 export function economyBonus({ teamSR, playerSR, srPct, ballsBowled }) {
   if (!ballsBowled) return 0;
   if (teamSR - playerSR < 0) return 0;   // went at more than the innings rate
@@ -228,7 +232,20 @@ export function computeAwards(match) {
         }
       } else if (wt === 'runout' && b.wicketAssists) {
         const fp = fielderRef(b.wicketAssists, bowlingTeamId, bowlingTeamName);
-        if (fp) { fp.field += val; fp.fieldCount++; }
+        // CricHeroes: the fielder gets full points for a run out "if it is a
+        // direct hit". A run out that isn't one took at least two people — a
+        // thrower and whoever broke the stumps — and we only ever record one of
+        // them, so paying that one in full credits them with someone else's
+        // work. RUN_OUT.sharedHit is the share they get instead.
+        //
+        // THAT SHARE IS OURS, NOT THEIRS. The article says what a direct hit
+        // earns and is silent on the rest; a half is the obvious reading of two
+        // people doing it between them, and it is one constant to change.
+        //
+        // null = not recorded, which every ball before the directHit column is.
+        // Those keep paying in full, so no historical points move.
+        const share = b.directHit === false ? RUN_OUT.sharedHit : 1;
+        if (fp) { fp.field += val * share; fp.fieldCount++; }
       }
     }
 

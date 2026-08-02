@@ -287,6 +287,9 @@ const ScoreUpdateSchema = z.object({
   wicketType: z.string().optional().nullable(),
   dismissedPlayerId: z.string().optional().nullable(),
   wicketAssists: z.string().optional().nullable(),   // catcher / keeper / run-out fielder name
+  // Run outs only. Absent means "not recorded", which is what every ball before
+  // this column existed is — deliberately distinct from false.
+  directHit:     z.boolean().optional().nullable(),
   clientEventId: z.string().optional().nullable(),   // offline idempotency key
 });
 
@@ -369,6 +372,7 @@ router.put('/:id/score', authMiddleware, async (req, res) => {
         wicketType: data.wicketType,
         dismissedPlayerId: data.dismissedPlayerId,
         wicketAssists: data.wicketAssists,
+        directHit: data.directHit ?? null,
       }
     });
 

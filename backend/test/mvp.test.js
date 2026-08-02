@@ -9,7 +9,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computeAwards, economyBonus, ECONOMY } from '../src/lib/mvp.js';
+import { computeAwards, economyBonus, ECONOMY, RUN_OUT } from '../src/lib/mvp.js';
 
 const T1 = { id: 't1', name: 'Mumbai' };
 const T2 = { id: 't2', name: 'Sydney' };
@@ -240,4 +240,24 @@ test('a Test match uses its own base runs per wicket, not the 51-99 band', () =>
   assert.ok(long > 0 && test > 0, 'both should score for the wicket');
   assert.equal(+long.toFixed(2), 2.7);
   assert.equal(+test.toFixed(2), 2.5);
+});
+
+// CricHeroes pay a run-out fielder full points "if it is a direct hit". One
+// that isn't took two people and we only record one, so they get a share.
+test('a direct-hit run out pays the fielder more than a shared one', () => {
+  const runOut = (directHit) => {
+    const a = computeAwards(match({
+      oversData: [over(1, P.starc, [ball({
+        isWicket: true, wicketType: 'runout',
+        dismissedPlayerId: P.rohit, wicketAssists: 'Maxwell', directHit,
+      })])],
+    }));
+    return by(a, 'Maxwell').field;
+  };
+  const direct = runOut(true);
+  const shared = runOut(false);
+  const unrecorded = runOut(null);       // every ball before the column existed
+  assert.ok(direct > 0, 'a direct hit must score');
+  assert.equal(+shared.toFixed(4), +(direct * RUN_OUT.sharedHit).toFixed(4));
+  assert.equal(unrecorded, direct, 'not recorded must score exactly as it always did');
 });

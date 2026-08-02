@@ -137,6 +137,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const [runOutEndPrompt, setRunOutEndPrompt] = useState(false);           // 3 · which end did the wicket fall at?
   const [runOutFielderPrompt, setRunOutFielderPrompt] = useState(false);   // 4 · which fielder?
   const [runOutDraft, setRunOutDraft] = useState(null);
+  // Direct hit? Asked on the fielder sheet rather than as a fifth question —
+  // the flow is already four deep, and the scorer is looking at the fielders
+  // when they remember how it happened. Defaults to off: a shy of the stumps
+  // relay is the common run out, and a direct hit is the thing worth claiming.
+  const [runOutDirectHit, setRunOutDirectHit] = useState(false);
   const [catchPrompt, setCatchPrompt] = useState(false);   // caught → who took the catch?
   // Caught behind credits the fielding side's keeper without hunting the fielder
   // list. The keeper is read off the XI roles; when the XI doesn't name one the
@@ -496,7 +501,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     idemRef.current = { base: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, n: 0, done: {} };
   };
 
-  const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true, dismissedId = null, catcher = null) => {
+  const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true, dismissedId = null, catcher = null, directHit = null) => {
     // Never skip the save silently: the local score would keep advancing (and
     // syncMatchSummary would keep updating the headline score) while the
     // ball-by-ball record stops — spectators then see totals move with no
@@ -517,6 +522,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       // Usually the striker is out; a run-out can dismiss the non-striker.
       dismissedPlayerId: isWicket ? (dismissedId || striker.id) : null,
       wicketAssists: catcher || null,   // catcher / keeper / run-out fielder name
+      // Run outs only, and only when a fielder was named. null = not recorded.
+      directHit,
       // Idempotency key — if a retry re-sends a ball that actually landed, the
       // server dedupes instead of double-counting. The base is per-delivery and
       // survives a manual Retry; the counter separates the two writes a single
@@ -828,7 +835,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         newScore.runs += ro.teamRuns;
         if (ro.countsAsBall) newScore.balls += 1;
         newOver.push(ro.chip);
-        await persistBall(ro.batRuns, ro.extras, ro.extraType, true, 'runout', ro.countsAsBall, outPlayer?.id, catcher);
+        await persistBall(ro.batRuns, ro.extras, ro.extraType, true, 'runout', ro.countsAsBall, outPlayer?.id, catcher, runOut?.directHit ?? null);
       } else {
         newScore.balls += 1;
         newOver.push('W');
@@ -1335,8 +1342,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     const d = runOutDraft;
     setRunOutFielderPrompt(false);
     setRunOutDraft(null);
+    // No fielder named → nothing to credit, so the direct-hit answer is moot.
+    const directHit = fielderName ? runOutDirectHit : null;
+    setRunOutDirectHit(false);
     if (!d) return;
-    handleScore('out', d.runs, 'runout', d.outSlot, fielderName, null, false, d);
+    handleScore('out', d.runs, 'runout', d.outSlot, fielderName, null, false, { ...d, directHit });
   };
 
   // Would this delivery close the over? Only a legal one can, and only as the 6th —
@@ -2572,7 +2582,22 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Run out — which fielder?</Text>
             <Text style={styles.modalSub}>Who effected the run out</Text>
-            <ScrollView style={{ maxHeight: 300 }}>
+            {/* Answered before the fielder is picked, because picking one
+                commits the ball. */}
+            <TouchableOpacity
+              style={[styles.directHitRow, runOutDirectHit && styles.directHitRowOn]}
+              onPress={() => setRunOutDirectHit((v) => !v)}
+              activeOpacity={0.85}>
+              <Icon name={runOutDirectHit ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                    size={20} color={runOutDirectHit ? DS.lime : DS.textMuted} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.directHitLabel}>Direct hit</Text>
+                <Text style={styles.directHitHint}>
+                  Hit the stumps directly — the fielder takes full credit for the wicket
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <ScrollView style={{ maxHeight: 280 }}>
               {bowlingXI.map((p, i) => (
                 <TouchableOpacity key={i} style={styles.playerOption} onPress={() => commitRunOut(p.name)}>
                   <View style={styles.playerAvatar}>
@@ -3319,6 +3344,14 @@ const makeStyles = (DS) => StyleSheet.create({
   modalHandle: { width: 40, height: 4, backgroundColor: DS.surfaceHighest, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 18, fontWeight: '800', color: DS.textPrimary, marginBottom: 6, textAlign: 'center' },
   modalSub: { fontSize: 11, fontWeight: '600', color: DS.textMuted, marginBottom: 14, textAlign: 'center' },
+  directHitRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 11, paddingHorizontal: 12, marginBottom: 10,
+    borderRadius: 12, borderWidth: 1, borderColor: DS.border,
+  },
+  directHitRowOn: { borderColor: DS.lime, backgroundColor: DS.lime + '14' },
+  directHitLabel: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
+  directHitHint: { fontSize: 11, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
 
   // Run-out flow: segmented pickers (what was bowled / runs completed / how they
   // were credited) and the secondary line under a choice that spells out its
