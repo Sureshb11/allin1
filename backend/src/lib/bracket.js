@@ -11,7 +11,7 @@
 // It is idempotent and safe to call after every recorded result.
 
 import { prisma } from './prisma.js';
-import { computeStandings } from './standings.js';
+import { computeStageStandings } from './standings.js';
 
 const groupOf = (round) =>
   round && round.startsWith('Group ') ? round.slice('Group '.length).trim() : null;
@@ -33,13 +33,25 @@ export async function resolveBracket(tournamentId) {
   }
   const groupNames = Object.keys(byGroup);
   if (groupNames.length) {
-    // computeStandings ranks all teams (with tiebreakers); filtering by group
-    // preserves that order, giving per-group placings.
-    const standings = await computeStandings(tournamentId);
+    // Per-stage tables, not the flat one filtered by group.
+    //
+    // The flat table pools every completed fixture in the tournament and labels
+    // each row with the team's FIRST-ROUND group, so "Group A Winner" was being
+    // read off a table that, once later rounds had been played, also contained
+    // those later rounds. It gave the right answer in the ordinary case only
+    // because a group finishes before anything after it is played — an ordering
+    // assumption, not a guarantee. Record a knockout result before the last
+    // group game (or edit a group result afterwards) and the group winner is
+    // decided by matches that were not in the group.
+    //
+    // A stage table is computed from that stage's fixtures alone, so the
+    // question "who won Group A" is answered by Group A.
+    const stages = await computeStageStandings(tournamentId);
+    const stageRows = Object.fromEntries(stages.map((st) => [st.name, st.rows]));
     for (const g of groupNames) {
       const ms = byGroup[g];
       if (!ms.length || !ms.every((m) => m.status === 'completed')) continue;
-      const rows = standings.filter((r) => r.group === g);
+      const rows = stageRows[`Group ${g}`] || [];
       if (rows[0]) {
         label2team[`Group ${g} Winner`] = rows[0].teamId;
         label2team[`1st Group ${g}`] = rows[0].teamId;
