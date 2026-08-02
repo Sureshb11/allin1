@@ -212,7 +212,10 @@ const NON_BALL_EXTRAS = ['wide', 'noBall', 'penalty', 'retired', 'deadBall'];
 
 // Cricket dismissal notation: "b Bowler", "c Fielder b Bowler", "c & b Bowler",
 // "lbw b Bowler", "st Keeper b Bowler", "run out (Fielder)", "hit wicket b Bowler".
-function formatDismissal(wicketType, catcher, bowler) {
+// `directHit` is only ever passed for a run out — it is what the scorer said
+// happened, and until now it was recorded, scored by MVP, and never once shown
+// to the person reading the card.
+function formatDismissal(wicketType, catcher, bowler, directHit) {
   const t = String(wicketType || '').toLowerCase().replace(/[\s&]/g, '');
   const b = bowler || '';
   switch (t) {
@@ -223,7 +226,7 @@ function formatDismissal(wicketType, catcher, bowler) {
       return `c ${catcher || 'fielder'} b ${b}`;
     case 'caughtbowled': case 'candb': return `c & b ${b}`;
     case 'stumped': return `st ${catcher || 'keeper'} b ${b}`;
-    case 'runout': return `run out${catcher ? ` (${catcher})` : ''}`;
+    case 'runout': return `run out${catcher ? ` (${catcher}${directHit ? ', direct hit' : ''})` : ''}`;
     case 'hitwicket': return `hit wicket b ${b}`;
     case 'retiredout': return 'retired out';
     case 'retiredhurt': return 'retired hurt';
@@ -252,7 +255,7 @@ function computeBatting(innings, battingXI) {
         }
       }
       if (ball.isWicket && ball.dismissedPlayerId) {
-        dis[ball.dismissedPlayerId] = formatDismissal(ball.wicketType, ball.wicketAssists, ball.bowler?.name || over.bowler?.name);
+        dis[ball.dismissedPlayerId] = formatDismissal(ball.wicketType, ball.wicketAssists, ball.bowler?.name || over.bowler?.name, ball.directHit);
       }
     });
   });
@@ -483,16 +486,16 @@ function ballCommentary(ball, bowlerName) {
   // A run out can fall on an extra, so every extra line carries the dismissal when
   // there is one — otherwise the wicket would go unmentioned in the commentary.
   const outTail = ball.isWicket
-    ? `, OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}`
+    ? `, OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName, ball.directHit)}`
     : '';
-  if (et === 'deadBall') return drop + `${bowlerName} runs out ${batter} backing up — OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}`;
+  if (et === 'deadBall') return drop + `${bowlerName} runs out ${batter} backing up — OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName, ball.directHit)}`;
   if (et === 'wide') return drop + `${bowlerName} to ${batter}, wide${ball.extras > 1 ? `, ${ball.extras - 1} run${ball.extras > 2 ? 's' : ''}` : ''}${outTail}`;
   if (et === 'noBall') return drop + `${bowlerName} to ${batter}, no ball${ball.runs ? `, ${ball.runs} run${ball.runs > 1 ? 's' : ''}` : ''}${outTail}`;
   if (et === 'bye') return drop + `${bowlerName} to ${batter}, ${ball.extras} bye${ball.extras > 1 ? 's' : ''}${outTail}`;
   if (et === 'legBye') return drop + `${bowlerName} to ${batter}, ${ball.extras} leg bye${ball.extras > 1 ? 's' : ''}${outTail}`;
   if (et === 'penalty') return drop + 'Penalty awarded, 5 runs';
   if (et === 'retired') return drop + `${batter} retires ${String(ball.wicketType).toLowerCase() === 'retiredhurt' ? 'hurt' : 'out'}`;
-  if (ball.isWicket) return drop + `${bowlerName} to ${batter}, OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}`;
+  if (ball.isWicket) return drop + `${bowlerName} to ${batter}, OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName, ball.directHit)}`;
   if (ball.runs === 0) return drop + `${bowlerName} to ${batter}, no run`;
   if (ball.runs === 4) return drop + `${bowlerName} to ${batter}, FOUR!`;
   if (ball.runs === 6) return drop + `${bowlerName} to ${batter}, SIX!`;
@@ -577,7 +580,7 @@ function computeHighlights(match) {
         }
 
         if (ball.isWicket) {
-          items.push({ key: `${over.id}-${ball.batterId}-w`, inningsLabel, label, icon: 'alert-octagon', kind: 'wicket', text: `WICKET! ${batterName} ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName)}` });
+          items.push({ key: `${over.id}-${ball.batterId}-w`, inningsLabel, label, icon: 'alert-octagon', kind: 'wicket', text: `WICKET! ${batterName} ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName, ball.directHit)}` });
           const wt = String(ball.wicketType || '').toLowerCase().replace(/\s/g, '');
           const bowlerCredited = wt !== 'runout' && wt !== 'retired' && wt !== 'retiredout' && wt !== 'retiredhurt';
           if (bowlerCredited) {
