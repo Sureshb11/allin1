@@ -434,6 +434,12 @@ const TournamentsScreen = ({ navigation, inline }) => {
           status:    t.status
             ? t.status.charAt(0).toUpperCase() + t.status.slice(1)
             : 'Upcoming',
+          // The card has always drawn a cover and a logo when it has them
+          // (`item.banner`, `item.logoUrl`) — this mapper just never handed
+          // them over, so every card fell back to its generated gradient and
+          // initial. Same omission as the policy fields below.
+          logoUrl:      t.logoUrl,
+          banner:       t.banner,
           // Carried so the card can tell whether it may offer JOIN. The mapper
           // exists to keep the card's shape small, but dropping these meant
           // every tournament looked equally open.
