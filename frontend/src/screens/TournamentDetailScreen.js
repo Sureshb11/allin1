@@ -195,6 +195,24 @@ export default function TournamentDetailScreen({ route, navigation }) {
     legendsApi.getTournament(tournamentId).then((r) => { if (r.success) setTournament(r.data); });
   }, [tournamentId]));
 
+  // The wizard already asked what shape this tournament is. The schedule sheet
+  // asked again, under different names, and defaulted to Classic T20 — so a
+  // tournament created as Knockout offered to generate a league. The category
+  // picks the default; the organiser can still change it, since these four are
+  // finer-grained than the six the wizard offers.
+  const CATEGORY_TO_FORMAT = {
+    'Knockout': 'knockout',
+    'Double Elimination': 'knockout',
+    'League': 'classic_t20',
+    'Round Robin': 'classic_t20',
+    'League + Knockout': 'classic_t20',
+  };
+  useEffect(() => {
+    const suggested = CATEGORY_TO_FORMAT[tournament?.category];
+    if (suggested) setScheduleFormat(suggested);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournament?.category]);
+
   // Lazily load the leaderboard the first time the Leaders tab is opened.
   useEffect(() => {
     if (activeTab === 'Leaders' && !leaderboard) {
@@ -343,9 +361,9 @@ export default function TournamentDetailScreen({ route, navigation }) {
       const tRes = await legendsApi.getTournament(tournamentId);
       if (tRes.success) setTournament(tRes.data); // Reload teams for group badges
       setShowAutoScheduleModal(false);
-      alert(`Successfully generated ${res.data?.count ?? ''} fixtures!`);
+      showToast(`Generated ${res.data?.count ?? ''} fixtures`, 'success');
     } else {
-      alert(res.error || 'Failed to generate schedule');
+      showToast(res.error || 'Failed to generate schedule', 'error');
     }
     setProcessing(false);
   };

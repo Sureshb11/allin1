@@ -7,6 +7,7 @@ import { applyTournamentResult } from '../lib/tournamentResult.js';
 import { notifyTeams, notifyUsers, notifyAllParticipants, safeNotify } from '../lib/notify.js';
 import { tournamentLeaderboard } from '../lib/leaderboard.js';
 import { seriesAwards } from '../lib/awards.js';
+import { zonedTime } from '../lib/zonedTime.js';
 
 const router = Router();
 
@@ -623,13 +624,17 @@ router.post('/:id/schedule', authMiddleware, requireOrganizer, async (req, res) 
 router.post('/:id/auto-schedule', authMiddleware, requireOrganizer, async (req, res) => {
   try {
     const { format = 'classic_t20', autoSplit = true } = req.body;
-    
-    const tTeams = await prisma.tournamentTeam.findMany({ 
-      where: { tournamentId: req.params.id } 
+
+    // Approved only. Without the filter a pending join request — a team that
+    // asked and hasn't been admitted — was drawn into the fixture list exactly
+    // like a registered one, and the organiser rejecting it afterwards left a
+    // fixture against a team that isn't in the tournament.
+    const tTeams = await prisma.tournamentTeam.findMany({
+      where: { tournamentId: req.params.id, status: 'approved' },
     });
-    
+
     if (tTeams.length < 2) {
-      return res.status(400).json({ error: 'Need at least 2 teams to auto-schedule' });
+      return res.status(400).json({ error: 'Need at least 2 approved teams to auto-schedule' });
     }
     
     // Clear existing unplayed matches
@@ -638,9 +643,25 @@ router.post('/:id/auto-schedule', authMiddleware, requireOrganizer, async (req, 
     });
 
     const matches = [];
-    let scheduledDate = new Date();
-    scheduledDate.setHours(10, 0, 0, 0); // Default to 10:00 AM
-    scheduledDate.setDate(scheduledDate.getDate() + 1); // Start tomorrow
+    // The tournament already says when it starts and what time the first ball
+    // is — the create wizard asks for both. This generator ignored them and
+    // began "tomorrow at 10:00", so a tournament starting next August got
+    // fixtures dated this week. Its own dates now win; tomorrow is the fallback
+    // for a tournament that never set one.
+    const tourney = await prisma.tournament.findUnique({
+      where: { id: req.params.id },
+      select: { startDate: true, regWindow: true },
+    });
+    const [startHour, startMin] = String(tourney?.regWindow?.startTime || '10:00')
+      .split(':').map((n) => Number(n) || 0);
+    // The time is the tournament's, in the tournament's zone. setHours would use
+    // the SERVER's — fine on a laptop in Chennai, and four and a half hours out
+    // on Vercel, which runs in UTC.
+    const tz = tourney?.regWindow?.timeZone || null;
+    const firstDay = tourney?.startDate
+      ? new Date(tourney.startDate)
+      : new Date(Date.now() + 24 * 60 * 60 * 1000);
+    let scheduledDate = zonedTime(firstDay, startHour, startMin, tz);
 
     if (format === 'knockout') {
       // Pure Knockout Logic
@@ -675,8 +696,13 @@ router.post('/:id/auto-schedule', authMiddleware, requireOrganizer, async (req, 
       while (teamIndex < teams.length) {
         byes.push(teams[teamIndex++]);
       }
-      
+
+      // Each match day starts at the tournament's own first-ball time. Matches
+      // within a day are spaced 3 hours apart for ordering; without resetting
+      // here, that spacing carried into the next round, so a four-round
+      // knockout drifted the final nine hours later than the first game.
       scheduledDate.setDate(scheduledDate.getDate() + 1);
+      scheduledDate = zonedTime(scheduledDate, startHour, startMin, tz);
       
       let currentRoundTeams = [...byes.map(id => ({ teamId: id })), ...round1Winners.map(name => ({ placeholder: name }))];
       let roundNum = 2;
@@ -707,7 +733,7 @@ router.post('/:id/auto-schedule', authMiddleware, requireOrganizer, async (req, 
         currentRoundTeams = nextRoundTeams;
         roundNum++;
         scheduledDate.setDate(scheduledDate.getDate() + 1);
-        scheduledDate.setHours(10, 0, 0, 0);
+        scheduledDate = zonedTime(scheduledDate, startHour, startMin, tz);
       }
 
     } else {
