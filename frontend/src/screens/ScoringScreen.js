@@ -9,6 +9,7 @@ import legendsApi from '../services/LegendsApi';
 import { haptic } from '../utils/haptics';
 import { activateKeepAwake, deactivateKeepAwake } from '../utils/keepAwake';
 import { showToast } from '../components/Toast';
+import InningsBreakScreen from '../components/InningsBreakScreen';
 import MatchPhotos from '../components/MatchPhotos';
 import MatchAwardsModal from "../components/MatchAwardsModal";
 import PlayerAvatar from "../components/PlayerAvatar";
@@ -75,6 +76,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // scorer can't see, or confirm an undo of, that over's final ball.
   const [lastOverBalls, setLastOverBalls] = useState([]);
   const [isInnings2, setIsInnings2] = useState(false);
+  // The innings break. Set when the 1st innings ends, cleared when the scorer
+  // chooses to carry on — it's what the break screen renders from, and it has to
+  // be captured BEFORE finishInnings resets batStats/bowlStats for the 2nd.
+  const [inningsBreak, setInningsBreak] = useState(null);
   const [battingTeamName, setBattingTeamName] = useState('');
   const [bowlingTeamName, setBowlingTeamName] = useState('');
   const [battingXI, setBattingXI] = useState([]);
@@ -1034,6 +1039,36 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const finishInnings = async (reason, scoreOverride) => {
     const score = scoreOverride || currentScore;
     if (!isInnings2) {
+      // Snapshot the innings while the figures still exist. Everything below
+      // resets batStats/bowlStats/XIs for the second innings, so the break
+      // screen has to take its copy here or it has nothing to show.
+      // Top three each. Batters need to have faced a ball, not to have scored —
+      // a 0 (8) is part of the story. Bowlers are ranked on wickets then runs
+      // conceded, so an economical wicketless spell still shows rather than the
+      // card coming back empty when nobody took one.
+      const topBatters = battingXI
+        .map((p) => ({ name: p.name, ...(batStats[p.id] || {}) }))
+        .filter((b) => (b.balls || 0) > 0)
+        .sort((a, b) => (b.runs || 0) - (a.runs || 0) || (a.balls || 0) - (b.balls || 0))
+        .slice(0, 3);
+      const topBowlers = bowlingXI
+        .map((p) => ({ name: p.name, ...(bowlStats[p.id] || {}) }))
+        .filter((b) => (b.balls || 0) > 0)
+        .sort((a, b) => (b.wickets || 0) - (a.wickets || 0) || (a.runs || 0) - (b.runs || 0))
+        .slice(0, 3);
+      setInningsBreak({
+        battingTeam: battingTeamName,
+        bowlingTeam: bowlingTeamName,
+        score: `${score.runs}/${score.wickets}`,
+        overs: `${score.overs}.${score.balls}`,
+        totalOvers,
+        runRate: (score.overs * 6 + score.balls) > 0
+          ? (score.runs / ((score.overs * 6 + score.balls) / 6)).toFixed(2) : '0.00',
+        target: score.runs + 1,
+        reason,
+        batters: topBatters,
+        bowlers: topBowlers,
+      });
       setFirstInningsScore(score);
       const s1 = `${score.runs}/${score.wickets} (${score.overs}.${score.balls})`;
       // battingTeamId is still the 1st-innings batting side here (the swap is below).
@@ -1390,6 +1425,33 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     const wks = bowlingXI.filter((p) => isKeeperRole(p.role));
     return wks.length === 1 ? wks[0] : null;
   })();
+
+  // ── INNINGS BREAK ─────────────────────────────────────────────
+  // The first innings used to end straight into "SELECT PLAYERS" for the second,
+  // which skips past the thing everyone wants at the interval (what just
+  // happened) and offers no way to change scorer. Both sides taking a half each
+  // is the normal arrangement in local cricket; a dedicated scorer simply taps
+  // Continue and carries on.
+  if (inningsBreak) {
+    return (
+      <InningsBreakScreen
+        data={inningsBreak}
+        matchId={matchData?.id}
+        venue={matchData?.venue}
+        onContinue={() => setInningsBreak(null)}
+        onHandedOver={(name) => {
+          setInningsBreak(null);
+          // The book is theirs now — every scoring write from this device would
+          // be rejected by assertScorer, so don't pretend otherwise.
+          Alert.alert(
+            'Scoring handed over',
+            `${name} is now scoring this match. They'll pick the openers for the second innings.`,
+            [{ text: 'OK', onPress: () => navigation.goBack() }],
+          );
+        }}
+      />
+    );
+  }
 
   // ── PRE-SCORING SETUP SCREEN ──────────────────────────────────
   if (!scoringReady) {

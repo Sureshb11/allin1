@@ -8,7 +8,7 @@ import { pushMatchResultCard } from '../lib/feed.js';
 import { reportMatchToTournament } from '../lib/tournamentResult.js';
 import { computeAwards } from '../lib/mvp.js';
 import { persistMatchAwards, hasMatchAwards } from '../lib/awards.js';
-import { safeNotify, notifyMatchLive, notifyMatchResult, pingMatchWatchers } from '../lib/notify.js';
+import { safeNotify, notifyUsers, notifyMatchLive, notifyMatchResult, pingMatchWatchers } from '../lib/notify.js';
 
 const router = Router();
 
@@ -520,20 +520,37 @@ router.get('/:id/scorer', authMiddleware, async (req, res) => {
     if (!match) return res.status(404).json({ error: 'Match not found' });
     const squad = await prisma.matchPlayer.findMany({
       where: { matchId: req.params.id },
-      include: { player: { select: { userId: true, name: true } } },
+      include: {
+        team: { select: { id: true, name: true } },
+        player: { select: { userId: true, name: true, user: { select: { avatarUrl: true } } } },
+      },
     });
     // De-dupe registered users in the squad (exclude the current scorer).
     const seen = new Set();
     const candidates = [];
     let scorerName = '';
+    let scorerTeamId = null;
     for (const s of squad) {
       const uid = s.player?.userId;
-      if (uid === match.scorerId) scorerName = s.player.name;
+      if (uid === match.scorerId) { scorerName = s.player.name; scorerTeamId = s.teamId; }
       if (uid && uid !== match.scorerId && !seen.has(uid)) {
         seen.add(uid);
-        candidates.push({ userId: uid, name: s.player.name });
+        candidates.push({
+          userId: uid,
+          name: s.player.name,
+          // The break screen groups by side and leads with the opponent, so it
+          // needs to know which team each name is on and who has a photo.
+          teamId: s.teamId,
+          teamName: s.team?.name || null,
+          avatarUrl: s.player.user?.avatarUrl || null,
+        });
       }
     }
+    // Handing over at the innings break normally means handing to the side that
+    // is about to field, so their players come first. A dedicated scorer is in
+    // neither squad — then there's no opponent and the order is left alone.
+    for (const c of candidates) c.isOpponent = scorerTeamId ? c.teamId !== scorerTeamId : false;
+    candidates.sort((a, b) => (b.isOpponent - a.isOpponent) || a.name.localeCompare(b.name));
     // Fall back to the User's name if the scorer isn't in the squad as a linked player.
     if (!scorerName && match.scorerId) {
       const u = await prisma.user.findUnique({ where: { id: match.scorerId }, select: { firstName: true, lastName: true } });
@@ -556,7 +573,19 @@ router.put('/:id/scorer', authMiddleware, async (req, res) => {
     if (match.scorerId && match.scorerId !== req.user.sub) {
       return res.status(403).json({ error: 'Only the current scorer can transfer scoring' });
     }
-    await prisma.match.update({ where: { id: req.params.id }, data: { scorerId } });
+    const updated = await prisma.match.update({
+      where: { id: req.params.id },
+      data: { scorerId },
+      include: { team1: { select: { name: true } }, team2: { select: { name: true } } },
+    });
+    // Otherwise the book has changed hands and the person now holding it has no
+    // idea. Best-effort: the transfer itself has already happened.
+    await safeNotify(() => notifyUsers([scorerId], {
+      type: 'match',
+      title: "You're scoring",
+      message: `You've been handed the scoring for ${updated.team1?.name || 'Team 1'} v ${updated.team2?.name || 'Team 2'}.`,
+      data: { matchId: req.params.id },
+    }));
     res.json({ success: true, scorerId });
   } catch (e) {
     res.status(400).json({ error: e.message });
