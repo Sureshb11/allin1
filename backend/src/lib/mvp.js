@@ -68,12 +68,17 @@ const chargedRuns = (b) =>
 // undefined, and both are pinned HERE so a real CricHeroes card can settle them
 // by changing one number rather than by rewriting the formula:
 //
-//   • SCALE (`divisor`). Everywhere else the algorithm turns runs into points at
-//     10 runs = 1 point, and the batting bonus is scaled by the batter's own base
-//     score — this term is scaled by nothing, so as written a tidy 4-over spell
-//     is worth several wickets. 1 = the formula exactly as published; 10 = the
-//     same term converted at the algorithm's own runs-to-points rate. If real
-//     CricHeroes bowling points come out ~10× smaller than ours, this is why.
+//   • SCALE (`divisor`). SETTLED AT 10, against a real match. Everywhere else
+//     the algorithm turns runs into points at 10 runs = 1 point, and the batting
+//     strike-rate bonus is a percentage OF the batter's own base score. This
+//     term is scaled by nothing — it is a runs-per-100-balls quantity dropped
+//     straight into a points total, so it arrived ~10x too large.
+//
+//     What that looked like: an 8-over game where Kuldeep Yadav bowled ONE over
+//     for 11 and no wickets scored 8.45 — every point of it this bonus — and
+//     finished first, ahead of a bowler who took 3 wickets in an over and scored
+//     4.1. A wicketless over outscoring a three-wicket over is the tell.
+//     Dividing by 10 puts the term in the same currency as everything else.
 //
 //   • ZERO RUNS (`ratioCap`). TeamSR ÷ PlayerSR is undefined when a bowler has
 //     conceded nothing and runs away as they approach it, so the ratio is capped.
@@ -82,7 +87,7 @@ const chargedRuns = (b) =>
 // No penalty for going at more than the innings rate: CricHeroes removed the
 // strike-rate penalty on the batting side, and their bowling formula was never
 // republished with a sign term, so this only ever adds.
-export const ECONOMY = { divisor: 1, ratioCap: 3 };
+export const ECONOMY = { divisor: 10, ratioCap: 3 };
 
 export function economyBonus({ teamSR, playerSR, srPct, ballsBowled }) {
   if (!ballsBowled || !(teamSR > playerSR)) return 0;

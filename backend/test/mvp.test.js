@@ -153,14 +153,32 @@ test('batting + bowling + fielding always equals the total on screen', () => {
 });
 
 // ── The bowler's economy bonus, as CricHeroes publish it ────────────────────
-// (TeamSR / PlayerSR) × (TeamSR − PlayerSR) × SR%. Worked by hand so a change to
-// the formula has to be deliberate.
+// (TeamSR / PlayerSR) × (TeamSR − PlayerSR) × SR%, then divided by 10 to put it
+// in the same currency as everything else (ECONOMY.divisor — see mvp.js).
+// Worked by hand so a change to the formula has to be deliberate.
 test('economy bonus follows the published formula', () => {
   // T20 (8%), innings 160 off 120 balls → TeamSR 133.33.
   // Bowler 4-0-20-1 → 24 balls, PlayerSR 83.33.
-  // ratio 1.6 × gap 50 × 0.08 = 6.4
+  // ratio 1.6 × gap 50 × 0.08 = 6.4 runs → 0.64 points.
   const bonus = economyBonus({ teamSR: (160 / 120) * 100, playerSR: (20 / 24) * 100, srPct: 0.08, ballsBowled: 24 });
-  assert.equal(+bonus.toFixed(4), 6.4);
+  assert.equal(+bonus.toFixed(4), 0.64);
+});
+
+// The regression this scale exists for. A real 8-over match: Kuldeep Yadav
+// bowled ONE over for 11 and took NOTHING, and finished first on MVP with 8.45
+// — every point of it this bonus — ahead of a bowler who took three wickets in
+// an over. Economy is worth something; it is not worth more than wickets.
+test('a tidy wicketless over cannot outscore three wickets', () => {
+  const srPct = 0.08;                       // 8 overs a side
+  const teamSR = (124 / 48) * 100;          // the innings: 124 off 48 balls
+  const tidy = economyBonus({ teamSR, playerSR: (11 / 6) * 100, srPct, ballsBowled: 6 });
+  // Three wickets in an 8-over game: base 14 runs a wicket → 1.4 points each at
+  // full positional weight, plus the 3-wicket milestone.
+  const threeWickets = 3 * (14 / 10) + 0.5;
+  assert.ok(tidy < threeWickets,
+    `a wicketless over scored ${tidy.toFixed(2)} against ${threeWickets} for three wickets`);
+  // And still worth having: tight bowling is not worthless.
+  assert.ok(tidy > 0);
 });
 
 test('economy bonus only ever adds, and never for a bowler who did not bowl', () => {
