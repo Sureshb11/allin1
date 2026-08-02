@@ -185,11 +185,34 @@ export async function computeStageStandings(tournamentId) {
   }
 
   stages.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
-  return stages.map((st) => ({
-    key: st.key,
-    name: st.name,
-    rows: tabulate([...st.teamIds].map((id) => byId[id]).filter(Boolean), st.matches, S),
-  }));
+
+  // How many teams got out of each stage — counted, not assumed. The app was
+  // highlighting a hardcoded top 2 as qualifying, which is right for a World Cup
+  // group and wrong for a four-team group where one goes through, or an
+  // IPL-style top four. Every team that appears in a LATER stage or in a
+  // knockout fixture came out of this one, and that is a fact already in the
+  // fixture list.
+  const laterTeamIds = [];   // index i = teams appearing anywhere after stage i
+  const knockoutTeams = new Set(
+    matches.filter((m) => m.phase?.type === 'knockout')
+      .flatMap((m) => [m.team1Id, m.team2Id]).filter(Boolean));
+  for (let i = 0; i < stages.length; i++) {
+    const after = new Set(knockoutTeams);
+    for (let j = i + 1; j < stages.length; j++) for (const id of stages[j].teamIds) after.add(id);
+    laterTeamIds.push(after);
+  }
+
+  return stages.map((st, i) => {
+    const advanced = [...st.teamIds].filter((id) => laterTeamIds[i].has(id)).length;
+    return {
+      key: st.key,
+      name: st.name,
+      // null while nothing after this stage has been drawn yet — the app then
+      // highlights nothing rather than guessing.
+      advancing: advanced > 0 && advanced < st.teamIds.size ? advanced : null,
+      rows: tabulate([...st.teamIds].map((id) => byId[id]).filter(Boolean), st.matches, S),
+    };
+  });
 }
 
 // Persist the aggregated tallies back onto TournamentTeam (points/played/…/nrr

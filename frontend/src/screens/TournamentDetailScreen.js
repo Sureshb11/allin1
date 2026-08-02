@@ -845,7 +845,15 @@ export default function TournamentDetailScreen({ route, navigation }) {
     const sortedGroups = stages.length ? stages.map((st) => st.name) : Object.keys(groups).sort();
     // How many advance per group: with multiple groups, top 2 each is the norm
     // (Classic T20); a single group table highlights the top 2 as well.
-    const qualifyN = 2;
+    // How many advance, per stage, counted by the server from who actually
+    // appears in a later stage — not the flat 2 this assumed, which is right
+    // for a World Cup group and wrong for a four-team group where one goes
+    // through, or an IPL-style top four. null means nothing after this stage
+    // has been drawn yet, so nothing is highlighted rather than guessed.
+    const qualifyFor = (name) => {
+      const st = stages.find((x) => x.name === name);
+      return stages.length ? (st ? st.advancing : null) : 2;
+    };
 
     return (
       <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
@@ -875,7 +883,8 @@ export default function TournamentDetailScreen({ route, navigation }) {
               </View>
               
               {groups[groupName].map((row, idx) => {
-                const qualifies = idx < qualifyN && (row.played || 0) > 0;
+                const qualifyN = qualifyFor(groupName);
+                const qualifies = qualifyN != null && idx < qualifyN && (row.played || 0) > 0;
                 const form = formFor(row.teamId);
                 return (
                 <View key={row.teamId} style={[styles.ptRow, idx % 2 === 0 && styles.ptRowAlt, qualifies && styles.ptRowQualified]}>
@@ -906,10 +915,10 @@ export default function TournamentDetailScreen({ route, navigation }) {
                   </Text>
                 </View>
               );})}
-              {groups[groupName].some((r) => (r.played || 0) > 0) && (
+              {groups[groupName].some((r) => (r.played || 0) > 0) && qualifyFor(groupName) != null && (
                 <View style={styles.qualLegend}>
                   <View style={[styles.formDot, { backgroundColor: DS.lime, width: 8, height: 8, borderRadius: 4 }]} />
-                  <Text style={styles.qualLegendText}>Top {qualifyN} advance</Text>
+                  <Text style={styles.qualLegendText}>Top {qualifyFor(groupName)} advance</Text>
                 </View>
               )}
             </View>
