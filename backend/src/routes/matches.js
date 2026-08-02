@@ -1085,6 +1085,48 @@ router.post('/:id/toss', authMiddleware, async (req, res) => {
   }
 });
 
+// Discard a second innings that should never have started.
+//
+// Ending an innings is one tap behind a reason picker, and "Rain / abandoned"
+// sits next to the reasons you actually mean — so it gets hit by accident. That
+// used to be final: finishInnings creates the second Inning server-side and
+// resets the scorer, with no way back to a first innings that wasn't finished.
+//
+// Only while the new innings is still empty. Once a ball has been bowled in it,
+// undoing would delete real scoring, so this refuses and says so — at that point
+// the way back is the ball-by-ball undo, one delivery at a time.
+router.delete('/:id/innings/:inningId', authMiddleware, async (req, res) => {
+  try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
+    const inning = await prisma.inning.findUnique({
+      where: { id: req.params.inningId },
+      include: { oversData: { include: { balls: { take: 1 } } } },
+    });
+    if (!inning) return res.status(404).json({ error: 'Innings not found' });
+    if (inning.matchId !== req.params.id) return res.status(400).json({ error: 'That innings belongs to another match' });
+    if (inning.inningNumber === 1) {
+      return res.status(400).json({ error: "The first innings can't be discarded" });
+    }
+    const balls = inning.oversData.reduce((n, o) => n + o.balls.length, 0);
+    if (balls > 0) {
+      return res.status(409).json({
+        error: 'This innings already has deliveries in it. Undo them ball by ball first.',
+        code: 'INNINGS_NOT_EMPTY',
+      });
+    }
+
+    await prisma.$transaction([
+      prisma.over.deleteMany({ where: { inningId: inning.id } }),
+      prisma.inning.delete({ where: { id: inning.id } }),
+      // Back to the first innings, still live.
+      prisma.match.update({ where: { id: req.params.id }, data: { currentInnings: 1, status: 'live' } }),
+    ]);
+    res.json({ success: true, resumedInningNumber: 1 });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.post('/:id/innings', authMiddleware, async (req, res) => {
   try {
     if (!(await assertScorer(req, res, req.params.id))) return;

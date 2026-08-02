@@ -80,6 +80,9 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // chooses to carry on — it's what the break screen renders from, and it has to
   // be captured BEFORE finishInnings resets batStats/bowlStats for the 2nd.
   const [inningsBreak, setInningsBreak] = useState(null);
+  // The state as it stood the instant before the first innings was ended, so an
+  // accidental end can be walked back. See resumeFirstInnings.
+  const undoInningsRef = useRef(null);
   const [battingTeamName, setBattingTeamName] = useState('');
   const [bowlingTeamName, setBowlingTeamName] = useState('');
   const [battingXI, setBattingXI] = useState([]);
@@ -1034,6 +1037,46 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     match:   ['Target achieved', 'All out', 'Overs completed', 'Rain / abandoned', 'Match conceded'],
   };
 
+  // Walk back an innings that was ended by mistake.
+  //
+  // Discards the second innings the server created (it refuses once a ball has
+  // been bowled in it — at that point the way back is the ball-by-ball undo),
+  // then puts every piece of scorer state back exactly as it stood. The snapshot
+  // is taken inside finishInnings before it resets anything.
+  const resumeFirstInnings = async () => {
+    const snap = undoInningsRef.current;
+    if (!snap) return { ok: false, error: 'Nothing to undo' };
+    // currentInningId is the SECOND innings by now — that's the one to discard.
+    const res = await legendsApi.discardInnings(matchData.id, currentInningId);
+    if (!res.success) return { ok: false, error: res.error };
+
+    setIsInnings2(false);
+    setCurrentInningId(snap.inningId);
+    setCurrentScore(snap.score);
+    setCurrentOver(snap.currentOver); setLastOverBalls(snap.lastOverBalls);
+    setBallCount(snap.ballCount); setHistory(snap.history); setOverComplete(snap.overComplete);
+    setBatStats(snap.batStats); setBowlStats(snap.bowlStats);
+    setBowlerOvers(snap.bowlerOvers); setLastOverBowlerId(snap.lastOverBowlerId);
+    setBowlerLastOver(snap.bowlerLastOver);
+    setOutBatters(snap.outBatters); setRetiredBatters(snap.retiredBatters);
+    setPendingCreaseSwap(snap.pendingCreaseSwap);
+    setPnrStartRuns(snap.pnrStartRuns); setPnrBalls(snap.pnrBalls);
+    setBattingTeamName(snap.battingTeamName); setBowlingTeamName(snap.bowlingTeamName);
+    setBattingTeamId(snap.battingTeamId); setBowlingTeamId(snap.bowlingTeamId);
+    setBattingXI(snap.battingXI); setBowlingXI(snap.bowlingXI);
+    setKeeperId(snap.keeperId);
+    setStriker(snap.striker); setNonStriker(snap.nonStriker); setCurrentBowler(snap.currentBowler);
+    milestoneRef.current = snap.milestones;
+    setFirstInningsScore({ runs: 0, wickets: 0, overs: 0 });
+    // The crease is repopulated, so scoring resumes rather than asking for
+    // openers again.
+    setScoringReady(true);
+    setInningsBreak(null);
+    undoInningsRef.current = null;
+    showToast('Back in the 1st innings', 'success');
+    return { ok: true };
+  };
+
   // End the current innings/match with a recorded reason. `scoreOverride` lets an
   // automatic end (all-out / overs-done) pass the just-computed score.
   const finishInnings = async (reason, scoreOverride) => {
@@ -1069,6 +1112,21 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         batters: topBatters,
         bowlers: topBowlers,
       });
+      // Everything the reset below is about to throw away. "Rain / abandoned"
+      // sits next to the reasons you actually mean in the picker, so ending the
+      // wrong innings is a real mis-tap — and it used to be final. Held in a ref
+      // (not state) so restoring it can't race a re-render.
+      undoInningsRef.current = {
+        inningId: currentInningId,
+        score, currentOver, lastOverBalls, ballCount, history, overComplete,
+        batStats, bowlStats, bowlerOvers, lastOverBowlerId, bowlerLastOver,
+        outBatters, retiredBatters, pendingCreaseSwap,
+        pnrStartRuns, pnrBalls,
+        battingTeamName, bowlingTeamName, battingTeamId, bowlingTeamId,
+        battingXI, bowlingXI, keeperId,
+        striker, nonStriker, currentBowler,
+        milestones: milestoneRef.current,
+      };
       setFirstInningsScore(score);
       const s1 = `${score.runs}/${score.wickets} (${score.overs}.${score.balls})`;
       // battingTeamId is still the 1st-innings batting side here (the swap is below).
@@ -1439,6 +1497,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         matchId={matchData?.id}
         venue={matchData?.venue}
         onContinue={() => setInningsBreak(null)}
+        onResumeFirst={resumeFirstInnings}
         onHandedOver={(name) => {
           setInningsBreak(null);
           // The book is theirs now — every scoring write from this device would

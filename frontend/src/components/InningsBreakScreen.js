@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Image, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { makeControls, controlColors } from '../theme/controls';
@@ -34,7 +34,7 @@ function Figure({ label, value, sub }) {
   );
 }
 
-export default function InningsBreakScreen({ data, matchId, venue, onContinue, onHandedOver }) {
+export default function InningsBreakScreen({ data, matchId, venue, onContinue, onHandedOver, onResumeFirst }) {
   const DS = useTheme().colors;
   const s = useThemedStyles(makeStyles);
   const C = useThemedStyles(makeControls);
@@ -47,6 +47,7 @@ export default function InningsBreakScreen({ data, matchId, venue, onContinue, o
   const [candidates, setCandidates] = useState([]);
   const [handing, setHanding] = useState(null);   // userId mid-transfer
   const [error, setError] = useState(null);
+  const [undoing, setUndoing] = useState(false);
 
   const openPicker = useCallback(async () => {
     haptic.tick();
@@ -168,6 +169,30 @@ export default function InningsBreakScreen({ data, matchId, venue, onContinue, o
         </View>
       </ScrollView>
 
+      {/* Ended the wrong innings? A mis-tap on the reason picker shouldn't cost
+          you the innings. Deliberately quiet and last — it's a correction, not
+          a normal step — and it stops being offered once the second innings has
+          a ball in it (the server refuses, and we say why). */}
+      {!!onResumeFirst && (
+        <TouchableOpacity
+          style={s.undoRow}
+          activeOpacity={0.7}
+          disabled={undoing}
+          onPress={async () => {
+            setUndoing(true);
+            const r = await onResumeFirst();
+            setUndoing(false);
+            if (!r?.ok) {
+              Alert.alert("Can't resume the first innings", r?.error || 'Please try again.');
+            }
+          }}>
+          {undoing
+            ? <ActivityIndicator size="small" color={DS.textMuted} />
+            : <Icon name="undo-variant" size={15} color={DS.textMuted} />}
+          <Text style={s.undoTxt}>Ended by mistake? Resume the 1st innings</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Who scores the second innings */}
       <View style={s.actions}>
         <TouchableOpacity style={[C.btnGhost, s.action]} onPress={openPicker} activeOpacity={0.85}>
@@ -258,6 +283,11 @@ const makeStyles = (DS) => {
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   detailTxt: { fontSize: 12.5, fontWeight: '600', color: DS.textVariant, flexShrink: 1 },
 
+  undoRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    paddingVertical: 12, paddingHorizontal: 16,
+  },
+  undoTxt: { fontSize: 12.5, fontWeight: '700', color: DS.textMuted },
   actions: {
     flexDirection: 'row', gap: 10, padding: 16, paddingBottom: 28,
     borderTopWidth: 1, borderTopColor: DS.border, backgroundColor: DS.bg,

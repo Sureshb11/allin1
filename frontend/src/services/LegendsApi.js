@@ -473,6 +473,17 @@ class LegendsApi {
   }
 
   // Match awards (MVP): Man of the Match, Fighter, Best Batter/Bowler/Fielder.
+  // Throw away a second innings that was started by accident. Refuses (409,
+  // INNINGS_NOT_EMPTY) once it has deliveries in it.
+  async discardInnings(matchId, inningId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/innings/${inningId}`, { method: 'DELETE' });
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   async getMatchAwards(matchId) {
     try {
       const json = await this.request(`/matches/${matchId}/awards`);
