@@ -524,7 +524,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   // Full, and whether it has actually started — the stored status goes stale the
   // moment the start date passes or the last place is taken.
   const cap = capacity(tournament, (tournament.teams || []).length);
-  const liveStatus = effectiveStatus(tournament);
+  const liveStatus = effectiveStatus(tournament, (tournament.teams || []).length);
   const acceptsTeams = ['upcoming', 'ongoing'].includes(liveStatus) && !cap.full;
   // Anything drawn over the cover photo needs the light treatment; without a
   // cover the header is an ordinary surface and keeps the theme's colours.

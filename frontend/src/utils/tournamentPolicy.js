@@ -49,11 +49,17 @@ export function capacity(t, approvedCount) {
 export function effectiveStatus(t, approvedCount) {
   const stored = String(t?.status || '').toLowerCase();
   if (stored === 'completed' || stored === 'cancelled') return stored;
+  // Full counts as a state. A tournament with every place taken is not "open"
+  // in any sense a reader cares about, and saying OPEN over 16 of 16 is the
+  // exact complaint this came from. It ranks below started — a full tournament
+  // that has begun is under way, not merely full.
+  const cap = capacity(t, approvedCount);
   // The list maps tournaments into a smaller shape and renames the date, so
   // accept either. Missing means "no start date", which never counts as started.
   const start = t?.startDate || t?.startsAt;
   const started = start && !Number.isNaN(new Date(start).getTime()) && new Date(start) <= new Date();
   if (stored === 'upcoming' && started) return 'ongoing';
+  if (stored === 'upcoming' && cap.full) return 'full';
   return stored || 'upcoming';
 }
 

@@ -42,11 +42,18 @@ const statusKey = (s) => {
   const v = String(s || '').toLowerCase();
   if (v === 'ongoing' || v === 'active' || v === 'live') return 'Ongoing';
   if (v === 'completed' || v === 'finished' || v === 'cancelled') return 'Completed';
+  // Full is its own badge — saying OPEN over 16 of 16 is what prompted this.
+  if (v === 'full') return 'Full';
   return 'Open';
 };
+// What the CHIPS filter on. A full tournament is still an upcoming one, so it
+// stays under Open; hiding it from every chip but All would make a tournament
+// vanish the moment its last place went.
+const filterKey = (s) => (statusKey(s) === 'Full' ? 'Open' : statusKey(s));
 
 const makeStatusColors = (DS) => ({
   Open:      DS.lime,
+  Full:      '#fbbf24',   // amber — not open, not yet started
   Ongoing:   '#fbbf24', // Gold
   Active:    '#fbbf24', // Gold
   Upcoming:  DS.blue,
@@ -209,7 +216,7 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
   // The EFFECTIVE state, not the stored one: a tournament whose start date has
   // passed is under way even if nobody moved it off "upcoming", and it should
   // stop saying OPEN on its card.
-  const state = statusKey(effectiveStatus(item));
+  const state = statusKey(effectiveStatus(item, item.teams));
   const statusColor = STATUS_COLORS[state] || DS.textMuted;
   const teamsLeft = (item.maxTeams || 16) - (item.teams || 0);
   const canJoin = joinPolicy(item, item.teams || 0);
@@ -468,7 +475,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
   };
 
   const filtered = tournaments.filter(t => {
-    const f = filter === 'All' || statusKey(effectiveStatus(t)) === filter;
+    const f = filter === 'All' || filterKey(effectiveStatus(t, t.teams)) === filter;
     const q = searchQuery.toLowerCase();
     const s = !q || (t.name || '').toLowerCase().includes(q) || (t.location || '').toLowerCase().includes(q);
     return f && s;
@@ -489,14 +496,14 @@ const TournamentsScreen = ({ navigation, inline }) => {
     return !q || (t.name || '').toLowerCase().includes(q) || (t.location || '').toLowerCase().includes(q);
   });
   const counts = FILTERS.reduce((acc, f) => {
-    acc[f] = f === 'All' ? searched.length : searched.filter(t => statusKey(effectiveStatus(t)) === f).length;
+    acc[f] = f === 'All' ? searched.length : searched.filter(t => filterKey(effectiveStatus(t, t.teams)) === f).length;
     return acc;
   }, {});
 
   const standard = filtered;
 
   /* Aggregate stats */
-  const activeCount  = tournaments.filter(t => statusKey(effectiveStatus(t)) !== 'Completed').length;
+  const activeCount  = tournaments.filter(t => statusKey(effectiveStatus(t, t.teams)) !== 'Completed').length;
   const totalTeams   = tournaments.reduce((s, t) => s + (t.teams || 0), 0);
 
   return (
