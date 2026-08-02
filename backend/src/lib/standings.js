@@ -28,18 +28,48 @@ const STAT = {
   },
 };
 
-// Build the sorted table for a tournament. Pure aggregation → no side effects
-// unless you call persistStandings().
-export async function computeStandings(tournamentId) {
+// Load the pieces a table is built from, once, so the whole-tournament table
+// and the per-stage tables don't each go back to the database for them.
+async function loadTable(tournamentId) {
   const tourney = await prisma.tournament.findUnique({ where: { id: tournamentId } });
   if (!tourney) throw new Error('Tournament not found');
 
   const cfg = await prisma.sportConfiguration.findUnique({ where: { id: tourney.sport } });
-  const S = cfg?.rules?.standings || { win: 3, draw: 1, loss: 0, tiebreakers: ['points', 'headToHead'] };
+  const sportRules = cfg?.rules?.standings || { win: 3, draw: 1, loss: 0, tiebreakers: ['points', 'headToHead'] };
+  // A tournament's own points system wins over the sport default. The create
+  // wizard asks for it — points per outcome, a bonus point, the tie-break order
+  // — and the engine was reading straight past it to the sport-wide config, so
+  // an organiser who set 3 points a win still got a table computed on 2.
+  //
+  // The wizard names two tie-breaks differently from the engine, and offers one
+  // (boundary count) that nothing records; unknown keys are dropped rather than
+  // silently skipping a comparison the organiser thinks is running.
+  const TIEBREAK_ALIASES = { h2h: 'headToHead', headToHead: 'headToHead', points: 'points', nrr: 'nrr', wins: 'wins' };
+  const own = tourney.pointsRules || {};
+  const ownTiebreaks = (own.tieBreak || []).map((k) => TIEBREAK_ALIASES[k]).filter(Boolean);
+  const S = {
+    ...sportRules,
+    ...(own.win      != null && { win: own.win }),
+    ...(own.tie      != null && { tie: own.tie, draw: own.tie }),
+    ...(own.loss     != null && { loss: own.loss }),
+    ...(own.noResult != null && { noResult: own.noResult }),
+    ...(ownTiebreaks.length && { tiebreakers: ownTiebreaks }),
+  };
 
-  const entries = await prisma.tournamentTeam.findMany({
-    where: { tournamentId, status: 'approved' }, include: { team: true },
-  });
+  const [entries, matches] = await Promise.all([
+    prisma.tournamentTeam.findMany({
+      where: { tournamentId, status: 'approved' }, include: { team: true },
+    }),
+    prisma.tournamentMatch.findMany({
+      where: { tournamentId, status: 'completed' },
+      include: { phase: { select: { id: true, name: true, type: true, order: true } } },
+    }),
+  ]);
+  return { S, entries, matches };
+}
+
+// Aggregate a given set of fixtures over a given set of teams. Pure.
+function tabulate(entries, matches, S) {
   const rows = {};
   for (const e of entries) {
     rows[e.teamId] = {
@@ -49,9 +79,6 @@ export async function computeStandings(tournamentId) {
     };
   }
 
-  const matches = await prisma.tournamentMatch.findMany({
-    where: { tournamentId, status: 'completed' },
-  });
   const h2h = {};   // "a|b" → { [teamId]: wins } for head-to-head tiebreak
 
   for (const m of matches) {
@@ -115,6 +142,53 @@ export async function computeStandings(tournamentId) {
       goalDifference: r.scored - r.conceded,
       goalsFor: r.scored, against: r.conceded, best: r.best,
     },
+  }));
+}
+
+// The whole tournament as one table.
+export async function computeStandings(tournamentId) {
+  const { S, entries, matches } = await loadTable(tournamentId);
+  return tabulate(entries, matches, S);
+}
+
+// One table per stage, which is what a multi-stage tournament actually has.
+//
+// The flat table above sums EVERY completed fixture into one row per team and
+// carries the team's first-round group letter alongside it. For a single-group
+// league that is the table. For the 2024 T20 World Cup it produced a "Group A"
+// containing India with 9 played and 16 points — a table including their Super
+// 8 and knockout matches against teams from Groups B, C and D.
+//
+// A stage is the set of fixtures sharing a `round`: "Group A", "Super 8 Group
+// 1". That needs no schema change — the round is already on every fixture, and
+// it is the only thing that knows a team can be in Group A in June and Super 8
+// Group 1 a fortnight later, which one column on TournamentTeam cannot express.
+//
+// Knockout stages are excluded: a bracket is not a table.
+export async function computeStageStandings(tournamentId) {
+  const { S, entries, matches } = await loadTable(tournamentId);
+  const byId = Object.fromEntries(entries.map((e) => [e.teamId, e]));
+
+  const stages = [];
+  const seen = new Map();
+  for (const m of matches) {
+    if (m.phase?.type === 'knockout') continue;
+    const key = m.round || m.phase?.name || 'Fixtures';
+    if (!seen.has(key)) {
+      seen.set(key, { key, name: key, order: m.phase?.order ?? 0, matches: [], teamIds: new Set() });
+      stages.push(seen.get(key));
+    }
+    const st = seen.get(key);
+    st.matches.push(m);
+    if (m.team1Id) st.teamIds.add(m.team1Id);
+    if (m.team2Id) st.teamIds.add(m.team2Id);
+  }
+
+  stages.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  return stages.map((st) => ({
+    key: st.key,
+    name: st.name,
+    rows: tabulate([...st.teamIds].map((id) => byId[id]).filter(Boolean), st.matches, S),
   }));
 }
 

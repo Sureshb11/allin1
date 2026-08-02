@@ -94,6 +94,10 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const { tournamentId } = route.params || {};
   const [tournament, setTournament] = useState(null);
   const [pointsTable, setPointsTable] = useState([]);
+  // One table per stage when the API offers them (see lib/standings.js). The
+  // flat pointsTable stays for a single-group tournament and for an API that
+  // predates stages.
+  const [stages, setStages] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [activeTab, setActiveTab] = useState(TABS.includes(route.params?.initialTab) ? route.params.initialTab : 'Overview');
   const [loading, setLoading] = useState(true);
@@ -142,6 +146,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
       // Prefer the computed standings; fall back to the legacy points table.
       if (stRes.success && stRes.data.length) setPointsTable(stRes.data);
       else if (ptRes.success) setPointsTable(ptRes.data);
+      if (stRes.success) setStages(stRes.stages || []);
       if (schRes.success) setSchedule(schRes.data);
 
       const myId = meRes.success ? meRes.data?.user?.id : null;
@@ -779,21 +784,33 @@ export default function TournamentDetailScreen({ route, navigation }) {
       .sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt))
       .slice(0, 5);
     return played.map(m => {
+      // A no-result has no winner, so "did this team win?" answered L and every
+      // washed-out match showed in the form guide as a defeat.
+      if (m.resultKind === 'noResult') return 'N';
       if (m.resultKind === 'tie' || m.resultKind === 'draw') return 'T';
       return m.winnerTeamId === teamId ? 'W' : 'L';
     });
   };
-  const FORM_C = { W: DS.success, L: DS.coral, T: DS.textMuted };
+  const FORM_C = { W: DS.success, L: DS.coral, T: DS.textMuted, N: DS.textMuted };
 
   const renderPointsTable = () => {
+    // Prefer the per-stage tables. Grouping the flat table by row.group carries
+    // each team's FIRST-ROUND group letter for the whole tournament, so a
+    // 20-team World Cup showed a "Group A" holding India's Super 8 and knockout
+    // matches too — 9 played, against teams from three other groups.
     const groups = {};
-    pointsTable.forEach(row => {
-      const g = row.group || 'Unassigned';
-      if (!groups[g]) groups[g] = [];
-      groups[g].push(row);
-    });
-    
-    const sortedGroups = Object.keys(groups).sort();
+    if (stages.length) {
+      stages.forEach((st) => { groups[st.name] = st.rows; });
+    } else {
+      pointsTable.forEach(row => {
+        const g = row.group || 'Unassigned';
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(row);
+      });
+    }
+
+    // Stages arrive in playing order; group letters sort alphabetically.
+    const sortedGroups = stages.length ? stages.map((st) => st.name) : Object.keys(groups).sort();
     // How many advance per group: with multiple groups, top 2 each is the norm
     // (Classic T20); a single group table highlights the top 2 as well.
     const qualifyN = 2;
@@ -810,7 +827,9 @@ export default function TournamentDetailScreen({ route, navigation }) {
             <View key={groupName} style={{ marginBottom: 24 }}>
               {groupName !== 'Unassigned' && (
                 <Text style={{ fontSize: 16, fontWeight: '700', color: DS.textPrimary, marginBottom: 8, marginLeft: 4 }}>
-                  Group {groupName}
+                  {/* A stage names itself ("Group A", "Super 8 Group 1"); a bare
+                      group letter needs the word in front of it. */}
+                  {stages.length ? groupName : `Group ${groupName}`}
                 </Text>
               )}
               {/* Table Header */}

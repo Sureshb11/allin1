@@ -285,7 +285,7 @@ async function seed() {
         round,
         status: 'completed',
         result: result || (noResult ? 'No result — rain' : `${winner} won`),
-        resultKind: noResult ? 'noresult' : 'win',
+        resultKind: noResult ? 'noResult' : 'win',   // the engine's spelling — see ResultSchema
         winnerTeamId: noResult ? null : team[winner].id,
         resultStats: stats,
       },

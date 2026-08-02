@@ -1294,7 +1294,10 @@ class LegendsApi {
   async getTournamentStandings(tournamentId) {
     try {
       const json = await this.request(`/tournaments/${tournamentId}/standings`);
-      return { success: true, data: json.standings || [] };
+      // `stages` is one table per stage; `standings` is the whole tournament as
+      // one. A tournament with a group phase and a Super 8 only makes sense as
+      // the former, so it rides along for callers that can use it.
+      return { success: true, data: json.standings || [], stages: json.stages || [] };
     } catch (error) {
       return { success: false, error: error.message };
     }

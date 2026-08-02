@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware, optionalAuth } from '../lib/auth.js';
-import { computeStandings } from '../lib/standings.js';
+import { computeStandings, computeStageStandings } from '../lib/standings.js';
 import { applyTournamentResult } from '../lib/tournamentResult.js';
 import { notifyTeams, notifyUsers, notifyAllParticipants, safeNotify } from '../lib/notify.js';
 import { tournamentLeaderboard } from '../lib/leaderboard.js';
@@ -33,7 +33,15 @@ async function requireOrganizer(req, res, next) {
 // recorded match results using the sport's SportConfiguration.standings rules.
 router.get('/:id/standings', async (req, res) => {
   try {
-    res.json({ standings: await computeStandings(req.params.id) });
+    // `standings` is the whole tournament as one table — kept because installed
+    // clients read it. `stages` is one table per stage, which is what a
+    // tournament with a group phase and a Super 8 actually has; a client that
+    // understands it should prefer it.
+    const [standings, stages] = await Promise.all([
+      computeStandings(req.params.id),
+      computeStageStandings(req.params.id),
+    ]);
+    res.json({ standings, stages });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
