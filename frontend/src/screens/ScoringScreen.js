@@ -2684,9 +2684,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <TouchableOpacity key={key} style={styles.settingRow}
                 onPress={() => { setDropDraft((d) => ({ ...d, difficulty: key })); setDropDifficultyPrompt(false); setDropRunsPrompt(true); }}>
                 <Icon name={icon} size={20} color={key === 'easy' ? DS.coral : DS.lime} />
+                {/* settingText carries flex:1 because it is built to be a direct
+                    child of the ROW. Inside this column it took the whole height
+                    and the hint drew on top of the label. */}
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.settingText}>{label}</Text>
-                  <Text style={styles.settingHint} numberOfLines={1}>{hint}</Text>
+                  <Text style={styles.settingTextNoFlex}>{label}</Text>
+                  <Text style={[styles.settingHint, { marginTop: 3, marginRight: 0 }]}>{hint}</Text>
                 </View>
                 <Icon name="chevron-right" size={18} color={DS.textMuted} />
               </TouchableOpacity>
