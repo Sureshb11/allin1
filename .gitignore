@@ -162,3 +162,6 @@ public
 
 # DynamoDB Local files
 .dynamodb/
+
+# Database backups — real data, sometimes large. Kept locally, not in git.
+backend/backups/
