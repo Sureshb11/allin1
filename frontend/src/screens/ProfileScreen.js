@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useCurrentUser } from '../utils/currentUser';
 import AppHeader from '../components/AppHeader';
 import { setCurrentAvatar, clearCurrentUser } from '../utils/currentUser';
+import { clearPlayerSetup } from '../utils/playerSetup';
 import legendsApi from '../services/LegendsApi';
 import { unregisterFromPush } from '../services/push';
 import SportSwitcher from '../components/SportSwitcher';
@@ -145,6 +146,7 @@ export default function ProfileScreen({ navigation }) {
           await unregisterFromPush();                      // stop pushes to this device
           await legendsApi.logout();                       // clear persisted JWT
           clearCurrentUser();                              // wipe cached id/name/avatar
+          clearPlayerSetup();                              // next account answers "do you play?" itself
           // Reset the ROOT navigator back to the auth flow.
           const root = navigation.getParent('RootStack') || navigation;
           root.reset({ index: 0, routes: [{ name: 'Auth' }] });

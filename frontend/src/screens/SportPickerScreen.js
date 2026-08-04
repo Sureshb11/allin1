@@ -22,6 +22,7 @@ import SportLogoIcon, { hasSportAnim } from '../components/SportLogoIcon';
 import { haptic } from '../utils/haptics';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
+import { needsPlayerSetup } from '../utils/playerSetup';
 import { isSportLive } from '../sports';
 import { rawSportColor, sportColor } from '../sports/colors';
 import { useTheme, useThemedStyles, useArenaColors } from '../theme/ThemeContext';
@@ -501,7 +502,7 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
     animateTo(target, dur, undefined, easeInOut);
   }, [animateTo]);
 
-  const routeSport = useCallback((cell) => {
+  const routeSport = useCallback(async (cell) => {
     const sport = { ...cell, label: cell.name, icon: cell.mci };
     // Record the chosen sport on the user's profile (no-op if not logged in).
     legendsApi.selectPrimarySport(cell.id);
@@ -514,6 +515,14 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
     // Arena picker isn't left underneath — back must not return to sport selection.
     if (cell.id === 'rummy') {
       navigation.reset({ index: 0, routes: [{ name: 'RummyHome' }] });
+      return;
+    }
+    // One question on the way in, once: do you play, or are you here to watch?
+    // Skippable by design — plenty of the people who open this app are a
+    // player's family following a match, and they must not have to describe a
+    // bowling action to see a score. Answered (either way) it never asks again.
+    if (await needsPlayerSetup(cell.id)) {
+      navigation.reset({ index: 0, routes: [{ name: 'PlayerSetup', params: { sport } }] });
       return;
     }
     // Every other sport goes straight to its feed. Choosing a match format is

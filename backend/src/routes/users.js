@@ -73,6 +73,68 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
   res.json(await playerCareer(player));
 });
 
+// ── How I play ───────────────────────────────────────────────────────────────
+// The logged-in user describing THEMSELVES: primary role, batting hand, bowling
+// style. Its own route because none of the existing ones can do this job:
+//
+//   · PUT /players/:id needs an id, and someone who has only ever watched has
+//     no Player row at all — the onboarding step has nothing to send.
+//   · It is also team-admin gated, which is right for editing somebody else's
+//     shirt number and wrong for saying which hand you bat with.
+//
+// So this finds-or-creates the caller's own player for the sport, and writes
+// only the three fields that describe a person rather than a squad. Captaincy,
+// shirt number and team membership are decisions a team makes and stay on
+// PUT /players/:id.
+const MyPlayerSchema = z.object({
+  sport:        z.string().min(1).optional(),
+  role:         z.string().min(1),
+  battingStyle: z.string().max(40).optional().nullable(),
+  bowlingStyle: z.string().max(40).optional().nullable(),
+});
+
+router.put('/me/player', authMiddleware, async (req, res) => {
+  try {
+    const { sport = 'cricket', ...data } = MyPlayerSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { id: req.user.sub } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    let player = await prisma.player.findFirst({ where: { sport, userId: user.id } });
+
+    // Not linked yet, but GET /me and /me/stats have both been calling a
+    // same-named unclaimed row "you" all along — so claim that one rather than
+    // creating a second, which would leave those two routes reporting an empty
+    // career next to a full one. Only when the name picks out exactly one
+    // player: two people called Suresh must not be merged by a save button.
+    if (!player) {
+      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      if (fullName) {
+        const sameName = await prisma.player.findMany({
+          where: { sport, name: fullName, userId: null }, select: { id: true }, take: 2,
+        });
+        if (sameName.length === 1) {
+          player = await prisma.player.update({
+            where: { id: sameName[0].id }, data: { userId: user.id },
+          });
+        }
+      }
+    }
+
+    // Still nothing: a spectator who has decided they play. teamId stays null —
+    // this says how they play, not who they play for.
+    if (!player) {
+      const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Player';
+      player = await prisma.player.create({ data: { name, sport, userId: user.id, ...data } });
+      return res.status(201).json({ player });
+    }
+
+    const updated = await prisma.player.update({ where: { id: player.id }, data });
+    res.json({ player: updated });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // Set / update the sports a user is interested in (multi-sport profile).
 const SportsSchema = z.object({
   sports: z.array(z.object({

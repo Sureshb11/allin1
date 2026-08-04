@@ -1216,6 +1216,22 @@ class LegendsApi {
     }
   }
 
+  // How I play: primary role, batting hand, bowling style. Separate from
+  // updateUserProfile because these describe the PLAYER, not the account — and
+  // separate from updatePlayer() because that one needs an id and team-admin
+  // rights, neither of which a first-time user has. Creates the player row if
+  // this is the first time they've said they play.
+  async saveMyPlayer({ sport = 'cricket', role, battingStyle, bowlingStyle }) {
+    try {
+      const json = await this.request('/users/me/player', {
+        method: 'PUT', body: { sport, role, battingStyle, bowlingStyle },
+      });
+      return { success: true, data: json.player };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Update the logged-in user's profile (firstName / lastName / bio / avatarUrl).
   async updateUserProfile(data) {
     try {

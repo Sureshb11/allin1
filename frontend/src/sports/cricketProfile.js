@@ -38,12 +38,22 @@ export const ALL_BOWLING_STYLES = BOWLING_STYLES.flatMap((g) => g.options);
 export const defaultBowlingStyle = (primaryRole) =>
   (primaryRole === 'Batter' || primaryRole === 'Wicketkeeper' ? 'None' : null);
 
-// What is missing before this can be saved. Name and primary role and batting
-// hand are required; bowling style never is.
-export function validatePlayerProfile({ name, primaryRole, battingStyle }) {
+// What is missing before the three "how do you play" answers can be saved.
+// Primary role and batting hand are required; bowling style never is.
+//
+// Its own function because the onboarding step asks these three and nothing
+// else — it has no name field, the account already has the name — while Edit
+// Profile asks them alongside a dozen account fields. One rule, two callers.
+export function validateHowIPlay({ primaryRole, battingStyle }) {
   const errors = {};
-  if (!String(name || '').trim()) errors.name = 'A player needs a name';
   if (!primaryRole) errors.primaryRole = 'Pick a primary role';
   if (!battingStyle) errors.battingStyle = 'Right or left handed?';
+  return errors;
+}
+
+/** The above, plus the name that Edit Profile also collects. */
+export function validatePlayerProfile({ name, ...play }) {
+  const errors = validateHowIPlay(play);
+  if (!String(name || '').trim()) errors.name = 'A player needs a name';
   return errors;
 }

@@ -22,6 +22,7 @@ import { navigationRef, openFromNotification } from './src/utils/notificationRou
 import { loadSelectedSport } from './src/utils/selectedSport';
 import AppNavigator from './src/navigation/AppNavigator';
 import SportPickerScreen from './src/screens/SportPickerScreen';
+import PlayerSetupScreen from './src/screens/PlayerSetupScreen';
 import RummyHomeScreen from './src/sports/rummy/screens/RummyHomeScreen';
 import RummyNewGameScreen from './src/sports/rummy/screens/RummyNewGameScreen';
 import RummyGameScreen from './src/sports/rummy/screens/RummyGameScreen';
@@ -124,6 +125,8 @@ const Root = () => {
           <Stack.Screen name="Auth" component={AuthNavigator} />
           {/* SportPicker shown on every launch after auth */}
           <Stack.Screen name="SportPicker" component={SportPickerScreen} />
+          {/* Asked once on the way into cricket, and skippable — see the screen. */}
+          <Stack.Screen name="PlayerSetup" component={PlayerSetupScreen} />
           <Stack.Screen name="RummyHome" component={RummyHomeScreen} />
           <Stack.Screen name="RummyNewGame" component={RummyNewGameScreen} />
           <Stack.Screen name="RummyGame" component={RummyGameScreen} />

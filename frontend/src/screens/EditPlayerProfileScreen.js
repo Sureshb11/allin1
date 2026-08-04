@@ -6,6 +6,7 @@ import { validatePlayerProfile } from '../sports/cricketProfile';
 import legendsApi from '../services/LegendsApi';
 import { pickAndUploadImage } from '../utils/imageUpload';
 import { setCurrentAvatar } from '../utils/currentUser';
+import { getSelectedSport } from '../utils/selectedSport';
 
 
 
@@ -76,7 +77,6 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
       const u = res?.success ? (res.data || {}) : {};
       const p = res?.player || null;
       const name = u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim();
-      setPlayerId(p?.id || null);
       setProfile((prev) => ({
         ...prev, name, phone: u.phone || '', bio: u.bio || '',
         city: u.city || '', district: u.district || '', state: u.state || '', country: u.country || '', pincode: u.pincode || '',
@@ -90,7 +90,6 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
   }, []);
 
   const [errors, setErrors] = useState({});
-  const [playerId, setPlayerId] = useState(null);
 
   const handleSave = async () => {
     // Name, primary role and batting hand are required; bowling style is not.
@@ -111,16 +110,26 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
     // The cricketing part belongs to the PLAYER, not the user account — the
     // same person can appear in several squads, and this describes how they
     // play wherever they turn out.
-    if (res.success && playerId) {
-      await legendsApi.updatePlayer(playerId, {
+    //
+    // Via /users/me/player rather than updatePlayer(), which needed two things
+    // this screen can't assume: an existing player id (somebody who has only
+    // ever watched has no row, so their answers went nowhere) and team-admin
+    // rights on their own squad (so an ordinary member editing their own
+    // batting hand got a 403).
+    let playerSaved = true;
+    if (res.success) {
+      const saved = await legendsApi.saveMyPlayer({
+        sport: getSelectedSport().sport?.id || 'cricket',
         role: profile.primaryRole,
         battingStyle: profile.battingStyle,
         bowlingStyle: profile.bowlingStyle,
       });
+      playerSaved = saved.success;
+      if (!saved.success) Alert.alert('Saved, mostly', saved.error || 'Could not save how you play.');
     }
     setSaving(false);
     if (res.success) {
-      Alert.alert('Success', 'Profile updated.');
+      if (playerSaved) Alert.alert('Success', 'Profile updated.');
       navigation.goBack();
     } else {
       Alert.alert('Error', res.error || 'Could not update profile.');
