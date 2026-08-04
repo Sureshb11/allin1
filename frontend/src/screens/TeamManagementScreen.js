@@ -488,6 +488,13 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
         onRequestClose={() => setShowCreateTeamModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
+            <View style={{ alignItems: 'center', marginBottom: 24, marginTop: -40 }}>
+              <HexAvatar size={80} color={newTeamName.trim() ? DS.lime : DS.surfaceHighest} style={{ shadowColor: DS.lime, shadowOpacity: newTeamName.trim() ? 0.4 : 0, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: newTeamName.trim() ? 8 : 0 }}>
+                <Text style={{ fontSize: 32, fontWeight: '900', color: newTeamName.trim() ? DS.bg : DS.textMuted }}>
+                  {newTeamName.trim() ? newTeamName.charAt(0).toUpperCase() : '?'}
+                </Text>
+              </HexAvatar>
+            </View>
             <Text style={styles.modalTitle}>Create New Team</Text>
             <Text style={styles.modalSubtitle}>Enter a name for your team</Text>
             <TextInput
@@ -714,21 +721,31 @@ const makeStyles = (DS) => StyleSheet.create({
     padding: 24
   },
   modalContainer: {
-    backgroundColor: DS.surfaceHigh,
-    borderRadius: 20,
+    backgroundColor: DS.surfaceLow + 'E6',
+    borderRadius: 28,
     padding: 24,
-    width: '100%'
+    width: '100%',
+    borderWidth: 1,
+    borderColor: DS.lime + '33',
+    shadowColor: DS.lime,
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 10,
+    marginTop: 40
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
     color: DS.textPrimary,
-    marginBottom: 4
+    marginBottom: 4,
+    textAlign: 'center'
   },
   modalSubtitle: {
     fontSize: 14,
     color: DS.textMuted,
-    marginBottom: 20
+    marginBottom: 24,
+    textAlign: 'center'
   },
   modalInput: {
     backgroundColor: DS.surfaceLow,

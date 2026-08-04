@@ -13,6 +13,8 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
 import { showToast } from '../components/Toast';
 import { pickAndUploadImage } from '../utils/imageUpload';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import Reanimated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import {
   SectionCard, Field, ChoiceField, Stepper, ToggleRow, SelectField,
   DateField, ImageField, ReorderList,
@@ -233,6 +235,21 @@ export default function TournamentScreen({ navigation, route }) {
   const [loading, setLoading] = useState(!!editingId);
   const scrollRef = useRef(null);
   const dirty = useRef(false);
+  
+  const sheetRef = useRef(null);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      sheetRef.current?.present();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+  const handleDismiss = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+  const renderBackdrop = useCallback(
+    (props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.7} pressBehavior="close" />,
+    []
+  );
 
   useLayoutEffect(() => { navigation.setOptions({ headerShown: false }); }, [navigation]);
 
@@ -385,6 +402,7 @@ export default function TournamentScreen({ navigation, route }) {
       showToast(e[Object.keys(e)[0]], 'error');
       return;
     }
+    ReactNativeHapticFeedback.trigger('impactLight');
     goTo(Math.min(STEPS.length - 1, step + 1));
   };
 
@@ -559,8 +577,39 @@ export default function TournamentScreen({ navigation, route }) {
   const stepPlay = (
     <>
       <SectionCard title="Tournament details" subtitle="How it's structured and what's played" icon="cricket">
-        <ChoiceField label="Category" required options={CATEGORIES} value={form.category}
-                     onChange={(v) => { set({ category: v }); clearErr('category'); }} error={err('category')} />
+        
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: DS.textMuted, marginBottom: 8, marginLeft: 4 }}>CATEGORY <Text style={{ color: DS.lime }}>*</Text></Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {CATEGORIES.map(c => {
+              const active = c.value === form.category;
+              return (
+                <TouchableOpacity
+                  key={c.value}
+                  onPress={() => { set({ category: c.value }); clearErr('category'); }}
+                  activeOpacity={0.8}
+                  style={[{
+                    width: '48%',
+                    backgroundColor: active ? DS.lime + '20' : DS.surfaceHigh,
+                    borderRadius: 14,
+                    padding: 14,
+                    borderWidth: 1,
+                    borderColor: active ? DS.lime : DS.border,
+                    alignItems: 'flex-start',
+                    gap: 12
+                  }]}
+                >
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: active ? DS.lime : DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name={c.icon} size={18} color={active ? DS.bg : DS.textMuted} />
+                  </View>
+                  <Text style={{ color: active ? DS.textPrimary : DS.textVariant, fontSize: 14, fontWeight: active ? '800' : '600' }}>{c.label}</Text>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+          {err('category') && <Text style={{ color: '#ff4444', fontSize: 12, marginTop: 6, marginLeft: 4 }}>{err('category')}</Text>}
+        </View>
+
         <ChoiceField label="Cricket type" required options={BALL_TYPES} value={form.ballType}
                      onChange={(v) => { set({ ballType: v }); clearErr('ballType'); }} error={err('ballType')} />
         <ChoiceField label="Match format" required options={FORMATS} value={form.format}
@@ -866,13 +915,14 @@ export default function TournamentScreen({ navigation, route }) {
 
       {/* Progress. Tappable backwards only — jumping ahead past a required field
           is how you end up publishing something half-filled. */}
+      
       <View style={styles.progressRow}>
         {STEPS.map((s, i) => {
           const done = i < step, here = i === step;
           return (
             <TouchableOpacity key={s.key} style={{ flex: 1 }} activeOpacity={done ? 0.7 : 1}
                               onPress={() => done && goTo(i)}>
-              <View style={[styles.progressBar, (done || here) && { backgroundColor: DS.lime }]} />
+              <View style={[styles.progressBar, (done || here) && { backgroundColor: DS.lime, shadowColor: DS.lime, shadowOpacity: 0.5, shadowRadius: 6, elevation: 4 }]} />
               <View style={styles.progressLabelRow}>
                 <Icon name={done ? 'check-circle' : s.icon} size={11}
                       color={done || here ? DS.lime : DS.textMuted} />
@@ -884,6 +934,7 @@ export default function TournamentScreen({ navigation, route }) {
           );
         })}
       </View>
+
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <BottomSheetScrollView
@@ -1014,7 +1065,14 @@ const makeStyles = (DS) => StyleSheet.create({
   backBtnText: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
   nextBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 14, borderRadius: 999, backgroundColor: DS.lime,
+    backgroundColor: DS.lime,
+    paddingVertical: 16,
+    borderRadius: 12,
   },
-  nextBtnText: { fontSize: 14.5, fontWeight: '900', color: DS.onLime, letterSpacing: 0.3 },
+  nextBtnText: {
+    color: DS.bg,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 1.2
+  },
 });

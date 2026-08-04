@@ -4,7 +4,7 @@ import {
   Image, ActivityIndicator, RefreshControl,
   ScrollView, Platform, Alert, TextInput, Animated, Modal, Pressable
 } from 'react-native';
-import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCurrentUser } from '../utils/currentUser';
@@ -437,6 +437,36 @@ const AMENITY_OPTIONS = [
 ];
 const CATEGORIES = ['Cricket Ground', 'Sports Complex', 'Stadium', 'Academy', 'Private Ground', 'Community Ground'];
 
+const Chip = ({ label, active, onPress, icon }) => {
+  const DS = useTheme().colors;
+  return (
+    <AnimatedPressable onPress={onPress}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: active ? DS.lime : DS.surfaceHigh, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999, borderWidth: 1, borderColor: active ? DS.lime : DS.border, shadowColor: active ? DS.lime : '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: active ? 0.3 : 0, shadowRadius: 6, elevation: active ? 4 : 0 }}>
+        {icon && <Icon name={icon} size={16} color={active ? DS.bg : DS.textMuted} />}
+        <Text style={{ fontSize: 13, fontWeight: '800', color: active ? DS.bg : DS.textPrimary }}>{label}</Text>
+      </View>
+    </AnimatedPressable>
+  );
+};
+
+const SectionLabel = ({ text }) => {
+  const DS = useTheme().colors;
+  return (
+    <Text style={{ fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 1.4, marginBottom: 10, marginTop: 20, textTransform: 'uppercase' }}>{text}</Text>
+  );
+};
+
+const GroundField = ({ label, value, onChangeText, placeholder, multiline, keyboardType, required }) => {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <Text style={styles.formLabel}>{label}{required ? ' *' : ''}</Text>
+      <TextInput style={[styles.formInput, multiline && styles.formTextArea]} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={DS.textMuted} multiline={multiline} numberOfLines={multiline ? 4 : 1} keyboardType={keyboardType || 'default'} />
+    </View>
+  );
+};
+
 const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
   const [step, setStep] = useState(1);
   const totalSteps = 3;
@@ -513,21 +543,7 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
     finally { setLoading(false); }
   };
 
-  const Chip = ({ label, active, onPress, icon }) => (
-    <TouchableOpacity onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: active ? DS.lime : DS.surfaceHigh, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: active ? DS.lime : DS.border }}>
-      {icon && <Icon name={icon} size={16} color={active ? DS.bg : DS.textMuted} />}
-      <Text style={{ fontSize: 13, fontWeight: '700', color: active ? DS.bg : DS.textPrimary }}>{label}</Text>
-    </TouchableOpacity>
-  );
-  const SectionLabel = ({ text }) => (
-    <Text style={{ fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 1.4, marginBottom: 10, marginTop: 20, textTransform: 'uppercase' }}>{text}</Text>
-  );
-  const Field = ({ label, value, onChangeText, placeholder, multiline, keyboardType, required }) => (
-    <View style={{ marginBottom: 16 }}>
-      <Text style={styles.formLabel}>{label}{required ? ' *' : ''}</Text>
-      <BottomSheetTextInput style={[styles.formInput, multiline && styles.formTextArea]} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={DS.textMuted} multiline={multiline} numberOfLines={multiline ? 4 : 1} keyboardType={keyboardType || 'default'} />
-    </View>
-  );
+
 
   return (
     <View style={{ flex: 1, backgroundColor: DS.bg }}>
@@ -543,8 +559,14 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
       {/* Progress Bar */}
       <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 4, marginBottom: 8 }}>
         {[1, 2, 3].map(s => (
-          <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: s <= step ? DS.lime : DS.surfaceHigh }} />
+          <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: s <= step ? DS.lime : DS.surfaceHigh, shadowColor: s <= step ? DS.lime : 'transparent', shadowOpacity: 0.5, shadowRadius: 4, elevation: 2 }} />
         ))}
+      </View>
+      
+      {/* Contextual Header */}
+      <View style={{ width: '100%', height: 120, marginBottom: -20, marginTop: -12, zIndex: -1 }}>
+        <Image source={{ uri: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1000&auto=format&fit=crop' }} style={{ width: '100%', height: '100%', opacity: 0.8 }} blurRadius={3} />
+        <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)' }} />
       </View>
 
       <BottomSheetScrollView style={{ flex: 1, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
@@ -555,18 +577,18 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
             <Text style={{ fontSize: 22, fontWeight: '800', color: DS.textPrimary, marginBottom: 4, marginTop: 8 }}>Basics & Location</Text>
             <Text style={{ fontSize: 14, color: DS.textMuted, marginBottom: 16 }}>Tell us about the ground and where it is.</Text>
             <View style={styles.formCardBlock}>
-              <Field label="Ground Name" value={name} onChangeText={setName} placeholder="e.g. M.A. Chidambaram Stadium" required />
-              <Field label="Local / Regional Name" value={localName} onChangeText={setLocalName} placeholder="e.g. Chepauk" />
+              <GroundField label="Ground Name" value={name} onChangeText={setName} placeholder="e.g. M.A. Chidambaram Stadium" required />
+              <GroundField label="Local / Regional Name" value={localName} onChangeText={setLocalName} placeholder="e.g. Chepauk" />
               <SectionLabel text="Category" />
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {CATEGORIES.map(c => <Chip key={c} label={c} active={category === c} onPress={() => setCategory(category === c ? '' : c)} />)}
               </View>
             </View>
             <View style={styles.formCardBlock}>
-              <Field label="Area / Locality" value={area} onChangeText={setArea} placeholder="e.g. Chepauk" />
-              <Field label="City" value={city} onChangeText={setCity} placeholder="e.g. Chennai" required />
-              <Field label="State" value={stateName} onChangeText={setStateName} placeholder="e.g. Tamil Nadu" />
-              <Field label="Full Address" value={address} onChangeText={setAddress} placeholder="Full physical address..." multiline />
+              <GroundField label="Area / Locality" value={area} onChangeText={setArea} placeholder="e.g. Chepauk" />
+              <GroundField label="City" value={city} onChangeText={setCity} placeholder="e.g. Chennai" required />
+              <GroundField label="State" value={stateName} onChangeText={setStateName} placeholder="e.g. Tamil Nadu" />
+              <GroundField label="Full Address" value={address} onChangeText={setAddress} placeholder="Full physical address..." multiline />
             </View>
             {(lat && lng) && (
               <View style={[styles.locationBadge, { marginBottom: 24 }]}>
@@ -634,10 +656,10 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
             <Text style={{ fontSize: 22, fontWeight: '800', color: DS.textPrimary, marginBottom: 4, marginTop: 8 }}>Contact & Photos</Text>
             <Text style={{ fontSize: 14, color: DS.textMuted, marginBottom: 16 }}>How can players reach you?</Text>
             <View style={styles.formCardBlock}>
-              <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="Phone number" keyboardType="phone-pad" />
-              <Field label="WhatsApp" value={whatsapp} onChangeText={setWhatsapp} placeholder="WhatsApp number" keyboardType="phone-pad" />
-              <Field label="Email" value={email} onChangeText={setEmail} placeholder="ground@example.com" keyboardType="email-address" />
-              <Field label="Website" value={website} onChangeText={setWebsite} placeholder="https://..." />
+              <GroundField label="Phone" value={phone} onChangeText={setPhone} placeholder="Phone number" keyboardType="phone-pad" />
+              <GroundField label="WhatsApp" value={whatsapp} onChangeText={setWhatsapp} placeholder="WhatsApp number" keyboardType="phone-pad" />
+              <GroundField label="Email" value={email} onChangeText={setEmail} placeholder="ground@example.com" keyboardType="email-address" />
+              <GroundField label="Website" value={website} onChangeText={setWebsite} placeholder="https://..." />
             </View>
             <View style={styles.formSection}>
               <SectionLabel text={`Photos (${imageUris.length}/5)`} />
@@ -663,7 +685,7 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
               </ScrollView>
             </View>
             <View style={styles.formCardBlock}>
-              <Field label="Description" value={description} onChangeText={setDescription} placeholder="Describe the ground, pitch condition, how to reach..." multiline />
+              <GroundField label="Description" value={description} onChangeText={setDescription} placeholder="Describe the ground, pitch condition, how to reach..." multiline />
             </View>
           </View>
         )}
@@ -672,17 +694,17 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
       {/* Bottom Navigation */}
       <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingBottom: Platform.OS === 'ios' ? 34 : 16, paddingTop: 12, gap: 12, borderTopWidth: 1, borderTopColor: DS.faint, backgroundColor: DS.bg }}>
         {step > 1 && (
-          <TouchableOpacity onPress={prevStep} style={{ flex: 1, paddingVertical: 16, borderRadius: 12, alignItems: 'center', backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border }}>
-            <Text style={{ color: DS.textPrimary, fontWeight: '700', fontSize: 15 }}>Back</Text>
+          <TouchableOpacity onPress={prevStep} style={styles.formBackBtn}>
+            <Text style={styles.formBackBtnText}>BACK</Text>
           </TouchableOpacity>
         )}
         {step < totalSteps ? (
-          <TouchableOpacity onPress={nextStep} style={{ flex: 2, paddingVertical: 16, borderRadius: 12, alignItems: 'center', backgroundColor: DS.lime }}>
-            <Text style={{ color: DS.bg, fontWeight: '800', fontSize: 15 }}>Next</Text>
+          <TouchableOpacity onPress={nextStep} style={[styles.formSubmitBtn, { flex: 2 }]}>
+            <Text style={styles.formSubmitBtnText}>NEXT</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity onPress={handleSubmit} disabled={loading} style={{ flex: 2, paddingVertical: 16, borderRadius: 12, alignItems: 'center', backgroundColor: DS.lime, opacity: loading ? 0.6 : 1 }}>
-            {loading ? <ActivityIndicator color={DS.bg} /> : <Text style={{ color: DS.bg, fontWeight: '800', fontSize: 15, letterSpacing: 1 }}>POST LISTING</Text>}
+          <TouchableOpacity onPress={handleSubmit} disabled={loading} style={[styles.formSubmitBtn, { flex: 2 }, loading && { opacity: 0.6 }]}>
+            {loading ? <ActivityIndicator color={DS.bg} /> : <Text style={styles.formSubmitBtnText}>SUBMIT</Text>}
           </TouchableOpacity>
         )}
       </View>

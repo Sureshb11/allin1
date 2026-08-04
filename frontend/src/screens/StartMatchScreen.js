@@ -4,7 +4,7 @@ import {
   Alert, ActivityIndicator, Modal, TextInput, FlatList,
   StatusBar, Animated
 } from 'react-native';
-import { BottomSheetModal, BottomSheetScrollView, BottomSheetTextInput, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -18,6 +18,7 @@ import GradientButton from '../components/GradientButton';
 import HexAvatar from '../components/HexAvatar';
 import { showToast } from '../components/Toast';
 import { useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
+import Reanimated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 
 /* ─── Kinetic Athlete Design Tokens ─────────────────────── */
 // Themed palette factory (faithful in dark; adapts to light). `black` is the
@@ -151,7 +152,7 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cri
               {/* Search */}
               <View style={s.searchBar}>
                 <Icon name="magnify" size={18} color={K.textMuted} />
-                <BottomSheetTextInput
+                <TextInput
                   style={s.searchInput}
                   value={query}
                   onChangeText={setQuery}
@@ -202,7 +203,7 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cri
             /* Create team inline */
             <View style={s.createForm}>
               <Text style={s.createFormLabel}>New Team Name</Text>
-              <BottomSheetTextInput
+              <TextInput
                 style={s.createFormInput}
                 value={newName}
                 onChangeText={setNewName}
@@ -278,23 +279,6 @@ const StartMatchScreen = ({ navigation, route }) => {
 
   const [team1, setTeam1]       = useState(null);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [fadeAnim, slideAnim]);
 
   useLayoutEffect(() => {
     // No nav header: it read "Start Match" directly above this screen's own
@@ -383,14 +367,42 @@ const StartMatchScreen = ({ navigation, route }) => {
     : (t && typeof t.players === 'number' ? t.players : null);
   const emptyTeams = [team1, team2].filter((t) => teamPlayerCount(t) === 0);
 
+  const sheetRef = useRef(null);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      sheetRef.current?.present();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleDismiss = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+
+  const renderBackdrop = useCallback(
+    (props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.7} pressBehavior="close" />,
+    []
+  );
+
   return (
     <View style={s.root}>
+      <BottomSheetModal
+        ref={sheetRef}
+        snapPoints={['95%']}
+        enablePanDownToClose
+        onDismiss={handleDismiss}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: K.bg }}
+        handleIndicatorStyle={{ backgroundColor: K.surfaceHigh }}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
+      >
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={K.bg} />
-      <Animated.ScrollView
+      <BottomSheetScrollView
         contentContainerStyle={[s.scroll, { paddingBottom: tabClear + 64 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
       >
         {/* ── Back + Top label + Headline ─────────── */}
         <View style={s.topRow}>
@@ -456,13 +468,13 @@ const StartMatchScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
               </>
             ) : (
-              <>
+              <Reanimated.View style={[{ alignItems: 'center', gap: 8 }, pulseStyle]}>
                 <HexAvatar size={48} color={K.surfaceHigh}>
-                  <Icon name="plus" size={22} color={K.textMuted} />
+                  <Icon name="plus" size={22} color={K.lime} />
                 </HexAvatar>
                 <Text style={s.teamCardPlaceholder}>Select Team</Text>
                 <Text style={s.teamCardAction}>Tap to add</Text>
-              </>
+              </Reanimated.View>
             )}
           </TouchableOpacity>
 
@@ -495,13 +507,13 @@ const StartMatchScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
               </>
             ) : (
-              <>
+              <Reanimated.View style={[{ alignItems: 'center', gap: 8 }, pulseStyle]}>
                 <HexAvatar size={48} color={K.surfaceHigh}>
-                  <Icon name="plus" size={22} color={K.textMuted} />
+                  <Icon name="plus" size={22} color={K.lime} />
                 </HexAvatar>
                 <Text style={s.teamCardPlaceholder}>Select Team</Text>
                 <Text style={s.teamCardAction}>Tap to add</Text>
-              </>
+              </Reanimated.View>
             )}
           </TouchableOpacity>
         </View>
@@ -514,7 +526,7 @@ const StartMatchScreen = ({ navigation, route }) => {
             <View style={s.configIconWrap}>
               <Icon name="map-marker-outline" size={18} color={K.lime} />
             </View>
-            <BottomSheetTextInput
+            <TextInput
               style={s.configInput}
               value={venue}
               onChangeText={setVenue}
@@ -531,7 +543,7 @@ const StartMatchScreen = ({ navigation, route }) => {
               <Icon name={sportFmt.durationIcon} size={18} color={K.lime} />
             </View>
             <Text style={s.configLabel}>{sportFmt.unit}</Text>
-            <BottomSheetTextInput
+            <TextInput
               style={s.configValueInput}
               value={overs}
               onChangeText={setOvers}
@@ -641,18 +653,18 @@ const StartMatchScreen = ({ navigation, route }) => {
 
         {/* ── CTA — solid blue "commit action" per the app colour rule
              (matches Score / Start / View Summary), not the green gradient ── */}
-        <GradientButton
-          variant="blue"
-          label={scheduleAt ? 'SCHEDULE MATCH' : 'START SCORING'}
-          icon={scheduleAt ? 'calendar-clock' : (sport.icon || 'whistle')}
+        <TouchableOpacity
+          style={[s.submitButton, (!team1 || !team2 || emptyTeams.length > 0 || loading) && s.submitButtonDisabled]}
           onPress={onCreate}
-          loading={loading}
-          disabled={!team1 || !team2 || emptyTeams.length > 0}
-          height={56}
-          style={s.createBtn}
-          textStyle={{ fontSize: 16, letterSpacing: 1 }}
-        />
-      </Animated.ScrollView>
+          disabled={!team1 || !team2 || emptyTeams.length > 0 || loading}
+          activeOpacity={0.8}>
+          {loading ? (
+            <ActivityIndicator color={K.bg} />
+          ) : (
+            <Text style={s.submitButtonText}>{scheduleAt ? 'SCHEDULE MATCH' : 'START SCORING'}</Text>
+          )}
+        </TouchableOpacity>
+      </BottomSheetScrollView>
 
       {/* Team Picker modal */}
       <TeamPicker
@@ -693,6 +705,7 @@ const StartMatchScreen = ({ navigation, route }) => {
           }}
         />
       )}
+    </BottomSheetModal>
     </View>
   );
 };
@@ -902,47 +915,47 @@ const makeS = (K) => StyleSheet.create({
     position: 'absolute',
     left: '50%',
     top: '50%',
-    transform: [{ translateX: -20 }, { translateY: -20 }],
+    transform: [{ translateX: -22 }, { translateY: -22 }],
     zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: K.bg,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: K.lime + '30',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
   vsBadge: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: K.surfaceTop,
+    backgroundColor: K.lime,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: K.lime,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 8,
   },
   vsText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '900',
-    color: K.blue,
+    color: K.bg,
     fontStyle: 'italic',
   },
 
   /* ── Config card ───────────────────────────── */
   configCard: {
-    backgroundColor: K.surfaceLow,
+    backgroundColor: K.surfaceLow + 'CC',
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: K.surfaceHigh,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: K.lime + '40',
+    shadowColor: K.lime,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 4,
   },
   configRow: {
     flexDirection: 'row',
@@ -1046,12 +1059,22 @@ const makeS = (K) => StyleSheet.create({
   },
   squadWarnBtnText: { color: K.lime, fontSize: 12.5, fontWeight: '800' },
 
-  /* ── Create / Start button (gradient CTA provides its own fill) ── */
-  createBtn: {
-    alignSelf: 'center',
-    paddingHorizontal: 40,
-    borderRadius: 16,
+  submitButton: {
+    backgroundColor: K.lime,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 28,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    color: K.bg,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 1.2
   },
 
   /* ── When (schedule) ───────────────────────── */
