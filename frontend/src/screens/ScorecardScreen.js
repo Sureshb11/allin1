@@ -1,4 +1,5 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { makeControls } from '../theme/controls';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Share, Image, RefreshControl, Dimensions, Animated } from
@@ -1341,7 +1342,7 @@ function InfoTab({ match }) {const styles = useThemedStyles(makeStyles);
   );
 }
 
-export default function ScorecardScreen({ route, navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+export default function ScorecardScreen({ route, navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const C = useThemedStyles(makeControls);
   const { matchId } = route.params || {};
   const [match, setMatch] = useState(null);
   const matchRef = useRef(null);   // latest match, so the live poll can read status without a state churn
@@ -1745,17 +1746,20 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
 
                 {t.key === 'live' && <LiveTab innings={liveInnings} squads={match.squads} totalOvers={match.overs} />}
 
+                {/* Two innings, one at a time — a local view toggle, which is
+                    what the shared segment is for. Was a private lime-filled
+                    pill: the last tab row in the app still doing that. */}
                 {t.key === 'overs' && inningsList.length > 1 &&
-                  <View style={styles.inningsTabs}>
+                  <View style={[C.segment, { marginBottom: 4 }]}>
                     {inningsList.map((inn, i) => {
                       const active = inningsTab === i;
                       return (
-                        <TouchableOpacity key={inn.id || i} style={[styles.inningsTab, active && styles.inningsTabActive]}
+                        <TouchableOpacity key={inn.id || i} style={[C.segBtn, active && C.segBtnOn, { flexDirection: 'column', gap: 1 }]}
                           onPress={() => setInningsTab(i)}>
-                          <Text style={[styles.inningsTabText, active && styles.inningsTabTextActive]} numberOfLines={1}>
+                          <Text style={[C.segText, active && C.segTextOn, { fontSize: 12, fontWeight: '900' }]} numberOfLines={1}>
                             {(inn.battingTeam?.name || `Innings ${i + 1}`).toUpperCase()}
                           </Text>
-                          <Text style={[styles.inningsTabSub, active && { color: DS.bg }]}>{i === 0 ? '1st' : '2nd'} inns</Text>
+                          <Text style={[C.segText, active && C.segTextOn, { fontSize: 10 }]}>{i === 0 ? '1st' : '2nd'} inns</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -1904,15 +1908,6 @@ const makeStyles = (DS) => StyleSheet.create({
   emptyTabText: { fontSize: 13, color: DS.textMuted, textAlign: 'center', paddingVertical: 24 },
 
   // Team / innings tabs
-  inningsTabs: { flexDirection: 'row', gap: 8 },
-  inningsTab: {
-    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 8,
-    alignItems: 'center', gap: 2,
-  },
-  inningsTabActive: { backgroundColor: DS.lime },
-  inningsTabText: { fontSize: 12, fontWeight: '900', color: DS.textMuted, letterSpacing: 0.4 },
-  inningsTabTextActive: { color: DS.bg },
-  inningsTabSub: { fontSize: 10, fontWeight: '700', color: DS.textMuted },
 
   // Innings card
   inningsCard: {

@@ -4,6 +4,7 @@ import {
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { makeControls } from '../theme/controls';
 
 
 
@@ -40,6 +41,8 @@ export default function MatchInsightsScreen({ route, navigation }) {const DS = u
   const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Batting');
+  // The shared filter bar, not a fifth private copy of a tab pill.
+  const C = useThemedStyles(makeControls);
   const [activeInning, setActiveInning] = useState(0);
 
   useLayoutEffect(() => {
@@ -217,13 +220,16 @@ export default function MatchInsightsScreen({ route, navigation }) {const DS = u
       }
 
       {/* Tab Bar */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsContent}>
-        {TABS.map((t) =>
-        <TouchableOpacity key={t} style={[styles.tab, activeTab === t && styles.tabActive]} onPress={() => setActiveTab(t)}>
-            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>{t}</Text>
-          </TouchableOpacity>
-        )}
-      </ScrollView>
+      <View style={[C.filterBar, { flexDirection: 'row', marginBottom: 0 }]}>
+        {TABS.map((t) => {
+          const on = activeTab === t;
+          return (
+            <TouchableOpacity key={t} style={[C.filterChip, on && C.filterChipActive]} onPress={() => setActiveTab(t)}>
+              <Text style={[C.filterText, on && C.filterTextActive]}>{t}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         {/* Inning Summary */}
@@ -255,12 +261,7 @@ const makeStyles = (DS) => StyleSheet.create({
   inningBtnText: { fontSize: 11, color: DS.textMuted, fontWeight: '600' },
   inningBtnTextActive: { color: DS.textPrimary },
   inningScore: { fontSize: 13, fontWeight: '700', color: DS.textMuted, marginTop: 2 },
-  tabs: { backgroundColor: DS.surfaceLow },
-  tabsContent: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  tab: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: DS.surfaceHigh },
-  tabActive: { backgroundColor: DS.lime },
   tabText: { fontSize: 11, color: DS.textMuted, fontWeight: '700' },
-  tabTextActive: { color: DS.bg },
   inningSummary: { backgroundColor: DS.surfaceHighest, borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 12 },
   inningSummaryTeam: { fontSize: 12, color: DS.textMuted },
   inningSummaryScore: { fontSize: 36, fontWeight: '800', color: DS.textPrimary },
