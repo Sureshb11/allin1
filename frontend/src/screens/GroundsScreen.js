@@ -730,11 +730,29 @@ export default function GroundsScreen({ navigation, pagerGesture }) {
               )}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchGrounds(true); }} tintColor={DS.lime} />}
               ListEmptyComponent={
+                // Two different empty states wearing one message. "Try adjusting
+                // your filters" is good advice to somebody who has filters on,
+                // and nonsense to somebody looking at a list that is empty
+                // because there is nothing in it — they have nothing to adjust,
+                // and the sentence blames them for it. The second case is real:
+                // a fresh install, or a database with no grounds in it yet.
                 <View style={styles.emptyState}>
                   <View style={styles.emptyBox}>
                     <View style={styles.emptyIconWrap}><Icon name="stadium" size={32} color={DS.lime} /></View>
-                    <Text style={styles.emptyText}>No grounds found</Text>
-                    <Text style={styles.emptySubText}>Try adjusting your filters or search query.</Text>
+                    {query.trim() || type !== 'All' ? (
+                      <>
+                        <Text style={styles.emptyText}>No grounds found</Text>
+                        <Text style={styles.emptySubText}>Try adjusting your filters or search query.</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.emptyText}>No grounds yet</Text>
+                        <Text style={styles.emptySubText}>
+                          {user ? 'Add the first one — tap the + button below.'
+                                : 'Sign in to add the first one.'}
+                        </Text>
+                      </>
+                    )}
                   </View>
                 </View>
               }
