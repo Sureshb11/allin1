@@ -1,4 +1,4 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import {
   View, Text, Image, StyleSheet, TouchableOpacity, ScrollView,
   Alert, Modal, Share, StatusBar, Dimensions, BackHandler,
@@ -159,6 +159,15 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // scorer picks them once and that choice sticks for the innings.
   const [keeperPrompt, setKeeperPrompt] = useState(false); // caught behind → who's keeping?
   const [keeperId, setKeeperId] = useState(null);          // scorer-picked keeper for the bowling side
+  // Why the keeper sheet is open: 'catch' | 'stumped' | 'change'. A ref, not
+  // state — it's read inside the sheet's own handlers, and a re-render between
+  // opening and tapping would be a race for something this small.
+  const keeperFor = useRef('catch');
+  // teamId → the keeper that side named at the toss. Not one value: the second
+  // innings puts the other team in the field, and their keeper is a different
+  // person. Only a starting point — `keeperId` is the scorer's live answer and
+  // always wins.
+  const tossKeepers = useRef({});
   // Armed-but-not-recorded catcher — { kind: 'cb'|'keeper'|'fielder', name, id }.
   // Same arm-then-confirm as the batter/bowler pickers: a wicket against the wrong
   // fielder can only be taken back by undoing the whole delivery.
@@ -292,6 +301,10 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       // batting order, so the same rule applies to both.
       setBattingXI(sortSquad(matchData.battingXI || []));
       setBowlingXI(sortSquad(matchData.bowlingXI || []));
+      tossKeepers.current = {
+        [matchData.team1Id]: matchData.team1KeeperId || null,
+        [matchData.team2Id]: matchData.team2KeeperId || null,
+      };
       setBattingTeamId(matchData.battingTeamId || '');
       setBowlingTeamId(matchData.bowlingTeamId || '');
       setCurrentInningId(matchData.firstInningId || '');
@@ -1517,9 +1530,29 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // two keepers in it can't say which one has the gloves on today).
   const keeper = (() => {
     if (keeperId) return bowlingXI.find((p) => p.id === keeperId) || null;
+    // Named at the toss — an explicit answer, so it works even for a squad
+    // carrying two keepers by role, which the fallback below has to give up on.
+    // Per team, because the second innings swaps who is in the field.
+    const named = tossKeepers.current[bowlingTeamId];
+    if (named) { const p = bowlingXI.find((x) => x.id === named); if (p) return p; }
     const wks = bowlingXI.filter((p) => isKeeperRole(p.role));
     return wks.length === 1 ? wks[0] : null;
   })();
+
+  // The gloves changing hands mid-innings is ordinary cricket — the keeper gets
+  // hit, or takes the ball for a few overs. Scoring already remembered the
+  // change for its own use; this also writes it to the match squad, so the
+  // scorecard's WK badge follows the game instead of showing whoever was marked
+  // at the toss for the rest of the day.
+  //
+  // Fire-and-forget: a scorer must never be blocked from recording a wicket
+  // because a badge didn't save.
+  const pickKeeper = useCallback((playerId) => {
+    setKeeperId(playerId);
+    if (matchData?.id && bowlingTeamId) {
+      legendsApi.setMatchKeeper(matchData.id, { teamId: bowlingTeamId, playerId }).catch(() => {});
+    }
+  }, [matchData?.id, bowlingTeamId]);
 
   // ── INNINGS BREAK ─────────────────────────────────────────────
   // The first innings used to end straight into "SELECT PLAYERS" for the second,
@@ -2346,6 +2379,18 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                     if (wt === 'runout') openRunOut();
                     else if (wt === 'caught') { setPendingCatcher(null); setCatchPrompt(true); }
                     else if (wt === 'retired') setRetiredPrompt(true);
+                    // A stumping is the keeper's, by definition — and it was
+                    // recorded with no fielder at all, so every one of them read
+                    // "st keeper b Bowler" on the scorecard, with the word
+                    // "keeper" standing in a name's place. If we know who is
+                    // keeping, use them; if not, ask, exactly as caught behind
+                    // does. This is also what makes a mid-match glove change
+                    // safe: the dismissal keeps whoever actually did it, so a
+                    // later swap can't rewrite an earlier stumping.
+                    else if (wt === 'stumped') {
+                      if (keeper) handleScore('out', 0, 'stumped', 'striker', keeper.name);
+                      else { keeperFor.current = 'stumped'; setKeeperPrompt(true); }
+                    }
                     else handleScore('out', 0, wt);
                   }}>
                   <Icon name={icon} size={22} color={DS.wicketText} />
@@ -2846,7 +2891,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               style={[styles.settingRow, pendingCatcher?.kind === 'keeper' && styles.settingRowPicked]}
               onPress={() => {
                 if (keeper) armCatcher({ kind: 'keeper', name: keeper.name, id: keeper.id });
-                else { setCatchPrompt(false); setKeeperPrompt(true); }
+                else { setCatchPrompt(false); keeperFor.current = 'catch'; setKeeperPrompt(true); }
               }}>
               <View style={[styles.playerAvatar, { backgroundColor: DS.wicketBg }]}>
                 <Icon name="hand-back-left" size={16} color={DS.wicketText} />
@@ -2902,15 +2947,22 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Who's keeping wicket?</Text>
-            <Text style={styles.modalSub}>Recorded as caught behind — remembered for this innings</Text>
+            <Text style={styles.modalSub}>
+              {keeperFor.current === 'change'
+                ? 'Remembered for this innings, and shown on the scorecard'
+                : `Recorded as ${keeperFor.current === 'stumped' ? 'the stumping' : 'caught behind'} — remembered for this innings`}
+            </Text>
             <ScrollView style={{ maxHeight: 300 }}>
               {bowlingXI.filter((p) => p.id !== currentBowler?.id).map((p, i) => (
                 <TouchableOpacity key={i} style={styles.playerOption}
                   onPress={() => {
-                    setKeeperId(p.id);
+                    const why = keeperFor.current;
+                    pickKeeper(p.id);
                     setKeeperPrompt(false);
-                    armCatcher({ kind: 'keeper', name: p.name, id: p.id });
-                    setCatchPrompt(true);
+                    // Three ways in: finish the catch, finish the stumping, or
+                    // nothing more to do because the gloves simply changed hands.
+                    if (why === 'stumped') handleScore('out', 0, 'stumped', 'striker', p.name);
+                    else if (why === 'catch') { armCatcher({ kind: 'keeper', name: p.name, id: p.id }); setCatchPrompt(true); }
                   }}>
                   <View style={styles.playerAvatar}>
                     <Text style={styles.playerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
@@ -2920,9 +2972,14 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            {/* Back, not out — the wicket still has to be recorded. */}
+            {/* Back, not out — a wicket still has to be recorded, so this
+                returns to the sheet it came from rather than cancelling. */}
             <TouchableOpacity style={styles.modalClose}
-              onPress={() => { setKeeperPrompt(false); setCatchPrompt(true); }}>
+              onPress={() => {
+                setKeeperPrompt(false);
+                if (keeperFor.current === 'catch') setCatchPrompt(true);
+                else if (keeperFor.current === 'stumped') setWicketPrompt(true);
+              }}>
               <Text style={styles.modalCloseText}>Back</Text>
             </TouchableOpacity>
           </View>
@@ -2944,6 +3001,20 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               <Icon name="sync" size={20} color={DS.lime} />
               <Text style={styles.settingText}>Change bowler</Text>
               <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
+
+            {/* Change keeper — beside Change bowler, because it is the same kind
+                of thing: who is doing a job right now. The keeper gets hit, or
+                takes the ball for a few overs, and until this there was no way
+                to say so except by taking a catch. */}
+            <TouchableOpacity
+              style={styles.settingRow}
+              onPress={() => { setMorePrompt(false); keeperFor.current = 'change'; setKeeperPrompt(true); }}>
+              <Icon name="hand-back-left" size={20} color={DS.lime} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingTextNoFlex}>Change keeper</Text>
+                <Text style={styles.settingHint}>{keeper ? keeper.name : 'nobody named yet'}</Text>
+              </View>
             </TouchableOpacity>
             {/* Swap strike — the manual correction for the ends. The ends normally
                 look after themselves (odd runs, end of over, a run out), but nothing

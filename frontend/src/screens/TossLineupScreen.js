@@ -463,6 +463,9 @@ export default function TossLineupScreen({ route, navigation }) {
           team1Id, team2Id,
           team1PlayerIds: team1XI,
           team2PlayerIds: team2XI,
+          // Marked here, used there: the scorer named a keeper a minute ago and
+          // the scoring screen shouldn't ask again on the first caught-behind.
+          team1KeeperId: team1Lead.keeperId, team2KeeperId: team2Lead.keeperId,
           battingTeamId, bowlingTeamId,
           battingTeamName: battingTeamId === team1Id ? team1 : team2,
           bowlingTeamName: bowlingTeamId === team1Id ? team1 : team2,

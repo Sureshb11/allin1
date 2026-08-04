@@ -1083,6 +1083,37 @@ router.post('/:id/toss', authMiddleware, async (req, res) => {
   }
 });
 
+// The gloves change hands mid-innings — the keeper gets hit, or takes the ball
+// for a few overs. The scorer already had to be able to say so (a caught-behind
+// asks who is keeping); this is where that answer is kept, so the scorecard's
+// WK badge follows the game instead of naming whoever was marked at the toss
+// for the rest of the day.
+//
+// One keeper per side at a time, so setting one clears the rest of that team.
+// It does NOT rewrite history: a stumping or a catch already records the
+// fielder by name on the ball, so an earlier dismissal keeps whoever actually
+// did it.
+const KeeperSchema = z.object({ teamId: z.string(), playerId: z.string() });
+
+router.post('/:id/keeper', authMiddleware, async (req, res) => {
+  try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
+    const { teamId, playerId } = KeeperSchema.parse(req.body);
+    const matchId = req.params.id;
+
+    const inSquad = await prisma.matchPlayer.findFirst({ where: { matchId, teamId, playerId } });
+    if (!inSquad) return res.status(400).json({ error: 'That player is not in this match squad.' });
+
+    await prisma.$transaction([
+      prisma.matchPlayer.updateMany({ where: { matchId, teamId, NOT: { playerId } }, data: { isWk: false } }),
+      prisma.matchPlayer.update({ where: { id: inSquad.id }, data: { isWk: true } }),
+    ]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // Discard a second innings that should never have started.
 //
 // Ending an innings is one tap behind a reason picker, and "Rain / abandoned"

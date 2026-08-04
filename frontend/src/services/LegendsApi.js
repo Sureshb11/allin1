@@ -174,6 +174,18 @@ class LegendsApi {
     }
   }
 
+  // Who is keeping wicket right now. Changes hands mid-innings more often than
+  // people expect, and until this the scorecard could only ever show whoever
+  // was marked at the toss.
+  async setMatchKeeper(matchId, { teamId, playerId }) {
+    try {
+      await this.request(`/matches/${matchId}/keeper`, { method: 'POST', body: { teamId, playerId } });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Claim a guest player → merge its match history into your career.
   async claimPlayer(guestPlayerId) {
     try {
