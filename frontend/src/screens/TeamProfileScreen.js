@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
+import { getFind } from '../sports/find';
 import legendsApi from '../services/LegendsApi';
 import TeamStats from '../components/TeamStats';
 import { makeControls } from '../theme/controls';
@@ -570,16 +571,21 @@ const TeamProfileScreen = ({ navigation, route }) => {
             <Text style={styles.modalTitle}>{manageMember?.name}</Text>
 
             <Text style={styles.fieldLabel}>Role</Text>
-            {isCricket && (
-              <View style={styles.chipWrap}>
-                {['Batter', 'Bowler', 'All-rounder', 'Keeper'].map((r) => (
-                  <TouchableOpacity key={r} onPress={() => setManageForm((f) => ({ ...f, role: r }))}
-                    style={[styles.roleChip, manageForm.role === r && styles.roleChipOn]}>
-                    <Text style={[styles.roleChipTxt, manageForm.role === r && styles.roleChipTxtOn]}>{r}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            {/* From the sports registry, which already knows every sport's
+                roles — football has Striker/Midfielder/Defender/Goalkeeper,
+                badminton has Singles/Doubles. This offered four CRICKET roles
+                and was gated on isCricket, so a football squad got a "Role"
+                heading with nothing under it and no way to set one at all.
+                It also said "Keeper" where Find Players says "Wicketkeeper";
+                one list means one word. */}
+            <View style={styles.chipWrap}>
+              {(getFind(sport)?.roles || []).map((r) => (
+                <TouchableOpacity key={r} onPress={() => setManageForm((f) => ({ ...f, role: r }))}
+                  style={[styles.roleChip, manageForm.role === r && styles.roleChipOn]}>
+                  <Text style={[styles.roleChipTxt, manageForm.role === r && styles.roleChipTxtOn]}>{r}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <TextInput style={styles.modalInput} placeholder="Role" placeholderTextColor={DS.textMuted}
               value={manageForm.role} onChangeText={(t) => setManageForm((f) => ({ ...f, role: t }))} />
 
