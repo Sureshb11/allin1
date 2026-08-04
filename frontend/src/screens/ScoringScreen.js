@@ -243,6 +243,15 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // only the missing one instead of leaning on server-side dedupe.
   const idemRef = useRef({ base: null, n: 0, done: {} });
   const milestoneRef = useRef({ bat: {}, bowl: {}, streak: { id: null, n: 0 } });   // announced milestones + hat-trick streak
+  // A COPY, for snapshots. `streak` is mutated in place as wickets fall, so
+  // storing the ref itself hands a snapshot something that keeps changing under
+  // it — which is what the innings-undo path was doing: it saved
+  // milestoneRef.current and restored it, i.e. restored the object to itself.
+  const copyMilestones = () => ({
+    bat: { ...milestoneRef.current.bat },
+    bowl: { ...milestoneRef.current.bowl },
+    streak: { ...milestoneRef.current.streak },
+  });
   const overScrollRef = useRef(null);   // "this over" tracker — auto-scrolled to the latest ball
 
   // Keep the just-scored ball in view: once an over runs past 6 balls (wides/
@@ -713,6 +722,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     if (prev.retiredBatters) setRetiredBatters(prev.retiredBatters);
     if ('pnrStartRuns' in prev) setPnrStartRuns(prev.pnrStartRuns);
     if ('pnrBalls' in prev) setPnrBalls(prev.pnrBalls);
+    // Guarded like the rest: a snapshot taken before this shipped has no copy.
+    if (prev.milestones) milestoneRef.current = prev.milestones;
     setShowPlayerModal(false);
     setShowBowlerModal(false);
     const s = `${prev.score.runs}/${prev.score.wickets} (${prev.score.overs}.${prev.score.balls})`;
@@ -821,6 +832,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       bowlerOvers: { ...bowlerOvers }, lastOverBowlerId, bowlerLastOver: { ...bowlerLastOver },
       freeHit, retiredBatters: [...retiredBatters],
       pnrStartRuns, pnrBalls,
+      // The hat-trick streak, above all. It is a counter that only ever goes up
+      // as wickets fall, and undo did not wind it back — so taking back a wicket
+      // and re-recording it left the count one too high, and the NEXT wicket
+      // announced "🎩 HAT-TRICK!" for two. A wrong claim, celebrated with a
+      // haptic, in front of everyone watching the scorer.
+      milestones: copyMilestones(),
     };
     // Tactile feedback: a firm buzz on a wicket, a light tick on every other ball.
     if (value === 'out') haptic.warn(); else haptic.tick();
@@ -1210,7 +1227,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         battingTeamName, bowlingTeamName, battingTeamId, bowlingTeamId,
         battingXI, bowlingXI, keeperId,
         striker, nonStriker, currentBowler,
-        milestones: milestoneRef.current,
+        milestones: copyMilestones(),
       };
       setFirstInningsScore(score);
       const s1 = `${score.runs}/${score.wickets} (${score.overs}.${score.balls})`;
