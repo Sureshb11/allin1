@@ -289,7 +289,9 @@ export default function TeamStats({ teamId, show = 'stats' }) {
                 {st.tied > 0 && <Legend n={st.tied} label="Tied" c={DS.textVariant} s={s} />}
                 {st.noResult > 0 && <Legend n={st.noResult} label="No result" c={DS.textMuted} s={s} />}
               </View>
-                <Group title="MATCH STATISTICS" icon="cricket" s={s} DS={DS}>
+            </View>
+            
+            <Group title="MATCH STATISTICS" icon="cricket" s={s} DS={DS}>
               <Stat label="Total Matches" value={st.played} s={s} />
               <Stat label="Wins" value={st.won} s={s} />
               <Stat label="Losses" value={st.lost} s={s} />
@@ -354,7 +356,6 @@ export default function TeamStats({ teamId, show = 'stats' }) {
               <Stat label="Highest Successful Chase" value={st.bestChase} s={s} />
               <Stat label="Lowest Defended Score" value={st.lowestDefended} s={s} />
             </Group>
-          </ScrollView>
           </ScrollView>
         )
         : renderLeaderboardMenu()

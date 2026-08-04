@@ -3,9 +3,9 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Pressable,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useTheme, useThemedStyles } from '../hooks/useTheme';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import Header from '../components/Header';
-import { legendsApi } from '../api/legends';
+import legendsApi from '../services/LegendsApi';
 import { BOARDS } from '../components/TeamStats';
 
 const RANK = ['#d4af37', '#9ca3af', '#b87333']; // gold, silver, bronze
