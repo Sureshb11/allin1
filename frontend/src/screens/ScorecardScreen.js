@@ -575,6 +575,20 @@ function computeHighlights(match) {
           else if (ball.runs === 4) items.push({ key: `${ball.id}-4`, inningsLabel, label, icon: 'cricket', kind: 'four', text: `FOUR! ${batterName} finds the boundary` });
         }
 
+        // A chance put down. It reaches the ball-by-ball commentary already, but
+        // Highlights is the tab a spectator actually scans — and a drop is a
+        // highlight in the truest sense: it is the moment a match turned, told
+        // by what did NOT happen. Rare enough not to crowd the list (four in
+        // this database's 1,892 balls).
+        if (ball.droppedBy) {
+          items.push({
+            key: `${ball.id}-drop`, inningsLabel, label, icon: 'hand-back-right-off-outline', kind: 'drop',
+            text: `DROPPED! ${ball.droppedBy} puts down ${
+              ball.dropDifficulty === 'easy' ? 'a straightforward chance'
+              : ball.dropDifficulty === 'difficult' ? 'a tough chance' : 'the chance'}`,
+          });
+        }
+
         // Batter milestone — runs off the bat only, same rule as computeBatting.
         if (ball.batterId && offBat) {
           const before = batterRuns[ball.batterId] || 0;
@@ -1062,7 +1076,9 @@ function HighlightsTab({ match }) {const DS = useTheme().colors;const styles = u
   // Per-kind accent: wicket = red, six = boundary-green, four = blue, else lime.
   const iconColor = (kind) => kind === 'wicket' ? DS.live
     : kind === 'six' ? (DS.success || DS.lime)
-    : kind === 'four' ? DS.blue : DS.lime;
+    : kind === 'four' ? DS.blue
+    // A drop is a near-miss, not a triumph — the warning tone, not the lime.
+    : kind === 'drop' ? DS.coral : DS.lime;
   return (
     <View style={{ gap: 12 }}>
       {groups.map((g) => {
