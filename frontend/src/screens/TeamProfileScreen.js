@@ -393,7 +393,11 @@ const TeamProfileScreen = ({ navigation, route }) => {
         <View style={styles.identityText}>
           <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
           <Text style={styles.teamMeta} numberOfLines={1}>
-            {[team.city, team.homeGround].filter(Boolean).join(' · ') || (team.sport || 'cricket')}
+            {/* City, then whichever of state and country adds something — a team
+                in "Chennai, Tamil Nadu" reads better than one in "Chennai", and
+                a national side has only the country. */}
+            {[team.city, team.state, team.city || team.state ? null : team.country]
+              .filter(Boolean).join(', ') || (team.sport || 'cricket')}
             {`  ·  ${followerCount} follower${followerCount === 1 ? '' : 's'}`}
           </Text>
         </View>
@@ -414,6 +418,33 @@ const TeamProfileScreen = ({ navigation, route }) => {
       </View>
 
       {team.bio ? <Text style={styles.bio}>{team.bio}</Text> : null}
+
+      {/* Founded, ground and colours. Edit Team Profile has always asked for
+          these — along with state and country above — and the profile drew none
+          of them, so they were typed once and never seen. Each appears only when
+          it has a value, so a team that filled in nothing looks as it did. */}
+      {(team.foundedYear || team.homeGround || team.colors) && (
+        <View style={styles.factRow}>
+          {!!team.foundedYear && (
+            <View style={styles.fact}>
+              <Icon name="calendar-star" size={13} color={DS.textMuted} />
+              <Text style={styles.factText}>Est. {team.foundedYear}</Text>
+            </View>
+          )}
+          {!!team.homeGround && (
+            <View style={styles.fact}>
+              <Icon name="stadium-variant" size={13} color={DS.textMuted} />
+              <Text style={styles.factText} numberOfLines={1}>{team.homeGround}</Text>
+            </View>
+          )}
+          {!!team.colors && (
+            <View style={styles.fact}>
+              <Icon name="palette-outline" size={13} color={DS.textMuted} />
+              <Text style={styles.factText} numberOfLines={1}>{team.colors}</Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* ── Follow / Request-to-join (for people not on the team) ── */}
       {isOutsider && (
@@ -922,6 +953,13 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   editProfileTxt: { color: DS.lime, fontSize: 12, fontWeight: '800' },
   bio: { color: DS.textVariant, fontSize: 14, lineHeight: 20, paddingHorizontal: 16, marginTop: 12 },
+  factRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginTop: 10 },
+  fact: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: '48%',
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
+    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border,
+  },
+  factText: { fontSize: 11.5, fontWeight: '700', color: DS.textVariant, flexShrink: 1 },
 
   ctaRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginTop: 14 },
   ctaBtn: {
