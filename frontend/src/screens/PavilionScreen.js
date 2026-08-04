@@ -43,7 +43,10 @@ const FAB_FOR = (P) => [
   { icon: 'share-variant', label: 'Share Card',   accent: P.accent },
   null,
   { icon: 'plus',          label: 'Post Listing', accent: P.accent },
-  null,
+  // Grounds used to be null here and drew a floating button of its own, which
+  // put its primary action in the same corner as its map toggle — so the one
+  // that mattered was the one you couldn't see. It registers like Scout now.
+  { icon: 'plus',          label: 'Add Ground',   accent: P.accent },
 ];
 
 // Remembered across mounts so re-entering the clubhouse lands where you left it

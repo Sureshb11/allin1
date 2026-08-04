@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Image, ActivityIndicator, RefreshControl,
-  ScrollView, Platform, Alert, TextInput, Animated, useWindowDimensions
+  ScrollView, Platform, Alert, TextInput, Animated
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useCurrentUser } from '../utils/currentUser';
@@ -14,7 +14,7 @@ import MapView, { Marker, Callout } from 'react-native-maps';
 
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
-import Reanimated, { useAnimatedRef, useSharedValue, scrollTo, useAnimatedStyle, withSpring, withTiming, SlideInRight, SlideInLeft, FadeInDown } from 'react-native-reanimated';
+import Reanimated, { useAnimatedRef, useSharedValue, scrollTo, withTiming, SlideInRight, SlideInLeft, FadeInDown } from 'react-native-reanimated';
 import AnimatedPressable from '../components/AnimatedPressable';
 
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -22,46 +22,6 @@ import { pav } from '../theme/pavilion';
 import { makeControls } from '../theme/controls';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { useSupercluster } from '../components/useSupercluster';
-
-function MagneticFAB({ onPress, DS }) {
-  const { width: windowWidth } = useWindowDimensions();
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const offsetX = useSharedValue(0);
-  const offsetY = useSharedValue(0);
-
-  const pan = Gesture.Pan()
-    .onUpdate((e) => {
-      translateX.value = offsetX.value + e.translationX;
-      translateY.value = offsetY.value + e.translationY;
-    })
-    .onEnd((e) => {
-      const finalX = offsetX.value + e.translationX;
-      const finalY = offsetY.value + e.translationY;
-      const snapX = finalX < -windowWidth / 2 + 50 ? -windowWidth + 76 : 0;
-      translateX.value = withSpring(snapX, { damping: 14, stiffness: 120 });
-      translateY.value = withSpring(finalY, { damping: 14, stiffness: 120 });
-      offsetX.value = snapX;
-      offsetY.value = finalY;
-    });
-
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }, { translateY: translateY.value }]
-  }));
-
-  return (
-    <GestureDetector gesture={pan}>
-      <Reanimated.View style={[
-        style, 
-        { position: 'absolute', bottom: 40, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: DS.lime, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, elevation: 6, zIndex: 999 }
-      ]}>
-        <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="plus" size={30} color={DS.bg} />
-        </TouchableOpacity>
-      </Reanimated.View>
-    </GestureDetector>
-  );
-}
 
 function GroundSkeleton({ DS }) {
   const shimmers = useRef([new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)]).current;
@@ -493,7 +453,7 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
   );
 };
 
-export default function GroundsScreen({ navigation, pagerGesture }) {
+export default function GroundsScreen({ navigation, pagerGesture, inline, onRegisterFab }) {
   const user = useCurrentUser();
   const DS = useTheme().colors;
   const P = pav(DS);
@@ -616,6 +576,15 @@ export default function GroundsScreen({ navigation, pagerGesture }) {
       Alert.alert('Error', res.error || 'Failed to submit');
     }
   };
+
+  // The add button is the Pavilion's now, not this screen's own floating one.
+  // Grounds drew a MagneticFAB of its own while the clubhouse drew nothing for
+  // this tab, so its primary action shared a corner with the map toggle and lost.
+  // Scout has always done it the other way — register the action, let the shared
+  // button carry it — so the two neighbouring tabs now put their primary action
+  // in the same place, at the same size, in the same words.
+  const openAddGround = useCallback(() => { setMapLocation(null); setViewState('form'); }, []);
+  useEffect(() => { if (inline && user) onRegisterFab?.(openAddGround); }, [inline, user, onRegisterFab, openAddGround]);
 
   const openFormWithLocation = (coord) => {
     setMapLocation(coord);
@@ -761,20 +730,6 @@ export default function GroundsScreen({ navigation, pagerGesture }) {
         </GestureDetector>
       )}
 
-      {(viewState === 'list' || viewState === 'map') && (
-        <TouchableOpacity 
-          style={styles.mapToggleBtn} 
-          onPress={() => setViewState(viewState === 'list' ? 'map' : 'list')}
-          activeOpacity={0.8}
-        >
-          <Icon name={viewState === 'list' ? "map" : "format-list-bulleted"} size={22} color="#FFF" />
-          <Text style={styles.mapToggleText}>{viewState === 'list' ? "Map" : "List"}</Text>
-        </TouchableOpacity>
-      )}
-
-      {user && (viewState === 'list' || viewState === 'map') && (
-        <MagneticFAB onPress={() => { setMapLocation(null); setViewState('form'); }} DS={DS} />
-      )}
     </View>
   );
 }
@@ -843,9 +798,6 @@ const makeStyles = (DS, P) => StyleSheet.create({
 
   locationBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceHigh, padding: 16, borderRadius: 16, marginTop: 16, borderWidth: 1, borderColor: DS.lime + '40' },
   locationBadgeText: { color: DS.textMuted, fontWeight: '500', fontSize: 12, marginTop: 2 },
-
-  mapToggleBtn: { position: 'absolute', bottom: 120, right: 20, backgroundColor: DS.surfaceHigh, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 28, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: {width: 0, height: 4}, elevation: 8, borderWidth: 1, borderColor: DS.faint },
-  mapToggleText: { color: '#FFF', fontWeight: '800', fontSize: 15, marginLeft: 8 },
 
   formTopHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 50 : 16, paddingBottom: 14, backgroundColor: DS.bg },
   formBackBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
