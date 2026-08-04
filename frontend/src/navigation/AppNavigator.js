@@ -58,6 +58,7 @@ import MatchInsightsScreen from '../screens/MatchInsightsScreen';
 import TeamInsightsScreen from '../screens/TeamInsightsScreen';
 import PlaceholderScreen from '../screens/PlaceholderScreen';
 import PavilionScreen from '../screens/PavilionScreen';
+import GroundDetailScreen from '../screens/GroundDetailScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -404,6 +405,7 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
     <Stack.Screen name="Coaching" component={CoachingScreen} options={{ headerShown: false }} />
     <Stack.Screen name="Umpires" component={UmpireScreen} options={{ headerShown: false }} />
     <Stack.Screen name="TournamentDetail" component={TournamentDetailScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="GroundDetail" component={GroundDetailScreen} options={{ headerShown: false }} />
     <Stack.Screen name="MatchInsights" component={MatchInsightsScreen} options={{ headerShown: false }} />
     <Stack.Screen name="TeamInsights" component={TeamInsightsScreen} options={{ headerShown: false }} />
     <Stack.Screen name="MatchDetail" component={PlaceholderScreen} initialParams={{title: 'Match Details'}} />

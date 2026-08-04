@@ -620,7 +620,113 @@ class LegendsApi {
     }
   }
 
-  // Ground Booking
+  // ── Grounds Directory ───────────────────────────────────────────────
+  async getGrounds(params = {}) {
+    const qs = Object.entries(params)
+      .filter(([_, v]) => v !== undefined && v !== '')
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+      .join('&');
+    const path = `/grounds${qs ? '?' + qs : ''}`;
+    try {
+      const json = await this.request(path);
+      return { success: true, data: json };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  async getGroundDetail(id) {
+    try {
+      const json = await this.request(`/grounds/${id}`);
+      return { success: true, data: json };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  async submitGroundRequest(data) {
+    try {
+      const json = await this.request('/grounds', {
+        method: 'POST',
+        body: data,
+      });
+      return { success: true, data: json.ground };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  async toggleGroundFavourite(id) {
+    try {
+      const json = await this.request(`/grounds/${id}/favourite`, { method: 'POST' });
+      return { success: true, data: json };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  async getGroundFavourites() {
+    try {
+      const json = await this.request('/grounds/user/favourites');
+      return { success: true, data: json.grounds || [] };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  async addGroundReview(id, data) {
+    try {
+      const json = await this.request(`/grounds/${id}/review`, {
+        method: 'POST',
+        body: data,
+      });
+      return { success: true, data: json.review };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  async getGroundReviews(id) {
+    try {
+      const json = await this.request(`/grounds/${id}/reviews`);
+      return { success: true, data: json };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  // Admin methods
+  async getGroundRequests() {
+    try {
+      const json = await this.request('/grounds/admin/requests');
+      return { success: true, data: json };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  async approveGround(id) {
+    try {
+      const json = await this.request(`/grounds/${id}/approve`, { method: 'POST' });
+      return { success: true, data: json.ground };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  async rejectGround(id, reason) {
+    try {
+      const json = await this.request(`/grounds/${id}/reject`, {
+        method: 'POST',
+        body: { reason },
+      });
+      return { success: true, data: json.ground };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  // Legacy Ground Booking
   async getAvailableGrounds() {
     try {
       const json = await this.request('/grounds');
@@ -1258,6 +1364,30 @@ class LegendsApi {
       return { success: true, data: json.product };
     } catch (error) {
       return { success: false, error: error.message };
+    }
+  }
+
+  // Team → Stats. One call for every number on the tab; `filters` is
+  // { from, to, matchType, venue, tournamentId } and any of them may be absent.
+  async getTeamStats(teamId, filters = {}) {
+    try {
+      const qs = Object.entries(filters)
+        .filter(([, v]) => v != null && v !== '')
+        .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+      const json = await this.request(`/teams/${teamId}/stats${qs ? `?${qs}` : ''}`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // The values the filters should offer, from this team's own matches.
+  async getTeamStatsOptions(teamId) {
+    try {
+      const json = await this.request(`/teams/${teamId}/stats/options`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message, data: { years: [], matchTypes: [], venues: [], tournaments: [] } };
     }
   }
 

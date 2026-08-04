@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { teamStats, teamStatsFilterOptions } from '../lib/teamStats.js';
 import { authMiddleware } from '../lib/auth.js';
 import { isTeamAdmin } from '../lib/teamAuth.js';
 
@@ -436,6 +437,31 @@ router.put('/:id/members/:playerId/admin', authMiddleware, async (req, res) => {
 });
 
 // Team insights — form, top performers
+// ── Team → Stats ────────────────────────────────────────────────────────────
+// Every number on the Stats tab, filtered. `insights` below stays for older
+// clients; this is the one the tab reads.
+router.get('/:id/stats', async (req, res) => {
+  try {
+    const { from, to, matchType, venue, tournamentId } = req.query;
+    const data = await teamStats(req.params.id, {
+      from: from || undefined, to: to || undefined,
+      matchType: matchType || undefined, venue: venue || undefined,
+      tournamentId: tournamentId || undefined,
+    });
+    res.json(data);
+  } catch (e) {
+    res.status(e.message === 'Team not found' ? 404 : 500).json({ error: e.message });
+  }
+});
+
+// What the filter controls should offer — this team's own years, grounds, match
+// types and tournaments, so nothing is offered that never happened.
+router.get('/:id/stats/options', async (req, res) => {
+  try {
+    res.json(await teamStatsFilterOptions(req.params.id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.get('/:id/insights', async (req, res) => {
   try {
     const teamId = req.params.id;

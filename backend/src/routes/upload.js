@@ -12,7 +12,7 @@ const router = express.Router();
 // create screen has always uploaded a logo and a banner to it, and every one of
 // those uploads came back 400 "invalid folder". scripts/check-shared-enums.mjs
 // now compares this set against the folders the app actually passes.
-const FOLDERS = new Set(['avatars', 'feed', 'gallery', 'marketplace', 'teams', 'tournaments']);
+const FOLDERS = new Set(['avatars', 'feed', 'gallery', 'marketplace', 'teams', 'tournaments', 'grounds']);
 const MIME_EXT = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
 
 // A connected Blob store injects a token whose var name depends on the store name

@@ -465,16 +465,149 @@ model Stream {
 }
 
 model Ground {
-  id         String    @id @default(cuid())
-  name       String
-  location   String
-  price      Int
-  available  Boolean   @default(true)
-  facilities Json?
-  sport      String    @default("cricket")
-  bookings   Booking[]
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  name              String
+  localName         String?
+  description       String?
+  category          String?              // "Cricket ground", "Sports complex", etc.
+  groundType        String   @default("outdoor")  // indoor | outdoor | box_cricket | stadium | nets | academy
+  playingSurface    String?              // turf | grass | mat | concrete | synthetic | clay
+  ballTypes         Json?                // ["leather", "tennis", "soft"]
+
+  // Address
+  address           String?
+  street            String?
+  area              String?
+  city              String?
+  district          String?
+  state             String?
+  country           String   @default("IN")
+  postalCode        String?
+  latitude          Float?
+  longitude         Float?
+  googlePlaceId     String?  @unique
+  googleMapsUrl     String?
+
+  // Contact
+  phone             String?
+  whatsapp          String?
+  email             String?
+  website           String?
+
+  // Ratings
+  averageRating     Float    @default(0)
+  reviewCount       Int      @default(0)
+
+  // Flags
+  bookingEnabled    Boolean  @default(false)
+  verified          Boolean  @default(false)
+  featured          Boolean  @default(false)
+  permanentlyClosed Boolean  @default(false)
+  temporarilyClosed Boolean  @default(false)
+
+  // Ownership & admin
+  ownerId           String?
+  submittedById     String?
+  rejectionReason   String?
+  // pending | published | rejected | archived
+  status            String   @default("pending")
+  sport             String   @default("cricket")
+
+  // Legacy compat (existing Ground had these)
+  location          String?
+  price             Int?
+  available         Boolean  @default(true)
+  facilities        Json?
+
+  // Relations
+  images            GroundImage[]
+  openingHours      GroundOpeningHours[]
+  amenities         GroundAmenity[]
+  reviews           GroundReview[]
+  favourites        GroundFavourite[]
+  availability      GroundAvailability[]
+  bookings          Booking[]
 
   @@index([sport])
+  @@index([city])
+  @@index([state])
+  @@index([status])
+  @@index([groundType])
+  @@index([verified])
+  @@index([latitude, longitude])
+  @@index([submittedById])
+}
+
+model GroundImage {
+  id           String  @id @default(cuid())
+  groundId     String
+  imageUrl     String
+  imageType    String  @default("cover")  // cover | gallery | panorama
+  displayOrder Int     @default(0)
+  ground       Ground  @relation(fields: [groundId], references: [id], onDelete: Cascade)
+
+  @@index([groundId])
+}
+
+model GroundOpeningHours {
+  id        String  @id @default(cuid())
+  groundId  String
+  day       String          // Monday, Tuesday, ...
+  openTime  String?         // "06:00"
+  closeTime String?         // "20:00"
+  isClosed  Boolean @default(false)
+  ground    Ground  @relation(fields: [groundId], references: [id], onDelete: Cascade)
+
+  @@index([groundId])
+}
+
+model GroundAmenity {
+  id       String @id @default(cuid())
+  groundId String
+  amenity  String         // "Flood Lights", "Parking", etc.
+  ground   Ground @relation(fields: [groundId], references: [id], onDelete: Cascade)
+
+  @@index([groundId])
+}
+
+model GroundReview {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  groundId        String
+  userId          String
+  rating          Float
+  review          String?
+  images          Json?
+  verifiedBooking Boolean  @default(false)
+  ground          Ground   @relation(fields: [groundId], references: [id], onDelete: Cascade)
+
+  @@index([groundId])
+  @@index([userId])
+}
+
+model GroundFavourite {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  userId    String
+  groundId  String
+  ground    Ground   @relation(fields: [groundId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groundId])
+  @@index([userId])
+}
+
+model GroundAvailability {
+  id        String   @id @default(cuid())
+  groundId  String
+  date      DateTime
+  startTime String
+  endTime   String
+  status    String   @default("available")  // available | booked | blocked | maintenance
+  ground    Ground   @relation(fields: [groundId], references: [id], onDelete: Cascade)
+
+  @@index([groundId, date])
 }
 
 model Booking {

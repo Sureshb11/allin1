@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import TeamStats from '../components/TeamStats';
 import { pickAndUploadImage } from '../utils/imageUpload';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
@@ -82,7 +83,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const tabs = [
     ['squad', 'Squad', 'account-group'],
     ['matches', 'Matches', sportIcon],
-    ['form', 'Form', 'chart-line'],
+    ['form', 'Stats', 'chart-line'],   // key unchanged: deep links use it
     ['standings', 'Standings', 'trophy-variant'],
     ['honours', 'Honours', 'medal'],
     ['gallery', 'Gallery', 'image-multiple'],
@@ -456,7 +457,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
           <MatchesTab matches={data.recentMatches || []} teamId={teamId} navigation={navigation} styles={styles} DS={DS} />
         )}
         {tab === 'form' && (
-          <FormTab insights={insights} isCricket={isCricket} styles={styles} DS={DS} />
+          <TeamStats teamId={teamId} />
         )}
         {tab === 'standings' && (
           <StandingsTab rows={data.leaderboard || []} styles={styles} DS={DS} />

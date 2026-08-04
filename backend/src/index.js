@@ -110,7 +110,7 @@ app.use((req, res) => res.status(404).json({ error: 'Not Found' }));
 // Vercel: exports the app as a serverless function
 if (!process.env.VERCEL) {
   const port = process.env.PORT || 4000;
-  app.listen(port, () => {
+  app.listen(port, "0.0.0.0", () => {
     console.log(`AllIn1 API listening on http://localhost:${port}`);
   });
 }

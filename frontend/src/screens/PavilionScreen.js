@@ -10,6 +10,7 @@ import { makeControls, controlColors } from '../theme/controls';
 import MyPerformanceScreen from './MyPerformanceScreen';
 import StatisticsScreen from './StatisticsScreen';
 import LookingForScreen from './LookingForScreen';
+import GroundsScreen from './GroundsScreen';
 import { useCurrentUser } from '../utils/currentUser';
 import { useTabBarClearance } from '../components/AutoHideTabBar';
 import { haptic } from '../utils/haptics';
@@ -20,6 +21,7 @@ const TABS = [
   { label: 'My Stats', icon: 'chart-line',  component: MyPerformanceScreen },
   { label: 'Rankings', icon: 'podium',      component: StatisticsScreen },
   { label: 'Scout',    icon: 'telescope',   component: LookingForScreen },
+  { label: 'Grounds',  icon: 'earth',       component: GroundsScreen },
 ];
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -41,6 +43,7 @@ const FAB_FOR = (P) => [
   { icon: 'share-variant', label: 'Share Card',   accent: P.accent },
   null,
   { icon: 'plus',          label: 'Post Listing', accent: P.accent },
+  null,
 ];
 
 // Remembered across mounts so re-entering the clubhouse lands where you left it
