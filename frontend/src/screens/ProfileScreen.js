@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, Share, ActivityIndicator, Image
+  Alert, Share, ActivityIndicator, Image, RefreshControl, Animated, Easing,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { pickAndUploadImage } from '../utils/imageUpload';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import AppHeader from '../components/AppHeader';
 import { setCurrentAvatar, clearCurrentUser } from '../utils/currentUser';
 import { clearPlayerSetup } from '../utils/playerSetup';
@@ -30,8 +30,42 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 // Profile has been collecting all along: how you play, your team, where you
 // are, your bio. Career lives one tap away, in the place built for it.
 
+// Shape-matching placeholder — cover, avatar, name, then the cards. The bare
+// centred spinner it replaces said "something is coming" but not what, so the
+// screen jumped when it arrived. Same pattern as My Stats (StatsSkeleton).
+function ProfileSkeleton({ DS }) {
+  const pulse = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 0.75, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0.35, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  const Bar = (p) => (
+    <Animated.View style={{ backgroundColor: DS.surfaceHigh, opacity: pulse, borderRadius: p.r ?? 6, ...p }} />
+  );
+  return (
+    <View style={{ flex: 1, backgroundColor: DS.bg }}>
+      <Bar width="100%" height={160} r={0} />
+      <View style={{ alignItems: 'center', marginTop: -60 }}>
+        <Bar width={120} height={120} r={60} />
+        <View style={{ height: 14 }} />
+        <Bar width={160} height={20} />
+        <View style={{ height: 8 }} />
+        <Bar width={90} height={12} />
+      </View>
+      <View style={{ padding: 16, gap: 12, marginTop: 20 }}>
+        <Bar width="100%" height={150} r={16} />
+        <Bar width="100%" height={70} r={16} />
+      </View>
+    </View>
+  );
+}
+
 export default function ProfileScreen({ navigation }) {
-  const { colors: DS, pref, setMode, isDark } = useTheme();
+  const { colors: DS, setMode, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
@@ -54,7 +88,12 @@ export default function ProfileScreen({ navigation }) {
   // it was written; User has neither column, so it read "Player" for everybody
   // and the team pill has never once rendered.
   const [player, setPlayer] = useState(null);
+  // Every club, not just one. A Player row IS a team membership, so someone in
+  // three clubs has three rows and the hero could only ever name the first.
+  const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [uploading, setUploading] = useState(null);   // 'avatar' | 'cover' | null
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -76,11 +115,7 @@ export default function ProfileScreen({ navigation }) {
 
   const uploadRef = useRef(false);
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     if (uploadRef.current) return;
     try {
       // Scoped to the sport being viewed: a user can hold a player row per
@@ -90,6 +125,7 @@ export default function ProfileScreen({ navigation }) {
       if (profileRes.success) {
         setProfile(profileRes.data);
         setPlayer(profileRes.player || null);
+        setTeams(profileRes.teams || []);
         setCurrentAvatar(profileRes.data?.avatarUrl || null);
       }
     } catch {
@@ -97,7 +133,17 @@ export default function ProfileScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // On focus, not once on mount. This screen offers two routes into Edit
+  // Profile and then never re-read the result: you'd change your role, come
+  // back, and the card would still show the old one until the app restarted.
+  useFocusEffect(useCallback(() => { loadProfile(); }, [loadProfile]));
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadProfile().finally(() => setRefreshing(false));
+  }, [loadProfile]);
 
   const shareProfile = async () => {
     const sp = getSelectedSport().sport || { name: 'Cricket' };
@@ -136,52 +182,35 @@ export default function ProfileScreen({ navigation }) {
     ]);
   };
 
-  const handleAvatarPress = async () => {
+  // Avatar and cover were two copies of the same twenty lines, differing by one
+  // field name. `which` is also what the spinner keys off: picking an image and
+  // uploading it takes seconds during which nothing on screen changed at all,
+  // so the tap read as ignored and people tapped again.
+  const uploadPhoto = async (which) => {
+    const field = which === 'avatar' ? 'avatarUrl' : 'coverUrl';
     try {
       uploadRef.current = true;
-      const result = await pickAndUploadImage();
-      if (result && result.url) {
-        setProfile(prev => ({ ...prev, avatarUrl: result.url }));
-        setCurrentAvatar(result.url);
-        const upRes = await legendsApi.updateUserProfile({ avatarUrl: result.url });
-        if (upRes.success && upRes.data) {
-          setProfile(upRes.data);
-        }
+      // Both go to the 'avatars' folder — it is the one the upload allow-list
+      // compresses for photos of people (backend/src/routes/upload.js).
+      const result = await pickAndUploadImage('avatars');
+      if (result?.url) {
+        setUploading(which);
+        setProfile((prev) => ({ ...prev, [field]: result.url }));
+        if (which === 'avatar') setCurrentAvatar(result.url);
+        const upRes = await legendsApi.updateUserProfile({ [field]: result.url });
+        if (upRes.success && upRes.data) setProfile(upRes.data);
+        else if (!upRes.success) Alert.alert('Could not save photo', upRes.error || 'Please try again');
       }
     } catch (e) {
       console.log('Upload error', e);
     } finally {
       uploadRef.current = false;
+      setUploading(null);
       loadProfile();
     }
   };
 
-  const handleCoverPress = async () => {
-    try {
-      uploadRef.current = true;
-      const result = await pickAndUploadImage('avatars'); // use avatars folder for compression
-      if (result && result.url) {
-        setProfile(prev => ({ ...prev, coverUrl: result.url }));
-        const upRes = await legendsApi.updateUserProfile({ coverUrl: result.url });
-        if (upRes.success && upRes.data) {
-          setProfile(upRes.data);
-        }
-      }
-    } catch (e) {
-      console.log('Upload error', e);
-    } finally {
-      uploadRef.current = false;
-      loadProfile();
-    }
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={DS.lime} />
-      </View>
-    );
-  }
+  if (loading) return <ProfileSkeleton DS={DS} />;
 
   const displayName = profile.name || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Your Name';
   const initials = (displayName === 'Your Name' ? 'U' : displayName)
@@ -200,17 +229,26 @@ export default function ProfileScreen({ navigation }) {
   const hasPlayInfo = !!(role || player?.battingStyle || player?.bowlingStyle);
   const place = [profile.city, profile.district, profile.state, profile.country]
     .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ');
+  // How long they've been here. User.createdAt has always been in the payload.
+  const memberSince = profile.createdAt
+    ? new Date(profile.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+    : null;
 
   return (
     <View style={styles.container}>
       <AppHeader />
       <ScrollView showsVerticalScrollIndicator={false}
-        {...hideTabBar} contentContainerStyle={{ paddingBottom: tabClear }}>
+        {...hideTabBar} contentContainerStyle={{ paddingBottom: tabClear }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh}
+            tintColor={DS.lime} colors={[DS.lime]} />
+        }>
       {/* Hero Header */}
       <View style={styles.hero}>
         {/* Background Cover */}
         <View style={styles.coverWrap}>
-          <TouchableOpacity activeOpacity={0.9} onPress={handleCoverPress} style={{ width: '100%', height: '100%' }}>
+          <TouchableOpacity activeOpacity={0.9} onPress={() => uploadPhoto('cover')}
+            disabled={!!uploading} style={{ width: '100%', height: '100%' }}>
             {profile.coverUrl ? (
               <Image source={{ uri: profile.coverUrl }} style={styles.coverPhoto} resizeMode="cover" />
             ) : profile.avatarUrl ? (
@@ -224,14 +262,16 @@ export default function ProfileScreen({ navigation }) {
             )}
             <View style={styles.coverDarkenOverlay} />
             <View style={styles.coverUploadOverlay}>
-              <Icon name="camera" size={20} color="#FFF" />
+              {uploading === 'cover'
+                ? <ActivityIndicator size="small" color="#FFF" />
+                : <Icon name="camera" size={20} color="#FFF" />}
             </View>
           </TouchableOpacity>
         </View>
 
         {/* Overlapping Profile Picture */}
         <View style={styles.avatarContainer}>
-          <TouchableOpacity activeOpacity={0.9} onPress={handleAvatarPress}>
+          <TouchableOpacity activeOpacity={0.9} onPress={() => uploadPhoto('avatar')} disabled={!!uploading}>
             {profile.avatarUrl ? (
               <Image source={{ uri: profile.avatarUrl }} style={styles.largeAvatar} resizeMode="cover" />
             ) : (
@@ -241,7 +281,9 @@ export default function ProfileScreen({ navigation }) {
             )}
             
             <View style={styles.uploadOverlay}>
-              <Icon name="camera" size={16} color={DS.textPrimary} />
+              {uploading === 'avatar'
+                ? <ActivityIndicator size="small" color={DS.lime} />
+                : <Icon name="camera" size={16} color={DS.textPrimary} />}
             </View>
           </TouchableOpacity>
         </View>
@@ -260,17 +302,16 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={[styles.membershipText, { color: DS.lime }]}>Premium</Text>
               </View>
             )}
-            {!!player?.team?.name && (
-              <TouchableOpacity style={styles.teamPill} activeOpacity={0.75}
-                onPress={() => navigation.navigate('TeamProfile', { teamId: player.team.id })}>
-                <Icon name="shield" size={11} color={DS.lime} />
-                <Text style={styles.teamPillText}>{player.team.name}</Text>
-              </TouchableOpacity>
-            )}
             {!!place && (
               <View style={styles.teamPill}>
                 <Icon name="map-marker" size={11} color={DS.textMuted} />
                 <Text style={styles.teamPillText} numberOfLines={1}>{place}</Text>
+              </View>
+            )}
+            {!!memberSince && (
+              <View style={styles.teamPill}>
+                <Icon name="calendar-blank" size={11} color={DS.textMuted} />
+                <Text style={styles.teamPillText}>Since {memberSince}</Text>
               </View>
             )}
           </View>
@@ -316,6 +357,39 @@ export default function ProfileScreen({ navigation }) {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* ── Teams ──
+            The hero used to carry a single team pill. A Player row IS a team
+            membership, so a person in three clubs has three rows and that pill
+            could only ever name whichever one the database returned first. */}
+        {teams.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.cardHead}>
+              <Text style={styles.sectionTitle}>
+                {teams.length === 1 ? 'My team' : `My teams · ${teams.length}`}
+              </Text>
+            </View>
+            {teams.map((t) => (
+              <TouchableOpacity key={t.id} style={styles.teamRow} activeOpacity={0.8}
+                onPress={() => navigation.navigate('TeamProfile', { teamId: t.id })}>
+                {t.logoUrl
+                  ? <Image source={{ uri: t.logoUrl }} style={styles.teamLogo} resizeMode="cover" />
+                  : (
+                    <View style={[styles.teamLogo, styles.teamLogoFallback]}>
+                      <Text style={styles.teamLogoText}>{(t.name || '?').charAt(0).toUpperCase()}</Text>
+                    </View>
+                  )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.teamName} numberOfLines={1}>{t.name}</Text>
+                  {!!(t.city || t.homeGround) && (
+                    <Text style={styles.teamMeta} numberOfLines={1}>{t.city || t.homeGround}</Text>
+                  )}
+                </View>
+                <Icon name="chevron-right" size={19} color={DS.textMuted} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* ── About ── bio, collected since the beginning and never once shown */}
         {!!profile.bio && (
@@ -367,7 +441,6 @@ export default function ProfileScreen({ navigation }) {
 
 const makeStyles = (DS, typo, radii, shadows) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
 
   // Hero
   hero: { backgroundColor: DS.bg, paddingBottom: 24 },
@@ -447,6 +520,14 @@ const makeStyles = (DS, typo, radii, shadows) => StyleSheet.create({
   inviteBlurb: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 2, lineHeight: 15 },
 
   bio: { fontSize: 13.5, fontWeight: '600', color: DS.textVariant, lineHeight: 20 },
+
+  // Teams
+  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 9, borderTopWidth: 1, borderTopColor: DS.faint },
+  teamLogo: { width: 38, height: 38, borderRadius: 12, backgroundColor: DS.surfaceLow },
+  teamLogoFallback: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: DS.border },
+  teamLogoText: { fontSize: 15, fontWeight: '900', color: DS.lime },
+  teamName: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
+  teamMeta: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
 
   // Link out to the tab that owns career numbers
   linkRow: {

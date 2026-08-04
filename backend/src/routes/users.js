@@ -41,12 +41,27 @@ router.get('/me', authMiddleware, async (req, res) => {
   // unaffected.
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
   const inSport = req.query.sport ? { sport: String(req.query.sport) } : {};
-  let player = await prisma.player.findFirst({ where: { ...inSport, userId: user.id }, include: { team: true } });
-  if (!player && fullName) {
-    player = await prisma.player.findFirst({ where: { ...inSport, name: fullName }, include: { team: true } });
+
+  // findMany, not findFirst, because a Player row IS a team membership — someone
+  // in three clubs has three rows. The profile could only ever name one of them.
+  // Same two-step as before (linked rows win; fall back to the name), so which
+  // row answers as `player` is unchanged; it just also reports the rest.
+  let rows = await prisma.player.findMany({
+    where: { ...inSport, userId: user.id }, include: { team: true },
+  });
+  if (!rows.length && fullName) {
+    rows = await prisma.player.findMany({
+      where: { ...inSport, name: fullName }, include: { team: true },
+    });
   }
+  const player = rows[0] || null;
+  // Distinct: two rows can point at one team across sports when unscoped.
+  const teams = [...new Map(
+    rows.map((r) => r.team).filter(Boolean).map((t) => [t.id, t]),
+  ).values()];
+
   const { sports, ...userBase } = user;
-  res.json({ user: publicUser(userBase), player, sports, entitlements: entitlementsFor(user) });
+  res.json({ user: publicUser(userBase), player, teams, sports, entitlements: entitlementsFor(user) });
 });
 
 // The logged-in user's career. This route is now just the lookup — which Player

@@ -1213,7 +1213,9 @@ class LegendsApi {
       // `player` rides along: /users/me has always returned it, and the profile
       // screen needs its id to save how this person bats and bowls — those
       // belong to the player, not the account.
-      return { success: true, data: json.user, player: json.player || null };
+      // `teams` is every club this person turns out for — a Player row is a
+      // team membership, so someone in three clubs has three of them.
+      return { success: true, data: json.user, player: json.player || null, teams: json.teams || [] };
     } catch (error) {
       return { success: false, error: error.message };
     }
