@@ -16,7 +16,7 @@ import MatchAwardsModal from "../components/MatchAwardsModal";
 import PlayerAvatar from "../components/PlayerAvatar";
 import { BRAND_NAME, BRAND_TAGLINE } from "../components/BrandLogo";
 import {
-  resolveRunOut, resolveEnds, overRuns, isWicketChip,
+  resolveRunOut, resolveEnds, overRuns, isWicketChip, ballChip,
   DELIVERY, RUNS, END,
 } from '../utils/runOutEngine';
 
@@ -168,6 +168,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // person. Only a starting point — `keeperId` is the scorer's live answer and
   // always wins.
   const tossKeepers = useRef({});
+  // Which delivery a pending stumping came off, held across the keeper sheet.
+  const stumpExtra = useRef(null);
   // Armed-but-not-recorded catcher — { kind: 'cb'|'keeper'|'fielder', name, id }.
   // Same arm-then-confirm as the batter/bowler pickers: a wicket against the wrong
   // fielder can only be taken back by undoing the whole delivery.
@@ -749,7 +751,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // runOut = the run-out draft ({ delivery, runs, runsType, outSlot, end }) gathered
   //   by the four run-out sheets. Present ONLY for a run out — every other dismissal
   //   is a plain legal ball with no runs, which is what the null path scores.
-  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null, penaltyReason = null, isRetry = false, runOut = null, dropped = null) => {
+  const handleScore = async (value, addRuns = 0, wicketType = 'bowled', dismissed = 'striker', catcher = null, penaltyReason = null, isRetry = false, runOut = null, dropped = null, outExtra = null) => {
     if (matchComplete || undoing) return;
     // Debounce: ignore a new tap while the previous ball is still being saved. Rapid
     // taps during the async save read a stale score and used to pile balls into one
@@ -779,7 +781,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // ball's base (rewinding the counter) so the server can recognise it.
     if (isRetry) idemRef.current.n = 0;   // rewind the sequence; `done` and `base` stand
     else beginBallAttempt();
-    retryRef.current = { value, addRuns, wicketType, dismissed, catcher, penaltyReason, runOut };
+    // `dropped` and `outExtra` ride along too: a retry rebuilt the ball from
+    // this and dropped both, so retrying a failed delivery lost the dropped
+    // catch, and would have quietly turned a stumping off a wide into one off a
+    // legal ball — a different over, by one delivery.
+    retryRef.current = { value, addRuns, wicketType, dismissed, catcher, penaltyReason, runOut, dropped, outExtra };
     setSyncState({ status: 'saving', error: null });
     try {
     // Snapshot the pre-ball state so this delivery can be taken back. Built
@@ -867,6 +873,18 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         if (ro.countsAsBall) newScore.balls += 1;
         newOver.push(ro.chip);
         await persistBall(ro.batRuns, ro.extras, ro.extraType, true, 'runout', ro.countsAsBall, outPlayer?.id, catcher, runOut?.directHit ?? null);
+      } else if (outExtra === 'wide') {
+        // A STUMPING OFF A WIDE. The only dismissal besides a run out that can
+        // happen off one, and a common one in club cricket — a ball down the
+        // leg side, a foot that drags, the bails off. It was unrecordable: the
+        // wicket sheet always wrote a legal delivery, so a scorer had to choose
+        // between losing the wicket (record a wide) or losing the wide's run
+        // AND handing the over a delivery it never had (record a stumping),
+        // which ends the over a ball early and adds one to the bowler's
+        // figures. The wide stands: its run counts, the ball does not.
+        newScore.runs += 1;
+        newOver.push(ballChip({ extraType: 'wide', extras: 1, isWicket: true }));
+        await persistBall(0, 1, 'wide', true, wicketType, false, outPlayer?.id, catcher);
       } else {
         newScore.balls += 1;
         newOver.push('W');
@@ -1066,7 +1084,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     const a = retryRef.current;
     if (!a || savingRef.current) return;
     haptic.tick();
-    handleScore(a.value, a.addRuns, a.wicketType, a.dismissed, a.catcher, a.penaltyReason, true, a.runOut);
+    handleScore(a.value, a.addRuns, a.wicketType, a.dismissed, a.catcher, a.penaltyReason, true, a.runOut, a.dropped, a.outExtra);
   };
 
   // Reasons offered before ending — an innings mid-way vs. the whole match.
@@ -2366,15 +2384,24 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             <Text style={styles.modalTitle}>How was the batter out?</Text>
             <Text style={styles.modalSub}>Tap the dismissal type</Text>
             <View style={styles.wktChips}>
+              {/* `extra` is the delivery the dismissal came off. Only stumped
+                  needs it — it is the one dismissal besides a run out that can
+                  be made off a wide, and the run-out sheet asks about the
+                  delivery itself. Its own chip rather than a follow-up
+                  question, so the common stumping still costs one tap. */}
               {[
-                ['bowled', 'cricket'], ['caught', 'hand-back-right'], ['lbw', 'target'],
-                ['run out', 'run-fast'], ['stumped', 'hand-back-left'], ['hit wicket', 'alert'],
-                ['retired', 'bandage'],
-              ].map(([type, icon]) => (
+                { label: 'bowled', icon: 'cricket', wt: 'bowled' },
+                { label: 'caught', icon: 'hand-back-right', wt: 'caught' },
+                { label: 'lbw', icon: 'target', wt: 'lbw' },
+                { label: 'run out', icon: 'run-fast', wt: 'runout' },
+                { label: 'stumped', icon: 'hand-back-left', wt: 'stumped' },
+                { label: 'st (wide)', icon: 'arrow-expand-horizontal', wt: 'stumped', extra: 'wide' },
+                { label: 'hit wicket', icon: 'alert', wt: 'hitwicket' },
+                { label: 'retired', icon: 'bandage', wt: 'retired' },
+              ].map(({ label: type, icon, wt, extra = null }) => (
                 <TouchableOpacity key={type} style={styles.wktChip}
                   onPress={() => {
                     setWicketPrompt(false);
-                    const wt = type.replace(/ /g, '');
                     // Run-out → which batter is out; caught → who caught; retired → who.
                     if (wt === 'runout') openRunOut();
                     else if (wt === 'caught') { setPendingCatcher(null); setCatchPrompt(true); }
@@ -2388,8 +2415,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                     // safe: the dismissal keeps whoever actually did it, so a
                     // later swap can't rewrite an earlier stumping.
                     else if (wt === 'stumped') {
-                      if (keeper) handleScore('out', 0, 'stumped', 'striker', keeper.name);
-                      else { keeperFor.current = 'stumped'; setKeeperPrompt(true); }
+                      if (keeper) handleScore('out', 0, 'stumped', 'striker', keeper.name, null, false, null, null, extra);
+                      else { keeperFor.current = 'stumped'; stumpExtra.current = extra; setKeeperPrompt(true); }
                     }
                     else handleScore('out', 0, wt);
                   }}>
@@ -2961,7 +2988,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                     setKeeperPrompt(false);
                     // Three ways in: finish the catch, finish the stumping, or
                     // nothing more to do because the gloves simply changed hands.
-                    if (why === 'stumped') handleScore('out', 0, 'stumped', 'striker', p.name);
+                    if (why === 'stumped') handleScore('out', 0, 'stumped', 'striker', p.name, null, false, null, null, stumpExtra.current);
                     else if (why === 'catch') { armCatcher({ kind: 'keeper', name: p.name, id: p.id }); setCatchPrompt(true); }
                   }}>
                   <View style={styles.playerAvatar}>
