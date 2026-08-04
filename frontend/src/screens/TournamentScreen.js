@@ -1,14 +1,15 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback} from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert,
   ActivityIndicator, useWindowDimensions, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import { useTabBarClearance } from '../components/AutoHideTabBar';
+import { useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
 import { showToast } from '../components/Toast';
 import { pickAndUploadImage } from '../utils/imageUpload';
 import {
@@ -208,6 +209,18 @@ export default function TournamentScreen({ navigation, route }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const tabClear = useTabBarClearance();
+
+  // The dock stands down for the whole of this flow: a pushed, full-screen form
+  // with its own header and its own submit, and the app's bottom navigation
+  // floating over it is chrome between you and the keyboard. Locked rather than
+  // scroll-hidden, so a scroll cannot bring it back mid-form; released on blur,
+  // so backing out restores it.
+  const lockDock = useDockLock();
+  useFocusEffect(useCallback(() => {
+    lockDock(true);
+    return () => lockDock(false);
+  }, [lockDock]));
+
   const { width } = useWindowDimensions();
   const wide = width >= 640;               // tablet / landscape: two columns
 

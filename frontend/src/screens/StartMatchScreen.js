@@ -5,6 +5,7 @@ import {
   StatusBar, Animated
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { Typography, Spacing, Radius } from '../theme';
@@ -15,7 +16,7 @@ import { getSelectedSport } from '../utils/selectedSport';
 import GradientButton from '../components/GradientButton';
 import HexAvatar from '../components/HexAvatar';
 import { showToast } from '../components/Toast';
-import { useTabBarClearance } from '../components/AutoHideTabBar';
+import { useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
 
 /* ─── Kinetic Athlete Design Tokens ─────────────────────── */
 // Themed palette factory (faithful in dark; adapts to light). `black` is the
@@ -240,6 +241,18 @@ const StartMatchScreen = ({ navigation, route }) => {
   const K = useMemo(() => makeK(c), [c]);
   const s = useMemo(() => makeS(K), [K]);
   const tabClear = useTabBarClearance();   // keep CREATE clear of the floating dock
+
+  // The dock stands down for the whole of this flow: a pushed, full-screen form
+  // with its own header and its own submit, and the app's bottom navigation
+  // floating over it is chrome between you and the keyboard. Locked rather than
+  // scroll-hidden, so a scroll cannot bring it back mid-form; released on blur,
+  // so backing out restores it.
+  const lockDock = useDockLock();
+  useFocusEffect(useCallback(() => {
+    lockDock(true);
+    return () => lockDock(false);
+  }, [lockDock]));
+
   // Fall back to the sport the user is actually in, not cricket: the dock's
   // create-match button navigates here without params, which otherwise showed
   // a football player T20 formats, overs and cricket ball types.

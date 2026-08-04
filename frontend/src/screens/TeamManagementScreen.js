@@ -3,7 +3,7 @@ import { makeControls } from '../theme/controls';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
 
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,9 +23,10 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
+import { useFocusEffect } from '@react-navigation/native';
 import { showToast } from '../components/Toast';
 import BrandLogo from "../components/BrandLogo";
-import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
+import { useHideTabBarOnScroll, useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
 import Svg, { Polygon, Line, Circle } from 'react-native-svg';
 
 // The category tabs, in the order they're drawn — module scope so the swipe
@@ -138,6 +139,16 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   const [categorized, setCategorized] = useState({ mine: [], opponents: [], followed: [] });
   const [followedIds, setFollowedIds] = useState(new Set());
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
+
+  // Create Team is a TRANSPARENT modal, so the dock shows through its dim —
+  // dimmed, but still there and still tappable-looking behind a dialog asking
+  // for a name. It stands down while the dialog is up, like the two full-screen
+  // create flows.
+  const lockDock = useDockLock();
+  useFocusEffect(useCallback(() => {
+    lockDock(showCreateTeamModal);
+    return () => lockDock(false);
+  }, [showCreateTeamModal, lockDock]));
   const [newTeamName, setNewTeamName] = useState('');
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
 
