@@ -711,7 +711,12 @@ const SquadTab = ({ members, isAdmin, styles, DS, addingMember, searchPhone, set
       <View key={m.id} style={styles.memberRow}>
         <TouchableOpacity style={styles.memberMain} onPress={() => onOpenMember(m)} activeOpacity={0.7}>
           <View style={styles.memberAvatar}>
-            <Text style={styles.memberInitial}>{initials(m.name)}</Text>
+            {/* The face when there is one, the initials when there isn't — the
+                join-request rows above have always done this, and the squad
+                looked oddly anonymous underneath them. */}
+            {m.avatarUrl
+              ? <Image source={{ uri: m.avatarUrl }} style={styles.memberAvatarImg} />
+              : <Text style={styles.memberInitial}>{initials(m.name)}</Text>}
             {m.jerseyNumber != null && (
               <View style={styles.jerseyBadge}><Text style={styles.jerseyTxt}>{m.jerseyNumber}</Text></View>
             )}
@@ -1016,7 +1021,11 @@ const makeStyles = (DS) => StyleSheet.create({
   memberAvatar: {
     width: 40, height: 40, borderRadius: 20, backgroundColor: '#0a5227',
     alignItems: 'center', justifyContent: 'center', marginRight: 12,
+    // The photo fills this circle absolutely, so it has to be clipped to it —
+    // and the jersey badge sits outside, which is why it stays visible.
+    overflow: 'visible',
   },
+  memberAvatarImg: { width: 40, height: 40, borderRadius: 20 },
   memberInitial: { color: '#fff', fontWeight: '800', fontSize: 14 },
   jerseyBadge: {
     position: 'absolute', bottom: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 3,

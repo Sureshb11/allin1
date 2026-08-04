@@ -564,14 +564,20 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
     const teamId = req.params.id;
     const team = await prisma.team.findUnique({
       where: { id: teamId },
-      include: { players: true },
+      // The member's photo comes from the account behind them, and ONLY the
+      // photo — the squad list has no business carrying an email or a phone
+      // number. Join-request rows have always shown a face; the squad below
+      // them fell back to initials because this never fetched one.
+      include: { players: { include: { user: { select: { avatarUrl: true } } } } },
     });
     if (!team) return res.status(404).json({ error: 'Team not found' });
 
     // Who's an admin: the owner is always one; promoted members carry isAdmin.
     // Flag each member and tell the client whether the viewer can manage the team.
-    const membersWithRole = team.players.map((p) => ({
+    const membersWithRole = team.players.map(({ user, ...p }) => ({
       ...p,
+      // Flattened, and the rest of the user row deliberately dropped.
+      avatarUrl: user?.avatarUrl || null,
       isAdmin: !!p.isAdmin || (!!team.ownerId && p.userId === team.ownerId),
       isOwner: !!team.ownerId && p.userId === team.ownerId,
     })).sort((a, b) => {
