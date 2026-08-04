@@ -15,12 +15,13 @@
 // it so every section stays in sync.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import React, { useState, useEffect, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, TextInput, TouchableOpacity,
   ActivityIndicator, Modal, Dimensions, Alert, Switch,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useFocusEffect } from '@react-navigation/native';
 import legendsApi from '../services/LegendsApi';
 import TeamStats from '../components/TeamStats';
 import { makeControls } from '../theme/controls';
@@ -64,10 +65,9 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const [foundUser, setFoundUser] = useState(null);
   const [awardModal, setAwardModal] = useState(false);
   const [award, setAward] = useState({ title: '', year: '', note: '' });
-  // Follow + insights + join state
+  // Follow + join state
   const [following, setFollowing] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
-  const [insights, setInsights] = useState(null);
   const [joining, setJoining] = useState(false);
   // Member-management modal (role, jersey, captaincy + admin/owner/remove)
   const [manageMember, setManageMember] = useState(null);
@@ -124,12 +124,15 @@ const TeamProfileScreen = ({ navigation, route }) => {
 
   useEffect(() => { load(); }, [load]);
 
-  // Lazy-load form + top performers the first time the Form tab is opened.
-  useEffect(() => {
-    if (tab === 'form' && !insights && teamId) {
-      legendsApi.getTeamInsights(teamId).then((r) => { if (r.success) setInsights(r.data); });
-    }
-  }, [tab, insights, teamId]);
+  // Coming back from Edit Team Profile — or from a squad change, or an award —
+  // the screen has to show what was just saved. It loaded on mount only, so a
+  // renamed team kept its old name until the screen was left and re-entered.
+  // The first focus is skipped because mount already fetched.
+  const firstFocus = useRef(true);
+  useFocusEffect(useCallback(() => {
+    if (firstFocus.current) { firstFocus.current = false; return; }
+    load();
+  }, [load]));
 
   // ── Admin actions ──────────────────────────────────────────────────────────
   const changeImage = async (field) => {
@@ -717,54 +720,6 @@ const SquadTab = ({ members, isAdmin, styles, DS, addingMember, searchPhone, set
   </View>
 );
 
-const FormTab =({ insights, isCricket, styles, DS }) => {
-  if (!insights) return <ActivityIndicator color={DS.lime} style={{ marginTop: 24 }} />;
-  const form = insights.form || [];
-  const batters = insights.topBatters || [];
-  const bowlers = insights.topBowlers || [];
-  return (
-    <View>
-      <Text style={styles.blockLabel}>Recent Form</Text>
-      {form.length === 0 ? <Text style={styles.emptyTxt}>No completed matches yet.</Text> : (
-        <View style={styles.formRow}>
-          {form.map((f, i) => (
-            <View key={i} style={[styles.formPill, { backgroundColor: f.result === 'W' ? DS.success : DS.danger }]}>
-              <Text style={styles.formPillTxt}>{f.result}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-      {isCricket ? (
-        <>
-          {batters.length > 0 && (
-            <>
-              <Text style={[styles.blockLabel, { marginTop: 22 }]}>Top Batters</Text>
-              {batters.map((b, i) => (
-                <View key={i} style={styles.perfRow}>
-                  <Text style={styles.perfName} numberOfLines={1}>{b.player?.name || 'Player'}</Text>
-                  <Text style={styles.perfVal}>{b.runs} runs</Text>
-                </View>
-              ))}
-            </>
-          )}
-          {bowlers.length > 0 && (
-            <>
-              <Text style={[styles.blockLabel, { marginTop: 22 }]}>Top Bowlers</Text>
-              {bowlers.map((b, i) => (
-                <View key={i} style={styles.perfRow}>
-                  <Text style={styles.perfName} numberOfLines={1}>{b.player?.name || 'Player'}</Text>
-                  <Text style={styles.perfVal}>{b.wickets} wkts</Text>
-                </View>
-              ))}
-            </>
-          )}
-        </>
-      ) : (
-        <Text style={[styles.emptyTxt, { marginTop: 16 }]}>Player leaderboards are available for cricket.</Text>
-      )}
-    </View>
-  );
-};
 
 const MatchesTab = ({ matches, teamId, navigation, styles, DS }) => {
   if (matches.length === 0) return <Text style={styles.emptyTxt}>No matches yet.</Text>;
