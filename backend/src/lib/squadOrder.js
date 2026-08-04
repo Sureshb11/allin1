@@ -47,6 +47,25 @@ export function squadRank(p) {
   return roleRank(p.role);
 }
 
+// The canonical name for a role, or null when the string says nothing useful.
+//
+// Same matching as roleRank — one rule, so a player who SORTS as a keeper also
+// READS as one. Cricket's four names are the sports registry's
+// (src/sports/find.js), which is what Find Players and the squad manage sheet
+// both offer; other sports keep whatever they were given, because this only
+// knows how to name cricket roles.
+export const CRICKET_ROLES = { keeper: 'Wicketkeeper', batter: 'Batter', allrounder: 'All-rounder', bowler: 'Bowler' };
+
+export function canonicalRole(role, sport = 'cricket') {
+  if (sport !== 'cricket') return null;
+  const rank = roleRank(role);
+  if (rank === ROLE_RANK.keeper) return CRICKET_ROLES.keeper;
+  if (rank === ROLE_RANK.allrounder) return CRICKET_ROLES.allrounder;
+  if (rank === ROLE_RANK.batter) return CRICKET_ROLES.batter;
+  if (rank === ROLE_RANK.bowler) return CRICKET_ROLES.bowler;
+  return null;   // "Player", blank, anything unrecognised — a human should say
+}
+
 /**
  * Comparator. Ties break on shirt number, then name, so the order is stable
  * rather than whatever the database happened to return.
