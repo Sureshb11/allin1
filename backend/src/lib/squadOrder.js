@@ -1,0 +1,65 @@
+// The order a squad is listed in, everywhere in the app.
+//
+//   1. Captain
+//   2. Vice-captain
+//   3. Wicket-keeper(s)
+//   4. Batters
+//   5. All-rounders
+//   6. Bowlers
+//
+// It is one comparator because it is one rule. A squad appears on the team's
+// Squad tab, in match setup, in the toss line-up, in the scorer's batsman and
+// bowler pickers and on the scorecard's squad list — and a captain who is third
+// in one list and seventh in the next is a list you have to re-read every time.
+//
+// NOT for batting cards. A scorecard's batting order is the order people
+// actually batted, which is a record of what happened, not a way of arranging
+// names. Sorting that by role would be a lie.
+//
+// `role` is free text typed by whoever added the player, and this database
+// holds eight spellings of five roles — "Bat", "Batsman", "Bowl", "Bowler",
+// "All Rounder", "allrounder", "Wicket Keeper", "Player". So it is matched by
+// what it CONTAINS, in an order that resolves the overlaps: a "Wicket Keeper
+// Batsman" is a keeper, and a "Batting All-rounder" is an all-rounder.
+//
+// Mirrored in frontend/src/utils/squadOrder.js — two npm projects, no shared
+// package. scripts/check-shared-enums.mjs fails if the two drift apart.
+
+export const ROLE_RANK = { keeper: 2, batter: 3, allrounder: 4, bowler: 5, unknown: 6 };
+
+export function roleRank(role) {
+  const r = String(role || '').toLowerCase();
+  if (/keep|wicket-?k|\bwk\b/.test(r)) return ROLE_RANK.keeper;
+  if (/all.?round/.test(r)) return ROLE_RANK.allrounder;
+  if (/bat/.test(r)) return ROLE_RANK.batter;
+  if (/bowl/.test(r)) return ROLE_RANK.bowler;
+  return ROLE_RANK.unknown;
+}
+
+// Captain and vice-captain outrank every role — that is the point of naming
+// them. `isWk` is the per-match keeper flag, which beats whatever the player's
+// standing role says: they are keeping today.
+export function squadRank(p) {
+  if (!p) return ROLE_RANK.unknown;
+  if (p.isCaptain) return 0;
+  if (p.isViceCaptain) return 1;
+  if (p.isWk) return ROLE_RANK.keeper;
+  return roleRank(p.role);
+}
+
+/**
+ * Comparator. Ties break on shirt number, then name, so the order is stable
+ * rather than whatever the database happened to return.
+ */
+export function bySquadOrder(a, b) {
+  const ra = squadRank(a), rb = squadRank(b);
+  if (ra !== rb) return ra - rb;
+  const ja = a?.jerseyNumber ?? 9999, jb = b?.jerseyNumber ?? 9999;
+  if (ja !== jb) return ja - jb;
+  return String(a?.name || '').localeCompare(String(b?.name || ''));
+}
+
+/** Non-mutating sort — callers usually hold props they must not reorder. */
+export const sortSquad = (players) => [...(players || [])].sort(bySquadOrder);
+
+export default sortSquad;

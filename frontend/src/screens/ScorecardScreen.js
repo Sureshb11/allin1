@@ -1,5 +1,6 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { makeControls } from '../theme/controls';
+import { sortSquad } from '../utils/squadOrder';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Share, Image, RefreshControl, Dimensions, Animated } from
@@ -1279,9 +1280,15 @@ function SquadsTab({ match }) {const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.squadsGrid}>
       {teams.map((team, ti) => {
-        const squad = (match.squads || []).filter((s) => s.teamId === team?.id);
+        // Captain, vice, keepers, batters, all-rounders, bowlers — the same
+        // order this squad appears in on the team page and in the scorer's
+        // pickers. The BATTING card above is untouched: that is the order they
+        // actually batted, which is a record, not an arrangement.
+        const squad = sortSquad(
+          (match.squads || []).filter((s) => s.teamId === team?.id)
+            .map((s) => ({ ...s, ...s.player })));
         const squadIds = new Set(squad.map((s) => s.playerId));
-        const bench = (team?.players || []).filter((p) => !squadIds.has(p.id));
+        const bench = sortSquad((team?.players || []).filter((p) => !squadIds.has(p.id)));
         return (
           <View key={team?.id || ti} style={styles.squadCol}>
             <Text style={styles.squadTeamName} numberOfLines={1}>{team?.name || `Team ${ti + 1}`}</Text>

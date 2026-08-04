@@ -5,6 +5,7 @@ import {
   Animated, PanResponder } from
 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { sortSquad } from '../utils/squadOrder';
 import legendsApi from '../services/LegendsApi';
 import { haptic } from '../utils/haptics';
 import { activateKeepAwake, deactivateKeepAwake } from '../utils/keepAwake';
@@ -285,8 +286,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     if (matchData) {
       setBattingTeamName(matchData.battingTeamName || '');
       setBowlingTeamName(matchData.bowlingTeamName || '');
-      setBattingXI(matchData.battingXI || []);
-      setBowlingXI(matchData.bowlingXI || []);
+      // Sorted once, here, rather than at each of the pickers that read them:
+      // captain, vice, keepers, batters, all-rounders, bowlers. The batting XI
+      // is a SQUAD list in the pickers — who is available to come in — not a
+      // batting order, so the same rule applies to both.
+      setBattingXI(sortSquad(matchData.battingXI || []));
+      setBowlingXI(sortSquad(matchData.bowlingXI || []));
       setBattingTeamId(matchData.battingTeamId || '');
       setBowlingTeamId(matchData.bowlingTeamId || '');
       setCurrentInningId(matchData.firstInningId || '');

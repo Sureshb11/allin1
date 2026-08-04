@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { teamStats, teamStatsFilterOptions } from '../lib/teamStats.js';
+import { bySquadOrder } from '../lib/squadOrder.js';
 import { authMiddleware } from '../lib/auth.js';
 import { isTeamAdmin } from '../lib/teamAuth.js';
 
@@ -580,14 +581,7 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
       avatarUrl: user?.avatarUrl || null,
       isAdmin: !!p.isAdmin || (!!team.ownerId && p.userId === team.ownerId),
       isOwner: !!team.ownerId && p.userId === team.ownerId,
-    })).sort((a, b) => {
-      // Captain first, then vice-captain, then by shirt number, then name.
-      const rank = (m) => (m.isCaptain ? 0 : m.isViceCaptain ? 1 : 2);
-      if (rank(a) !== rank(b)) return rank(a) - rank(b);
-      const ja = a.jerseyNumber ?? 9999, jb = b.jerseyNumber ?? 9999;
-      if (ja !== jb) return ja - jb;
-      return (a.name || '').localeCompare(b.name || '');
-    });
+    })).sort(bySquadOrder);   // captain, vice, keepers, batters, all-rounders, bowlers
     const viewerId = req.user.sub;
     const viewerIsAdmin = await isTeamAdmin(teamId, viewerId);
 

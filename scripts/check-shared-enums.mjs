@@ -31,6 +31,15 @@ const walk = (dir, out = []) => {
   return out;
 };
 
+// The executable part of a module — comments and blank lines stripped — so two
+// files that behave identically compare equal even where their headers differ.
+const ruleOf = (src) => src
+  .split('\n')
+  .filter((l) => !l.trim().startsWith('//'))
+  .join('\n')
+  .replace(/\s+/g, ' ')
+  .trim();
+
 const listFrom = (src, re, label) => {
   const m = src.match(re);
   if (!m) throw new Error(`Could not find ${label} — has it been renamed or reformatted?`);
@@ -89,6 +98,25 @@ const CHECKS = [
       ),
     },
   },
+  {
+    // The squad order — captain, vice, keepers, batters, all-rounders, bowlers.
+    // It has to be identical on both sides: the server sorts the team profile
+    // with it and the app sorts every picker with it, so a difference means a
+    // captain sitting third on one screen and seventh on the next.
+    //
+    // These two files are byte-identical apart from one comment line naming the
+    // other, so the whole rule is compared rather than a list of values.
+    name: 'Squad order rule',
+    mode: 'identical',
+    a: {
+      label: 'frontend/src/utils/squadOrder.js',
+      get: () => [ruleOf(read('frontend/src/utils/squadOrder.js'))],
+    },
+    b: {
+      label: 'backend/src/lib/squadOrder.js',
+      get: () => [ruleOf(read('backend/src/lib/squadOrder.js'))],
+    },
+  },
 ];
 
 let failed = false;
@@ -100,6 +128,19 @@ for (const check of CHECKS) {
   } catch (e) {
     console.error(`✗ ${check.name}: ${e.message}`);
     failed = true;
+    continue;
+  }
+  // Two whole modules compared as one string: printing both sides is 2,400
+  // characters of noise, so say WHERE they first diverge instead.
+  if (check.mode === 'identical') {
+    if (a[0] === b[0]) { console.log(`✓ ${check.name} — identical on both sides`); continue; }
+    failed = true;
+    let i = 0;
+    while (i < a[0].length && a[0][i] === b[0][i]) i++;
+    const near = (x) => x.slice(Math.max(0, i - 40), i + 40).replace(/\s+/g, ' ');
+    console.error(`✗ ${check.name} has drifted:`);
+    console.error(`    ${check.a.label}: …${near(a[0])}…`);
+    console.error(`    ${check.b.label}: …${near(b[0])}…`);
     continue;
   }
   const onlyA = a.filter((x) => !b.includes(x));

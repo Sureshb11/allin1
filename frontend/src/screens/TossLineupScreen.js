@@ -8,6 +8,7 @@ import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 import { Spacing, Radius } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
 import { haptic } from '../utils/haptics';
+import { sortSquad } from '../utils/squadOrder';
 import legendsApi from '../services/LegendsApi';
 import { useTabBarClearance } from '../components/AutoHideTabBar';
 
@@ -48,8 +49,12 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
 
   useEffect(() => {
     legendsApi.getTeam(teamId).then(res => {
-      const list = res.success && Array.isArray(res.data?.players)
-        ? res.data.players : [];
+      // Captain, vice, keepers, batters, all-rounders, bowlers — the order this
+      // squad appears in everywhere else. It also means the auto-selected XI
+      // below takes the top eleven of a sensible order rather than whatever the
+      // database returned first.
+      const list = sortSquad(res.success && Array.isArray(res.data?.players)
+        ? res.data.players : []);
       setPlayers(list);
       // Auto-select the full squad (up to the max) ONLY the first time this team is
       // opened — i.e. when its XI is still empty. This component remounts on every
