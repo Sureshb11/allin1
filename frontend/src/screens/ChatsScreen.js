@@ -6,7 +6,7 @@ import legendsApi from '../services/LegendsApi';
 import { useCurrentUser } from '../utils/currentUser';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import PlayerAvatar from '../components/PlayerAvatar';
-import { useTabBarClearance } from '../components/AutoHideTabBar';
+import { useDockLock } from '../components/AutoHideTabBar';
 
 // Rooms are grouped by where the conversation came from. ChatRoom.type carries
 // it: 'scout' for a Scout connection, 'team' for a squad room, 'tournament' for
@@ -35,9 +35,17 @@ const timeAgo = (iso) => {
 };
 
 export default function ChatsScreen({ navigation }) {
+  // The dock stands down here: the chat list is its own screen with its own tabs,
+  // opened from the header rather than from the dock.
+  // Released on blur, so leaving brings it straight back.
+  const lockDock = useDockLock();
+  useFocusEffect(useCallback(() => {
+    lockDock(true);
+    return () => lockDock(false);
+  }, [lockDock]));
+
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
-  const tabClear = useTabBarClearance();
   const me = useCurrentUser();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -164,7 +172,7 @@ export default function ChatsScreen({ navigation }) {
       data={data}
       keyExtractor={(i) => i.id}
       renderItem={renderItem}
-      contentContainerStyle={[styles.list, { paddingBottom: tabClear }]}
+      contentContainerStyle={[styles.list, { paddingBottom: 16 }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}
       ListEmptyComponent={
         <View style={styles.empty}>

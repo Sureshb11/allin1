@@ -1,8 +1,10 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect, useCallback} from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, StatusBar } from
 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useDockLock } from '../components/AutoHideTabBar';
 import legendsApi from '../services/LegendsApi';
 
 
@@ -13,6 +15,15 @@ import legendsApi from '../services/LegendsApi';
 
 
 const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+  // The dock stands down here: a full-screen list you open, read and leave — there
+  // is nothing to navigate sideways to from it.
+  // Released on blur, so leaving brings it straight back.
+  const lockDock = useDockLock();
+  useFocusEffect(useCallback(() => {
+    lockDock(true);
+    return () => lockDock(false);
+  }, [lockDock]));
+
   const [notifications, setNotifications] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 

@@ -5,6 +5,7 @@ import {
 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useDockLock } from '../components/AutoHideTabBar';
 import legendsApi from '../services/LegendsApi';
 import { useCurrentUser } from '../utils/currentUser';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -89,6 +90,16 @@ function ChatBubble({ item, mine, showMeta, onRetry, styles, DS }) {
 }
 
 const ChatScreen = ({ route, navigation }) => {
+  // The dock stands down here: a conversation is a full-screen thread with a composer at
+  // the bottom, and the dock floated between the message you are writing and
+  // the keyboard.
+  // Released on blur, so leaving brings it straight back.
+  const lockDock = useDockLock();
+  useFocusEffect(useCallback(() => {
+    lockDock(true);
+    return () => lockDock(false);
+  }, [lockDock]));
+
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const me = useCurrentUser();
