@@ -758,7 +758,16 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
       joinRequests,
       recentMatches,
       stats,
-      leaderboard: leaderboard.slice(0, 10),
+      // Top ten, plus this team's own row when it falls outside it — which is
+      // almost always: there are 142 cricket teams and ten places, so 93% of
+      // them were looking at a table they were not in, with the "your row"
+      // highlight highlighting nothing. Rank is only a fact you can act on if
+      // you can see where you sit.
+      leaderboard: (() => {
+        const top = leaderboard.slice(0, 10);
+        const mine = leaderboard.find((l) => l.isCurrent);
+        return mine && !top.some((r) => r.isCurrent) ? [...top, mine] : top;
+      })(),
       gallery,
       achievements: team.achievements || '',
       awards: Array.isArray(team.awards) ? team.awards : [],

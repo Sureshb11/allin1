@@ -896,8 +896,15 @@ const StandingsTab = ({ rows, styles, DS }) => {
         <Text style={styles.thNum}>W</Text>
         <Text style={styles.thNum}>Win%</Text>
       </View>
-      {rows.map((r) => (
-        <View key={r.id} style={[styles.tableRow, r.isCurrent && styles.tableRowActive]}>
+      {rows.map((r, i) => (
+        <React.Fragment key={r.id}>
+          {/* The last row is this team's own, appended when it sits outside the
+              top ten. Without a break, #10 followed by #142 reads as a table
+              that lost its place rather than one that skipped ahead. */}
+          {i > 0 && r.rank > rows[i - 1].rank + 1 && (
+            <View style={styles.tableGap}><Text style={styles.tableGapText}>···</Text></View>
+          )}
+        <View style={[styles.tableRow, r.isCurrent && styles.tableRowActive]}>
           <Text style={styles.tdRank}>{r.rank}</Text>
           {/* The crest. GET /teams/:id/profile has been sending logoUrl on every
               standings row since the leaderboard was written and this table
@@ -912,6 +919,7 @@ const StandingsTab = ({ rows, styles, DS }) => {
           <Text style={styles.tdNum}>{r.wins}</Text>
           <Text style={styles.tdNum}>{r.winRate}%</Text>
         </View>
+        </React.Fragment>
       ))}
     </View>
   );
@@ -1154,6 +1162,8 @@ const makeStyles = (DS) => StyleSheet.create({
   thTeam: { flex: 1, fontSize: 11, fontWeight: '800', color: DS.textMuted },
   thNum: { width: 46, textAlign: 'center', fontSize: 11, fontWeight: '800', color: DS.textMuted },
   tdRank: { width: 26, fontSize: 14, fontWeight: '800', color: DS.textPrimary },
+  tableGap: { alignItems: 'center', paddingVertical: 2 },
+  tableGapText: { fontSize: 13, fontWeight: '800', color: DS.textMuted, letterSpacing: 2 },
   tdLogo: {
     width: 22, height: 22, borderRadius: 11, marginRight: 8,
     backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
