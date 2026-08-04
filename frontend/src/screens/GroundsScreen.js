@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Image, ActivityIndicator, RefreshControl,
-  ScrollView, Platform, Alert, TextInput, Animated
+  ScrollView, Platform, Alert, TextInput, Animated, Modal, Pressable
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useCurrentUser } from '../utils/currentUser';
@@ -113,7 +113,7 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
           is a native dependency plus a runtime permission. This is a real
           answer available today, and it is tappable when it is missing. */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 }}>
-        <TouchableOpacity onPress={place ? undefined : onSetPlace} activeOpacity={place ? 1 : 0.7} style={{ flex: 1 }}>
+        <TouchableOpacity onPress={onSetPlace} activeOpacity={0.7} style={{ flex: 1 }}>
           <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
             Your location
           </Text>
@@ -122,6 +122,7 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
             <Text style={{ color: place ? DS.textPrimary : DS.textMuted, fontSize: 18, fontWeight: '700' }} numberOfLines={1}>
               {place || 'Set your city'}
             </Text>
+            <Icon name="pencil-outline" size={14} color={DS.textMuted} style={{ marginLeft: 6 }} />
           </View>
         </TouchableOpacity>
         {/* Map, where the filter icon used to be. That icon set a
@@ -702,6 +703,18 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   // Where the viewer says they are — city first, then district or state, which
   // is what Edit Profile collects. Read once; it changes about never.
   const [place, setPlace] = useState('');
+  const [placeEditor, setPlaceEditor] = useState(false);
+  const [placeDraft, setPlaceDraft] = useState('');
+
+  // Typed, not sensed. Saved to the profile so it is the same city Edit Profile
+  // shows and it survives a reinstall, and used to filter the list — which is
+  // what a line called "your location" on a grounds finder is promising.
+  const savePlace = useCallback(async (value) => {
+    const next = value.trim();
+    setPlace(next);
+    setPlaceEditor(false);
+    LegendsApi.updateUserProfile({ city: next || null }).catch(() => {});
+  }, []);
   useEffect(() => {
     LegendsApi.getUserProfile().then((r) => {
       const u = (r?.success && r.data) || {};
@@ -755,7 +768,9 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
       type: type === 'All' ? '' : type,
       surface: filterSurface,
       ball: filterBall,
-      verified: filterVerified ? 'true' : ''
+      verified: filterVerified ? 'true' : '',
+      // Your location, doing something. Empty means every ground.
+      city: place,
     };
     // A hardcoded Chennai coordinate used to be injected here "for demo
     // purposes", which had three effects nobody would have chosen: every
@@ -777,7 +792,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
     }
     setLoading(false);
     setRefreshing(false);
-  }, [query, type, filterSurface, filterBall, filterVerified]);
+  }, [query, type, filterSurface, filterBall, filterVerified, place]);
 
   useEffect(() => {
     const delay = setTimeout(fetchGrounds, 300);
@@ -926,7 +941,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
           pagerGesture={pagerGesture}
           DS={DS} P={P} styles={styles} C={C}
           place={place}
-          onSetPlace={() => navigation.navigate('EditPlayerProfile')}
+          onSetPlace={() => { setPlaceDraft(place); setPlaceEditor(true); }}
           mapOpen={viewState === 'map'}
           onToggleMap={() => setViewState((v) => (v === 'map' ? 'list' : 'map'))}
         />
@@ -1001,6 +1016,39 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
         </GestureDetector>
       )}
 
+      {/* ── Where are you? ──
+          Typed, because the app cannot sense it: there is no geolocation
+          library here, and adding one is a native dependency plus a runtime
+          permission. A text field answers the same question today, is
+          correctable when the guess would have been wrong, and is the only
+          option at all for someone who wants to browse a town they are not
+          standing in. */}
+      <Modal visible={placeEditor} transparent animationType="fade" onRequestClose={() => setPlaceEditor(false)}>
+        <Pressable style={styles.placeBackdrop} onPress={() => setPlaceEditor(false)} />
+        <View style={styles.placeSheet}>
+          <Text style={styles.placeTitle}>Your location</Text>
+          <Text style={styles.placeHint}>Grounds are filtered to this town or city. Leave it empty to see them all.</Text>
+          <TextInput
+            style={styles.placeInput}
+            value={placeDraft}
+            onChangeText={setPlaceDraft}
+            placeholder="e.g. Vellore"
+            placeholderTextColor={DS.textMuted}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => savePlace(placeDraft)}
+          />
+          <View style={styles.placeActions}>
+            <TouchableOpacity onPress={() => savePlace('')} style={styles.placeClear}>
+              <Text style={styles.placeClearTxt}>Show all</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => savePlace(placeDraft)} style={styles.placeSave}>
+              <Text style={styles.placeSaveTxt}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -1022,6 +1070,25 @@ const makeStyles = (DS, P) => StyleSheet.create({
   card: { flex: 1, backgroundColor: DS.surface, borderRadius: 16, overflow: 'hidden', marginBottom: 10, borderWidth: 1, borderColor: DS.faint },
   cardImageContainer: { width: '100%', height: 120 },
   cardImage: { width: '100%', height: '100%' },
+  placeBackdrop: { flex: 1, backgroundColor: '#0009' },
+  placeSheet: {
+    position: 'absolute', left: 20, right: 20, top: '30%',
+    backgroundColor: DS.surfaceLow, borderRadius: 20, padding: 18,
+    borderWidth: 1, borderColor: DS.border,
+  },
+  placeTitle: { fontSize: 17, fontWeight: '900', color: DS.textPrimary },
+  placeHint: { fontSize: 12, fontWeight: '600', color: DS.textMuted, marginTop: 6, lineHeight: 17 },
+  placeInput: {
+    height: 48, borderRadius: 12, paddingHorizontal: 14, marginTop: 14,
+    backgroundColor: DS.surfaceHigh, borderWidth: 1.5, borderColor: DS.border,
+    color: DS.textPrimary, fontSize: 15, fontWeight: '700',
+  },
+  placeActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
+  placeClear: { paddingVertical: 10, paddingHorizontal: 4 },
+  placeClearTxt: { fontSize: 13, fontWeight: '800', color: DS.textMuted },
+  placeSave: { paddingVertical: 11, paddingHorizontal: 22, borderRadius: 12, backgroundColor: DS.lime },
+  placeSaveTxt: { fontSize: 14, fontWeight: '900', color: DS.onLime },
+
   cardGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%', backgroundColor: 'rgba(0,0,0,0.4)' },
   favButton: { position: 'absolute', top: 10, right: 10, borderRadius: 20, overflow: 'hidden' },
   favBlur: { padding: 6, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
