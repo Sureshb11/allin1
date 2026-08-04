@@ -429,6 +429,12 @@ export async function teamStats(teamId, filters = {}) {
   const minInnings = Math.max(2, Math.round(t.played * 0.25));
   const minOvers = Math.max(2, Math.round(t.played * 0.5));
 
+  // Every board is a top ten. The helper was deleted while its twenty-odd call
+  // sites below were left standing, so GET /teams/:id/stats threw "top is not
+  // defined" on every request — which is why the Stats and Leaderboard tabs
+  // showed nothing at all.
+  const top = (arr, n = 10) => arr.slice(0, n);
+
   return {
     team: { id: team.id, name: team.name, logoUrl: team.logoUrl },
     filters,

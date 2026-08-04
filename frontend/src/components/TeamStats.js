@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
   Modal, Pressable, Image, LayoutAnimation, Platform, UIManager,
@@ -195,10 +195,6 @@ export default function TeamStats({ teamId, show = 'stats' }) {
   }, [teamId, filters]);
 
   const set = useCallback((patch) => setFilters((f) => ({ ...f, ...patch })), []);
-  const toggle = useCallback((key) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setOpen((o) => ({ ...o, [key]: !o[key] }));
-  }, []);
 
   // Which filters are on, as chips — so what's applied is visible without
   // opening anything.
@@ -485,9 +481,9 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border,
   },
   chipOn: { backgroundColor: DS.lime, borderColor: DS.lime },
-  chipText: { fontSize: 12.5, fontWeight: '700', color: DS.textVariant, flexShrink: 1 },
+  chipText: { fontSize: 12, fontWeight: '700', color: DS.textVariant, flexShrink: 1 },
   clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 8 },
-  clearText: { fontSize: 12.5, fontWeight: '800', color: DS.coral },
+  clearText: { fontSize: 12, fontWeight: '800', color: DS.coral },
   hero: {
     backgroundColor: DS.surface, borderRadius: 18, borderWidth: 1, borderColor: DS.border,
     padding: 16, marginBottom: 14,
@@ -502,7 +498,7 @@ const makeStyles = (DS) => StyleSheet.create({
   wlLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 11.5, fontWeight: '700', color: DS.textVariant },
+  legendText: { fontSize: 12, fontWeight: '700', color: DS.textVariant },
   group: {
     backgroundColor: DS.surface, borderRadius: 18, borderWidth: 1, borderColor: DS.border,
     padding: 14, marginBottom: 14,
@@ -515,13 +511,13 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingVertical: 11, paddingHorizontal: 8, alignItems: 'center',
   },
   statValue: { fontSize: 19, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
-  statLabel: { fontSize: 9.5, fontWeight: '700', color: DS.textMuted, textAlign: 'center', marginTop: 3, letterSpacing: 0.2 },
+  statLabel: { fontSize: 10, fontWeight: '700', color: DS.textMuted, textAlign: 'center', marginTop: 3, letterSpacing: 0.2 },
   avatar: { width: 34, height: 34, borderRadius: 17 },
   avatarFallback: { backgroundColor: '#0a5227', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 14, fontWeight: '800', color: '#fff' },
   leaderName: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
   colRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 2 },
-  colText: { fontSize: 10.5, fontWeight: '700', color: DS.textVariant, fontVariant: ['tabular-nums'] },
+  colText: { fontSize: 10, fontWeight: '700', color: DS.textVariant, fontVariant: ['tabular-nums'] },
   colLabel: { color: DS.textMuted, fontWeight: '600' },
   leaderValue: { fontSize: 18, fontWeight: '900', color: DS.lime, fontVariant: ['tabular-nums'] },
   leaderUnit: { fontSize: 9, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.4 },
@@ -531,17 +527,17 @@ const makeStyles = (DS) => StyleSheet.create({
   grab: { alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: DS.faint, marginBottom: 12 },
   sheetTitle: { fontSize: 16, fontWeight: '800', color: DS.textPrimary, marginBottom: 10 },
   optionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: DS.faint },
-  optionText: { fontSize: 14.5, fontWeight: '600', color: DS.textPrimary },
+  optionText: { fontSize: 14, fontWeight: '600', color: DS.textPrimary },
 
   empty: { alignItems: 'center', paddingVertical: 48, gap: 6 },
   emptyTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginTop: 6 },
-  emptyHint: { fontSize: 12.5, fontWeight: '600', color: DS.textMuted, textAlign: 'center', maxWidth: 260 },
+  emptyHint: { fontSize: 12, fontWeight: '600', color: DS.textMuted, textAlign: 'center', maxWidth: 260 },
 
   skelBar: { height: 12, borderRadius: 6, backgroundColor: DS.surfaceHigh },
 
   boardCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 14, overflow: 'hidden' },
   boardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: DS.border },
-  boardTitle: { fontSize: 14.5, fontWeight: '800', color: DS.textPrimary },
+  boardTitle: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
   
   podiumRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 8, height: 130, marginBottom: 12 },
   podiumItem: { alignItems: 'center', backgroundColor: DS.surface, borderRadius: 12, padding: 8, flex: 1, borderWidth: 1, borderColor: DS.border },

@@ -1064,7 +1064,7 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
     backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border,
   },
-  factText: { fontSize: 11.5, fontWeight: '700', color: DS.textVariant, flexShrink: 1 },
+  factText: { fontSize: 12, fontWeight: '700', color: DS.textVariant, flexShrink: 1 },
 
   ctaRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginTop: 14 },
   ctaBtn: {
@@ -1077,7 +1077,7 @@ const makeStyles = (DS) => StyleSheet.create({
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 11, borderRadius: 12, backgroundColor: DS.lime,
   },
-  ctaTxt: { fontSize: 13.5, fontWeight: '800', color: DS.lime },
+  ctaTxt: { fontSize: 14, fontWeight: '800', color: DS.lime },
 
   statStrip: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surface,
@@ -1131,7 +1131,7 @@ const makeStyles = (DS) => StyleSheet.create({
     position: 'absolute', bottom: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 3,
     backgroundColor: DS.surfaceHighest, borderWidth: 1.5, borderColor: DS.bg, alignItems: 'center', justifyContent: 'center',
   },
-  jerseyTxt: { fontSize: 9.5, fontWeight: '900', color: DS.textPrimary },
+  jerseyTxt: { fontSize: 10, fontWeight: '900', color: DS.textPrimary },
   capBadge: { width: 18, height: 18, borderRadius: 9, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
   capTxt: { fontSize: 10, fontWeight: '900', color: DS.bg },
   viceBadge: { paddingHorizontal: 5, height: 18, borderRadius: 9, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
@@ -1170,7 +1170,7 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: DS.faint,
   },
-  perfName: { color: DS.textPrimary, fontSize: 14.5, fontWeight: '600', flex: 1, marginRight: 12 },
+  perfName: { color: DS.textPrimary, fontSize: 14, fontWeight: '600', flex: 1, marginRight: 12 },
   perfVal: { color: DS.lime, fontSize: 14, fontWeight: '800' },
 
   // Standings
@@ -1198,7 +1198,7 @@ const makeStyles = (DS) => StyleSheet.create({
   smallAddTxt: { color: DS.bg, fontSize: 12, fontWeight: '800' },
   awardRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: DS.faint },
   awardTitle: { color: DS.textPrimary, fontSize: 15, fontWeight: '700' },
-  awardNote: { color: DS.textMuted, fontSize: 12.5, marginTop: 2 },
+  awardNote: { color: DS.textMuted, fontSize: 12, marginTop: 2 },
 
   // Gallery
   galleryAdd: {
@@ -1237,7 +1237,7 @@ const makeStyles = (DS) => StyleSheet.create({
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   roleChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, backgroundColor: DS.surfaceLow, borderWidth: 1, borderColor: DS.faint },
   roleChipOn: { backgroundColor: DS.lime, borderColor: DS.lime },
-  roleChipTxt: { fontSize: 12.5, fontWeight: '700', color: DS.textVariant },
+  roleChipTxt: { fontSize: 12, fontWeight: '700', color: DS.textVariant },
   roleChipTxtOn: { color: DS.bg },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
   toggleLbl: { fontSize: 15, fontWeight: '600', color: DS.textPrimary },

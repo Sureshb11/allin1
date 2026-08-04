@@ -80,7 +80,7 @@ const FILTER_ICONS = {
 
 const GROUND_TYPES = ['All', 'outdoor', 'indoor', 'box_cricket', 'nets', 'stadium'];
 
-const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C }) => {
+const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, setFilterModalVisible }) => {
   const filterScroll = useAnimatedRef();
   const filterOffset = useSharedValue(0);
   const filterStart = useSharedValue(0);
