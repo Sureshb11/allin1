@@ -1,6 +1,6 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { makeControls } from '../theme/controls';
-import { sortSquad } from '../utils/squadOrder';
+import { sortSquad, canonicalRole, roleRank, ROLE_RANK } from '../utils/squadOrder';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Share, Image, RefreshControl, Dimensions, Animated } from
@@ -1266,13 +1266,57 @@ function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
 }
 
 // ── SQUADS tab: playing XI (avatar + name + role) per team, plus bench ───────
-function PlayerRow({ name, role, avatarUrl }) {const styles = useThemedStyles(makeStyles);
+
+// Who leads and who keeps, resolved once for both the squad and the bench.
+//
+// MatchPlayer carries isCaptain / isViceCaptain / isWk — who does the job
+// TODAY — and Player carries the club's standing captain and vice. The match
+// row wins when it says something, and falls back to the club otherwise:
+// nothing in the app writes the per-match flags yet (no screen asks who is
+// captaining this particular game), so without the fallback every squad in
+// every match would read as though nobody were captain.
+//
+// It used to be `{ ...s, ...s.player }`, which spread the PLAYER over the
+// match row — so the per-match designation was discarded outright, and the
+// only reason captains sorted first at all was that accident.
+function resolveSquadPlayer(s) {
+  const p = s.player || s;
+  return {
+    ...p,
+    ...s,
+    isCaptain:     !!(s.isCaptain     || p.isCaptain),
+    isViceCaptain: !!(s.isViceCaptain || p.isViceCaptain),
+    isWk:          !!s.isWk,
+  };
+}
+
+function PlayerRow({ name, role, avatarUrl, isCaptain, isViceCaptain, isKeeper, sport }) {
+  const styles = useThemedStyles(makeStyles);
+  // "Bat", "Batsman", "allrounder", "Wicket Keeper" all live in this column —
+  // the role is free text typed by whoever added the player. Folded, so a squad
+  // doesn't read "Bat, Batsman, Bowl, Bowler" down one side.
+  //
+  // And nothing at all when the text is a non-answer. Most of this database
+  // says "Player", which is not a role — it was the default when the field was
+  // typed, so it prints identically under all 22 names and tells a reader
+  // nothing. A blank line is more honest and much quieter. Other sports keep
+  // whatever they were given: "Defender" is right for football, and
+  // canonicalRole only knows how to name cricket's four.
+  const shown = canonicalRole(role, sport) || (sport === 'cricket' ? null : role);
   return (
     <View style={styles.squadRow}>
       <PlayerAvatar name={name} avatarUrl={avatarUrl} size={30} />
       <View style={{ flex: 1 }}>
-        <Text style={styles.squadName} numberOfLines={1}>{name}</Text>
-        {!!role && <Text style={styles.squadRole}>{role}</Text>}
+        <View style={styles.squadNameRow}>
+          <Text style={styles.squadName} numberOfLines={1}>{name}</Text>
+          {/* The same notation the team's own squad list uses, so the two
+              agree. Without it the ordering is a rule nobody can see: the
+              captain is listed first and nothing says why. */}
+          {isCaptain && <View style={styles.capBadge}><Text style={styles.capTxt}>C</Text></View>}
+          {!isCaptain && isViceCaptain && <View style={styles.viceBadge}><Text style={styles.viceTxt}>VC</Text></View>}
+          {isKeeper && <View style={styles.viceBadge}><Text style={styles.viceTxt}>WK</Text></View>}
+        </View>
+        {!!shown && <Text style={styles.squadRole}>{shown}</Text>}
       </View>
     </View>
   );
@@ -1280,6 +1324,11 @@ function PlayerRow({ name, role, avatarUrl }) {const styles = useThemedStyles(ma
 
 function SquadsTab({ match }) {const styles = useThemedStyles(makeStyles);
   const teams = [match.team1, match.team2];
+  const sport = match.sport || 'cricket';
+  // A keeper is whoever is keeping today, or — since nothing sets that yet —
+  // whoever the role says keeps. Same test the squad comparator sorts on, so
+  // the badge and the position in the list can never disagree.
+  const keeps = (p) => !!p.isWk || roleRank(p.role) === ROLE_RANK.keeper;
   return (
     <View style={styles.squadsGrid}>
       {teams.map((team, ti) => {
@@ -1288,8 +1337,7 @@ function SquadsTab({ match }) {const styles = useThemedStyles(makeStyles);
         // pickers. The BATTING card above is untouched: that is the order they
         // actually batted, which is a record, not an arrangement.
         const squad = sortSquad(
-          (match.squads || []).filter((s) => s.teamId === team?.id)
-            .map((s) => ({ ...s, ...s.player })));
+          (match.squads || []).filter((s) => s.teamId === team?.id).map(resolveSquadPlayer));
         const squadIds = new Set(squad.map((s) => s.playerId));
         const bench = sortSquad((team?.players || []).filter((p) => !squadIds.has(p.id)));
         return (
@@ -1297,14 +1345,18 @@ function SquadsTab({ match }) {const styles = useThemedStyles(makeStyles);
             <Text style={styles.squadTeamName} numberOfLines={1}>{team?.name || `Team ${ti + 1}`}</Text>
             <Text style={styles.squadSectionLabel}>PLAYING XI</Text>
             {squad.map((s) => (
-              <PlayerRow key={s.playerId} name={s.player?.name} role={s.player?.role} avatarUrl={s.player?.user?.avatarUrl} />
+              <PlayerRow key={s.playerId} name={s.name} role={s.role} sport={sport}
+                avatarUrl={s.user?.avatarUrl}
+                isCaptain={s.isCaptain} isViceCaptain={s.isViceCaptain} isKeeper={keeps(s)} />
             ))}
             {squad.length === 0 && <Text style={styles.emptyTabText}>Not announced yet.</Text>}
             {bench.length > 0 &&
               <>
                 <Text style={[styles.squadSectionLabel, { marginTop: 10 }]}>BENCH</Text>
                 {bench.map((p) => (
-                  <PlayerRow key={p.id} name={p.name} role={p.role} avatarUrl={null} />
+                  <PlayerRow key={p.id} name={p.name} role={p.role} sport={sport}
+                    avatarUrl={p.user?.avatarUrl}
+                    isCaptain={p.isCaptain} isViceCaptain={p.isViceCaptain} isKeeper={keeps(p)} />
                 ))}
               </>
             }
@@ -1972,14 +2024,8 @@ const makeStyles = (DS) => StyleSheet.create({
   matchTabTextActive: { color: DS.lime },
 
   // Score summary
-  scoreSummary: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: DS.surface, marginHorizontal: 16,
-    borderRadius: 14, padding: 16
-  },
   scoreTeam: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   scoreTeamRight: { justifyContent: 'flex-end' },
-  scoreAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   scoreAvatarText: { fontSize: 14, fontWeight: '900', color: '#ffffff' },
   scoreTeamName: { fontSize: 11, color: DS.textMuted, fontWeight: '700' },
   scoreValue: { fontSize: 19, fontWeight: '900', color: DS.lime, letterSpacing: -0.3 },
@@ -1990,20 +2036,6 @@ const makeStyles = (DS) => StyleSheet.create({
   tossSummaryLine: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, textAlign: 'center' },
 
   // Result
-  resultBanner: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: DS.lime + '14', marginHorizontal: 16, marginTop: 12,
-    borderRadius: 10, paddingVertical: 10,
-    borderLeftWidth: 4, borderLeftColor: DS.lime
-  },
-  resultBannerText: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
-  resultCard: {
-    alignItems: 'center', gap: 6, marginHorizontal: 16, marginTop: 12,
-    backgroundColor: DS.lime + '14', borderRadius: 14, paddingVertical: 18, paddingHorizontal: 16,
-    borderWidth: 1, borderColor: DS.lime + '33',
-  },
-  resultCardLabel: { fontSize: 10, fontWeight: '900', color: DS.lime, letterSpacing: 2 },
-  resultCardText: { fontSize: 16, fontWeight: '800', color: DS.textPrimary, textAlign: 'center' },
 
   body: { paddingHorizontal: 16, gap: 16, marginTop: 8 },
   emptyTabText: { fontSize: 13, color: DS.textMuted, textAlign: 'center', paddingVertical: 24 },
@@ -2095,10 +2127,8 @@ const makeStyles = (DS) => StyleSheet.create({
   pnrTotal: { fontSize: 12, fontWeight: '900', color: DS.lime, minWidth: 52, textAlign: 'center' },
 
   // Over-by-over timeline (OVERS tab)
-  overLine: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, gap: 8, borderTopWidth: 1, borderTopColor: DS.line },
   overLineNum: { fontSize: 12, fontWeight: '800', color: DS.textPrimary },
   overLineBalls: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  overLineRuns: { fontSize: 13, fontWeight: '900', color: DS.textPrimary, width: 26, textAlign: 'right' },
   // OVERS tab — one block per over (header + optional shared-bowler list + chips)
   overBlock: { paddingHorizontal: 12, paddingVertical: 9, borderTopWidth: 1, borderTopColor: DS.line, gap: 7 },
   overBlockHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -2114,17 +2144,9 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // LIVE tab: current-over box
   // Chase strip (2nd-innings LIVE tab)
-  chaseBox: { backgroundColor: DS.surface, borderRadius: 14, padding: 14, gap: 10, borderLeftWidth: 4, borderLeftColor: DS.lime },
-  chaseHeadline: { fontSize: 15, fontWeight: '700', color: DS.textPrimary },
   chaseNeed: { fontWeight: '900', color: DS.lime },
-  chaseRatesRow: { flexDirection: 'row', gap: 16, flexWrap: 'wrap' },
-  chaseRate: { fontSize: 12, color: DS.textMuted, fontWeight: '600' },
   chaseRateNum: { fontWeight: '900', color: DS.textPrimary },
-  winBarTrack: { height: 8, borderRadius: 4, backgroundColor: DS.coral + '55', overflow: 'hidden' },
-  winBarFill: { height: 8, borderRadius: 4, backgroundColor: DS.lime },
   winLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  winLabel: { fontSize: 12, fontWeight: '800', color: DS.textPrimary },
-  winLabelMuted: { fontSize: 10, color: DS.textMuted, fontWeight: '600' },
 
   // Combined LIVE-tab card: scores + chase + win probability, minimal + enhanced.
   liveTopCard: { backgroundColor: DS.surface, borderRadius: 16, marginHorizontal: 16, marginTop: 10, padding: 12, gap: 10 },
@@ -2150,9 +2172,6 @@ const makeStyles = (DS) => StyleSheet.create({
   liveFigText: { fontSize: 12, color: DS.textVariant, fontWeight: '600' },
   liveFigNum: { fontWeight: '900', color: DS.textPrimary },
   partnershipText: { fontSize: 11, color: DS.textMuted, fontWeight: '600', marginTop: -2 },
-  liveBoxLinks: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
-  liveLinkText: { fontSize: 12, fontWeight: '700', color: DS.blue },
-  liveSummaryText: { fontSize: 12, color: DS.textMuted, lineHeight: 18 },
 
   // LIVE tab: end-of-over summaries
   // End-of-over summary block, threaded inline into the ball-by-ball feed — a
@@ -2176,10 +2195,12 @@ const makeStyles = (DS) => StyleSheet.create({
   squadTeamName: { fontSize: 13, fontWeight: '900', color: DS.textPrimary, marginBottom: 6 },
   squadSectionLabel: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8, marginBottom: 4 },
   squadRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
-  squadAvatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
-  squadAvatarImg: { width: 30, height: 30, borderRadius: 15 },
-  squadAvatarText: { fontSize: 12, fontWeight: '900', color: DS.lime },
-  squadName: { fontSize: 12, fontWeight: '700', color: DS.textPrimary },
+  squadName: { flexShrink: 1, fontSize: 12, fontWeight: '700', color: DS.textPrimary },
+  squadNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  capBadge: { width: 17, height: 17, borderRadius: 9, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
+  capTxt: { fontSize: 9.5, fontWeight: '900', color: DS.bg },
+  viceBadge: { paddingHorizontal: 5, height: 17, borderRadius: 9, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
+  viceTxt: { fontSize: 9, fontWeight: '900', color: DS.lime },
   squadRole: { fontSize: 10, color: DS.textMuted, marginTop: 1 },
 
   // HIGHLIGHTS tab
@@ -2251,5 +2272,4 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingVertical: 14, marginHorizontal: 16, marginTop: 16
   },
   shareBtnText: { fontSize: 15, fontWeight: '700', color: DS.white },
-  watermark: { textAlign: 'center', fontSize: 11, fontWeight: '900', color: DS.lime, letterSpacing: 2, marginTop: 10, opacity: 0.8 },
 });

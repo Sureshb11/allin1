@@ -879,8 +879,11 @@ router.get('/:id/scorecard', async (req, res) => {
       include: {
         // Full roster (not just the match squad) so the Squads tab can show a
         // "Bench" section — team members named for this match but not selected.
-        team1: { include: { players: true } },
-        team2: { include: { players: true } },
+        // With their photo: the squad rows above render an avatar from
+        // player.user.avatarUrl, and the bench came back without the relation,
+        // so every bench player fell back to initials even when they had one.
+        team1: { include: { players: { include: { user: { select: { avatarUrl: true } } } } } },
+        team2: { include: { players: { include: { user: { select: { avatarUrl: true } } } } } },
         squads: { include: { player: { include: { user: { select: { avatarUrl: true } } } } } },
         innings: {
           include: {
