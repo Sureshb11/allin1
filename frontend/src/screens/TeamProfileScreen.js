@@ -32,7 +32,7 @@ import { pickAndUploadImage } from '../utils/imageUpload';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
 import { sportMeta } from '../sports';
-import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
+import { useHideTabBarOnScroll, useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const GALLERY_COLS = 3;
@@ -175,6 +175,16 @@ const TeamProfileScreen = ({ navigation, route }) => {
     if (firstFocus.current) { firstFocus.current = false; return; }
     load();
   }, [load]));
+
+  // The dock goes while you are inside a team. This is a pushed screen with its
+  // own tab strip — a cover, a name, seven tabs and a table — and the app's
+  // bottom navigation floating over all of it is one bar of chrome too many.
+  // Released on blur, so backing out to a tab brings it straight back.
+  const lockDock = useDockLock();
+  useFocusEffect(useCallback(() => {
+    lockDock(true);
+    return () => lockDock(false);
+  }, [lockDock]));
 
   // ── Admin actions ──────────────────────────────────────────────────────────
   const changeImage = async (field) => {

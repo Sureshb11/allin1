@@ -5,6 +5,7 @@ import {
   ScrollView, Platform, Alert, TextInput, Animated, Modal, Pressable
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useCurrentUser } from '../utils/currentUser';
 import LegendsApi from '../services/LegendsApi';
 
@@ -21,7 +22,7 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { pav } from '../theme/pavilion';
 import { makeControls } from '../theme/controls';
-import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
+import { useHideTabBarOnScroll, useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
 import { useSupercluster } from '../components/useSupercluster';
 
 function GroundSkeleton({ DS }) {
@@ -709,6 +710,17 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   // Typed, not sensed. Saved to the profile so it is the same city Edit Profile
   // shows and it survives a reinstall, and used to filter the list — which is
   // what a line called "your location" on a grounds finder is promising.
+  // The dock goes while the Add Ground form (or the admin review list) is up.
+  // Both take the whole screen and have their own back and submit; the app's
+  // bottom navigation floating over a form you are filling in is chrome in the
+  // way of the keyboard. Released when you leave the form, and on blur.
+  const lockDock = useDockLock();
+  const formOpen = viewState === 'form' || viewState === 'admin';
+  useFocusEffect(useCallback(() => {
+    lockDock(formOpen);
+    return () => lockDock(false);
+  }, [formOpen, lockDock]));
+
   const savePlace = useCallback(async (value) => {
     const next = value.trim();
     setPlace(next);
