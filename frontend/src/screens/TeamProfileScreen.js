@@ -90,18 +90,27 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const sport = team?.sport || 'cricket';
   const isCricket = sport === 'cricket';
   const sportIcon = sportMeta(sport).icon;
-  const TAB_KEYS = ['squad', 'matches', 'form', 'standings', 'honours', 'gallery'];
-  // Swipe steps the tabs, as it does on every other list screen in the app.
-  const tabSwipe = useFilterSwipe(TAB_KEYS, tab, setTab);
-
   const tabs = [
     ['squad', 'Squad', 'account-group'],
     ['matches', 'Matches', sportIcon],
     ['form', 'Stats', 'chart-line'],   // key unchanged: deep links use it
+    // The fourteen leaderboards used to sit at the BOTTOM of Stats, under
+    // thirty team figures — so the answer to "who scores our runs" was a long
+    // scroll past the answer to "how do we do at this ground". Its own tab,
+    // next to the stats it shares a filter row with.
+    ['leaders', 'Leaderboard', 'podium'],
     ['standings', 'Standings', 'trophy-variant'],
     ['honours', 'Honours', 'medal'],
     ['gallery', 'Gallery', 'image-multiple'],
   ];
+  // Derived, not a second hand-written list. It was one, and adding a tab above
+  // left the swipe stepping through the old six — so the new tab existed but
+  // could only be reached by tapping it, and swiping jumped over it as though
+  // it weren't there.
+  const TAB_KEYS = tabs.map(([key]) => key);
+  // Swipe steps the tabs, as it does on every other list screen in the app.
+  const tabSwipe = useFilterSwipe(TAB_KEYS, tab, setTab);
+
   const joinStatus = data?.viewerJoinStatus || 'none';
   const isOwner = joinStatus === 'owner';
   const isOutsider = joinStatus !== 'member' && joinStatus !== 'owner' && !isAdmin;
@@ -519,8 +528,13 @@ const TeamProfileScreen = ({ navigation, route }) => {
         {tab === 'matches' && (
           <MatchesTab matches={data.recentMatches || []} teamId={teamId} navigation={navigation} styles={styles} DS={DS} />
         )}
-        {tab === 'form' && (
-          <TeamStats teamId={teamId} />
+        {/* ONE mount across both tabs, deliberately. Same component in the same
+            slot means React keeps the instance when you switch, so the filters
+            you set on Stats are still set on Leaderboard and neither tab
+            re-fetches — one period, one format, one ground, applied to
+            everything, which is the whole point of that filter row. */}
+        {(tab === 'form' || tab === 'leaders') && (
+          <TeamStats teamId={teamId} show={tab === 'form' ? 'stats' : 'leaderboards'} />
         )}
         {tab === 'standings' && (
           <StandingsTab rows={data.leaderboard || []} styles={styles} DS={DS} />

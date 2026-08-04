@@ -66,7 +66,14 @@ const BOARDS = [
 
 const RANK = ['#d4af37', '#9ca3af', '#b87333'];   // gold, silver, bronze
 
-export default function TeamStats({ teamId }) {
+// `show` picks which half renders. The team screen mounts ONE of these across
+// both the Stats and Leaderboards tabs — same component, same slot — so React
+// keeps the instance alive when you switch and the filters, the scroll of the
+// filter row and the fetched data all carry over. Two separate mounts would
+// have meant two requests and two sets of filters that silently disagreed,
+// which is the opposite of what the filter rule asks for: one period, one
+// format, one ground, applied to everything on screen.
+export default function TeamStats({ teamId, show = 'stats' }) {
   const DS = useTheme().colors;
   const s = useThemedStyles(makeStyles);
 
@@ -174,7 +181,7 @@ export default function TeamStats({ teamId }) {
                          hint="They appear once this team has a completed match." s={s} DS={DS} />
           : st.played === 0 ? <Empty icon="filter-remove-outline" title="Nothing matches those filters"
                          hint="Try a wider period, or clear a filter." s={s} DS={DS} />
-          : (
+          : show === 'stats' ? (
             <>
               {/* Headline: the record, and how it's trending. */}
               <View style={s.hero}>
@@ -244,8 +251,15 @@ export default function TeamStats({ teamId }) {
                 {st.homePlayed + st.awayPlayed > 0 && <Stat label="Away wins" value={`${st.awayWins}/${st.awayPlayed}`} s={s} />}
               </Group>
 
-              {/* ── Leaderboards ── */}
-              <Text style={s.sectionHead}>Leaderboards</Text>
+            </>
+          ) : !BOARDS.some((b) => (data.leaderboards[b.key] || []).length) ? (
+            // Every board empty. The stats half has its own "No stats yet"; this
+            // one needs its own words, because there ARE matches — nobody has
+            // done enough in them to top a table yet.
+            <Empty icon="podium" title="No leaders yet"
+                   hint="Boards fill in once players have batted or bowled in these matches." s={s} DS={DS} />
+          ) : (
+            <>
               {BOARDS.map((b) => {
                 const rows = data.leaderboards[b.key] || [];
                 if (!rows.length) return null;
@@ -487,7 +501,6 @@ const makeStyles = (DS) => StyleSheet.create({
   statValue: { fontSize: 19, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
   statLabel: { fontSize: 9.5, fontWeight: '700', color: DS.textMuted, textAlign: 'center', marginTop: 3, letterSpacing: 0.2 },
 
-  sectionHead: { fontSize: 15, fontWeight: '900', color: DS.textPrimary, marginBottom: 10, marginTop: 4, letterSpacing: 0.2 },
   board: { backgroundColor: DS.surface, borderRadius: 18, borderWidth: 1, borderColor: DS.border, marginBottom: 12, overflow: 'hidden' },
   boardHead: { flexDirection: 'row', alignItems: 'center', gap: 9, padding: 14 },
   boardIcon: { width: 26, height: 26, borderRadius: 9, backgroundColor: DS.lime + '1f', alignItems: 'center', justifyContent: 'center' },
