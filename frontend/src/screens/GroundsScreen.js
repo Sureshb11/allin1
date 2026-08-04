@@ -82,7 +82,7 @@ const FILTER_ICONS = {
 
 const GROUND_TYPES = ['All', 'outdoor', 'indoor', 'box_cricket', 'nets', 'stadium'];
 
-const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, setFilterModalVisible, sportName }) => {
+const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, setFilterModalVisible, sportName, onToggleMap, mapOpen }) => {
   const filterScroll = useAnimatedRef();
   const filterOffset = useSharedValue(0);
   const filterStart = useSharedValue(0);
@@ -116,6 +116,17 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
         <Text style={{ flex: 1, color: DS.textPrimary, fontSize: 22, fontWeight: '700', lineHeight: 30 }}>
           {counts?.All || 0} {sportName} ground{(counts?.All || 0) === 1 ? '' : 's'}
         </Text>
+        {/* Map, beside the filter. It used to be a floating pill down in the
+            corner, competing with the add button for the same space — which is
+            why it was removed. Up here it costs no room and gets out of the
+            way of the thing you press most. */}
+        <TouchableOpacity onPress={onToggleMap} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button" accessibilityState={{ selected: !!mapOpen }}
+          accessibilityLabel={mapOpen ? 'Show the list' : 'Show the map'}
+          style={{ marginRight: 18 }}>
+          <Icon name={mapOpen ? 'format-list-bulleted' : 'map-outline'} size={26}
+            color={mapOpen ? DS.lime : DS.textPrimary} />
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => setFilterModalVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Icon name="filter-variant" size={28} color={DS.textPrimary} />
         </TouchableOpacity>
@@ -905,6 +916,8 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
           DS={DS} P={P} styles={styles} C={C}
           setFilterModalVisible={setFilterModalVisible}
           sportName={sportName}
+          mapOpen={viewState === 'map'}
+          onToggleMap={() => setViewState((v) => (v === 'map' ? 'list' : 'map'))}
         />
       </Animated.View>
 
@@ -975,32 +988,6 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
             />
           </Reanimated.View>
         </GestureDetector>
-      )}
-
-      {/* Floating Action Button for Map Toggle */}
-      {viewState !== 'form' && viewState !== 'admin' && (
-        <TouchableOpacity 
-          style={{
-            position: 'absolute',
-            bottom: Platform.OS === 'ios' ? 100 : 80,
-            right: 20,
-            backgroundColor: '#3B82F6',
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 4,
-            elevation: 8,
-            zIndex: 50
-          }}
-          onPress={() => setViewState(viewState === 'map' ? 'list' : 'map')}
-        >
-          <Icon name={viewState === 'map' ? 'format-list-bulleted' : 'map'} size={24} color="#FFF" />
-        </TouchableOpacity>
       )}
 
     </View>
