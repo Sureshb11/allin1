@@ -33,10 +33,17 @@ router.get('/me', authMiddleware, async (req, res) => {
   });
   if (!user) return res.status(404).json({ error: 'User not found' });
   // Prefer an explicitly-linked player; fall back to matching by name.
+  //
+  // Scoped to ?sport= when the caller names one — the same fix /me/stats
+  // already carries. A user holds a player row per sport and findFirst returns
+  // whichever comes first, so the profile screen could describe a footballer as
+  // a right-arm quick. Unscoped without the param, so existing callers are
+  // unaffected.
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-  let player = await prisma.player.findFirst({ where: { userId: user.id }, include: { team: true } });
+  const inSport = req.query.sport ? { sport: String(req.query.sport) } : {};
+  let player = await prisma.player.findFirst({ where: { ...inSport, userId: user.id }, include: { team: true } });
   if (!player && fullName) {
-    player = await prisma.player.findFirst({ where: { name: fullName }, include: { team: true } });
+    player = await prisma.player.findFirst({ where: { ...inSport, name: fullName }, include: { team: true } });
   }
   const { sports, ...userBase } = user;
   res.json({ user: publicUser(userBase), player, sports, entitlements: entitlementsFor(user) });

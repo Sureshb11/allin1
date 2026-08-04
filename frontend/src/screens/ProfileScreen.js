@@ -6,7 +6,6 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { pickAndUploadImage } from '../utils/imageUpload';
 import { useNavigation } from '@react-navigation/native';
-import { useCurrentUser } from '../utils/currentUser';
 import AppHeader from '../components/AppHeader';
 import { setCurrentAvatar, clearCurrentUser } from '../utils/currentUser';
 import { clearPlayerSetup } from '../utils/playerSetup';
@@ -18,50 +17,18 @@ import { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
+import { canonicalRole } from '../utils/squadOrder';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-// Sport-aware profile stats: which stored-stat fields to surface per sport (first 4
-// present are shown). Anything not listed falls back to DEFAULT_FIELDS.
-// Third element = accent: the career OUTPUT a player is judged on (runs, wickets,
-// goals) reads lime; context (matches) and rates (strike rate) stay plain. This
-// used to be positional (`i >= 2`), which accented whichever fields happened to
-// land 3rd and 4th.
-const SPORT_STAT_FIELDS = {
-  cricket:  [['matches', 'Matches'], ['runs', 'Runs', true], ['wickets', 'Wickets', true], ['strikeRate', 'Strike Rate']],
-  // Non-cricket keys are SportEvent types (see /users/me/stats -> eventTotals),
-  // not top-level stat fields — 'goals'/'assists' never existed on the payload,
-  // so these cells rendered blank.
-  football: [['matches', 'Matches'], ['goal', 'Goals', true], ['assist', 'Assists', true], ['yellow-card', 'Yellows']],
-};
-
-// A field is either a computed stat (cricket) or an event tally (everything
-// else). Resolve both, so one field list works for any sport.
-const statValue = (stats, key) => stats?.[key] ?? stats?.eventTotals?.[key];
-const DEFAULT_STAT_FIELDS = [['matches', 'Matches'], ['events', 'Events'], ['fights', 'Fights'], ['wins', 'Wins', true], ['titles', 'Titles', true], ['ko', 'KO'], ['goals', 'Goals']];
-
-// Career detail, grouped. The API already computes all of this from the
-// ball-by-ball data (see backend getUserStats) — the profile just never asked
-// for it, which is why the screen sat half empty. Only fields the API actually
-// returns are rendered, so a player with no bowling gets no BOWLING block.
-const SPORT_STAT_GROUPS = {
-  cricket: [
-    { title: 'BATTING', fields: [
-      ['highestScore', 'Highest'], ['average', 'Average'], ['halfCenturies', '50s'],
-      ['centuries', '100s'], ['fours', '4s'], ['sixes', '6s'],
-      ['notOuts', 'Not Outs'], ['ballsFaced', 'Balls Faced'],
-    ] },
-    { title: 'BOWLING', fields: [
-      ['bestBowling', 'Best'], ['economy', 'Economy'], ['bowlingAverage', 'Average'],
-      ['fiveWickets', '5W Hauls'], ['oversBowled', 'Overs'], ['runsConceded', 'Runs Given'],
-    ] },
-  ],
-};
-
-// A stat is worth showing if the API returned a real value. Not a plain
-// `typeof === 'number'` check: oversBowled ("3.2") and bestBowling ("3/12") are
-// strings, and bowlingAverage is null until the player takes a wicket.
-const hasStat = (v) => v !== null && v !== undefined && v !== '' && !Number.isNaN(v);
-
+// The career numbers used to live here too — a bento grid, a BATTING/BOWLING
+// table and a recent-form list, all built from the same GET /users/me/stats
+// that the My Stats tab renders far better (CareerBoard: form chart, honours,
+// per-panel breakdowns). Two screens, one endpoint, two different-looking
+// answers to "how have I played" — and the profile's was the worse one.
+//
+// So this screen is now about WHO you are, and it finally shows what Edit
+// Profile has been collecting all along: how you play, your team, where you
+// are, your bio. Career lives one tap away, in the place built for it.
 
 export default function ProfileScreen({ navigation }) {
   const { colors: DS, pref, setMode, isDark } = useTheme();
@@ -81,7 +48,12 @@ export default function ProfileScreen({ navigation }) {
     </TouchableOpacity>
   );
   const [profile, setProfile] = useState({});
-  const [stats, setStats] = useState({});
+  // How this person plays lives on their PLAYER row, not their account — role,
+  // batting hand, bowling style and the team they turn out for. The hero has
+  // been printing `profile.role || 'Player'` and a `profile.teamName` pill since
+  // it was written; User has neither column, so it read "Player" for everybody
+  // and the team pill has never once rendered.
+  const [player, setPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
@@ -90,10 +62,15 @@ export default function ProfileScreen({ navigation }) {
     });
   }, [navigation]);
 
-  const BentoStat = ({ label, value, accent = false }) => (
-    <View style={[styles.bentoCard, accent && styles.bentoCardAccent]}>
-      <Text style={[styles.bentoValue, accent && styles.bentoValueAccent]}>{value ?? '—'}</Text>
-      <Text style={[styles.bentoLabel, accent && styles.bentoLabelAccent]}>{label}</Text>
+  // One labelled fact — "Bats · Right handed". Value greys out when nothing has
+  // been said yet, which is a prompt rather than a blank.
+  const Fact = ({ icon, label, value }) => (
+    <View style={styles.factRow}>
+      <Icon name={icon} size={17} color={DS.textMuted} style={{ width: 22 }} />
+      <Text style={styles.factLabel}>{label}</Text>
+      <Text style={[styles.factValue, !value && styles.factValueEmpty]} numberOfLines={1}>
+        {value || 'Not set'}
+      </Text>
     </View>
   );
 
@@ -106,12 +83,15 @@ export default function ProfileScreen({ navigation }) {
   const loadProfile = async () => {
     if (uploadRef.current) return;
     try {
-      const [profileRes, statsRes] = await Promise.all([
-        legendsApi.getUserProfile(),
-        legendsApi.getUserStats(getSelectedSport().sport?.id),
-      ]);
-      if (profileRes.success) { setProfile(profileRes.data); setCurrentAvatar(profileRes.data?.avatarUrl || null); }
-      if (statsRes.success) setStats(statsRes.data);
+      // Scoped to the sport being viewed: a user can hold a player row per
+      // sport, and an unscoped lookup returned whichever came first — so a
+      // footballer's profile could describe them as a right-arm quick.
+      const profileRes = await legendsApi.getUserProfile(getSelectedSport().sport?.id);
+      if (profileRes.success) {
+        setProfile(profileRes.data);
+        setPlayer(profileRes.player || null);
+        setCurrentAvatar(profileRes.data?.avatarUrl || null);
+      }
     } catch {
       Alert.alert('Error', 'Failed to load profile data');
     } finally {
@@ -122,16 +102,17 @@ export default function ProfileScreen({ navigation }) {
   const shareProfile = async () => {
     const sp = getSelectedSport().sport || { name: 'Cricket' };
     const name = profile.name || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Player';
-    const fields = SPORT_STAT_FIELDS[getSelectedSport().sport?.id] || DEFAULT_STAT_FIELDS;
-    const line = fields
-      .filter(([k]) => typeof statValue(stats, k) === 'number')
-      .slice(0, 3)
-      .map(([k, label]) => `${statValue(stats, k)} ${label.toLowerCase()}`)
-      .join(' | ');
+    // Who they are, not what they've scored. My Stats has its own Share Card
+    // action that sends the career board as an image — a profile share that
+    // repeated three of those numbers as text was the weaker of the two.
+    const bits = [
+      canonicalRole(player?.role, sp.id) || player?.role,
+      player?.team?.name && `plays for ${player.team.name}`,
+    ].filter(Boolean).join(' · ');
     try {
       await Share.share({
         message: `🏆 ${name} on ${BRAND_NAME} · ${sp.name}\n` +
-          (line ? `📊 ${line}\n` : '') +
+          (bits ? `${bits}\n` : '') +
           `${BRAND_NAME} — ${BRAND_TAGLINE}`,
       });
     } catch {}
@@ -206,24 +187,19 @@ export default function ProfileScreen({ navigation }) {
   const initials = (displayName === 'Your Name' ? 'U' : displayName)
     .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   const isPremium = profile.plan === 'pro';
-  const recentForm = stats.recentForm || [];
-
-  // Sport-aware stat cards (same layout for every sport, fields adapt to the sport).
   const sport = getSelectedSport().sport || { id: 'cricket', name: 'Cricket' };
-  const statFields = SPORT_STAT_FIELDS[sport.id] || DEFAULT_STAT_FIELDS;
   const sportAccent = getSport(sport.id)?.accent || DS.lime;
-  const statCards = statFields
-    .filter(([k]) => typeof statValue(stats, k) === 'number')
-    .slice(0, 4)
-    .map(([k, label, accent]) => ({ label, value: statValue(stats, k), accent: !!accent }));
 
-  // Career detail blocks — only groups with at least one real value render.
-  const statGroups = (SPORT_STAT_GROUPS[sport.id] || [])
-    .map((g) => ({
-      title: g.title,
-      items: g.fields.filter(([k]) => hasStat(stats[k])).map(([k, label]) => ({ label, value: stats[k] })),
-    }))
-    .filter((g) => g.items.length > 0);
+  // The role, spelled the app's way. Player.role is free text typed by whoever
+  // added the player, so the same person reads "Bat" here and "Batter" in a
+  // squad list unless it's folded (utils/squadOrder).
+  const role = canonicalRole(player?.role, sport.id) || (player?.role !== 'Player' ? player?.role : null);
+  const isCricket = sport.id === 'cricket';
+  // Nothing said yet — either they've never played, or they tapped "I'm here to
+  // watch" on the way in. Both get an invitation rather than a row of dashes.
+  const hasPlayInfo = !!(role || player?.battingStyle || player?.bowlingStyle);
+  const place = [profile.city, profile.district, profile.state, profile.country]
+    .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ');
 
   return (
     <View style={styles.container}>
@@ -268,19 +244,14 @@ export default function ProfileScreen({ navigation }) {
               <Icon name="camera" size={16} color={DS.textPrimary} />
             </View>
           </TouchableOpacity>
-
-          {stats.momCount > 0 && (
-            <View style={styles.momBadgeOverlap}>
-              <Icon name="star" size={12} color={DS.bg} />
-              <Text style={styles.momBadgeTextOverlap}>{stats.momCount} MOM</Text>
-            </View>
-          )}
         </View>
 
         {/* User Info */}
         <View style={styles.heroInfo}>
           <Text style={styles.heroName}>{displayName}</Text>
-          <Text style={styles.heroRole}>{profile.role || 'Player'}</Text>
+          {/* Only when it's true. This line said "Player" for every account in
+              the app, because it read a column User does not have. */}
+          {!!role && <Text style={styles.heroRole}>{role}</Text>}
           {!!profile.phone && <Text style={styles.heroPhone}>{profile.phone}</Text>}
           <View style={styles.heroPills}>
             {isPremium && (
@@ -289,77 +260,85 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={[styles.membershipText, { color: DS.lime }]}>Premium</Text>
               </View>
             )}
-            {profile.teamName && (
-              <View style={styles.teamPill}>
+            {!!player?.team?.name && (
+              <TouchableOpacity style={styles.teamPill} activeOpacity={0.75}
+                onPress={() => navigation.navigate('TeamProfile', { teamId: player.team.id })}>
                 <Icon name="shield" size={11} color={DS.lime} />
-                <Text style={styles.teamPillText}>{profile.teamName}</Text>
+                <Text style={styles.teamPillText}>{player.team.name}</Text>
+              </TouchableOpacity>
+            )}
+            {!!place && (
+              <View style={styles.teamPill}>
+                <Icon name="map-marker" size={11} color={DS.textMuted} />
+                <Text style={styles.teamPillText} numberOfLines={1}>{place}</Text>
               </View>
             )}
           </View>
         </View>
-
-        {/* Bento Stats Grid — sport-aware */}
-        {statCards.length > 0 && (
-          <View style={[styles.bentoGrid, { paddingHorizontal: 16, marginTop: 24 }]}>
-            {statCards.map((c) => (
-              <BentoStat key={c.label} label={c.label} value={c.value} accent={c.accent} />
-            ))}
-          </View>
-        )}
       </View>
 
       <View style={styles.body}>
-        {/* Career detail — the numbers the API already computes per delivery */}
-        {statGroups.map((g) => (
-          <View key={g.title} style={styles.section}>
-            <Text style={styles.sectionTitle}>{g.title}</Text>
-            <View style={styles.statWrap}>
-              {g.items.map((it) => (
-                <View key={it.label} style={styles.statCell}>
-                  <Text style={styles.statCellValue}>{it.value}</Text>
-                  <Text style={styles.statCellLabel} numberOfLines={1}>{it.label}</Text>
-                </View>
-              ))}
-            </View>
+        {/* ── How I play ──
+            The three answers the app now asks for on the way in, and the only
+            place they are ever shown. Everything under here is something Edit
+            Profile has always collected and no screen ever displayed. */}
+        <View style={styles.section}>
+          <View style={styles.cardHead}>
+            <Text style={styles.sectionTitle}>How I play</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('EditPlayerProfile')} hitSlop={10}>
+              <Text style={styles.cardAction}>Edit</Text>
+            </TouchableOpacity>
           </View>
-        ))}
 
-        {/* Recent Form */}
-        {recentForm.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>RECENT FORM</Text>
-            {recentForm.map((match, i) => (
-              <View key={i} style={styles.formRow}>
-                {/* result is null for a tie (or an unparseable result string) —
-                    that's neither a win nor a loss, so it reads neutral. */}
-                <View style={[styles.resultDot, {
-                  backgroundColor: match.result === 'W' ? DS.lime
-                    : match.result === 'L' ? DS.live : DS.textMuted,
-                }]} />
-                <View style={styles.formInfo}>
-                  <Text style={styles.formOpponent} numberOfLines={1}>
-                    vs {match.opponent || 'Unknown'}
-                  </Text>
-                  <Text style={styles.formDetail}>
-                    {match.runs != null ? `${match.runs} runs` : ''}
-                    {match.runs != null && match.wickets != null ? ' · ' : ''}
-                    {match.wickets != null ? `${match.wickets}w` : ''}
-                  </Text>
-                </View>
-                {match.isMOM && (
-                  <View style={styles.momChip}>
-                    <Icon name="star" size={10} color={DS.bg} />
-                    <Text style={styles.momChipText}>MOM</Text>
-                  </View>
-                )}
-                <Text style={[styles.formResult, {
-                  color: match.result === 'W' ? DS.lime
-                    : match.result === 'L' ? DS.live : DS.textMuted,
-                }]}>{match.result === 'W' ? 'Won' : match.result === 'L' ? 'Lost' : 'Tied'}</Text>
+          {hasPlayInfo ? (
+            <>
+              <Fact icon="account-star" label="Role" value={role} />
+              {isCricket && <Fact icon="cricket" label="Bats" value={player?.battingStyle} />}
+              {isCricket && (
+                <Fact icon="bowling" label="Bowls"
+                  value={player?.bowlingStyle === 'None' ? "Doesn't bowl" : player?.bowlingStyle} />
+              )}
+            </>
+          ) : (
+            // Said nothing yet — either they've never played, or they chose
+            // "I'm here to watch". Neither deserves a row of dashes, and both
+            // can change their mind from right here.
+            <TouchableOpacity style={styles.invite} activeOpacity={0.85}
+              onPress={() => navigation.navigate('EditPlayerProfile')}>
+              <Icon name="account-plus-outline" size={19} color={DS.lime} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inviteTitle}>Tell us how you play</Text>
+                <Text style={styles.inviteBlurb}>
+                  Your role and style show up in squad lists and on scorecards.
+                </Text>
               </View>
-            ))}
+              <Icon name="chevron-right" size={19} color={DS.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* ── About ── bio, collected since the beginning and never once shown */}
+        {!!profile.bio && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>About</Text>
+            <Text style={styles.bio}>{profile.bio}</Text>
           </View>
         )}
+
+        {/* Career lives in the tab built for it — form chart, honours, the full
+            batting and bowling boards. This screen used to render a thinner
+            copy of the same payload. */}
+        <TouchableOpacity style={styles.linkRow} activeOpacity={0.8}
+          onPress={() => navigation.navigate('Pavilion', { tab: 'My Stats' })}>
+          <View style={[styles.linkIcon, { backgroundColor: sportAccent + '1f' }]}>
+            <Icon name="chart-line" size={19} color={sportAccent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.linkTitle}>My stats</Text>
+            <Text style={styles.linkBlurb}>Career, recent form and honours</Text>
+          </View>
+          <Icon name="chevron-right" size={20} color={DS.textMuted} />
+        </TouchableOpacity>
 
         {/* Icon action bar — Share · Edit · Sport · Theme */}
         <View style={styles.actionBar}>
@@ -373,8 +352,6 @@ export default function ProfileScreen({ navigation }) {
             onPress={toggleTheme}
           />
         </View>
-
-
 
         {/* Logout — a quiet text link. It used to be the boldest card on a
             screen about your career; a destructive action shouldn't anchor it. */}
@@ -416,17 +393,6 @@ const makeStyles = (DS, typo, radii, shadows) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 3, borderColor: DS.bg,
   },
-  momBadgeOverlap: {
-    position: 'absolute', bottom: -12,
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
-    backgroundColor: DS.lime,
-    borderWidth: 3, borderColor: DS.bg,
-    justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
-  },
-  momBadgeTextOverlap: { fontSize: 12, fontWeight: '900', color: DS.bg },
-  
   avatarText: { fontSize: 40, fontWeight: '900', color: DS.lime },
   
   heroInfo: { alignItems: 'center', gap: 2, paddingHorizontal: 16 },
@@ -446,29 +412,6 @@ const makeStyles = (DS, typo, radii, shadows) => StyleSheet.create({
   },
   teamPillText: { fontSize: 12, color: DS.textVariant, fontWeight: '600' },
 
-  // Bento grid
-  bentoGrid: { flexDirection: 'row', gap: 8 },
-  bentoCard: {
-    flex: 1, backgroundColor: DS.surfaceHigh,
-    borderRadius: radii?.md || 16, padding: 12, alignItems: 'center',
-    borderWidth: 1, borderColor: DS.border,
-    ...(shadows?.sm || {}),
-  },
-  bentoCardAccent: { backgroundColor: DS.surfaceHighest },
-  bentoValue: { fontSize: 22, fontWeight: '900', color: DS.textPrimary },
-  bentoValueAccent: { color: DS.lime },
-  bentoLabel: { fontSize: 10, color: DS.textMuted, marginTop: 2, textAlign: 'center' },
-  bentoLabelAccent: { color: DS.textVariant },
-
-  // Extra stats
-  extraStatsRow: {
-    flexDirection: 'row', marginTop: 10, gap: 8,
-    paddingTop: 10,
-  },
-  extraStat: { flex: 1, alignItems: 'center' },
-  extraVal: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
-  extraLbl: { fontSize: 10, color: DS.textMuted, marginTop: 1 },
-
   body: { padding: 16, gap: 12 },
 
   // Icon action bar (Share · Edit · Sport · Theme)
@@ -487,76 +430,33 @@ const makeStyles = (DS, typo, radii, shadows) => StyleSheet.create({
   },
   actionLabel: { fontSize: 11, fontWeight: '700', color: DS.textVariant },
 
-  // Career detail grid — 4-up, wrapping, so a block sizes to whatever the API
-  // returned rather than assuming a fixed field count.
-  statWrap: { flexDirection: 'row', flexWrap: 'wrap' },
-  statCell: { width: '25%', alignItems: 'center', paddingVertical: 8 },
-  statCellValue: { fontSize: 17, fontWeight: '800', color: DS.textPrimary },
-  statCellLabel: { fontSize: 10, color: DS.textMuted, marginTop: 2, textAlign: 'center' },
-
-  // Recent form
+  // Cards
   section: { backgroundColor: DS.surfaceHigh, borderRadius: radii?.md || 16, padding: 16, gap: 8, borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}) },
-  galleryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  galleryImg: { width: 88, height: 88, borderRadius: 10, backgroundColor: DS.surfaceLow },
-  galleryAdd: { width: 88, height: 88, borderRadius: 10, borderWidth: 1.5, borderColor: DS.lime, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 2 },
-  galleryAddTxt: { color: DS.lime, fontSize: 11, fontWeight: '700' },
-  galleryHint: { fontSize: 11, color: DS.textMuted, marginTop: 4 },
   sectionTitle: { fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4 },
-  formRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
-  resultDot: { width: 8, height: 8, borderRadius: 4 },
-  formInfo: { flex: 1 },
-  formOpponent: { fontSize: 13, fontWeight: '600', color: DS.textPrimary },
-  formDetail: { fontSize: 11, color: DS.textVariant, marginTop: 1 },
-  momChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: DS.lime, borderRadius: 8,
-    paddingHorizontal: 6, paddingVertical: 2,
-  },
-  momChipText: { fontSize: 9, fontWeight: '800', color: DS.bg },
-  formResult: { fontSize: 12, fontWeight: '700', minWidth: 30, textAlign: 'right' },
+  cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardAction: { fontSize: 12, fontWeight: '800', color: DS.lime, letterSpacing: 0.3 },
 
-  // Share
-  shareBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#25D366', borderRadius: 16,
-    paddingVertical: 14,
-  },
-  shareBtnText: { fontSize: 15, fontWeight: '700', color: DS.white },
+  // How I play
+  factRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: DS.faint },
+  factLabel: { fontSize: 13, fontWeight: '600', color: DS.textVariant, width: 52 },
+  factValue: { flex: 1, fontSize: 14, fontWeight: '700', color: DS.textPrimary, textAlign: 'right' },
+  factValueEmpty: { color: DS.textMuted, fontWeight: '600' },
 
-  // Quick actions
-  quickRow: { flexDirection: 'row', gap: 10 },
-  quickBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: DS.surfaceHigh, borderRadius: 16,
-    paddingVertical: 12,
-  },
-  quickBtnText: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
+  invite: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingTop: 4 },
+  inviteTitle: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
+  inviteBlurb: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 2, lineHeight: 15 },
 
-  // Appearance
-  appearanceCard: { backgroundColor: DS.surfaceHigh, borderRadius: radii?.md || 16, padding: 16, gap: 12, borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}) },
-  appearanceHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  appearanceTitle: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
-  segment: { flexDirection: 'row', backgroundColor: DS.surfaceLow, borderRadius: 12, padding: 4, gap: 4 },
-  segmentBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 9, borderRadius: 9,
-  },
-  segmentBtnActive: { backgroundColor: DS.lime },
-  segmentTxt: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
-  segmentTxtActive: { color: DS.bg },
+  bio: { fontSize: 13.5, fontWeight: '600', color: DS.textVariant, lineHeight: 20 },
 
-  // Menu
-  sportSwitchWrap: { marginHorizontal: 16, marginBottom: 16 },
-  menuCard: { backgroundColor: DS.surfaceHigh, borderRadius: radii?.md || 16, borderWidth: 1, borderColor: DS.border, overflow: 'hidden', ...(shadows?.sm || {}) },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 16 },
-  menuItemDivider: { backgroundColor: DS.surfaceHigh },
-  menuLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  menuIconWrap: {
-    width: 34, height: 34, borderRadius: 10,
-    backgroundColor: DS.surfaceLow,
-    alignItems: 'center', justifyContent: 'center',
+  // Link out to the tab that owns career numbers
+  linkRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
+    backgroundColor: DS.surfaceHigh, borderRadius: radii?.md || 16,
+    borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}),
   },
-  menuTitle: { fontSize: 14, fontWeight: '600', color: DS.textPrimary },
+  linkIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  linkTitle: { fontSize: 14.5, fontWeight: '800', color: DS.textPrimary },
+  linkBlurb: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
 
   // Logout
   logoutBtn: {

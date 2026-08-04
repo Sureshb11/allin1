@@ -1203,10 +1203,13 @@ class LegendsApi {
   }
 
   // Profile APIs
-  async getUserProfile() {
+  async getUserProfile(sport) {
     try {
       if (!this.token) return { success: true, data: {} };
-      const json = await this.request('/users/me');
+      // Scoped when a sport is given: a user can hold a player row per sport,
+      // and the unscoped lookup returns whichever comes first — so a
+      // footballer's profile could describe them as a right-arm quick.
+      const json = await this.request(`/users/me${sport ? `?sport=${encodeURIComponent(sport)}` : ''}`);
       // `player` rides along: /users/me has always returned it, and the profile
       // screen needs its id to save how this person bats and bowls — those
       // belong to the player, not the account.
