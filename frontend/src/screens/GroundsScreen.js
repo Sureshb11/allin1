@@ -23,8 +23,6 @@ import { pav } from '../theme/pavilion';
 import { makeControls } from '../theme/controls';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { useSupercluster } from '../components/useSupercluster';
-import { getSelectedSport } from '../utils/selectedSport';
-import { getSport } from '../sports';
 
 function GroundSkeleton({ DS }) {
   const shimmers = useRef([new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)]).current;
@@ -82,7 +80,7 @@ const FILTER_ICONS = {
 
 const GROUND_TYPES = ['All', 'outdoor', 'indoor', 'box_cricket', 'nets', 'stadium'];
 
-const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, setFilterModalVisible, sportName, onToggleMap, mapOpen }) => {
+const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, place, onSetPlace, onToggleMap, mapOpen }) => {
   const filterScroll = useAnimatedRef();
   const filterOffset = useSharedValue(0);
   const filterStart = useSharedValue(0);
@@ -106,29 +104,35 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
 
   return (
     <View style={[styles.filterContainer, { paddingTop: Platform.OS === 'ios' ? 50 : 20 }]}>
-      {/* The header said "Your Location · Chennai" and "N Cricket Grounds In
-          Chennai" to everyone, on a list that spans Arani, Vellore,
-          Kanchipuram, Tiruvannamalai, Ambur and Viluppuram. Nothing in this app
-          knows where you are — there is no location library in it — so a
-          location line was a claim it could not make. It says what it can
-          count, and follows the sport you are in. */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 16, marginBottom: 16 }}>
-        <Text style={{ flex: 1, color: DS.textPrimary, fontSize: 22, fontWeight: '700', lineHeight: 30 }}>
-          {counts?.All || 0} {sportName} ground{(counts?.All || 0) === 1 ? '' : 's'}
-        </Text>
-        {/* Map, beside the filter. It used to be a floating pill down in the
-            corner, competing with the add button for the same space — which is
-            why it was removed. Up here it costs no room and gets out of the
-            way of the thing you press most. */}
+      {/* YOUR LOCATION, and it is really yours — the city on your profile,
+          which Edit Profile has collected all along. It used to say "Chennai"
+          to everyone, hardcoded, over a list spanning Arani, Vellore,
+          Kanchipuram and Tiruvannamalai.
+
+          Not GPS: there is no geolocation library in this app, and adding one
+          is a native dependency plus a runtime permission. This is a real
+          answer available today, and it is tappable when it is missing. */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 }}>
+        <TouchableOpacity onPress={place ? undefined : onSetPlace} activeOpacity={place ? 1 : 0.7} style={{ flex: 1 }}>
+          <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+            Your location
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Icon name="map-marker" size={18} color={place ? DS.lime : DS.textMuted} style={{ marginRight: 4 }} />
+            <Text style={{ color: place ? DS.textPrimary : DS.textMuted, fontSize: 18, fontWeight: '700' }} numberOfLines={1}>
+              {place || 'Set your city'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+        {/* Map, where the filter icon used to be. That icon set a
+            `isFilterModalVisible` nothing ever read — there is no filter modal
+            in this file — so it was a button that did nothing at all. The type
+            chips below are the filter. */}
         <TouchableOpacity onPress={onToggleMap} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button" accessibilityState={{ selected: !!mapOpen }}
-          accessibilityLabel={mapOpen ? 'Show the list' : 'Show the map'}
-          style={{ marginRight: 18 }}>
+          accessibilityLabel={mapOpen ? 'Show the list' : 'Show the map'}>
           <Icon name={mapOpen ? 'format-list-bulleted' : 'map-outline'} size={26}
             color={mapOpen ? DS.lime : DS.textPrimary} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setFilterModalVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Icon name="filter-variant" size={28} color={DS.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -695,9 +699,16 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [type, setType] = useState('All');
-  const [isFilterModalVisible, setFilterModalVisible] = useState(false);
-  // The sport you are actually in, not a word baked into the header.
-  const sportName = getSport(getSelectedSport().sport?.id || 'cricket')?.name || 'Cricket';
+  // Where the viewer says they are — city first, then district or state, which
+  // is what Edit Profile collects. Read once; it changes about never.
+  const [place, setPlace] = useState('');
+  useEffect(() => {
+    LegendsApi.getUserProfile().then((r) => {
+      const u = (r?.success && r.data) || {};
+      const parts = [u.city, u.district || u.state].filter(Boolean);
+      setPlace([...new Set(parts)].join(', '));
+    }).catch(() => {});
+  }, []);
   const [filterSurface, setFilterSurface] = useState('');
   const [filterBall, setFilterBall] = useState('');
   const [filterVerified, setFilterVerified] = useState(false);
@@ -914,8 +925,8 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
           counts={meta.typeCounts} 
           pagerGesture={pagerGesture}
           DS={DS} P={P} styles={styles} C={C}
-          setFilterModalVisible={setFilterModalVisible}
-          sportName={sportName}
+          place={place}
+          onSetPlace={() => navigation.navigate('EditPlayerProfile')}
           mapOpen={viewState === 'map'}
           onToggleMap={() => setViewState((v) => (v === 'map' ? 'list' : 'map'))}
         />
