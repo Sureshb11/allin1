@@ -435,7 +435,7 @@ function computePartnerships(innings, nameById) {
 // 2nd-innings chase math: runs still needed, balls left, required run rate, current
 // run rate, and a naive win-read for the chasing side. Only meaningful once a target
 // is set (innings 2). Returns null otherwise.
-function computeChase(innings, totalOvers) {
+function computeChase(innings, totalOvers, squadSize = 11) {
   if (!innings || !innings.targetScore || innings.inningNumber !== 2) return null;
   const target = innings.targetScore;
   const need = Math.max(0, target - innings.totalRuns);
@@ -447,7 +447,10 @@ function computeChase(innings, totalOvers) {
   const ballsLeft = Math.max(0, (totalOvers || 20) * 6 - ballsBowled);
   const crr = ballsBowled > 0 ? (innings.totalRuns / (ballsBowled / 6)) : 0;
   const rrr = ballsLeft > 0 ? (need / (ballsLeft / 6)) : (need > 0 ? Infinity : 0);
-  const wktsLeft = 10 - innings.totalWickets;
+  // One short of the XI, not ten. This app's squads run from 1 to 15 and local
+  // cricket plays eight a side, where "6 wkts" left with 2 down is a lie that
+  // also feeds the win bar.
+  const wktsLeft = Math.max(0, Math.max(1, squadSize - 1) - innings.totalWickets);
   // Simple, honest win-read (not a model): pace + wickets in hand. Chasers' share.
   let chaseWin;
   if (need <= 0) chaseWin = 100;
@@ -1690,7 +1693,9 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const effectiveExpanded = expandedInnings === null ? inningsList.length - 1 : expandedInnings;
   // "NEED X off Y balls" for the 2nd innings — shown across every tab; the toss
   // (a fixed, non-changing fact) stays confined to the INFO tab only.
-  const chase = computeChase(liveInnings, match?.overs);
+  // The chasing side's own squad size — the two teams needn't be the same size.
+  const chasingSquad = (match?.squads || []).filter((s) => s.teamId === liveInnings?.battingTeamId).length;
+  const chase = computeChase(liveInnings, match?.overs, chasingSquad || 11);
   // Split the win probability onto the two team columns (chasing team = chaseWin).
   const t1Win = chase ? (chase.teamName === t1 ? chase.chaseWin : 100 - chase.chaseWin) : 50;
   const t2Win = 100 - t1Win;

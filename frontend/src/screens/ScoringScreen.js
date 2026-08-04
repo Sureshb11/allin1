@@ -532,6 +532,23 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     idemRef.current = { base: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, n: 0, done: {} };
   };
 
+  // ALL OUT IS ONE SHORT OF THE XI — not ten.
+  //
+  // Ten was hardcoded in six places, and this app lets a squad be anything from
+  // 1 to 15 (MAX_XI on the toss screen), which local cricket uses: eight-a-side
+  // is an ordinary Sunday. Both directions were wrong.
+  //
+  //   · Eight a side — all out is 7. The app kept asking for a ninth batter,
+  //     from an empty list, and never ended the innings. The scorer's only way
+  //     out was Cancel and End Innings by hand.
+  //   · Fifteen a side — all out is 14. The app declared "All out" at 10 with
+  //     four batters still padded up, ending the innings four wickets early.
+  //
+  // Computed live, not frozen: "Add from squad" can grow the XI mid-innings.
+  // The floor of 1 is for a degenerate squad, so nothing can end an innings
+  // before a ball is bowled.
+  const allOutAt = Math.max(1, battingXI.length - 1);
+
   const persistBall = async (runs, extras, extraType, isWicket, wicketType, countsAsBall = true, dismissedId = null, catcher = null, directHit = null, dropped = null) => {
     // Never skip the save silently: the local score would keep advancing (and
     // syncMatchSummary would keep updating the headline score) while the
@@ -576,11 +593,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   const checkWinCondition = (newScore) => {
     if (!isInnings2) return false;
     if (newScore.runs >= target) {
-      const wRemain = 10 - newScore.wickets;
+      const wRemain = Math.max(0, allOutAt - newScore.wickets);
       endMatch(`${battingTeamName} won by ${wRemain} wicket${wRemain !== 1 ? 's' : ''}`, newScore);
       return true;
     }
-    if (newScore.wickets >= 10 || newScore.overs >= totalOvers && newScore.balls === 0) {
+    if (newScore.wickets >= allOutAt || newScore.overs >= totalOvers && newScore.balls === 0) {
       const diff = target - 1 - newScore.runs;
       endMatch(diff === 0 ? 'Match Tied!' : `${bowlingTeamName} won by ${diff} run${diff !== 1 ? 's' : ''}`, newScore);
       return true;
@@ -906,7 +923,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       } else {
         setStriker(null);
       }
-      if (newScore.wickets < 10) { setNewBatterFor(emptySlot); setShowPlayerModal(true); }
+      if (newScore.wickets < allOutAt) { setNewBatterFor(emptySlot); setShowPlayerModal(true); }
     } else if (value === 'penalty') {
       // Penalty runs (5) — a team award, not a delivery: no ball faced, no
       // strike change, doesn't advance the over. Awarded to the batting side.
@@ -993,7 +1010,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       // Don't prompt for the next over's bowler if the innings/match just ended:
       // last over bowled, all out, or the chase (innings 2) is already won.
       const chaseWon = isInnings2 && newScore.runs >= target;
-      if (newScore.overs < totalOvers && newScore.wickets < 10 && !chaseWon) {
+      if (newScore.overs < totalOvers && newScore.wickets < allOutAt && !chaseWon) {
         // Break between overs: show what just happened before asking for the next
         // bowler. "Start next over" in the sheet opens the picker. Anything the
         // sheet can read from live state (score, spell figures, the crease) is
@@ -1054,8 +1071,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     const scoreStr = `${newScore.runs}/${newScore.wickets} (${newScore.overs}.${newScore.balls})`;
     syncMatchSummary(scoreStr);
     if (isInnings2) checkWinCondition(newScore);
-    if (!isInnings2 && (newScore.wickets >= 10 || newScore.overs >= totalOvers && newScore.balls === 0)) {
-      finishInnings(newScore.wickets >= 10 ? 'All out' : 'Overs completed', newScore);
+    if (!isInnings2 && (newScore.wickets >= allOutAt || newScore.overs >= totalOvers && newScore.balls === 0)) {
+      finishInnings(newScore.wickets >= allOutAt ? 'All out' : 'Overs completed', newScore);
     }
     } catch (err) {
       // The server rejected the ball. If scoring was transferred away mid-session,
@@ -1304,7 +1321,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     if (slot === 'nonstriker') { setNonStriker(null); setNewBatterFor('nonstriker'); }
     else { setStriker(null); setNewBatterFor('striker'); }
     setCurrentScore(newScore);
-    if (newScore.wickets < 10) setShowPlayerModal(true);
+    if (newScore.wickets < allOutAt) setShowPlayerModal(true);
     else finishInnings('All out', newScore);
   };
 

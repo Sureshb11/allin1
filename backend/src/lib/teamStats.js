@@ -244,7 +244,10 @@ export async function teamStats(teamId, filters = {}) {
           const by = our.totalRuns - their.totalRuns;
           if (by > 0 && (t.bestWinRuns === null || by > t.bestWinRuns)) t.bestWinRuns = by;
         } else {
-          const wicketsInHand = 10 - our.totalWickets;
+          // One short of the XI. Squads here run from 1 to 15, so a fixed ten
+          // reports a side that lost 7 of its 8 as having 3 in hand.
+          const xi = m.squads.filter((s) => s.teamId === teamId).length || 11;
+          const wicketsInHand = Math.max(0, Math.max(1, xi - 1) - our.totalWickets);
           if (t.bestWinWickets === null || wicketsInHand > t.bestWinWickets) t.bestWinWickets = wicketsInHand;
         }
       }
