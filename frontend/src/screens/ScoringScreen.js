@@ -955,16 +955,27 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       // A run out carries its delivery's own book-keeping: a wide is not a ball
       // faced and not one of the six, a no ball is a ball faced but not one of the
       // six, and a wicket taken before the ball was bowled is neither.
+      // A stumping off a wide is the same shape: the wide is not one of the
+      // bowler's six either, whoever took the bails off.
+      const wideOut = !ro && value === 'out' && outExtra === 'wide';
       const bowlerLegal = ro ? ro.countsAsBall
-        : (typeof value === 'number' || value === 'bye' || value === 'legbye' || value === 'out');
+        : (typeof value === 'number' || value === 'bye' || value === 'legbye'
+           || (value === 'out' && !wideOut));
       if (typeof value === 'number') { batRuns = value; batFaced = 1; isFour = value === 4 ? 1 : 0; isSix = value === 6 ? 1 : 0; charged = value; }
       else if (value === 'wide') { charged = 1 + addRuns; }
       else if (value === 'noball') { batRuns = addRuns; batFaced = 1; charged = 1 + addRuns; }
       else if (value === 'bye' || value === 'legbye') { batFaced = 1; }
       else if (value === 'out') {
-        batFaced = ro ? ro.ballFaced : 1;
+        // A wide is not a ball faced, and its penalty run IS charged to the
+        // bowler. The run-out engine works all this out for run-outs (`ro`);
+        // this is the same arithmetic for the one other dismissal that can be
+        // made off a wide. Without it the scorer's live figures drift from the
+        // scorecard's, which recomputes from the stored ball and gets it right:
+        // the batter would gain a ball they never faced and the bowler a legal
+        // delivery they never bowled, while losing the wide's run.
+        batFaced = ro ? ro.ballFaced : (wideOut ? 0 : 1);
         batRuns = ro ? ro.batRuns : 0;
-        charged = ro ? ro.chargedToBowler : 0;
+        charged = ro ? ro.chargedToBowler : (wideOut ? 1 : 0);
         const wt = String(wicketType).toLowerCase().replace(/\s/g, '');
         tookWkt = (wt === 'runout' || wt === 'retired') ? 0 : 1;   // run-outs aren't credited to the bowler
       }
