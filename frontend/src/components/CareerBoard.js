@@ -478,12 +478,6 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
           )}
         </View>
 
-        {sportId === 'cricket' && (
-          <View style={{ width: '100%', alignItems: 'center' }} onLayout={(e) => setRadarW(e.nativeEvent.layout.width)}>
-            {radarW > 0 && <CricketRadarChart stats={stats} width={radarW} />}
-          </View>
-        )}
-
         {/* Career table: one surface ruled into thirds, not a grid of tiles. */}
         {tabStats.length > 0 && (
           <View style={styles.gridWrap}>
@@ -495,6 +489,19 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
                 <StatCell key={s.label} s={s} i={i} styles={styles} />
               ))}
             </View>
+          </View>
+        )}
+
+        {/* The web, moved down here from directly under the hero. It is a shape,
+            not a number — a read of the whole game at a glance — and it belongs
+            AFTER the figures it summarises rather than in front of them. The
+            table answers "how many", this answers "what kind of player", and
+            the trend below answers "lately". Read in that order it tells a
+            story; the other way round it was an abstract diagram standing
+            between you and your runs. */}
+        {sportId === 'cricket' && (
+          <View style={{ width: '100%', alignItems: 'center' }} onLayout={(e) => setRadarW(e.nativeEvent.layout.width)}>
+            {radarW > 0 && <CricketRadarChart stats={stats} width={radarW} />}
           </View>
         )}
 
