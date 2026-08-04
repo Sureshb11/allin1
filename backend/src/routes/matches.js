@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { SquadSchema, squadRows } from '../lib/matchSquad.js';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
 import { validateSquad, applySubstitution } from '../lib/roster.js';
@@ -967,10 +968,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 const SetupSchema = z.object({
   tossWinnerId: z.string().optional(),
   choice:       z.string().optional(),
-  squads: z.array(z.object({
-    teamId:    z.string(),
-    playerIds: z.array(z.string()).min(1),
-  })).min(1),
+  squads: z.array(SquadSchema).min(1),
 });
 
 router.post('/:id/setup', authMiddleware, async (req, res) => {
@@ -991,12 +989,7 @@ router.post('/:id/setup', authMiddleware, async (req, res) => {
       // Re-submitting setup replaces the squads rather than appending, so a
       // corrected line-up doesn't leave the old XI attached to the match.
       await tx.matchPlayer.deleteMany({ where: { matchId } });
-      await tx.matchPlayer.createMany({
-        data: data.squads.flatMap((sq) =>
-          sq.playerIds.map((playerId) => ({ matchId, teamId: sq.teamId, playerId }))
-        ),
-        skipDuplicates: true,
-      });
+      await tx.matchPlayer.createMany({ data: squadRows(matchId, data.squads), skipDuplicates: true });
       return m;
     });
 
@@ -1020,10 +1013,7 @@ const TossSchema = z.object({
   tossDecision:  z.enum(['bat', 'bowl']),
   battingTeamId: z.string(),
   bowlingTeamId: z.string(),
-  squads: z.array(z.object({
-    teamId:    z.string(),
-    playerIds: z.array(z.string()).min(1),
-  })).optional(),
+  squads: z.array(SquadSchema).optional(),
 });
 
 router.post('/:id/toss', authMiddleware, async (req, res) => {
@@ -1072,12 +1062,7 @@ router.post('/:id/toss', authMiddleware, async (req, res) => {
       });
       if (data.squads?.length) {
         await tx.matchPlayer.deleteMany({ where: { matchId } });
-        await tx.matchPlayer.createMany({
-          data: data.squads.flatMap((sq) =>
-            sq.playerIds.map((playerId) => ({ matchId, teamId: sq.teamId, playerId }))
-          ),
-          skipDuplicates: true,
-        });
+        await tx.matchPlayer.createMany({ data: squadRows(matchId, data.squads), skipDuplicates: true });
       }
       return m;
     });

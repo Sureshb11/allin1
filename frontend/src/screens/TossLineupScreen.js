@@ -8,7 +8,7 @@ import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 import { Spacing, Radius } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
 import { haptic } from '../utils/haptics';
-import { sortSquad } from '../utils/squadOrder';
+import { sortSquad, roleRank, ROLE_RANK } from '../utils/squadOrder';
 import legendsApi from '../services/LegendsApi';
 import { useTabBarClearance } from '../components/AutoHideTabBar';
 
@@ -39,7 +39,7 @@ const makeK = (c) => ({
    Shows players for one team. Green tick = available today.
    XI box = selected in playing eleven.
 ────────────────────────────────────────────────────────────── */
-function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailable }) {
+function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailable, lead, setLead }) {
   const c = useTheme().colors;
   const K = useMemo(() => makeK(c), [c]);
   const s = useMemo(() => makeS(K), [K]);
@@ -62,7 +62,21 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
       // whole roster each time, silently undoing the scorer's manual removals — so
       // deselected players reappeared in the saved squad, the scorecard, and the
       // live-scoring batter/bowler pickers.
-      setXI(prev => prev.length ? prev : list.slice(0, MAX_XI).map(p => ({ id: p.id, name: p.name, role: p.role })));
+      const picked = list.slice(0, MAX_XI);
+      setXI(prev => prev.length ? prev : picked.map(p => ({ id: p.id, name: p.name, role: p.role })));
+      // Suggest, don't interrogate. The club already knows who captains it, and
+      // a player whose role says "Wicket Keeper" is almost always the one
+      // keeping — so the usual job here is to confirm two answers, not find
+      // them. Both stay one tap from being changed, and either can be cleared.
+      setLead(prev => {
+        if (prev.captainId || prev.keeperId) return prev;      // scorer has spoken
+        const inXI = (p) => picked.some((q) => q.id === p.id);
+        return {
+          captainId: picked.find((p) => p.isCaptain && inXI(p))?.id || null,
+          viceCaptainId: picked.find((p) => p.isViceCaptain && inXI(p))?.id || null,
+          keeperId: picked.find((p) => roleRank(p.role) === ROLE_RANK.keeper)?.id || null,
+        };
+      });
       setLoading(false);
     });
   }, [teamId]);
@@ -70,11 +84,31 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
   const toggleXI = (player) => {
     setXI(prev => {
       const inXI = prev.some(p => p.id === player.id);
-      if (inXI) return prev.filter(p => p.id !== player.id);
+      if (inXI) {
+        // Dropping someone drops the job with them. The server rejects a
+        // captain who isn't in the XI, so leaving it set would fail the whole
+        // toss at the last step for a reason nobody could see.
+        setLead((L) => ({
+          captainId:     L.captainId     === player.id ? null : L.captainId,
+          viceCaptainId: L.viceCaptainId === player.id ? null : L.viceCaptainId,
+          keeperId:      L.keeperId      === player.id ? null : L.keeperId,
+        }));
+        return prev.filter(p => p.id !== player.id);
+      }
       if (prev.length >= MAX_XI) { Alert.alert('Squad Full', `You can pick up to ${MAX_XI} players. Deselect one first.`); return prev; }
       return [...prev, { id: player.id, name: player.name, role: player.role }];
     });
   };
+
+  // Tapping C or WK moves the job to that player, or clears it if they already
+  // hold it. One captain and one keeper per side, so setting one unsets the
+  // other holder by construction. A captain can't also be vice-captain — the
+  // server rejects that pair, so it's prevented here rather than reported.
+  const assign = (field, playerId) => setLead((L) => {
+    const next = { ...L, [field]: L[field] === playerId ? null : playerId };
+    if (field === 'captainId' && next.captainId && next.captainId === next.viceCaptainId) next.viceCaptainId = null;
+    return next;
+  });
 
   if (loading) return (
     <View style={s.loaderRow}>
@@ -92,6 +126,7 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
   );
 
   const filteredPlayers = players.filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
+  const nameOf = (id) => xi.find((p) => p.id === id)?.name || null;
 
   return (
     <View>
@@ -106,6 +141,18 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
             <Text style={s.heroCount}>{xi.length}/{MAX_XI}</Text>
             <Text style={s.heroCountLabel}>PLAYERS PICKED</Text>
           </View>
+        </View>
+        {/* Says where the two jobs currently sit, so the scorer can see both
+            answers without scrolling the list to look for the badges. */}
+        <View style={s.leadRow}>
+          <Text style={s.leadItem} numberOfLines={1}>
+            <Text style={s.leadKey}>C </Text>
+            {nameOf(lead.captainId) || <Text style={s.leadNone}>not set</Text>}
+          </Text>
+          <Text style={s.leadItem} numberOfLines={1}>
+            <Text style={s.leadKey}>WK </Text>
+            {nameOf(lead.keeperId) || <Text style={s.leadNone}>not set</Text>}
+          </Text>
         </View>
       </View>
 
@@ -132,6 +179,8 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
         const role = (p.role || 'PLAYER').toUpperCase();
 
         if (inXI) {
+          const isCap = lead.captainId === p.id;
+          const isWk  = lead.keeperId === p.id;
           return (
             <TouchableOpacity key={p.id} style={s.playerCardSelected} onPress={() => toggleXI(p)} activeOpacity={0.8}>
               <View style={[s.pAvatar, { backgroundColor: color + '26' }]}>
@@ -141,6 +190,22 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
                 <Text style={s.pName} numberOfLines={1}>{p.name}</Text>
                 <Text style={s.pRole}>{role}</Text>
               </View>
+              {/* Marked on the card itself rather than behind a picker: this is
+                  the one screen where both XIs are on display and the scorer
+                  already has a finger on the list. Nested touchables don't
+                  bubble in RN, so tapping C can't drop the player from the XI. */}
+              <TouchableOpacity style={[s.jobChip, isCap && s.jobChipOn]} onPress={() => assign('captainId', p.id)}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                accessibilityRole="button" accessibilityState={{ selected: isCap }}
+                accessibilityLabel={`${isCap ? 'Remove' : 'Make'} ${p.name} captain`}>
+                <Text style={[s.jobChipTxt, isCap && s.jobChipTxtOn]}>C</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.jobChip, isWk && s.jobChipOn]} onPress={() => assign('keeperId', p.id)}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                accessibilityRole="button" accessibilityState={{ selected: isWk }}
+                accessibilityLabel={`${isWk ? 'Remove' : 'Make'} ${p.name} wicketkeeper`}>
+                <Text style={[s.jobChipTxt, isWk && s.jobChipTxtOn]}>WK</Text>
+              </TouchableOpacity>
               <View style={s.pCheck}><Icon name="check" size={15} color={K.onLime} /></View>
             </TouchableOpacity>
           );
@@ -327,6 +392,12 @@ export default function TossLineupScreen({ route, navigation }) {
 
   const [team1XI, setTeam1XI]           = useState([]);
   const [team2XI, setTeam2XI]           = useState([]);
+  // Who captains and who keeps, per side, for THIS match. Lives up here rather
+  // than in PlayerList because that component remounts on every team-tab switch
+  // (key={activeTeam}) and would lose the answers each time.
+  const NO_LEAD = { captainId: null, viceCaptainId: null, keeperId: null };
+  const [team1Lead, setTeam1Lead]       = useState(NO_LEAD);
+  const [team2Lead, setTeam2Lead]       = useState(NO_LEAD);
   const [team1Avail, setTeam1Avail]     = useState({});
   const [team2Avail, setTeam2Avail]     = useState({});
   const [loading, setLoading]           = useState(false);
@@ -337,7 +408,9 @@ export default function TossLineupScreen({ route, navigation }) {
     legendsApi.getTeam(teamId).then(res => {
       const list = res.success && Array.isArray(res.data?.players) ? res.data.players : [];
       const avail = list.filter(p => allAvail[p.id]);
-      setXI(avail.slice(0, MAX_XI).map(p => ({ id: p.id, name: p.name })));
+      // `role` carried through: the manual path has always kept it and this one
+      // dropped it, so an auto-picked XI showed PLAYER against every name.
+      setXI(avail.slice(0, MAX_XI).map(p => ({ id: p.id, name: p.name, role: p.role })));
     });
   };
 
@@ -356,14 +429,24 @@ export default function TossLineupScreen({ route, navigation }) {
       // One transactional call: toss + inning-1 team fix + persist both XIs
       // (the old updateMatch was silently dropping the toss fields, and the
       // playing XI never reached the MatchPlayer table).
+      // A rejected designation must not read as "the toss failed" — the catch
+      // below says "Failed to set up match", which would be the wrong story.
+      const stray = [[team1XI, team1Lead, team1], [team2XI, team2Lead, team2]]
+        .find(([xi, L]) => [L.captainId, L.viceCaptainId, L.keeperId]
+          .some((id) => id && !xi.some((p) => p.id === id)));
+      if (stray) {
+        setLoading(false);
+        return Alert.alert('Check the squad', `${stray[2]}'s captain or keeper isn't in the selected XI.`);
+      }
+
       await legendsApi.submitToss(matchId, {
         tossWinnerId: tossWinner === team1 ? team1Id : team2Id,
         tossDecision: decision.toLowerCase(),
         battingTeamId,
         bowlingTeamId,
         squads: [
-          { teamId: team1Id, playerIds: team1XI.map((p) => p.id) },
-          { teamId: team2Id, playerIds: team2XI.map((p) => p.id) },
+          { teamId: team1Id, playerIds: team1XI.map((p) => p.id), ...team1Lead },
+          { teamId: team2Id, playerIds: team2XI.map((p) => p.id), ...team2Lead },
         ],
       });
 
@@ -400,6 +483,8 @@ export default function TossLineupScreen({ route, navigation }) {
   const setXIs    = [setTeam1XI, setTeam2XI];
   const teamAvail = [team1Avail, team2Avail];
   const setAvails = [setTeam1Avail, setTeam2Avail];
+  const teamLeads = [team1Lead, team2Lead];
+  const setLeads  = [setTeam1Lead, setTeam2Lead];
   // Two teams distinguished by green accent vs. a neutral — not a second hue
   // (single-accent system: green is the only brand colour).
   const teamColor = [K.lime, K.textMuted];
@@ -536,6 +621,8 @@ export default function TossLineupScreen({ route, navigation }) {
               setXI={setXIs[activeTeam]}
               available={teamAvail[activeTeam]}
               setAvailable={setAvails[activeTeam]}
+              lead={teamLeads[activeTeam]}
+              setLead={setLeads[activeTeam]}
             />
 
             {/* ── Bottom spacer for button ─────────────── */}
@@ -750,7 +837,7 @@ const makeS = (K) => StyleSheet.create({
   heroSubtitle: { fontSize: 10, fontWeight: '800', color: K.lime, letterSpacing: 2, marginTop: 2 },
   heroStats: { alignItems: 'flex-end' },
   heroCount: { fontSize: 20, fontWeight: '900', color: K.textPrimary },
-  heroCountLabel: { fontSize: 9, fontWeight: '700', color: K.blueDeep || '#3b82f6', letterSpacing: 1, marginTop: 1 },
+  heroCountLabel: { fontSize: 9, fontWeight: '700', color: K.blue, letterSpacing: 1, marginTop: 1 },
 
   searchContainer: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: K.surfaceHigh,
@@ -785,6 +872,21 @@ const makeS = (K) => StyleSheet.create({
   pName: { fontSize: 14, fontWeight: '800', color: K.textPrimary },
   pNameDim: { fontSize: 14, fontWeight: '700', color: K.textVariant },
   pRole: { fontSize: 10, fontWeight: '600', color: K.textMuted, marginTop: 1, letterSpacing: 0.5 },
+  // Who leads / who keeps
+  leadRow: { flexDirection: 'row', gap: 14, marginTop: 10, paddingTop: 9, borderTopWidth: 1, borderTopColor: K.borderLight },
+  leadItem: { flex: 1, fontSize: 11.5, fontWeight: '700', color: K.textPrimary },
+  leadKey: { fontSize: 10, fontWeight: '900', color: K.lime, letterSpacing: 0.6 },
+  leadNone: { fontWeight: '600', color: K.textMuted },
+
+  jobChip: {
+    minWidth: 26, height: 22, paddingHorizontal: 5, borderRadius: 7, marginRight: 6,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: K.border, backgroundColor: 'transparent',
+  },
+  jobChipOn: { backgroundColor: K.lime, borderColor: K.lime },
+  jobChipTxt: { fontSize: 10, fontWeight: '900', color: K.textMuted, letterSpacing: 0.3 },
+  jobChipTxtOn: { color: K.onLime },
+
   pCheck: { width: 26, height: 26, borderRadius: 13, backgroundColor: K.lime, alignItems: 'center', justifyContent: 'center' },
   pAdd: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: K.textMuted, alignItems: 'center', justifyContent: 'center' },
 
