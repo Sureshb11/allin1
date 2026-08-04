@@ -23,6 +23,9 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import TeamStats from '../components/TeamStats';
+import { makeControls } from '../theme/controls';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { useFilterSwipe } from '../utils/useFilterSwipe';
 import { pickAndUploadImage } from '../utils/imageUpload';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
@@ -39,6 +42,10 @@ const initials = (name) =>
 const TeamProfileScreen = ({ navigation, route }) => {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
+  // The shared control language. This screen had its OWN tab pill — a lime fill
+  // with DS.bg text — which is the fourth copy of a control Matches, Teams and
+  // Tournaments already share. Same job, so the same control.
+  const C = useThemedStyles(makeControls);
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
   const me = useCurrentUser();
@@ -80,6 +87,10 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const sport = team?.sport || 'cricket';
   const isCricket = sport === 'cricket';
   const sportIcon = sportMeta(sport).icon;
+  const TAB_KEYS = ['squad', 'matches', 'form', 'standings', 'honours', 'gallery'];
+  // Swipe steps the tabs, as it does on every other list screen in the app.
+  const tabSwipe = useFilterSwipe(TAB_KEYS, tab, setTab);
+
   const tabs = [
     ['squad', 'Squad', 'account-group'],
     ['matches', 'Matches', sportIcon],
@@ -432,16 +443,31 @@ const TeamProfileScreen = ({ navigation, route }) => {
       </View>
 
       {/* ── Tabs ── */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabRow} contentContainerStyle={styles.tabRowInner}>
-        {tabs.map(([key, label, icon]) => (
-          <TouchableOpacity key={key} onPress={() => setTab(key)} style={[styles.tabChip, tab === key && styles.tabChipActive]}>
-            <Icon name={icon} size={15} color={tab === key ? DS.bg : DS.textMuted} />
-            <Text style={[styles.tabChipTxt, tab === key && styles.tabChipTxtActive]}>{label}</Text>
-          </TouchableOpacity>
-        ))}
+      {/* The Pavilion filter bar, not this screen's own pill. Counts ride on the
+          two tabs that have a number worth knowing before you open them. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                  style={styles.tabRow} contentContainerStyle={[C.filterBar, { flexDirection: 'row', marginBottom: 0 }]}>
+        {tabs.map(([key, label, icon]) => {
+          const on = tab === key;
+          const count = key === 'squad' ? (data.members || []).length
+            : key === 'matches' ? (data.recentMatches || []).length : null;
+          return (
+          <TouchableOpacity key={key} onPress={() => setTab(key)} style={[C.filterChip, on && C.filterChipActive]}>
+            <Icon name={icon} size={13} color={on ? DS.lime : DS.textMuted} />
+            <Text style={[C.filterText, on && C.filterTextActive]}>{label}</Text>
+            {count > 0 && (
+              <View style={[C.filterCount, on && C.filterCountOn]}>
+                <Text style={[C.filterCountText, on && C.filterCountTextOn]}>{count}</Text>
+              </View>
+            )}
+          </TouchableOpacity>);
+        })}
       </ScrollView>
 
-      {/* ── Tab content ── */}
+      {/* ── Tab content ──
+          Swipe steps the tabs, the same gesture the Matches, Teams,
+          Tournaments and Pavilion screens use for their filter rows. ── */}
+      <GestureDetector gesture={tabSwipe}>
       <View style={styles.section}>
         {tab === 'squad' && (
           <SquadTab
@@ -473,6 +499,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
             onAdd={addPhoto} onRemove={removePhoto} busy={busy} />
         )}
       </View>
+      </GestureDetector>
 
       {/* ── Add-award modal ── */}
       <Modal visible={awardModal} transparent animationType="fade" onRequestClose={() => setAwardModal(false)}>
@@ -963,14 +990,6 @@ const makeStyles = (DS) => StyleSheet.create({
   statSep: { width: 1, height: 26, backgroundColor: DS.faint },
 
   tabRow: { marginTop: 16 },
-  tabRowInner: { paddingHorizontal: 16, gap: 8 },
-  tabChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 9,
-    borderRadius: 20, backgroundColor: DS.surfaceHigh,
-  },
-  tabChipActive: { backgroundColor: DS.lime },
-  tabChipTxt: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
-  tabChipTxtActive: { color: DS.bg },
 
   section: { paddingHorizontal: 16, paddingTop: 16 },
   emptyTxt: { color: DS.textMuted, fontSize: 14, paddingVertical: 24, textAlign: 'center' },
