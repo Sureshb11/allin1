@@ -1547,6 +1547,19 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
     { key: 'highlights', label: 'HIGHLIGHTS', icon: 'star-outline' },
   ];
   const activeIndex = Math.max(0, TABS.findIndex((t) => t.key === activeTab));
+
+  // Keep the selected tab on screen. With every tab carrying its name the strip
+  // is about twice the width of a phone, and the selection is not always made
+  // by tapping it: the default lands on OVERVIEW the moment a match completes,
+  // the pager changes it on swipe, and the radial menu jumps to any tab. Any of
+  // those could otherwise underline something scrolled out of sight.
+  const tabBarRef = useRef(null);
+  const tabLayouts = useRef({});
+  useEffect(() => {
+    const l = tabLayouts.current[activeTab];
+    if (!l) return;
+    tabBarRef.current?.scrollTo({ x: Math.max(0, l.x + l.width / 2 - SCREEN_WIDTH / 2), animated: true });
+  }, [activeTab]);
   const inningsList = match?.innings || [];
   const selectedInnings = inningsList[inningsTab] || inningsList[0];
   const liveInnings = inningsList[inningsList.length - 1];   // currently-batting innings
@@ -1621,18 +1634,27 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             : <View style={{ width: 26 }} />}
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.matchTabBar}
-          contentContainerStyle={styles.matchTabBarContent}>
+        {/* Every tab names itself. It used to hide the label on all but the
+            selected one, which meant six of the seven tabs were an icon and
+            nothing else — and a clipboard, a card of people and a bat don't say
+            "SCORECARD", "SQUADS" and "OVERS" to anyone who hasn't already
+            learnt them. The strip is wider than the screen now, so it scrolls,
+            and the active tab is scrolled into view (see below) because it
+            changes on its own: a completed match opens on OVERVIEW and the
+            radial menu jumps straight to any of them. */}
+        <ScrollView ref={tabBarRef} horizontal showsHorizontalScrollIndicator={false}
+          style={styles.matchTabBar} contentContainerStyle={styles.matchTabBarContent}>
           {TABS.map((t) => {
             const active = activeTab === t.key;
             const color = active ? DS.lime : DS.textMuted;
             return (
-              // X/Twitter-style: only the selected tab shows its name; the rest are icon-only.
               <TouchableOpacity key={t.key} style={[styles.matchTab, active && styles.matchTabActive]}
-                onPress={() => setTab(t.key)}>
-                <Icon name={t.icon} size={19} color={color} />
-                {active &&
-                  <Text style={[styles.matchTabText, styles.matchTabTextActive]} numberOfLines={1}>{t.label}</Text>}
+                onPress={() => setTab(t.key)}
+                onLayout={(e) => { tabLayouts.current[t.key] = e.nativeEvent.layout; }}>
+                <Icon name={t.icon} size={18} color={color} />
+                <Text style={[styles.matchTabText, active && styles.matchTabTextActive]} numberOfLines={1}>
+                  {t.label}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -1866,11 +1888,13 @@ const makeStyles = (DS) => StyleSheet.create({
   liveBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DS.live },
   liveBadgeText: { fontSize: 10, fontWeight: '900', color: DS.live, letterSpacing: 0.6 },
 
-  // Match-center tab bar — X-style: only the selected tab shows its name.
+  // Match-center tab bar — icon + name on every tab.
   matchTabBar: { backgroundColor: DS.surface },
   matchTabBarContent: { flexDirection: 'row', flexGrow: 1, justifyContent: 'space-around', alignItems: 'center' },
   matchTab: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 14,
+    // Tighter than when only one tab carried text — seven labels have to fit
+    // without the strip becoming a marathon, and the touch target is still 44pt.
+    flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 12, paddingHorizontal: 11,
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   matchTabActive: { borderBottomColor: DS.lime },
