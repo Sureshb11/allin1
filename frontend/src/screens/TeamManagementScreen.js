@@ -336,7 +336,13 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     return (
       <Pressable3D
         style={styles.teamCard}
-        onPress={() => mineTab ? navigation.navigate('TeamProfile', { teamId: item.id }) : navigation.navigate('TeamInsights', { teamId: item.id })}>
+        // One team screen, whoever is looking. Tapping an opponent used to open
+        // TeamInsights — a second, thinner stats screen (win rate, form, top
+        // five batters and bowlers) while your own teams opened the full
+        // profile. TeamProfile already knows the viewer isn't a member: it
+        // shows Follow and Request to Join instead of the admin controls, and
+        // its Stats tab is a superset of everything TeamInsights drew.
+        onPress={() => navigation.navigate('TeamProfile', { teamId: item.id })}>
         <View style={styles.teamCardTop}>
           <HexAvatar size={40} color={getAvatarColor(item.name)} style={{ marginRight: 10 }}>
             <Text style={styles.teamAvatarText}>{getInitials(item.name)}</Text>
@@ -394,7 +400,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
           )}
           <TouchableOpacity
             style={styles.statsChip}
-            onPress={() => navigation.navigate('TeamInsights', { teamId: item.id })}>
+            onPress={() => navigation.navigate('TeamProfile', { teamId: item.id, initialTab: 'form' })}>
             <Icon name="chart-line" size={14} color={DS.textPrimary} />
             <Text style={styles.statsChipText}>STATS</Text>
           </TouchableOpacity>

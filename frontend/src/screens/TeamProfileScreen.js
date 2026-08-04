@@ -55,7 +55,9 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);          // logo/cover upload in flight
   const [data, setData] = useState(null);
-  const [tab, setTab] = useState('squad');
+  // The STATS chip on a team card deep-links straight to this tab; everything
+  // else opens on the squad.
+  const [tab, setTab] = useState(route.params?.initialTab || 'squad');
 
   // Add-member (by mobile number) + add-award inline forms
   const [addingMember, setAddingMember] = useState(false);

@@ -1391,14 +1391,6 @@ class LegendsApi {
     }
   }
 
-  async getTeamInsights(teamId) {
-    try {
-      const json = await this.request(`/teams/${teamId}/insights`);
-      return { success: true, data: json };
-    } catch (error) {
-      return { success: true, data: { stats: {}, form: [], topBatters: [], topBowlers: [] } };
-    }
-  }
 
   // Single match detail
   async getMatch(matchId) {
