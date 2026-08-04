@@ -266,6 +266,10 @@ const PlayerSchema = z.object({
   userId: z.string().optional(),   // link to an existing Local Legends user
   sport: z.string().optional(),
   stats: z.any().optional(),
+  // How they bat and bowl. Bowling style is genuinely optional — plenty of
+  // cricketers never bowl — and "None" is a real answer, not an absent one.
+  battingStyle: z.string().max(40).optional().nullable(),
+  bowlingStyle: z.string().max(40).optional().nullable(),
 });
 
 router.post('/', async (req, res) => {
@@ -300,6 +304,8 @@ const EditPlayerSchema = z.object({
   jerseyNumber: z.number().int().min(0).max(999).nullable().optional(),
   isCaptain: z.boolean().optional(),
   isViceCaptain: z.boolean().optional(),
+  battingStyle: z.string().max(40).optional().nullable(),
+  bowlingStyle: z.string().max(40).optional().nullable(),
 });
 
 router.put('/:id', authMiddleware, async (req, res) => {
@@ -311,6 +317,19 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
     const data = EditPlayerSchema.parse(req.body);
     if (data.stats) data.stats = stripPII(data.stats);
+
+    // A shirt number belongs to one player in a squad. Two number 7s make a
+    // scorecard ambiguous and a squad list sort arbitrarily, and nothing was
+    // stopping it. Null clears the number, which is always allowed.
+    if (data.jerseyNumber != null && player.teamId) {
+      const clash = await prisma.player.findFirst({
+        where: { teamId: player.teamId, jerseyNumber: data.jerseyNumber, NOT: { id: player.id } },
+        select: { name: true },
+      });
+      if (clash) {
+        return res.status(409).json({ error: `${clash.name} already wears ${data.jerseyNumber}.` });
+      }
+    }
 
     const ops = [];
     // A captain / vice-captain is unique per team — demote the current holder first.

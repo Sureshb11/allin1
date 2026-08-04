@@ -1207,7 +1207,10 @@ class LegendsApi {
     try {
       if (!this.token) return { success: true, data: {} };
       const json = await this.request('/users/me');
-      return { success: true, data: json.user };
+      // `player` rides along: /users/me has always returned it, and the profile
+      // screen needs its id to save how this person bats and bowls — those
+      // belong to the player, not the account.
+      return { success: true, data: json.user, player: json.player || null };
     } catch (error) {
       return { success: false, error: error.message };
     }

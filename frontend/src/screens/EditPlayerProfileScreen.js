@@ -1,6 +1,8 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import PlayerRoleFields from '../components/PlayerRoleFields';
+import { validatePlayerProfile } from '../sports/cricketProfile';
 import legendsApi from '../services/LegendsApi';
 import { pickAndUploadImage } from '../utils/imageUpload';
 import { setCurrentAvatar } from '../utils/currentUser';
@@ -21,7 +23,7 @@ import { setCurrentAvatar } from '../utils/currentUser';
 const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [profile, setProfile] = useState({
     name: '', email: '', phone: '', city: '', district: '', state: '', country: '', pincode: '',
-    battingStyle: '', bowlingStyle: '', dateOfBirth: '', height: '', weight: '', bio: '',
+    primaryRole: null, battingStyle: null, bowlingStyle: null, dateOfBirth: '', height: '', weight: '', bio: '',
   });
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(null);
@@ -72,16 +74,31 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
   useEffect(() => {
     legendsApi.getUserProfile().then((res) => {
       const u = res?.success ? (res.data || {}) : {};
+      const p = res?.player || null;
       const name = u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim();
+      setPlayerId(p?.id || null);
       setProfile((prev) => ({
         ...prev, name, phone: u.phone || '', bio: u.bio || '',
         city: u.city || '', district: u.district || '', state: u.state || '', country: u.country || '', pincode: u.pincode || '',
+        // How they play comes off the player record, not the account.
+        primaryRole: p?.role && p.role !== 'Player' ? p.role : null,
+        battingStyle: p?.battingStyle || null,
+        bowlingStyle: p?.bowlingStyle || null,
       }));
       if (u.avatarUrl) setAvatarUrl(u.avatarUrl);
     });
   }, []);
 
+  const [errors, setErrors] = useState({});
+  const [playerId, setPlayerId] = useState(null);
+
   const handleSave = async () => {
+    // Name, primary role and batting hand are required; bowling style is not.
+    const problems = validatePlayerProfile(profile);
+    setErrors(problems);
+    if (Object.keys(problems).length) {
+      return Alert.alert('Almost there', Object.values(problems)[0]);
+    }
     setSaving(true);
     const parts = (profile.name || '').trim().split(/\s+/);
     const firstName = parts.shift() || 'Player';
@@ -91,6 +108,16 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
       city: profile.city || null, district: profile.district || null,
       state: profile.state || null, country: profile.country || null, pincode: profile.pincode || null,
     });
+    // The cricketing part belongs to the PLAYER, not the user account — the
+    // same person can appear in several squads, and this describes how they
+    // play wherever they turn out.
+    if (res.success && playerId) {
+      await legendsApi.updatePlayer(playerId, {
+        role: profile.primaryRole,
+        battingStyle: profile.battingStyle,
+        bowlingStyle: profile.bowlingStyle,
+      });
+    }
     setSaving(false);
     if (res.success) {
       Alert.alert('Success', 'Profile updated.');
@@ -217,24 +244,14 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
             placeholderTextColor={DS.textMuted} />
         </View>
 
+        {/* Was two free-text boxes that handleSave never sent — so "Batting
+            Style" was a field you could type into and nothing kept. Now the
+            real control, and the answers are saved against the player. */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Batting Style</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.battingStyle}
-            onChangeText={(text) => setProfile({ ...profile, battingStyle: text })}
-            placeholderTextColor={DS.textMuted} />
-          
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Bowling Style</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.bowlingStyle}
-            onChangeText={(text) => setProfile({ ...profile, bowlingStyle: text })}
-            placeholderTextColor={DS.textMuted} />
-          
+          <PlayerRoleFields
+            value={profile}
+            onChange={(v) => setProfile({ ...profile, ...v })}
+            errors={errors} />
         </View>
 
         <View style={styles.inputGroup}>

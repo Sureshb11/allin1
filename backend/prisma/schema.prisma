@@ -157,6 +157,11 @@ model Player {
   jerseyNumber    Int?
   isCaptain       Boolean       @default(false)
   isViceCaptain   Boolean       @default(false)
+  // How they bat and bowl. The Edit Player screen has asked for both as free
+  // text since it was written and never sent either — there was nowhere to put
+  // them. Nullable: an existing player has said nothing yet.
+  battingStyle    String?
+  bowlingStyle    String?
   ballsFaced      Ball[]        @relation("facingBatter")
   ballsBowled     Ball[]        @relation("ballBowler")
   ballsNonStriker Ball[]        @relation("nonStriker")
@@ -221,12 +226,16 @@ model SportEvent {
 }
 
 model MatchPlayer {
-  id        String  @id @default(cuid())
-  matchId   String
-  teamId    String
-  playerId  String
-  isCaptain Boolean @default(false)
-  isWk      Boolean @default(false)
+  id            String  @id @default(cuid())
+  matchId       String
+  teamId        String
+  playerId      String
+  // Who leads and who keeps TODAY. Captain and keeper were already per-match;
+  // vice-captain was not, so the trio could only be completed from the player's
+  // standing record. All three change from match to match.
+  isCaptain     Boolean @default(false)
+  isViceCaptain Boolean @default(false)
+  isWk          Boolean @default(false)
   match     Match   @relation(fields: [matchId], references: [id])
   player    Player  @relation(fields: [playerId], references: [id])
   team      Team    @relation(fields: [teamId], references: [id])
