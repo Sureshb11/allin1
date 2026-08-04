@@ -158,6 +158,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // list. The keeper is read off the XI roles; when the XI doesn't name one the
   // scorer picks them once and that choice sticks for the innings.
   const [keeperPrompt, setKeeperPrompt] = useState(false); // caught behind → who's keeping?
+  const [stumpDeliveryPrompt, setStumpDeliveryPrompt] = useState(false); // stumped → off what?
   const [keeperId, setKeeperId] = useState(null);          // scorer-picked keeper for the bowling side
   // Why the keeper sheet is open: 'catch' | 'stumped' | 'change'. A ref, not
   // state — it's read inside the sheet's own handlers, and a re-render between
@@ -2384,21 +2385,15 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             <Text style={styles.modalTitle}>How was the batter out?</Text>
             <Text style={styles.modalSub}>Tap the dismissal type</Text>
             <View style={styles.wktChips}>
-              {/* `extra` is the delivery the dismissal came off. Only stumped
-                  needs it — it is the one dismissal besides a run out that can
-                  be made off a wide, and the run-out sheet asks about the
-                  delivery itself. Its own chip rather than a follow-up
-                  question, so the common stumping still costs one tap. */}
               {[
                 { label: 'bowled', icon: 'cricket', wt: 'bowled' },
                 { label: 'caught', icon: 'hand-back-right', wt: 'caught' },
                 { label: 'lbw', icon: 'target', wt: 'lbw' },
                 { label: 'run out', icon: 'run-fast', wt: 'runout' },
                 { label: 'stumped', icon: 'hand-back-left', wt: 'stumped' },
-                { label: 'st (wide)', icon: 'arrow-expand-horizontal', wt: 'stumped', extra: 'wide' },
                 { label: 'hit wicket', icon: 'alert', wt: 'hitwicket' },
                 { label: 'retired', icon: 'bandage', wt: 'retired' },
-              ].map(({ label: type, icon, wt, extra = null }) => (
+              ].map(({ label: type, icon, wt }) => (
                 <TouchableOpacity key={type} style={styles.wktChip}
                   onPress={() => {
                     setWicketPrompt(false);
@@ -2414,10 +2409,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                     // does. This is also what makes a mid-match glove change
                     // safe: the dismissal keeps whoever actually did it, so a
                     // later swap can't rewrite an earlier stumping.
-                    else if (wt === 'stumped') {
-                      if (keeper) handleScore('out', 0, 'stumped', 'striker', keeper.name, null, false, null, null, extra);
-                      else { keeperFor.current = 'stumped'; stumpExtra.current = extra; setKeeperPrompt(true); }
-                    }
+                    // A stumping is the keeper's, always — nobody is asked who
+                    // did it while the answer is known. What IS asked is the
+                    // delivery: a stumping off a wide is legal, and the wide
+                    // has to keep its run and its non-ball.
+                    else if (wt === 'stumped') setStumpDeliveryPrompt(true);
                     else handleScore('out', 0, wt);
                   }}>
                   <Icon name={icon} size={22} color={DS.wicketText} />
@@ -2427,6 +2423,48 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             </View>
             <TouchableOpacity style={styles.modalClose} onPress={() => setWicketPrompt(false)}>
               <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── STUMPED — off which delivery? ──
+          A stumping is the one dismissal besides a run out that can be made off
+          a wide, and it is not rare: a ball down the leg side, a foot that
+          drags, the bails off. The wide keeps its run and does not count as a
+          delivery, so getting this wrong costs the over a ball.
+
+          The keeper is not asked about — a stumping is by definition theirs, so
+          it uses whoever is keeping and only asks when nobody has said. ── */}
+      <Modal visible={stumpDeliveryPrompt} transparent animationType="slide" onRequestClose={() => setStumpDeliveryPrompt(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Stumped — off which delivery?</Text>
+            <Text style={styles.modalSub}>
+              {keeper ? `${keeper.name} takes the bails off` : "We'll ask who's keeping next"}
+            </Text>
+            <View style={styles.wktChips}>
+              {[
+                ['Legal ball', null, 'cricket'],
+                ['Wide', 'wide', 'arrow-expand-horizontal'],
+              ].map(([label, extra, icon]) => (
+                <TouchableOpacity key={label} style={styles.wktChip}
+                  onPress={() => {
+                    setStumpDeliveryPrompt(false);
+                    stumpExtra.current = extra;
+                    if (keeper) handleScore('out', 0, 'stumped', 'striker', keeper.name, null, false, null, null, extra);
+                    else { keeperFor.current = 'stumped'; setKeeperPrompt(true); }
+                  }}>
+                  <Icon name={icon} size={22} color={DS.wicketText} />
+                  <Text style={styles.wktChipText}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {/* Back, not cancel — a wicket still has to be recorded. */}
+            <TouchableOpacity style={styles.modalClose}
+              onPress={() => { setStumpDeliveryPrompt(false); setWicketPrompt(true); }}>
+              <Text style={styles.modalCloseText}>Back</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -3005,7 +3043,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
               onPress={() => {
                 setKeeperPrompt(false);
                 if (keeperFor.current === 'catch') setCatchPrompt(true);
-                else if (keeperFor.current === 'stumped') setWicketPrompt(true);
+                else if (keeperFor.current === 'stumped') setStumpDeliveryPrompt(true);
               }}>
               <Text style={styles.modalCloseText}>Back</Text>
             </TouchableOpacity>
