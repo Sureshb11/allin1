@@ -689,7 +689,16 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
         };
       })
       .sort((a, b) => b.wins - a.wins || b.winRate - a.winRate || a.name.localeCompare(b.name))
-      .map((row, i) => ({ ...row, rank: i + 1 }));
+      // You enter the table by playing. 135 of this sport's 142 teams have never
+      // completed a match, so they all tied on 0 wins and 0% and were numbered
+      // off in alphabetical order — which is how a club that has never played
+      // came to be "ranked #142", and how half the visible top ten came to be
+      // teams with no record at all. A team with no matches is unranked, which
+      // is the truthful answer and the one every real table gives.
+      .map((row, i, all) => ({
+        ...row,
+        rank: row.matches > 0 ? all.filter((r, j) => j < i && r.matches > 0).length + 1 : null,
+      }));
 
     // Generic "points scored" for non-cricket sports (goals/points/etc. score via
     // SportEvent, not innings), so the stat block isn't empty outside cricket.
@@ -764,7 +773,10 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
       // highlight highlighting nothing. Rank is only a fact you can act on if
       // you can see where you sit.
       leaderboard: (() => {
-        const top = leaderboard.slice(0, 10);
+        // Ranked teams first — an unranked one has no place in a table of
+        // places, so the top ten is drawn from the teams that have played.
+        const ranked = leaderboard.filter((r) => r.rank != null);
+        const top = ranked.slice(0, 10);
         const mine = leaderboard.find((l) => l.isCurrent);
         return mine && !top.some((r) => r.isCurrent) ? [...top, mine] : top;
       })(),

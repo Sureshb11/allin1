@@ -885,7 +885,9 @@ const MatchesTab = ({ matches, teamId, navigation, styles, DS }) => {
 };
 
 const StandingsTab = ({ rows, styles, DS }) => {
-  if (rows.length === 0) return <Text style={styles.emptyTxt}>No standings yet.</Text>;
+  if (rows.length === 0) {
+    return <Text style={styles.emptyTxt}>No completed matches in this sport yet — the table starts when someone plays.</Text>;
+  }
   return (
     <View>
       <View style={[styles.tableRow, styles.tableHead]}>
@@ -901,11 +903,15 @@ const StandingsTab = ({ rows, styles, DS }) => {
           {/* The last row is this team's own, appended when it sits outside the
               top ten. Without a break, #10 followed by #142 reads as a table
               that lost its place rather than one that skipped ahead. */}
-          {i > 0 && r.rank > rows[i - 1].rank + 1 && (
+          {i > 0 && r.rank != null && rows[i - 1].rank != null && r.rank > rows[i - 1].rank + 1 && (
             <View style={styles.tableGap}><Text style={styles.tableGapText}>···</Text></View>
           )}
+          {/* An unranked team is appended under the table it hasn't entered. */}
+          {i > 0 && r.rank == null && (
+            <View style={styles.tableGap}><Text style={styles.tableGapText}>NOT RANKED YET</Text></View>
+          )}
         <View style={[styles.tableRow, r.isCurrent && styles.tableRowActive]}>
-          <Text style={styles.tdRank}>{r.rank}</Text>
+          <Text style={styles.tdRank}>{r.rank ?? '—'}</Text>
           {/* The crest. GET /teams/:id/profile has been sending logoUrl on every
               standings row since the leaderboard was written and this table
               never read it — so a table of clubs was a table of names. */}
@@ -1163,7 +1169,7 @@ const makeStyles = (DS) => StyleSheet.create({
   thNum: { width: 46, textAlign: 'center', fontSize: 11, fontWeight: '800', color: DS.textMuted },
   tdRank: { width: 26, fontSize: 14, fontWeight: '800', color: DS.textPrimary },
   tableGap: { alignItems: 'center', paddingVertical: 2 },
-  tableGapText: { fontSize: 13, fontWeight: '800', color: DS.textMuted, letterSpacing: 2 },
+  tableGapText: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 1.4 },
   tdLogo: {
     width: 22, height: 22, borderRadius: 11, marginRight: 8,
     backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
