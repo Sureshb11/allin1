@@ -1309,7 +1309,7 @@ function resolveSquadPlayer(s) {
   };
 }
 
-function PlayerRow({ name, role, avatarUrl, isCaptain, isViceCaptain, isKeeper, sport }) {
+function PlayerRow({ name, role, avatarUrl, jerseyNumber, isCaptain, isViceCaptain, isKeeper, sport }) {
   const styles = useThemedStyles(makeStyles);
   // "Bat", "Batsman", "allrounder", "Wicket Keeper" all live in this column —
   // the role is free text typed by whoever added the player. Folded, so a squad
@@ -1327,6 +1327,11 @@ function PlayerRow({ name, role, avatarUrl, isCaptain, isViceCaptain, isKeeper, 
       <PlayerAvatar name={name} avatarUrl={avatarUrl} size={30} />
       <View style={{ flex: 1 }}>
         <View style={styles.squadNameRow}>
+          {/* The shirt number, where a scorecard has always put it. It was
+              collected on the team page and read by exactly one screen, which
+              is a good reason for nobody to have set one on any of 288
+              players. Only drawn when there is one. */}
+          {jerseyNumber != null && <Text style={styles.squadJersey}>{jerseyNumber}</Text>}
           <Text style={styles.squadName} numberOfLines={1}>{name}</Text>
           {/* The same notation the team's own squad list uses, so the two
               agree. Without it the ordering is a rule nobody can see: the
@@ -1365,7 +1370,7 @@ function SquadsTab({ match }) {const styles = useThemedStyles(makeStyles);
             <Text style={styles.squadSectionLabel}>PLAYING XI</Text>
             {squad.map((s) => (
               <PlayerRow key={s.playerId} name={s.name} role={s.role} sport={sport}
-                avatarUrl={s.user?.avatarUrl}
+                avatarUrl={s.user?.avatarUrl} jerseyNumber={s.jerseyNumber}
                 isCaptain={s.isCaptain} isViceCaptain={s.isViceCaptain} isKeeper={keeps(s)} />
             ))}
             {squad.length === 0 && <Text style={styles.emptyTabText}>Not announced yet.</Text>}
@@ -1374,7 +1379,7 @@ function SquadsTab({ match }) {const styles = useThemedStyles(makeStyles);
                 <Text style={[styles.squadSectionLabel, { marginTop: 10 }]}>BENCH</Text>
                 {bench.map((p) => (
                   <PlayerRow key={p.id} name={p.name} role={p.role} sport={sport}
-                    avatarUrl={p.user?.avatarUrl}
+                    avatarUrl={p.user?.avatarUrl} jerseyNumber={p.jerseyNumber}
                     isCaptain={p.isCaptain} isViceCaptain={p.isViceCaptain} isKeeper={keeps(p)} />
                 ))}
               </>
@@ -2218,6 +2223,7 @@ const makeStyles = (DS) => StyleSheet.create({
   squadRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
   squadName: { flexShrink: 1, fontSize: 12, fontWeight: '700', color: DS.textPrimary },
   squadNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  squadJersey: { fontSize: 10, fontWeight: '900', color: DS.textMuted, minWidth: 14 },
   capBadge: { width: 17, height: 17, borderRadius: 9, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
   capTxt: { fontSize: 9.5, fontWeight: '900', color: DS.bg },
   viceBadge: { paddingHorizontal: 5, height: 17, borderRadius: 9, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },

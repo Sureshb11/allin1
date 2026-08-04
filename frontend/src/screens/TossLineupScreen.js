@@ -63,7 +63,7 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
       // deselected players reappeared in the saved squad, the scorecard, and the
       // live-scoring batter/bowler pickers.
       const picked = list.slice(0, MAX_XI);
-      setXI(prev => prev.length ? prev : picked.map(p => ({ id: p.id, name: p.name, role: p.role })));
+      setXI(prev => prev.length ? prev : picked.map(p => ({ id: p.id, name: p.name, role: p.role, jerseyNumber: p.jerseyNumber })));
       // Suggest, don't interrogate. The club already knows who captains it, and
       // a player whose role says "Wicket Keeper" is almost always the one
       // keeping — so the usual job here is to confirm two answers, not find
@@ -96,7 +96,7 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
         return prev.filter(p => p.id !== player.id);
       }
       if (prev.length >= MAX_XI) { Alert.alert('Squad Full', `You can pick up to ${MAX_XI} players. Deselect one first.`); return prev; }
-      return [...prev, { id: player.id, name: player.name, role: player.role }];
+      return [...prev, { id: player.id, name: player.name, role: player.role, jerseyNumber: player.jerseyNumber }];
     });
   };
 
@@ -176,7 +176,10 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
         const inXI = xi.some(x => x.id === p.id);
 
         const initial = (p.name || '?').charAt(0).toUpperCase();
-        const role = (p.role || 'PLAYER').toUpperCase();
+        // The shirt number beside the role, so picking an XI shows the same
+        // identifiers the scorecard will print.
+        const role = [p.jerseyNumber != null ? `#${p.jerseyNumber}` : null, (p.role || 'PLAYER').toUpperCase()]
+          .filter(Boolean).join(' · ');
 
         if (inXI) {
           const isCap = lead.captainId === p.id;
@@ -412,7 +415,7 @@ export default function TossLineupScreen({ route, navigation }) {
       const avail = list.filter(p => allAvail[p.id]);
       // `role` carried through: the manual path has always kept it and this one
       // dropped it, so an auto-picked XI showed PLAYER against every name.
-      setXI(avail.slice(0, MAX_XI).map(p => ({ id: p.id, name: p.name, role: p.role })));
+      setXI(avail.slice(0, MAX_XI).map(p => ({ id: p.id, name: p.name, role: p.role, jerseyNumber: p.jerseyNumber })));
     });
   };
 
