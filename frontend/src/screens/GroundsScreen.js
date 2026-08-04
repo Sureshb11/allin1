@@ -23,6 +23,8 @@ import { pav } from '../theme/pavilion';
 import { makeControls } from '../theme/controls';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import { useSupercluster } from '../components/useSupercluster';
+import { getSelectedSport } from '../utils/selectedSport';
+import { getSport } from '../sports';
 
 function GroundSkeleton({ DS }) {
   const shimmers = useRef([new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)]).current;
@@ -80,7 +82,7 @@ const FILTER_ICONS = {
 
 const GROUND_TYPES = ['All', 'outdoor', 'indoor', 'box_cricket', 'nets', 'stadium'];
 
-const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, setFilterModalVisible }) => {
+const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, setFilterModalVisible, sportName }) => {
   const filterScroll = useAnimatedRef();
   const filterOffset = useSharedValue(0);
   const filterStart = useSharedValue(0);
@@ -104,24 +106,20 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
 
   return (
     <View style={[styles.filterContainer, { paddingTop: Platform.OS === 'ios' ? 50 : 20 }]}>
-      {/* Location Header */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 }}>
-        <View>
-          <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Your Location</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Icon name="map-marker" size={18} color="#3B82F6" style={{ marginRight: 4 }} />
-            <Text style={{ color: DS.textPrimary, fontSize: 18, fontWeight: '700' }}>Chennai</Text>
-          </View>
-        </View>
-        <TouchableOpacity onPress={() => setFilterModalVisible(true)}>
+      {/* The header said "Your Location · Chennai" and "N Cricket Grounds In
+          Chennai" to everyone, on a list that spans Arani, Vellore,
+          Kanchipuram, Tiruvannamalai, Ambur and Viluppuram. Nothing in this app
+          knows where you are — there is no location library in it — so a
+          location line was a claim it could not make. It says what it can
+          count, and follows the sport you are in. */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 16, marginBottom: 16 }}>
+        <Text style={{ flex: 1, color: DS.textPrimary, fontSize: 22, fontWeight: '700', lineHeight: 30 }}>
+          {counts?.All || 0} {sportName} ground{(counts?.All || 0) === 1 ? '' : 's'}
+        </Text>
+        <TouchableOpacity onPress={() => setFilterModalVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Icon name="filter-variant" size={28} color={DS.textPrimary} />
         </TouchableOpacity>
       </View>
-
-      {/* Title */}
-      <Text style={{ color: DS.textPrimary, fontSize: 22, fontWeight: '700', paddingHorizontal: 16, marginBottom: 16, lineHeight: 30 }}>
-        {counts?.All || 0} Cricket Grounds In Chennai
-      </Text>
 
       {/* Search Bar */}
       <View style={styles.searchBox}>
@@ -687,6 +685,8 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   const [query, setQuery] = useState('');
   const [type, setType] = useState('All');
   const [isFilterModalVisible, setFilterModalVisible] = useState(false);
+  // The sport you are actually in, not a word baked into the header.
+  const sportName = getSport(getSelectedSport().sport?.id || 'cricket')?.name || 'Cricket';
   const [filterSurface, setFilterSurface] = useState('');
   const [filterBall, setFilterBall] = useState('');
   const [filterVerified, setFilterVerified] = useState(false);
@@ -735,11 +735,16 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
       ball: filterBall,
       verified: filterVerified ? 'true' : ''
     };
-    if (type === 'All') {
-      // For demo purposes, hardcoding a Chennai location to test Distance Sorting without Expo Location
-      params.lat = 13.0827;
-      params.lng = 80.2707;
-    }
+    // A hardcoded Chennai coordinate used to be injected here "for demo
+    // purposes", which had three effects nobody would have chosen: every
+    // user's grounds were ordered by distance from the middle of Chennai
+    // wherever they actually were, the ordering silently changed when you left
+    // the All tab, and the backend switched to fetching up to 1000 rows with
+    // pagination disabled whenever lat/lng were present.
+    //
+    // Nothing in this app knows the device's location — there is no geolocation
+    // library in it — so there is no honest coordinate to send. The API keeps
+    // its distance sort for when there is one.
     const res = await LegendsApi.getGrounds(params);
     if (res.success) {
       setGrounds(res.data.grounds);
@@ -899,6 +904,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
           pagerGesture={pagerGesture}
           DS={DS} P={P} styles={styles} C={C}
           setFilterModalVisible={setFilterModalVisible}
+          sportName={sportName}
         />
       </Animated.View>
 
