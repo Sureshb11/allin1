@@ -1494,16 +1494,23 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const prevStatusRef = useRef(null);                // live→completed transition detector
   const prevInnsRef = useRef(null);                  // innings-count change detector
 
-  // Spectator mode: while watching a LIVE match, the dock slides away and the
-  // signature ball becomes the only persistent element (released on blur/end).
+  // The dock stands down for the whole match centre, not just a live one.
+  // This screen is a header, seven tabs of its own and a swipeable pager under
+  // them — the same shape as a team profile — and the app's bottom navigation
+  // floating over it is one bar of chrome too many whether the match finished
+  // an hour ago or is being scored right now.
+  //
+  // It used to lock only while live, and scroll-hide otherwise; a completed
+  // scorecard therefore kept bouncing the dock in and out as you read it.
   const lockDock = useDockLock();
   useFocusEffect(useCallback(() => {
-    lockDock(match?.status === 'live');
+    lockDock(true);
     return () => lockDock(false);
-  }, [match?.status, lockDock]));
+  }, [lockDock]));
 
-  // On a non-live match the dock is unlocked, so the tab pages hide it on scroll
-  // like every other screen. While live it stays locked away regardless.
+  // Kept even though the lock above makes it a no-op today: the lock ignores
+  // any reveal while it is held, so this costs nothing and is what would carry
+  // the behaviour if the dock is ever let back onto this screen.
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();   // so the floating dock/ball doesn't cover the last rows
 
@@ -1914,7 +1921,11 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             return (
             <ScrollView key={t.key} style={{ width: SCREEN_WIDTH }} showsVerticalScrollIndicator={false}
               {...hideTabBar}
-              contentContainerStyle={{ paddingTop: 12, paddingBottom: tabClear + 12 }}
+              // Clearance only while the LiveBall is down there. The dock is
+              // locked away for this whole screen now, so reserving its height
+              // on a finished scorecard was ~90pt of empty space at the end of
+              // every tab, kept clear for something that is not there.
+              contentContainerStyle={{ paddingTop: 12, paddingBottom: (isLive ? tabClear : 0) + 12 }}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}>
               {near && <>
               <View style={styles.body}>
