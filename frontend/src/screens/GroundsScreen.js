@@ -4,6 +4,7 @@ import {
   Image, ActivityIndicator, RefreshControl,
   ScrollView, Platform, Alert, TextInput, Animated, Modal, Pressable
 } from 'react-native';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCurrentUser } from '../utils/currentUser';
@@ -177,7 +178,7 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
                   if (!filterScroll.tabPositions) filterScroll.tabPositions = {};
                   filterScroll.tabPositions[index] = e.nativeEvent.layout.x;
                 }}
-                style={{ paddingBottom: 12, borderBottomWidth: 3, borderBottomColor: active ? '#3B82F6' : 'transparent' }}
+                style={{ paddingBottom: 12, borderBottomWidth: 3, borderBottomColor: active ? DS.lime : 'transparent' }}
                 onPress={() => {
                   ReactNativeHapticFeedback.trigger("selection", { enableVibrateFallback: true, ignoreAndroidSystemSettings: false });
                   setActiveType(t);
@@ -258,7 +259,7 @@ const GroundCard = ({ ground, index, isFav, onToggleFav, onPress, styles, DS, P 
             {ground.distance !== undefined && (
               <>
                 <Text style={{ color: DS.textMuted, fontSize: 14, marginHorizontal: 8 }}>•</Text>
-                <Text style={{ color: '#3B82F6', fontSize: 13, fontWeight: '700' }}>{ground.distance.toFixed(1)} km</Text>
+                <Text style={{ color: DS.lime, fontSize: 13, fontWeight: '700' }}>{ground.distance.toFixed(1)} km</Text>
               </>
             )}
           </View>
@@ -513,9 +514,9 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
   };
 
   const Chip = ({ label, active, onPress, icon }) => (
-    <TouchableOpacity onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: active ? '#3B82F6' : DS.surfaceHigh, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: active ? '#3B82F6' : DS.border }}>
-      {icon && <Icon name={icon} size={16} color={active ? '#FFF' : DS.textMuted} />}
-      <Text style={{ fontSize: 13, fontWeight: '700', color: active ? '#FFF' : DS.textPrimary }}>{label}</Text>
+    <TouchableOpacity onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: active ? DS.lime : DS.surfaceHigh, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: active ? DS.lime : DS.border }}>
+      {icon && <Icon name={icon} size={16} color={active ? DS.bg : DS.textMuted} />}
+      <Text style={{ fontSize: 13, fontWeight: '700', color: active ? DS.bg : DS.textPrimary }}>{label}</Text>
     </TouchableOpacity>
   );
   const SectionLabel = ({ text }) => (
@@ -524,7 +525,7 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
   const Field = ({ label, value, onChangeText, placeholder, multiline, keyboardType, required }) => (
     <View style={{ marginBottom: 16 }}>
       <Text style={styles.formLabel}>{label}{required ? ' *' : ''}</Text>
-      <TextInput style={[styles.formInput, multiline && styles.formTextArea]} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={DS.textMuted} multiline={multiline} numberOfLines={multiline ? 4 : 1} keyboardType={keyboardType || 'default'} />
+      <BottomSheetTextInput style={[styles.formInput, multiline && styles.formTextArea]} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={DS.textMuted} multiline={multiline} numberOfLines={multiline ? 4 : 1} keyboardType={keyboardType || 'default'} />
     </View>
   );
 
@@ -542,11 +543,11 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
       {/* Progress Bar */}
       <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 4, marginBottom: 8 }}>
         {[1, 2, 3].map(s => (
-          <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: s <= step ? '#3B82F6' : DS.surfaceHigh }} />
+          <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: s <= step ? DS.lime : DS.surfaceHigh }} />
         ))}
       </View>
 
-      <ScrollView style={{ flex: 1, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+      <BottomSheetScrollView style={{ flex: 1, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
 
         {/* ═══ STEP 1: BASICS & LOCATION ═══ */}
         {step === 1 && (
@@ -648,8 +649,8 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
                       <Icon name="close" size={14} color="#fff" />
                     </TouchableOpacity>
                     {idx === 0 && (
-                      <View style={{ position: 'absolute', bottom: 4, left: 4, backgroundColor: '#3B82F6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                        <Text style={{ color: '#FFF', fontSize: 9, fontWeight: '800' }}>COVER</Text>
+                      <View style={{ position: 'absolute', bottom: 4, left: 4, backgroundColor: DS.lime, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                        <Text style={{ color: DS.bg, fontSize: 9, fontWeight: '800' }}>COVER</Text>
                       </View>
                     )}
                   </View>
@@ -666,7 +667,7 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
             </View>
           </View>
         )}
-      </ScrollView>
+      </BottomSheetScrollView>
 
       {/* Bottom Navigation */}
       <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingBottom: Platform.OS === 'ios' ? 34 : 16, paddingTop: 12, gap: 12, borderTopWidth: 1, borderTopColor: DS.faint, backgroundColor: DS.bg }}>
@@ -676,8 +677,8 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
           </TouchableOpacity>
         )}
         {step < totalSteps ? (
-          <TouchableOpacity onPress={nextStep} style={{ flex: 2, paddingVertical: 16, borderRadius: 12, alignItems: 'center', backgroundColor: '#3B82F6' }}>
-            <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 15 }}>Next</Text>
+          <TouchableOpacity onPress={nextStep} style={{ flex: 2, paddingVertical: 16, borderRadius: 12, alignItems: 'center', backgroundColor: DS.lime }}>
+            <Text style={{ color: DS.bg, fontWeight: '800', fontSize: 15 }}>Next</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity onPress={handleSubmit} disabled={loading} style={{ flex: 2, paddingVertical: 16, borderRadius: 12, alignItems: 'center', backgroundColor: DS.lime, opacity: loading ? 0.6 : 1 }}>
@@ -715,7 +716,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   // bottom navigation floating over a form you are filling in is chrome in the
   // way of the keyboard. Released when you leave the form, and on blur.
   const lockDock = useDockLock();
-  const formOpen = viewState === 'form' || viewState === 'admin';
+  const formOpen = viewState === 'admin';
   useFocusEffect(useCallback(() => {
     lockDock(formOpen);
     return () => lockDock(false);
@@ -751,6 +752,19 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   const [favs, setFavs] = useState(new Set());
   const [isAdmin, setIsAdmin] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
+
+  
+  const addGroundSheetRef = useRef(null);
+  const addGroundSnapPoints = useMemo(() => ['95%'], []);
+  
+  const closeAddGround = useCallback(() => {
+    addGroundSheetRef.current?.dismiss();
+  }, []);
+
+  const renderBackdrop = useCallback(
+    (props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.5} pressBehavior="close" />,
+    []
+  );
 
   const [viewState, setViewState] = useState('list'); // 'list' | 'map' | 'form' | 'admin'
   const [adminRequests, setAdminRequests] = useState([]);
@@ -860,7 +874,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
     const res = await LegendsApi.submitGroundRequest(data);
     if (res.success) {
       Alert.alert('Success', 'Ground request submitted for review.');
-      setViewState('list');
+      closeAddGround();
       setMapLocation(null);
     } else {
       Alert.alert('Error', res.error || 'Failed to submit');
@@ -873,7 +887,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   // Scout has always done it the other way — register the action, let the shared
   // button carry it — so the two neighbouring tabs now put their primary action
   // in the same place, at the same size, in the same words.
-  const openAddGround = useCallback(() => { setMapLocation(null); setViewState('form'); }, []);
+  const openAddGround = useCallback(() => { setMapLocation(null); addGroundSheetRef.current?.present(); }, []);
   // Withdrawn while the form is open. The Pavilion draws this button, not this
   // screen, so it kept floating over the Add Ground form it had just opened —
   // and tapping it again re-entered the form on top of itself.
@@ -885,16 +899,10 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
 
   const openFormWithLocation = (coord) => {
     setMapLocation(coord);
-    setViewState('form');
+    addGroundSheetRef.current?.present();
   };
 
-  if (viewState === 'form') {
-    return (
-      <View style={styles.container}>
-        <AddGroundForm onSubmit={handleFormSubmit} onCancel={() => setViewState('list')} styles={styles} initialLocation={mapLocation} DS={DS} />
-      </View>
-    );
-  }
+  
 
   if (viewState === 'admin') {
     return (
@@ -1027,6 +1035,21 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
           </Reanimated.View>
         </GestureDetector>
       )}
+
+      
+      <BottomSheetModal
+        ref={addGroundSheetRef}
+        snapPoints={addGroundSnapPoints}
+        enablePanDownToClose
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: DS.bg }}
+        handleIndicatorStyle={{ backgroundColor: DS.faint }}
+      >
+        <AddGroundForm onSubmit={handleFormSubmit} onCancel={closeAddGround} styles={styles} initialLocation={mapLocation} DS={DS} />
+      </BottomSheetModal>
 
       {/* ── Where are you? ──
           Typed, because the app cannot sense it: there is no geolocation

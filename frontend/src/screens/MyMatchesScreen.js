@@ -117,46 +117,6 @@ function MatchSkeleton({ DS }) {
   );
 }
 
-const MomentumBar = ({ m }) => {
-  const DS = useTheme().colors;
-  const momentum = useSharedValue(0.5);
-  
-  useEffect(() => {
-    const t1len = (m.team1 || 'A').length;
-    const t2len = (m.team2 || 'B').length;
-    const base = t1len / (t1len + t2len);
-    const target = Math.max(0.2, Math.min(0.8, base));
-    momentum.value = target;
-
-    momentum.value = withRepeat(
-      withTiming(target + (Math.random() > 0.5 ? 0.15 : -0.15), { duration: 3500, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
-    );
-  }, []);
-
-  const t1Style = useAnimatedStyle(() => ({
-    width: `${momentum.value * 100}%`
-  }));
-  const t2Style = useAnimatedStyle(() => ({
-    width: `${(1 - momentum.value) * 100}%`
-  }));
-
-  const t1Color = getTeamColor(m.team1, 0);
-  const t2Color = getTeamColor(m.team2, 1);
-
-  return (
-    <View style={{ marginTop: 16, marginHorizontal: 16 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-        <Text style={{ fontSize: 9, fontWeight: '800', color: DS.textMuted, letterSpacing: 1 }}>WIN PREDICTOR</Text>
-      </View>
-      <View style={{ height: 6, borderRadius: 3, flexDirection: 'row', overflow: 'hidden', backgroundColor: DS.surfaceLow }}>
-        <Reanimated.View style={[t1Style, { backgroundColor: t1Color }]} />
-        <Reanimated.View style={[t2Style, { backgroundColor: t2Color }]} />
-      </View>
-    </View>
-  );
-};
 
 export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
   const DS = useTheme().colors;
@@ -169,8 +129,7 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
   const t1Color = getTeamColor(m.team1, 0);
   const t2Color = getTeamColor(m.team2, 1);
 
-  const [expanded, setExpanded] = useState(false);
-
+  
   const pulse = useRef(new Animated.Value(1)).current;
   const breathing = useSharedValue(0.2);
   useEffect(() => {
@@ -200,28 +159,8 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
       elevation: 6
     };
   });
-
-  const triggerHaptic = () => {
-    const options = {
-      enableVibrateFallback: true,
-      ignoreAndroidSystemSettings: false
-    };
-    ReactNativeHapticFeedback.trigger("impactLight", options);
-  };
-
-  const toggleExpand = () => {
-    triggerHaptic();
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded(!expanded);
-  };
-
-  const handleCardPress = () => {
-    if (m.status === 'live') toggleExpand();
-    else onPress(m);
-  };
-
   return (
-    <Pressable onPress={handleCardPress}>
+    <Pressable onPress={() => onPress(m)}>
       {({ pressed }) => (
         <Reanimated.View style={[styles.card, m.status === 'live' ? breathingStyle : {}, { transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
           <View style={styles.cardHeader}>
@@ -230,11 +169,11 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
               <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
             </View>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-              {m.createdAt ? (
+              {m.date || m.createdAt ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
                   <Icon name="calendar-outline" size={10} color={DS.textMuted} />
                   <Text style={{ fontSize: 9, color: DS.textMuted }} numberOfLines={1}>
-                    {new Date(m.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    {new Date(m.date || m.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                   </Text>
                 </View>
               ) : null}
@@ -258,8 +197,10 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
               </View>
             </View>
             
-            <View style={{ paddingHorizontal: 8, paddingTop: 12 }}>
-              <Text style={{ fontSize: 10, fontWeight: '900', color: DS.textMuted, fontStyle: 'italic' }}>VS</Text>
+            <View style={{ paddingHorizontal: 8, paddingTop: 16 }}>
+              <View style={{ backgroundColor: DS.surfaceLow, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 10, borderWidth: 1, borderColor: DS.border }}>
+                <Text style={{ fontSize: 9, fontWeight: '900', color: DS.textMuted, fontStyle: 'italic' }}>VS</Text>
+              </View>
             </View>
 
             <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
@@ -278,47 +219,26 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
             </View>
           ) : null}
 
-          {m.status === 'live' && <MomentumBar m={m} />}
-
-          {expanded && m.status === 'live' && (
-            <View style={styles.liveDrawer}>
-              <View style={styles.liveDrawerHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.liveDrawerTitle}>Current Over</Text>
-                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
-                    {['1', '4', '0', 'W', '6', '1'].map((ball, i) => (
-                      <View key={i} style={[styles.ballCircle, ball === 'W' ? { backgroundColor: '#ef4444' } : ball === '6' || ball === '4' ? { backgroundColor: DS.success } : null]}>
-                        <Text style={[styles.ballCircleText, (ball === 'W' || ball === '6' || ball === '4') && { color: '#fff' }]}>{ball}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.liveDrawerTitle}>In the Middle</Text>
-                  <View style={{ marginTop: 6, gap: 2 }}>
-                    <Text style={styles.livePlayerText}>🏏 S. Sharma <Text style={{ fontWeight: '400' }}>(34*)</Text></Text>
-                    <Text style={styles.livePlayerText}>🎾 A. Patel <Text style={{ fontWeight: '400' }}>(2/14)</Text></Text>
-                  </View>
-                </View>
-              </View>
-              <TouchableOpacity style={styles.liveDrawerBtn} onPress={() => onPress(m)}>
-                <Text style={styles.liveDrawerBtnText}>FULL SCORECARD</Text>
-                <Icon name="arrow-right" size={16} color={DS.lime} />
-              </TouchableOpacity>
-            </View>
-          )}
-
           {isScorer && (m.status === 'scheduled' || m.status === 'live') && (
-            <View style={{ borderTopWidth: 1, borderTopColor: DS.faint }}>
+            <View style={{ padding: 12, paddingTop: 4, flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity 
                 onPress={() => m.status === 'live' ? onResume(m) : onStart(m)} 
-                style={{ paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, backgroundColor: DS.surfaceHigh }}
+                style={[{ flex: 1, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, borderRadius: 8 }, m.status === 'live' ? { backgroundColor: '#111827' } : { backgroundColor: DS.surfaceHigh }]}
               >
-                <Icon name="play-circle" size={16} color={DS.textPrimary} />
-                <Text style={{ fontSize: 12, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.5 }}>
+                <Icon name={m.status === 'live' ? 'play' : 'play-circle'} size={16} color={m.status === 'live' ? DS.lime : DS.textPrimary} />
+                <Text style={{ fontSize: 12, fontWeight: '800', color: m.status === 'live' ? '#fff' : DS.textPrimary, letterSpacing: 0.5 }}>
                   {m.status === 'live' ? 'RESUME SCORING' : 'START MATCH'}
                 </Text>
               </TouchableOpacity>
+              {m.status === 'live' && (
+                <TouchableOpacity
+                  onPress={() => {}} 
+                  style={{ paddingHorizontal: 16, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, borderRadius: 8, backgroundColor: 'transparent', borderWidth: 1, borderColor: DS.faint }}
+                >
+                  <Icon name="swap-horizontal" size={16} color={DS.textMuted} />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: DS.textMuted }}>Transfer</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </Reanimated.View>
@@ -591,51 +511,13 @@ export default function MyMatchesScreen({ navigation }) {
             onResume={(m) => navigation.navigate('HomeTab', { screen: 'Scoring', params: { resume: true, matchId: m.id } })}
           />
         )}
-        ListFooterComponent={
-          filtered.length > 0 ? (
-            <>
-              <TouchableOpacity style={styles.promoCard} activeOpacity={0.85}>
-                <View style={styles.promoContent}>
-                  <Icon name="trophy" size={22} color={DS.lime} />
-                  <View style={styles.promoTextWrap}>
-                    <Text style={styles.promoTitle}>HOST YOUR OWN TOURNAMENT</Text>
-                    <Text style={styles.promoSub}>Organize local matches and track every ball</Text>
-                  </View>
-                </View>
-                <View style={styles.promoCta}>
-                  <Text style={styles.promoCtaText}>Get Started</Text>
-                  <Icon name="arrow-right" size={14} color={DS.white} />
-                </View>
-              </TouchableOpacity>
-              <View style={styles.bottomStatsRow}>
-                <View style={[styles.statCard, { backgroundColor: DS.surfaceLow }]}>
-                  <Icon name="trending-up" size={24} color={DS.blue} />
-                  <View style={{ marginTop: 12 }}>
-                    <Text style={styles.statCardSub}>Top Run Scorer</Text>
-                    <Text style={styles.statCardTitle}>S. Sharma</Text>
-                    <Text style={styles.statCardValBlue}>1,240 Runs</Text>
-                  </View>
-                </View>
-                <View style={[styles.statCard, { backgroundColor: '#4b5563' }]}>
-                  <Text style={[styles.statCardSub, { color: '#d1d5db' }]}>Series MVP</Text>
-                  <Text style={[styles.statCardTitle, { color: '#fff' }]}>J. Root</Text>
-                  <Text style={styles.statCardValGreen}>24 Wickets</Text>
-                </View>
-              </View>
-            </>
-          ) : null
-        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <View style={styles.emptyIconWrap}>
               <Icon name="cricket" size={48} color={DS.textMuted} />
             </View>
-            <Text style={styles.emptyTitle}>No matches yet</Text>
-            <Text style={styles.emptySub}>Start scoring your first match</Text>
-            <TouchableOpacity style={styles.emptyCta} onPress={() => navigation.navigate('StartMatch')} activeOpacity={0.9}>
-              <Icon name="play-circle" size={18} color={DS.white} />
-              <Text style={styles.emptyCtaText}>Start a Match</Text>
-            </TouchableOpacity>
+            <Text style={styles.emptyTitle}>No matches found</Text>
+            <Text style={styles.emptySub}>Check back later</Text>
           </View>
         }
       />

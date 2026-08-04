@@ -4,6 +4,7 @@ import {
   Alert, ActivityIndicator, Modal, TextInput, FlatList,
   StatusBar, Animated
 } from 'react-native';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetTextInput, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -150,7 +151,7 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cri
               {/* Search */}
               <View style={s.searchBar}>
                 <Icon name="magnify" size={18} color={K.textMuted} />
-                <TextInput
+                <BottomSheetTextInput
                   style={s.searchInput}
                   value={query}
                   onChangeText={setQuery}
@@ -201,7 +202,7 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cri
             /* Create team inline */
             <View style={s.createForm}>
               <Text style={s.createFormLabel}>New Team Name</Text>
-              <TextInput
+              <BottomSheetTextInput
                 style={s.createFormInput}
                 value={newName}
                 onChangeText={setNewName}
@@ -513,7 +514,7 @@ const StartMatchScreen = ({ navigation, route }) => {
             <View style={s.configIconWrap}>
               <Icon name="map-marker-outline" size={18} color={K.lime} />
             </View>
-            <TextInput
+            <BottomSheetTextInput
               style={s.configInput}
               value={venue}
               onChangeText={setVenue}
@@ -530,7 +531,7 @@ const StartMatchScreen = ({ navigation, route }) => {
               <Icon name={sportFmt.durationIcon} size={18} color={K.lime} />
             </View>
             <Text style={s.configLabel}>{sportFmt.unit}</Text>
-            <TextInput
+            <BottomSheetTextInput
               style={s.configValueInput}
               value={overs}
               onChangeText={setOvers}

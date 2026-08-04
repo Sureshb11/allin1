@@ -185,7 +185,7 @@ export default function GroundDetailScreen({ route, navigation }) {
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={{ color: DS.textPrimary, fontSize: 16 }}>Ground not found</Text>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop: 20}}>
-          <Text style={{color: '#3B82F6'}}>Go Back</Text>
+          <Text style={{color: DS.lime}}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -321,7 +321,7 @@ export default function GroundDetailScreen({ route, navigation }) {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={styles.sectionTitle}>Reviews</Text>
               <TouchableOpacity onPress={() => setReviewModalVisible(true)}>
-                <Text style={{ color: '#3B82F6', fontWeight: '700', fontSize: 14 }}>Write Review</Text>
+                <Text style={{ color: DS.lime, fontWeight: '700', fontSize: 14 }}>Write Review</Text>
               </TouchableOpacity>
             </View>
             <View style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center' }}>
@@ -476,9 +476,9 @@ export default function GroundDetailScreen({ route, navigation }) {
                 const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
                 const dayNum = d.getDate();
                 return (
-                  <TouchableOpacity key={iso} onPress={() => setBookingDate(iso)} style={{ width: 64, height: 72, borderRadius: 16, backgroundColor: isSelected ? '#3B82F6' : DS.surfaceHigh, alignItems: 'center', justifyContent: 'center', marginRight: 12, borderWidth: 1, borderColor: isSelected ? '#3B82F6' : DS.border }}>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: isSelected ? '#FFF' : DS.textMuted, marginBottom: 4 }}>{dayName}</Text>
-                    <Text style={{ fontSize: 20, fontWeight: '800', color: isSelected ? '#FFF' : DS.textPrimary }}>{dayNum}</Text>
+                  <TouchableOpacity key={iso} onPress={() => setBookingDate(iso)} style={{ width: 64, height: 72, borderRadius: 16, backgroundColor: isSelected ? DS.lime : DS.surfaceHigh, alignItems: 'center', justifyContent: 'center', marginRight: 12, borderWidth: 1, borderColor: isSelected ? DS.lime : DS.border }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: isSelected ? DS.bg : DS.textMuted, marginBottom: 4 }}>{dayName}</Text>
+                    <Text style={{ fontSize: 20, fontWeight: '800', color: isSelected ? DS.bg : DS.textPrimary }}>{dayNum}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -489,8 +489,8 @@ export default function GroundDetailScreen({ route, navigation }) {
               {['Morning (6AM - 10AM)', 'Afternoon (11AM - 3PM)', 'Evening (4PM - 8PM)'].map(slot => {
                 const isSelected = bookingSlot === slot;
                 return (
-                  <TouchableOpacity key={slot} onPress={() => setBookingSlot(slot)} style={{ backgroundColor: isSelected ? '#3B82F6' : DS.surfaceHigh, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: isSelected ? '#3B82F6' : DS.border }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: isSelected ? '#FFF' : DS.textPrimary }}>{slot}</Text>
+                  <TouchableOpacity key={slot} onPress={() => setBookingSlot(slot)} style={{ backgroundColor: isSelected ? DS.lime : DS.surfaceHigh, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: isSelected ? DS.lime : DS.border }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: isSelected ? DS.bg : DS.textPrimary }}>{slot}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -546,6 +546,6 @@ const makeStyles = (DS, P) => StyleSheet.create({
   priceVal: { color: DS.textPrimary, fontSize: 20, fontWeight: '800' },
   priceUnit: { color: DS.textMuted, fontSize: 14, fontWeight: '500' },
   
-  bookBtn: { backgroundColor: '#3B82F6', paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16 },
-  bookBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' }
+  bookBtn: { backgroundColor: DS.lime, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16 },
+  bookBtnText: { color: DS.bg, fontSize: 16, fontWeight: '700' }
 });

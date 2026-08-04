@@ -106,7 +106,11 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
     <Stack.Screen
       name="StartMatch"
       component={StartMatchScreen}
-      options={{ headerShown: false }}
+      options={{
+        headerShown: false,
+        presentation: 'transparentModal',
+        cardStyle: { backgroundColor: 'transparent' }
+      }}
     />
     <Stack.Screen
       name="TossLineup"
@@ -200,10 +204,9 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
       name="CreateTournament"
       component={TournamentScreen}
       options={{
-        title: 'Create Tournament',
-        headerStyle: {backgroundColor: DS.surfaceLow},
-        headerTitleStyle: {color: DS.textPrimary},
-        headerTintColor: DS.textPrimary,
+        headerShown: false,
+        presentation: 'transparentModal',
+        cardStyle: { backgroundColor: 'transparent' }
       }}
     />
     <Stack.Screen

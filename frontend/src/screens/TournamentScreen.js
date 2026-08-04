@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert,
   ActivityIndicator, useWindowDimensions, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetTextInput, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -831,6 +832,18 @@ export default function TournamentScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
+      <BottomSheetModal
+        ref={sheetRef}
+        snapPoints={['95%']}
+        enablePanDownToClose
+        onDismiss={handleDismiss}
+        backdropComponent={renderBackdrop}
+        backgroundStyle={{ backgroundColor: DS.bg }}
+        handleIndicatorStyle={{ backgroundColor: DS.surfaceHigh }}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
+      >
       {/* Header: title, and the two actions that apply on every step. */}
       <View style={styles.header}>
         <TouchableOpacity onPress={confirmLeave} hitSlop={10} style={styles.iconBtn}>
@@ -873,7 +886,7 @@ export default function TournamentScreen({ navigation, route }) {
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
+        <BottomSheetScrollView
           ref={scrollRef}
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
@@ -890,7 +903,7 @@ export default function TournamentScreen({ navigation, route }) {
               </Text>
             </View>
           )}
-        </ScrollView>
+        </BottomSheetScrollView>
       </KeyboardAvoidingView>
 
       {/* Sticky action bar. */}
@@ -919,6 +932,7 @@ export default function TournamentScreen({ navigation, route }) {
             )}
         </TouchableOpacity>
       </View>
+      </BottomSheetModal>
     </View>
   );
 }
