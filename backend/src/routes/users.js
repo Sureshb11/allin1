@@ -91,9 +91,17 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
   // No player in THIS sport → zeros, not another sport's numbers.
   if (!player) return res.json(emptyCareer(sport));
 
+  // MY stats is the career: every club this account plays for in this sport,
+  // not whichever row findFirst happened to return. A team's own screens keep
+  // passing one row, because "for this team" is what they are asking.
+  const mine = await prisma.player.findMany({
+    where: { ...inSport, userId: user.id }, select: { id: true, teamId: true },
+  });
+  player.teamIds = mine.map((p) => p.teamId).filter(Boolean);
+
   // The computation lives in lib/playerCareer.js so that tapping a player in
   // Rankings shows the same board of numbers, worked out the same way.
-  res.json(await playerCareer(player));
+  res.json(await playerCareer(player, mine.map((p) => p.id)));
 });
 
 // ── How I play ───────────────────────────────────────────────────────────────

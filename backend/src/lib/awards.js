@@ -192,6 +192,19 @@ export async function persistSeriesAwards(tournamentId) {
  * decides what to hide.
  */
 export async function careerAwards(playerId) {
+  // One person can hold several Player rows — one per club — so an id or a
+  // list of them are both valid here. A career spans the lot; a team screen
+  // passes the single row for that club.
+  if (Array.isArray(playerId)) {
+    const ids = playerId.filter(Boolean);
+    if (!ids.length) return careerAwards(null);
+    const parts = await Promise.all(ids.map((id) => careerAwards(id)));
+    return parts.reduce((acc, p) => {
+      for (const k of Object.keys(acc)) acc[k] += p[k];
+      return acc;
+    }, { motm: 0, fighter: 0, batter: 0, bowler: 0, fielder: 0,
+         series: 0, seriesBatter: 0, seriesBowler: 0, seriesFielder: 0, total: 0 });
+  }
   const empty = {
     motm: 0, fighter: 0, batter: 0, bowler: 0, fielder: 0,
     series: 0, seriesBatter: 0, seriesBowler: 0, seriesFielder: 0, total: 0,

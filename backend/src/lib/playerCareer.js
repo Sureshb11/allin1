@@ -30,13 +30,31 @@ export const emptyCareer = (sport = null) => ({ stats: { ...BASE }, sport, linke
  * Returns { stats, sport, role, team, linked } — the same envelope both routes
  * hand back, so My Stats and a tapped player render from identical data.
  */
-export async function playerCareer(player) {
+export async function playerCareer(player, alsoIds = []) {
   if (!player) return emptyCareer();
+
+  // A career can span several clubs. One person holds one Player row PER TEAM,
+  // so "how has this person played" and "how has this person played for this
+  // team" are different questions with different answers — and both are asked:
+  //
+  //   · a team's squad, its leaderboards and a player tapped from either pass
+  //     one row, and get that club's numbers. That is the whole point of the
+  //     rows being per-team.
+  //   · My Stats passes every row the account owns in the sport, and gets the
+  //     career. It used to pass whichever row findFirst returned first, so a
+  //     player in two clubs saw one club's figures labelled as their career —
+  //     and which club, was arbitrary.
+  const ids = [...new Set([player.id, ...alsoIds])].filter(Boolean);
 
   const s = player.stats || {};
   // Real season match count = matches this player's team has played in their sport.
-  const seasonMatches = player.teamId
-    ? await prisma.match.count({ where: { sport: player.sport, OR: [{ team1Id: player.teamId }, { team2Id: player.teamId }] } })
+  // How many matches were there to play in — every club this career covers, so
+  // a two-club player is not measured against one of them.
+  const teamIds = [...new Set([player.teamId, ...(player.teamIds || [])].filter(Boolean))];
+  const seasonMatches = teamIds.length
+    ? await prisma.match.count({
+        where: { sport: player.sport, OR: teamIds.flatMap((id) => [{ team1Id: id }, { team2Id: id }]) },
+      })
     : 0;
 
   // Fielding: the scorer records the fielder as a NAME on Ball.wicketAssists —
@@ -46,18 +64,18 @@ export async function playerCareer(player) {
   const fieldName = (player.name || '').trim();
   const [batBalls, dismissals, bowlBalls, xiMatches, awards, catches, runOuts, fieldBalls] = await Promise.all([
     prisma.ball.findMany({
-      where: { batterId: player.id },
+      where: { batterId: { in: ids } },
       select: { runs: true, extraType: true, over: { select: { inningId: true } } },
     }),
-    prisma.ball.count({ where: { dismissedPlayerId: player.id } }),
+    prisma.ball.count({ where: { dismissedPlayerId: { in: ids } } }),
     prisma.ball.findMany({
-      where: { over: { bowlerId: player.id } },
+      where: { over: { bowlerId: { in: ids } } },
       select: { runs: true, extras: true, extraType: true, isWicket: true, wicketType: true, over: { select: { inningId: true } } },
     }),
-    prisma.matchPlayer.count({ where: { playerId: player.id } }),
+    prisma.matchPlayer.count({ where: { playerId: { in: ids } } }),
     // The honours cabinet: Man of the Match, Fighter, Best Batter / Bowler /
     // Fielder, plus the series awards.
-    careerAwards(player.id),
+    careerAwards(ids),
     prisma.ball.count({ where: { isWicket: true, wicketType: 'caught', wicketAssists: fieldName } }),
     prisma.ball.count({ where: { isWicket: true, wicketType: 'runout', wicketAssists: fieldName } }),
     // Per-innings fielding, for the trend chart.
@@ -141,7 +159,7 @@ export async function playerCareer(player) {
   // inventing a column. A tie (or an unparseable result) yields result: null,
   // which the client renders neutrally.
   const formRows = await prisma.matchPlayer.findMany({
-    where: { playerId: player.id, match: { status: 'completed' } },
+    where: { playerId: { in: ids }, match: { status: 'completed' } },
     orderBy: { match: { startTime: 'desc' } },
     take: 5,
     include: {
@@ -159,18 +177,18 @@ export async function playerCareer(player) {
     const formMatchIds = formRows.map((r) => r.matchId);
     const [fBat, fBowl, moms] = await Promise.all([
       prisma.ball.findMany({
-        where: { batterId: player.id, over: { inning: { matchId: { in: formMatchIds } } } },
+        where: { batterId: { in: ids }, over: { inning: { matchId: { in: formMatchIds } } } },
         select: { runs: true, over: { select: { inning: { select: { matchId: true } } } } },
       }),
       prisma.ball.findMany({
-        where: { over: { bowlerId: player.id, inning: { matchId: { in: formMatchIds } } } },
+        where: { over: { bowlerId: { in: ids }, inning: { matchId: { in: formMatchIds } } } },
         select: { isWicket: true, wicketType: true, over: { select: { inning: { select: { matchId: true } } } } },
       }),
       // Awards won in these matches. Reads the award table, not the MVP points
       // ledger — that has a row per squad player per match, so counting it was
       // counting every appearance as a Man of the Match.
       prisma.matchAward.findMany({
-        where: { playerId: player.id, matchId: { in: formMatchIds } },
+        where: { playerId: { in: ids }, matchId: { in: formMatchIds } },
         select: { matchId: true, kind: true },
       }),
     ]);
@@ -231,7 +249,7 @@ export async function playerCareer(player) {
   // call them, so a new sport needs no change here.
   if (player.sport && player.sport !== 'cricket') {
     const evs = await prisma.sportEvent.findMany({
-      where: { playerId: player.id },
+      where: { playerId: { in: ids } },
       select: { matchId: true, eventType: true, value: true },
     });
     const byType = {};
