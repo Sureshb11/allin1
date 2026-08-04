@@ -896,6 +896,7 @@ const StandingsTab = ({ rows, styles, DS }) => {
     <View>
       <View style={[styles.tableRow, styles.tableHead]}>
         <Text style={[styles.thRank]}>#</Text>
+        <View style={styles.tdLogoSpacer} />
         <Text style={[styles.thTeam]}>Team</Text>
         <Text style={styles.thNum}>P</Text>
         <Text style={styles.thNum}>W</Text>
@@ -904,6 +905,14 @@ const StandingsTab = ({ rows, styles, DS }) => {
       {rows.map((r) => (
         <View key={r.id} style={[styles.tableRow, r.isCurrent && styles.tableRowActive]}>
           <Text style={styles.tdRank}>{r.rank}</Text>
+          {/* The crest. GET /teams/:id/profile has been sending logoUrl on every
+              standings row since the leaderboard was written and this table
+              never read it — so a table of clubs was a table of names. */}
+          <View style={styles.tdLogo}>
+            {r.logoUrl
+              ? <Image source={{ uri: r.logoUrl }} style={styles.tdLogoImg} />
+              : <Text style={styles.tdLogoText}>{(r.name || '?').charAt(0).toUpperCase()}</Text>}
+          </View>
           <Text style={[styles.tdTeam, r.isCurrent && styles.tdTeamActive]} numberOfLines={1}>{r.name}</Text>
           <Text style={styles.tdNum}>{r.matches}</Text>
           <Text style={styles.tdNum}>{r.wins}</Text>
@@ -1181,6 +1190,13 @@ const makeStyles = (DS) => StyleSheet.create({
   thTeam: { flex: 1, fontSize: 11, fontWeight: '800', color: DS.textMuted },
   thNum: { width: 46, textAlign: 'center', fontSize: 11, fontWeight: '800', color: DS.textMuted },
   tdRank: { width: 26, fontSize: 14, fontWeight: '800', color: DS.textPrimary },
+  tdLogo: {
+    width: 22, height: 22, borderRadius: 11, marginRight: 8,
+    backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  },
+  tdLogoImg: { width: 22, height: 22 },
+  tdLogoText: { fontSize: 10, fontWeight: '800', color: DS.textVariant },
+  tdLogoSpacer: { width: 22, marginRight: 8 },
   tdTeam: { flex: 1, fontSize: 14, color: DS.textPrimary },
   tdTeamActive: { fontWeight: '900', color: DS.lime },
   tdNum: { width: 46, textAlign: 'center', fontSize: 14, color: DS.textVariant, fontVariant: ['tabular-nums'] },

@@ -143,6 +143,11 @@ const BoardCard = ({ board, players, teamName, s, DS }) => {
             {rest.map((p, idx) => (
               <View key={p.playerId} style={s.boardListItem}>
                 <Text style={s.boardListRank}>#{idx + 4}</Text>
+                <View style={s.listAvatar}>
+                  {p.avatar
+                    ? <Image source={{ uri: p.avatar }} style={s.listAvatarImg} />
+                    : <Text style={s.listAvatarText}>{(p.name || '?').charAt(0).toUpperCase()}</Text>}
+                </View>
                 <Text style={s.boardListName} numberOfLines={1}>{p.name}</Text>
                 <View style={s.boardListStat}>
                   <Text style={s.boardListValue}>{board.value(p)}</Text>
@@ -553,6 +558,12 @@ const makeStyles = (DS) => StyleSheet.create({
   boardList: { borderTopWidth: 1, borderTopColor: DS.border, paddingTop: 8 },
   boardListItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, gap: 12 },
   boardListRank: { width: 24, fontSize: 11, fontWeight: '800', color: DS.textMuted, textAlign: 'right' },
+  listAvatar: {
+    width: 24, height: 24, borderRadius: 12, marginHorizontal: 8,
+    backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  },
+  listAvatarImg: { width: 24, height: 24 },
+  listAvatarText: { fontSize: 11, fontWeight: '800', color: DS.textVariant },
   boardListName: { flex: 1, fontSize: 13, fontWeight: '600', color: DS.textVariant },
   boardListStat: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
   boardListValue: { fontSize: 14, fontWeight: '800', color: DS.textPrimary, fontVariant: ['tabular-nums'] },

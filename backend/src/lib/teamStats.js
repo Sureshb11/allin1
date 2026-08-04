@@ -400,11 +400,32 @@ export async function teamStats(teamId, filters = {}) {
     directHits: f.directHits, assistedRunOuts: f.assistedRunOuts,
     dismissals: f.catches + f.runOuts + f.stumpings,
   }));
+  // Faces. Every board renders an avatar and falls back to an initial, and the
+  // fallback was all anyone ever saw because nothing here sent a photo. One
+  // query for every player who appears on any board, rather than an include on
+  // each of the three sources they come from.
+  //
+  // Fielding boards are keyed by NAME, not id — the scorer records a catcher as
+  // a name on the ball — so those rows stay on their initials until that
+  // changes. Better a consistent initial than a face guessed from a name.
+  const facedIds = [...new Set([...battingRows, ...bowlingRows, ...partList.map((p) => ({ playerId: p.id }))]
+    .map((r) => r.playerId).filter(Boolean))];
+  const avatarOf = Object.fromEntries(
+    (facedIds.length
+      ? await prisma.player.findMany({
+          where: { id: { in: facedIds } },
+          select: { id: true, user: { select: { avatarUrl: true } } },
+        })
+      : []
+    ).map((p) => [p.id, p.user?.avatarUrl || null]),
+  );
+  for (const r of [...battingRows, ...bowlingRows]) r.avatar = avatarOf[r.playerId] || null;
+
   const participationRows = partList.map((p) => {
     const b = bat[p.id];
     const w = bowl[p.id];
     return {
-      playerId: p.id, name: p.name, matches: p.matches,
+      playerId: p.id, name: p.name, matches: p.matches, avatar: avatarOf[p.id] || null,
       inningsBat: b ? b.innings : 0, ballsFaced: b ? b.balls : 0,
       inningsBowl: w ? w.innings : 0, oversBowl: w ? oversOf(w.balls) : '0.0',
     };
