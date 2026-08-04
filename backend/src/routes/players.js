@@ -4,6 +4,22 @@ import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
 import { isTeamAdmin } from '../lib/teamAuth.js';
 import { playerCareer } from '../lib/playerCareer.js';
+import { canonicalRole } from '../lib/squadOrder.js';
+
+// Store the app's spelling of a role, not whoever's.
+//
+// Player.role is free text and this database held ten spellings of five cricket
+// roles across 278 players — Bat, Batsman, Bowl, Bowler, All Rounder,
+// allrounder, Wicket Keeper — because a text box sat under the role chips for
+// years. The box is gone, and 195 rows have been folded back to the four names
+// the app offers; this is what stops it happening again, including from an app
+// version older than that fix.
+//
+// Deliberately non-destructive. It only rewrites a spelling it RECOGNISES:
+// canonicalRole returns null for "Player", for blanks, and for every non-cricket
+// sport, and in all those cases the value is stored exactly as sent. So it can
+// fold "Bat" to "Batter" and can never blank a role or rename a footballer's.
+const foldRole = (role, sport) => canonicalRole(role, sport || 'cricket') || role;
 
 const router = Router();
 
@@ -276,6 +292,7 @@ router.post('/', async (req, res) => {
   try {
     const data = PlayerSchema.parse(req.body);
     if (data.stats) data.stats = stripPII(data.stats);
+    data.role = foldRole(data.role, data.sport);
     // Prevent duplicates on the same team: a linked app user can only appear once,
     // and a guest can't be added twice under the exact same name.
     if (data.teamId) {
@@ -317,6 +334,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
     const data = EditPlayerSchema.parse(req.body);
     if (data.stats) data.stats = stripPII(data.stats);
+    // The player's own sport, not the caller's word for it.
+    if (data.role) data.role = foldRole(data.role, player.sport);
 
     // A shirt number belongs to one player in a squad. Two number 7s make a
     // scorecard ambiguous and a squad list sort arbitrarily, and nothing was

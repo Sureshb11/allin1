@@ -5,6 +5,7 @@ import { publicUser } from '../lib/publicUser.js';
 import { authMiddleware } from '../lib/auth.js';
 import { entitlementsFor } from '../lib/entitlements.js';
 import { playerCareer, emptyCareer } from '../lib/playerCareer.js';
+import { canonicalRole } from '../lib/squadOrder.js';
 
 const router = Router();
 
@@ -118,6 +119,9 @@ const MyPlayerSchema = z.object({
 router.put('/me/player', authMiddleware, async (req, res) => {
   try {
     const { sport = 'cricket', ...data } = MyPlayerSchema.parse(req.body);
+    // Same folding as POST/PUT /players — one vocabulary, whichever door a role
+    // comes through.
+    data.role = canonicalRole(data.role, sport) || data.role;
     const user = await prisma.user.findUnique({ where: { id: req.user.sub } });
     if (!user) return res.status(404).json({ error: 'User not found' });
 

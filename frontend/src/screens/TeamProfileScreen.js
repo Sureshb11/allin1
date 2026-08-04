@@ -586,8 +586,13 @@ const TeamProfileScreen = ({ navigation, route }) => {
                 </TouchableOpacity>
               ))}
             </View>
-            <TextInput style={styles.modalInput} placeholder="Role" placeholderTextColor={DS.textMuted}
-              value={manageForm.role} onChangeText={(t) => setManageForm((f) => ({ ...f, role: t }))} />
+            {/* No free-text box under them any more. The chips ARE the
+                vocabulary — all 18 sports in the registry carry a role list —
+                and a box beneath them saying "Role" is an invitation to type
+                something else. That invitation is where "Bat", "Bowl",
+                "Batsman", "allrounder" and "Wicket Keeper" came from: ten
+                spellings of five roles across 278 players, now folded back to
+                four. Cleaning that up is worth nothing if the tap stays on. */}
 
             <Text style={styles.fieldLabel}>Jersey number</Text>
             <TextInput style={styles.modalInput} placeholder="e.g. 7" placeholderTextColor={DS.textMuted}
