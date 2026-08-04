@@ -73,6 +73,11 @@ export const useHideTabBarOnScroll = () => {
 // outside a tab navigator).
 export const useTabBarClearance = () => useContext(BottomTabBarHeightContext) || 0;
 
+// The dock's slide-away offset, for anything that floats WITH it — the
+// Pavilion's action button sits above the dock and was staying put while
+// everything around it left, which reads as a button that cannot be dismissed.
+export const useDockTranslate = () => useContext(Ctx)?.translateY;
+
 // Force the bar back into view (e.g. from a tabPress listener).
 export const useTabBarReveal = () => useContext(Ctx)?.reveal || (() => {});
 

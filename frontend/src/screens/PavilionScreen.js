@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useState, useRef, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Dimensions, Animated as RNAnimated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, cancelAnimation, runOnJS } from 'react-native-reanimated';
@@ -12,7 +12,7 @@ import StatisticsScreen from './StatisticsScreen';
 import LookingForScreen from './LookingForScreen';
 import GroundsScreen from './GroundsScreen';
 import { useCurrentUser } from '../utils/currentUser';
-import { useTabBarClearance } from '../components/AutoHideTabBar';
+import { useTabBarClearance, useDockTranslate } from '../components/AutoHideTabBar';
 import { haptic } from '../utils/haptics';
 import { pav } from '../theme/pavilion';
 import AppHeader from '../components/AppHeader';
@@ -96,11 +96,22 @@ export default function PavilionScreen({ navigation, route }) {
   // Each child screen registers its FAB action here (keyed by tab index); the
   // shared button dispatches to the active tab's action, or Go Live if none.
   const fabActions = useRef({}).current;
-  const registerFab = (i) => (fn) => { fabActions[i] = fn; };
+  const registerFab = (i) => (fn) => {
+    fabActions[i] = fn;
+    setFabOff((o) => (!!o[i] === !fn ? o : { ...o, [i]: !fn }));
+  };
   const FABS = FAB_FOR(P);
   // null on Rankings — no fallback to another tab's action, which is how a
   // leaderboard ended up offering "Share Card" behaviour under a Go Live label.
-  const fab = FABS[activeTab];
+  // A tab can withdraw its action — Grounds does while its Add Ground form is
+  // open, because the button that opened the form was still floating over it.
+  // Kept in state, not the ref below, so withdrawing actually re-renders.
+  const [fabOff, setFabOff] = useState({});
+  const fab = fabOff[activeTab] ? null : FABS[activeTab];
+
+  // The button floats above the dock, so it goes when the dock goes. It used to
+  // sit there alone after everything else had slid away.
+  const dockY = useDockTranslate();
 
   // Morphing FAB: when the active tab changes its icon+label swap, so pop the
   // content (rise + fade + slight scale) instead of hard-cutting to the new label.
@@ -242,19 +253,24 @@ export default function PavilionScreen({ navigation, route }) {
           one. The old fallback fired StreamingLanding for any tab that hadn't
           registered an action, which is why Rankings had a Go Live button. ── */}
       {fab && (
-        <TouchableOpacity
-          style={[styles.fab, { backgroundColor: DS.lime, bottom: tabClear + 16 }]}
-          onPress={() => {
-            haptic.impact();
-            fabActions[activeTab]?.();
-          }}
-          activeOpacity={0.85}
-        >
-          <Animated.View style={[styles.fabContent, fabContentStyle]}>
-            <Icon name={fab.icon} size={20} color={DS.onLime} />
-            <Text style={[styles.fabText, { color: DS.onLime }]}>{fab.label}</Text>
-          </Animated.View>
-        </TouchableOpacity>
+        <RNAnimated.View
+          pointerEvents="box-none"
+          style={[styles.fabWrap, { bottom: tabClear + 16 },
+                  dockY ? { transform: [{ translateY: dockY }] } : null]}>
+          <TouchableOpacity
+            style={[styles.fab, { backgroundColor: DS.lime }]}
+            onPress={() => {
+              haptic.impact();
+              fabActions[activeTab]?.();
+            }}
+            activeOpacity={0.85}
+          >
+            <Animated.View style={[styles.fabContent, fabContentStyle]}>
+              <Icon name={fab.icon} size={20} color={DS.onLime} />
+              <Text style={[styles.fabText, { color: DS.onLime }]}>{fab.label}</Text>
+            </Animated.View>
+          </TouchableOpacity>
+        </RNAnimated.View>
       )}
     </View>
   );
@@ -264,9 +280,10 @@ const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
 
   // Green primary; a rounded rectangle (not a full pill). `bottom` is dock clearance.
+  // The wrapper carries the position and the dock's slide; the pill is just a
+  // pill, because an animated transform needs a view, not a TouchableOpacity.
+  fabWrap: { position: 'absolute', right: 20 },
   fab: {
-    position: 'absolute',
-    right: 20,
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 15,

@@ -820,7 +820,14 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   // button carry it — so the two neighbouring tabs now put their primary action
   // in the same place, at the same size, in the same words.
   const openAddGround = useCallback(() => { setMapLocation(null); setViewState('form'); }, []);
-  useEffect(() => { if (inline && user) onRegisterFab?.(openAddGround); }, [inline, user, onRegisterFab, openAddGround]);
+  // Withdrawn while the form is open. The Pavilion draws this button, not this
+  // screen, so it kept floating over the Add Ground form it had just opened —
+  // and tapping it again re-entered the form on top of itself.
+  useEffect(() => {
+    if (!inline) return;
+    const canAdd = user && (viewState === 'list' || viewState === 'map');
+    onRegisterFab?.(canAdd ? openAddGround : null);
+  }, [inline, user, viewState, onRegisterFab, openAddGround]);
 
   const openFormWithLocation = (coord) => {
     setMapLocation(coord);
