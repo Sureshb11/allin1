@@ -172,9 +172,9 @@ export default function HomeScreen({ navigation }) {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { 
-    load(); 
-  }, []);
+  useFocusEffect(useCallback(() => {
+    load();
+  }, []));
 
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 

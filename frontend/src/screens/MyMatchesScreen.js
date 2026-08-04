@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState, useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useLayoutEffect, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, Pressable,
@@ -407,7 +408,9 @@ export default function MyMatchesScreen({ navigation }) {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { loadMatches(); }, []);
+  useFocusEffect(useCallback(() => {
+    loadMatches();
+  }, []));
 
   // Kick off a scheduled match → toss & lineup → ball-by-ball scoring.
   const startMatch = async (m) => {

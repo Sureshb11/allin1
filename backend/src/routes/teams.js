@@ -585,12 +585,65 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
     const viewerId = req.user.sub;
     const viewerIsAdmin = await isTeamAdmin(teamId, viewerId);
 
-    // Recent matches (any status), newest first.
-    const recentMatches = await prisma.match.findMany({
+    // Recent and past matches from Match table
+    const dbMatches = await prisma.match.findMany({
       where: { OR: [{ team1Id: teamId }, { team2Id: teamId }] },
       include: { team1: true, team2: true },
       orderBy: [{ startTime: 'desc' }, { createdAt: 'desc' }],
-      take: 10,
+      take: 40,
+    });
+
+    // Fetch TournamentMatch entries for these matches to resolve tournamentName
+    const tmForMatches = dbMatches.length > 0 ? await prisma.tournamentMatch.findMany({
+      where: { matchId: { in: dbMatches.map(m => m.id) } },
+      include: { tournament: { select: { name: true } } }
+    }) : [];
+    const tmMap = Object.fromEntries(tmForMatches.map(tm => [tm.matchId, tm.tournament?.name]));
+
+    // Scheduled matches sitting only in TournamentMatch (not started, matchId is null)
+    const scheduledTm = await prisma.tournamentMatch.findMany({
+      where: { OR: [{ team1Id: teamId }, { team2Id: teamId }], matchId: null },
+      include: { tournament: { select: { name: true } } },
+      orderBy: [{ scheduledAt: 'asc' }],
+      take: 20,
+    });
+
+    // Resolve teams for scheduled matches
+    const stIds = new Set();
+    scheduledTm.forEach(tm => {
+      if (tm.team1Id) stIds.add(tm.team1Id);
+      if (tm.team2Id) stIds.add(tm.team2Id);
+    });
+    const stTeams = stIds.size > 0 ? await prisma.team.findMany({
+      where: { id: { in: Array.from(stIds) } },
+      select: { id: true, name: true, logoUrl: true }
+    }) : [];
+    const stTeamMap = Object.fromEntries(stTeams.map(t => [t.id, t]));
+
+    const recentMatches = [
+      ...dbMatches.map(m => ({
+        ...m,
+        tournamentName: tmMap[m.id] || 'OTHER MATCHES',
+      })),
+      ...scheduledTm.map(stm => ({
+        id: stm.id,
+        isTournamentMatchOnly: true,
+        status: 'scheduled',
+        team1: stTeamMap[stm.team1Id] || { name: stm.placeholder1 || 'TBD' },
+        team2: stTeamMap[stm.team2Id] || { name: stm.placeholder2 || 'TBD' },
+        team1Id: stm.team1Id,
+        team2Id: stm.team2Id,
+        startTime: stm.scheduledAt,
+        venue: stm.venue,
+        tournamentName: stm.tournament?.name || 'OTHER MATCHES',
+        matchType: 'Match',
+      }))
+    ];
+
+    recentMatches.sort((a, b) => {
+      const ta = a.startTime ? new Date(a.startTime).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const tb = b.startTime ? new Date(b.startTime).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return tb - ta; // Descending
     });
 
     // Same-sport teams → compute a leaderboard from completed matches (wins from

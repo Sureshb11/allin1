@@ -13,7 +13,7 @@ const PAGE_SIZE = 30;
 //              &featured=1&q=star&sport=cricket&status=published&cursor=xxx&limit=30
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const { sport, city, state, type, surface, ball, verified, featured, q, cursor, status } = req.query;
+    const { sport, city, state, type, surface, ball, verified, featured, q, cursor, status, lat, lng } = req.query;
     const limit = Math.min(Number(req.query.limit) || PAGE_SIZE, 50);
 
     const where = {};
@@ -43,11 +43,13 @@ router.get('/', optionalAuth, async (req, res) => {
       ];
     }
 
+    const dbLimit = (lat && lng) ? 1000 : limit + 1; // Fetch more if sorting by distance
+
     const grounds = await prisma.ground.findMany({
       where,
       orderBy: [{ featured: 'desc' }, { averageRating: 'desc' }, { createdAt: 'desc' }],
-      take: limit + 1,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      take: dbLimit,
+      ...(cursor && !(lat && lng) ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: {
         images: { where: { imageType: 'cover' }, take: 1 },
         amenities: true,
@@ -55,8 +57,37 @@ router.get('/', optionalAuth, async (req, res) => {
       },
     });
 
-    const hasMore = grounds.length > limit;
-    const page = hasMore ? grounds.slice(0, limit) : grounds;
+    let processedGrounds = grounds;
+
+    // Apply distance sorting if location is provided
+    if (lat && lng) {
+      const userLat = parseFloat(lat);
+      const userLng = parseFloat(lng);
+      
+      const toRad = (value) => (value * Math.PI) / 180;
+      const getDistance = (lat1, lon1, lat2, lon2) => {
+        const R = 6371; // km
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      };
+
+      processedGrounds = processedGrounds.map(g => {
+        if (g.latitude && g.longitude) {
+          return { ...g, distance: getDistance(userLat, userLng, g.latitude, g.longitude) };
+        }
+        return { ...g, distance: 99999 }; // Unknown location goes to bottom
+      });
+
+      processedGrounds.sort((a, b) => a.distance - b.distance);
+    }
+
+    const hasMore = processedGrounds.length > limit;
+    const page = hasMore ? processedGrounds.slice(0, limit) : processedGrounds;
 
     // Per-type counts for filter chips
     const baseWhere = { status: 'published', permanentlyClosed: false };
@@ -175,15 +206,52 @@ const GroundRequestSchema = z.object({
   whatsapp: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
   website: z.string().optional(),
-  imageUrl: z.string().optional(),
+  imageUrl: z.string().optional(),           // legacy single image
+  images: z.array(z.string()).optional(),    // multiple image URLs
   sport: z.string().default('cricket'),
+  price: z.number().int().min(0).optional(),
+  amenities: z.array(z.string()).optional(), // ["Flood Lights", "Parking", ...]
+  openTime: z.string().optional(),           // "06:00"
+  closeTime: z.string().optional(),          // "22:00"
 });
 
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const data = GroundRequestSchema.parse(req.body);
+
+    // Extract relational data before creating the ground
     const coverImage = data.imageUrl;
+    const imageUrls = data.images || [];
+    const amenityNames = data.amenities || [];
+    const openTime = data.openTime;
+    const closeTime = data.closeTime;
+
+    // Remove non-Ground fields so prisma.ground.create doesn't choke
     delete data.imageUrl;
+    delete data.images;
+    delete data.amenities;
+    delete data.openTime;
+    delete data.closeTime;
+
+    // Build GroundImage create array
+    const imageCreates = [];
+    if (coverImage) {
+      imageCreates.push({ imageUrl: coverImage, imageType: 'cover', displayOrder: 0 });
+    }
+    imageUrls.forEach((url, idx) => {
+      // Skip if it's the same as the coverImage (avoid duplicate)
+      if (url === coverImage) return;
+      imageCreates.push({ imageUrl: url, imageType: 'gallery', displayOrder: idx + 1 });
+    });
+
+    // Build GroundAmenity create array
+    const amenityCreates = amenityNames.map(name => ({ amenity: name }));
+
+    // Build GroundOpeningHours create array (apply same hours to all 7 days)
+    const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const hoursCreates = (openTime && closeTime)
+      ? DAYS.map(day => ({ day, openTime, closeTime, isClosed: false }))
+      : [];
 
     const ground = await prisma.ground.create({
       data: {
@@ -192,11 +260,11 @@ router.post('/', authMiddleware, async (req, res) => {
         submittedById: req.user.sub,
         status: 'pending',
         location: data.location || data.area || data.address || data.city,
-        ...(coverImage
-          ? { images: { create: { imageUrl: coverImage, imageType: 'cover', displayOrder: 0 } } }
-          : {}),
+        ...(imageCreates.length > 0 ? { images: { create: imageCreates } } : {}),
+        ...(amenityCreates.length > 0 ? { amenities: { create: amenityCreates } } : {}),
+        ...(hoursCreates.length > 0 ? { openingHours: { create: hoursCreates } } : {}),
       },
-      include: { images: true },
+      include: { images: true, amenities: true, openingHours: true },
     });
 
     res.status(201).json({ success: true, ground });

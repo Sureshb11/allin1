@@ -1551,7 +1551,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // Between overs (the over just ended, the next ball isn't bowled yet) keep the
   // finished over on screen so its final ball — and what an undo would remove —
   // stays visible instead of a blank strip.
-  const betweenOvers = currentOver.length === 0 && lastOverBalls.length > 0;
+  const betweenOvers = currentOver.length === 0 && lastOverBalls.length > 0 && mustPickBowler;
   const displayOver = betweenOvers ? lastOverBalls : currentOver;
 
   // Fill remaining balls as empty dots

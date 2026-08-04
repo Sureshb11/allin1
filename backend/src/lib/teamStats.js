@@ -58,6 +58,13 @@ export async function teamStats(teamId, filters = {}) {
     });
     where.id = { in: fixtures.map((f) => f.matchId) };
   }
+  if (filters.oppositionId) {
+    where.AND = [
+      { OR: [{ team1Id: teamId }, { team2Id: teamId }] },
+      { OR: [{ team1Id: filters.oppositionId }, { team2Id: filters.oppositionId }] }
+    ];
+    delete where.OR; // Replaced by the AND block above
+  }
 
   const matches = await prisma.match.findMany({
     where,
@@ -89,27 +96,41 @@ export async function teamStats(teamId, filters = {}) {
 
   /* ── Accumulators ─────────────────────────────────────────────────────── */
   const t = {
+    // MATCH
     played: 0, won: 0, lost: 0, tied: 0, noResult: 0,
-    runsFor: 0, wicketsLost: 0, ballsFaced: 0,
-    wicketsTaken: 0, fours: 0, sixes: 0, extras: 0,
-    highest: null, lowest: null,
+    // INNINGS SUMMARY
+    firstInningsCount: 0, firstInningsRuns: 0,
+    secondInningsCount: 0, secondInningsRuns: 0,
+    // BAT & BALL (For)
+    inningsFor: 0, runsFor: 0, ballsFor: 0,
+    highest: 0, lowest: Infinity,
+    fours: 0, sixes: 0, extras: 0,
     bestChase: null, lowestDefended: null,
+    // BAT & BALL (Against)
+    wicketsLost: 0, wicketsTaken: 0,
+    runsAgainst: 0, ballsBowled: 0,
+    // TOSS & VENUE
+    tossKnown: 0, tossWon: 0,
+    homePlayed: 0, homeWins: 0,
+    awayPlayed: 0, awayWins: 0,
+    batFirstPlayed: 0, batFirstWins: 0,
+    fieldFirstPlayed: 0, fieldFirstPlayed: 0,
+    // RECORDS
     bestWinRuns: null, bestWinWickets: null,
-    tossWon: 0, tossKnown: 0,
-    batFirstWins: 0, batFirstPlayed: 0, fieldFirstWins: 0, fieldFirstPlayed: 0,
-    homeWins: 0, homePlayed: 0, awayWins: 0, awayPlayed: 0,
-    firstInningsRuns: 0, firstInningsCount: 0,
-    secondInningsRuns: 0, secondInningsCount: 0,
+    closestWinRuns: null, closestWinWickets: null,
+    biggestLossRuns: null, biggestLossWickets: null,
   };
   const bat = {};   // playerId → batting for THIS team
   const bowl = {};  // playerId → bowling for THIS team
   const field = {}; // name    → fielding for THIS team (assists are stored as names)
+  const part = {};  // playerId → participation
   const capWins = {};
   const results = []; // 'W' | 'L' | 'T' | 'N', in playing order, for streaks
 
-  const B = (id, name) => (bat[id] ||= { id, name, matches: new Set(), innings: 0, runs: 0, balls: 0, fours: 0, sixes: 0, out: 0, best: 0, fifties: 0, hundreds: 0 });
-  const W = (id, name) => (bowl[id] ||= { id, name, matches: new Set(), balls: 0, runs: 0, wickets: 0, dots: 0, threes: 0, fives: 0, bestW: 0, bestR: 0 });
-  const F = (name) => (field[name] ||= { name, catches: 0, runOuts: 0, stumpings: 0 });
+  const B = (id, name) => (bat[id] ||= { id, name, matches: new Set(), innings: 0, runs: 0, balls: 0, fours: 0, sixes: 0, out: 0, best: 0, fifties: 0, hundreds: 0, ducks: 0, fastest50: null, fastest100: null });
+  const W = (id, name) => (bowl[id] ||= { id, name, matches: new Set(), innings: 0, balls: 0, runs: 0, wickets: 0, dots: 0, threes: 0, fives: 0, bestW: 0, bestR: 0, maidens: 0 });
+  const F = (name) => (field[name] ||= { name, catches: 0, runOuts: 0, directHits: 0, assistedRunOuts: 0, stumpings: 0 });
+  const P = (id, name) => (part[id] ||= { id, name, matches: 0 });
 
   const homeGround = (team.homeGround || '').trim().toLowerCase();
 
@@ -131,6 +152,14 @@ export async function teamStats(teamId, filters = {}) {
     if (m.tossWinnerId) {
       t.tossKnown++;
       if (m.tossWinnerId === teamId) t.tossWon++;
+    }
+
+    // Participation
+    for (const s of m.squads) {
+      if (s.teamId === teamId) {
+        const p = P(s.playerId, s.player?.name);
+        p.matches++;
+      }
     }
     // Home is "played at our own ground", which is the only sense the data
     // supports — there is no home/away flag, just a venue string and the team's
@@ -157,41 +186,45 @@ export async function teamStats(teamId, filters = {}) {
 
     // ── Our batting innings ──
     for (const inn of ours) {
+      t.inningsFor++;
       t.runsFor += inn.totalRuns;
       t.wicketsLost += inn.totalWickets;
-      // An innings with no over bowled in it never happened — a match set up and
-      // abandoned, or the second innings of a game that ended in the first.
-      // Three of this team's sixteen are like that, and counting them made its
-      // "lowest score" 0 and its "lowest total defended" 12. Extremes only look
-      // at innings that were actually played; the totals above are unaffected,
-      // since adding zero changes nothing.
       const played = inn.oversData.length > 0;
       if (!played) continue;
       if (t.highest === null || inn.totalRuns > t.highest) t.highest = inn.totalRuns;
       if (t.lowest === null || inn.totalRuns < t.lowest) t.lowest = inn.totalRuns;
-      // A successful chase is a second innings we batted and won.
       if (inn.inningNumber === 2 && won && (t.bestChase === null || inn.totalRuns > t.bestChase)) t.bestChase = inn.totalRuns;
-      // A defended total is a first innings we batted and won.
       if (inn.inningNumber === 1 && won && (t.lowestDefended === null || inn.totalRuns < t.lowestDefended)) t.lowestDefended = inn.totalRuns;
 
       const perInnings = {};
       for (const ov of inn.oversData) {
         for (const b of ov.balls) {
-          if (isLegal(b)) t.ballsFaced++;
+          if (isLegal(b)) { t.ballsFor++; t.ballsFaced++; }
           t.extras += b.extras || 0;
           const r = batRuns(b);
           if (!b.extraType && r === 4) t.fours++;
           if (!b.extraType && r === 6) t.sixes++;
           const p = B(b.batterId, b.batter?.name);
           p.matches.add(m.id);
-          (perInnings[b.batterId] ||= { runs: 0, balls: 0 });
+          (perInnings[b.batterId] ||= { runs: 0, balls: 0, ballsTo50: null, ballsTo100: null });
           if (ballFaced(b)) { p.balls++; perInnings[b.batterId].balls++; }
           p.runs += r; perInnings[b.batterId].runs += r;
+          
+          if (perInnings[b.batterId].runs >= 50 && perInnings[b.batterId].ballsTo50 === null) {
+            perInnings[b.batterId].ballsTo50 = perInnings[b.batterId].balls;
+          }
+          if (perInnings[b.batterId].runs >= 100 && perInnings[b.batterId].ballsTo100 === null) {
+            perInnings[b.batterId].ballsTo100 = perInnings[b.batterId].balls;
+          }
+
           if (!b.extraType && r === 4) p.fours++;
           if (!b.extraType && r === 6) p.sixes++;
           if (b.isWicket && b.dismissedPlayerId) {
             const d = B(b.dismissedPlayerId, null);
             d.out++;
+            if (perInnings[b.dismissedPlayerId]?.runs === 0 || (!perInnings[b.dismissedPlayerId] && d.runs === 0)) {
+              d.ducks++;
+            }
           }
         }
       }
@@ -202,61 +235,104 @@ export async function teamStats(teamId, filters = {}) {
         if (s.runs > p.best) p.best = s.runs;
         if (s.runs >= 100) p.hundreds++;
         else if (s.runs >= 50) p.fifties++;
+        
+        if (s.ballsTo50 !== null && (p.fastest50 === null || s.ballsTo50 < p.fastest50)) p.fastest50 = s.ballsTo50;
+        if (s.ballsTo100 !== null && (p.fastest100 === null || s.ballsTo100 < p.fastest100)) p.fastest100 = s.ballsTo100;
       }
     }
 
     // ── Our bowling innings ──
     for (const inn of theirs) {
+      const perInnBowl = new Set();
       for (const ov of inn.oversData) {
+        let maidenBowlerId = null;
+        let overRuns = 0;
+        let overLegal = 0;
+        
         for (const b of ov.balls) {
           const bid = b.bowlerId || ov.bowlerId;
           if (!bid) continue;
+          
+          if (!maidenBowlerId) maidenBowlerId = bid;
+          else if (maidenBowlerId !== bid) maidenBowlerId = 'SHARED';
+          
           const p = W(bid, ov.bowler?.name);
           p.matches.add(m.id);
-          if (isLegal(b)) p.balls++;
-          // Charged to the bowler: runs off the bat plus wides and no balls, not byes.
+          perInnBowl.add(bid);
+          if (isLegal(b)) {
+            p.balls++;
+            overLegal++;
+            t.ballsBowled++;
+          }
           const conceded = (b.runs || 0) + (['wide', 'noBall'].includes(b.extraType) ? (b.extras || 0) : 0);
           p.runs += conceded;
+          overRuns += conceded;
+          t.runsAgainst += conceded;
+          
           if (isLegal(b) && conceded === 0 && !b.isWicket) p.dots++;
           if (bowlerWicket(b)) { p.wickets++; t.wicketsTaken++; }
-          // Fielding credit — the scorer records a NAME, and on our bowling
-          // innings that name is one of ours.
           if (b.isWicket && b.wicketAssists) {
             const wt = String(b.wicketType || '').toLowerCase().replace(/[\s&]/g, '');
-            const f = F(b.wicketAssists);
-            if (wt === 'caught' || wt === 'caughtbowled' || wt === 'candb') f.catches++;
-            else if (wt === 'stumped') f.stumpings++;
-            else if (wt === 'runout') f.runOuts++;
+            if (wt === 'runout') {
+              const assists = b.wicketAssists.split(',').map(s => s.trim());
+              if (b.directHit && assists.length === 1) {
+                 const f = F(assists[0]);
+                 f.runOuts++;
+                 f.directHits++;
+              } else {
+                 for (const a of assists) {
+                   const f = F(a);
+                   f.runOuts++;
+                   f.assistedRunOuts++;
+                 }
+              }
+            } else {
+              const f = F(b.wicketAssists);
+              if (wt === 'caught' || wt === 'caughtbowled' || wt === 'candb') f.catches++;
+              else if (wt === 'stumped') f.stumpings++;
+            }
           }
         }
+        
+        if (maidenBowlerId && maidenBowlerId !== 'SHARED' && overLegal >= 6 && overRuns === 0) {
+          W(maidenBowlerId, ov.bowler?.name).maidens++;
+        }
+      }
+      for (const bid of perInnBowl) {
+        W(bid, null).innings++;
       }
     }
 
-    // Captain's record — the squad row says who led, for this team, in this match.
     const cap = m.squads.find((s) => s.teamId === teamId && s.isCaptain);
     if (cap && won) capWins[cap.playerId] = (capWins[cap.playerId] || 0) + 1;
 
-    // Winning margin, from the two innings totals.
-    if (won && m.innings.length === 2) {
+    if (m.innings.length === 2 && !noResult && !tied) {
       const our = ours[0], their = theirs.find((i) => i.battingTeamId === opponentId);
       if (our && their) {
         if (our.inningNumber === 1) {
           const by = our.totalRuns - their.totalRuns;
-          if (by > 0 && (t.bestWinRuns === null || by > t.bestWinRuns)) t.bestWinRuns = by;
+          if (won) {
+            if (by > 0 && (t.bestWinRuns === null || by > t.bestWinRuns)) t.bestWinRuns = by;
+            if (by > 0 && (t.closestWinRuns === null || by < t.closestWinRuns)) t.closestWinRuns = by;
+          } else {
+            const byWickets = Math.max(0, Math.max(1, (m.squads.filter((s) => s.teamId === opponentId).length || 11) - 1) - their.totalWickets);
+            if (t.biggestLossWickets === null || byWickets > t.biggestLossWickets) t.biggestLossWickets = byWickets;
+          }
         } else {
-          // One short of the XI. Squads here run from 1 to 15, so a fixed ten
-          // reports a side that lost 7 of its 8 as having 3 in hand.
-          const xi = m.squads.filter((s) => s.teamId === teamId).length || 11;
-          const wicketsInHand = Math.max(0, Math.max(1, xi - 1) - our.totalWickets);
-          if (t.bestWinWickets === null || wicketsInHand > t.bestWinWickets) t.bestWinWickets = wicketsInHand;
+          if (won) {
+            const xi = m.squads.filter((s) => s.teamId === teamId).length || 11;
+            const wicketsInHand = Math.max(0, Math.max(1, xi - 1) - our.totalWickets);
+            if (t.bestWinWickets === null || wicketsInHand > t.bestWinWickets) t.bestWinWickets = wicketsInHand;
+            if (t.closestWinWickets === null || wicketsInHand < t.closestWinWickets) t.closestWinWickets = wicketsInHand;
+          } else {
+            const by = their.totalRuns - our.totalRuns;
+            if (by > 0 && (t.biggestLossRuns === null || by > t.biggestLossRuns)) t.biggestLossRuns = by;
+          }
         }
       }
     }
   }
 
-  // Best bowling in an innings needs a per-innings pass; done above by over
-  // aggregate would double-count shared overs, so it is derived here from the
-  // per-match figures the loop already has.
   for (const m of matches) {
     for (const inn of m.innings.filter((i) => i.bowlingTeamId === teamId)) {
       const perInn = {};
@@ -279,12 +355,11 @@ export async function teamStats(teamId, filters = {}) {
     }
   }
 
-  /* ── Streaks ──────────────────────────────────────────────────────────── */
   const streak = (want) => {
     let best = 0, run = 0;
     for (const r of results) { run = r === want ? run + 1 : 0; if (run > best) best = run; }
     return best;
-  };
+  }
   let current = { kind: null, count: 0 };
   for (let i = results.length - 1; i >= 0; i--) {
     if (current.kind === null) { current = { kind: results[i], count: 1 }; continue; }
@@ -300,31 +375,57 @@ export async function teamStats(teamId, filters = {}) {
 
   const batList = Object.values(bat).filter((p) => p.name);
   const bowlList = Object.values(bowl).filter((p) => p.name);
+  const partList = Object.values(part).filter((p) => p.name);
 
-  const top = (arr, n = 10) => arr.slice(0, n);
   const battingRows = batList.map((p) => ({
     playerId: p.id, name: p.name, matches: p.matches.size, innings: p.innings,
     runs: p.runs, balls: p.balls, notOuts: Math.max(0, p.innings - p.out),
     average: p.out > 0 ? div(p.runs, p.out) : p.runs || 0,
     strikeRate: div(p.runs * 100, p.balls, 1),
     highest: p.best, fours: p.fours, sixes: p.sixes, fifties: p.fifties, hundreds: p.hundreds,
+    ducks: p.ducks, fastest50: p.fastest50, fastest100: p.fastest100,
   }));
   const bowlingRows = bowlList.map((p) => ({
-    playerId: p.id, name: p.name, matches: p.matches.size,
+    playerId: p.id, name: p.name, matches: p.matches.size, innings: p.innings,
     balls: p.balls, overs: oversOf(p.balls), runs: p.runs, wickets: p.wickets,
     economy: p.balls > 0 ? div(p.runs * 6, p.balls) : 0,
     average: p.wickets > 0 ? div(p.runs, p.wickets) : 0,
+    strikeRate: p.wickets > 0 ? div(p.balls, p.wickets, 1) : 0,
     best: p.bestW > 0 ? `${p.bestW}/${p.bestR}` : '—',
     bestW: p.bestW, bestR: p.bestR,
-    threes: p.threes, fives: p.fives, dots: p.dots,
+    threes: p.threes, fives: p.fives, dots: p.dots, maidens: p.maidens,
   }));
   const fieldingRows = Object.values(field).map((f) => ({
     name: f.name, catches: f.catches, runOuts: f.runOuts, stumpings: f.stumpings,
+    directHits: f.directHits, assistedRunOuts: f.assistedRunOuts,
     dismissals: f.catches + f.runOuts + f.stumpings,
   }));
+  const participationRows = partList.map((p) => {
+    const b = bat[p.id];
+    const w = bowl[p.id];
+    return {
+      playerId: p.id, name: p.name, matches: p.matches,
+      inningsBat: b ? b.innings : 0, ballsFaced: b ? b.balls : 0,
+      inningsBowl: w ? w.innings : 0, oversBowl: w ? oversOf(w.balls) : '0.0',
+    };
+  });
 
-  // Qualification thresholds, scaled to how much cricket there is: a strike rate
-  // off one innings is noise, and so is an economy off one over.
+  const teamBowling = bowlingRows.reduce((acc, b) => {
+    acc.maidens += b.maidens || 0;
+    acc.dots += b.dots || 0;
+    return acc;
+  }, { maidens: 0, dots: 0 });
+
+  const teamFielding = fieldingRows.reduce((acc, f) => {
+    acc.catches += f.catches || 0;
+    acc.runOuts += f.runOuts || 0;
+    acc.directHits += f.directHits || 0;
+    acc.assistedRunOuts += f.assistedRunOuts || 0;
+    acc.stumpings += f.stumpings || 0;
+    acc.dismissals += f.dismissals || 0;
+    return acc;
+  }, { catches: 0, runOuts: 0, directHits: 0, assistedRunOuts: 0, stumpings: 0, dismissals: 0 });
+
   const minInnings = Math.max(2, Math.round(t.played * 0.25));
   const minOvers = Math.max(2, Math.round(t.played * 0.5));
 
@@ -333,39 +434,76 @@ export async function teamStats(teamId, filters = {}) {
     filters,
     matchCount: matches.length,
     team_stats: {
-      played: t.played, won: t.won, lost: t.lost, tied: t.tied, noResult: t.noResult,
-      winPct: div(t.won * 100, t.played, 1),
-      highestScore: t.highest, lowestScore: t.lowest,
-      bestChase: t.bestChase, lowestDefended: t.lowestDefended,
-      avgScore: div(t.runsFor, Math.max(1, t.played), 1),
-      runRate: div(t.runsFor * 6, Math.max(1, t.ballsFaced)),
-      avgWicketsLost: div(t.wicketsLost, Math.max(1, t.played), 1),
+      played: matches.length, won: t.won, lost: t.lost, tied: t.tied, noResult: t.noResult,
+      winPct: div(t.won * 100, Math.max(1, matches.length - t.noResult), 1),
+      highestScore: t.highest > 0 ? String(t.highest) : '—',
+      lowestScore: t.lowest < Infinity ? String(t.lowest) : '—',
+      bestChase: t.bestChase > 0 ? String(t.bestChase) : '—',
+      lowestDefended: t.lowestDefended < Infinity ? String(t.lowestDefended) : '—',
+      avgScore: div(t.runsFor, Math.max(1, t.inningsFor)),
+      runRate: div(t.runsFor * 6, Math.max(1, t.ballsFor)),
+      avgWicketsLost: div(t.wicketsLost, Math.max(1, t.inningsFor), 1),
       totalRuns: t.runsFor, totalWickets: t.wicketsTaken,
+      totalRunsConceded: t.runsAgainst,
+      teamEconomy: div(t.runsAgainst * 6, Math.max(1, t.ballsBowled)),
+      teamBowlingAvg: div(t.runsAgainst, Math.max(1, t.wicketsTaken)),
+      teamBowlingSr: div(t.ballsBowled, Math.max(1, t.wicketsTaken), 1),
+      totalMaidens: teamBowling.maidens,
+      totalDots: teamBowling.dots,
       fours: t.fours, sixes: t.sixes, boundaries: t.fours + t.sixes, extras: t.extras,
       bestWinRuns: t.bestWinRuns, bestWinWickets: t.bestWinWickets,
+      closestWinRuns: t.closestWinRuns, closestWinWickets: t.closestWinWickets,
+      biggestLossRuns: t.biggestLossRuns, biggestLossWickets: t.biggestLossWickets,
       longestWinStreak: streak('W'), longestLossStreak: streak('L'),
       currentStreak: current.count ? `${current.count}${current.kind}` : '—',
       homeWins: t.homeWins, homePlayed: t.homePlayed,
       awayWins: t.awayWins, awayPlayed: t.awayPlayed,
+      neutralWins: t.won - t.homeWins - t.awayWins,
       tossWinPct: div(t.tossWon * 100, Math.max(1, t.tossKnown), 1),
       batFirstWins: t.batFirstWins, batFirstPlayed: t.batFirstPlayed,
       fieldFirstWins: t.fieldFirstWins, fieldFirstPlayed: t.fieldFirstPlayed,
       avgFirstInnings: div(t.firstInningsRuns, Math.max(1, t.firstInningsCount), 1),
       avgSecondInnings: div(t.secondInningsRuns, Math.max(1, t.secondInningsCount), 1),
       form: results.slice(-5),
+      ...teamFielding
     },
     leaderboards: {
       runs:       top([...battingRows].sort((a, b) => b.runs - a.runs || b.average - a.average)),
-      wickets:    top([...bowlingRows].sort((a, b) => b.wickets - a.wickets || a.economy - b.economy)),
-      economy:    top([...bowlingRows].filter((p) => p.balls >= minOvers * 6).sort((a, b) => a.economy - b.economy)),
+      average:    top([...battingRows].filter((p) => p.innings >= minInnings).sort((a, b) => b.average - a.average)),
+      strikeRate: top([...battingRows].filter((p) => p.innings >= minInnings && p.balls > 0).sort((a, b) => b.strikeRate - a.strikeRate)),
+      highest:    top([...battingRows].filter((p) => p.highest > 0).sort((a, b) => b.highest - a.highest)),
+      hundreds:   top([...battingRows].filter((p) => p.hundreds > 0).sort((a, b) => b.hundreds - a.hundreds)),
+      fifties:    top([...battingRows].filter((p) => p.fifties > 0).sort((a, b) => b.fifties - a.fifties)),
       sixes:      top([...battingRows].filter((p) => p.sixes > 0).sort((a, b) => b.sixes - a.sixes)),
       fours:      top([...battingRows].filter((p) => p.fours > 0).sort((a, b) => b.fours - a.fours)),
-      highest:    top([...battingRows].filter((p) => p.highest > 0).sort((a, b) => b.highest - a.highest)),
-      strikeRate: top([...battingRows].filter((p) => p.innings >= minInnings && p.balls > 0).sort((a, b) => b.strikeRate - a.strikeRate)),
+      notOuts:    top([...battingRows].filter((p) => p.notOuts > 0).sort((a, b) => b.notOuts - a.notOuts)),
+      ducks:      top([...battingRows].filter((p) => p.ducks > 0).sort((a, b) => b.ducks - a.ducks)),
+      fastest50:  top([...battingRows].filter((p) => p.fastest50 !== null).sort((a, b) => a.fastest50 - b.fastest50)),
+      fastest100: top([...battingRows].filter((p) => p.fastest100 !== null).sort((a, b) => a.fastest100 - b.fastest100)),
+      
+      wickets:    top([...bowlingRows].sort((a, b) => b.wickets - a.wickets || a.economy - b.economy)),
+      bowlingAvg: top([...bowlingRows].filter((p) => p.wickets >= minInnings).sort((a, b) => a.average - b.average)),
+      bestBowling: top([...bowlingRows].filter((p) => p.wickets > 0).sort((a, b) => b.bestW - a.bestW || a.bestR - b.bestR)),
+      fives:      top([...bowlingRows].filter((p) => p.fives > 0).sort((a, b) => b.fives - a.fives)),
+      threes:     top([...bowlingRows].filter((p) => p.threes > 0).sort((a, b) => b.threes - a.threes)),
+      economy:    top([...bowlingRows].filter((p) => p.balls >= minOvers * 6).sort((a, b) => a.economy - b.economy)),
+      bowlingSr:  top([...bowlingRows].filter((p) => p.wickets >= minInnings).sort((a, b) => a.strikeRate - b.strikeRate)),
+      maidens:    top([...bowlingRows].filter((p) => p.maidens > 0).sort((a, b) => b.maidens - a.maidens)),
+      dots:       top([...bowlingRows].filter((p) => p.dots > 0).sort((a, b) => b.dots - a.dots)),
+
       catches:    top([...fieldingRows].filter((f) => f.catches > 0).sort((a, b) => b.catches - a.catches)),
       runOuts:    top([...fieldingRows].filter((f) => f.runOuts > 0).sort((a, b) => b.runOuts - a.runOuts)),
+      directHits: top([...fieldingRows].filter((f) => f.directHits > 0).sort((a, b) => b.directHits - a.directHits)),
+      assistedRunOuts: top([...fieldingRows].filter((f) => f.assistedRunOuts > 0).sort((a, b) => b.assistedRunOuts - a.assistedRunOuts)),
       stumpings:  top([...fieldingRows].filter((f) => f.stumpings > 0).sort((a, b) => b.stumpings - a.stumpings)),
       dismissals: top([...fieldingRows].filter((f) => f.dismissals > 0).sort((a, b) => b.dismissals - a.dismissals)),
+
+      matches:    top([...participationRows].sort((a, b) => b.matches - a.matches)),
+      inningsBat: top([...participationRows].filter((p) => p.inningsBat > 0).sort((a, b) => b.inningsBat - a.inningsBat)),
+      inningsBowl: top([...participationRows].filter((p) => p.inningsBowl > 0).sort((a, b) => b.inningsBowl - a.inningsBowl)),
+      oversBowl:  top([...participationRows].filter((p) => p.oversBowl !== '0.0').sort((a, b) => parseFloat(b.oversBowl) - parseFloat(a.oversBowl))),
+      ballsFaced: top([...participationRows].filter((p) => p.ballsFaced > 0).sort((a, b) => b.ballsFaced - a.ballsFaced)),
+
       motm:       top(Object.values(motm).sort((a, b) => b.count - a.count)),
       appearances: top([...battingRows].sort((a, b) => b.matches - a.matches)),
       captainWins: top(Object.entries(capWins)
@@ -407,5 +545,13 @@ export async function teamStatsFilterOptions(teamId) {
   for (const f of fixtures) {
     if (f.tournament && !seen.has(f.tournament.id)) { seen.add(f.tournament.id); tournaments.push(f.tournament); }
   }
-  return { years, matchTypes, venues, tournaments };
+
+  const oppIds = [...new Set(matches.flatMap(m => [m.team1Id, m.team2Id]))].filter(id => id !== teamId);
+  const oppTeams = await prisma.team.findMany({
+    where: { id: { in: oppIds } },
+    select: { id: true, name: true }
+  });
+  const oppositions = oppTeams.sort((a, b) => a.name.localeCompare(b.name));
+
+  return { years, matchTypes, venues, tournaments, oppositions };
 }

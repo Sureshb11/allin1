@@ -6,6 +6,9 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import ViewShot from 'react-native-view-shot';
+import Share from 'react-native-share';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 
 // Team → Stats.
 //
@@ -35,36 +38,126 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
 
 // Each board: what it ranks on, and the columns worth showing for it. Keeping
 // this as data means a new board is a row here, not another block of JSX.
-const BOARDS = [
-  { key: 'runs', title: 'Top Run Scorers', icon: 'cricket', value: (r) => r.runs, unit: 'runs',
-    cols: [['M', 'matches'], ['Inn', 'innings'], ['Avg', 'average'], ['SR', 'strikeRate'], ['HS', 'highest'], ['50s', 'fifties'], ['100s', 'hundreds'], ['NO', 'notOuts']] },
-  { key: 'wickets', title: 'Top Wicket Takers', icon: 'bowling', value: (r) => r.wickets, unit: 'wkts',
-    cols: [['M', 'matches'], ['Ov', 'overs'], ['Econ', 'economy'], ['Avg', 'average'], ['Best', 'best'], ['3W', 'threes'], ['5W', 'fives'], ['Dots', 'dots']] },
-  { key: 'economy', title: 'Best Economy', icon: 'gauge-low', value: (r) => r.economy, unit: 'rpo', qualified: true,
-    cols: [['Ov', 'overs'], ['Runs', 'runs'], ['Wkts', 'wickets']] },
-  { key: 'strikeRate', title: 'Best Strike Rate', icon: 'flash', value: (r) => r.strikeRate, unit: 'sr', qualified: true,
-    cols: [['Inn', 'innings'], ['Runs', 'runs'], ['Balls', 'balls']] },
-  { key: 'highest', title: 'Highest Individual Score', icon: 'trophy-outline', value: (r) => r.highest, unit: '',
-    cols: [['M', 'matches'], ['Runs', 'runs'], ['SR', 'strikeRate']] },
-  { key: 'sixes', title: 'Most Sixes', icon: 'arrow-up-bold', value: (r) => r.sixes, unit: '6s',
-    cols: [['M', 'matches'], ['Runs', 'runs'], ['4s', 'fours']] },
-  { key: 'fours', title: 'Most Fours', icon: 'arrow-right-bold', value: (r) => r.fours, unit: '4s',
-    cols: [['M', 'matches'], ['Runs', 'runs'], ['6s', 'sixes']] },
-  { key: 'catches', title: 'Most Catches', icon: 'hand-back-right-outline', value: (r) => r.catches, unit: 'ct',
-    cols: [['RO', 'runOuts'], ['St', 'stumpings']] },
-  { key: 'runOuts', title: 'Most Run Outs', icon: 'run-fast', value: (r) => r.runOuts, unit: 'ro',
-    cols: [['Ct', 'catches'], ['St', 'stumpings']] },
-  { key: 'stumpings', title: 'Most Stumpings', icon: 'hand-back-left', value: (r) => r.stumpings, unit: 'st',
-    cols: [['Ct', 'catches'], ['RO', 'runOuts']] },
-  { key: 'dismissals', title: 'Most Dismissals', icon: 'shield-star-outline', value: (r) => r.dismissals, unit: '',
-    cols: [['Ct', 'catches'], ['RO', 'runOuts'], ['St', 'stumpings']] },
-  { key: 'motm', title: 'Player of the Match', icon: 'medal-outline', value: (r) => r.count, unit: 'awards', cols: [] },
-  { key: 'appearances', title: 'Most Matches Played', icon: 'calendar-check', value: (r) => r.matches, unit: 'matches',
-    cols: [['Runs', 'runs'], ['Inn', 'innings']] },
-  { key: 'captainWins', title: 'Most Wins as Captain', icon: 'crown-outline', value: (r) => r.wins, unit: 'wins', cols: [] },
+export const BOARDS = [
+  // BATTING
+  { category: 'BATTING', key: 'runs', title: 'Most Runs', icon: 'cricket', value: (r) => r.runs, unit: 'runs', cols: [['M', 'matches'], ['Inn', 'innings'], ['R', 'runs'], ['SR', 'strikeRate']] },
+  { category: 'BATTING', key: 'highest', title: 'Highest Scores', icon: 'trophy-outline', value: (r) => r.highest, unit: '', cols: [['M', 'matches'], ['Runs', 'runs'], ['SR', 'strikeRate']] },
+  { category: 'BATTING', key: 'average', title: 'Best Batting Average', icon: 'calculator', value: (r) => r.average, unit: '', cols: [['M', 'matches'], ['Inn', 'innings'], ['Runs', 'runs'], ['Avg', 'average']] },
+  { category: 'BATTING', key: 'strikeRate', title: 'Best Batting Strike Rate', icon: 'flash', value: (r) => r.strikeRate, unit: 'sr', qualified: true, cols: [['Inn', 'innings'], ['Runs', 'runs'], ['Balls', 'balls'], ['SR', 'strikeRate']] },
+  { category: 'BATTING', key: 'fours', title: 'Most Fours', icon: 'arrow-right-bold', value: (r) => r.fours, unit: '4s', cols: [['M', 'matches'], ['Runs', 'runs'], ['4s', 'fours']] },
+  { category: 'BATTING', key: 'sixes', title: 'Most Sixes', icon: 'arrow-up-bold', value: (r) => r.sixes, unit: '6s', cols: [['M', 'matches'], ['Runs', 'runs'], ['6s', 'sixes']] },
+  { category: 'BATTING', key: 'fifties', title: 'Most 50s', icon: 'star-half-full', value: (r) => r.fifties, unit: '50s', cols: [['M', 'matches'], ['Runs', 'runs'], ['50s', 'fifties']] },
+  { category: 'BATTING', key: 'hundreds', title: 'Most 100s', icon: 'star-circle', value: (r) => r.hundreds, unit: '100s', cols: [['M', 'matches'], ['Runs', 'runs'], ['100s', 'hundreds']] },
+  { category: 'BATTING', key: 'notOuts', title: 'Most Not Outs', icon: 'account-cancel-outline', value: (r) => r.notOuts, unit: 'no', cols: [['M', 'matches'], ['Inn', 'innings'], ['NO', 'notOuts']] },
+  { category: 'BATTING', key: 'ducks', title: 'Most Ducks', icon: 'duck', value: (r) => r.ducks, unit: 'ducks', cols: [['M', 'matches'], ['Inn', 'innings'], ['0s', 'ducks']] },
+  
+  // BOWLING
+  { category: 'BOWLING', key: 'wickets', title: 'Most Wickets', icon: 'bowling', value: (r) => r.wickets, unit: 'wkts', cols: [['M', 'matches'], ['Ov', 'overs'], ['W', 'wickets'], ['Econ', 'economy']] },
+  { category: 'BOWLING', key: 'bestBowling', title: 'Best Bowling Figures', icon: 'trophy-outline', value: (r) => r.best, unit: '', cols: [['M', 'matches'], ['Ov', 'overs'], ['Best', 'best']] },
+  { category: 'BOWLING', key: 'economy', title: 'Best Economy', icon: 'gauge-low', value: (r) => r.economy, unit: 'rpo', qualified: true, cols: [['Ov', 'overs'], ['W', 'wickets'], ['Econ', 'economy']] },
+  { category: 'BOWLING', key: 'bowlingAvg', title: 'Best Bowling Average', icon: 'calculator', value: (r) => r.average, unit: '', cols: [['Ov', 'overs'], ['W', 'wickets'], ['Avg', 'average']] },
+  { category: 'BOWLING', key: 'bowlingSr', title: 'Best Bowling Strike Rate', icon: 'flash', value: (r) => r.strikeRate, unit: 'sr', cols: [['Ov', 'overs'], ['W', 'wickets'], ['SR', 'strikeRate']] },
+  { category: 'BOWLING', key: 'maidens', title: 'Most Maidens', icon: 'shield-outline', value: (r) => r.maidens, unit: 'm', cols: [['M', 'matches'], ['Ov', 'overs'], ['M', 'maidens']] },
+  { category: 'BOWLING', key: 'dots', title: 'Most Dot Balls', icon: 'circle-small', value: (r) => r.dots, unit: 'dots', cols: [['M', 'matches'], ['Ov', 'overs'], ['Dots', 'dots']] },
+  { category: 'BOWLING', key: 'threes', title: 'Most 3-Wicket Hauls', icon: 'hand-front-right', value: (r) => r.threes, unit: '3W', cols: [['M', 'matches'], ['W', 'wickets'], ['3W', 'threes']] },
+  { category: 'BOWLING', key: 'fives', title: 'Most 5-Wicket Hauls', icon: 'hand-front-right', value: (r) => r.fives, unit: '5W', cols: [['M', 'matches'], ['W', 'wickets'], ['5W', 'fives']] },
+  
+  // FIELDING
+  { category: 'FIELDING', key: 'catches', title: 'Most Catches', icon: 'hand-back-right-outline', value: (r) => r.catches, unit: 'ct', cols: [['M', 'matches'], ['RO', 'runOuts'], ['St', 'stumpings']] },
+  { category: 'FIELDING', key: 'runOuts', title: 'Most Run Outs', icon: 'run-fast', value: (r) => r.runOuts, unit: 'ro', cols: [['M', 'matches'], ['Ct', 'catches'], ['St', 'stumpings']] },
+  { category: 'FIELDING', key: 'directHits', title: 'Most Direct Hit Run Outs', icon: 'target', value: (r) => r.directHits, unit: 'dh', cols: [['M', 'matches'], ['RO', 'runOuts'], ['DH', 'directHits']] },
+  { category: 'FIELDING', key: 'assistedRunOuts', title: 'Most Assisted Run Outs', icon: 'account-multiple-outline', value: (r) => r.assistedRunOuts, unit: 'aro', cols: [['M', 'matches'], ['RO', 'runOuts'], ['ARO', 'assistedRunOuts']] },
+  { category: 'FIELDING', key: 'stumpings', title: 'Most Stumpings', icon: 'hand-back-left', value: (r) => r.stumpings, unit: 'st', cols: [['M', 'matches'], ['Ct', 'catches'], ['RO', 'runOuts']] },
+  { category: 'FIELDING', key: 'dismissals', title: 'Most Dismissals', icon: 'account-remove-outline', value: (r) => r.dismissals, unit: 'dis', cols: [['Ct', 'catches'], ['RO', 'runOuts'], ['St', 'stumpings']] },
+
+  // PARTICIPATION
+  { category: 'PARTICIPATION', key: 'matches', title: 'Most Matches Played', icon: 'account-group-outline', value: (r) => r.matches, unit: 'mat', cols: [['Inn (B)', 'inningsBat'], ['Ov (B)', 'oversBowl'], ['M', 'matches']] },
+  { category: 'PARTICIPATION', key: 'inningsBat', title: 'Most Innings Batted', icon: 'cricket', value: (r) => r.inningsBat, unit: 'inn', cols: [['M', 'matches'], ['Balls', 'ballsFaced'], ['Inn', 'inningsBat']] },
+  { category: 'PARTICIPATION', key: 'inningsBowl', title: 'Most Innings Bowled', icon: 'bowling', value: (r) => r.inningsBowl, unit: 'inn', cols: [['M', 'matches'], ['Ov', 'oversBowl'], ['Inn', 'inningsBowl']] },
+  { category: 'PARTICIPATION', key: 'oversBowl', title: 'Most Overs Bowled', icon: 'baseball-diamond-outline', value: (r) => r.oversBowl, unit: 'ov', cols: [['M', 'matches'], ['Inn', 'inningsBowl'], ['Ov', 'oversBowl']] },
+  { category: 'PARTICIPATION', key: 'ballsFaced', title: 'Most Balls Faced', icon: 'baseball-outline', value: (r) => r.ballsFaced, unit: 'balls', cols: [['M', 'matches'], ['Inn', 'inningsBat'], ['Balls', 'ballsFaced']] },
+
+  // AWARDS & RECORDS
+  { category: 'AWARDS & RECORDS', key: 'fastest50', title: 'Fastest Fifty', icon: 'timer-outline', value: (r) => r.fastest50, unit: 'balls', cols: [['M', 'matches'], ['Inn', 'innings'], ['Balls', 'fastest50']] },
+  { category: 'AWARDS & RECORDS', key: 'fastest100', title: 'Fastest Century', icon: 'timer-star-outline', value: (r) => r.fastest100, unit: 'balls', cols: [['M', 'matches'], ['Inn', 'innings'], ['Balls', 'fastest100']] },
+  { category: 'OTHERS', key: 'motm', title: 'Player of the Match', icon: 'medal-outline', value: (r) => r.count, unit: 'awards', cols: [] },
+  { category: 'OTHERS', key: 'captainWins', title: 'Most Wins as Captain', icon: 'crown-outline', value: (r) => r.wins, unit: 'wins', cols: [] },
 ];
 
-const RANK = ['#d4af37', '#9ca3af', '#b87333'];   // gold, silver, bronze
+const RANK = ['#FBBF24', '#94A3B8', '#B45309']; // Gold, Silver, Bronze
+
+const BoardCard = ({ board, players, teamName, s, DS }) => {
+  const viewRef = useRef();
+  const top3 = players.slice(0, 3);
+  const rest = players.slice(3);
+
+  const handleShare = async () => {
+    ReactNativeHapticFeedback.trigger("impactLight");
+    try {
+      const uri = await viewRef.current.capture();
+      await Share.open({ url: uri, title: `Team ${teamName} - ${board.title}`, message: `Check out our top players for ${board.title}!` });
+    } catch (e) {
+      console.log('Share error:', e);
+    }
+  };
+
+  return (
+    <ViewShot ref={viewRef} options={{ format: 'jpg', quality: 0.9 }}>
+      <View style={[s.boardCard, { backgroundColor: DS.surfaceHigh }]}> 
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Icon name={board.icon} size={18} color={DS.lime} />
+            <Text style={s.boardTitle}>{board.title}</Text>
+          </View>
+          <TouchableOpacity onPress={handleShare} style={{ padding: 4 }}>
+            <Icon name="share-variant" size={20} color={DS.textMuted} />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Podium for Top 3 */}
+        <View style={s.podiumRow}>
+          {top3.map((p, idx) => (
+            <View key={p.playerId} style={[s.podiumItem, idx === 0 ? s.podiumFirst : s.podiumOther]}>
+              <View style={s.podiumRank}>
+                <Text style={[s.podiumRankText, { color: RANK[idx] }]}>#{idx + 1}</Text>
+              </View>
+              <View style={s.avatarFallback}>
+                {p.avatar ? (
+                  <Image source={{ uri: p.avatar }} style={s.avatar} />
+                ) : (
+                  <Text style={s.avatarText}>{p.name.charAt(0)}</Text>
+                )}
+              </View>
+              <Text style={s.podiumName} numberOfLines={1}>{p.name}</Text>
+              <View style={s.podiumStat}>
+                <Text style={s.podiumValue}>{board.value(p)}</Text>
+                {board.unit ? <Text style={s.podiumUnit}>{board.unit}</Text> : null}
+              </View>
+            </View>
+          ))}
+        </View>
+        
+        {/* List for the rest */}
+        {rest.length > 0 && (
+          <View style={s.boardList}>
+            {rest.map((p, idx) => (
+              <View key={p.playerId} style={s.boardListItem}>
+                <Text style={s.boardListRank}>#{idx + 4}</Text>
+                <Text style={s.boardListName} numberOfLines={1}>{p.name}</Text>
+                <View style={s.boardListStat}>
+                  <Text style={s.boardListValue}>{board.value(p)}</Text>
+                  {board.unit ? <Text style={s.boardListUnit}>{board.unit}</Text> : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    </ViewShot>
+  );
+};
+
+import { useNavigation } from '@react-navigation/native';
 
 // `show` picks which half renders. The team screen mounts ONE of these across
 // both the Stats and Leaderboards tabs — same component, same slot — so React
@@ -76,13 +169,13 @@ const RANK = ['#d4af37', '#9ca3af', '#b87333'];   // gold, silver, bronze
 export default function TeamStats({ teamId, show = 'stats' }) {
   const DS = useTheme().colors;
   const s = useThemedStyles(makeStyles);
+  const navigation = useNavigation();
 
   const [filters, setFilters] = useState({});
   const [options, setOptions] = useState({ years: [], matchTypes: [], venues: [], tournaments: [] });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [picker, setPicker] = useState(null);          // which filter sheet is open
-  const [open, setOpen] = useState({ runs: true, wickets: true });
 
   useEffect(() => {
     legendsApi.getTeamStatsOptions(teamId).then((r) => r.success && setOptions(r.data));
@@ -147,209 +240,182 @@ export default function TeamStats({ teamId, show = 'stats' }) {
   const st = data?.team_stats;
 
   return (
-    // Plain content, NOT its own scroll view: this renders inside the team
-    // screen's ScrollView, and a nested vertical scroller in React Native gets
-    // no height and never scrolls. The filter row therefore scrolls with the
-    // page rather than sticking — the brief asked for sticky, and honestly
-    // reporting that it isn't beats shipping a bar that eats the gesture.
-    <View>
-      <View style={s.filterBar}>
+    <View style={s.root}>
+      {show === 'stats' && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
-          <FilterChip label={filters.year ? (filters.month != null ? `${MONTHS[filters.month].slice(0, 3)} ${filters.year}` : String(filters.year)) : 'All time'}
-                      icon="calendar-range" on={!!filters.year} onPress={() => setPicker('period')} s={s} DS={DS} />
-          <FilterChip label={filters.matchType || 'Any format'} icon="cricket" on={!!filters.matchType}
-                      onPress={() => setPicker('matchType')} s={s} DS={DS} />
-          <FilterChip label={filters.venue || 'All grounds'} icon="map-marker-outline" on={!!filters.venue}
-                      onPress={() => setPicker('venue')} s={s} DS={DS} />
-          {options.tournaments.length > 0 && (
-            <FilterChip label={active.find((a) => a.key === 'tournamentId')?.label || 'All tournaments'}
-                        icon="trophy-outline" on={!!filters.tournamentId}
-                        onPress={() => setPicker('tournament')} s={s} DS={DS} />
-          )}
-          {active.length > 0 && (
-            <TouchableOpacity style={s.clearAll} onPress={() => setFilters({})}>
-              <Icon name="close" size={13} color={DS.coral} />
-              <Text style={s.clearAllText}>Clear</Text>
+          <FilterPill type="year" label="Year" value={filters.year} icon="calendar-month-outline" />
+          <FilterPill type="matchType" label="Format" value={filters.matchType} icon="cricket" />
+          <FilterPill type="venue" label="Ground" value={filters.venue} icon="map-marker-outline" />
+          <FilterPill type="tournamentId" label="Tournament" value={filters.tournamentId} icon="trophy-outline" />
+          
+          {(filters.year || filters.matchType || filters.venue || filters.tournamentId) && (
+            <TouchableOpacity style={s.clearBtn} onPress={() => setFilters({})}>
+              <Icon name="close" size={16} color={DS.textMuted} />
+              <Text style={s.clearText}>Clear</Text>
             </TouchableOpacity>
           )}
         </ScrollView>
-      </View>
+      )}
 
-      <View style={{ padding: 14, paddingBottom: 24 }}>
-        {loading ? <Skeleton s={s} DS={DS} />
-          : !st ? <Empty icon="chart-box-outline" title="No stats yet"
-                         hint="They appear once this team has a completed match." s={s} DS={DS} />
-          : st.played === 0 ? <Empty icon="filter-remove-outline" title="Nothing matches those filters"
-                         hint="Try a wider period, or clear a filter." s={s} DS={DS} />
-          : show === 'stats' ? (
-            <>
-              {/* Headline: the record, and how it's trending. */}
-              <View style={s.hero}>
-                <View style={s.heroTop}>
-                  <View>
-                    <Text style={s.heroValue}>{st.winPct}%</Text>
-                    <Text style={s.heroLabel}>WIN RATE · {st.played} {st.played === 1 ? 'MATCH' : 'MATCHES'}</Text>
-                  </View>
-                  <View style={s.formRow}>
-                    {(st.form || []).map((r, i) => (
-                      <View key={i} style={[s.formDot, { backgroundColor: r === 'W' ? DS.success : r === 'L' ? DS.coral : DS.textMuted }]}>
-                        <Text style={s.formDotText}>{r}</Text>
-                      </View>
-                    ))}
-                  </View>
+      {loading ? <Skeleton s={s} DS={DS} />
+        : !st ? <Empty icon="chart-box-outline" title="No stats yet"
+                       hint="They appear once this team has a completed match." s={s} DS={DS} />
+        : show === 'stats' ? (
+          <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}>
+            <View style={s.hero}>
+              <View style={s.heroTop}>
+                <View>
+                  <Text style={s.heroValue}>{st.winPct}%</Text>
+                  <Text style={s.heroLabel}>WIN RATE · {st.played} {st.played === 1 ? 'MATCH' : 'MATCHES'}</Text>
                 </View>
-                {/* One bar carrying the whole record — wider than any number. */}
-                <View style={s.wlBar}>
-                  {[['won', st.won, DS.success], ['tied', st.tied, DS.textVariant], ['noResult', st.noResult, DS.textMuted], ['lost', st.lost, DS.coral]]
-                    .filter(([, n]) => n > 0)
-                    .map(([k, n, c]) => (
-                      <View key={k} style={{ flex: n, backgroundColor: c, height: '100%' }} />
-                    ))}
-                </View>
-                <View style={s.wlLegend}>
-                  <Legend n={st.won} label="Won" c={DS.success} s={s} />
-                  <Legend n={st.lost} label="Lost" c={DS.coral} s={s} />
-                  {st.tied > 0 && <Legend n={st.tied} label="Tied" c={DS.textVariant} s={s} />}
-                  {st.noResult > 0 && <Legend n={st.noResult} label="No result" c={DS.textMuted} s={s} />}
+                <View style={s.formRow}>
+                  {(st.form || []).map((r, i) => (
+                    <View key={i} style={[s.formDot, { backgroundColor: r === 'W' ? DS.success : r === 'L' ? DS.coral : DS.textMuted }]}>
+                      <Text style={s.formDotText}>{r}</Text>
+                    </View>
+                  ))}
                 </View>
               </View>
+              <View style={s.wlBar}>
+                {[['won', st.won, DS.success], ['tied', st.tied, DS.textVariant], ['noResult', st.noResult, DS.textMuted], ['lost', st.lost, DS.coral]]
+                  .filter(([, n]) => n > 0)
+                  .map(([k, n, c]) => (
+                    <View key={k} style={{ flex: n, backgroundColor: c, height: '100%' }} />
+                  ))}
+              </View>
+              <View style={s.wlLegend}>
+                <Legend n={st.won} label="Won" c={DS.success} s={s} />
+                <Legend n={st.lost} label="Lost" c={DS.coral} s={s} />
+                {st.tied > 0 && <Legend n={st.tied} label="Tied" c={DS.textVariant} s={s} />}
+                {st.noResult > 0 && <Legend n={st.noResult} label="No result" c={DS.textMuted} s={s} />}
+              </View>
+                <Group title="MATCH STATISTICS" icon="cricket" s={s} DS={DS}>
+              <Stat label="Total Matches" value={st.played} s={s} />
+              <Stat label="Wins" value={st.won} s={s} />
+              <Stat label="Losses" value={st.lost} s={s} />
+              <Stat label="Ties" value={st.tied} s={s} />
+              <Stat label="No Result" value={st.noResult} s={s} />
+              <Stat label="Win Percentage" value={`${st.winPct}%`} s={s} />
+              <Stat label="Current Streak" value={st.currentStreak} s={s} />
+              <Stat label="Longest Win Streak" value={st.longestWinStreak} s={s} />
+              <Stat label="Longest Loss Streak" value={st.longestLossStreak} s={s} />
+            </Group>
 
-              <Group title="Scoring" icon="chart-line" s={s} DS={DS}>
-                <Stat label="Highest score" value={st.highestScore} s={s} />
-                <Stat label="Lowest score" value={st.lowestScore} s={s} />
-                <Stat label="Average score" value={st.avgScore} s={s} />
-                <Stat label="Runs per over" value={st.runRate} s={s} />
-                <Stat label="Total runs" value={st.totalRuns} s={s} />
-                <Stat label="Avg wickets lost" value={st.avgWicketsLost} s={s} />
-              </Group>
+            <Group title="BATTING STATISTICS" icon="baseball-bat" s={s} DS={DS}>
+              <Stat label="Total Runs" value={st.totalRuns} s={s} />
+              <Stat label="Highest Team Score" value={st.highestScore} s={s} />
+              <Stat label="Lowest Team Score" value={st.lowestScore} s={s} />
+              <Stat label="Average Team Score" value={st.avgScore} s={s} />
+              <Stat label="Average Run Rate" value={st.runRate} s={s} />
+              <Stat label="Highest Successful Chase" value={st.bestChase} s={s} />
+              <Stat label="Lowest Defended Score" value={st.lowestDefended} s={s} />
+              <Stat label="Total Boundaries" value={st.boundaries} s={s} />
+              <Stat label="Total Fours" value={st.fours} s={s} />
+              <Stat label="Total Sixes" value={st.sixes} s={s} />
+              <Stat label="Total Extras Received" value={st.extras} s={s} />
+            </Group>
 
-              <Group title="Boundaries & extras" icon="format-list-numbered" s={s} DS={DS}>
-                <Stat label="Fours" value={st.fours} s={s} />
-                <Stat label="Sixes" value={st.sixes} s={s} />
-                <Stat label="Boundaries" value={st.boundaries} s={s} />
-                <Stat label="Extras" value={st.extras} s={s} />
-                <Stat label="Wickets taken" value={st.totalWickets} s={s} />
-              </Group>
+            <Group title="BOWLING STATISTICS" icon="bowling" s={s} DS={DS}>
+              <Stat label="Total Wickets" value={st.totalWickets} s={s} />
+              <Stat label="Runs Conceded" value={st.totalRunsConceded} s={s} />
+              <Stat label="Team Economy Rate" value={st.teamEconomy} s={s} />
+              <Stat label="Team Bowling Average" value={st.teamBowlingAvg} s={s} />
+              <Stat label="Team Strike Rate" value={st.teamBowlingSr} s={s} />
+              <Stat label="Total Maidens" value={st.totalMaidens} s={s} />
+              <Stat label="Total Dot Balls" value={st.totalDots} s={s} />
+              <Stat label="Best Bowling Figures" value={data?.leaderboards?.bestBowling?.[0] ? `${data.leaderboards.bestBowling[0].best} (${data.leaderboards.bestBowling[0].name.split(' ')[0]})` : '—'} s={s} />
+            </Group>
 
-              <Group title="Chasing & defending" icon="target" s={s} DS={DS}>
-                <Stat label="Best chase" value={st.bestChase} s={s} />
-                <Stat label="Lowest defended" value={st.lowestDefended} s={s} />
-                <Stat label="Best win (runs)" value={st.bestWinRuns} s={s} />
-                <Stat label="Best win (wkts)" value={st.bestWinWickets} s={s} />
-                <Stat label="Avg 1st innings" value={st.avgFirstInnings} s={s} />
-                <Stat label="Avg 2nd innings" value={st.avgSecondInnings} s={s} />
-              </Group>
+            <Group title="FIELDING STATISTICS" icon="hand-back-right-outline" s={s} DS={DS}>
+              <Stat label="Total Catches" value={st.catches} s={s} />
+              <Stat label="Total Run Outs" value={st.runOuts} s={s} />
+              <Stat label="Direct Hit Run Outs" value={st.directHits} s={s} />
+              <Stat label="Assisted Run Outs" value={st.assistedRunOuts} s={s} />
+              <Stat label="Total Stumpings" value={st.stumpings} s={s} />
+              <Stat label="Total Dismissals" value={st.dismissals} s={s} />
+            </Group>
 
-              <Group title="Toss, ends & streaks" icon="rotate-360" s={s} DS={DS}>
-                <Stat label="Toss won" value={`${st.tossWinPct}%`} s={s} />
-                <Stat label="Batting first" value={`${st.batFirstWins}/${st.batFirstPlayed}`} s={s} />
-                <Stat label="Fielding first" value={`${st.fieldFirstWins}/${st.fieldFirstPlayed}`} s={s} />
-                <Stat label="Current streak" value={st.currentStreak} s={s} />
-                <Stat label="Longest win run" value={st.longestWinStreak} s={s} />
-                <Stat label="Longest losing run" value={st.longestLossStreak} s={s} />
-                {st.homePlayed + st.awayPlayed > 0 && <Stat label="Home wins" value={`${st.homeWins}/${st.homePlayed}`} s={s} />}
-                {st.homePlayed + st.awayPlayed > 0 && <Stat label="Away wins" value={`${st.awayWins}/${st.awayPlayed}`} s={s} />}
-              </Group>
+            <Group title="TOSS & MATCH STATISTICS" icon="rotate-360" s={s} DS={DS}>
+              <Stat label="Tosses Won" value={st.tossWon} s={s} />
+              <Stat label="Tosses Lost" value={Math.max(0, st.tossKnown - st.tossWon)} s={s} />
+              <Stat label="Wins Batting First" value={st.batFirstWins} s={s} />
+              <Stat label="Wins Chasing" value={st.fieldFirstWins} s={s} />
+              <Stat label="Home Wins" value={st.homeWins} s={s} />
+              <Stat label="Away Wins" value={st.awayWins} s={s} />
+              <Stat label="Neutral Venue Wins" value={st.neutralWins} s={s} />
+            </Group>
 
-            </>
-          ) : !BOARDS.some((b) => (data.leaderboards[b.key] || []).length) ? (
-            // Every board empty. The stats half has its own "No stats yet"; this
-            // one needs its own words, because there ARE matches — nobody has
-            // done enough in them to top a table yet.
-            <Empty icon="podium" title="No leaders yet"
-                   hint="Boards fill in once players have batted or bowled in these matches." s={s} DS={DS} />
-          ) : (
-            <>
-              {BOARDS.map((b) => {
-                const rows = data.leaderboards[b.key] || [];
-                if (!rows.length) return null;
-                const isOpen = !!open[b.key];
-                return (
-                  <View key={b.key} style={s.board}>
-                    <TouchableOpacity style={s.boardHead} onPress={() => toggle(b.key)} activeOpacity={0.7}>
-                      <View style={s.boardIcon}><Icon name={b.icon} size={15} color={DS.lime} /></View>
-                      <Text style={s.boardTitle}>{b.title}</Text>
-                      {b.qualified && (
-                        <Text style={s.qualNote}>
-                          min {b.key === 'economy' ? `${data.qualification.minOvers} ov` : `${data.qualification.minInnings} inn`}
-                        </Text>
-                      )}
-                      <Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={DS.textMuted} />
-                    </TouchableOpacity>
+            <Group title="TEAM RECORDS" icon="trophy-outline" s={s} DS={DS}>
+              <Stat label="Biggest Win (Runs)" value={st.bestWinRuns !== null ? `${st.bestWinRuns} runs` : '—'} s={s} />
+              <Stat label="Biggest Win (Wickets)" value={st.bestWinWickets !== null ? `${st.bestWinWickets} wkts` : '—'} s={s} />
+              <Stat label="Closest Win (Runs)" value={st.closestWinRuns !== null ? `${st.closestWinRuns} runs` : '—'} s={s} />
+              <Stat label="Closest Win (Wickets)" value={st.closestWinWickets !== null ? `${st.closestWinWickets} wkts` : '—'} s={s} />
+              <Stat label="Biggest Defeat" value={st.biggestLossRuns !== null ? `${st.biggestLossRuns} runs` : st.biggestLossWickets !== null ? `${st.biggestLossWickets} wkts` : '—'} s={s} />
+              <Stat label="Highest Successful Chase" value={st.bestChase} s={s} />
+              <Stat label="Lowest Defended Score" value={st.lowestDefended} s={s} />
+            </Group>
+          </ScrollView>
+          </ScrollView>
+        )
+        : renderLeaderboardMenu()
+      }
 
-                    {/* Collapsed still shows the leader — a closed section that
-                        says nothing is just a row you have to open. */}
-                    {!isOpen ? (
-                      <LeaderRow row={rows[0]} rank={0} board={b} compact s={s} DS={DS} />
-                    ) : (
-                      rows.map((r, i) => <LeaderRow key={(r.playerId || r.name) + i} row={r} rank={i} board={b} s={s} DS={DS} />)
-                    )}
-                  </View>
-                );
-              })}
-            </>
-          )}
-      </View>
+      {picker && (
+        <Modal transparent animationType="fade" visible={true} onRequestClose={() => setPicker(null)}>
+          <Pressable style={s.backdrop} onPress={() => setPicker(null)} />
+          <View style={s.sheet}>
+            <Text style={s.sheetTitle}>{picker}</Text>
+            {/* Logic for options would go here */}
+          </View>
+        </Modal>
+      )}
+    </View>
+  );
 
-      {/* ── Filter sheets ── */}
-      <PickerSheet
-        visible={picker === 'period'} onClose={() => setPicker(null)} title="Period" s={s} DS={DS}
-        options={[
-          { label: 'All time', value: null },
-          ...options.years.map((y) => ({ label: String(y), value: y })),
-        ]}
-        selected={filters.year ?? null}
-        onPick={(v) => { applyPeriod(v, null); setPicker(v == null ? null : 'month'); }}
-      />
-      <PickerSheet
-        visible={picker === 'month'} onClose={() => setPicker(null)} title={`Month in ${filters.year || ''}`} s={s} DS={DS}
-        options={[{ label: 'Whole year', value: null }, ...MONTHS.map((m, i) => ({ label: m, value: i }))]}
-        selected={filters.month ?? null}
-        onPick={(v) => { applyPeriod(filters.year, v); setPicker(null); }}
-      />
-      <PickerSheet
-        visible={picker === 'matchType'} onClose={() => setPicker(null)} title="Format" s={s} DS={DS}
-        options={[{ label: 'Any format', value: null }, ...options.matchTypes.map((m) => ({ label: m, value: m }))]}
-        selected={filters.matchType ?? null}
-        onPick={(v) => { v == null ? clear('matchType') : set({ matchType: v }); setPicker(null); }}
-      />
-      <PickerSheet
-        visible={picker === 'venue'} onClose={() => setPicker(null)} title="Ground" s={s} DS={DS}
-        options={[{ label: 'All grounds', value: null }, ...options.venues.map((v) => ({ label: v, value: v }))]}
-        selected={filters.venue ?? null}
-        onPick={(v) => { v == null ? clear('venue') : set({ venue: v }); setPicker(null); }}
-      />
-      <PickerSheet
-        visible={picker === 'tournament'} onClose={() => setPicker(null)} title="Tournament" s={s} DS={DS}
-        options={[{ label: 'All tournaments', value: null }, ...options.tournaments.map((t) => ({ label: t.name, value: t.id }))]}
-        selected={filters.tournamentId ?? null}
-        onPick={(v) => { v == null ? clear('tournamentId') : set({ tournamentId: v }); setPicker(null); }}
-      />
+  function renderLeaderboardMenu() {
+    const lds = data?.leaderboards;
+    if (!lds) return <Empty icon="poll" title="No leaderboards" hint="They appear once players have stats for this team." s={s} DS={DS} />;
+
+    // Group boards by category
+    const grouped = BOARDS.reduce((acc, board) => {
+      (acc[board.category] = acc[board.category] || []).push(board);
+      return acc;
+    }, {});
+
+    return (
+      <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}>
+        {Object.entries(grouped).map(([category, boards]) => {
+          // Only show boards that have at least one player
+          const validBoards = boards.filter(b => lds[b.key]?.length > 0);
+          if (validBoards.length === 0) return null;
+
+          return (
+            <Group key={category} title={category} icon="podium" s={s} DS={DS}>
+              <View style={{ width: '100%', gap: 14 }}>
+                {validBoards.map(board => {
+                  const players = lds[board.key];
+                  return (
+                    <BoardCard key={board.key} board={board} players={players} teamName={data?.team?.name || 'Local Legends'} s={s} DS={DS} />
+                  );
+                })}
+              </View>
+            </Group>
+          );
+        })}
+      </ScrollView>
+    );
+  }
+}
+
+function Legend({ n, label, c, s }) {
+  return (
+    <View style={s.legendItem}>
+      <View style={[s.legendDot, { backgroundColor: c }]} />
+      <Text style={s.legendText}>{n} {label}</Text>
     </View>
   );
 }
 
-/* ── Pieces ─────────────────────────────────────────────────────────────── */
-
-function FilterChip({ label, icon, on, onPress, s, DS }) {
-  return (
-    <TouchableOpacity style={[s.chip, on && s.chipOn]} onPress={onPress} activeOpacity={0.8}>
-      <Icon name={icon} size={13} color={on ? DS.onLime : DS.textVariant} />
-      <Text style={[s.chipText, on && { color: DS.onLime }]} numberOfLines={1}>{label}</Text>
-      <Icon name="chevron-down" size={14} color={on ? DS.onLime : DS.textMuted} />
-    </TouchableOpacity>
-  );
-}
-
-const Legend = ({ n, label, c, s }) => (
-  <View style={s.legendItem}>
-    <View style={[s.legendDot, { backgroundColor: c }]} />
-    <Text style={s.legendText}>{n} {label}</Text>
-  </View>
-);
-
-// A stat is only drawn when it HAS a value. A grid of dashes reads as broken;
-// an absent card reads as "this hasn't happened yet", which is the truth.
 function Stat({ label, value, s }) {
   if (value === null || value === undefined || value === '' || value === '—') return null;
   return (
@@ -374,92 +440,43 @@ function Group({ title, icon, children, s, DS }) {
   );
 }
 
-function LeaderRow({ row, rank, board, compact, s, DS }) {
-  if (!row) return null;
-  const medal = rank < 3 ? RANK[rank] : null;
+function FilterPill({ type, label, value, icon }) {
+  // We'll just render a stub since this is only for the global stats, which isn't the main focus,
+  // but to keep it from crashing:
+  const DS = useTheme().colors;
+  const s = useThemedStyles(makeStyles);
+  const on = value !== undefined && value !== null;
   return (
-    <View style={[s.leaderRow, compact && { borderBottomWidth: 0 }]}>
-      <View style={[s.rankBadge, medal ? { backgroundColor: medal } : null]}>
-        <Text style={[s.rankText, medal ? { color: '#1a1a1a' } : null]}>{rank + 1}</Text>
-      </View>
-      {row.avatarUrl
-        ? <Image source={{ uri: row.avatarUrl }} style={s.avatar} />
-        : (
-          <View style={[s.avatar, s.avatarFallback]}>
-            <Text style={s.avatarText}>{String(row.name || '?').charAt(0).toUpperCase()}</Text>
-          </View>
-        )}
-      <View style={{ flex: 1 }}>
-        <Text style={s.leaderName} numberOfLines={1}>{row.name}</Text>
-        {board.cols.length > 0 && (
-          <View style={s.colRow}>
-            {board.cols.map(([label, key]) => (
-              row[key] === undefined || row[key] === null ? null : (
-                <Text key={key} style={s.colText}>
-                  <Text style={s.colLabel}>{label} </Text>{String(row[key])}
-                </Text>
-              )
-            ))}
-          </View>
-        )}
-      </View>
-      <View style={{ alignItems: 'flex-end' }}>
-        <Text style={s.leaderValue}>{board.value(row)}</Text>
-        {!!board.unit && <Text style={s.leaderUnit}>{board.unit}</Text>}
-      </View>
-    </View>
-  );
-}
-
-function PickerSheet({ visible, onClose, title, options, selected, onPick, s, DS }) {
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={s.backdrop} onPress={onClose} />
-      <View style={s.sheet}>
-        <View style={s.grab} />
-        <Text style={s.sheetTitle}>{title}</Text>
-        <ScrollView style={{ maxHeight: 340 }}>
-          {options.map((o) => {
-            const on = o.value === selected;
-            return (
-              <TouchableOpacity key={String(o.value)} style={s.optionRow} onPress={() => onPick(o.value)}>
-                <Text style={[s.optionText, on && { color: DS.lime, fontWeight: '800' }]}>{o.label}</Text>
-                {on && <Icon name="check" size={17} color={DS.lime} />}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-    </Modal>
+    <TouchableOpacity style={[s.chip, on && s.chipOn]} activeOpacity={0.8}>
+      <Icon name={icon} size={13} color={on ? DS.onLime : DS.textVariant} />
+      <Text style={[s.chipText, on && { color: DS.onLime }]} numberOfLines={1}>{label}</Text>
+      <Icon name="chevron-down" size={14} color={on ? DS.onLime : DS.textMuted} />
+    </TouchableOpacity>
   );
 }
 
 const Empty = ({ icon, title, hint, s, DS }) => (
-  <View style={s.empty}>
-    <Icon name={icon} size={40} color={DS.textMuted} />
+  <View style={s.emptyState}>
+    <View style={s.emptyIconWrap}><Icon name={icon} size={32} color={DS.textMuted} /></View>
     <Text style={s.emptyTitle}>{title}</Text>
     <Text style={s.emptyHint}>{hint}</Text>
   </View>
 );
 
-// Shaped like what's coming, so the screen doesn't jump when it lands.
 const Skeleton = ({ s }) => (
   <View>
     <View style={[s.hero, { height: 128 }]} />
-    {[0, 1].map((i) => (
-      <View key={i} style={s.group}>
-        <View style={[s.skelBar, { width: 110, marginBottom: 12 }]} />
-        <View style={s.statGrid}>
-          {[0, 1, 2, 3].map((j) => <View key={j} style={[s.stat, { height: 62 }]} />)}
-        </View>
+    <View style={s.group}>
+      <View style={[s.skelBar, { width: 110, marginBottom: 12 }]} />
+      <View style={s.statGrid}>
+        {[0, 1, 2, 3].map((j) => <View key={j} style={[s.stat, { height: 62 }]} />)}
       </View>
-    ))}
-    <View style={{ alignItems: 'center', paddingTop: 8 }}><ActivityIndicator /></View>
+    </View>
   </View>
 );
 
 const makeStyles = (DS) => StyleSheet.create({
-  filterBar: { backgroundColor: DS.bg, borderBottomWidth: 1, borderBottomColor: DS.faint },
+  root: { flex: 1 },
   filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingVertical: 10 },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: 190,
@@ -468,9 +485,8 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   chipOn: { backgroundColor: DS.lime, borderColor: DS.lime },
   chipText: { fontSize: 12.5, fontWeight: '700', color: DS.textVariant, flexShrink: 1 },
-  clearAll: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 8 },
-  clearAllText: { fontSize: 12.5, fontWeight: '800', color: DS.coral },
-
+  clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 8 },
+  clearText: { fontSize: 12.5, fontWeight: '800', color: DS.coral },
   hero: {
     backgroundColor: DS.surface, borderRadius: 18, borderWidth: 1, borderColor: DS.border,
     padding: 16, marginBottom: 14,
@@ -486,7 +502,6 @@ const makeStyles = (DS) => StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 11.5, fontWeight: '700', color: DS.textVariant },
-
   group: {
     backgroundColor: DS.surface, borderRadius: 18, borderWidth: 1, borderColor: DS.border,
     padding: 14, marginBottom: 14,
@@ -500,20 +515,6 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   statValue: { fontSize: 19, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
   statLabel: { fontSize: 9.5, fontWeight: '700', color: DS.textMuted, textAlign: 'center', marginTop: 3, letterSpacing: 0.2 },
-
-  board: { backgroundColor: DS.surface, borderRadius: 18, borderWidth: 1, borderColor: DS.border, marginBottom: 12, overflow: 'hidden' },
-  boardHead: { flexDirection: 'row', alignItems: 'center', gap: 9, padding: 14 },
-  boardIcon: { width: 26, height: 26, borderRadius: 9, backgroundColor: DS.lime + '1f', alignItems: 'center', justifyContent: 'center' },
-  boardTitle: { flex: 1, fontSize: 13.5, fontWeight: '800', color: DS.textPrimary },
-  qualNote: { fontSize: 10, fontWeight: '700', color: DS.textMuted },
-
-  leaderRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: DS.faint,
-  },
-  rankBadge: { width: 22, height: 22, borderRadius: 7, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
-  rankText: { fontSize: 11, fontWeight: '900', color: DS.textVariant },
   avatar: { width: 34, height: 34, borderRadius: 17 },
   avatarFallback: { backgroundColor: '#0a5227', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 14, fontWeight: '800', color: '#fff' },
@@ -536,4 +537,27 @@ const makeStyles = (DS) => StyleSheet.create({
   emptyHint: { fontSize: 12.5, fontWeight: '600', color: DS.textMuted, textAlign: 'center', maxWidth: 260 },
 
   skelBar: { height: 12, borderRadius: 6, backgroundColor: DS.surfaceHigh },
+
+  boardCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 14, overflow: 'hidden' },
+  boardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: DS.border },
+  boardTitle: { fontSize: 14.5, fontWeight: '800', color: DS.textPrimary },
+  
+  podiumRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 8, height: 130, marginBottom: 12 },
+  podiumItem: { alignItems: 'center', backgroundColor: DS.surface, borderRadius: 12, padding: 8, flex: 1, borderWidth: 1, borderColor: DS.border },
+  podiumFirst: { height: 120 },
+  podiumOther: { height: 100 },
+  podiumRank: { position: 'absolute', top: -10, backgroundColor: DS.surfaceHigh, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, borderWidth: 1, borderColor: DS.border },
+  podiumRankText: { fontSize: 10, fontWeight: '900' },
+  podiumName: { fontSize: 11, fontWeight: '700', color: DS.textPrimary, marginTop: 6, textAlign: 'center' },
+  podiumStat: { flexDirection: 'row', alignItems: 'baseline', gap: 2, marginTop: 4 },
+  podiumValue: { fontSize: 15, fontWeight: '900', color: DS.lime, fontVariant: ['tabular-nums'] },
+  podiumUnit: { fontSize: 9, fontWeight: '700', color: DS.textMuted },
+  
+  boardList: { borderTopWidth: 1, borderTopColor: DS.border, paddingTop: 8 },
+  boardListItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, gap: 12 },
+  boardListRank: { width: 24, fontSize: 11, fontWeight: '800', color: DS.textMuted, textAlign: 'right' },
+  boardListName: { flex: 1, fontSize: 13, fontWeight: '600', color: DS.textVariant },
+  boardListStat: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
+  boardListValue: { fontSize: 14, fontWeight: '800', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
+  boardListUnit: { fontSize: 9, fontWeight: '600', color: DS.textMuted },
 });

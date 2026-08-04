@@ -1243,7 +1243,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
               </TouchableOpacity>
             </BottomSheetScrollView>
       </BottomSheetModal>
-      <MagneticFAB onPress={openCreate} DS={DS} />
       <DynamicIsland ref={islandRef} />
     </View>
   );

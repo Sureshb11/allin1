@@ -335,50 +335,16 @@ const StartMatchScreen = ({ navigation, route }) => {
         return;
       }
 
-      // Scheduled for later → leave it as an Upcoming fixture; start it from
-      // My Matches (its START button) when it's time.
-      if (scheduleAt) {
-        showToast('Match scheduled ✓', 'success');
-        // Back to the Home feed with a clean stack — don't leave the create form
-        // (or push a separate matches page) behind it.
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'CricketFeed' }],
-        });
-        return;
-      }
-
-      // Non-cricket sports go through their own pre-match setup (coin toss +
-      // squads) before scoring. They used to jump straight into the scorer with
-      // no squads recorded at all, which meant a goal could never be attributed
-      // to a player. Cricket keeps its toss → lineup → ball-by-ball flow.
-      if (sport.id !== 'cricket') {
-        navigation.navigate('MatchSetup', {
-          matchId: matchRes.data.id,
-          team1: team1.name, team2: team2.name,
-          team1Id: team1.id, team2Id: team2.id,
-          venue: venue.trim(), matchType: format.label,
-          sport,
-        });
-        return;
-      }
-
-      const inningsRes = await legendsApi.getMatchInnings(matchRes.data.id);
-      const firstInning = inningsRes.success && inningsRes.data.length > 0
-        ? inningsRes.data[0] : null;
-
-      navigation.navigate('TossLineup', {
-        team1: team1.name,
-        team2: team2.name,
-        overs: String(parsedOvers),
-        venue: venue.trim(),
-        matchType: format.label,
-        ballType,
-        matchId: matchRes.data.id,
-        team1Id: team1.id,
-        team2Id: team2.id,
-        firstInningId: firstInning?.id,
-        sport,
+      showToast(scheduleAt ? 'Match scheduled ✓' : 'Match created ✓', 'success');
+      
+      // Always return to the My Matches screen so the scorer can start the match
+      // (and toss/lineup) from there when ready, rather than forcing an instant start.
+      navigation.reset({
+        index: 1,
+        routes: [
+          { name: sport.id === 'cricket' ? 'CricketFeed' : 'SportFeed' },
+          { name: 'MyMatches' }
+        ],
       });
     } catch {
       showToast('Something went wrong. Please try again.', 'error');

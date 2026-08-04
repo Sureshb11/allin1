@@ -18,7 +18,7 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import React, { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, TextInput, TouchableOpacity,
-  ActivityIndicator, Modal, Dimensions, Alert, Switch,
+  ActivityIndicator, Modal, Dimensions, Alert, Switch, Animated,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -41,6 +41,42 @@ const GALLERY_GAP = 6;
 const initials = (name) =>
   (name || '').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
+function TeamProfileSkeleton({ DS }) {
+  const pulseAnim = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: DS.bg }}>
+      <Animated.View style={{ height: 160, backgroundColor: DS.surfaceHigh, opacity: pulseAnim }} />
+      <View style={{ paddingHorizontal: 16, marginTop: -40 }}>
+        <Animated.View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: DS.surface, borderWidth: 3, borderColor: DS.bg, opacity: pulseAnim }} />
+        <Animated.View style={{ width: '60%', height: 28, borderRadius: 8, backgroundColor: DS.surfaceHigh, opacity: pulseAnim, marginTop: 12, marginBottom: 8 }} />
+        <Animated.View style={{ width: '40%', height: 16, borderRadius: 8, backgroundColor: DS.surfaceHigh, opacity: pulseAnim, marginBottom: 24 }} />
+        
+        <View style={{ flexDirection: 'row', gap: 16, marginBottom: 24, borderBottomWidth: 1, borderBottomColor: DS.border, paddingBottom: 12 }}>
+          <Animated.View style={{ width: 60, height: 20, borderRadius: 8, backgroundColor: DS.surfaceHigh, opacity: pulseAnim }} />
+          <Animated.View style={{ width: 60, height: 20, borderRadius: 8, backgroundColor: DS.surfaceHigh, opacity: pulseAnim }} />
+          <Animated.View style={{ width: 60, height: 20, borderRadius: 8, backgroundColor: DS.surfaceHigh, opacity: pulseAnim }} />
+        </View>
+
+        <View style={{ gap: 12 }}>
+          <Animated.View style={{ width: '100%', height: 60, borderRadius: 12, backgroundColor: DS.surfaceHigh, opacity: pulseAnim }} />
+          <Animated.View style={{ width: '100%', height: 60, borderRadius: 12, backgroundColor: DS.surfaceHigh, opacity: pulseAnim }} />
+          <Animated.View style={{ width: '100%', height: 60, borderRadius: 12, backgroundColor: DS.surfaceHigh, opacity: pulseAnim }} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 const TeamProfileScreen = ({ navigation, route }) => {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
@@ -58,7 +94,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const [data, setData] = useState(null);
   // The STATS chip on a team card deep-links straight to this tab; everything
   // else opens on the squad.
-  const [tab, setTab] = useState(route.params?.initialTab || 'squad');
+  const [tab, setTab] = useState(route.params?.initialTab || 'matches');
 
   // Add-member (by mobile number) + add-award inline forms
   const [addingMember, setAddingMember] = useState(false);
@@ -85,19 +121,13 @@ const TeamProfileScreen = ({ navigation, route }) => {
   // The caller's own membership (a player row linked to their user id) — enables
   // the self-serve "Leave team" option for members who aren't the admin.
   const myMembership = (data?.members || []).find((m) => m.userId && m.userId === me?.id);
-  // Sport-aware: the tab icons, "Matches" glyph and honour stats all follow the
-  // team's sport (cricket keeps runs/wickets; every other sport shows points).
   const sport = team?.sport || 'cricket';
   const isCricket = sport === 'cricket';
   const sportIcon = sportMeta(sport).icon;
   const tabs = [
-    ['squad', 'Squad', 'account-group'],
     ['matches', 'Matches', sportIcon],
-    ['form', 'Stats', 'chart-line'],   // key unchanged: deep links use it
-    // The fourteen leaderboards used to sit at the BOTTOM of Stats, under
-    // thirty team figures — so the answer to "who scores our runs" was a long
-    // scroll past the answer to "how do we do at this ground". Its own tab,
-    // next to the stats it shares a filter row with.
+    ['squad', 'Squad', 'account-group'],
+    ['form', 'Stats', 'chart-line'],
     ['leaders', 'Leaderboard', 'podium'],
     ['standings', 'Standings', 'trophy-variant'],
     ['honours', 'Honours', 'medal'],
@@ -352,7 +382,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
   };
 
   if (loading) {
-    return <View style={[styles.container, styles.center]}><ActivityIndicator size="large" color={DS.lime} /></View>;
+    return <TeamProfileSkeleton DS={DS} />;
   }
   if (!team) {
     return <View style={[styles.container, styles.center]}><Text style={styles.muted}>Team not found.</Text></View>;
@@ -786,31 +816,76 @@ const SquadTab = ({ members, isAdmin, styles, DS, addingMember, searchPhone, set
 
 const MatchesTab = ({ matches, teamId, navigation, styles, DS }) => {
   if (matches.length === 0) return <Text style={styles.emptyTxt}>No matches yet.</Text>;
+
+  const grouped = {};
+  for (const m of matches) {
+    const t = m.tournamentName || 'OTHER MATCHES';
+    if (!grouped[t]) grouped[t] = [];
+    grouped[t].push(m);
+  }
+
   return (
-    <View>
-      {matches.map((m) => {
-        const opp = m.team1Id === teamId ? m.team2 : m.team1;
-        const live = m.status === 'live';
-        const done = m.status === 'completed';
-        return (
-          <TouchableOpacity key={m.id} style={styles.matchRow}
-            onPress={() => navigation.navigate('MatchInsights', { matchId: m.id })}>
-            <View style={styles.matchIcon}>
-              <Icon name={live ? 'access-point' : done ? 'check' : 'clock-outline'}
-                size={16} color={live ? DS.live : done ? DS.success : DS.textMuted} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.matchOpp} numberOfLines={1}>vs {opp?.name || 'TBD'}</Text>
-              <Text style={styles.matchMeta} numberOfLines={1}>
-                {m.result || (live ? 'Live now' : m.status === 'scheduled' ? 'Scheduled' : m.venue || '')}
-              </Text>
-            </View>
-            {(m.score1 || m.score2) ? (
-              <Text style={styles.matchScore}>{m.score1 || '–'} / {m.score2 || '–'}</Text>
-            ) : null}
-          </TouchableOpacity>
-        );
-      })}
+    <View style={{ backgroundColor: DS.bg }}>
+      {Object.entries(grouped).map(([tournamentName, tourneyMatches]) => (
+        <View key={tournamentName} style={{ marginBottom: 12 }}>
+          <View style={{ backgroundColor: DS.surface, paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ color: DS.textMuted, fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>{tournamentName}</Text>
+            <Icon name="chevron-right" size={18} color={DS.textMuted} />
+          </View>
+          
+          {tourneyMatches.map((m, i) => {
+            const isTeam1 = m.team1Id === teamId;
+            const live = m.status === 'live';
+            const done = m.status === 'completed';
+            const scheduled = m.status === 'scheduled';
+            
+            // Format match label like "3rd T20I • Harare"
+            let matchLabel = '';
+            if (m.matchType) matchLabel += m.matchType;
+            if (m.venue) matchLabel += (matchLabel ? ' • ' : '') + m.venue;
+            if (!matchLabel) matchLabel = live ? 'Live now' : scheduled ? 'Scheduled' : 'Match';
+
+            const d = m.startTime ? new Date(m.startTime) : null;
+            const dateStr = d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+            if (dateStr && matchLabel.indexOf(dateStr) === -1) {
+                matchLabel += ` • ${dateStr}`;
+            }
+            
+            return (
+              <TouchableOpacity key={m.id} style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: DS.border }}
+                onPress={() => !m.isTournamentMatchOnly && navigation.navigate('MatchInsights', { matchId: m.id })}>
+                
+                <Text style={{ color: DS.textMuted, fontSize: 12, marginBottom: 12 }}>{matchLabel}</Text>
+                
+                {/* Team 1 Row */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {m.team1?.logoUrl ? <Image source={{ uri: m.team1.logoUrl }} style={{ width: 20, height: 20, borderRadius: 10, marginRight: 8 }} />
+                      : <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: DS.surface, marginRight: 8 }} />}
+                    <Text style={{ color: DS.textPrimary, fontSize: 15, fontWeight: isTeam1 ? '700' : '400' }}>{m.team1?.name || 'TBD'}</Text>
+                  </View>
+                  <Text style={{ color: DS.textPrimary, fontSize: 15, fontWeight: '600' }}>{m.score1 || (scheduled ? '—' : '')}</Text>
+                </View>
+                
+                {/* Team 2 Row */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {m.team2?.logoUrl ? <Image source={{ uri: m.team2.logoUrl }} style={{ width: 20, height: 20, borderRadius: 10, marginRight: 8 }} />
+                      : <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: DS.surface, marginRight: 8 }} />}
+                    <Text style={{ color: DS.textPrimary, fontSize: 15, fontWeight: !isTeam1 ? '700' : '400' }}>{m.team2?.name || 'TBD'}</Text>
+                  </View>
+                  <Text style={{ color: DS.textPrimary, fontSize: 15, fontWeight: '600' }}>{m.score2 || (scheduled ? '—' : '')}</Text>
+                </View>
+                
+                {/* Result or Status string */}
+                <Text style={{ color: live ? DS.danger : DS.link || DS.lime, fontSize: 13, fontWeight: '500' }}>
+                  {m.result || (live ? 'Live' : scheduled ? (d ? d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Scheduled') : 'No result')}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 };

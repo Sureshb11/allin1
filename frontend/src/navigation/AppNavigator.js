@@ -46,6 +46,7 @@ import ClubProfileScreen from '../screens/ClubProfileScreen';
 import EditPlayerProfileScreen from '../screens/EditPlayerProfileScreen';
 import EditTeamProfileScreen from '../screens/EditTeamProfileScreen';
 import TeamProfileScreen from '../screens/TeamProfileScreen';
+import TeamStatLeaderboardScreen from '../screens/TeamStatLeaderboardScreen';
 import CreateProductScreen from '../screens/CreateProductScreen';
 import ProductDetailScreen from '../screens/ProductDetailScreen';
 import TournamentsScreen from '../screens/TournamentsScreen';
@@ -369,8 +370,16 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
         headerTintColor: DS.textPrimary,
       }}
     />
+    <Stack.Screen
+      name="TeamStatLeaderboard"
+      component={TeamStatLeaderboardScreen}
+      options={{
+        title: 'Leaderboard',
+        headerShown: false,
+      }}
+    />
     <Stack.Screen 
-      name="CreatePost" 
+      name="CreateProduct" 
       component={CreateProductScreen}
       options={{
         title: 'Create Post',

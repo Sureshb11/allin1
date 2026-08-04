@@ -194,17 +194,19 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
                   the one screen where both XIs are on display and the scorer
                   already has a finger on the list. Nested touchables don't
                   bubble in RN, so tapping C can't drop the player from the XI. */}
-              <TouchableOpacity style={[s.jobChip, isCap && s.jobChipOn]} onPress={() => assign('captainId', p.id)}
+              <TouchableOpacity style={s.jobToggle} onPress={() => assign('captainId', p.id)}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                accessibilityRole="button" accessibilityState={{ selected: isCap }}
+                accessibilityRole="radio" accessibilityState={{ checked: isCap }}
                 accessibilityLabel={`${isCap ? 'Remove' : 'Make'} ${p.name} captain`}>
-                <Text style={[s.jobChipTxt, isCap && s.jobChipTxtOn]}>C</Text>
+                <Icon name={isCap ? "check-circle" : "circle-outline"} size={16} color={isCap ? K.lime : K.textMuted} />
+                <Text style={[s.jobToggleTxt, isCap && s.jobToggleTxtOn]}>C</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.jobChip, isWk && s.jobChipOn]} onPress={() => assign('keeperId', p.id)}
+              <TouchableOpacity style={s.jobToggle} onPress={() => assign('keeperId', p.id)}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                accessibilityRole="button" accessibilityState={{ selected: isWk }}
+                accessibilityRole="radio" accessibilityState={{ checked: isWk }}
                 accessibilityLabel={`${isWk ? 'Remove' : 'Make'} ${p.name} wicketkeeper`}>
-                <Text style={[s.jobChipTxt, isWk && s.jobChipTxtOn]}>WK</Text>
+                <Icon name={isWk ? "check-circle" : "circle-outline"} size={16} color={isWk ? K.lime : K.textMuted} />
+                <Text style={[s.jobToggleTxt, isWk && s.jobToggleTxtOn]}>WK</Text>
               </TouchableOpacity>
               <View style={s.pCheck}><Icon name="check" size={15} color={K.onLime} /></View>
             </TouchableOpacity>
@@ -454,7 +456,7 @@ export default function TossLineupScreen({ route, navigation }) {
       const bowlingXI = bowlingTeamId === team1Id ? team1XI : team2XI;
 
       const scoringScreen = sportId === 'cricket' ? 'Scoring' : 'SportScoring';
-      navigation.navigate(scoringScreen, {
+      navigation.replace(scoringScreen, {
         match: {
           id: matchId, team1, team2, overs, venue, matchType, sport: sportId,
           tossWinner, decision,
@@ -881,14 +883,11 @@ const makeS = (K) => StyleSheet.create({
   leadKey: { fontSize: 10, fontWeight: '900', color: K.lime, letterSpacing: 0.6 },
   leadNone: { fontWeight: '600', color: K.textMuted },
 
-  jobChip: {
-    minWidth: 26, height: 22, paddingHorizontal: 5, borderRadius: 7, marginRight: 6,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: K.border, backgroundColor: 'transparent',
+  jobToggle: {
+    flexDirection: 'row', alignItems: 'center', marginRight: 12,
   },
-  jobChipOn: { backgroundColor: K.lime, borderColor: K.lime },
-  jobChipTxt: { fontSize: 10, fontWeight: '900', color: K.textMuted, letterSpacing: 0.3 },
-  jobChipTxtOn: { color: K.onLime },
+  jobToggleTxt: { fontSize: 11, fontWeight: '700', color: K.textMuted, marginLeft: 4 },
+  jobToggleTxtOn: { color: K.lime },
 
   pCheck: { width: 26, height: 26, borderRadius: 13, backgroundColor: K.lime, alignItems: 'center', justifyContent: 'center' },
   pAdd: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: K.textMuted, alignItems: 'center', justifyContent: 'center' },

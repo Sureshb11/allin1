@@ -16,6 +16,7 @@ import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
 import Reanimated, { useAnimatedRef, useSharedValue, scrollTo, withTiming, SlideInRight, SlideInLeft, FadeInDown } from 'react-native-reanimated';
 import AnimatedPressable from '../components/AnimatedPressable';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { pav } from '../theme/pavilion';
@@ -102,11 +103,31 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
   }, [pagerGesture, filterScroll, filterOffset, filterStart, filterMax]);
 
   return (
-    <View style={styles.filterContainer}>
+    <View style={[styles.filterContainer, { paddingTop: Platform.OS === 'ios' ? 50 : 20 }]}>
+      {/* Location Header */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 }}>
+        <View>
+          <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Your Location</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Icon name="map-marker" size={18} color="#3B82F6" style={{ marginRight: 4 }} />
+            <Text style={{ color: DS.textPrimary, fontSize: 18, fontWeight: '700' }}>Chennai</Text>
+          </View>
+        </View>
+        <TouchableOpacity onPress={() => setFilterModalVisible(true)}>
+          <Icon name="filter-variant" size={28} color={DS.textPrimary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Title */}
+      <Text style={{ color: DS.textPrimary, fontSize: 22, fontWeight: '700', paddingHorizontal: 16, marginBottom: 16, lineHeight: 30 }}>
+        {counts?.All || 0} Cricket Grounds In Chennai
+      </Text>
+
+      {/* Search Bar */}
       <View style={styles.searchBox}>
         <Icon name="magnify" size={20} color={DS.textMuted} />
         <TextInput
-          placeholder="Search grounds, cities..."
+          placeholder="Search for venue..."
           value={query}
           onChangeText={setQuery}
           style={styles.searchInput}
@@ -119,6 +140,7 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
         )}
       </View>
 
+      {/* Filter Tabs */}
       <GestureDetector gesture={filterPan}>
         <Reanimated.ScrollView
           ref={filterScroll}
@@ -128,26 +150,31 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
           scrollEventThrottle={16}
           onLayout={(e) => { filterViewW.current = e.nativeEvent.layout.width; recomputeMax(); }}
           onContentSizeChange={(w) => { filterContentW.current = w; recomputeMax(); }}
-          contentContainerStyle={[C.filterBar, { paddingHorizontal: 16 }]}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 24, marginTop: 12, paddingBottom: 0 }}
         >
-          {GROUND_TYPES.map(t => {
+          {GROUND_TYPES.map((t, index) => {
             const active = activeType === t;
             return (
               <TouchableOpacity
                 key={t}
-                style={[C.filterChip, active && C.filterChipActive]}
-                onPress={() => setActiveType(t)}
+                onLayout={(e) => {
+                  // roughly center by subtracting half screen width
+                  if (!filterScroll.tabPositions) filterScroll.tabPositions = {};
+                  filterScroll.tabPositions[index] = e.nativeEvent.layout.x;
+                }}
+                style={{ paddingBottom: 12, borderBottomWidth: 3, borderBottomColor: active ? '#3B82F6' : 'transparent' }}
+                onPress={() => {
+                  ReactNativeHapticFeedback.trigger("selection", { enableVibrateFallback: true, ignoreAndroidSystemSettings: false });
+                  setActiveType(t);
+                  if (filterScroll.current && filterScroll.tabPositions && filterScroll.tabPositions[index]) {
+                     filterScroll.current.scrollTo({ x: filterScroll.tabPositions[index] - 100, animated: true });
+                  }
+                }}
                 activeOpacity={0.7}
               >
-                <Icon name={FILTER_ICONS[t] || 'stadium'} size={14} color={active ? DS.lime : DS.textMuted} />
-                <Text style={[C.filterText, active && C.filterTextActive]}>
-                  {t === 'All' ? 'All' : t.replace('_', ' ').toUpperCase()}
+                <Text style={{ color: active ? DS.textPrimary : DS.textMuted, fontSize: 15, fontWeight: active ? '700' : '500' }}>
+                  {t === 'All' ? 'Distance' : t.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                 </Text>
-                {t !== 'All' && counts?.[t] > 0 && (
-                  <View style={[C.filterCount, active && C.filterCountOn]}>
-                    <Text style={[C.filterCountText, active && C.filterCountTextOn]}>{counts[t]}</Text>
-                  </View>
-                )}
               </TouchableOpacity>
             );
           })}
@@ -160,41 +187,67 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
 const GroundCard = ({ ground, index, isFav, onToggleFav, onPress, styles, DS, P }) => {
   const image = ground.images?.[0]?.imageUrl || 'https://via.placeholder.com/400x200?text=No+Image';
   const rating = ground.averageRating ? ground.averageRating.toFixed(1) : 'New';
+  const typeStr = ground.groundType ? ground.groundType.replace('_', '-').replace(/\b\w/g, l => l.toUpperCase()) : 'Ground';
+  const heartScale = useRef(new Animated.Value(1)).current;
+
+  const handleHeartPress = () => {
+    ReactNativeHapticFeedback.trigger("impactLight", { enableVibrateFallback: true, ignoreAndroidSystemSettings: false });
+    Animated.sequence([
+      Animated.timing(heartScale, { toValue: 1.4, duration: 150, useNativeDriver: true }),
+      Animated.spring(heartScale, { toValue: 1, friction: 3, useNativeDriver: true })
+    ]).start();
+    onToggleFav(ground.id);
+  };
 
   return (
-    <Reanimated.View style={{ flex: 1 }} entering={FadeInDown.delay((index % 8) * 60).duration(400).springify()}>
-      <AnimatedPressable style={styles.card} onPress={() => onPress(ground.id)}>
-      <View style={styles.cardImageContainer}>
-        <Image source={{ uri: image }} style={styles.cardImage} />
-        <View style={styles.cardGradient} />
-        
-        <TouchableOpacity style={styles.favButton} onPress={() => onToggleFav(ground.id)}>
-          <View style={styles.favBlur}>
-            <Icon name={isFav ? "heart" : "heart-outline"} size={16} color={isFav ? DS.coral : '#FFF'} />
+    <Reanimated.View style={{ flex: 1, marginBottom: 24 }} entering={FadeInDown.delay((index % 8) * 60).duration(400).springify()}>
+      <AnimatedPressable style={{ backgroundColor: 'transparent' }} onPress={() => onPress(ground.id)}>
+        <View style={{ width: '100%', height: 200, borderRadius: 16, overflow: 'hidden' }}>
+          <Image source={{ uri: image }} style={{ width: '100%', height: '100%' }} />
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', backgroundColor: 'rgba(0,0,0,0.4)' }} />
+          
+          <TouchableOpacity style={styles.favButton} onPress={handleHeartPress} activeOpacity={0.8}>
+            <View style={styles.favBlur}>
+              <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                <Icon name={isFav ? "heart" : "heart-outline"} size={16} color={isFav ? DS.coral : '#FFF'} />
+              </Animated.View>
+            </View>
+          </TouchableOpacity>
+
+          <View style={{ position: 'absolute', bottom: 12, left: 12, backgroundColor: 'rgba(0,0,0,0.7)', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16 }}>
+            <Text style={{ fontSize: 13, marginRight: 4 }}>🏏</Text>
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>Cricket</Text>
           </View>
-        </TouchableOpacity>
+        </View>
 
-        <View style={styles.ratingBadge}>
-          <Icon name="star" size={10} color="#FBBF24" />
-          <Text style={styles.ratingText}>{rating}</Text>
+        <View style={{ paddingVertical: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: DS.textPrimary }} numberOfLines={1}>
+                {ground.name}
+                <Text style={{ fontSize: 15, fontWeight: '400', color: DS.textMuted }}>, {ground.area || ground.city || ground.location}</Text>
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: DS.textMuted, fontWeight: '600', fontSize: 14 }}>{rating}</Text>
+              <Icon name="star" size={14} color={DS.textMuted} style={{ marginLeft: 4 }} />
+            </View>
+          </View>
+          
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+            <View style={{ backgroundColor: DS.surfaceHigh, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+              <Text style={{ color: DS.textMuted, fontSize: 12, fontWeight: '600' }}>{typeStr}</Text>
+            </View>
+            <Text style={{ color: DS.textMuted, fontSize: 14, marginHorizontal: 8 }}>•</Text>
+            <Text style={{ color: DS.textMuted, fontSize: 14, fontWeight: '600' }}>₹ {ground.price || 250} / 👤</Text>
+            {ground.distance !== undefined && (
+              <>
+                <Text style={{ color: DS.textMuted, fontSize: 14, marginHorizontal: 8 }}>•</Text>
+                <Text style={{ color: '#3B82F6', fontSize: 13, fontWeight: '700' }}>{ground.distance.toFixed(1)} km</Text>
+              </>
+            )}
+          </View>
         </View>
-      </View>
-
-      <View style={styles.cardContent}>
-        <Text style={styles.cardTitle} numberOfLines={1}>{ground.name}</Text>
-        <View style={styles.cardLocationRow}>
-          <Icon name="map-marker" size={12} color={DS.textMuted} />
-          <Text style={styles.cardSubtitle} numberOfLines={1}>{ground.location}</Text>
-        </View>
-        
-        <View style={styles.tagsContainer}>
-          {ground.groundType && <View style={styles.tag}><Text style={styles.tagText}>{ground.groundType.replace('_', ' ')}</Text></View>}
-          {ground.playingSurface && <View style={styles.tagOutline}><Text style={styles.tagOutlineText}>{ground.playingSurface}</Text></View>}
-          {ground.amenities?.slice(0, 1).map(a => (
-            <View key={a.id} style={styles.tagOutline}><Text style={styles.tagOutlineText}>{a.amenity}</Text></View>
-          ))}
-        </View>
-      </View>
       </AnimatedPressable>
     </Reanimated.View>
   );
@@ -298,8 +351,8 @@ const GroundsMap = ({ grounds, onAddRequest, onGroundPress, DS, P }) => {
               description={g.location || g.city}
               onCalloutPress={() => onGroundPress(g.id)}
             >
-              <View style={{ backgroundColor: DS.lime, padding: 8, borderRadius: 24, borderWidth: 3, borderColor: DS.surface, shadowColor: DS.lime, shadowOpacity: 0.6, shadowRadius: 10, elevation: 8 }}>
-                <Icon name="stadium" size={18} color={DS.bg} />
+              <View style={{ backgroundColor: '#FFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#DDD', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: {width: 0, height: 4}, elevation: 5 }}>
+                <Text style={{ color: '#000', fontWeight: '800', fontSize: 14 }}>₹{g.price || 500}</Text>
               </View>
             </Marker>
           );
@@ -345,110 +398,278 @@ const AdminRequestCard = ({ ground, submitter, onApprove, onReject, styles, DS }
   </View>
 );
 
+const GROUND_TYPES_LIST = [
+  { key: 'outdoor', label: 'Outdoor', icon: 'weather-sunny' },
+  { key: 'indoor', label: 'Indoor', icon: 'home-city' },
+  { key: 'box_cricket', label: 'Box Cricket', icon: 'cube-outline' },
+  { key: 'stadium', label: 'Stadium', icon: 'stadium' },
+  { key: 'nets', label: 'Nets', icon: 'tennis' },
+  { key: 'academy', label: 'Academy', icon: 'school' },
+];
+const SURFACES = [
+  { key: 'turf', label: 'Turf' }, { key: 'grass', label: 'Grass' },
+  { key: 'mat', label: 'Mat' }, { key: 'concrete', label: 'Concrete' },
+  { key: 'synthetic', label: 'Synthetic' }, { key: 'clay', label: 'Clay' },
+];
+const BALL_TYPES_LIST = [
+  { key: 'leather', label: 'Leather' }, { key: 'tennis', label: 'Tennis' },
+  { key: 'soft', label: 'Soft' }, { key: 'tape', label: 'Tape' },
+];
+const AMENITY_OPTIONS = [
+  'Flood Lights', 'Parking', 'Washroom', 'Drinking Water', 'Dressing Room',
+  'Scorer Table', 'Practice Nets', 'Seating', 'Canteen', 'First Aid', 'WiFi', 'Sound System',
+];
+const CATEGORIES = ['Cricket Ground', 'Sports Complex', 'Stadium', 'Academy', 'Private Ground', 'Community Ground'];
+
 const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
-  const [form, setForm] = useState({ 
-    name: '', location: '', city: '', address: '', groundType: 'outdoor', phone: '', description: '',
-    latitude: initialLocation?.latitude || null,
-    longitude: initialLocation?.longitude || null
-  });
-  const [imageUri, setImageUri] = useState(null);
+  const [step, setStep] = useState(1);
+  const totalSteps = 3;
+  // Step 1
+  const [name, setName] = useState('');
+  const [localName, setLocalName] = useState('');
+  const [category, setCategory] = useState('');
+  const [area, setArea] = useState('');
+  const [city, setCity] = useState('');
+  const [stateName, setStateName] = useState('');
+  const [address, setAddress] = useState('');
+  const [lat] = useState(initialLocation?.latitude || null);
+  const [lng] = useState(initialLocation?.longitude || null);
+  // Step 2
+  const [groundType, setGroundType] = useState('outdoor');
+  const [playingSurface, setPlayingSurface] = useState('');
+  const [ballTypes, setBallTypes] = useState([]);
+  const [price, setPrice] = useState('');
+  const [amenities, setAmenities] = useState([]);
+  const [openTime, setOpenTime] = useState('06:00');
+  const [closeTime, setCloseTime] = useState('22:00');
+  // Step 3
+  const [phone, setPhone] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [email, setEmail] = useState('');
+  const [website, setWebsite] = useState('');
+  const [imageUris, setImageUris] = useState([]);
+  const [description, setDescription] = useState('');
+
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const toggleBall = (key) => setBallTypes(prev => prev.includes(key) ? prev.filter(b => b !== key) : [...prev, key]);
+  const toggleAmenity = (a) => setAmenities(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
+
   const addPhoto = async () => {
+    if (imageUris.length >= 5) return Alert.alert('Limit', 'Maximum 5 photos allowed.');
     setUploading(true);
     const r = await pickAndUploadImage('grounds');
     setUploading(false);
-    if (r.url) setImageUri(r.url);
+    if (r.url) setImageUris(prev => [...prev, r.url]);
     else if (r.error) Alert.alert('Upload failed', r.error);
   };
+  const removePhoto = (idx) => setImageUris(prev => prev.filter((_, i) => i !== idx));
+
+  const validateStep = () => {
+    if (step === 1 && !name.trim()) { Alert.alert('Required', 'Ground name is required.'); return false; }
+    if (step === 1 && !city.trim()) { Alert.alert('Required', 'City is required.'); return false; }
+    return true;
+  };
+  const nextStep = () => { if (validateStep()) setStep(Math.min(step + 1, totalSteps)); };
+  const prevStep = () => setStep(Math.max(step - 1, 1));
 
   const handleSubmit = async () => {
-    if (!form.name || !form.city) return Alert.alert('Error', 'Name and City are required');
     setLoading(true);
     try {
-      await onSubmit({ ...form, imageUrl: imageUri });
-    } catch (e) {
-      Alert.alert('Error', e.message);
-    } finally {
-      setLoading(false);
-    }
+      await onSubmit({
+        name: name.trim(), localName: localName.trim() || undefined, category: category || undefined,
+        location: area.trim() || undefined, area: area.trim() || undefined,
+        city: city.trim(), state: stateName.trim() || undefined, address: address.trim() || undefined,
+        latitude: lat || undefined, longitude: lng || undefined, groundType,
+        playingSurface: playingSurface || undefined,
+        ballTypes: ballTypes.length > 0 ? ballTypes : undefined,
+        price: price ? parseInt(price) : undefined,
+        amenities: amenities.length > 0 ? amenities : undefined,
+        openTime: openTime || undefined, closeTime: closeTime || undefined,
+        phone: phone.trim() || undefined, whatsapp: whatsapp.trim() || undefined,
+        email: email.trim() || undefined, website: website.trim() || undefined,
+        images: imageUris.length > 0 ? imageUris : undefined,
+        imageUrl: imageUris[0] || undefined,
+        description: description.trim() || undefined,
+      });
+    } catch (e) { Alert.alert('Error', e.message); }
+    finally { setLoading(false); }
   };
+
+  const Chip = ({ label, active, onPress, icon }) => (
+    <TouchableOpacity onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: active ? '#3B82F6' : DS.surfaceHigh, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: active ? '#3B82F6' : DS.border }}>
+      {icon && <Icon name={icon} size={16} color={active ? '#FFF' : DS.textMuted} />}
+      <Text style={{ fontSize: 13, fontWeight: '700', color: active ? '#FFF' : DS.textPrimary }}>{label}</Text>
+    </TouchableOpacity>
+  );
+  const SectionLabel = ({ text }) => (
+    <Text style={{ fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 1.4, marginBottom: 10, marginTop: 20, textTransform: 'uppercase' }}>{text}</Text>
+  );
+  const Field = ({ label, value, onChangeText, placeholder, multiline, keyboardType, required }) => (
+    <View style={{ marginBottom: 16 }}>
+      <Text style={styles.formLabel}>{label}{required ? ' *' : ''}</Text>
+      <TextInput style={[styles.formInput, multiline && styles.formTextArea]} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={DS.textMuted} multiline={multiline} numberOfLines={multiline ? 4 : 1} keyboardType={keyboardType || 'default'} />
+    </View>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: DS.bg }}>
       {/* Header */}
       <View style={styles.formTopHeader}>
-        <TouchableOpacity onPress={onCancel} style={styles.formBackBtn}>
-          <Text style={styles.formBackArrow}>{'<'}</Text>
+        <TouchableOpacity onPress={step > 1 ? prevStep : onCancel} style={styles.formBackBtn}>
+          <Icon name={step > 1 ? 'arrow-left' : 'close'} size={18} color={DS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.formHeaderTitle}>ADD GROUND</Text>
-        <View style={styles.formProfileIcon}>
-          <Text style={styles.formProfileText}>P</Text>
-        </View>
+        <Text style={{ color: DS.textMuted, fontSize: 13, fontWeight: '700' }}>Step {step}/{totalSteps}</Text>
+      </View>
+
+      {/* Progress Bar */}
+      <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 4, marginBottom: 8 }}>
+        {[1, 2, 3].map(s => (
+          <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: s <= step ? '#3B82F6' : DS.surfaceHigh }} />
+        ))}
       </View>
 
       <ScrollView style={{ flex: 1, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* Photos */}
-        <View style={styles.formSection}>
-          <Text style={styles.formSectionTitle}>PHOTOS</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.formPhotoRow}>
-            {imageUri && (
-              <View style={styles.formPhotoThumbWrap}>
-                <Image source={{ uri: imageUri }} style={styles.formPhotoThumb} />
-                <TouchableOpacity style={styles.formPhotoThumbX} onPress={() => setImageUri(null)}>
-                  <Icon name="close" size={14} color="#fff" />
-                </TouchableOpacity>
+
+        {/* ═══ STEP 1: BASICS & LOCATION ═══ */}
+        {step === 1 && (
+          <View>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: DS.textPrimary, marginBottom: 4, marginTop: 8 }}>Basics & Location</Text>
+            <Text style={{ fontSize: 14, color: DS.textMuted, marginBottom: 16 }}>Tell us about the ground and where it is.</Text>
+            <View style={styles.formCardBlock}>
+              <Field label="Ground Name" value={name} onChangeText={setName} placeholder="e.g. M.A. Chidambaram Stadium" required />
+              <Field label="Local / Regional Name" value={localName} onChangeText={setLocalName} placeholder="e.g. Chepauk" />
+              <SectionLabel text="Category" />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {CATEGORIES.map(c => <Chip key={c} label={c} active={category === c} onPress={() => setCategory(category === c ? '' : c)} />)}
+              </View>
+            </View>
+            <View style={styles.formCardBlock}>
+              <Field label="Area / Locality" value={area} onChangeText={setArea} placeholder="e.g. Chepauk" />
+              <Field label="City" value={city} onChangeText={setCity} placeholder="e.g. Chennai" required />
+              <Field label="State" value={stateName} onChangeText={setStateName} placeholder="e.g. Tamil Nadu" />
+              <Field label="Full Address" value={address} onChangeText={setAddress} placeholder="Full physical address..." multiline />
+            </View>
+            {(lat && lng) && (
+              <View style={[styles.locationBadge, { marginBottom: 24 }]}>
+                <Icon name="crosshairs-gps" size={20} color={DS.lime} />
+                <View style={{marginLeft: 12}}>
+                  <Text style={{color: DS.textPrimary, fontWeight: '800', fontSize: 14}}>Location Pinned</Text>
+                  <Text style={styles.locationBadgeText}>{lat.toFixed(4)}, {lng.toFixed(4)}</Text>
+                </View>
               </View>
             )}
-            {!imageUri && (
-              <TouchableOpacity style={styles.formAddPhotoBtn} onPress={addPhoto} disabled={uploading}>
-                {uploading ? <ActivityIndicator size="small" color={DS.lime} /> : <><Icon name="camera-plus" size={24} color={DS.lime} /><Text style={styles.formAddPhotoTxt}>Add photo</Text></>}
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-        </View>
+          </View>
+        )}
 
-        {/* Form Fields */}
-        <View style={styles.formCardBlock}>
-          <Text style={styles.formLabel}>Ground Name *</Text>
-          <TextInput style={styles.formInput} value={form.name} onChangeText={t => setForm({...form, name: t})} placeholder="e.g. M.A. Chidambaram" placeholderTextColor={DS.textMuted} />
-          
-          <Text style={styles.formLabel}>Location (Area) *</Text>
-          <TextInput style={styles.formInput} value={form.location} onChangeText={t => setForm({...form, location: t})} placeholder="e.g. Chepauk" placeholderTextColor={DS.textMuted} />
-          
-          <Text style={styles.formLabel}>City *</Text>
-          <TextInput style={styles.formInput} value={form.city} onChangeText={t => setForm({...form, city: t})} placeholder="e.g. Chennai" placeholderTextColor={DS.textMuted} />
-          
-          <Text style={styles.formLabel}>Description</Text>
-          <TextInput style={[styles.formInput, styles.formTextArea]} value={form.description} onChangeText={t => setForm({...form, description: t})} placeholder="Facilities, pitch details..." placeholderTextColor={DS.textMuted} multiline numberOfLines={4} />
-
-          <Text style={styles.formLabel}>Full Address</Text>
-          <TextInput style={[styles.formInput, styles.formTextArea]} value={form.address} onChangeText={t => setForm({...form, address: t})} placeholder="Full physical address..." placeholderTextColor={DS.textMuted} multiline numberOfLines={3} />
-          
-          <Text style={styles.formLabel}>Phone Contact</Text>
-          <TextInput style={styles.formInput} value={form.phone} onChangeText={t => setForm({...form, phone: t})} placeholder="Phone number" placeholderTextColor={DS.textMuted} keyboardType="phone-pad" />
-        </View>
-
-        {(form.latitude && form.longitude) && (
-          <View style={[styles.locationBadge, { marginBottom: 24 }]}>
-            <Icon name="crosshairs-gps" size={20} color={DS.lime} />
-            <View style={{marginLeft: 12}}>
-              <Text style={{color: DS.textPrimary, fontWeight: '800', fontSize: 14}}>Location Pinned</Text>
-              <Text style={styles.locationBadgeText}>Coordinates saved from map.</Text>
+        {/* ═══ STEP 2: GROUND DETAILS ═══ */}
+        {step === 2 && (
+          <View>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: DS.textPrimary, marginBottom: 4, marginTop: 8 }}>Ground Details</Text>
+            <Text style={{ fontSize: 14, color: DS.textMuted, marginBottom: 16 }}>Describe the playing conditions & facilities.</Text>
+            <View style={styles.formCardBlock}>
+              <SectionLabel text="Ground Type" />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {GROUND_TYPES_LIST.map(t => <Chip key={t.key} label={t.label} icon={t.icon} active={groundType === t.key} onPress={() => setGroundType(t.key)} />)}
+              </View>
+              <SectionLabel text="Playing Surface" />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {SURFACES.map(sf => <Chip key={sf.key} label={sf.label} active={playingSurface === sf.key} onPress={() => setPlayingSurface(playingSurface === sf.key ? '' : sf.key)} />)}
+              </View>
+              <SectionLabel text="Ball Types Allowed" />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {BALL_TYPES_LIST.map(b => <Chip key={b.key} label={b.label} active={ballTypes.includes(b.key)} onPress={() => toggleBall(b.key)} />)}
+              </View>
+            </View>
+            <View style={styles.formCardBlock}>
+              <SectionLabel text="Price (per hour)" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceLow, borderRadius: 10, paddingHorizontal: 14 }}>
+                <Text style={{ color: DS.textMuted, fontSize: 18, fontWeight: '700', marginRight: 4 }}>₹</Text>
+                <TextInput style={[styles.formInput, { flex: 1, backgroundColor: 'transparent', paddingHorizontal: 0 }]} value={price} onChangeText={setPrice} placeholder="e.g. 500" placeholderTextColor={DS.textMuted} keyboardType="numeric" />
+              </View>
+            </View>
+            <View style={styles.formCardBlock}>
+              <SectionLabel text="Amenities & Facilities" />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {AMENITY_OPTIONS.map(a => <Chip key={a} label={a} active={amenities.includes(a)} onPress={() => toggleAmenity(a)} />)}
+              </View>
+            </View>
+            <View style={styles.formCardBlock}>
+              <SectionLabel text="Opening Hours" />
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '600', marginBottom: 6 }}>Opens at</Text>
+                  <TextInput style={styles.formInput} value={openTime} onChangeText={setOpenTime} placeholder="06:00" placeholderTextColor={DS.textMuted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '600', marginBottom: 6 }}>Closes at</Text>
+                  <TextInput style={styles.formInput} value={closeTime} onChangeText={setCloseTime} placeholder="22:00" placeholderTextColor={DS.textMuted} />
+                </View>
+              </View>
             </View>
           </View>
         )}
 
-        {/* Submit Button */}
-        <TouchableOpacity
-          style={[styles.formSubmitBtn, loading && {opacity: 0.6}]}
-          onPress={handleSubmit}
-          disabled={loading}
-          activeOpacity={0.8}>
-          {loading ? <ActivityIndicator color={DS.bg} /> : <Text style={styles.formSubmitBtnText}>POST LISTING</Text>}
-        </TouchableOpacity>
+        {/* ═══ STEP 3: CONTACT & PHOTOS ═══ */}
+        {step === 3 && (
+          <View>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: DS.textPrimary, marginBottom: 4, marginTop: 8 }}>Contact & Photos</Text>
+            <Text style={{ fontSize: 14, color: DS.textMuted, marginBottom: 16 }}>How can players reach you?</Text>
+            <View style={styles.formCardBlock}>
+              <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="Phone number" keyboardType="phone-pad" />
+              <Field label="WhatsApp" value={whatsapp} onChangeText={setWhatsapp} placeholder="WhatsApp number" keyboardType="phone-pad" />
+              <Field label="Email" value={email} onChangeText={setEmail} placeholder="ground@example.com" keyboardType="email-address" />
+              <Field label="Website" value={website} onChangeText={setWebsite} placeholder="https://..." />
+            </View>
+            <View style={styles.formSection}>
+              <SectionLabel text={`Photos (${imageUris.length}/5)`} />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.formPhotoRow}>
+                {imageUris.map((uri, idx) => (
+                  <View key={idx} style={styles.formPhotoThumbWrap}>
+                    <Image source={{ uri }} style={styles.formPhotoThumb} />
+                    <TouchableOpacity style={styles.formPhotoThumbX} onPress={() => removePhoto(idx)}>
+                      <Icon name="close" size={14} color="#fff" />
+                    </TouchableOpacity>
+                    {idx === 0 && (
+                      <View style={{ position: 'absolute', bottom: 4, left: 4, backgroundColor: '#3B82F6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                        <Text style={{ color: '#FFF', fontSize: 9, fontWeight: '800' }}>COVER</Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+                {imageUris.length < 5 && (
+                  <TouchableOpacity style={styles.formAddPhotoBtn} onPress={addPhoto} disabled={uploading}>
+                    {uploading ? <ActivityIndicator size="small" color={DS.lime} /> : <><Icon name="camera-plus" size={24} color={DS.lime} /><Text style={styles.formAddPhotoTxt}>Add photo</Text></>}
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            </View>
+            <View style={styles.formCardBlock}>
+              <Field label="Description" value={description} onChangeText={setDescription} placeholder="Describe the ground, pitch condition, how to reach..." multiline />
+            </View>
+          </View>
+        )}
       </ScrollView>
+
+      {/* Bottom Navigation */}
+      <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingBottom: Platform.OS === 'ios' ? 34 : 16, paddingTop: 12, gap: 12, borderTopWidth: 1, borderTopColor: DS.faint, backgroundColor: DS.bg }}>
+        {step > 1 && (
+          <TouchableOpacity onPress={prevStep} style={{ flex: 1, paddingVertical: 16, borderRadius: 12, alignItems: 'center', backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border }}>
+            <Text style={{ color: DS.textPrimary, fontWeight: '700', fontSize: 15 }}>Back</Text>
+          </TouchableOpacity>
+        )}
+        {step < totalSteps ? (
+          <TouchableOpacity onPress={nextStep} style={{ flex: 2, paddingVertical: 16, borderRadius: 12, alignItems: 'center', backgroundColor: '#3B82F6' }}>
+            <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 15 }}>Next</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={handleSubmit} disabled={loading} style={{ flex: 2, paddingVertical: 16, borderRadius: 12, alignItems: 'center', backgroundColor: DS.lime, opacity: loading ? 0.6 : 1 }}>
+            {loading ? <ActivityIndicator color={DS.bg} /> : <Text style={{ color: DS.bg, fontWeight: '800', fontSize: 15, letterSpacing: 1 }}>POST LISTING</Text>}
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 };
@@ -465,6 +686,10 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [type, setType] = useState('All');
+  const [isFilterModalVisible, setFilterModalVisible] = useState(false);
+  const [filterSurface, setFilterSurface] = useState('');
+  const [filterBall, setFilterBall] = useState('');
+  const [filterVerified, setFilterVerified] = useState(false);
   
   const swipeDir = useRef(1);
   const handleSetType = (t) => {
@@ -503,7 +728,18 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
 
   const fetchGrounds = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
-    const params = { q: query, type: type === 'All' ? '' : type };
+    const params = { 
+      q: query, 
+      type: type === 'All' ? '' : type,
+      surface: filterSurface,
+      ball: filterBall,
+      verified: filterVerified ? 'true' : ''
+    };
+    if (type === 'All') {
+      // For demo purposes, hardcoding a Chennai location to test Distance Sorting without Expo Location
+      params.lat = 13.0827;
+      params.lng = 80.2707;
+    }
     const res = await LegendsApi.getGrounds(params);
     if (res.success) {
       setGrounds(res.data.grounds);
@@ -514,7 +750,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
     }
     setLoading(false);
     setRefreshing(false);
-  }, [query, type]);
+  }, [query, type, filterSurface, filterBall, filterVerified]);
 
   useEffect(() => {
     const delay = setTimeout(fetchGrounds, 300);
@@ -637,7 +873,6 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
 
   return (
     <View style={styles.container}>
-      {/* Collapsible Sticky Header */}
       <Animated.View style={{
         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
         backgroundColor: DS.bg,
@@ -656,6 +891,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
           counts={meta.typeCounts} 
           pagerGesture={pagerGesture}
           DS={DS} P={P} styles={styles} C={C}
+          setFilterModalVisible={setFilterModalVisible}
         />
       </Animated.View>
 
@@ -682,8 +918,6 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
             <Animated.FlatList
               data={grounds}
               keyExtractor={item => item.id}
-              numColumns={2}
-              columnWrapperStyle={{ gap: 10 }}
               contentContainerStyle={[styles.listContainer, { paddingTop: headerHeight + 10, paddingBottom: tabClear + 100 }]}
               onScroll={onScroll}
               scrollEventThrottle={16}
@@ -728,6 +962,32 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
             />
           </Reanimated.View>
         </GestureDetector>
+      )}
+
+      {/* Floating Action Button for Map Toggle */}
+      {viewState !== 'form' && viewState !== 'admin' && (
+        <TouchableOpacity 
+          style={{
+            position: 'absolute',
+            bottom: Platform.OS === 'ios' ? 100 : 80,
+            right: 20,
+            backgroundColor: '#3B82F6',
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+            elevation: 8,
+            zIndex: 50
+          }}
+          onPress={() => setViewState(viewState === 'map' ? 'list' : 'map')}
+        >
+          <Icon name={viewState === 'map' ? 'format-list-bulleted' : 'map'} size={24} color="#FFF" />
+        </TouchableOpacity>
       )}
 
     </View>
