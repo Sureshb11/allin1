@@ -507,16 +507,18 @@ const TeamProfileScreen = ({ navigation, route }) => {
         </View>
       )}
 
-      {/* ── Stats strip ── */}
-      <View style={styles.statStrip}>
-        <Stat label="Matches" value={stats.matches ?? 0} styles={styles} />
-        <View style={styles.statSep} />
-        <Stat label="Wins" value={stats.wins ?? 0} styles={styles} />
-        <View style={styles.statSep} />
-        <Stat label="Win %" value={`${stats.winRate ?? 0}%`} styles={styles} />
-        <View style={styles.statSep} />
-        <Stat label="Rank" value={stats.rank ? `#${stats.rank}` : '—'} styles={styles} />
-      </View>
+      {/* The strip that used to sit here — Matches, Wins, Win %, Rank — is gone.
+          Stats says all three of the first ones and says them better: the same
+          matches and wins as figures, the same percentage as the headline, and
+          a bar showing what the percentage is made of. Repeating them above the
+          tabs meant the screen answered the same question twice before you had
+          chosen a question.
+
+          Rank is the one that moved rather than went. It was never in the stats
+          payload, and "#3" on its own doesn't say of how many — Standings shows
+          it in the table that gives it meaning, with this team's row picked out.
+
+*/}
 
       {/* ── Tabs ── */}
       {/* The Pavilion filter bar, not this screen's own pill. Counts ride on the
@@ -697,13 +699,6 @@ const TeamProfileScreen = ({ navigation, route }) => {
 };
 
 // ── Small presentational pieces ────────────────────────────────────────────────
-const Stat = ({ label, value, styles }) => (
-  <View style={styles.statBlock}>
-    <Text style={styles.statValue}>{value}</Text>
-    <Text style={styles.statLabel}>{label}</Text>
-  </View>
-);
-
 const SquadTab = ({ members, isAdmin, styles, DS, addingMember, searchPhone, setSearchPhone, searchUser, searching, foundUser, setFoundUser, addFoundMember, canLeave, onLeave, joinRequests, onApprove, onReject, onOpenMember, isOwner, onManage, onDelete }) => (
   <View>
     {/* Pending join requests — admins only. */}
@@ -812,7 +807,6 @@ const SquadTab = ({ members, isAdmin, styles, DS, addingMember, searchPhone, set
     )}
   </View>
 );
-
 
 const MatchesTab = ({ matches, teamId, navigation, styles, DS }) => {
   if (matches.length === 0) return <Text style={styles.emptyTxt}>No matches yet.</Text>;
@@ -1088,16 +1082,6 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   ctaTxt: { fontSize: 14, fontWeight: '800', color: DS.lime },
 
-  statStrip: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surface,
-    marginHorizontal: 16, marginTop: 16, borderRadius: 14, paddingVertical: 14,
-    borderWidth: 1, borderColor: DS.faint,
-  },
-  statBlock: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 18, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
-  statLabel: { fontSize: 11, color: DS.textMuted, marginTop: 3, fontWeight: '600' },
-  statSep: { width: 1, height: 26, backgroundColor: DS.faint },
-
   tabRow: { marginTop: 16 },
 
   section: { paddingHorizontal: 16, paddingTop: 16 },
@@ -1159,28 +1143,8 @@ const makeStyles = (DS) => StyleSheet.create({
   leaveTxt: { color: DS.danger, fontSize: 14, fontWeight: '800' },
 
   // Matches
-  matchRow: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 11,
-    borderBottomWidth: 1, borderBottomColor: DS.faint,
-  },
-  matchIcon: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: DS.surfaceHigh,
-    alignItems: 'center', justifyContent: 'center', marginRight: 12,
-  },
-  matchOpp: { color: DS.textPrimary, fontSize: 15, fontWeight: '700' },
-  matchMeta: { color: DS.textMuted, fontSize: 12, marginTop: 2 },
-  matchScore: { color: DS.textPrimary, fontSize: 13, fontWeight: '700', marginLeft: 8 },
 
   // Form / performers
-  formRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  formPill: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  formPillTxt: { color: '#fff', fontSize: 13, fontWeight: '900' },
-  perfRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: DS.faint,
-  },
-  perfName: { color: DS.textPrimary, fontSize: 14, fontWeight: '600', flex: 1, marginRight: 12 },
-  perfVal: { color: DS.lime, fontSize: 14, fontWeight: '800' },
 
   // Standings
   tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: DS.faint },
