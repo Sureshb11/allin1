@@ -7,6 +7,9 @@ import {
 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import Reanimated, {
+  useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence,
+} from 'react-native-reanimated';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
@@ -1349,6 +1352,51 @@ function InfoTab({ match }) {const styles = useThemedStyles(makeStyles);
   );
 }
 
+// The house spring (PavilionScreen uses the same numbers) — a quick, barely
+// overshooting settle, so every animated selection in the app feels like one
+// material.
+const TAB_SPRING = { damping: 22, stiffness: 260, mass: 0.9 };
+
+// One tab in the match-centre strip.
+//
+// A real component at module scope, not an arrow function inside the parent's
+// render: a component defined in the render body is a NEW type every time the
+// parent renders, so React unmounts and remounts it — and this screen re-renders
+// on every 2s poll of a live match, which would restart the animation
+// mid-flight, forever.
+//
+// There is no hover on a phone, so the motion belongs to SELECTION: the glyph
+// fills in, the tint crosses to lime, and the icon pops once as it lands.
+function MatchTab({ tab, active, onPress, onLayout, styles, DS }) {
+  const scale = useSharedValue(1);
+  const seen = useRef(false);
+  useEffect(() => {
+    // Not on first paint — arriving on a match with SCORECARD already selected
+    // should look settled, not like something just happened.
+    if (!seen.current) { seen.current = true; return; }
+    if (active) {
+      scale.value = withSequence(withTiming(1.25, { duration: 110 }), withSpring(1, TAB_SPRING));
+    }
+  }, [active, scale]);
+  const pop = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <TouchableOpacity style={styles.matchTab} onPress={onPress} onLayout={onLayout}
+      accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={tab.label}>
+      <Reanimated.View style={pop}>
+        {/* Filled when selected, outline when not — the same language the
+            bottom dock already speaks (home / home-outline). Tabs whose glyph
+            has no outline twin (the live access-point, the bat) just keep it. */}
+        <Icon name={active ? tab.icon : (tab.iconIdle || tab.icon)} size={18}
+          color={active ? DS.lime : DS.textMuted} />
+      </Reanimated.View>
+      <Text style={[styles.matchTabText, active && styles.matchTabTextActive]} numberOfLines={1}>
+        {tab.label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function ScorecardScreen({ route, navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const C = useThemedStyles(makeControls);
   const { matchId } = route.params || {};
   const [match, setMatch] = useState(null);
@@ -1537,14 +1585,17 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   // awards are the first thing a viewer sees), SCORECARD otherwise — but once
   // the viewer taps a tab themselves, `tab` takes over and stays put across polls.
   const activeTab = tab || (isLive ? 'live' : isCompleted ? 'summary' : 'scorecard');
+  // `icon` is the selected (filled) glyph, `iconIdle` the unselected outline —
+  // every one verified present in the MaterialCommunityIcons glyphmap. LIVE and
+  // OVERS have no outline twin, so they simply don't change shape.
   const TABS = [
-    { key: 'info', label: 'INFO', icon: 'information-outline' },
+    { key: 'info', label: 'INFO', icon: 'information', iconIdle: 'information-outline' },
     ...(isLive ? [{ key: 'live', label: 'LIVE', icon: 'access-point' }] : []),
-    ...(isCompleted ? [{ key: 'summary', label: 'OVERVIEW', icon: 'view-dashboard-outline' }] : []),
-    { key: 'scorecard', label: 'SCORECARD', icon: 'clipboard-text-outline' },
-    { key: 'squads', label: 'SQUADS', icon: 'account-group-outline' },
+    ...(isCompleted ? [{ key: 'summary', label: 'OVERVIEW', icon: 'view-dashboard', iconIdle: 'view-dashboard-outline' }] : []),
+    { key: 'scorecard', label: 'SCORECARD', icon: 'clipboard-text', iconIdle: 'clipboard-text-outline' },
+    { key: 'squads', label: 'SQUADS', icon: 'account-group', iconIdle: 'account-group-outline' },
     { key: 'overs', label: 'OVERS', icon: 'cricket' },
-    { key: 'highlights', label: 'HIGHLIGHTS', icon: 'star-outline' },
+    { key: 'highlights', label: 'HIGHLIGHTS', icon: 'star', iconIdle: 'star-outline' },
   ];
   const activeIndex = Math.max(0, TABS.findIndex((t) => t.key === activeTab));
 
@@ -1555,11 +1606,31 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   // those could otherwise underline something scrolled out of sight.
   const tabBarRef = useRef(null);
   const tabLayouts = useRef({});
-  useEffect(() => {
-    const l = tabLayouts.current[activeTab];
+
+  // ...and one underline that travels to it, rather than a border switching on
+  // under a different tab. Both read the same measurements.
+  const barX = useSharedValue(0);
+  const barW = useSharedValue(0);
+  const placed = useRef(false);
+
+  const settleTabs = useCallback((key) => {
+    const l = tabLayouts.current[key];
     if (!l) return;
     tabBarRef.current?.scrollTo({ x: Math.max(0, l.x + l.width / 2 - SCREEN_WIDTH / 2), animated: true });
-  }, [activeTab]);
+    // The first placement is a jump, not a slide — an underline gliding in from
+    // the left edge on open would announce a selection nobody made.
+    if (placed.current) {
+      barX.value = withSpring(l.x, TAB_SPRING);
+      barW.value = withSpring(l.width, TAB_SPRING);
+    } else {
+      placed.current = true;
+      barX.value = l.x;
+      barW.value = l.width;
+    }
+  }, [barX, barW]);
+
+  useEffect(() => { settleTabs(activeTab); }, [activeTab, settleTabs]);
+  const barStyle = useAnimatedStyle(() => ({ transform: [{ translateX: barX.value }], width: barW.value }));
   const inningsList = match?.innings || [];
   const selectedInnings = inningsList[inningsTab] || inningsList[0];
   const liveInnings = inningsList[inningsList.length - 1];   // currently-batting innings
@@ -1644,20 +1715,18 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             radial menu jumps straight to any of them. */}
         <ScrollView ref={tabBarRef} horizontal showsHorizontalScrollIndicator={false}
           style={styles.matchTabBar} contentContainerStyle={styles.matchTabBarContent}>
-          {TABS.map((t) => {
-            const active = activeTab === t.key;
-            const color = active ? DS.lime : DS.textMuted;
-            return (
-              <TouchableOpacity key={t.key} style={[styles.matchTab, active && styles.matchTabActive]}
-                onPress={() => setTab(t.key)}
-                onLayout={(e) => { tabLayouts.current[t.key] = e.nativeEvent.layout; }}>
-                <Icon name={t.icon} size={18} color={color} />
-                <Text style={[styles.matchTabText, active && styles.matchTabTextActive]} numberOfLines={1}>
-                  {t.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          {TABS.map((t) => (
+            <MatchTab key={t.key} tab={t} active={activeTab === t.key} styles={styles} DS={DS}
+              onPress={() => { haptic.tick(); setTab(t.key); }}
+              onLayout={(e) => {
+                tabLayouts.current[t.key] = e.nativeEvent.layout;
+                // The first measurement arrives after the first paint, so the
+                // underline is placed from here too — otherwise it would have
+                // nothing to sit under until the tab was changed.
+                if (t.key === activeTab) settleTabs(t.key);
+              }} />
+          ))}
+          <Reanimated.View style={[styles.tabIndicator, barStyle]} pointerEvents="none" />
         </ScrollView>
       </View>
 
@@ -1895,9 +1964,10 @@ const makeStyles = (DS) => StyleSheet.create({
     // Tighter than when only one tab carried text — seven labels have to fit
     // without the strip becoming a marathon, and the touch target is still 44pt.
     flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 12, paddingHorizontal: 11,
-    borderBottomWidth: 2, borderBottomColor: 'transparent',
+    // Reserves the row the travelling underline draws in, so nothing shifts.
+    marginBottom: 2,
   },
-  matchTabActive: { borderBottomColor: DS.lime },
+  tabIndicator: { position: 'absolute', left: 0, bottom: 0, height: 2, borderRadius: 1, backgroundColor: DS.lime },
   matchTabText: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.5 },
   matchTabTextActive: { color: DS.lime },
 
