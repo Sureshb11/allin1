@@ -15,9 +15,10 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, Animated, Easing,
+  View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, Animated, Easing, Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { BottomSheetTextInput, useBottomSheetInternal } from '@gorhom/bottom-sheet';
 import { useTheme, useThemedStyles } from '../../theme/ThemeContext';
 import { makeCreateStyles, SPACE, DURATION, PRESS_SCALE, TAP } from './tokens';
 
@@ -134,16 +135,30 @@ export function Field({ label, required, error, helper, last, children }) {
 }
 
 // ── Text ─────────────────────────────────────────────────────────────────────
+// A text input inside a bottom sheet has to be the SHEET's input, not React
+// Native's. gorhom's version tells the sheet a keyboard is coming; a plain one
+// does not, so the sheet does not move and the field you are typing in ends up
+// under the keyboard. Create Post passed the right one by hand and Create Team
+// and Create Ground did not, which is exactly the kind of thing a screen should
+// not have to remember.
+//
+// So the field works it out. `useBottomSheetInternal(true)` is the unsafe read:
+// it returns null outside a sheet instead of throwing, which is what makes this
+// safe to use on an ordinary screen too.
+const useSheetAwareInput = () => (useBottomSheetInternal(true) ? BottomSheetTextInput : TextInput);
+
 export function TextField({
   label, required, error, helper, last, value, onChangeText, placeholder,
-  multiline, Input = TextInput, ...rest
+  multiline, Input, ...rest
 }) {
   const DS = useTheme().colors;
   const s = useCreateStyles();
   const [focused, setFocused] = useState(false);
+  const Auto = useSheetAwareInput();
+  const Control = Input || Auto;
   return (
     <Field label={label} required={required} error={error} helper={helper} last={last}>
-      <Input
+      <Control
         style={[
           s.input,
           multiline && s.textarea,
@@ -380,6 +395,32 @@ export function SecondaryButton({ label, icon, onPress, disabled }) {
 export function StickyFooter({ children, inset = 0 }) {
   const s = useCreateStyles();
   return <View style={[s.footer, { paddingBottom: SPACE.lg + inset }]}>{children}</View>;
+}
+
+/**
+ * Ask before throwing away a part-filled form.
+ *
+ * Four of the five drawers dismissed straight to nothing: tap the X, or drag
+ * the sheet down, and everything typed was gone with no question asked. Create
+ * Tournament was the only one that asked, because it is the only one anybody
+ * thought to protect — which is the argument for it living here instead.
+ *
+ *   const close = useDiscardGuard(dirty, () => sheet.current?.dismiss());
+ *
+ * `dirty` is a boolean: nothing typed, no question.
+ */
+export function useDiscardGuard(dirty, close, opts = {}) {
+  return useCallback(() => {
+    if (!dirty) return close();
+    Alert.alert(
+      opts.title || 'Discard this?',
+      opts.message || "What you've filled in won't be saved.",
+      [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: close },
+      ],
+    );
+  }, [dirty, close, opts.title, opts.message]);
 }
 
 // ── States ───────────────────────────────────────────────────────────────────

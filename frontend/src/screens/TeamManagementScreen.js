@@ -29,7 +29,7 @@ import { pickAndUploadImage } from '../utils/imageUpload';
 import { getCurrentUser } from '../utils/currentUser';
 import {
   DrawerHeader, SectionCard, TextField, TextArea, Toggle, ImagePickerField,
-  PrimaryButton, StickyFooter, ValidationMessage, useCreateStyles, SPACE,
+  PrimaryButton, StickyFooter, ValidationMessage, useCreateStyles, useDiscardGuard, SPACE,
 } from '../components/create';
 import { showToast } from '../components/Toast';
 import BrandLogo from "../components/BrandLogo";
@@ -162,6 +162,15 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const openCreateTeam = useCallback(() => { setSheetOpen(true); createTeamSheet.current?.present(); }, []);
+  // Anything typed, and the X asks first. It used to dismiss straight to
+  // nothing, taking a half-filled team with it.
+  const teamDirty = !!(teamForm.name || teamForm.city || teamForm.homeGround
+    || teamForm.bio || teamForm.logoUrl || teamForm.coverUrl || teamForm.captainName);
+  const closeCreateTeam = useDiscardGuard(
+    teamDirty,
+    useCallback(() => createTeamSheet.current?.dismiss(), []),
+    { title: 'Discard this team?' },
+  );
   const resetCreateTeam = useCallback(() => {
     setSheetOpen(false);
     setTeamForm(EMPTY_TEAM); setTeamErrors({}); setTeamFormError(''); setCreatedOk(false);
@@ -601,7 +610,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
           icon="shield-plus-outline"
           title="Create Team"
           subtitle="Give your side a name, a badge and a home"
-          onClose={() => createTeamSheet.current?.dismiss()}
+          onClose={closeCreateTeam}
         />
         <BottomSheetScrollView contentContainerStyle={cs.body} showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">

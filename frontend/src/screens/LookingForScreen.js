@@ -21,7 +21,7 @@ import { haptic } from '../utils/haptics';
 
 import {
   DrawerHeader, SectionCard, TextField, TextArea, ChipGroup, Toggle,
-  PrimaryButton, StickyFooter, ValidationMessage, useCreateStyles,
+  PrimaryButton, StickyFooter, ValidationMessage, useCreateStyles, useDiscardGuard,
 } from '../components/create';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { pav } from '../theme/pavilion';
@@ -434,7 +434,11 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     closeDetail();
     createSheetRef.current?.present();
   }, []);
-  const closeCreate = useCallback(() => createSheetRef.current?.dismiss(), []);
+  const dismissCreate = useCallback(() => createSheetRef.current?.dismiss(), []);
+  // Typed anything, and the X asks. It dismissed straight to nothing before.
+  const listingDirty = !!(form.location || form.description || form.role
+    || (form.days || []).length || form.timing || form.customTime);
+  const closeCreate = useDiscardGuard(listingDirty, dismissCreate, { title: 'Discard this listing?' });
   const renderBackdrop = useCallback(
     (props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.5} pressBehavior="close" />,
     []
@@ -643,7 +647,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     setPosted(true);
     setTimeout(() => {
       setPosted(false);
-      closeCreate();
+      dismissCreate();
       setForm(INITIAL_FORM);
       setEditingId(null);
       load(activeTypeRef.current, query);
@@ -1183,7 +1187,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                   <TextField
                     label="What time"
                     last
-                    Input={BottomSheetTextInput}
                     value={form.customTime}
                     onChangeText={(v) => setForm((f) => ({ ...f, customTime: v }))}
                     placeholder="e.g. 5:30 PM"
@@ -1195,7 +1198,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                 <TextField
                   label="Location"
                   required
-                  Input={BottomSheetTextInput}
                   value={form.location}
                   onChangeText={onLocationChange}
                   placeholder="Start typing your city…"
@@ -1218,7 +1220,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
                 <TextArea
                   label="Notes"
-                  Input={BottomSheetTextInput}
                   value={form.description}
                   onChangeText={(v) => setForm((f) => ({ ...f, description: v }))}
                   placeholder="Skills, timing, budget — anything that helps"
