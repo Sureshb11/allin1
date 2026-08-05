@@ -345,13 +345,15 @@ export function PrimaryButton({ label, icon = 'check', onPress, loading, disable
       style={[s.primary, off && s.primaryOff]}
       accessibilityRole="button" accessibilityState={{ disabled: !!off, busy: !!loading }}
       accessibilityLabel={label}>
-      {loading ? <ActivityIndicator color={DS.onLime} /> : done ? (
+      {/* The button is the page's ink, so everything on it is the page. onLime
+          was right when it was green and would be invisible now. */}
+      {loading ? <ActivityIndicator color={DS.bg} /> : done ? (
         <Animated.View style={{ transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }] }}>
-          <Icon name="check-circle" size={22} color={DS.onLime} />
+          <Icon name="check-circle" size={22} color={DS.bg} />
         </Animated.View>
       ) : (
         <>
-          {!!icon && <Icon name={icon} size={19} color={DS.onLime} />}
+          {!!icon && <Icon name={icon} size={18} color={DS.bg} />}
           <Text style={s.primaryText}>{label}</Text>
         </>
       )}

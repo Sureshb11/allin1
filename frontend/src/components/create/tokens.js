@@ -203,14 +203,23 @@ export const makeCreateStyles = (DS) => {
       borderTopWidth: 1, borderTopColor: DS.faint,
       ...sh.footer,
     },
+    // Black, and smaller than it was — 54 was a slab across the foot of every
+    // drawer. 48 is the touch-target minimum this system promises, so it is as
+    // small as the button is allowed to get.
+    //
+    // "Black" means the highest-contrast solid against the page, which is a
+    // near-black on the light theme and a near-white on the dark one. A literal
+    // black button on the dark theme's #0f1214 background would be a rectangle
+    // you could not see; inverting keeps it the strongest thing on screen,
+    // which is what a submit button is for.
     primary: {
-      minHeight: 54,
+      minHeight: TAP,
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACE.sm,
       borderRadius: RADIUS.field,
-      backgroundColor: DS.lime,
+      backgroundColor: DS.textPrimary,
     },
-    primaryOff: { opacity: 0.45 },
-    primaryText: { ...TYPE.button, color: DS.onLime },
+    primaryOff: { opacity: 0.4 },
+    primaryText: { ...TYPE.button, color: DS.bg },
     secondary: {
       minHeight: TAP,
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACE.sm,
