@@ -4,7 +4,7 @@ import {
   Alert, ActivityIndicator, Modal, TextInput, FlatList,
   StatusBar, Animated
 } from 'react-native';
-import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetFooter } from '@gorhom/bottom-sheet';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -382,6 +382,25 @@ const StartMatchScreen = ({ navigation, route }) => {
     : (t && typeof t.players === 'number' ? t.players : null);
   const emptyTeams = [team1, team2].filter((t) => teamPlayerCount(t) === 0);
 
+  // Pinned by the sheet, not merely placed after the scroll view — inside a
+  // bottom sheet a trailing View drifts with the content. Same footerComponent
+  // as the other four drawers.
+  const renderMatchFooter = useCallback((props) => (
+    <BottomSheetFooter {...props} bottomInset={0}>
+      <StickyFooter inset={tabClear}>
+        <PrimaryButton
+          label={scheduleAt ? 'Schedule Match' : 'Create Match'}
+          icon={scheduleAt ? 'calendar-check' : 'play-circle'}
+          loading={loading}
+          disabled={!team1 || !team2 || emptyTeams.length > 0}
+          onPress={onCreate}
+        />
+      </StickyFooter>
+    </BottomSheetFooter>
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [scheduleAt, loading, team1, team2, emptyTeams, tabClear, onCreate]);
+
+
   const sheetRef = useRef(null);
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -407,6 +426,7 @@ const StartMatchScreen = ({ navigation, route }) => {
         enablePanDownToClose
         onDismiss={handleDismiss}
         backdropComponent={renderBackdrop}
+        footerComponent={renderMatchFooter}
         backgroundStyle={{ backgroundColor: K.bg }}
         handleIndicatorStyle={{ backgroundColor: K.surfaceHigh }}
         keyboardBehavior="interactive"
@@ -672,18 +692,6 @@ const StartMatchScreen = ({ navigation, route }) => {
         )}
 
       </BottomSheetScrollView>
-
-      {/* The action is pinned, like the other three, so it is never scrolled
-          away from on a form this long. */}
-      <StickyFooter inset={tabClear}>
-        <PrimaryButton
-          label={scheduleAt ? 'Schedule Match' : 'Create Match'}
-          icon={scheduleAt ? 'calendar-check' : 'play-circle'}
-          loading={loading}
-          disabled={!team1 || !team2 || emptyTeams.length > 0}
-          onPress={onCreate}
-        />
-      </StickyFooter>
 
       {/* Team Picker modal */}
       <TeamPicker

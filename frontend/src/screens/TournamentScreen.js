@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert,
   ActivityIndicator, useWindowDimensions, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetScrollView, BottomSheetTextInput, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetTextInput, BottomSheetBackdrop, BottomSheetFooter } from '@gorhom/bottom-sheet';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,7 +19,7 @@ import {
   SectionCard, Field, ChoiceField, Stepper, ToggleRow, SelectField,
   DateField, ImageField, ReorderList,
 } from '../components/FormKit';
-import { DrawerHeader, PrimaryButton, SPACE } from '../components/create';
+import { DrawerHeader, PrimaryButton, SecondaryButton, StickyFooter, SPACE } from '../components/create';
 import CoverFocusPicker from '../components/CoverFocusPicker';
 
 // Create Tournament.
@@ -872,6 +872,39 @@ export default function TournamentScreen({ navigation, route }) {
   const body = [stepAbout, stepPlay, stepWhen, stepRules, stepReview][step];
   const last = step === STEPS.length - 1;
 
+  // The action bar is pinned by the sheet itself. It used to be a plain View
+  // after the scroll view, which only stays put if the layout above it
+  // cooperates — inside a bottom sheet it drifted with the content. This is the
+  // same footerComponent the other four drawers use, so all five now end in a
+  // bar that cannot be scrolled away from and that rides above the keyboard.
+  //
+  // Back and Continue are the system's Secondary and Primary buttons: on the
+  // last step Continue becomes Create, and only the words change.
+  const renderStepFooter = useCallback((props) => (
+    <BottomSheetFooter {...props} bottomInset={0}>
+      <StickyFooter inset={tabClear}>
+        <View style={{ flexDirection: 'row', gap: SPACE.md }}>
+          <View style={{ width: 120 }}>
+            <SecondaryButton
+              label={step === 0 ? 'Cancel' : 'Back'}
+              icon={step === 0 ? 'close' : 'chevron-left'}
+              onPress={onBack}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <PrimaryButton
+              label={last ? (editingId ? 'Save Changes' : 'Create Tournament') : 'Continue'}
+              icon={last ? 'trophy-outline' : 'chevron-right'}
+              loading={busy === 'publish'}
+              onPress={last ? publish : onNext}
+            />
+          </View>
+        </View>
+      </StickyFooter>
+    </BottomSheetFooter>
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [step, last, editingId, busy, tabClear, onBack, onNext, publish]);
+
   if (loading) {
     return (
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
@@ -888,6 +921,7 @@ export default function TournamentScreen({ navigation, route }) {
         enablePanDownToClose
         onDismiss={handleDismiss}
         backdropComponent={renderBackdrop}
+        footerComponent={renderStepFooter}
         backgroundStyle={{ backgroundColor: DS.bg }}
         handleIndicatorStyle={{ backgroundColor: DS.surfaceHigh }}
         keyboardBehavior="interactive"
@@ -933,7 +967,6 @@ export default function TournamentScreen({ navigation, route }) {
         })}
       </View>
 
-
       <BottomSheetScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
@@ -942,16 +975,6 @@ export default function TournamentScreen({ navigation, route }) {
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}>
         {body}
-        {last && (
-          <View style={{ marginTop: SPACE.xl }}>
-            <PrimaryButton
-              label={editingId ? 'Save Changes' : 'Create Tournament'}
-              icon="trophy-outline"
-              loading={busy === 'publish'}
-              onPress={publish}
-            />
-          </View>
-        )}
         {last && (
           <View style={styles.legalNote}>
             <Icon name="information-outline" size={13} color={DS.textMuted} />
@@ -963,24 +986,6 @@ export default function TournamentScreen({ navigation, route }) {
         )}
       </BottomSheetScrollView>
 
-      {/* Sticky action bar. */}
-      {/* The floating dock renders over the bottom `tabClear` of every screen in
-          the tab stack, so the bar clears it rather than sitting under it. */}
-      {!last && (
-        <View style={[styles.actionBar, { paddingBottom: tabClear + 12 }]}>
-          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.85}>
-            <Icon name={step === 0 ? 'close' : 'chevron-left'} size={18} color={DS.textPrimary} />
-            <Text style={styles.backBtnText}>{step === 0 ? 'Cancel' : 'Back'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.nextBtn, busy === 'publish' && { opacity: 0.7 }]}
-            onPress={onNext}
-            activeOpacity={0.9}>
-            <Text style={styles.nextBtnText}>Continue</Text>
-            <Icon name="chevron-right" size={18} color={DS.onLime} />
-          </TouchableOpacity>
-        </View>
-      )}
       </BottomSheetModal>
     </View>
   );
@@ -1050,29 +1055,6 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   legalText: { flex: 1, fontSize: 11, fontWeight: '600', color: DS.textMuted, lineHeight: 15 },
 
-  actionBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 14, paddingTop: 12,
-    backgroundColor: DS.surfaceLow, borderTopWidth: 1, borderTopColor: DS.faint,
-  },
-  backBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 16, paddingVertical: 14, borderRadius: 999,
-    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border,
-  },
-  backBtnText: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
-  nextBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: DS.lime,
-    paddingVertical: 16,
-    borderRadius: 12,
-  },
-  nextBtnText: {
-    color: DS.bg,
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 1.2
-  },
   submitBtn: {
     backgroundColor: DS.lime,
     paddingVertical: 16,
