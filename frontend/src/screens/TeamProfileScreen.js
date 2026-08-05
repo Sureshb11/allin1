@@ -18,8 +18,7 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import React, { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, TextInput, TouchableOpacity,
-  ActivityIndicator, Modal, Dimensions, Alert, Switch, Animated,
-} from 'react-native';
+  ActivityIndicator, Modal, Dimensions, Alert, Switch, Animated, Linking } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { getFind } from '../sports/find';
@@ -441,7 +440,13 @@ const TeamProfileScreen = ({ navigation, route }) => {
         </TouchableOpacity>
 
         <View style={styles.identityText}>
-          <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
+            {/* The short code, beside the name it stands in for. */}
+            {!!team.shortName && (
+              <View style={styles.shortTag}><Text style={styles.shortTagTxt}>{team.shortName}</Text></View>
+            )}
+          </View>
           <Text style={styles.teamMeta} numberOfLines={1}>
             {/* City, then whichever of state and country adds something — a team
                 in "Chennai, Tamil Nadu" reads better than one in "Chennai", and
@@ -450,6 +455,14 @@ const TeamProfileScreen = ({ navigation, route }) => {
               .filter(Boolean).join(', ') || (team.sport || 'cricket')}
             {`  ·  ${followerCount} follower${followerCount === 1 ? '' : 's'}`}
           </Text>
+          {!!team.website && (
+            <TouchableOpacity onPress={() => Linking.openURL(/^https?:\/\//.test(team.website) ? team.website : `https://${team.website}`).catch(() => showToast('Could not open that link', 'error'))}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              <Text style={styles.teamSite} numberOfLines={1}>
+                {team.website.replace(/^https?:\/\//, '')}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.identityActions}>
@@ -1072,6 +1085,13 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DS.bg,
   },
   identityText: { flex: 1, marginLeft: 12, marginBottom: 4 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  shortTag: {
+    paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6,
+    backgroundColor: DS.surfaceHighest, borderWidth: 1, borderColor: DS.border,
+  },
+  shortTagTxt: { fontSize: 10, fontWeight: '900', color: DS.textVariant, letterSpacing: 0.8 },
+  teamSite: { fontSize: 12, fontWeight: '700', color: DS.lime, marginTop: 3 },
   teamName: { fontSize: 21, fontWeight: '900', color: DS.textPrimary },
   teamMeta: { fontSize: 13, color: DS.textMuted, marginTop: 2 },
   identityActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },

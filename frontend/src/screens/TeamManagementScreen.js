@@ -151,8 +151,8 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   const drawerSheet = useDrawerSheet();
   const createTeamSheet = useRef(null);
   const EMPTY_TEAM = {
-    name: '', city: '', homeGround: '', bio: '', logoUrl: '', coverUrl: '',
-    withCaptain: false, captainName: '', addMe: true,
+    name: '', shortName: '', city: '', homeGround: '', website: '', bio: '',
+    logoUrl: '', coverUrl: '', withCaptain: false, captainName: '', addMe: true,
   };
   const [teamForm, setTeamForm] = useState(EMPTY_TEAM);
   const [teamErrors, setTeamErrors] = useState({});
@@ -165,8 +165,8 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   const openCreateTeam = useCallback(() => { setSheetOpen(true); createTeamSheet.current?.present(); }, []);
   // Anything typed, and the X asks first. It used to dismiss straight to
   // nothing, taking a half-filled team with it.
-  const teamDirty = !!(teamForm.name || teamForm.city || teamForm.homeGround
-    || teamForm.bio || teamForm.logoUrl || teamForm.coverUrl || teamForm.captainName);
+  const teamDirty = !!(teamForm.name || teamForm.shortName || teamForm.city || teamForm.homeGround
+    || teamForm.website || teamForm.bio || teamForm.logoUrl || teamForm.coverUrl || teamForm.captainName);
   const closeCreateTeam = useDiscardGuard(
     teamDirty,
     useCallback(() => createTeamSheet.current?.dismiss(), []),
@@ -433,6 +433,8 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     const sport = getSelectedSport().sport?.id || 'cricket';
     const res = await legendsApi.createTeam({
       name: teamForm.name.trim(),
+      shortName: teamForm.shortName.trim() || undefined,
+      website: teamForm.website.trim() || undefined,
       city: teamForm.city.trim(),
       homeGround: teamForm.homeGround.trim() || undefined,
       bio: teamForm.bio.trim() || undefined,
@@ -635,12 +637,19 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
             <TextField label="Team name" required value={teamForm.name}
               error={teamErrors.name} onChangeText={(v) => setTeamForm((f) => ({ ...f, name: v }))}
               placeholder="e.g. Mumbai Warriors" />
+            <TextField label="Short name" value={teamForm.shortName}
+              onChangeText={(v) => setTeamForm((f) => ({ ...f, shortName: v.toUpperCase().slice(0, 8) }))}
+              placeholder="e.g. DVX" autoCapitalize="characters" maxLength={8}
+              helper="Used where the full name will not fit — scorecards, fixture lists" />
             <TextField label="City or town" required value={teamForm.city}
               error={teamErrors.city} onChangeText={(v) => setTeamForm((f) => ({ ...f, city: v }))}
               placeholder="e.g. Porur" />
             <TextField label="Home ground" value={teamForm.homeGround}
               onChangeText={(v) => setTeamForm((f) => ({ ...f, homeGround: v }))}
               placeholder="Where you usually play" />
+            <TextField label="Website" value={teamForm.website}
+              onChangeText={(v) => setTeamForm((f) => ({ ...f, website: v }))}
+              placeholder="https://" autoCapitalize="none" keyboardType="url" />
             <TextArea label="About" value={teamForm.bio}
               onChangeText={(v) => setTeamForm((f) => ({ ...f, bio: v }))}
               placeholder="Tell people about your team" last />

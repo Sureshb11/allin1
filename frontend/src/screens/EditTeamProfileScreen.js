@@ -20,7 +20,7 @@ const EditTeamProfileScreen = ({ navigation, route }) => {const DS = useTheme().
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [teamProfile, setTeamProfile] = useState({
-    teamName: '', city: '', state: '', country: '', homeGround: '',
+    teamName: '', shortName: '', website: '', city: '', state: '', country: '', homeGround: '',
     teamColors: '', bio: '', achievements: '', foundedYear: ''
   });
 
@@ -44,6 +44,7 @@ const EditTeamProfileScreen = ({ navigation, route }) => {const DS = useTheme().
         const t = res.data;
         setTeamProfile({
           teamName: t.name || '', city: t.city || '', state: t.state || '',
+          shortName: t.shortName || '', website: t.website || '',
           country: t.country || '', homeGround: t.homeGround || '',
           teamColors: t.colors || '', bio: t.bio || '',
           achievements: t.achievements || '',
@@ -59,6 +60,8 @@ const EditTeamProfileScreen = ({ navigation, route }) => {const DS = useTheme().
     try {
       const data = {
         name: teamProfile.teamName.trim(),
+        shortName: teamProfile.shortName.trim() || undefined,
+        website: teamProfile.website.trim() || undefined,
         city: teamProfile.city.trim() || undefined,
         state: teamProfile.state.trim() || undefined,
         country: teamProfile.country.trim() || undefined,
@@ -77,7 +80,10 @@ const EditTeamProfileScreen = ({ navigation, route }) => {const DS = useTheme().
   if (loading) return <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}><ActivityIndicator size="large" color={DS.lime} /></View>;
 
   const fields = [
-  { key: 'teamName', label: 'Team Name' }, { key: 'city', label: 'City' }, { key: 'state', label: 'State' },
+  { key: 'teamName', label: 'Team Name' },
+  { key: 'shortName', label: 'Short Name' },
+  { key: 'city', label: 'City' }, { key: 'state', label: 'State' },
+  { key: 'website', label: 'Website' },
   { key: 'country', label: 'Country' }, { key: 'homeGround', label: 'Home Ground' },
   { key: 'foundedYear', label: 'Founded Year', keyboard: 'numeric' }, { key: 'teamColors', label: 'Team Colors' },
   { key: 'bio', label: 'Bio', multiline: true }, { key: 'achievements', label: 'Achievements', multiline: true }];

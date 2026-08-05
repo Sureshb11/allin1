@@ -90,6 +90,11 @@ model Notification {
 model Team {
   id              String           @id @default(cuid())
   name            String
+  // A short code for where the full name will not fit — a scorecard column, a
+  // fixture list, a standings row. "D-Vigo-S XI" is eleven characters in a slot
+  // built for four.
+  shortName       String?
+  website         String?
   city            String?
   logoUrl         String?
   achievements    String?
@@ -236,9 +241,9 @@ model MatchPlayer {
   isCaptain     Boolean @default(false)
   isViceCaptain Boolean @default(false)
   isWk          Boolean @default(false)
-  match     Match   @relation(fields: [matchId], references: [id])
-  player    Player  @relation(fields: [playerId], references: [id])
-  team      Team    @relation(fields: [teamId], references: [id])
+  match         Match   @relation(fields: [matchId], references: [id])
+  player        Player  @relation(fields: [playerId], references: [id])
+  team          Team    @relation(fields: [teamId], references: [id])
 
   @@unique([matchId, playerId])
   @@index([playerId])
@@ -284,15 +289,15 @@ model Over {
 }
 
 model Ball {
-  id                String  @id @default(cuid())
+  id                String   @id @default(cuid())
   overId            String
   ballNumber        Int
   batterId          String
   nonStrikerId      String
-  runs              Int     @default(0)
-  extras            Int     @default(0)
+  runs              Int      @default(0)
+  extras            Int      @default(0)
   extraType         String?
-  isWicket          Boolean @default(false)
+  isWicket          Boolean  @default(false)
   wicketType        String?
   wicketAssists     String?
   // Was the run out a direct hit? CricHeroes pay a run-out fielder full MVP
@@ -309,12 +314,12 @@ model Ball {
   // chance are not the same event.
   dropDifficulty    String?
   dismissedPlayerId String?
-  clientEventId     String? @unique
+  clientEventId     String?  @unique
   bowlerId          String?
-  batter            Player  @relation("facingBatter", fields: [batterId], references: [id])
-  bowler            Player? @relation("ballBowler", fields: [bowlerId], references: [id])
-  nonStriker        Player  @relation("nonStriker", fields: [nonStrikerId], references: [id])
-  over              Over    @relation(fields: [overId], references: [id])
+  batter            Player   @relation("facingBatter", fields: [batterId], references: [id])
+  bowler            Player?  @relation("ballBowler", fields: [bowlerId], references: [id])
+  nonStriker        Player   @relation("nonStriker", fields: [nonStrikerId], references: [id])
+  over              Over     @relation(fields: [overId], references: [id])
 
   @@index([overId])
   @@index([batterId])
@@ -474,70 +479,70 @@ model Stream {
 }
 
 model Ground {
-  id                String   @id @default(cuid())
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  name              String
-  localName         String?
-  description       String?
-  category          String?              // "Cricket ground", "Sports complex", etc.
-  groundType        String   @default("outdoor")  // indoor | outdoor | box_cricket | stadium | nets | academy
-  playingSurface    String?              // turf | grass | mat | concrete | synthetic | clay
-  ballTypes         Json?                // ["leather", "tennis", "soft"]
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  name           String
+  localName      String?
+  description    String?
+  category       String? // "Cricket ground", "Sports complex", etc.
+  groundType     String   @default("outdoor") // indoor | outdoor | box_cricket | stadium | nets | academy
+  playingSurface String? // turf | grass | mat | concrete | synthetic | clay
+  ballTypes      Json? // ["leather", "tennis", "soft"]
 
   // Address
-  address           String?
-  street            String?
-  area              String?
-  city              String?
-  district          String?
-  state             String?
-  country           String   @default("IN")
-  postalCode        String?
-  latitude          Float?
-  longitude         Float?
-  googlePlaceId     String?  @unique
-  googleMapsUrl     String?
+  address       String?
+  street        String?
+  area          String?
+  city          String?
+  district      String?
+  state         String?
+  country       String  @default("IN")
+  postalCode    String?
+  latitude      Float?
+  longitude     Float?
+  googlePlaceId String? @unique
+  googleMapsUrl String?
 
   // Contact
-  phone             String?
-  whatsapp          String?
-  email             String?
-  website           String?
+  phone    String?
+  whatsapp String?
+  email    String?
+  website  String?
 
   // Ratings
-  averageRating     Float    @default(0)
-  reviewCount       Int      @default(0)
+  averageRating Float @default(0)
+  reviewCount   Int   @default(0)
 
   // Flags
-  bookingEnabled    Boolean  @default(false)
-  verified          Boolean  @default(false)
-  featured          Boolean  @default(false)
-  permanentlyClosed Boolean  @default(false)
-  temporarilyClosed Boolean  @default(false)
+  bookingEnabled    Boolean @default(false)
+  verified          Boolean @default(false)
+  featured          Boolean @default(false)
+  permanentlyClosed Boolean @default(false)
+  temporarilyClosed Boolean @default(false)
 
   // Ownership & admin
-  ownerId           String?
-  submittedById     String?
-  rejectionReason   String?
+  ownerId         String?
+  submittedById   String?
+  rejectionReason String?
   // pending | published | rejected | archived
-  status            String   @default("pending")
-  sport             String   @default("cricket")
+  status          String  @default("pending")
+  sport           String  @default("cricket")
 
   // Legacy compat (existing Ground had these)
-  location          String?
-  price             Int?
-  available         Boolean  @default(true)
-  facilities        Json?
+  location   String?
+  price      Int?
+  available  Boolean @default(true)
+  facilities Json?
 
   // Relations
-  images            GroundImage[]
-  openingHours      GroundOpeningHours[]
-  amenities         GroundAmenity[]
-  reviews           GroundReview[]
-  favourites        GroundFavourite[]
-  availability      GroundAvailability[]
-  bookings          Booking[]
+  images       GroundImage[]
+  openingHours GroundOpeningHours[]
+  amenities    GroundAmenity[]
+  reviews      GroundReview[]
+  favourites   GroundFavourite[]
+  availability GroundAvailability[]
+  bookings     Booking[]
 
   @@index([sport])
   @@index([city])
@@ -550,12 +555,12 @@ model Ground {
 }
 
 model GroundImage {
-  id           String  @id @default(cuid())
+  id           String @id @default(cuid())
   groundId     String
   imageUrl     String
-  imageType    String  @default("cover")  // cover | gallery | panorama
-  displayOrder Int     @default(0)
-  ground       Ground  @relation(fields: [groundId], references: [id], onDelete: Cascade)
+  imageType    String @default("cover") // cover | gallery | panorama
+  displayOrder Int    @default(0)
+  ground       Ground @relation(fields: [groundId], references: [id], onDelete: Cascade)
 
   @@index([groundId])
 }
@@ -563,9 +568,9 @@ model GroundImage {
 model GroundOpeningHours {
   id        String  @id @default(cuid())
   groundId  String
-  day       String          // Monday, Tuesday, ...
-  openTime  String?         // "06:00"
-  closeTime String?         // "20:00"
+  day       String // Monday, Tuesday, ...
+  openTime  String? // "06:00"
+  closeTime String? // "20:00"
   isClosed  Boolean @default(false)
   ground    Ground  @relation(fields: [groundId], references: [id], onDelete: Cascade)
 
@@ -575,7 +580,7 @@ model GroundOpeningHours {
 model GroundAmenity {
   id       String @id @default(cuid())
   groundId String
-  amenity  String         // "Flood Lights", "Parking", etc.
+  amenity  String // "Flood Lights", "Parking", etc.
   ground   Ground @relation(fields: [groundId], references: [id], onDelete: Cascade)
 
   @@index([groundId])
@@ -613,7 +618,7 @@ model GroundAvailability {
   date      DateTime
   startTime String
   endTime   String
-  status    String   @default("available")  // available | booked | blocked | maintenance
+  status    String   @default("available") // available | booked | blocked | maintenance
   ground    Ground   @relation(fields: [groundId], references: [id], onDelete: Cascade)
 
   @@index([groundId, date])

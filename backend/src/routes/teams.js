@@ -142,6 +142,9 @@ const AwardSchema = z.object({
 
 const TeamSchema = z.object({
   name: z.string().min(1),
+  // Short enough to be a code, not a second name.
+  shortName: z.string().max(8).optional().nullable(),
+  website: z.string().max(200).optional().nullable(),
   sport: z.string().optional(),
   city: z.string().optional(),
   logoUrl: z.string().url().optional(),
