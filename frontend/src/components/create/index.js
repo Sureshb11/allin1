@@ -467,18 +467,6 @@ export function FormLoading({ label = 'Loading…' }) {
   );
 }
 
-export function FormEmpty({ icon = 'inbox-outline', title, hint }) {
-  const DS = useTheme().colors;
-  const s = useCreateStyles();
-  return (
-    <View style={{ paddingVertical: SPACE.xl, alignItems: 'center', gap: SPACE.sm }}>
-      <Icon name={icon} size={30} color={DS.textMuted} />
-      <Text style={[s.toggleTitle, { textAlign: 'center' }]}>{title}</Text>
-      {!!hint && <Text style={[s.helper, { textAlign: 'center' }]}>{hint}</Text>}
-    </View>
-  );
-}
-
 /** A form-level problem, above the button — not a field's own error. */
 export function ValidationMessage({ message }) {
   const DS = useTheme().colors;

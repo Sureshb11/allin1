@@ -19,7 +19,10 @@ import {
   SectionCard, Field, ChoiceField, Stepper, ToggleRow, SelectField,
   DateField, ImageField, ReorderList,
 } from '../components/FormKit';
-import { DrawerHeader, PrimaryButton, SecondaryButton, StickyFooter, SPACE, useDrawerSheet, DRAWER_BACKDROP } from '../components/create';
+import {
+  DrawerHeader, PrimaryButton, SecondaryButton, StickyFooter, FormLoading, SPACE,
+  useDrawerSheet, DRAWER_BACKDROP,
+} from '../components/create';
 import CoverFocusPicker from '../components/CoverFocusPicker';
 
 // Create Tournament.
@@ -913,9 +916,11 @@ export default function TournamentScreen({ navigation, route }) {
   ), [step, last, editingId, busy, published, tabClear, onBack, onNext, publish]);
 
   if (loading) {
+    // The system's loading state, which says what is loading. A bare spinner
+    // says something is happening and leaves you to guess what.
     return (
-      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator color={DS.lime} />
+      <View style={[styles.container, { justifyContent: 'center' }]}>
+        <FormLoading label="Loading this tournament…" />
       </View>
     );
   }
