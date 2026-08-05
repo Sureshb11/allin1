@@ -15,6 +15,7 @@ import { getStartFormat as getSportFormat } from '../sports/start';
 import { getSport } from '../sports';
 import { getSelectedSport } from '../utils/selectedSport';
 import GradientButton from '../components/GradientButton';
+import { DrawerHeader, PrimaryButton, StickyFooter } from '../components/create';
 import HexAvatar from '../components/HexAvatar';
 import { showToast } from '../components/Toast';
 import { useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
@@ -427,10 +428,15 @@ const StartMatchScreen = ({ navigation, route }) => {
             <Text style={s.topLabelText}>{(sport.name || 'New').toUpperCase()} · NEW SESSION</Text>
           </View>
         </View>
-        <Text style={s.headline}>CREATE NEW MATCH</Text>
-        <Text style={s.subheadline}>
-          Set up your match details and start scoring live
-        </Text>
+
+        {/* The same header the other three drawers use. It was a hand-rolled
+            headline and subheadline at their own sizes; now it is the shared
+            component, so all four read identically at the top. */}
+        <DrawerHeader
+          icon={sportDef?.icon || 'cricket'}
+          title="Create New Match"
+          subtitle="Set up your match and start scoring live"
+        />
 
         {/* ── 01 · Match Format ───────────────────── */}
         <SectionHead num="01" label="SELECT FORMAT" />
@@ -665,20 +671,19 @@ const StartMatchScreen = ({ navigation, route }) => {
           </Text>
         )}
 
-        {/* ── CTA — solid blue "commit action" per the app colour rule
-             (matches Score / Start / View Summary), not the green gradient ── */}
-        <TouchableOpacity
-          style={[s.submitButton, (!team1 || !team2 || emptyTeams.length > 0 || loading) && s.submitButtonDisabled]}
-          onPress={onCreate}
-          disabled={!team1 || !team2 || emptyTeams.length > 0 || loading}
-          activeOpacity={0.8}>
-          {loading ? (
-            <ActivityIndicator color={K.bg} />
-          ) : (
-            <Text style={s.submitButtonText}>{scheduleAt ? 'SCHEDULE MATCH' : 'START SCORING'}</Text>
-          )}
-        </TouchableOpacity>
       </BottomSheetScrollView>
+
+      {/* The action is pinned, like the other three, so it is never scrolled
+          away from on a form this long. */}
+      <StickyFooter inset={tabClear}>
+        <PrimaryButton
+          label={scheduleAt ? 'Schedule Match' : 'Create Match'}
+          icon={scheduleAt ? 'calendar-check' : 'play-circle'}
+          loading={loading}
+          disabled={!team1 || !team2 || emptyTeams.length > 0}
+          onPress={onCreate}
+        />
+      </StickyFooter>
 
       {/* Team Picker modal */}
       <TeamPicker
@@ -746,20 +751,6 @@ const makeS = (K) => StyleSheet.create({
     fontWeight: '800',
     color: K.lime,
     letterSpacing: 1.2,
-  },
-  headline: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: K.text,
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  subheadline: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: K.textMuted,
-    lineHeight: 20,
-    marginBottom: 8,
   },
 
   /* ── Section headers ───────────────────────── */
@@ -1072,24 +1063,6 @@ const makeS = (K) => StyleSheet.create({
     borderRadius: 20, backgroundColor: K.limeDim, borderWidth: 1, borderColor: K.lime,
   },
   squadWarnBtnText: { color: K.lime, fontSize: 12.5, fontWeight: '800' },
-
-  submitButton: {
-    backgroundColor: K.lime,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 28,
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: K.bg,
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 1.2
-  },
 
   /* ── When (schedule) ───────────────────────── */
   whenRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
