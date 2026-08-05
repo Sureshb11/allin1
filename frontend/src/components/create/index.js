@@ -431,7 +431,11 @@ export function SecondaryButton({ label, icon, onPress, disabled }) {
  */
 export function StickyFooter({ children, inset = 0 }) {
   const s = useCreateStyles();
-  return <View style={[s.footer, { paddingBottom: SPACE.lg + inset }]}>{children}</View>;
+  // `inset` is for a bar that is genuinely BELOW this one. It is not for the
+  // app dock: every creation flow locks the dock away, so adding its height
+  // here left a band of blank screen under the button the exact size of a
+  // bottom bar that was not there.
+  return <View style={[s.footer, { paddingBottom: SPACE.md + inset }]}>{children}</View>;
 }
 
 /**

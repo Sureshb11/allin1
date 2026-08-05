@@ -412,7 +412,7 @@ const StartMatchScreen = ({ navigation, route }) => {
   // as the other four drawers.
   const renderMatchFooter = useCallback((props) => (
     <BottomSheetFooter {...props} bottomInset={0}>
-      <StickyFooter inset={tabClear}>
+      <StickyFooter>
         <PrimaryButton
           label={scheduleAt ? 'Schedule Match' : 'Create Match'}
           icon={scheduleAt ? 'calendar-check' : 'play-circle'}

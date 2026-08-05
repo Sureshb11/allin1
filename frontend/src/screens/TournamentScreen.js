@@ -891,15 +891,17 @@ export default function TournamentScreen({ navigation, route }) {
   // last step Continue becomes Create, and only the words change.
   const renderStepFooter = useCallback((props) => (
     <BottomSheetFooter {...props} bottomInset={0}>
-      <StickyFooter inset={tabClear}>
+      <StickyFooter>
         <View style={{ flexDirection: 'row', gap: SPACE.md }}>
-          <View style={{ width: 120 }}>
-            <SecondaryButton
-              label={step === 0 ? 'Cancel' : 'Back'}
-              icon={step === 0 ? 'close' : 'chevron-left'}
-              onPress={onBack}
-            />
-          </View>
+          {/* No Cancel. On the first step it duplicated the X in the header —
+              two ways to leave, side by side, one of them taking a third of the
+              action bar from the button people actually came to press. Back
+              appears once there is a step to go back to. */}
+          {step > 0 && (
+            <View style={{ width: 112 }}>
+              <SecondaryButton label="Back" icon="chevron-left" onPress={onBack} />
+            </View>
+          )}
           <View style={{ flex: 1 }}>
             <PrimaryButton
               label={last ? (editingId ? 'Save Changes' : 'Create Tournament') : 'Continue'}
@@ -943,10 +945,16 @@ export default function TournamentScreen({ navigation, route }) {
         subtitle={`Step ${step + 1} of ${STEPS.length} · ${STEPS[step].label}`}
         onClose={confirmLeave}
         right={!editingId ? (
-          <TouchableOpacity onPress={() => saveDraft(false)} disabled={busy === 'draft'} style={styles.draftBtn}>
+          // An icon, not a labelled pill. "Draft" plus its border took about
+          // ninety points out of a header that also carries a 40pt icon and a
+          // close button — which is why the title read "Create Tourna…". The
+          // action is unchanged and the label moves to the screen reader.
+          <TouchableOpacity onPress={() => saveDraft(false)} disabled={busy === 'draft'}
+            style={styles.draftBtn}
+            accessibilityRole="button" accessibilityLabel="Save as draft">
             {busy === 'draft'
               ? <ActivityIndicator size="small" color={DS.lime} />
-              : <><Icon name="content-save-outline" size={14} color={DS.lime} /><Text style={styles.draftText}>Draft</Text></>}
+              : <Icon name="content-save-outline" size={19} color={DS.lime} />}
           </TouchableOpacity>
         ) : null}
       />
@@ -1020,11 +1028,10 @@ const makeStyles = (DS) => StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.2 },
   headerSub: { fontSize: 11, fontWeight: '700', color: DS.textMuted, marginTop: 1 },
   draftBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5, minWidth: 66, justifyContent: 'center',
-    paddingHorizontal: 11, paddingVertical: 8, borderRadius: 999,
+    width: 40, height: 40, borderRadius: 999,
+    alignItems: 'center', justifyContent: 'center',
     borderWidth: 1.5, borderColor: DS.lime, backgroundColor: 'transparent',
   },
-  draftText: { fontSize: 12, fontWeight: '800', color: DS.lime },
 
   progressRow: {
     flexDirection: 'row', gap: 6, paddingHorizontal: 14, paddingBottom: 12,
