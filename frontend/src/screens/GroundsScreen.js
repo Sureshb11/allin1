@@ -6,6 +6,11 @@ import {
 } from 'react-native';
 import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {
+  DrawerHeader, SectionCard, TextField, TextArea, ChipGroup, ImagePickerField,
+  LocationField, TimeField, PrimaryButton, StickyFooter, ValidationMessage,
+  useCreateStyles, SPACE,
+} from '../components/create';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCurrentUser } from '../utils/currentUser';
 import LegendsApi from '../services/LegendsApi';
@@ -467,10 +472,17 @@ const GroundField = ({ label, value, onChangeText, placeholder, multiline, keybo
   );
 };
 
-const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
-  const [step, setStep] = useState(1);
-  const totalSteps = 3;
-  // Step 1
+// ── Create Ground ───────────────────────────────────────────────────────────
+// One scroll of cards, on the shared creation system — the same header, cards,
+// fields, chips and pinned action as Create Post.
+//
+// It was a three-step wizard: a progress bar, Back/Next, and validation that
+// fired as an Alert when you tried to leave a step. Three cards say the same
+// thing without hiding two thirds of the form behind a button, and the fields
+// are the ones the design brief lists rather than the twenty the wizard grew.
+const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
+  const cs = useCreateStyles();
+
   const [name, setName] = useState('');
   const [localName, setLocalName] = useState('');
   const [category, setCategory] = useState('');
@@ -480,7 +492,6 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
   const [address, setAddress] = useState('');
   const [lat] = useState(initialLocation?.latitude || null);
   const [lng] = useState(initialLocation?.longitude || null);
-  // Step 2
   const [groundType, setGroundType] = useState('outdoor');
   const [playingSurface, setPlayingSurface] = useState('');
   const [ballTypes, setBallTypes] = useState([]);
@@ -488,39 +499,37 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
   const [amenities, setAmenities] = useState([]);
   const [openTime, setOpenTime] = useState('06:00');
   const [closeTime, setCloseTime] = useState('22:00');
-  // Step 3
   const [phone, setPhone] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
-  const [email, setEmail] = useState('');
-  const [website, setWebsite] = useState('');
   const [imageUris, setImageUris] = useState([]);
   const [description, setDescription] = useState('');
 
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const toggleBall = (key) => setBallTypes(prev => prev.includes(key) ? prev.filter(b => b !== key) : [...prev, key]);
-  const toggleAmenity = (a) => setAmenities(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
+  const [done, setDone] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState('');
 
   const addPhoto = async () => {
-    if (imageUris.length >= 5) return Alert.alert('Limit', 'Maximum 5 photos allowed.');
+    if (imageUris.length >= 5) return;
     setUploading(true);
     const r = await pickAndUploadImage('grounds');
     setUploading(false);
-    if (r.url) setImageUris(prev => [...prev, r.url]);
-    else if (r.error) Alert.alert('Upload failed', r.error);
+    if (r.url) setImageUris((prev) => [...prev, r.url]);
+    else if (r.error) setFormError(r.error);
   };
-  const removePhoto = (idx) => setImageUris(prev => prev.filter((_, i) => i !== idx));
-
-  const validateStep = () => {
-    if (step === 1 && !name.trim()) { Alert.alert('Required', 'Ground name is required.'); return false; }
-    if (step === 1 && !city.trim()) { Alert.alert('Required', 'City is required.'); return false; }
-    return true;
-  };
-  const nextStep = () => { if (validateStep()) setStep(Math.min(step + 1, totalSteps)); };
-  const prevStep = () => setStep(Math.max(step - 1, 1));
+  const removePhoto = (idx) => setImageUris((prev) => prev.filter((_, i) => i !== idx));
 
   const handleSubmit = async () => {
+    // Per field, under the field. The wizard raised an Alert naming the
+    // problem and then dismissed itself, leaving you to find which box it meant.
+    const problems = {};
+    if (!name.trim()) problems.name = 'A ground needs a name';
+    if (!city.trim()) problems.city = 'Which town or city is it in?';
+    setErrors(problems);
+    if (Object.keys(problems).length) return;
+
+    setFormError('');
     setLoading(true);
     try {
       await onSubmit({
@@ -530,184 +539,98 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
         latitude: lat || undefined, longitude: lng || undefined, groundType,
         playingSurface: playingSurface || undefined,
         ballTypes: ballTypes.length > 0 ? ballTypes : undefined,
-        price: price ? parseInt(price) : undefined,
+        price: price ? parseInt(price, 10) : undefined,
         amenities: amenities.length > 0 ? amenities : undefined,
         openTime: openTime || undefined, closeTime: closeTime || undefined,
         phone: phone.trim() || undefined, whatsapp: whatsapp.trim() || undefined,
-        email: email.trim() || undefined, website: website.trim() || undefined,
         images: imageUris.length > 0 ? imageUris : undefined,
         imageUrl: imageUris[0] || undefined,
         description: description.trim() || undefined,
       });
-    } catch (e) { Alert.alert('Error', e.message); }
-    finally { setLoading(false); }
+      setDone(true);
+    } catch (e) {
+      setFormError(e.message || 'Could not save that ground');
+    } finally {
+      setLoading(false);
+    }
   };
-
-
 
   return (
     <View style={{ flex: 1, backgroundColor: DS.bg }}>
-      {/* Header */}
-      <View style={styles.formTopHeader}>
-        <TouchableOpacity onPress={step > 1 ? prevStep : onCancel} style={styles.formBackBtn}>
-          <Icon name={step > 1 ? 'arrow-left' : 'close'} size={18} color={DS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.formHeaderTitle}>ADD GROUND</Text>
-        <Text style={{ color: DS.textMuted, fontSize: 13, fontWeight: '700' }}>Step {step}/{totalSteps}</Text>
-      </View>
+      <DrawerHeader
+        icon="stadium"
+        title="Add a Ground"
+        subtitle="Put a pitch on the map for everyone"
+        onClose={onCancel}
+      />
 
-      {/* Progress Bar */}
-      <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 4, marginBottom: 8 }}>
-        {[1, 2, 3].map(s => (
-          <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: s <= step ? DS.lime : DS.surfaceHigh, shadowColor: s <= step ? DS.lime : 'transparent', shadowOpacity: 0.5, shadowRadius: 4, elevation: 2 }} />
-        ))}
-      </View>
-      
-      {/* Contextual Header */}
-      <View style={{ width: '100%', height: 120, marginBottom: -20, marginTop: -12, zIndex: -1 }}>
-        <Image source={{ uri: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1000&auto=format&fit=crop' }} style={{ width: '100%', height: '100%', opacity: 0.8 }} blurRadius={3} />
-        <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)' }} />
-      </View>
+      <ScrollView contentContainerStyle={cs.body} showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
+        <SectionCard title="The ground" icon="stadium-outline">
+          <ImagePickerField
+            label="Photos"
+            images={imageUris}
+            onAdd={addPhoto}
+            onRemove={removePhoto}
+            busy={uploading}
+            max={5}
+            helper="Up to five — the first is the cover"
+          />
+          <TextField label="Ground name" required value={name} onChangeText={setName}
+            error={errors.name} placeholder="e.g. M.A. Chidambaram Stadium" />
+          <TextField label="Local name" value={localName} onChangeText={setLocalName}
+            placeholder="e.g. Chepauk" helper="What people round there call it" />
+          <ChipGroup label="Category" options={CATEGORIES} value={category}
+            onChange={(v) => setCategory(v || '')} last />
+        </SectionCard>
 
-      <BottomSheetScrollView style={{ flex: 1, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        <SectionCard title="Where it is" icon="map-marker-outline">
+          <TextField label="City" required value={city} onChangeText={setCity}
+            error={errors.city} placeholder="e.g. Chennai" />
+          <TextField label="Area" value={area} onChangeText={setArea} placeholder="e.g. Chepauk" />
+          <TextField label="State" value={stateName} onChangeText={setStateName} placeholder="e.g. Tamil Nadu" />
+          <TextArea label="Full address" value={address} onChangeText={setAddress}
+            placeholder="Street, landmark, pin code" last={!lat} />
+          {!!lat && (
+            <LocationField label="Map location" value={`${lat.toFixed(5)}, ${lng.toFixed(5)}`}
+              helper="Taken from where you tapped the map" onPress={() => {}} last />
+          )}
+        </SectionCard>
 
-        {/* ═══ STEP 1: BASICS & LOCATION ═══ */}
-        {step === 1 && (
-          <View>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: DS.textPrimary, marginBottom: 4, marginTop: 8 }}>Basics & Location</Text>
-            <Text style={{ fontSize: 14, color: DS.textMuted, marginBottom: 16 }}>Tell us about the ground and where it is.</Text>
-            <View style={styles.formCardBlock}>
-              <GroundField label="Ground Name" value={name} onChangeText={setName} placeholder="e.g. M.A. Chidambaram Stadium" required />
-              <GroundField label="Local / Regional Name" value={localName} onChangeText={setLocalName} placeholder="e.g. Chepauk" />
-              <SectionLabel text="Category" />
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {CATEGORIES.map(c => <Chip key={c} label={c} active={category === c} onPress={() => setCategory(category === c ? '' : c)} />)}
-              </View>
-            </View>
-            <View style={styles.formCardBlock}>
-              <GroundField label="Area / Locality" value={area} onChangeText={setArea} placeholder="e.g. Chepauk" />
-              <GroundField label="City" value={city} onChangeText={setCity} placeholder="e.g. Chennai" required />
-              <GroundField label="State" value={stateName} onChangeText={setStateName} placeholder="e.g. Tamil Nadu" />
-              <GroundField label="Full Address" value={address} onChangeText={setAddress} placeholder="Full physical address..." multiline />
-            </View>
-            {(lat && lng) && (
-              <View style={[styles.locationBadge, { marginBottom: 24 }]}>
-                <Icon name="crosshairs-gps" size={20} color={DS.lime} />
-                <View style={{marginLeft: 12}}>
-                  <Text style={{color: DS.textPrimary, fontWeight: '800', fontSize: 14}}>Location Pinned</Text>
-                  <Text style={styles.locationBadgeText}>{lat.toFixed(4)}, {lng.toFixed(4)}</Text>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
+        <SectionCard title="Playing there" icon="cricket">
+          <ChipGroup label="Ground type" options={GROUND_TYPES_LIST.map((t) => ({ value: t.key, label: t.label, icon: t.icon }))}
+            value={groundType} onChange={(v) => v && setGroundType(v)} />
+          <ChipGroup label="Surface" options={SURFACES.map((s) => ({ value: s.key, label: s.label }))}
+            value={playingSurface} onChange={(v) => setPlayingSurface(v || '')} />
+          <ChipGroup label="Ball types" multi options={BALL_TYPES_LIST.map((b) => ({ value: b.key, label: b.label }))}
+            value={ballTypes} onChange={setBallTypes} />
+          <ChipGroup label="Amenities" multi options={AMENITY_OPTIONS} value={amenities} onChange={setAmenities} last />
+        </SectionCard>
 
-        {/* ═══ STEP 2: GROUND DETAILS ═══ */}
-        {step === 2 && (
-          <View>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: DS.textPrimary, marginBottom: 4, marginTop: 8 }}>Ground Details</Text>
-            <Text style={{ fontSize: 14, color: DS.textMuted, marginBottom: 16 }}>Describe the playing conditions & facilities.</Text>
-            <View style={styles.formCardBlock}>
-              <SectionLabel text="Ground Type" />
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {GROUND_TYPES_LIST.map(t => <Chip key={t.key} label={t.label} icon={t.icon} active={groundType === t.key} onPress={() => setGroundType(t.key)} />)}
-              </View>
-              <SectionLabel text="Playing Surface" />
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {SURFACES.map(sf => <Chip key={sf.key} label={sf.label} active={playingSurface === sf.key} onPress={() => setPlayingSurface(playingSurface === sf.key ? '' : sf.key)} />)}
-              </View>
-              <SectionLabel text="Ball Types Allowed" />
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {BALL_TYPES_LIST.map(b => <Chip key={b.key} label={b.label} active={ballTypes.includes(b.key)} onPress={() => toggleBall(b.key)} />)}
-              </View>
+        <SectionCard title="Booking & contact" icon="phone-outline">
+          <TextField label="Price per hour" value={price} onChangeText={setPrice}
+            placeholder="e.g. 500" keyboardType="numeric" helper="Leave empty if it is free" />
+          <View style={{ flexDirection: 'row', gap: SPACE.md }}>
+            <View style={{ flex: 1 }}>
+              <TimeField label="Opens" value={openTime} onPress={() => {}} />
             </View>
-            <View style={styles.formCardBlock}>
-              <SectionLabel text="Price (per hour)" />
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceLow, borderRadius: 10, paddingHorizontal: 14 }}>
-                <Text style={{ color: DS.textMuted, fontSize: 18, fontWeight: '700', marginRight: 4 }}>₹</Text>
-                <BottomSheetTextInput style={[styles.formInput, { flex: 1, backgroundColor: 'transparent', paddingHorizontal: 0 }]} value={price} onChangeText={setPrice} placeholder="e.g. 500" placeholderTextColor={DS.textMuted} keyboardType="numeric" />
-              </View>
-            </View>
-            <View style={styles.formCardBlock}>
-              <SectionLabel text="Amenities & Facilities" />
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {AMENITY_OPTIONS.map(a => <Chip key={a} label={a} active={amenities.includes(a)} onPress={() => toggleAmenity(a)} />)}
-              </View>
-            </View>
-            <View style={styles.formCardBlock}>
-              <SectionLabel text="Opening Hours" />
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '600', marginBottom: 6 }}>Opens at</Text>
-                  <BottomSheetTextInput style={styles.formInput} value={openTime} onChangeText={setOpenTime} placeholder="06:00" placeholderTextColor={DS.textMuted} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '600', marginBottom: 6 }}>Closes at</Text>
-                  <BottomSheetTextInput style={styles.formInput} value={closeTime} onChangeText={setCloseTime} placeholder="22:00" placeholderTextColor={DS.textMuted} />
-                </View>
-              </View>
+            <View style={{ flex: 1 }}>
+              <TimeField label="Closes" value={closeTime} onPress={() => {}} />
             </View>
           </View>
-        )}
+          <TextField label="Contact number" value={phone} onChangeText={setPhone}
+            placeholder="Mobile number" keyboardType="phone-pad" />
+          <TextField label="WhatsApp" value={whatsapp} onChangeText={setWhatsapp}
+            placeholder="If different from the above" keyboardType="phone-pad" />
+          <TextArea label="Description" value={description} onChangeText={setDescription}
+            placeholder="Anything a player should know before turning up" last />
+        </SectionCard>
+      </ScrollView>
 
-        {/* ═══ STEP 3: CONTACT & PHOTOS ═══ */}
-        {step === 3 && (
-          <View>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: DS.textPrimary, marginBottom: 4, marginTop: 8 }}>Contact & Photos</Text>
-            <Text style={{ fontSize: 14, color: DS.textMuted, marginBottom: 16 }}>How can players reach you?</Text>
-            <View style={styles.formCardBlock}>
-              <GroundField label="Phone" value={phone} onChangeText={setPhone} placeholder="Phone number" keyboardType="phone-pad" />
-              <GroundField label="WhatsApp" value={whatsapp} onChangeText={setWhatsapp} placeholder="WhatsApp number" keyboardType="phone-pad" />
-              <GroundField label="Email" value={email} onChangeText={setEmail} placeholder="ground@example.com" keyboardType="email-address" />
-              <GroundField label="Website" value={website} onChangeText={setWebsite} placeholder="https://..." />
-            </View>
-            <View style={styles.formSection}>
-              <SectionLabel text={`Photos (${imageUris.length}/5)`} />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.formPhotoRow}>
-                {imageUris.map((uri, idx) => (
-                  <View key={idx} style={styles.formPhotoThumbWrap}>
-                    <Image source={{ uri }} style={styles.formPhotoThumb} />
-                    <TouchableOpacity style={styles.formPhotoThumbX} onPress={() => removePhoto(idx)}>
-                      <Icon name="close" size={14} color="#fff" />
-                    </TouchableOpacity>
-                    {idx === 0 && (
-                      <View style={{ position: 'absolute', bottom: 4, left: 4, backgroundColor: DS.lime, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                        <Text style={{ color: DS.bg, fontSize: 9, fontWeight: '800' }}>COVER</Text>
-                      </View>
-                    )}
-                  </View>
-                ))}
-                {imageUris.length < 5 && (
-                  <TouchableOpacity style={styles.formAddPhotoBtn} onPress={addPhoto} disabled={uploading}>
-                    {uploading ? <ActivityIndicator size="small" color={DS.lime} /> : <><Icon name="camera-plus" size={24} color={DS.lime} /><Text style={styles.formAddPhotoTxt}>Add photo</Text></>}
-                  </TouchableOpacity>
-                )}
-              </ScrollView>
-            </View>
-            <View style={styles.formCardBlock}>
-              <GroundField label="Description" value={description} onChangeText={setDescription} placeholder="Describe the ground, pitch condition, how to reach..." multiline />
-            </View>
-          </View>
-        )}
-      </BottomSheetScrollView>
-
-      {/* Bottom Navigation */}
-      <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingBottom: Platform.OS === 'ios' ? 34 : 16, paddingTop: 12, gap: 12, borderTopWidth: 1, borderTopColor: DS.faint, backgroundColor: DS.bg }}>
-        {step > 1 && (
-          <TouchableOpacity onPress={prevStep} style={styles.formBackBtn}>
-            <Text style={styles.formBackBtnText}>BACK</Text>
-          </TouchableOpacity>
-        )}
-        {step < totalSteps ? (
-          <TouchableOpacity onPress={nextStep} style={[styles.formSubmitBtn, { flex: 2 }]}>
-            <Text style={styles.formSubmitBtnText}>NEXT</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={handleSubmit} disabled={loading} style={[styles.formSubmitBtn, { flex: 2 }, loading && { opacity: 0.6 }]}>
-            {loading ? <ActivityIndicator color={DS.bg} /> : <Text style={styles.formSubmitBtnText}>SUBMIT</Text>}
-          </TouchableOpacity>
-        )}
-      </View>
+      <StickyFooter>
+        <ValidationMessage message={formError} />
+        <PrimaryButton label="Create Ground" icon="check" loading={loading} done={done} onPress={handleSubmit} />
+      </StickyFooter>
     </View>
   );
 };
@@ -1070,7 +993,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
         backgroundStyle={{ backgroundColor: DS.bg }}
         handleIndicatorStyle={{ backgroundColor: DS.faint }}
       >
-        <AddGroundForm onSubmit={handleFormSubmit} onCancel={closeAddGround} styles={styles} initialLocation={mapLocation} DS={DS} />
+        <AddGroundForm onSubmit={handleFormSubmit} onCancel={closeAddGround} initialLocation={mapLocation} DS={DS} />
       </BottomSheetModal>
 
       {/* ── Where are you? ──
@@ -1191,27 +1114,11 @@ const makeStyles = (DS, P) => StyleSheet.create({
   adminBtnReject: { backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint },
   adminBtnTextReject: { color: DS.coral, fontWeight: '800', fontSize: 15 },
 
-  locationBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceHigh, padding: 16, borderRadius: 16, marginTop: 16, borderWidth: 1, borderColor: DS.lime + '40' },
-  locationBadgeText: { color: DS.textMuted, fontWeight: '500', fontSize: 12, marginTop: 2 },
-
-  formTopHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 50 : 16, paddingBottom: 14, backgroundColor: DS.bg },
-  formBackBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   formBackArrow: { color: DS.textPrimary, fontSize: 18, fontWeight: '600' },
-  formHeaderTitle: { color: DS.textPrimary, fontSize: 16, fontWeight: '700', letterSpacing: 1.2 },
   formProfileIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' },
   formProfileText: { color: DS.textVariant, fontSize: 14, fontWeight: '600' },
-  formSection: { marginTop: 8, marginBottom: 20 },
   formSectionTitle: { color: DS.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.4, marginBottom: 14 },
-  formPhotoRow: { gap: 10, paddingRight: 16 },
-  formPhotoThumbWrap: { position: 'relative' },
-  formPhotoThumb: { width: 90, height: 90, borderRadius: 12, backgroundColor: DS.surfaceHigh },
-  formPhotoThumbX: { position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: DS.coral, alignItems: 'center', justifyContent: 'center' },
-  formAddPhotoBtn: { width: 90, height: 90, borderRadius: 12, borderWidth: 1.5, borderColor: DS.lime, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 4 },
-  formAddPhotoTxt: { color: DS.lime, fontSize: 11, fontWeight: '700' },
-  formCardBlock: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 18, marginBottom: 24 },
   formLabel: { fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.8, marginBottom: 8, marginTop: 16, textTransform: 'uppercase' },
   formInput: { backgroundColor: DS.surfaceLow, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, color: DS.textPrimary, borderWidth: 0 },
   formTextArea: { height: 110, textAlignVertical: 'top', paddingTop: 13 },
-  formSubmitBtn: { backgroundColor: DS.lime, paddingVertical: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  formSubmitBtnText: { color: DS.bg, fontSize: 15, fontWeight: '800', letterSpacing: 1.2 }
 });
