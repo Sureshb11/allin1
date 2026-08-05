@@ -13,7 +13,7 @@
 //   · a press scales to 0.97 and back on the house spring
 //   · labels, helpers and errors have one size each, from TYPE
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, Animated, Easing, Alert,
 } from 'react-native';
@@ -60,6 +60,38 @@ export function Pressable({ onPress, disabled, style, children, ...rest }) {
     </Animated.View>
   );
 }
+
+/**
+ * How a creation drawer opens. One object, spread onto all five sheets.
+ *
+ * They had drifted: 92% tall on two and 95% on three, a grab handle in `faint`
+ * on three and `surfaceHigh` on two, and a backdrop at 0.5 on three and 0.7 on
+ * two. Each is defensible alone; together they mean the same gesture produces a
+ * visibly different drawer depending on which button you pressed, which is the
+ * one thing the brief asks not to happen.
+ *
+ *   const sheet = useDrawerSheet();
+ *   <BottomSheetModal ref={r} {...sheet} backdropComponent={…} footerComponent={…}>
+ *
+ * Keyboard handling is part of it, not an afterthought: `interactive` keeps the
+ * sheet glued to the keyboard as it animates, `restore` puts it back on blur,
+ * and adjustResize is what makes Android behave at all.
+ */
+export function useDrawerSheet() {
+  const DS = useTheme().colors;
+  return useMemo(() => ({
+    snapPoints: ['94%'],
+    enablePanDownToClose: true,
+    keyboardBehavior: 'interactive',
+    keyboardBlurBehavior: 'restore',
+    android_keyboardInputMode: 'adjustResize',
+    backgroundStyle: { backgroundColor: DS.bg },
+    handleIndicatorStyle: { backgroundColor: DS.faint, width: 44 },
+  }), [DS]);
+}
+
+/** The backdrop, at one opacity, dismissing on tap. */
+export const DRAWER_BACKDROP = { appearsOnIndex: 0, disappearsOnIndex: -1, opacity: 0.6, pressBehavior: 'close' };
 
 // ── Drawer header ────────────────────────────────────────────────────────────
 export function DrawerHeader({ icon, title, subtitle, onClose, accent, right }) {

@@ -9,7 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
   DrawerHeader, SectionCard, TextField, TextArea, ChipGroup, ImagePickerField,
   LocationField, TimeField, PrimaryButton, StickyFooter, ValidationMessage,
-  useCreateStyles, SPACE,
+  useCreateStyles, SPACE, useDrawerSheet, DRAWER_BACKDROP,
 } from '../components/create';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCurrentUser } from '../utils/currentUser';
@@ -700,14 +700,13 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
 
   
   const addGroundSheetRef = useRef(null);
-  const addGroundSnapPoints = useMemo(() => ['95%'], []);
   
   const closeAddGround = useCallback(() => {
     addGroundSheetRef.current?.dismiss();
   }, []);
 
   const renderBackdrop = useCallback(
-    (props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.5} pressBehavior="close" />,
+    (props) => <BottomSheetBackdrop {...props} {...DRAWER_BACKDROP} />,
     []
   );
 
@@ -722,6 +721,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
     { useNativeDriver: true, listener: hideTabBar.onScroll }
   );
+  const drawerSheet = useDrawerSheet();
   const tabClear = useTabBarClearance();
 
   const headerHeight = 110;
@@ -983,15 +983,9 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
 
       
       <BottomSheetModal
+        {...drawerSheet}
         ref={addGroundSheetRef}
-        snapPoints={addGroundSnapPoints}
-        enablePanDownToClose
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="restore"
-        android_keyboardInputMode="adjustResize"
         backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: DS.bg }}
-        handleIndicatorStyle={{ backgroundColor: DS.faint }}
       >
         <AddGroundForm onSubmit={handleFormSubmit} onCancel={closeAddGround} initialLocation={mapLocation} DS={DS} />
       </BottomSheetModal>

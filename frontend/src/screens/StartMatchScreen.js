@@ -15,7 +15,7 @@ import { getStartFormat as getSportFormat } from '../sports/start';
 import { getSport } from '../sports';
 import { getSelectedSport } from '../utils/selectedSport';
 import GradientButton from '../components/GradientButton';
-import { DrawerHeader, PrimaryButton, StickyFooter } from '../components/create';
+import { DrawerHeader, PrimaryButton, StickyFooter, useDrawerSheet, DRAWER_BACKDROP } from '../components/create';
 import HexAvatar from '../components/HexAvatar';
 import { showToast } from '../components/Toast';
 import { useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
@@ -243,6 +243,7 @@ const StartMatchScreen = ({ navigation, route }) => {
   const K = useMemo(() => makeK(c), [c]);
   const s = useMemo(() => makeS(K), [K]);
   const tabClear = useTabBarClearance();   // keep CREATE clear of the floating dock
+  const drawerSheet = useDrawerSheet();
 
   // The dock stands down for the whole of this flow: a pushed, full-screen form
   // with its own header and its own submit, and the app's bottom navigation
@@ -414,24 +415,18 @@ const StartMatchScreen = ({ navigation, route }) => {
   }, [navigation]);
 
   const renderBackdrop = useCallback(
-    (props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.7} pressBehavior="close" />,
+    (props) => <BottomSheetBackdrop {...props} {...DRAWER_BACKDROP} />,
     []
   );
 
   return (
     <View style={s.root}>
       <BottomSheetModal
+        {...drawerSheet}
         ref={sheetRef}
-        snapPoints={['95%']}
-        enablePanDownToClose
         onDismiss={handleDismiss}
         backdropComponent={renderBackdrop}
         footerComponent={renderMatchFooter}
-        backgroundStyle={{ backgroundColor: K.bg }}
-        handleIndicatorStyle={{ backgroundColor: K.surfaceHigh }}
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="restore"
-        android_keyboardInputMode="adjustResize"
       >
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={K.bg} />
       <BottomSheetScrollView

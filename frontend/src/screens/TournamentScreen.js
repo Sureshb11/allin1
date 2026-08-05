@@ -19,7 +19,7 @@ import {
   SectionCard, Field, ChoiceField, Stepper, ToggleRow, SelectField,
   DateField, ImageField, ReorderList,
 } from '../components/FormKit';
-import { DrawerHeader, PrimaryButton, SecondaryButton, StickyFooter, SPACE } from '../components/create';
+import { DrawerHeader, PrimaryButton, SecondaryButton, StickyFooter, SPACE, useDrawerSheet, DRAWER_BACKDROP } from '../components/create';
 import CoverFocusPicker from '../components/CoverFocusPicker';
 
 // Create Tournament.
@@ -213,6 +213,7 @@ export default function TournamentScreen({ navigation, route }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const tabClear = useTabBarClearance();
+  const drawerSheet = useDrawerSheet();
 
   // The dock stands down for the whole of this flow: a pushed, full-screen form
   // with its own header and its own submit, and the app's bottom navigation
@@ -248,7 +249,7 @@ export default function TournamentScreen({ navigation, route }) {
     navigation.goBack();
   }, [navigation]);
   const renderBackdrop = useCallback(
-    (props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.7} pressBehavior="close" />,
+    (props) => <BottomSheetBackdrop {...props} {...DRAWER_BACKDROP} />,
     []
   );
 
@@ -916,17 +917,11 @@ export default function TournamentScreen({ navigation, route }) {
   return (
     <View style={styles.container}>
       <BottomSheetModal
+        {...drawerSheet}
         ref={sheetRef}
-        snapPoints={['95%']}
-        enablePanDownToClose
         onDismiss={handleDismiss}
         backdropComponent={renderBackdrop}
         footerComponent={renderStepFooter}
-        backgroundStyle={{ backgroundColor: DS.bg }}
-        handleIndicatorStyle={{ backgroundColor: DS.surfaceHigh }}
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="restore"
-        android_keyboardInputMode="adjustResize"
       >
       {/* Header: the shared drawer header, with Draft as its one screen-specific
           action. A draft is for work that has not been published; an edit is

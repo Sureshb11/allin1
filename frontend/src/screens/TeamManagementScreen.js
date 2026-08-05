@@ -30,6 +30,7 @@ import { getCurrentUser } from '../utils/currentUser';
 import {
   DrawerHeader, SectionCard, TextField, TextArea, Toggle, ImagePickerField,
   PrimaryButton, StickyFooter, ValidationMessage, useCreateStyles, useDiscardGuard, SPACE,
+  useDrawerSheet, DRAWER_BACKDROP,
 } from '../components/create';
 import { showToast } from '../components/Toast';
 import BrandLogo from "../components/BrandLogo";
@@ -147,8 +148,8 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   const [followedIds, setFollowedIds] = useState(new Set());
   // ── Create Team ──
   const cs = useCreateStyles();
+  const drawerSheet = useDrawerSheet();
   const createTeamSheet = useRef(null);
-  const createTeamSnap = useMemo(() => ['92%'], []);
   const EMPTY_TEAM = {
     name: '', city: '', homeGround: '', bio: '', logoUrl: '', coverUrl: '',
     withCaptain: false, captainName: '', addMe: true,
@@ -477,7 +478,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   };
 
   const renderTeamBackdrop = useCallback(
-    (props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.5} pressBehavior="close" />,
+    (props) => <BottomSheetBackdrop {...props} {...DRAWER_BACKDROP} />,
     [],
   );
 
@@ -595,17 +596,11 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
           keeps repeating. Both are one migration away.
       ─────────────────────────────────────────────────────────────────── */}
       <BottomSheetModal
+        {...drawerSheet}
         ref={createTeamSheet}
-        snapPoints={createTeamSnap}
-        enablePanDownToClose
         onDismiss={resetCreateTeam}
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="restore"
-        android_keyboardInputMode="adjustResize"
         backdropComponent={renderTeamBackdrop}
-        footerComponent={renderTeamFooter}
-        backgroundStyle={{ backgroundColor: DS.bg }}
-        handleIndicatorStyle={{ backgroundColor: DS.faint }}>
+        footerComponent={renderTeamFooter}>
         <DrawerHeader
           icon="shield-plus-outline"
           title="Create Team"

@@ -22,6 +22,7 @@ import { haptic } from '../utils/haptics';
 import {
   DrawerHeader, SectionCard, TextField, TextArea, ChipGroup, Toggle,
   PrimaryButton, StickyFooter, ValidationMessage, useCreateStyles, useDiscardGuard,
+  useDrawerSheet, DRAWER_BACKDROP,
 } from '../components/create';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { pav } from '../theme/pavilion';
@@ -397,8 +398,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   const [formError, setFormError] = useState('');
   const [posted, setPosted] = useState(false);
   const cs = useCreateStyles();
+  const drawerSheet = useDrawerSheet();
   const createSheetRef = useRef(null);
-  const createSnapPoints = useMemo(() => ['92%'], []);
   const openCreate = useCallback(() => {
     setEditingId(null);
     setForm(INITIAL_FORM);
@@ -440,7 +441,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     || (form.days || []).length || form.timing || form.customTime);
   const closeCreate = useDiscardGuard(listingDirty, dismissCreate, { title: 'Discard this listing?' });
   const renderBackdrop = useCallback(
-    (props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.5} pressBehavior="close" />,
+    (props) => <BottomSheetBackdrop {...props} {...DRAWER_BACKDROP} />,
     []
   );
 
@@ -1126,17 +1127,11 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
       {/* Create Modal */}
       <BottomSheetModal
+        {...drawerSheet}
         ref={createSheetRef}
-        snapPoints={createSnapPoints}
-        enablePanDownToClose
         onDismiss={() => { setForm(INITIAL_FORM); setEditingId(null); setFormError(''); setPosted(false); }}
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="restore"
-        android_keyboardInputMode="adjustResize"
         backdropComponent={renderBackdrop}
         footerComponent={renderFooter}
-        backgroundStyle={{ backgroundColor: DS.bg }}
-        handleIndicatorStyle={{ backgroundColor: DS.faint }}
       >
             <DrawerHeader
               icon="telescope"
