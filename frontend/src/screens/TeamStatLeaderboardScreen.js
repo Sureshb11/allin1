@@ -24,7 +24,16 @@ export default function TeamStatLeaderboardScreen() {
   const [data, setData] = useState([]);
   const [options, setOptions] = useState({ years: [], matchTypes: [], oppositions: [] });
   const [filters, setFilters] = useState({});
-  const [picker, setPicker] = useState(null); // 'matchType', 'year', 'opposition'
+  const [picker, setPicker] = useState(null); // 'main' | 'matchType' | 'year' | 'venue' | 'opposition'
+  // Staged, because the sheet has an APPLY. Changing four dropdowns should be
+  // one refetch, not four — and it lets you back out of a half-made change.
+  const [draft, setDraft] = useState({});
+  const openFilters = () => { setDraft(filters); setPicker('main'); };
+  const applyFilters = () => { setFilters(draft); setPicker(null); };
+  const draftLabel = (k, fallback) => {
+    if (k === 'oppositionId') return draft.oppositionId ? getOppName(draft.oppositionId) : 'All';
+    return draft[k] || fallback;
+  };
 
   // Fetch filter options
   useEffect(() => {
@@ -56,7 +65,7 @@ export default function TeamStatLeaderboardScreen() {
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <Header title={board ? board.title : 'Leaderboard'} 
               subtitle={category}
-              right={<TouchableOpacity onPress={() => setPicker('main')} style={s.filterBtn}><Icon name="filter-variant" size={24} color={DS.textPrimary} /></TouchableOpacity>} 
+              right={<TouchableOpacity onPress={openFilters} style={s.filterBtn}><Icon name="tune-variant" size={24} color={DS.textPrimary} /></TouchableOpacity>} 
       />
 
       {/* Applied Filters Strip */}
@@ -115,8 +124,11 @@ export default function TeamStatLeaderboardScreen() {
                 </View>
                 
                 <View style={s.playerInfo}>
-                  {row.avatarUrl ? (
-                    <Image source={{ uri: row.avatarUrl }} style={s.avatar} />
+                  {/* `avatar` is what the API sends. This read `avatarUrl`, so
+                      every row fell through to an initial no matter who had a
+                      photo on file. */}
+                  {row.avatar ? (
+                    <Image source={{ uri: row.avatar }} style={s.avatar} />
                   ) : (
                     <View style={s.avatarFallback}>
                       <Text style={s.avatarText}>{String(row.name || '?').charAt(0).toUpperCase()}</Text>
@@ -141,29 +153,64 @@ export default function TeamStatLeaderboardScreen() {
           <Pressable style={s.backdrop} onPress={() => setPicker(null)} />
           <View style={s.sheet}>
             <View style={s.grab} />
-            <Text style={s.sheetTitle}>
-              {picker === 'year' ? 'Select Year' : picker === 'matchType' ? 'Select Format' : picker === 'opposition' ? 'Select Opposition' : 'Filters'}
-            </Text>
-            
+            {picker === 'main' ? (
+              <View style={s.sheetHead}>
+                <Text style={s.sheetTitle}>FILTERS</Text>
+                <TouchableOpacity style={s.applyBtn} onPress={applyFilters} accessibilityRole="button">
+                  <Text style={s.applyText}>APPLY</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Text style={s.sheetTitle}>
+                {picker === 'year' ? 'Select Year'
+                  : picker === 'matchType' ? 'Select Format'
+                  : picker === 'venue' ? 'Select Ground' : 'Select Opposition'}
+              </Text>
+            )}
+
             <ScrollView style={s.sheetScroll}>
+              {/* The whole set in one place, staged until APPLY. The button in
+                  the header opened this sheet and nothing rendered inside it —
+                  a filter control that showed an empty tray. */}
+              {picker === 'main' && [
+                ['matchType', 'Match Type', 'Any', 'matchType'],
+                ['year', 'Year', 'All Time', 'year'],
+                ['venue', 'Ground', 'All grounds', 'venue'],
+                ['oppositionId', 'Opposition', 'All', 'opposition'],
+              ].map(([key, label, fallback, sub]) => (
+                <TouchableOpacity key={key} style={s.filterRow} onPress={() => setPicker(sub)}>
+                  <Text style={s.filterRowLabel}>{label}</Text>
+                  <Text style={s.filterRowValue} numberOfLines={1}>{draftLabel(key, fallback)}</Text>
+                  <Icon name="chevron-down" size={18} color={DS.textMuted} />
+                </TouchableOpacity>
+              ))}
+
               {picker === 'year' && [null, ...options.years].map(y => (
-                <TouchableOpacity key={String(y)} style={s.option} onPress={() => { setFilter('year', y); setPicker(null); }}>
-                  <Text style={[s.optionText, filters.year === y && s.optionTextOn]}>{y || 'All Time'}</Text>
-                  {filters.year === y && <Icon name="check" size={20} color={DS.primary} />}
+                <TouchableOpacity key={String(y)} style={s.option} onPress={() => { setDraft((d) => ({ ...d, year: y })); setPicker('main'); }}>
+                  <Text style={[s.optionText, draft.year === y && s.optionTextOn]}>{y || 'All Time'}</Text>
+                  {draft.year === y && <Icon name="check" size={20} color={DS.primary} />}
                 </TouchableOpacity>
               ))}
 
               {picker === 'matchType' && [null, ...options.matchTypes].map(m => (
-                <TouchableOpacity key={String(m)} style={s.option} onPress={() => { setFilter('matchType', m); setPicker(null); }}>
-                  <Text style={[s.optionText, filters.matchType === m && s.optionTextOn]}>{m || 'Any Format'}</Text>
-                  {filters.matchType === m && <Icon name="check" size={20} color={DS.primary} />}
+                <TouchableOpacity key={String(m)} style={s.option} onPress={() => { setDraft((d) => ({ ...d, matchType: m })); setPicker('main'); }}>
+                  <Text style={[s.optionText, draft.matchType === m && s.optionTextOn]}>{m || 'Any Format'}</Text>
+                  {draft.matchType === m && <Icon name="check" size={20} color={DS.primary} />}
+                </TouchableOpacity>
+              ))}
+
+              {picker === 'venue' && [null, ...(options.venues || [])].map(v => (
+                <TouchableOpacity key={String(v)} style={s.option}
+                  onPress={() => { setDraft((d) => ({ ...d, venue: v })); setPicker('main'); }}>
+                  <Text style={[s.optionText, draft.venue === v && s.optionTextOn]}>{v || 'All grounds'}</Text>
+                  {draft.venue === v && <Icon name="check" size={20} color={DS.primary} />}
                 </TouchableOpacity>
               ))}
 
               {picker === 'opposition' && [null, ...options.oppositions].map(opp => {
-                const isSelected = opp === null ? (filters.oppositionId == null) : filters.oppositionId === opp.id;
+                const isSelected = opp === null ? (draft.oppositionId == null) : draft.oppositionId === opp.id;
                 return (
-                  <TouchableOpacity key={String(opp ? opp.id : 'all')} style={s.option} onPress={() => { setFilter('oppositionId', opp ? opp.id : null); setPicker(null); }}>
+                  <TouchableOpacity key={String(opp ? opp.id : 'all')} style={s.option} onPress={() => { setDraft((d) => ({ ...d, oppositionId: opp ? opp.id : null })); setPicker('main'); }}>
                     <Text style={[s.optionText, isSelected && s.optionTextOn]}>{opp ? opp.name : 'All Teams'}</Text>
                     {isSelected && <Icon name="check" size={20} color={DS.primary} />}
                   </TouchableOpacity>
@@ -213,6 +260,16 @@ const makeStyles = (DS) => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: { backgroundColor: DS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 40, maxHeight: '80%' },
   grab: { width: 40, height: 4, backgroundColor: DS.border, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 16 },
+  sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  applyBtn: { paddingHorizontal: 22, paddingVertical: 11, borderRadius: 8, backgroundColor: DS.lime },
+  applyText: { fontSize: 13, fontWeight: '900', color: DS.onLime, letterSpacing: 0.8 },
+  filterRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    minHeight: 56, paddingHorizontal: 4,
+    borderBottomWidth: 1, borderBottomColor: DS.faint,
+  },
+  filterRowLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: DS.textPrimary },
+  filterRowValue: { fontSize: 14, fontWeight: '700', color: DS.textVariant, maxWidth: 140 },
   sheetTitle: { fontSize: 18, fontWeight: '800', color: DS.textPrimary, paddingHorizontal: 20, marginBottom: 16 },
   sheetScroll: { paddingHorizontal: 20 },
   option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: DS.border },

@@ -6,9 +6,6 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import ViewShot from 'react-native-view-shot';
-import Share from 'react-native-share';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 
 // Team → Stats.
 //
@@ -85,82 +82,6 @@ export const BOARDS = [
 ];
 
 const RANK = ['#FBBF24', '#94A3B8', '#B45309']; // Gold, Silver, Bronze
-
-const BoardCard = ({ board, players, teamName, s, DS }) => {
-  const viewRef = useRef();
-  const top3 = players.slice(0, 3);
-  const rest = players.slice(3);
-
-  const handleShare = async () => {
-    ReactNativeHapticFeedback.trigger("impactLight");
-    try {
-      const uri = await viewRef.current.capture();
-      await Share.open({ url: uri, title: `Team ${teamName} - ${board.title}`, message: `Check out our top players for ${board.title}!` });
-    } catch (e) {
-      console.log('Share error:', e);
-    }
-  };
-
-  return (
-    <ViewShot ref={viewRef} options={{ format: 'jpg', quality: 0.9 }}>
-      <View style={[s.boardCard, { backgroundColor: DS.surfaceHigh }]}> 
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Icon name={board.icon} size={18} color={DS.lime} />
-            <Text style={s.boardTitle}>{board.title}</Text>
-          </View>
-          <TouchableOpacity onPress={handleShare} style={{ padding: 4 }}>
-            <Icon name="share-variant" size={20} color={DS.textMuted} />
-          </TouchableOpacity>
-        </View>
-        
-        {/* Podium for Top 3 */}
-        <View style={s.podiumRow}>
-          {top3.map((p, idx) => (
-            <View key={p.playerId} style={[s.podiumItem, idx === 0 ? s.podiumFirst : s.podiumOther]}>
-              <View style={s.podiumRank}>
-                <Text style={[s.podiumRankText, { color: RANK[idx] }]}>#{idx + 1}</Text>
-              </View>
-              <View style={s.avatarFallback}>
-                {p.avatar ? (
-                  <Image source={{ uri: p.avatar }} style={s.avatar} />
-                ) : (
-                  <Text style={s.avatarText}>{p.name.charAt(0)}</Text>
-                )}
-              </View>
-              <Text style={s.podiumName} numberOfLines={1}>{p.name}</Text>
-              <View style={s.podiumStat}>
-                <Text style={s.podiumValue}>{board.value(p)}</Text>
-                {board.unit ? <Text style={s.podiumUnit}>{board.unit}</Text> : null}
-              </View>
-            </View>
-          ))}
-        </View>
-        
-        {/* List for the rest */}
-        {rest.length > 0 && (
-          <View style={s.boardList}>
-            {rest.map((p, idx) => (
-              <View key={p.playerId} style={s.boardListItem}>
-                <Text style={s.boardListRank}>#{idx + 4}</Text>
-                <View style={s.listAvatar}>
-                  {p.avatar
-                    ? <Image source={{ uri: p.avatar }} style={s.listAvatarImg} />
-                    : <Text style={s.listAvatarText}>{(p.name || '?').charAt(0).toUpperCase()}</Text>}
-                </View>
-                <Text style={s.boardListName} numberOfLines={1}>{p.name}</Text>
-                <View style={s.boardListStat}>
-                  <Text style={s.boardListValue}>{board.value(p)}</Text>
-                  {board.unit ? <Text style={s.boardListUnit}>{board.unit}</Text> : null}
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-    </ViewShot>
-  );
-};
 
 import { useNavigation } from '@react-navigation/native';
 
@@ -378,35 +299,76 @@ export default function TeamStats({ teamId, show = 'stats' }) {
     const lds = data?.leaderboards;
     if (!lds) return <Empty icon="poll" title="No leaderboards" hint="They appear once players have stats for this team." s={s} DS={DS} />;
 
-    // Group boards by category
+    // An INDEX, not thirty-four expanded cards.
+    //
+    // Every board was drawn in full — a podium, three faces and a list — which
+    // made this tab several thousand points of scrolling and rendered every
+    // leaderboard whether or not anyone looked at it. The reference apps all do
+    // the same thing instead: name the boards, grouped by category, and open one
+    // when it is asked for. TeamStatLeaderboardScreen has existed all along to
+    // be that detail view and nothing ever navigated to it.
+    //
+    // It also costs nothing to render: the data is already loaded by the single
+    // request above, so this reads a length rather than laying out a card.
     const grouped = BOARDS.reduce((acc, board) => {
       (acc[board.category] = acc[board.category] || []).push(board);
       return acc;
     }, {});
 
-    return (
-      <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}>
-        {Object.entries(grouped).map(([category, boards]) => {
-          // Only show boards that have at least one player
-          const validBoards = boards.filter(b => lds[b.key]?.length > 0);
-          if (validBoards.length === 0) return null;
+    const empty = !Object.values(grouped).some((bs) => bs.some((b) => lds[b.key]?.length));
+    if (empty) {
+      return (
+        <Empty icon="poll" title="No leaders yet"
+          hint="Boards fill in once players have batted or bowled for this team." s={s} DS={DS} />
+      );
+    }
 
+    return (
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+        {Object.entries(grouped).map(([category, boards]) => {
+          const valid = boards.filter((b) => lds[b.key]?.length > 0);
+          if (!valid.length) return null;
           return (
-            <Group key={category} title={category} icon="podium" s={s} DS={DS}>
-              <View style={{ width: '100%', gap: 14 }}>
-                {validBoards.map(board => {
-                  const players = lds[board.key];
-                  return (
-                    <BoardCard key={board.key} board={board} players={players} teamName={data?.team?.name || 'Local Legends'} s={s} DS={DS} />
-                  );
-                })}
+            <View key={category}>
+              <View style={s.catHead}>
+                <Text style={s.catHeadText}>{category}</Text>
               </View>
-            </Group>
+              {valid.map((board, i) => {
+                const rows = lds[board.key];
+                const leader = rows[0];
+                return (
+                  <TouchableOpacity
+                    key={board.key}
+                    style={[s.boardRow, i === valid.length - 1 && s.boardRowLast]}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${board.title}. Leader ${leader?.name || 'none'}`}
+                    onPress={() => navigation.navigate('TeamStatLeaderboard', {
+                      teamId, boardKey: board.key, category,
+                    })}>
+                    <Icon name={board.icon} size={18} color={DS.textMuted} style={{ width: 24 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.boardRowTitle} numberOfLines={1}>{board.title}</Text>
+                      {/* Who currently tops it. A list of thirty-four names with
+                          nothing beside them is an index you have to open at
+                          random; the leader is the reason to open one. */}
+                      {!!leader && (
+                        <Text style={s.boardRowLead} numberOfLines={1}>
+                          {leader.name} · {board.value(leader)}{board.unit ? ` ${board.unit}` : ''}
+                        </Text>
+                      )}
+                    </View>
+                    <Icon name="chevron-right" size={20} color={DS.textMuted} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           );
         })}
       </ScrollView>
     );
   }
+
 }
 
 function Legend({ n, label, c, s }) {
@@ -478,6 +440,26 @@ const Skeleton = ({ s }) => (
 );
 
 const makeStyles = (DS) => StyleSheet.create({
+  // ── Leaderboard index ──
+  // A grey band names the category, plain rows name the boards, a hairline
+  // separates them. The same shape every cricket app uses for this, because a
+  // list of thirty-four things needs to read as a list.
+  catHead: {
+    paddingHorizontal: 16, paddingVertical: 9,
+    backgroundColor: DS.surfaceHigh,
+    borderTopWidth: 1, borderBottomWidth: 1, borderColor: DS.faint,
+  },
+  catHeadText: { fontSize: 11, fontWeight: '900', color: DS.textMuted, letterSpacing: 1 },
+  boardRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    minHeight: 56, paddingHorizontal: 16, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: DS.faint,
+    backgroundColor: DS.surface,
+  },
+  boardRowLast: { borderBottomWidth: 0 },
+  boardRowTitle: { fontSize: 14.5, fontWeight: '700', color: DS.textPrimary },
+  boardRowLead: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
+
   root: { flex: 1 },
   filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingVertical: 10 },
   chip: {
