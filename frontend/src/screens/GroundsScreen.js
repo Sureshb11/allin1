@@ -9,7 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
   DrawerHeader, SectionCard, TextField, TextArea, ChipGroup, ImagePickerField,
   LocationField, TimeField, PrimaryButton, StickyFooter, ValidationMessage,
-  useCreateStyles, SPACE, useDrawerSheet, DRAWER_BACKDROP,
+  useCreateStyles, SPACE, useDrawerSheet, DRAWER_BACKDROP, useDiscardGuard,
 } from '../components/create';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCurrentUser } from '../utils/currentUser';
@@ -520,6 +520,13 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
   };
   const removePhoto = (idx) => setImageUris((prev) => prev.filter((_, i) => i !== idx));
 
+  // Anything filled in, and closing asks first — the same guard the other
+  // drawers use. It dismissed straight to nothing before.
+  const dirty = !!(name || localName || category || area || city || stateName || address
+    || playingSurface || ballTypes.length || price || amenities.length || phone || whatsapp
+    || imageUris.length || description);
+  const close = useDiscardGuard(dirty, onCancel, { title: 'Discard this ground?' });
+
   const handleSubmit = async () => {
     // Per field, under the field. The wizard raised an Alert naming the
     // problem and then dismissed itself, leaving you to find which box it meant.
@@ -561,7 +568,7 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
         icon="stadium"
         title="Add a Ground"
         subtitle="Put a pitch on the map for everyone"
-        onClose={onCancel}
+        onClose={close}
       />
 
       <ScrollView contentContainerStyle={cs.body} showsVerticalScrollIndicator={false}

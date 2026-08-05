@@ -233,7 +233,8 @@ export default function TournamentScreen({ navigation, route }) {
   const [form, setForm] = useState(blank);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
-  const [busy, setBusy] = useState(null);  // 'publish' | 'draft' | 'logoUrl' | 'banner'
+  const [busy, setBusy] = useState(null);
+  const [published, setPublished] = useState(false);  // 'publish' | 'draft' | 'logoUrl' | 'banner'
   const [loading, setLoading] = useState(!!editingId);
   const scrollRef = useRef(null);
   const dirty = useRef(false);
@@ -518,6 +519,10 @@ export default function TournamentScreen({ navigation, route }) {
     if (!editingId) await AsyncStorage.removeItem(DRAFT_KEY);
     dirty.current = false;
     showToast(editingId ? 'Changes saved' : 'Tournament published', 'success');
+    // Hold the tick for a beat, like the other four, so publishing confirms
+    // rather than the screen simply disappearing.
+    setPublished(true);
+    await new Promise((r) => setTimeout(r, 450));
     // Back to the Tournaments list, which reloads on focus. goBack rather than
     // navigate, so the stack doesn't end up holding two copies of that list.
     navigation.goBack();
@@ -897,6 +902,7 @@ export default function TournamentScreen({ navigation, route }) {
               label={last ? (editingId ? 'Save Changes' : 'Create Tournament') : 'Continue'}
               icon={last ? 'trophy-outline' : 'chevron-right'}
               loading={busy === 'publish'}
+              done={published}
               onPress={last ? publish : onNext}
             />
           </View>
@@ -904,7 +910,7 @@ export default function TournamentScreen({ navigation, route }) {
       </StickyFooter>
     </BottomSheetFooter>
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [step, last, editingId, busy, tabClear, onBack, onNext, publish]);
+  ), [step, last, editingId, busy, published, tabClear, onBack, onNext, publish]);
 
   if (loading) {
     return (

@@ -15,7 +15,7 @@ import { getStartFormat as getSportFormat } from '../sports/start';
 import { getSport } from '../sports';
 import { getSelectedSport } from '../utils/selectedSport';
 import GradientButton from '../components/GradientButton';
-import { DrawerHeader, PrimaryButton, StickyFooter, useDrawerSheet, DRAWER_BACKDROP } from '../components/create';
+import { DrawerHeader, PrimaryButton, StickyFooter, useDrawerSheet, DRAWER_BACKDROP, useDiscardGuard } from '../components/create';
 import HexAvatar from '../components/HexAvatar';
 import { showToast } from '../components/Toast';
 import { useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
@@ -350,6 +350,11 @@ const StartMatchScreen = ({ navigation, route }) => {
       }
 
       showToast(scheduleAt ? 'Match scheduled ✓' : 'Match created ✓', 'success');
+      // Hold the tick for a beat before leaving, so the drawer confirms rather
+      // than the screen simply changing under you — the same beat the other
+      // four take.
+      setCreated(true);
+      await new Promise((r) => setTimeout(r, 450));
       
       // Always return to the My Matches screen so the scorer can start the match
       // (and toss/lineup) from there when ready, rather than forcing an instant start.
@@ -382,6 +387,16 @@ const StartMatchScreen = ({ navigation, route }) => {
   const teamPlayerCount = (t) => (t && Array.isArray(t.players)) ? t.players.length
     : (t && typeof t.players === 'number' ? t.players : null);
   const emptyTeams = [team1, team2].filter((t) => teamPlayerCount(t) === 0);
+  const [created, setCreated] = useState(false);
+  // The last of the five to get the guard. Picking two teams, a ground and a
+  // date and then losing it to a stray back tap is the same loss as any of the
+  // other drawers.
+  const matchDirty = !!(team1 || team2 || venue || scheduleAt);
+  const closeMatch = useDiscardGuard(
+    matchDirty,
+    useCallback(() => navigation.goBack(), [navigation]),
+    { title: 'Discard this match?' },
+  );
 
   // Pinned by the sheet, not merely placed after the scroll view — inside a
   // bottom sheet a trailing View drifts with the content. Same footerComponent
@@ -393,13 +408,14 @@ const StartMatchScreen = ({ navigation, route }) => {
           label={scheduleAt ? 'Schedule Match' : 'Create Match'}
           icon={scheduleAt ? 'calendar-check' : 'play-circle'}
           loading={loading}
+          done={created}
           disabled={!team1 || !team2 || emptyTeams.length > 0}
           onPress={onCreate}
         />
       </StickyFooter>
     </BottomSheetFooter>
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [scheduleAt, loading, team1, team2, emptyTeams, tabClear, onCreate]);
+  ), [scheduleAt, loading, created, team1, team2, emptyTeams, tabClear, onCreate]);
 
 
   const sheetRef = useRef(null);
@@ -436,7 +452,7 @@ const StartMatchScreen = ({ navigation, route }) => {
       >
         {/* ── Back + Top label + Headline ─────────── */}
         <View style={s.topRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} hitSlop={10}>
+          <TouchableOpacity onPress={closeMatch} style={s.backBtn} hitSlop={10}>
             <Icon name="arrow-left" size={22} color={K.text} />
           </TouchableOpacity>
           <View style={s.topLabel}>
