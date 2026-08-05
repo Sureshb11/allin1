@@ -19,6 +19,7 @@ import {
   SectionCard, Field, ChoiceField, Stepper, ToggleRow, SelectField,
   DateField, ImageField, ReorderList,
 } from '../components/FormKit';
+import { DrawerHeader, PrimaryButton, SPACE } from '../components/create';
 import CoverFocusPicker from '../components/CoverFocusPicker';
 
 // Create Tournament.
@@ -893,25 +894,22 @@ export default function TournamentScreen({ navigation, route }) {
         keyboardBlurBehavior="restore"
         android_keyboardInputMode="adjustResize"
       >
-      {/* Header: title, and the two actions that apply on every step. */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={confirmLeave} hitSlop={10} style={styles.iconBtn}>
-          <Icon name="close" size={20} color={DS.textPrimary} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>{editingId ? 'Edit Tournament' : 'Create Tournament'}</Text>
-          <Text style={styles.headerSub}>Step {step + 1} of {STEPS.length} · {STEPS[step].label}</Text>
-        </View>
-        {/* A draft is for work that hasn't been published. An edit is already
-            published, so there's nothing to keep on the device. */}
-        {!editingId ? (
+      {/* Header: the shared drawer header, with Draft as its one screen-specific
+          action. A draft is for work that has not been published; an edit is
+          already published, so there is nothing to keep on the device. */}
+      <DrawerHeader
+        icon="trophy-outline"
+        title={editingId ? 'Edit Tournament' : 'Create Tournament'}
+        subtitle={`Step ${step + 1} of ${STEPS.length} · ${STEPS[step].label}`}
+        onClose={confirmLeave}
+        right={!editingId ? (
           <TouchableOpacity onPress={() => saveDraft(false)} disabled={busy === 'draft'} style={styles.draftBtn}>
             {busy === 'draft'
               ? <ActivityIndicator size="small" color={DS.lime} />
               : <><Icon name="content-save-outline" size={14} color={DS.lime} /><Text style={styles.draftText}>Draft</Text></>}
           </TouchableOpacity>
-        ) : <View style={{ width: 66 }} />}
-      </View>
+        ) : null}
+      />
 
       {/* Progress. Tappable backwards only — jumping ahead past a required field
           is how you end up publishing something half-filled. */}
@@ -945,15 +943,14 @@ export default function TournamentScreen({ navigation, route }) {
         showsVerticalScrollIndicator={false}>
         {body}
         {last && (
-          <TouchableOpacity
-            style={[styles.submitBtn, busy === 'publish' && { opacity: 0.7 }]}
-            onPress={publish}
-            disabled={busy === 'publish'}
-            activeOpacity={0.9}>
-            {busy === 'publish'
-              ? <ActivityIndicator size="small" color={DS.onLime} />
-              : <Text style={styles.submitBtnText}>{editingId ? 'Save Changes' : 'Post Listing'}</Text>}
-          </TouchableOpacity>
+          <View style={{ marginTop: SPACE.xl }}>
+            <PrimaryButton
+              label={editingId ? 'Save Changes' : 'Create Tournament'}
+              icon="trophy-outline"
+              loading={busy === 'publish'}
+              onPress={publish}
+            />
+          </View>
         )}
         {last && (
           <View style={styles.legalNote}>

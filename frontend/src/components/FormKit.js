@@ -6,6 +6,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { SPACE, RADIUS, TYPE, TAP, shadow } from './create/tokens';
 
 // Form primitives.
 //
@@ -397,46 +398,54 @@ export function ReorderList({ label, items, onChange, hint, renderMeta }) {
   );
 }
 
+// The numbers come from the creation design system now, not from this file.
+//
+// FormKit predates it and had picked its own: an 18 card beside the system's
+// 16, a 14 field beside its 12, 54 and 50 tall controls beside one 48 minimum,
+// and 13 / 14 / 14.5 / 15 / 16 doing what eight named type roles do. The
+// BEHAVIOUR here is untouched — floating labels, the search sheet, the stepper,
+// the date picker all work exactly as they did — but a tournament field and a
+// Create Post field are now the same object to look at, which is the whole
+// point of the exercise.
 const makeStyles = (DS) => StyleSheet.create({
   card: {
-    backgroundColor: DS.surface, borderRadius: 18, borderWidth: 1, borderColor: DS.border,
-    padding: 16, marginBottom: 14,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 10,
-    elevation: 2,
+    backgroundColor: DS.surface, borderRadius: RADIUS.card, borderWidth: 1, borderColor: DS.border,
+    padding: SPACE.lg, marginBottom: SPACE.md,
+    ...shadow(DS).card,
   },
-  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm, marginBottom: SPACE.md },
   cardIcon: {
     width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
     backgroundColor: DS.lime + '1f',
   },
-  cardTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.2 },
-  cardSub: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
+  cardTitle: { ...TYPE.section, color: DS.textMuted },
+  cardSub: { ...TYPE.helper, color: DS.textMuted, marginTop: 2 },
 
   fieldWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    minHeight: 54, paddingHorizontal: 14, paddingVertical: 6,
-    borderRadius: 14, borderWidth: 1.5, backgroundColor: DS.surfaceHigh,
+    minHeight: TAP, paddingHorizontal: SPACE.lg, paddingVertical: 6,
+    borderRadius: RADIUS.field, borderWidth: 1.5, backgroundColor: DS.surfaceHigh,
   },
   floatLabel: { position: 'absolute', fontWeight: '700', letterSpacing: 0.3 },
-  input: { padding: 0, paddingTop: 2, fontSize: 14.5, fontWeight: '600', color: DS.textPrimary },
+  input: { padding: 0, paddingTop: 2, ...TYPE.input, color: DS.textPrimary },
   affix: { fontSize: 14, fontWeight: '800', color: DS.textMuted },
   counter: { fontSize: 10, fontWeight: '700', color: DS.textMuted },
 
-  groupLabel: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.7, marginBottom: 8, textTransform: 'uppercase' },
+  groupLabel: { ...TYPE.label, color: DS.textVariant, marginBottom: SPACE.sm },
   noteRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5, paddingHorizontal: 2 },
-  note: { flex: 1, fontSize: 11, fontWeight: '600', color: DS.textMuted },
+  note: { flex: 1, ...TYPE.helper, color: DS.textMuted },
 
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingVertical: 9, paddingHorizontal: 14, borderRadius: 999,
-    borderWidth: 1.5, borderColor: DS.border, backgroundColor: DS.surfaceHigh,
+    minHeight: 38, paddingHorizontal: SPACE.lg, borderRadius: RADIUS.pill,
+    justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent', backgroundColor: DS.surfaceHigh,
   },
-  chipText: { fontSize: 13, fontWeight: '700', color: DS.textVariant },
+  chipText: { ...TYPE.chip, color: DS.textVariant },
 
   stepWrap: {
-    flexDirection: 'row', alignItems: 'center', height: 50,
-    borderRadius: 14, borderWidth: 1.5, backgroundColor: DS.surfaceHigh, paddingHorizontal: 6,
+    flexDirection: 'row', alignItems: 'center', height: TAP,
+    borderRadius: RADIUS.field, borderWidth: 1.5, backgroundColor: DS.surfaceHigh, paddingHorizontal: 6,
   },
   stepBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   stepValue: {
@@ -447,19 +456,19 @@ const makeStyles = (DS) => StyleSheet.create({
 
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
   toggleDivider: { borderBottomWidth: 1, borderBottomColor: DS.faint },
-  toggleLabel: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
-  toggleDesc: { fontSize: 11, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
+  toggleLabel: { ...TYPE.input, fontSize: 14, color: DS.textPrimary },
+  toggleDesc: { ...TYPE.helper, color: DS.textMuted, marginTop: 2 },
 
   selectWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, height: 50, paddingHorizontal: 14,
-    borderRadius: 14, borderWidth: 1.5, backgroundColor: DS.surfaceHigh,
+    flexDirection: 'row', alignItems: 'center', gap: SPACE.sm, height: TAP, paddingHorizontal: SPACE.lg,
+    borderRadius: RADIUS.field, borderWidth: 1.5, backgroundColor: DS.surfaceHigh,
   },
-  selectText: { flex: 1, fontSize: 14.5, fontWeight: '700', color: DS.textPrimary },
+  selectText: { flex: 1, ...TYPE.input, color: DS.textPrimary },
 
   sheetBackdrop: { flex: 1, backgroundColor: '#0009' },
   sheet: {
-    backgroundColor: DS.surfaceLow, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 28,
+    backgroundColor: DS.surfaceLow, borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet,
+    paddingHorizontal: SPACE.lg, paddingTop: SPACE.sm, paddingBottom: SPACE.xxl,
   },
   sheetGrab: { alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: DS.faint, marginBottom: 12 },
   sheetTitle: { fontSize: 16, fontWeight: '800', color: DS.textPrimary, marginBottom: 12 },
@@ -473,10 +482,10 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: DS.faint,
   },
-  optionText: { fontSize: 14.5, fontWeight: '600', color: DS.textPrimary },
+  optionText: { ...TYPE.input, color: DS.textPrimary },
 
   imageTile: {
-    height: 92, borderRadius: 14, borderWidth: 1.5, borderColor: DS.border, borderStyle: 'dashed',
+    height: 92, borderRadius: RADIUS.field, borderWidth: 1.5, borderColor: DS.border, borderStyle: 'dashed',
     backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   imageFill: { width: '100%', height: '100%' },
@@ -484,7 +493,7 @@ const makeStyles = (DS) => StyleSheet.create({
     position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 11,
     backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center',
   },
-  imageHint: { fontSize: 11, fontWeight: '700', color: DS.textMuted, marginTop: 5 },
+  imageHint: { ...TYPE.helper, color: DS.textMuted, marginTop: 5 },
 
   reorderRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 10,

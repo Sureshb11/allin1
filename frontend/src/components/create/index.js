@@ -61,7 +61,7 @@ export function Pressable({ onPress, disabled, style, children, ...rest }) {
 }
 
 // ── Drawer header ────────────────────────────────────────────────────────────
-export function DrawerHeader({ icon, title, subtitle, onClose, accent }) {
+export function DrawerHeader({ icon, title, subtitle, onClose, accent, right }) {
   const DS = useTheme().colors;
   const s = useCreateStyles();
   return (
@@ -75,6 +75,10 @@ export function DrawerHeader({ icon, title, subtitle, onClose, accent }) {
         <Text style={s.title} numberOfLines={1}>{title}</Text>
         {!!subtitle && <Text style={s.subtitle} numberOfLines={2}>{subtitle}</Text>}
       </View>
+      {/* A screen-specific action — Create Tournament's Draft, for instance —
+          sits inside the header rather than beside it, so all four drawers keep
+          one header with one set of paddings. */}
+      {right}
       {!!onClose && (
         <TouchableOpacity onPress={onClose} style={s.close}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
