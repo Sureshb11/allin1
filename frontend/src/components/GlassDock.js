@@ -31,7 +31,15 @@ import { sportColor as sportColorFor } from '../sports/colors';
 // (MatchSetup = non-cricket toss+squads, TossLineup = cricket) pin their
 // START MATCH CTA to the bottom, so the floating dock would sit right on top
 // of it — include them alongside the live-scoring routes.
-const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab', 'Chat', 'MatchSetup', 'TossLineup'];
+//
+// A leaderboard joins them, and by this route list rather than by useDockLock.
+// The lock is an acquire/release pair, and on this screen the pair came apart:
+// the acquire fired on focus and the matching release fired 357ms later while
+// the screen was still the one you were looking at, so the dock slid away and
+// came straight back over the table. This list cannot come apart — it is read
+// from the focused route on every render, with nothing to keep in balance.
+const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab', 'Chat', 'MatchSetup', 'TossLineup',
+  'TeamStatLeaderboard'];
 
 export default function GlassDock({
   state, navigation, sportIcon = 'cricket', sportName = 'My Cricket', homeRoute = 'CricketFeed',

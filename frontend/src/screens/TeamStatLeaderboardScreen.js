@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Pressable, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -6,9 +6,7 @@ import ViewShot from 'react-native-view-shot';
 import Share from 'react-native-share';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import Header from '../components/Header';
 import legendsApi from '../services/LegendsApi';
-import { useDockLock, useTabBarClearance } from '../components/AutoHideTabBar';
 import { BOARDS } from '../components/TeamStats';
 
 const RANK = ['#d4af37', '#9ca3af', '#b87333']; // gold, silver, bronze
@@ -37,15 +35,16 @@ export default function TeamStatLeaderboardScreen() {
   // one refetch, not four — and it lets you back out of a half-made change.
   const [draft, setDraft] = useState({});
   const openFilters = () => { setDraft(filters); setPicker('main'); };
+  // Clearing a filter leaves the key behind holding null, so counting keys
+  // would badge "3 filters" on a board showing everything.
+  const active = Object.values(filters).filter(Boolean).length;
 
   // Share the board as a picture. This lived on the old expanded card and went
   // with it; a leaderboard on its own screen is the better thing to send
   // anyway, because it carries the filters that produced it.
-  // A leaderboard is a full-screen table; the dock belongs over none of it,
-  // and it was covering the last two rows.
-  const lockDock = useDockLock();
-  const tabClear = useTabBarClearance();
-  useEffect(() => { lockDock(true); return () => lockDock(false); }, [lockDock]);
+  // A leaderboard is a full-screen table; the dock belongs over none of it, and
+  // it was covering the last two rows. That is handled in GlassDock's FULLSCREEN
+  // route list now, not by useDockLock from here — see the note there.
 
   const shotRef = useRef(null);
   const shareBoard = async () => {
@@ -82,31 +81,44 @@ export default function TeamStatLeaderboardScreen() {
     });
   }, [teamId, filters, boardKey]);
 
-  const setFilter = (k, v) => {
-    setFilters(prev => ({ ...prev, [k]: v }));
-  };
-
   const getOppName = (id) => {
     return options.oppositions?.find(o => o.id === id)?.name || id;
   };
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
-      <Header title={board ? board.title : 'Leaderboard'} 
-              subtitle={category}
-              right={(
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <TouchableOpacity onPress={shareBoard} style={s.filterBtn}
-                    accessibilityRole="button" accessibilityLabel="Share this leaderboard">
-                    <Icon name="share-variant" size={22} color={DS.textPrimary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={openFilters} style={s.filterBtn}
-                    accessibilityRole="button" accessibilityLabel="Filters">
-                    <Icon name="tune-variant" size={24} color={DS.textPrimary} />
-                  </TouchableOpacity>
-                </View>
-              )} 
-      />
+      {/* Its own header row, not the shared <Header>. That component takes
+          `title`, `onMenuPress`, `onSearchPress` and `onNotificationsPress` and
+          nothing else — it is the app bar for a tab root. This screen was
+          handing it `subtitle` and a `right` slot holding the share and filter
+          buttons, and it dropped both on the floor: the two controls this screen
+          exists to offer had never once appeared on a device, and there was no
+          way back either. Hence "filter is not using" — there was no filter
+          button to press.
+
+          It is also 44pt of hard-coded top padding meant to sit under a status
+          bar, which doubled the inset SafeAreaView had already added. */}
+      <View style={s.topBar}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.iconBtn}
+          accessibilityRole="button" accessibilityLabel="Go back">
+          <Icon name="arrow-left" size={22} color={DS.textPrimary} />
+        </TouchableOpacity>
+
+        <View style={s.topBarText}>
+          <Text style={s.topBarTitle} numberOfLines={1}>{board ? board.title : 'Leaderboard'}</Text>
+          {!!category && <Text style={s.topBarSub} numberOfLines={1}>{category}</Text>}
+        </View>
+
+        <TouchableOpacity onPress={shareBoard} style={s.iconBtn}
+          accessibilityRole="button" accessibilityLabel="Share this leaderboard">
+          <Icon name="share-variant" size={21} color={DS.textPrimary} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={openFilters} style={s.iconBtn}
+          accessibilityRole="button" accessibilityLabel="Filters">
+          <Icon name="tune-variant" size={22} color={active ? DS.lime : DS.textPrimary} />
+          {active > 0 && <View style={s.filterDot}><Text style={s.filterDotText}>{active}</Text></View>}
+        </TouchableOpacity>
+      </View>
 
       {/* Applied Filters Strip */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
@@ -129,7 +141,7 @@ export default function TeamStatLeaderboardScreen() {
           <Icon name="chevron-down" size={16} color={DS.textMuted} />
         </TouchableOpacity>
 
-        {Object.keys(filters).length > 0 && (
+        {active > 0 && (
           <TouchableOpacity style={s.clearBtn} onPress={() => setFilters({})}>
             <Text style={s.clearText}>Clear</Text>
           </TouchableOpacity>
@@ -144,7 +156,11 @@ export default function TeamStatLeaderboardScreen() {
           <Text style={s.emptyText}>No data available for these filters.</Text>
         </View>
       ) : (
-        <ScrollView style={s.tableWrap} contentContainerStyle={{ paddingBottom: 40 + tabClear }}>
+        // No tab-bar clearance here: the dock does not render on this screen, so
+        // reserving its height just parks a blank band under the last row. Same
+        // mistake as the drawer footers earlier — padding kept for a thing that
+        // is no longer there.
+        <ScrollView style={s.tableWrap} contentContainerStyle={{ paddingBottom: 24 }}>
           <ViewShot ref={shotRef} options={{ format: 'jpg', quality: 0.9 }}>
           {/* Table Header */}
           <View style={s.tableHead}>
@@ -153,7 +169,7 @@ export default function TeamStatLeaderboardScreen() {
             {cols.map(([label]) => (
               <Text key={label} style={[s.th, s.thNum]}>{label}</Text>
             ))}
-            <Text style={[s.th, s.thNum, s.thHighlight]}>{board?.unit || 'VAL'}</Text>
+            <Text style={[s.th, s.thNum, s.thHighlight]}>{board?.head || board?.unit || 'VAL'}</Text>
           </View>
 
           {/* Table Rows */}
@@ -271,20 +287,37 @@ const makeStyles = (DS) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: DS.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyText: { marginTop: 16, fontSize: 16, color: DS.textMuted, textAlign: 'center' },
-  filterBtn: { padding: 8, marginRight: 8 },
-  
+
+  topBar: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingLeft: 4, paddingRight: 8, paddingVertical: 6,
+  },
+  iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  topBarText: { flex: 1, paddingHorizontal: 4 },
+  topBarTitle: { fontSize: 17, fontWeight: '800', color: DS.textPrimary, letterSpacing: -0.2 },
+  topBarSub: { fontSize: 11, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.8, marginTop: 1 },
+  filterDot: {
+    position: 'absolute', top: 4, right: 2,
+    minWidth: 15, height: 15, borderRadius: 8, paddingHorizontal: 3,
+    backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center',
+  },
+  filterDotText: { fontSize: 9.5, fontWeight: '900', color: DS.onLime },
+
+
   // flexGrow:0 or it fills the column. Without it this ScrollView and the
   // table below both flexed, so the screen split into two large voids with the
   // chips floating in the middle of one of them.
   filterStripOuter: { flexGrow: 0, flexShrink: 0 },
-  filterStrip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  filterStrip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   filterChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surface, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: DS.border },
   filterChipLabel: { fontSize: 12, color: DS.textMuted },
   filterChipVal: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, marginRight: 4, maxWidth: 100 },
   clearBtn: { paddingHorizontal: 12, paddingVertical: 8 },
   clearText: { color: DS.coral, fontWeight: '700', fontSize: 13 },
 
-  tableWrap: { flex: 1, backgroundColor: DS.surface, marginTop: 8 },
+  // The table takes every pixel below the strip — this is a full-screen table
+  // and the point of putting it on its own screen was the room.
+  tableWrap: { flex: 1, backgroundColor: DS.surface },
   tableHead: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: DS.border, backgroundColor: DS.surfaceHigh },
   th: { fontSize: 11, fontWeight: '800', color: DS.textMuted, textTransform: 'uppercase' },
   thRank: { width: 32 },

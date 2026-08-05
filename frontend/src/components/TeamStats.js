@@ -38,8 +38,8 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
 export const BOARDS = [
   // BATTING
   { category: 'BATTING', key: 'runs', title: 'Most Runs', icon: 'cricket', value: (r) => r.runs, unit: 'runs', cols: [['M', 'matches'], ['Inn', 'innings'], ['R', 'runs'], ['SR', 'strikeRate']] },
-  { category: 'BATTING', key: 'highest', title: 'Highest Scores', icon: 'trophy-outline', value: (r) => r.highest, unit: '', cols: [['M', 'matches'], ['Runs', 'runs'], ['SR', 'strikeRate']] },
-  { category: 'BATTING', key: 'average', title: 'Best Batting Average', icon: 'calculator', value: (r) => r.average, unit: '', cols: [['M', 'matches'], ['Inn', 'innings'], ['Runs', 'runs'], ['Avg', 'average']] },
+  { category: 'BATTING', key: 'highest', title: 'Highest Scores', icon: 'trophy-outline', value: (r) => r.highest, unit: '', head: 'HS', cols: [['M', 'matches'], ['Runs', 'runs'], ['SR', 'strikeRate']] },
+  { category: 'BATTING', key: 'average', title: 'Best Batting Average', icon: 'calculator', value: (r) => r.average, unit: '', head: 'AVG', cols: [['M', 'matches'], ['Inn', 'innings'], ['Runs', 'runs'], ['Avg', 'average']] },
   { category: 'BATTING', key: 'strikeRate', title: 'Best Batting Strike Rate', icon: 'flash', value: (r) => r.strikeRate, unit: 'sr', qualified: true, cols: [['Inn', 'innings'], ['Runs', 'runs'], ['Balls', 'balls'], ['SR', 'strikeRate']] },
   { category: 'BATTING', key: 'fours', title: 'Most Fours', icon: 'arrow-right-bold', value: (r) => r.fours, unit: '4s', cols: [['M', 'matches'], ['Runs', 'runs'], ['4s', 'fours']] },
   { category: 'BATTING', key: 'sixes', title: 'Most Sixes', icon: 'arrow-up-bold', value: (r) => r.sixes, unit: '6s', cols: [['M', 'matches'], ['Runs', 'runs'], ['6s', 'sixes']] },
@@ -50,9 +50,9 @@ export const BOARDS = [
   
   // BOWLING
   { category: 'BOWLING', key: 'wickets', title: 'Most Wickets', icon: 'bowling', value: (r) => r.wickets, unit: 'wkts', cols: [['M', 'matches'], ['Ov', 'overs'], ['W', 'wickets'], ['Econ', 'economy']] },
-  { category: 'BOWLING', key: 'bestBowling', title: 'Best Bowling Figures', icon: 'trophy-outline', value: (r) => r.best, unit: '', cols: [['M', 'matches'], ['Ov', 'overs'], ['Best', 'best']] },
+  { category: 'BOWLING', key: 'bestBowling', title: 'Best Bowling Figures', icon: 'trophy-outline', value: (r) => r.best, unit: '', head: 'BEST', cols: [['M', 'matches'], ['Ov', 'overs'], ['Best', 'best']] },
   { category: 'BOWLING', key: 'economy', title: 'Best Economy', icon: 'gauge-low', value: (r) => r.economy, unit: 'rpo', qualified: true, cols: [['Ov', 'overs'], ['W', 'wickets'], ['Econ', 'economy']] },
-  { category: 'BOWLING', key: 'bowlingAvg', title: 'Best Bowling Average', icon: 'calculator', value: (r) => r.average, unit: '', cols: [['Ov', 'overs'], ['W', 'wickets'], ['Avg', 'average']] },
+  { category: 'BOWLING', key: 'bowlingAvg', title: 'Best Bowling Average', icon: 'calculator', value: (r) => r.average, unit: '', head: 'AVG', cols: [['Ov', 'overs'], ['W', 'wickets'], ['Avg', 'average']] },
   { category: 'BOWLING', key: 'bowlingSr', title: 'Best Bowling Strike Rate', icon: 'flash', value: (r) => r.strikeRate, unit: 'sr', cols: [['Ov', 'overs'], ['W', 'wickets'], ['SR', 'strikeRate']] },
   { category: 'BOWLING', key: 'maidens', title: 'Most Maidens', icon: 'shield-outline', value: (r) => r.maidens, unit: 'm', cols: [['M', 'matches'], ['Ov', 'overs'], ['M', 'maidens']] },
   { category: 'BOWLING', key: 'dots', title: 'Most Dot Balls', icon: 'circle-small', value: (r) => r.dots, unit: 'dots', cols: [['M', 'matches'], ['Ov', 'overs'], ['Dots', 'dots']] },

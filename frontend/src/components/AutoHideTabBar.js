@@ -48,9 +48,23 @@ export const TabBarVisibilityProvider = ({ children }) => {
   const reveal = useCallback(() => animateTo(true), [animateTo]);
 
   // Live spectator mode: lock the dock away / release it back.
+  //
+  // Counted, not a boolean. Nine screens hold this lock, and navigating from
+  // one to another runs both the arriving screen's acquire and the leaving
+  // screen's release with no guaranteed order between them. As a plain flag the
+  // release won whenever it landed second: Team Profile → a leaderboard logged
+  // `lock=true` and then `lock=false` two milliseconds later, and the dock sat
+  // there over the table on a screen that had asked twice for it to go.
+  //
+  // A count cannot lose that race. While anyone still holds it the total stays
+  // above zero and the dock stays away; it comes back when the last holder
+  // lets go. Clamped at zero so an unmatched release can't bank credit that
+  // swallows the next screen's lock.
+  const lockCount = useRef(0);
   const lockHidden = useCallback((lock) => {
-    locked.current = lock;
-    animateTo(!lock, true);
+    lockCount.current = Math.max(0, lockCount.current + (lock ? 1 : -1));
+    locked.current = lockCount.current > 0;
+    animateTo(!locked.current, true);
   }, [animateTo]);
 
   return (

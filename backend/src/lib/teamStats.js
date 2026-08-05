@@ -546,7 +546,13 @@ export async function teamStats(teamId, filters = {}) {
 export async function teamStatsFilterOptions(teamId) {
   const matches = await prisma.match.findMany({
     where: { OR: [{ team1Id: teamId }, { team2Id: teamId }], status: 'completed' },
-    select: { id: true, startTime: true, matchType: true, venue: true },
+    // team1Id/team2Id are read further down to build the opposition list. They
+    // were missing from this select, so every match reported both as undefined,
+    // oppIds came out as [undefined], and Prisma refused the findMany — a 500
+    // on every call. The screen degrades quietly when this fails (it just keeps
+    // its empty defaults), so the filter sheet had no years, no formats and no
+    // oppositions and looked merely empty rather than broken.
+    select: { id: true, startTime: true, matchType: true, venue: true, team1Id: true, team2Id: true },
   });
   const years = [...new Set(matches.map((m) => m.startTime && new Date(m.startTime).getFullYear()).filter(Boolean))].sort((a, b) => b - a);
   const matchTypes = [...new Set(matches.map((m) => m.matchType).filter(Boolean))].sort();
@@ -573,7 +579,9 @@ export async function teamStatsFilterOptions(teamId) {
     if (f.tournament && !seen.has(f.tournament.id)) { seen.add(f.tournament.id); tournaments.push(f.tournament); }
   }
 
-  const oppIds = [...new Set(matches.flatMap(m => [m.team1Id, m.team2Id]))].filter(id => id !== teamId);
+  // Belt and braces: a match with one side still unset is legal in the schema,
+  // and a single null in this array takes the whole endpoint down again.
+  const oppIds = [...new Set(matches.flatMap(m => [m.team1Id, m.team2Id]))].filter(id => id && id !== teamId);
   const oppTeams = await prisma.team.findMany({
     where: { id: { in: oppIds } },
     select: { id: true, name: true }
