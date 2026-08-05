@@ -6,7 +6,7 @@ import {
 
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
-import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput, BottomSheetFooter } from '@gorhom/bottom-sheet';
 import Reanimated, { FadeIn, SlideInRight, SlideInLeft, FadeInDown, useAnimatedRef, useSharedValue, scrollTo, LinearTransition, useAnimatedStyle, runOnJS, withSpring, withTiming, withRepeat, Easing } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AnimatedPressable from '../components/AnimatedPressable';
@@ -19,6 +19,10 @@ import { useCurrentUser } from '../utils/currentUser';
 import { useFocusEffect } from '@react-navigation/native';
 import { haptic } from '../utils/haptics';
 
+import {
+  DrawerHeader, SectionCard, TextField, TextArea, ChipGroup, Toggle,
+  PrimaryButton, StickyFooter, ValidationMessage, useCreateStyles,
+} from '../components/create';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { pav } from '../theme/pavilion';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
@@ -390,6 +394,9 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   // so the two can't drift. editingId null means "posting a new one".
   const [editingId, setEditingId] = useState(null);
 
+  const [formError, setFormError] = useState('');
+  const [posted, setPosted] = useState(false);
+  const cs = useCreateStyles();
   const createSheetRef = useRef(null);
   const createSnapPoints = useMemo(() => ['92%'], []);
   const openCreate = useCallback(() => {
@@ -603,6 +610,13 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   };
 
   const handleCreate = async () => {
+    // Validated before the round trip, and said in the form rather than as a
+    // toast that has gone by the time you look for the field it meant.
+    if (!form.location.trim()) {
+      setFormError('Add a location so people know where you are');
+      return;
+    }
+    setFormError('');
     setSubmitting(true);
     const whenPhrase = buildWhen(form);
     const payload = {
@@ -620,17 +634,39 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       : await legendsApi.createLookingFor(payload);
     setSubmitting(false);
     if (!res.success) {
-      // Silently doing nothing left the sheet open with a full form and no clue
-      // the post hadn't gone anywhere.
-      showToast(res.error || (editingId ? 'Could not save changes' : 'Could not post that listing'), 'error');
+      // In the form, above the button, where the thing that failed is.
+      setFormError(res.error || (editingId ? 'Could not save changes' : 'Could not post that listing'));
       return;
     }
-    closeCreate();
-    setForm(INITIAL_FORM);
-    setEditingId(null);
-    load(activeTypeRef.current, query);
-    showToast(editingId ? 'Listing updated' : 'Listing posted', 'success');
+    // The button holds a tick for a beat before the drawer goes, so the flow
+    // confirms rather than just vanishing.
+    setPosted(true);
+    setTimeout(() => {
+      setPosted(false);
+      closeCreate();
+      setForm(INITIAL_FORM);
+      setEditingId(null);
+      load(activeTypeRef.current, query);
+      showToast(editingId ? 'Listing updated' : 'Listing posted', 'success');
+    }, 550);
   };
+
+  // The sheet pins this itself, so the action is never scrolled away from and
+  // it rides above the keyboard instead of being covered by it.
+  const renderFooter = useCallback((props) => (
+    <BottomSheetFooter {...props} bottomInset={0}>
+      <StickyFooter>
+        <ValidationMessage message={formError} />
+        <PrimaryButton
+          label={editingId ? 'Save changes' : 'Post Listing'}
+          icon="send"
+          loading={submitting}
+          done={posted}
+          onPress={handleCreate}
+        />
+      </StickyFooter>
+    </BottomSheetFooter>
+  ), [formError, editingId, submitting, posted, handleCreate]);
 
   // Remove a listing outright. Marking filled keeps it as a record and closes
   // its requests; this is for the ones that shouldn't exist — a typo, a
@@ -756,7 +792,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     );
   };
 
-
   // ── One listing = one row ──────────────────────────────────────────────────
   // Three lines, fixed shape: the ask, then who/where/when, then age + category.
   // The action sits on the right so the eye can run down a single column of
@@ -791,8 +826,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       ['cricket', 'Format', item.format],
       ['human', 'Age group', item.ageGroup],
     ].filter(([, , v]) => !!v);
-
-
 
     return (
       <Reanimated.View
@@ -1092,156 +1125,122 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
         ref={createSheetRef}
         snapPoints={createSnapPoints}
         enablePanDownToClose
-        onDismiss={() => { setForm(INITIAL_FORM); setEditingId(null); }}
+        onDismiss={() => { setForm(INITIAL_FORM); setEditingId(null); setFormError(''); setPosted(false); }}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
         android_keyboardInputMode="adjustResize"
         backdropComponent={renderBackdrop}
+        footerComponent={renderFooter}
         backgroundStyle={{ backgroundColor: DS.bg }}
         handleIndicatorStyle={{ backgroundColor: DS.faint }}
       >
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderLeft}>
-                <View style={styles.modalHeaderIcon}>
-                  <Icon name="telescope" size={20} color={DS.blueDeep} />
-                </View>
-                <View>
-                  <Text style={styles.modalTitle}>{editingId ? 'Edit Listing' : 'Post a Listing'}</Text>
-                  <Text style={styles.modalSubtitle}>Let others know what you're looking for</Text>
-                </View>
-              </View>
-              <TouchableOpacity onPress={closeCreate} style={styles.modalClose}>
-                <Icon name="close" size={20} color={DS.textVariant} />
-              </TouchableOpacity>
-            </View>
-            <BottomSheetScrollView contentContainerStyle={styles.modalBodyContent} showsVerticalScrollIndicator={false}>
-              <Text style={styles.fieldLabel}>What are you looking for?</Text>
-              <View style={styles.typeRow}>
-                {TYPES.map(t => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.typeChip, form.type === t && styles.typeChipActive]}
-                    onPress={() => setForm(f => ({ ...f, type: t, role: '' }))}
-                  >
-                    <Icon name={TYPE_ICONS[t]} size={14} color={form.type === t ? DS.onLime : DS.textVariant} />
-                    <Text style={[styles.typeChipText, form.type === t && styles.typeChipTextActive]}>
-                      {TYPE_LABELS[t] || t}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            <DrawerHeader
+              icon="telescope"
+              title={editingId ? 'Edit Listing' : 'Post a Listing'}
+              subtitle="Let others know what you're looking for"
+              onClose={closeCreate}
+            />
+            <BottomSheetScrollView contentContainerStyle={cs.body} showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled">
+              {/* Grouped into cards rather than run as one column of labels.
+                  Nine questions in a row is a wall; three cards is a form you
+                  can see the shape of before you start filling it in. */}
+              <SectionCard title="What you're after" icon="target">
+                <ChipGroup
+                  label="Looking for"
+                  required
+                  options={TYPES.map((t) => ({ value: t, label: TYPE_LABELS[t] || t, icon: TYPE_ICONS[t] }))}
+                  value={form.type}
+                  onChange={(v) => v && setForm((f) => ({ ...f, type: v, role: '' }))}
+                />
+                {SUBTYPES[form.type] && (
+                  <ChipGroup
+                    label={SUBTYPE_LABEL[form.type] || 'Type'}
+                    options={SUBTYPES[form.type]}
+                    value={form.role}
+                    onChange={(v) => setForm((f) => ({ ...f, role: v || '' }))}
+                  />
+                )}
+                <ChipGroup label="Format" options={FORMAT_OPTS} value={form.format}
+                  onChange={(v) => v && setForm((f) => ({ ...f, format: v }))} />
+                <ChipGroup label="Age group" options={AGE_OPTS} value={form.ageGroup} last
+                  onChange={(v) => v && setForm((f) => ({ ...f, ageGroup: v }))} />
+              </SectionCard>
 
-              {SUBTYPES[form.type] && (
-                <>
-                  <Text style={styles.fieldLabel}>{SUBTYPE_LABEL[form.type] || 'Type'}</Text>
-                  <View style={styles.typeRow}>
-                    {SUBTYPES[form.type].map(o => (
-                      <TouchableOpacity key={o} style={[styles.optChip, form.role === o && styles.optChipActive]} onPress={() => setForm(f => ({ ...f, role: f.role === o ? '' : o }))}>
-                        <Text style={[styles.optChipText, form.role === o && styles.optChipTextActive]}>{o}</Text>
+              <SectionCard title="When" icon="calendar-clock">
+                <ChipGroup
+                  label="Which days"
+                  multi
+                  options={DAYS}
+                  value={form.days}
+                  onChange={(v) => setForm((f) => ({ ...f, days: v }))}
+                  helper="Pick as many as suit you"
+                />
+                <ChipGroup label="Timing" options={TIME_OPTS} value={form.timing}
+                  last={form.timing !== 'Custom'}
+                  onChange={(v) => setForm((f) => ({ ...f, timing: v || '' }))} />
+                {form.timing === 'Custom' && (
+                  <TextField
+                    label="What time"
+                    last
+                    Input={BottomSheetTextInput}
+                    value={form.customTime}
+                    onChangeText={(v) => setForm((f) => ({ ...f, customTime: v }))}
+                    placeholder="e.g. 5:30 PM"
+                  />
+                )}
+              </SectionCard>
+
+              <SectionCard title="Where & details" icon="map-marker-outline">
+                <TextField
+                  label="Location"
+                  required
+                  Input={BottomSheetTextInput}
+                  value={form.location}
+                  onChangeText={onLocationChange}
+                  placeholder="Start typing your city…"
+                  autoCorrect={false}
+                  helper={citySuggest.length ? undefined : 'City, town or area'}
+                />
+                {citySuggest.length > 0 && (
+                  <View style={styles.suggestBox}>
+                    {citySuggest.slice(0, 6).map((sg, i) => (
+                      <TouchableOpacity key={i} style={styles.suggestRow} onPress={() => pickCity(sg)}>
+                        <Icon name="map-marker-outline" size={16} color={DS.lime} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.suggestCity}>{sg.city}</Text>
+                          <Text style={styles.suggestMeta}>{sg.district}, {sg.state} · {sg.pincode}</Text>
+                        </View>
                       </TouchableOpacity>
                     ))}
                   </View>
-                </>
-              )}
-
-              <Text style={styles.fieldLabel}>Format</Text>
-              <View style={styles.typeRow}>
-                {FORMAT_OPTS.map(o => (
-                  <TouchableOpacity key={o} style={[styles.optChip, form.format === o && styles.optChipActive]} onPress={() => setForm(f => ({ ...f, format: o }))}>
-                    <Text style={[styles.optChipText, form.format === o && styles.optChipTextActive]}>{o}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={styles.fieldLabel}>Age Group</Text>
-              <View style={styles.typeRow}>
-                {AGE_OPTS.map(o => (
-                  <TouchableOpacity key={o} style={[styles.optChip, form.ageGroup === o && styles.optChipActive]} onPress={() => setForm(f => ({ ...f, ageGroup: o }))}>
-                    <Text style={[styles.optChipText, form.ageGroup === o && styles.optChipTextActive]}>{o}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={styles.fieldLabel}>Which days?</Text>
-              <View style={styles.typeRow}>
-                {DAYS.map(d => {
-                  const on = form.days.includes(d);
-                  const wknd = WEEKEND.includes(d);
-                  return (
-                    <TouchableOpacity
-                      key={d}
-                      style={[styles.optChip, wknd && !on && styles.optChipWeekend, on && styles.optChipActive]}
-                      onPress={() => setForm(f => ({ ...f, days: f.days.includes(d) ? f.days.filter(x => x !== d) : [...f.days, d] }))}
-                    >
-                      <Text style={[styles.optChipText, wknd && !on && styles.optChipTextWeekend, on && styles.optChipTextActive]}>{d}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <Text style={styles.fieldLabel}>Timing</Text>
-              <View style={styles.typeRow}>
-                {TIME_OPTS.map(o => (
-                  <TouchableOpacity key={o} style={[styles.optChip, form.timing === o && styles.optChipActive]} onPress={() => setForm(f => ({ ...f, timing: f.timing === o ? '' : o }))}>
-                    <Text style={[styles.optChipText, form.timing === o && styles.optChipTextActive]}>{o}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {form.timing === 'Custom' && (
-                <View style={[styles.locWrap, { marginTop: 8 }]}>
-                  <Icon name="clock-outline" size={18} color={DS.textMuted} />
-                  <BottomSheetTextInput style={styles.locInput} placeholder="e.g. 5:30 PM" placeholderTextColor={DS.textMuted} value={form.customTime} onChangeText={v => setForm(f => ({ ...f, customTime: v }))} />
-                </View>
-              )}
-
-              <Text style={styles.fieldLabel}>Location</Text>
-              <View style={styles.locWrap}>
-                <Icon name="map-marker-outline" size={18} color={DS.textMuted} />
-                <BottomSheetTextInput style={styles.locInput} placeholder="Start typing your city…" placeholderTextColor={DS.textMuted} value={form.location} onChangeText={onLocationChange} autoCorrect={false} />
-                {form.location.length > 0 && (
-                  <TouchableOpacity onPress={() => { setForm(f => ({ ...f, location: '' })); setCitySuggest([]); }}>
-                    <Icon name="close-circle" size={16} color={DS.textMuted} />
-                  </TouchableOpacity>
                 )}
-              </View>
-              {citySuggest.length > 0 && (
-                <View style={styles.suggestBox}>
-                  {citySuggest.slice(0, 6).map((s, i) => (
-                    <TouchableOpacity key={i} style={styles.suggestRow} onPress={() => pickCity(s)}>
-                      <Icon name="map-marker-outline" size={16} color={DS.blueDeep} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.suggestCity}>{s.city}</Text>
-                        <Text style={styles.suggestMeta}>{s.district}, {s.state} · {s.pincode}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
 
-              <Text style={styles.fieldLabel}>Notes</Text>
-              <BottomSheetTextInput style={[styles.input, styles.textarea]} placeholder="Add any details — skills, timing, budget…" placeholderTextColor={DS.textMuted} multiline value={form.description} onChangeText={v => setForm(f => ({ ...f, description: v }))} />
+                <TextArea
+                  label="Notes"
+                  Input={BottomSheetTextInput}
+                  value={form.description}
+                  onChangeText={(v) => setForm((f) => ({ ...f, description: v }))}
+                  placeholder="Skills, timing, budget — anything that helps"
+                  last={!myPhone}
+                />
 
-              {!!myPhone && (
-                <TouchableOpacity style={styles.contactToggle} onPress={() => setSharePhone(s => !s)} activeOpacity={0.8}>
-                  <Icon name={sharePhone ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color={sharePhone ? DS.lime : DS.textMuted} />
-                  <Text style={styles.contactToggleText}>Share my number ({myPhone}) so people can connect</Text>
-                </TouchableOpacity>
-              )}
+                {!!myPhone && (
+                  <Toggle
+                    title="Share my number"
+                    hint={`${myPhone} — so people can connect`}
+                    value={sharePhone}
+                    onChange={setSharePhone}
+                  />
+                )}
+              </SectionCard>
 
               <View style={styles.previewBox}>
                 <Text style={styles.previewLabel}>POSTS AS</Text>
                 <Text style={styles.previewTitle}>{buildTitle(form)}</Text>
               </View>
-
-              <TouchableOpacity style={[styles.submitBtn, { backgroundColor: P.control }, submitting && { opacity: 0.5 }]} onPress={handleCreate} disabled={submitting}>
-                {submitting ? <ActivityIndicator color={DS.white} /> : (
-                  <>
-                    <Icon name="send" size={17} color={DS.white} />
-                    <Text style={styles.submitText}>{editingId ? 'Save changes' : 'Post Listing'}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </BottomSheetScrollView>
+
       </BottomSheetModal>
       <DynamicIsland ref={islandRef} />
     </View>
@@ -1377,6 +1376,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   contactLockedText: { flex: 1, fontSize: 12.5, fontWeight: '600', color: DS.textMuted },
   contactLabel: { fontSize: 10, fontWeight: '900', color: DS.textMuted, letterSpacing: 0.8 },
+  contactPhone: { flex: 1, fontSize: 15, fontWeight: '800', color: DS.lime, letterSpacing: 0.4 },
   contactValue: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginTop: 2 },
 
   detailAction: { marginTop: 4, alignItems: 'stretch' },
@@ -1428,49 +1428,18 @@ const makeStyles = (DS) => StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: DS.overlay, justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: DS.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '92%' },
   grabHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: DS.faint, marginTop: 10, marginBottom: 4 },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: DS.faint },
-  modalHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  modalHeaderIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: DS.blueDeep + '18', alignItems: 'center', justifyContent: 'center' },
-  modalSubtitle: { fontSize: 12, color: DS.textMuted, marginTop: 2 },
-  modalClose: { width: 34, height: 34, borderRadius: 17, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: DS.textPrimary },
   modalBody: { paddingHorizontal: 16, paddingTop: 8 },
-  modalBodyContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40 },
-  fieldLabel: { fontSize: 12, fontWeight: '700', color: DS.textMuted, marginBottom: 6, marginTop: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: { backgroundColor: DS.surface, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: DS.textPrimary, borderWidth: 1, borderColor: DS.faint },
-  textarea: { height: 80, textAlignVertical: 'top' },
-  typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-  typeChip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, minHeight: 32, borderRadius: 999, backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint },
-  typeChipActive: { backgroundColor: DS.lime, borderColor: DS.lime },
-  typeChipText: { fontSize: 12, color: DS.textVariant, fontWeight: '700' },
-  typeChipTextActive: { color: DS.onLime },
-  optChip: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 7, minHeight: 32, borderRadius: 999, backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint },
   // DS.white on the accent green was ~2.2:1 — the selected format/age/day chips
   // were near-unreadable. DS.onLime is the dark ink the theme ships for exactly
   // this fill (~8.45:1), and it's what the filter and type chips already use.
-  optChipActive: { backgroundColor: DS.lime, borderColor: DS.lime },
-  optChipText: { fontSize: 12, color: DS.textVariant, fontWeight: '700' },
-  optChipTextActive: { color: DS.onLime, fontWeight: '800' },
-  optChipWeekend: { backgroundColor: DS.lime + '18', borderColor: DS.lime },
-  optChipTextWeekend: { color: DS.lime2, fontWeight: '800' },
-  locWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: DS.surface, borderRadius: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: DS.faint },
-  locInput: { flex: 1, paddingVertical: 11, fontSize: 14, color: DS.textPrimary },
   suggestBox: { marginTop: 6, backgroundColor: DS.surface, borderRadius: 12, borderWidth: 1, borderColor: DS.faint, overflow: 'hidden' },
   suggestRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: DS.faint },
   suggestCity: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
   suggestMeta: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
-  contactToggle: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16, paddingVertical: 4 },
-  contactToggleText: { flex: 1, fontSize: 13, color: DS.textVariant, fontWeight: '600', lineHeight: 18 },
   previewBox: { marginTop: 18, backgroundColor: DS.blueDeep + '10', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: DS.blueDeep + '22' },
   previewLabel: { fontSize: 10, fontWeight: '800', color: DS.blueDeep, letterSpacing: 1 },
   previewTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginTop: 4 },
   // Same role as Connect — the primary commit — so the same near-black
   // treatment (fill applied inline from pav().control). Was DS.blueDeep, which
   // the theme folds to the accent green, and it cast a green shadow to match.
-  submitBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    margin: 16, borderRadius: 14, paddingVertical: 16,
-    borderWidth: 1, borderColor: DS.faint,
-  },
-  submitText: { fontSize: 15, fontWeight: '800', color: DS.white, letterSpacing: 0.5 },
 });

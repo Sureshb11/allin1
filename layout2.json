@@ -1,0 +1,119 @@
+[
+  {
+    "interactions": [
+      "focusable",
+      "scrollable"
+    ],
+    "center": "[540,1234]",
+    "bounds": "[0,132][1080,2337]",
+    "key": 3506402
+  },
+  {
+    "text": "LOCAL",
+    "center": "[165,319]",
+    "key": 3506402
+  },
+  {
+    "text": "WHERE LEGENDS ARE BORN",
+    "center": "[540,400]",
+    "key": 3506402
+  },
+  {
+    "text": "Get into\nthe action",
+    "center": "[540,773]",
+    "key": 3506402
+  },
+  {
+    "text": "Enter your mobile number to get a one-time code and join the arena.",
+    "center": "[540,1002]",
+    "key": 3506402
+  },
+  {
+    "text": "By continuing you agree to Local Legends\u0027\nTerms of Service \u0026 Privacy Policy",
+    "center": "[540,2077]",
+    "key": 3506402
+  },
+  {
+    "text": "󰫢",
+    "center": "[327,319]",
+    "key": 3506402
+  },
+  {
+    "text": "LEGENDS",
+    "center": "[445,318]",
+    "key": 3506402
+  },
+  {
+    "text": "LIVE UPDATES",
+    "center": "[250,558]",
+    "key": 3506402
+  },
+  {
+    "text": "PHONE NUMBER",
+    "center": "[540,1210]",
+    "key": 3506402
+  },
+  {
+    "content-desc": "🇮🇳, +91, 󰅀",
+    "interactions": [
+      "clickable",
+      "focusable"
+    ],
+    "center": "[242,1341]",
+    "key": 3506402
+  },
+  {
+    "text": "9176676496",
+    "interactions": [
+      "focusable"
+    ],
+    "center": "[695,1341]",
+    "key": 3506402
+  },
+  {
+    "interactions": [
+      "focusable"
+    ],
+    "center": "[540,1552]",
+    "key": 3506402
+  },
+  {
+    "text": "OR",
+    "center": "[540,1692]",
+    "key": 3506402
+  },
+  {
+    "content-desc": "󰠁, Create New Account",
+    "interactions": [
+      "clickable",
+      "focusable"
+    ],
+    "center": "[540,1830]",
+    "key": 3506402
+  },
+  {
+    "text": "🇮🇳",
+    "center": "[170,1338]",
+    "key": 3506402
+  },
+  {
+    "text": "+91",
+    "center": "[254,1338]",
+    "key": 3506402
+  },
+  {
+    "text": "󰅀",
+    "center": "[326,1338]",
+    "key": 3506402
+  },
+  {
+    "text": "󰠁",
+    "center": "[344,1830]",
+    "key": 3506402
+  },
+  {
+    "text": "Create New Account",
+    "center": "[574,1830]",
+    "key": 3506402
+  }
+]

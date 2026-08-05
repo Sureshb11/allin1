@@ -1,0 +1,96 @@
+[
+  {
+    "interactions": [
+      "focusable"
+    ],
+    "center": "[540,1160]",
+    "resource-id": "rn_redbox_stack",
+    "key": 3506402
+  },
+  {
+    "text": "Could not connect to development server.\n\nTry the following to fix the issue:\n• Ensure that Metro is running\n• Ensure that your device/emulator is connected to your machine and has USB debugging enabled - run \u0027adb devices\u0027 to see a list of connected devices\n• Ensure Airplane Mode is disabled\n• If you\u0027re on a physical device connected to the same machine, run \u0027adb reverse tcp:8081 tcp:8081\u0027 to forward requests from your device\n• If your device is on the same Wi-Fi network, set \u0027Debug server host \u0026 port for device\u0027 in \u0027Dev settings\u0027 to your machine\u0027s IP address and the port of the local dev server - e.g. 10.0.1.1:8081\n\nURL: http://10.0.2.2:8081/index.bundle?platform\u003dandroid\u0026dev\u003dtrue\u0026lazy\u003dtrue\u0026minify\u003dfalse\u0026app\u003dcom.local.legends\u0026modulesOnly\u003dfalse\u0026runModule\u003dtrue",
+    "center": "[540,668]",
+    "resource-id": "catalyst_redbox_title",
+    "key": 3506402
+  },
+  {
+    "text": "DISMISS\n(ESC)",
+    "interactions": [
+      "clickable",
+      "focusable"
+    ],
+    "center": "[270,2263]",
+    "resource-id": "rn_redbox_dismiss_button",
+    "key": 3506402
+  },
+  {
+    "text": "RELOAD\n(R, R)",
+    "interactions": [
+      "clickable",
+      "focusable"
+    ],
+    "center": "[810,2263]",
+    "resource-id": "rn_redbox_reload_button",
+    "key": 3506402
+  },
+  {
+    "text": "onFailure",
+    "center": "[540,1250]",
+    "resource-id": "rn_frame_method",
+    "key": 3506402
+  },
+  {
+    "text": "BundleDownloader.java:126",
+    "center": "[540,1297]",
+    "resource-id": "rn_frame_file",
+    "key": 3506402
+  },
+  {
+    "text": "run",
+    "center": "[540,1386]",
+    "resource-id": "rn_frame_method",
+    "key": 3506402
+  },
+  {
+    "text": "RealCall.kt:525",
+    "center": "[540,1433]",
+    "resource-id": "rn_frame_file",
+    "key": 3506402
+  },
+  {
+    "text": "runWorker",
+    "center": "[540,1522]",
+    "resource-id": "rn_frame_method",
+    "key": 3506402
+  },
+  {
+    "text": "ThreadPoolExecutor.java:1156",
+    "center": "[540,1569]",
+    "resource-id": "rn_frame_file",
+    "key": 3506402
+  },
+  {
+    "text": "run",
+    "center": "[540,1658]",
+    "resource-id": "rn_frame_method",
+    "key": 3506402
+  },
+  {
+    "text": "ThreadPoolExecutor.java:651",
+    "center": "[540,1705]",
+    "resource-id": "rn_frame_file",
+    "key": 3506402
+  },
+  {
+    "text": "run",
+    "center": "[540,1794]",
+    "resource-id": "rn_frame_method",
+    "key": 3506402
+  },
+  {
+    "text": "Thread.java:1119",
+    "center": "[540,1841]",
+    "resource-id": "rn_frame_file",
+    "key": 3506402
+  }
+]

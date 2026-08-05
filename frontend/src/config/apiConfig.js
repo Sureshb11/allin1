@@ -27,7 +27,7 @@ const PROD_URL = 'https://allin1-api.vercel.app';
 
 // Use the hosted backend by default (it's live). Flip to true to develop against
 // the local server in ../../backend (npm run dev on :4000).
-const USE_LOCAL_BACKEND = false;
+const USE_LOCAL_BACKEND = true;
 
 const apiConfig = {
   API_PORT,
