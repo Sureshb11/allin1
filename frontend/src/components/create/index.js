@@ -7,7 +7,10 @@
 // and in what order.
 //
 // Rules the set enforces so a screen cannot break them by accident:
-//   · every interactive element is at least 48dp tall (TAP)
+//   · every interactive element answers a 48dp touch. Rows and controls are
+//     48 tall outright; a chip is 36 so a row of them is not a wall, and makes
+//     up the difference with hitSlop — the finger target is 48 either way,
+//     which is what the guideline is actually about
 //   · focus is a lime border, error is a coral one, and a field cannot show
 //     both — error wins, because it is the one that needs reading
 //   · a press scales to 0.97 and back on the house spring
@@ -250,6 +253,8 @@ export function Chip({ label, icon, selected, onPress }) {
     <Pressable
       onPress={onPress}
       style={[s.chip, selected && s.chipOn]}
+      // 36 drawn, 48 tappable.
+      hitSlop={{ top: 6, bottom: 6, left: 2, right: 2 }}
       accessibilityRole="button"
       accessibilityState={{ selected: !!selected }}
       accessibilityLabel={label}>

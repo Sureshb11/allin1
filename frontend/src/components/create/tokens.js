@@ -71,7 +71,7 @@ export const shadow = (DS) => ({
 export const TAP = 48;
 
 // How much room a scroll must leave for the pinned footer above it.
-export const FOOTER_CLEARANCE = 12 + TAP + 16 + 32;
+export const FOOTER_CLEARANCE = 10 + TAP + 16 + 28;
 
 /**
  * The shared stylesheet. Built from the theme so both themes work, and taken
@@ -83,10 +83,10 @@ export const makeCreateStyles = (DS) => {
     // ── Drawer chrome ──
     header: {
       flexDirection: 'row', alignItems: 'center', gap: SPACE.md,
-      paddingHorizontal: SPACE.lg, paddingTop: SPACE.sm, paddingBottom: SPACE.lg,
+      paddingHorizontal: SPACE.lg, paddingTop: SPACE.xs, paddingBottom: SPACE.md,
     },
     headerIcon: {
-      width: 44, height: 44, borderRadius: RADIUS.field,
+      width: 40, height: 40, borderRadius: RADIUS.field,
       alignItems: 'center', justifyContent: 'center',
     },
     headerText: { flex: 1 },
@@ -111,17 +111,17 @@ export const makeCreateStyles = (DS) => {
       backgroundColor: DS.surface,
       borderRadius: RADIUS.card,
       borderWidth: 1, borderColor: DS.border,
-      padding: SPACE.lg,
-      marginBottom: SPACE.md,
+      padding: SPACE.md + 2,
+      marginBottom: SPACE.sm + 2,
       ...sh.card,
     },
-    sectionRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm, marginBottom: SPACE.md },
+    sectionRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.sm, marginBottom: SPACE.sm + 2 },
     section: { ...TYPE.section, color: DS.textMuted },
 
     // ── Fields ──
-    field: { marginBottom: SPACE.lg },
+    field: { marginBottom: SPACE.md },
     fieldLast: { marginBottom: 0 },
-    label: { ...TYPE.label, color: DS.textVariant, marginBottom: SPACE.sm },
+    label: { ...TYPE.label, color: DS.textVariant, marginBottom: 5 },
     required: { color: DS.lime },
 
     input: {
@@ -129,14 +129,14 @@ export const makeCreateStyles = (DS) => {
       backgroundColor: DS.surfaceHigh,
       borderRadius: RADIUS.field,
       borderWidth: 1.5, borderColor: 'transparent',
-      paddingHorizontal: SPACE.lg, paddingVertical: SPACE.md,
+      paddingHorizontal: SPACE.md + 2, paddingVertical: SPACE.sm + 2,
       ...TYPE.input, color: DS.textPrimary,
     },
     // Focus is a border, not a glow: it has to read at a glance on both themes
     // and survive being next to a lime chip.
     inputFocused: { borderColor: DS.lime, backgroundColor: DS.surfaceHigh },
     inputError: { borderColor: DS.coral },
-    textarea: { minHeight: 110, paddingTop: SPACE.md, textAlignVertical: 'top' },
+    textarea: { minHeight: 88, paddingTop: SPACE.sm + 2, textAlignVertical: 'top' },
 
     // A row that opens something — a picker, a sheet, a date.
     select: {
@@ -145,20 +145,20 @@ export const makeCreateStyles = (DS) => {
       backgroundColor: DS.surfaceHigh,
       borderRadius: RADIUS.field,
       borderWidth: 1.5, borderColor: 'transparent',
-      paddingHorizontal: SPACE.lg,
+      paddingHorizontal: SPACE.md + 2,
     },
     selectText: { flex: 1, ...TYPE.input, color: DS.textPrimary },
     selectPlaceholder: { color: DS.textMuted, fontWeight: '500' },
 
-    helper: { ...TYPE.helper, color: DS.textMuted, marginTop: SPACE.sm },
-    error: { ...TYPE.error, color: DS.coral, marginTop: SPACE.sm },
-    errorRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.xs, marginTop: SPACE.sm },
+    helper: { ...TYPE.helper, color: DS.textMuted, marginTop: 5 },
+    error: { ...TYPE.error, color: DS.coral, marginTop: 0 },
+    errorRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.xs, marginTop: 5 },
 
     // ── Chips ──
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACE.sm },
     chip: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-      minHeight: 38, paddingHorizontal: SPACE.lg,
+      minHeight: 36, paddingHorizontal: SPACE.md + 2,
       borderRadius: RADIUS.pill,
       backgroundColor: DS.surfaceHigh,
       borderWidth: 1.5, borderColor: 'transparent',
@@ -170,20 +170,20 @@ export const makeCreateStyles = (DS) => {
     // ── Toggle row ──
     toggle: {
       flexDirection: 'row', alignItems: 'center', gap: SPACE.md,
-      minHeight: TAP, paddingVertical: SPACE.sm,
+      minHeight: TAP, paddingVertical: SPACE.xs,
     },
     toggleText: { flex: 1 },
     toggleTitle: { ...TYPE.input, fontSize: 14, color: DS.textPrimary },
     toggleHint: { ...TYPE.helper, color: DS.textMuted, marginTop: 2 },
 
     // ── Image picker ──
-    imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACE.md },
+    imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACE.sm },
     imageTile: {
-      width: 84, height: 84, borderRadius: RADIUS.field,
+      width: 76, height: 76, borderRadius: RADIUS.field,
       backgroundColor: DS.surfaceHigh, overflow: 'hidden',
     },
     imageAdd: {
-      width: 84, height: 84, borderRadius: RADIUS.field,
+      width: 76, height: 76, borderRadius: RADIUS.field,
       alignItems: 'center', justifyContent: 'center', gap: SPACE.xs,
       backgroundColor: DS.surfaceHigh,
       borderWidth: 1.5, borderStyle: 'dashed', borderColor: DS.border,
@@ -196,7 +196,7 @@ export const makeCreateStyles = (DS) => {
     },
     // One wide banner rather than a grid — a tournament has one cover, not six.
     banner: {
-      height: 132, borderRadius: RADIUS.card,
+      height: 112, borderRadius: RADIUS.card,
       backgroundColor: DS.surfaceHigh, overflow: 'hidden',
       alignItems: 'center', justifyContent: 'center', gap: SPACE.sm,
       borderWidth: 1.5, borderStyle: 'dashed', borderColor: DS.border,
@@ -206,7 +206,7 @@ export const makeCreateStyles = (DS) => {
     // The action never scrolls out of reach. It sits on its own surface with a
     // hairline above it, so a long form always ends in the same place.
     footer: {
-      paddingHorizontal: SPACE.lg, paddingTop: SPACE.md,
+      paddingHorizontal: SPACE.lg, paddingTop: SPACE.sm + 2,
       backgroundColor: DS.bg,
       borderTopWidth: 1, borderTopColor: DS.faint,
       ...sh.footer,
