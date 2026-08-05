@@ -15,7 +15,10 @@ import { getStartFormat as getSportFormat } from '../sports/start';
 import { getSport } from '../sports';
 import { getSelectedSport } from '../utils/selectedSport';
 import GradientButton from '../components/GradientButton';
-import { DrawerHeader, PrimaryButton, StickyFooter, useDrawerSheet, DRAWER_BACKDROP, useDiscardGuard } from '../components/create';
+import {
+  DrawerHeader, PrimaryButton, StickyFooter, useDrawerSheet, DRAWER_BACKDROP,
+  useDiscardGuard, FOOTER_CLEARANCE,
+} from '../components/create';
 import HexAvatar from '../components/HexAvatar';
 import { showToast } from '../components/Toast';
 import { useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
@@ -446,7 +449,7 @@ const StartMatchScreen = ({ navigation, route }) => {
       >
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={K.bg} />
       <BottomSheetScrollView
-        contentContainerStyle={[s.scroll, { paddingBottom: tabClear + 64 }]}
+        contentContainerStyle={[s.scroll, { paddingBottom: tabClear + FOOTER_CLEARANCE }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

@@ -70,6 +70,9 @@ export const shadow = (DS) => ({
 // Minimum touch target. Every interactive element in the system meets it.
 export const TAP = 48;
 
+// How much room a scroll must leave for the pinned footer above it.
+export const FOOTER_CLEARANCE = 12 + TAP + 16 + 32;
+
 /**
  * The shared stylesheet. Built from the theme so both themes work, and taken
  * by every component here — a screen never writes one of these itself.
@@ -94,7 +97,12 @@ export const makeCreateStyles = (DS) => {
       backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center',
     },
 
-    body: { paddingHorizontal: SPACE.lg, paddingTop: SPACE.xs },
+    // The pinned footer floats OVER the scroll — that is what pinning means —
+    // so the content has to end above it or the last field hides behind the
+    // button. On a device this showed as "Overs 20" cut in half by the bar.
+    // FOOTER_CLEARANCE is the footer's own height: 12 top + a 48 button + 16
+    // bottom, plus room for the home indicator.
+    body: { paddingHorizontal: SPACE.lg, paddingTop: SPACE.xs, paddingBottom: FOOTER_CLEARANCE },
 
     // ── Grouping ──
     // A card, not a divider. Dividers cut a form into strips; a card says which

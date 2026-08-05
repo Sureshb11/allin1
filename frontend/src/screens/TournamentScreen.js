@@ -21,7 +21,7 @@ import {
 } from '../components/FormKit';
 import {
   DrawerHeader, PrimaryButton, SecondaryButton, StickyFooter, FormLoading, SPACE,
-  useDrawerSheet, DRAWER_BACKDROP,
+  useDrawerSheet, DRAWER_BACKDROP, FOOTER_CLEARANCE,
 } from '../components/create';
 import CoverFocusPicker from '../components/CoverFocusPicker';
 
@@ -976,7 +976,7 @@ export default function TournamentScreen({ navigation, route }) {
       <BottomSheetScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
+        contentContainerStyle={{ padding: 14, paddingBottom: tabClear + FOOTER_CLEARANCE }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}>
