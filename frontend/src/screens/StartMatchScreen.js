@@ -317,8 +317,14 @@ const StartMatchScreen = ({ navigation, route }) => {
     setPicker(null);
   };
 
+  // Only Custom lets you type a length; every other format owns its own.
+  const isCustomFormat = format.label === 'Custom';
+
   const handleFormatPress = (f) => {
     setFormat(f);
+    // Leaving Custom snaps back to the chosen format's length. Coming INTO
+    // Custom keeps whatever is on screen as the starting point, which is
+    // friendlier than resetting to 10 the moment you ask to choose.
     if (f.label !== 'Custom') setOvers(String(f.value));
   };
 
@@ -597,15 +603,26 @@ const StartMatchScreen = ({ navigation, route }) => {
               <Icon name={sportFmt.durationIcon} size={18} color={K.lime} />
             </View>
             <Text style={s.configLabel}>{sportFmt.unit}</Text>
-            <TextInput
-              style={s.configValueInput}
-              value={overs}
-              onChangeText={setOvers}
-              keyboardType="numeric"
-              maxLength={2}
-              placeholder={String(FORMATS[0].value)}
-              placeholderTextColor={K.textMuted}
-            />
+            {/* A named format decides its own length — T20 is twenty overs, an
+                ODI is fifty. Leaving the box editable invited a "T20" of 34,
+                which is not a T20, and the number silently disagreed with the
+                label sitting above it. Custom is the one that asks. */}
+            {isCustomFormat ? (
+              <TextInput
+                style={s.configValueInput}
+                value={overs}
+                onChangeText={setOvers}
+                keyboardType="numeric"
+                maxLength={3}
+                placeholder={String(FORMATS[0].value)}
+                placeholderTextColor={K.textMuted}
+                accessibilityLabel={`${sportFmt.unit}, editable`}
+              />
+            ) : (
+              <Text style={s.configValueFixed} accessibilityLabel={`${sportFmt.unit}: ${overs}, set by the ${format.label} format`}>
+                {overs}
+              </Text>
+            )}
           </View>
 
           {/* Ball type — cricket only */}
@@ -1015,6 +1032,16 @@ const makeS = (K) => StyleSheet.create({
   configValueInput: {
     fontSize: 15,
     fontWeight: '600',
+    color: K.text,
+    textAlign: 'right',
+    minWidth: 50,
+    paddingVertical: 0,
+  },
+  // The same number in the same place, just not a text box: a format that
+  // owns its length should read as a fact, not as an empty invitation.
+  configValueFixed: {
+    fontSize: 15,
+    fontWeight: '700',
     color: K.text,
     textAlign: 'right',
     minWidth: 50,
