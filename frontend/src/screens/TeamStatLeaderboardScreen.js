@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef} from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Pressable, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import ViewShot from 'react-native-view-shot';
+import Share from 'react-native-share';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import Header from '../components/Header';
@@ -29,6 +31,21 @@ export default function TeamStatLeaderboardScreen() {
   // one refetch, not four — and it lets you back out of a half-made change.
   const [draft, setDraft] = useState({});
   const openFilters = () => { setDraft(filters); setPicker('main'); };
+
+  // Share the board as a picture. This lived on the old expanded card and went
+  // with it; a leaderboard on its own screen is the better thing to send
+  // anyway, because it carries the filters that produced it.
+  const shotRef = useRef(null);
+  const shareBoard = async () => {
+    try {
+      const uri = await shotRef.current?.capture?.();
+      if (!uri) return;
+      await Share.open({
+        url: uri, type: 'image/jpeg', failOnCancel: false,
+        message: board?.title || 'Leaderboard',
+      });
+    } catch { /* cancelled, or nothing to capture */ }
+  };
   const applyFilters = () => { setFilters(draft); setPicker(null); };
   const draftLabel = (k, fallback) => {
     if (k === 'oppositionId') return draft.oppositionId ? getOppName(draft.oppositionId) : 'All';
@@ -65,7 +82,18 @@ export default function TeamStatLeaderboardScreen() {
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <Header title={board ? board.title : 'Leaderboard'} 
               subtitle={category}
-              right={<TouchableOpacity onPress={openFilters} style={s.filterBtn}><Icon name="tune-variant" size={24} color={DS.textPrimary} /></TouchableOpacity>} 
+              right={(
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <TouchableOpacity onPress={shareBoard} style={s.filterBtn}
+                    accessibilityRole="button" accessibilityLabel="Share this leaderboard">
+                    <Icon name="share-variant" size={22} color={DS.textPrimary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={openFilters} style={s.filterBtn}
+                    accessibilityRole="button" accessibilityLabel="Filters">
+                    <Icon name="tune-variant" size={24} color={DS.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+              )} 
       />
 
       {/* Applied Filters Strip */}
@@ -104,6 +132,7 @@ export default function TeamStatLeaderboardScreen() {
         </View>
       ) : (
         <ScrollView style={s.tableWrap} contentContainerStyle={{ paddingBottom: 40 }}>
+          <ViewShot ref={shotRef} options={{ format: 'jpg', quality: 0.9 }}>
           {/* Table Header */}
           <View style={s.tableHead}>
             <Text style={[s.th, s.thRank]}>#</Text>
@@ -144,6 +173,7 @@ export default function TeamStatLeaderboardScreen() {
               </View>
             );
           })}
+          </ViewShot>
         </ScrollView>
       )}
 
