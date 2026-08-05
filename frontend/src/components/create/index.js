@@ -19,9 +19,10 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, Animated, Easing, Alert,
+  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { BottomSheetTextInput, useBottomSheetInternal } from '@gorhom/bottom-sheet';
+import { BottomSheetTextInput, BottomSheetScrollView, useBottomSheetInternal } from '@gorhom/bottom-sheet';
 import { useTheme, useThemedStyles } from '../../theme/ThemeContext';
 import { makeCreateStyles, SPACE, DURATION, PRESS_SCALE, TAP } from './tokens';
 
@@ -95,6 +96,33 @@ export function useDrawerSheet() {
 
 /** The backdrop, at one opacity, dismissing on tap. */
 export const DRAWER_BACKDROP = { appearsOnIndex: 0, disappearsOnIndex: -1, opacity: 0.6, pressBehavior: 'close' };
+
+/**
+ * The scroll inside a drawer.
+ *
+ * A plain ScrollView inside a bottom sheet does not scroll: the sheet's own pan
+ * gesture claims the drag, so the content simply sits there. gorhom ships a
+ * scroll view that hands the gesture back at the right moment, and Create
+ * Ground used the plain one — its form was unscrollable below the fold.
+ *
+ * Same trick as TextField: ask whether there is a sheet and pick accordingly,
+ * with the unsafe read so this is still usable on an ordinary screen. One less
+ * thing a drawer has to remember, and the body padding comes for free.
+ */
+export function DrawerScroll({ children, contentContainerStyle, ...rest }) {
+  const s = useCreateStyles();
+  const Scroll = useBottomSheetInternal(true) ? BottomSheetScrollView : ScrollView;
+  return (
+    <Scroll
+      contentContainerStyle={[s.body, contentContainerStyle]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      {...rest}
+    >
+      {children}
+    </Scroll>
+  );
+}
 
 // ── Drawer header ────────────────────────────────────────────────────────────
 export function DrawerHeader({ icon, title, subtitle, onClose, accent, right }) {

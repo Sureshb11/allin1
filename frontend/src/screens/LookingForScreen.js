@@ -22,7 +22,7 @@ import { haptic } from '../utils/haptics';
 import {
   DrawerHeader, SectionCard, TextField, TextArea, ChipGroup, Toggle,
   PrimaryButton, StickyFooter, ValidationMessage, useCreateStyles, useDiscardGuard,
-  useDrawerSheet, DRAWER_BACKDROP,
+  useDrawerSheet, DRAWER_BACKDROP, DrawerScroll,
 } from '../components/create';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { pav } from '../theme/pavilion';
@@ -1139,8 +1139,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
               subtitle="Let others know what you're looking for"
               onClose={closeCreate}
             />
-            <BottomSheetScrollView contentContainerStyle={cs.body} showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled">
+            <DrawerScroll>
               {/* Grouped into cards rather than run as one column of labels.
                   Nine questions in a row is a wall; three cards is a form you
                   can see the shape of before you start filling it in. */}
@@ -1235,7 +1234,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                 <Text style={styles.previewLabel}>POSTS AS</Text>
                 <Text style={styles.previewTitle}>{buildTitle(form)}</Text>
               </View>
-            </BottomSheetScrollView>
+            </DrawerScroll>
 
       </BottomSheetModal>
       <DynamicIsland ref={islandRef} />

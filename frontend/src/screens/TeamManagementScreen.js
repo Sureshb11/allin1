@@ -30,7 +30,7 @@ import { getCurrentUser } from '../utils/currentUser';
 import {
   DrawerHeader, SectionCard, TextField, TextArea, Toggle, ImagePickerField,
   PrimaryButton, StickyFooter, ValidationMessage, useCreateStyles, useDiscardGuard, SPACE,
-  useDrawerSheet, DRAWER_BACKDROP,
+  useDrawerSheet, DRAWER_BACKDROP, DrawerScroll,
 } from '../components/create';
 import { showToast } from '../components/Toast';
 import BrandLogo from "../components/BrandLogo";
@@ -609,8 +609,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
           subtitle="Give your side a name, a badge and a home"
           onClose={closeCreateTeam}
         />
-        <BottomSheetScrollView contentContainerStyle={cs.body} showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled">
+        <DrawerScroll>
 
           <SectionCard title="Badge & cover" icon="image-outline">
             <ImagePickerField
@@ -680,7 +679,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
               onChange={(v) => setTeamForm((f) => ({ ...f, addMe: v }))}
             />
           </SectionCard>
-        </BottomSheetScrollView>
+        </DrawerScroll>
       </BottomSheetModal>
 
       {/* Clear the floating dock — it covered the + entirely. */}

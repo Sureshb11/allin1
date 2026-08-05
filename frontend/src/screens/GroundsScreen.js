@@ -9,7 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
   DrawerHeader, SectionCard, TextField, TextArea, ChipGroup, ImagePickerField,
   LocationField, TimeField, PrimaryButton, StickyFooter, ValidationMessage,
-  useCreateStyles, SPACE, useDrawerSheet, DRAWER_BACKDROP, useDiscardGuard,
+  useCreateStyles, SPACE, useDrawerSheet, DRAWER_BACKDROP, useDiscardGuard, DrawerScroll,
 } from '../components/create';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCurrentUser } from '../utils/currentUser';
@@ -571,8 +571,7 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
         onClose={close}
       />
 
-      <ScrollView contentContainerStyle={cs.body} showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled">
+      <DrawerScroll>
         <SectionCard title="The ground" icon="stadium-outline">
           <ImagePickerField
             label="Photos"
@@ -632,7 +631,7 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
           <TextArea label="Description" value={description} onChangeText={setDescription}
             placeholder="Anything a player should know before turning up" last />
         </SectionCard>
-      </ScrollView>
+      </DrawerScroll>
 
       <StickyFooter>
         <ValidationMessage message={formError} />
