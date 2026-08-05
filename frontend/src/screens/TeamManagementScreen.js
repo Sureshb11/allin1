@@ -24,6 +24,13 @@ import HexAvatar from '../components/HexAvatar';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { useFocusEffect } from '@react-navigation/native';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetFooter } from '@gorhom/bottom-sheet';
+import { pickAndUploadImage } from '../utils/imageUpload';
+import { getCurrentUser } from '../utils/currentUser';
+import {
+  DrawerHeader, SectionCard, TextField, TextArea, Toggle, ImagePickerField,
+  PrimaryButton, StickyFooter, ValidationMessage, useCreateStyles, SPACE,
+} from '../components/create';
 import { showToast } from '../components/Toast';
 import BrandLogo from "../components/BrandLogo";
 import { useHideTabBarOnScroll, useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
@@ -138,18 +145,42 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   const teamSwipe = useFilterSwipe(TEAM_TABS, tab, handleSetTab);
   const [categorized, setCategorized] = useState({ mine: [], opponents: [], followed: [] });
   const [followedIds, setFollowedIds] = useState(new Set());
-  const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
+  // ── Create Team ──
+  const cs = useCreateStyles();
+  const createTeamSheet = useRef(null);
+  const createTeamSnap = useMemo(() => ['92%'], []);
+  const EMPTY_TEAM = {
+    name: '', city: '', homeGround: '', bio: '', logoUrl: '', coverUrl: '',
+    withCaptain: false, captainName: '', addMe: true,
+  };
+  const [teamForm, setTeamForm] = useState(EMPTY_TEAM);
+  const [teamErrors, setTeamErrors] = useState({});
+  const [teamFormError, setTeamFormError] = useState('');
+  const [teamBusy, setTeamBusy] = useState(null);      // which image is uploading
+  const [creating, setCreating] = useState(false);
+  const [createdOk, setCreatedOk] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
-  // Create Team is a TRANSPARENT modal, so the dock shows through its dim —
-  // dimmed, but still there and still tappable-looking behind a dialog asking
-  // for a name. It stands down while the dialog is up, like the two full-screen
-  // create flows.
+  const openCreateTeam = useCallback(() => { setSheetOpen(true); createTeamSheet.current?.present(); }, []);
+  const resetCreateTeam = useCallback(() => {
+    setSheetOpen(false);
+    setTeamForm(EMPTY_TEAM); setTeamErrors({}); setTeamFormError(''); setCreatedOk(false);
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The dock stands down while the drawer is up, like every other create flow.
   const lockDock = useDockLock();
   useFocusEffect(useCallback(() => {
-    lockDock(showCreateTeamModal);
+    lockDock(sheetOpen);
     return () => lockDock(false);
-  }, [showCreateTeamModal, lockDock]));
-  const [newTeamName, setNewTeamName] = useState('');
+  }, [sheetOpen, lockDock]));
+
+  const pickTeamImage = useCallback(async (field) => {
+    setTeamBusy(field);
+    const r = await pickAndUploadImage('teams');
+    setTeamBusy(null);
+    if (r?.url) setTeamForm((f) => ({ ...f, [field]: r.url }));
+    else if (r?.error) setTeamFormError(r.error);
+  }, []);
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
 
   // Search applies to all three categories at once, so the chip counts describe
@@ -378,18 +409,79 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   };
 
   const handleCreateTeam = async () => {
-    if (newTeamName.trim()) {
-      const result = await legendsApi.createTeam({ name: newTeamName.trim() });
-      if (result.success) {
-        setNewTeamName('');
-        setShowCreateTeamModal(false);
-        await loadData();
-        showToast('Team created!', 'success');
-      } else {
-        showToast(result.error || 'Failed to create team', 'error');
-      }
+    const problems = {};
+    if (!teamForm.name.trim()) problems.name = 'A team needs a name';
+    if (!teamForm.city.trim()) problems.city = 'Which town or city do you play in?';
+    if (teamForm.withCaptain && !teamForm.captainName.trim()) {
+      problems.captainName = "Who's captaining?";
     }
+    setTeamErrors(problems);
+    if (Object.keys(problems).length) return;
+
+    setTeamFormError('');
+    setCreating(true);
+    const sport = getSelectedSport().sport?.id || 'cricket';
+    const res = await legendsApi.createTeam({
+      name: teamForm.name.trim(),
+      city: teamForm.city.trim(),
+      homeGround: teamForm.homeGround.trim() || undefined,
+      bio: teamForm.bio.trim() || undefined,
+      logoUrl: teamForm.logoUrl || undefined,
+      coverUrl: teamForm.coverUrl || undefined,
+      sport,
+    });
+    if (!res.success) {
+      setCreating(false);
+      setTeamFormError(res.error || 'Could not create that team');
+      return;
+    }
+
+    // The squad, in the same breath. Creating a team and then having to go and
+    // add yourself to it is two jobs for one intention — and a team with no
+    // players cannot start a match, which is where people got stuck.
+    const teamId = res.data?.id;
+    const me = getCurrentUser();
+    const jobs = [];
+    if (teamId && teamForm.withCaptain && teamForm.captainName.trim()) {
+      jobs.push(legendsApi.createPlayer({
+        name: teamForm.captainName.trim(), role: 'Player', teamId, sport,
+      }).then((r) => (r.success && r.data?.id
+        ? legendsApi.updatePlayer(r.data.id, { isCaptain: true })
+        : null)));
+    }
+    if (teamId && teamForm.addMe && me?.name) {
+      jobs.push(legendsApi.createPlayer({
+        name: me.name, role: 'Player', teamId, sport, userId: me.id,
+      }));
+    }
+    // Neither is worth failing the team over — it exists, and both can be done
+    // from the squad tab.
+    await Promise.allSettled(jobs);
+
+    setCreating(false);
+    setCreatedOk(true);
+    setTimeout(() => {
+      createTeamSheet.current?.dismiss();
+      loadData();
+      showToast(`${teamForm.name.trim()} created`, 'success');
+    }, 550);
   };
+
+  const renderTeamBackdrop = useCallback(
+    (props) => <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.5} pressBehavior="close" />,
+    [],
+  );
+
+  const renderTeamFooter = useCallback((props) => (
+    <BottomSheetFooter {...props} bottomInset={0}>
+      <StickyFooter>
+        <ValidationMessage message={teamFormError} />
+        <PrimaryButton label="Create Team" icon="shield-plus-outline"
+          loading={creating} done={createdOk} onPress={handleCreateTeam} />
+      </StickyFooter>
+    </BottomSheetFooter>
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [teamFormError, creating, createdOk, teamForm]);
 
   return (
     <View style={styles.container}>
@@ -481,51 +573,107 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
         </Reanimated.View>
       </GestureDetector>
 
-      <Modal
-        visible={showCreateTeamModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowCreateTeamModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={{ alignItems: 'center', marginBottom: 24, marginTop: -40 }}>
-              <HexAvatar size={80} color={newTeamName.trim() ? DS.lime : DS.surfaceHighest} style={{ shadowColor: DS.lime, shadowOpacity: newTeamName.trim() ? 0.4 : 0, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: newTeamName.trim() ? 8 : 0 }}>
-                <Text style={{ fontSize: 32, fontWeight: '900', color: newTeamName.trim() ? DS.bg : DS.textMuted }}>
-                  {newTeamName.trim() ? newTeamName.charAt(0).toUpperCase() : '?'}
-                </Text>
-              </HexAvatar>
-            </View>
-            <Text style={styles.modalTitle}>Create New Team</Text>
-            <Text style={styles.modalSubtitle}>Enter a name for your team</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Team name"
-              placeholderTextColor={DS.textMuted}
-              value={newTeamName}
-              onChangeText={setNewTeamName}
-              autoFocus />
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => {
-                  setNewTeamName('');
-                  setShowCreateTeamModal(false);
-                }}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalConfirmButton} onPress={handleCreateTeam}>
-                <Text style={styles.modalConfirmText}>Create</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* ── Create Team ──────────────────────────────────────────────────
+          A drawer on the creation system, not the one-field dialog it was:
+          that asked for a name and nothing else, so every team started
+          anonymous and had to be filled in afterwards from the team page — if
+          anyone remembered.
+
+          The fields are the ones this database can actually keep. Two from the
+          reference designs are deliberately absent rather than drawn as boxes
+          that go nowhere: a short code and a website have no column on Team,
+          and a form that collects what nothing stores is the failure this app
+          keeps repeating. Both are one migration away.
+      ─────────────────────────────────────────────────────────────────── */}
+      <BottomSheetModal
+        ref={createTeamSheet}
+        snapPoints={createTeamSnap}
+        enablePanDownToClose
+        onDismiss={resetCreateTeam}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
+        backdropComponent={renderTeamBackdrop}
+        footerComponent={renderTeamFooter}
+        backgroundStyle={{ backgroundColor: DS.bg }}
+        handleIndicatorStyle={{ backgroundColor: DS.faint }}>
+        <DrawerHeader
+          icon="shield-plus-outline"
+          title="Create Team"
+          subtitle="Give your side a name, a badge and a home"
+          onClose={() => createTeamSheet.current?.dismiss()}
+        />
+        <BottomSheetScrollView contentContainerStyle={cs.body} showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
+
+          <SectionCard title="Badge & cover" icon="image-outline">
+            <ImagePickerField
+              label="Cover"
+              mode="banner"
+              images={teamForm.coverUrl ? [teamForm.coverUrl] : []}
+              onAdd={() => pickTeamImage('coverUrl')}
+              busy={teamBusy === 'coverUrl'}
+              helper="Wide photo across the top of the team page"
+            />
+            <ImagePickerField
+              label="Logo"
+              images={teamForm.logoUrl ? [teamForm.logoUrl] : []}
+              onAdd={() => pickTeamImage('logoUrl')}
+              onRemove={() => setTeamForm((f) => ({ ...f, logoUrl: '' }))}
+              busy={teamBusy === 'logoUrl'}
+              max={1}
+              helper="Shown beside every score this team appears in"
+              last
+            />
+          </SectionCard>
+
+          <SectionCard title="The team" icon="shield-outline">
+            <TextField label="Team name" required value={teamForm.name}
+              error={teamErrors.name} onChangeText={(v) => setTeamForm((f) => ({ ...f, name: v }))}
+              placeholder="e.g. Mumbai Warriors" />
+            <TextField label="City or town" required value={teamForm.city}
+              error={teamErrors.city} onChangeText={(v) => setTeamForm((f) => ({ ...f, city: v }))}
+              placeholder="e.g. Porur" />
+            <TextField label="Home ground" value={teamForm.homeGround}
+              onChangeText={(v) => setTeamForm((f) => ({ ...f, homeGround: v }))}
+              placeholder="Where you usually play" />
+            <TextArea label="About" value={teamForm.bio}
+              onChangeText={(v) => setTeamForm((f) => ({ ...f, bio: v }))}
+              placeholder="Tell people about your team" last />
+          </SectionCard>
+
+          <SectionCard title="Captain" icon="crown-outline">
+            <Toggle
+              title="Assign a captain"
+              hint="Adds them to the squad and marks them captain"
+              value={teamForm.withCaptain}
+              onChange={(v) => setTeamForm((f) => ({ ...f, withCaptain: v }))}
+            />
+            {teamForm.withCaptain && (
+              <View style={{ marginTop: SPACE.md }}>
+                <TextField label="Captain's name" required value={teamForm.captainName}
+                  error={teamErrors.captainName}
+                  onChangeText={(v) => setTeamForm((f) => ({ ...f, captainName: v }))}
+                  placeholder="e.g. Karthick" last />
+              </View>
+            )}
+          </SectionCard>
+
+          <SectionCard title="You" icon="account-outline">
+            <Toggle
+              title="Add me to the squad"
+              hint="Puts you in as a player straight away"
+              value={teamForm.addMe}
+              onChange={(v) => setTeamForm((f) => ({ ...f, addMe: v }))}
+            />
+          </SectionCard>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
 
       {/* Clear the floating dock — it covered the + entirely. */}
       {tab === 'mine' && (
         <AnimatedPulse style={[styles.fabWrap, { bottom: 24 + tabClear }]}>
-          <TouchableOpacity style={styles.fab} onPress={() => setShowCreateTeamModal(true)}>
+          <TouchableOpacity style={styles.fab} onPress={openCreateTeam}>
             <Icon name="plus" size={28} color={DS.onBlue} />
           </TouchableOpacity>
         </AnimatedPulse>
@@ -713,78 +861,6 @@ const makeStyles = (DS) => StyleSheet.create({
   // Footer
   // Detail view
   // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: DS.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24
-  },
-  modalContainer: {
-    backgroundColor: DS.surfaceLow + 'E6',
-    borderRadius: 28,
-    padding: 24,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: DS.lime + '33',
-    shadowColor: DS.lime,
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 10,
-    marginTop: 40
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: DS.textPrimary,
-    marginBottom: 4,
-    textAlign: 'center'
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: DS.textMuted,
-    marginBottom: 24,
-    textAlign: 'center'
-  },
-  modalInput: {
-    backgroundColor: DS.surfaceLow,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 20,
-    fontSize: 15,
-    color: DS.textPrimary
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10
-  },
-  modalCancelButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: DS.surfaceHighest
-  },
-  modalCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: DS.textMuted
-  },
-  modalConfirmButton: {
-    backgroundColor: DS.lime,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1
-  },
-  modalConfirmText: {
-    color: DS.bg,
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 1.2
-  }
 });
 
 export default TeamManagementScreen;
