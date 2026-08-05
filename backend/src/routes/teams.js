@@ -619,7 +619,7 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
     });
     const stTeams = stIds.size > 0 ? await prisma.team.findMany({
       where: { id: { in: Array.from(stIds) } },
-      select: { id: true, name: true, logoUrl: true }
+      select: { id: true, name: true, shortName: true, logoUrl: true }
     }) : [];
     const stTeamMap = Object.fromEntries(stTeams.map(t => [t.id, t]));
 
@@ -652,7 +652,7 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
     // Same-sport teams → compute a leaderboard from completed matches (wins from
     // Match.result, which names the winning team). Mirrors the logic in GET /.
     const sportTeams = await prisma.team.findMany({
-      where: { sport: team.sport }, select: { id: true, name: true, logoUrl: true },
+      where: { sport: team.sport }, select: { id: true, name: true, shortName: true, logoUrl: true },
     });
     const ids = sportTeams.map((t) => t.id);
     const [played, battedAgg, bowledAgg] = ids.length ? await Promise.all([
@@ -685,7 +685,7 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
       .map((t) => {
         const r = rec[t.id];
         return {
-          id: t.id, name: t.name, logoUrl: t.logoUrl,
+          id: t.id, name: t.name, shortName: t.shortName, logoUrl: t.logoUrl,
           matches: r.matches, wins: r.wins, losses: r.losses,
           winRate: r.matches ? Math.round((r.wins / r.matches) * 100) : 0,
           isCurrent: t.id === teamId,

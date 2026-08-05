@@ -1662,6 +1662,12 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
 
   const t1 = match?.team1?.name || 'Team 1';
   const t2 = match?.team2?.name || 'Team 2';
+  // The match-centre title is one line at 15px carrying two team names and a
+  // "v". "D-Vigo-S XI v Chennai Chargers" does not fit and truncates mid-word,
+  // which is exactly what a short code is for. Full names everywhere else —
+  // the score rows and the squad lists have the room.
+  const t1Short = match?.team1?.shortName || t1;
+  const t2Short = match?.team2?.shortName || t2;
   const isLive = match?.status === 'live';
   const isCompleted = match?.status === 'completed';
   // Default tab: LIVE while live, SUMMARY right when a match completes (so the
@@ -1784,7 +1790,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
               <Icon name="arrow-left" size={22} color={DS.textPrimary} />
             </TouchableOpacity>
           }
-          <Text style={styles.matchHeaderTitle} numberOfLines={1}>{t1} <Text style={styles.matchHeaderVs}>v</Text> {t2}</Text>
+          <Text style={styles.matchHeaderTitle} numberOfLines={1}>{t1Short} <Text style={styles.matchHeaderVs}>v</Text> {t2Short}</Text>
           {isLive
             ? <View style={styles.liveBadge}><View style={styles.liveBadgeDot} /><Text style={styles.liveBadgeText}>LIVE</Text></View>
             : <View style={{ width: 26 }} />}

@@ -943,7 +943,9 @@ const StandingsTab = ({ rows, styles, DS }) => {
               ? <Image source={{ uri: r.logoUrl }} style={styles.tdLogoImg} />
               : <Text style={styles.tdLogoText}>{(r.name || '?').charAt(0).toUpperCase()}</Text>}
           </View>
-          <Text style={[styles.tdTeam, r.isCurrent && styles.tdTeamActive]} numberOfLines={1}>{r.name}</Text>
+          <Text style={[styles.tdTeam, r.isCurrent && styles.tdTeamActive]} numberOfLines={1}>
+            {r.shortName || r.name}
+          </Text>
           <Text style={styles.tdNum}>{r.matches}</Text>
           <Text style={styles.tdNum}>{r.wins}</Text>
           <Text style={styles.tdNum}>{r.winRate}%</Text>
