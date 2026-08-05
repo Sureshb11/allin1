@@ -8,6 +8,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import Header from '../components/Header';
 import legendsApi from '../services/LegendsApi';
+import { useDockLock, useTabBarClearance } from '../components/AutoHideTabBar';
 import { BOARDS } from '../components/TeamStats';
 
 const RANK = ['#d4af37', '#9ca3af', '#b87333']; // gold, silver, bronze
@@ -21,6 +22,11 @@ export default function TeamStatLeaderboardScreen() {
   const s = useThemedStyles(makeStyles);
 
   const board = BOARDS.find(b => b.key === boardKey);
+  // Most Runs listed R and then RUNS, both 263 — the board's own stat appearing
+  // once as a supporting column and again as the headline. A board key and its
+  // attribute are the same word, so the duplicate is droppable generically
+  // rather than by editing thirty-four column lists by hand.
+  const cols = (board?.cols || []).filter(([, attr]) => attr !== board?.key);
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
@@ -35,6 +41,12 @@ export default function TeamStatLeaderboardScreen() {
   // Share the board as a picture. This lived on the old expanded card and went
   // with it; a leaderboard on its own screen is the better thing to send
   // anyway, because it carries the filters that produced it.
+  // A leaderboard is a full-screen table; the dock belongs over none of it,
+  // and it was covering the last two rows.
+  const lockDock = useDockLock();
+  const tabClear = useTabBarClearance();
+  useEffect(() => { lockDock(true); return () => lockDock(false); }, [lockDock]);
+
   const shotRef = useRef(null);
   const shareBoard = async () => {
     try {
@@ -97,7 +109,8 @@ export default function TeamStatLeaderboardScreen() {
       />
 
       {/* Applied Filters Strip */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterStrip}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        style={s.filterStripOuter} contentContainerStyle={s.filterStrip}>
         <TouchableOpacity style={s.filterChip} onPress={() => setPicker('year')}>
           <Text style={s.filterChipLabel}>Year: </Text>
           <Text style={s.filterChipVal}>{filters.year || 'All Time'}</Text>
@@ -131,13 +144,13 @@ export default function TeamStatLeaderboardScreen() {
           <Text style={s.emptyText}>No data available for these filters.</Text>
         </View>
       ) : (
-        <ScrollView style={s.tableWrap} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView style={s.tableWrap} contentContainerStyle={{ paddingBottom: 40 + tabClear }}>
           <ViewShot ref={shotRef} options={{ format: 'jpg', quality: 0.9 }}>
           {/* Table Header */}
           <View style={s.tableHead}>
             <Text style={[s.th, s.thRank]}>#</Text>
             <Text style={[s.th, s.thName]}>PLAYER</Text>
-            {board?.cols.map(([label]) => (
+            {cols.map(([label]) => (
               <Text key={label} style={[s.th, s.thNum]}>{label}</Text>
             ))}
             <Text style={[s.th, s.thNum, s.thHighlight]}>{board?.unit || 'VAL'}</Text>
@@ -166,7 +179,7 @@ export default function TeamStatLeaderboardScreen() {
                   <Text style={s.tdName} numberOfLines={1}>{row.name}</Text>
                 </View>
                 
-                {board?.cols.map(([_, attr]) => (
+                {cols.map(([_, attr]) => (
                   <Text key={attr} style={[s.td, s.tdNum]}>{row[attr]}</Text>
                 ))}
                 <Text style={[s.td, s.tdNum, s.tdHighlight]}>{board?.value(row)}</Text>
@@ -260,6 +273,10 @@ const makeStyles = (DS) => StyleSheet.create({
   emptyText: { marginTop: 16, fontSize: 16, color: DS.textMuted, textAlign: 'center' },
   filterBtn: { padding: 8, marginRight: 8 },
   
+  // flexGrow:0 or it fills the column. Without it this ScrollView and the
+  // table below both flexed, so the screen split into two large voids with the
+  // chips floating in the middle of one of them.
+  filterStripOuter: { flexGrow: 0, flexShrink: 0 },
   filterStrip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   filterChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surface, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: DS.border },
   filterChipLabel: { fontSize: 12, color: DS.textMuted },
