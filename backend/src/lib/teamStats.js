@@ -395,10 +395,27 @@ export async function teamStats(teamId, filters = {}) {
     bestW: p.bestW, bestR: p.bestR,
     threes: p.threes, fives: p.fives, dots: p.dots, maidens: p.maidens,
   }));
+  // Fielding points, for the Green Cap. Fielding has no single number the way
+  // batting has runs and bowling has wickets — six separate boards and no answer
+  // to "who fields best", which is the question the cap asks. So one score.
+  //
+  // The weights say a direct hit is the hardest thing a fielder does (one throw,
+  // no help, no second chance), a catch and a stumping are a clean piece of
+  // skill each, and an assisted run-out is a share of one. They are deliberately
+  // small whole numbers: a scheme nobody can read is a scheme nobody trusts, and
+  // this one has to survive being disagreed with in a WhatsApp group.
+  //
+  // runOuts already counts directHits + assistedRunOuts, so scoring the two
+  // parts and not the total is what keeps a run-out from being paid twice.
+  const FIELD_POINTS = { catch: 2, stumping: 2, directHit: 3, assistedRunOut: 1 };
   const fieldingRows = Object.values(field).map((f) => ({
     name: f.name, catches: f.catches, runOuts: f.runOuts, stumpings: f.stumpings,
     directHits: f.directHits, assistedRunOuts: f.assistedRunOuts,
     dismissals: f.catches + f.runOuts + f.stumpings,
+    points: f.catches * FIELD_POINTS.catch
+          + f.stumpings * FIELD_POINTS.stumping
+          + f.directHits * FIELD_POINTS.directHit
+          + f.assistedRunOuts * FIELD_POINTS.assistedRunOut,
   }));
   // Faces. Every board renders an avatar and falls back to an initial, and the
   // fallback was all anyone ever saw because nothing here sent a photo. One
@@ -524,6 +541,9 @@ export async function teamStats(teamId, filters = {}) {
       assistedRunOuts: top([...fieldingRows].filter((f) => f.assistedRunOuts > 0).sort((a, b) => b.assistedRunOuts - a.assistedRunOuts)),
       stumpings:  top([...fieldingRows].filter((f) => f.stumpings > 0).sort((a, b) => b.stumpings - a.stumpings)),
       dismissals: top([...fieldingRows].filter((f) => f.dismissals > 0).sort((a, b) => b.dismissals - a.dismissals)),
+      // Ties break on dismissals, so the fielder who did more of it comes first
+      // rather than whoever the object keys happened to order first.
+      bestFielder: top([...fieldingRows].filter((f) => f.points > 0).sort((a, b) => b.points - a.points || b.dismissals - a.dismissals)),
 
       matches:    top([...participationRows].sort((a, b) => b.matches - a.matches)),
       inningsBat: top([...participationRows].filter((p) => p.inningsBat > 0).sort((a, b) => b.inningsBat - a.inningsBat)),

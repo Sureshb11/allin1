@@ -6,6 +6,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import CricketCap, { CAP_COLORS, CAP_LABELS } from './CricketCap';
 
 // Team → Stats.
 //
@@ -37,7 +38,7 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
 // this as data means a new board is a row here, not another block of JSX.
 export const BOARDS = [
   // BATTING
-  { category: 'BATTING', key: 'runs', title: 'Most Runs', icon: 'cricket', value: (r) => r.runs, unit: 'runs', cols: [['M', 'matches'], ['Inn', 'innings'], ['R', 'runs'], ['SR', 'strikeRate']] },
+  { category: 'BATTING', key: 'runs', title: 'Most Runs', icon: 'cricket', value: (r) => r.runs, unit: 'runs', cap: 'orange', cols: [['M', 'matches'], ['Inn', 'innings'], ['R', 'runs'], ['SR', 'strikeRate']] },
   { category: 'BATTING', key: 'highest', title: 'Highest Scores', icon: 'trophy-outline', value: (r) => r.highest, unit: '', head: 'HS', cols: [['M', 'matches'], ['Runs', 'runs'], ['SR', 'strikeRate']] },
   { category: 'BATTING', key: 'average', title: 'Best Batting Average', icon: 'calculator', value: (r) => r.average, unit: '', head: 'AVG', cols: [['M', 'matches'], ['Inn', 'innings'], ['Runs', 'runs'], ['Avg', 'average']] },
   { category: 'BATTING', key: 'strikeRate', title: 'Best Batting Strike Rate', icon: 'flash', value: (r) => r.strikeRate, unit: 'sr', qualified: true, cols: [['Inn', 'innings'], ['Runs', 'runs'], ['Balls', 'balls'], ['SR', 'strikeRate']] },
@@ -49,7 +50,7 @@ export const BOARDS = [
   { category: 'BATTING', key: 'ducks', title: 'Most Ducks', icon: 'duck', value: (r) => r.ducks, unit: 'ducks', cols: [['M', 'matches'], ['Inn', 'innings'], ['0s', 'ducks']] },
   
   // BOWLING
-  { category: 'BOWLING', key: 'wickets', title: 'Most Wickets', icon: 'bowling', value: (r) => r.wickets, unit: 'wkts', cols: [['M', 'matches'], ['Ov', 'overs'], ['W', 'wickets'], ['Econ', 'economy']] },
+  { category: 'BOWLING', key: 'wickets', title: 'Most Wickets', icon: 'bowling', value: (r) => r.wickets, unit: 'wkts', cap: 'purple', cols: [['M', 'matches'], ['Ov', 'overs'], ['W', 'wickets'], ['Econ', 'economy']] },
   { category: 'BOWLING', key: 'bestBowling', title: 'Best Bowling Figures', icon: 'trophy-outline', value: (r) => r.best, unit: '', head: 'BEST', cols: [['M', 'matches'], ['Ov', 'overs'], ['Best', 'best']] },
   { category: 'BOWLING', key: 'economy', title: 'Best Economy', icon: 'gauge-low', value: (r) => r.economy, unit: 'rpo', qualified: true, cols: [['Ov', 'overs'], ['W', 'wickets'], ['Econ', 'economy']] },
   { category: 'BOWLING', key: 'bowlingAvg', title: 'Best Bowling Average', icon: 'calculator', value: (r) => r.average, unit: '', head: 'AVG', cols: [['Ov', 'overs'], ['W', 'wickets'], ['Avg', 'average']] },
@@ -60,6 +61,12 @@ export const BOARDS = [
   { category: 'BOWLING', key: 'fives', title: 'Most 5-Wicket Hauls', icon: 'hand-front-right', value: (r) => r.fives, unit: '5W', cols: [['M', 'matches'], ['W', 'wickets'], ['5W', 'fives']] },
   
   // FIELDING
+  // The Green Cap needed something to lead. Fielding had six boards and no
+  // answer to "who fields best", so this one scores the lot: see FIELD_POINTS
+  // in backend/src/lib/teamStats.js for the weights.
+  { category: 'FIELDING', key: 'bestFielder', title: 'Best Fielder', icon: 'hand-back-right',
+    value: (r) => r.points, unit: 'pts', head: 'PTS', cap: 'green',
+    cols: [['Ct', 'catches'], ['RO', 'runOuts'], ['St', 'stumpings']] },
   { category: 'FIELDING', key: 'catches', title: 'Most Catches', icon: 'hand-back-right-outline', value: (r) => r.catches, unit: 'ct', cols: [['M', 'matches'], ['RO', 'runOuts'], ['St', 'stumpings']] },
   { category: 'FIELDING', key: 'runOuts', title: 'Most Run Outs', icon: 'run-fast', value: (r) => r.runOuts, unit: 'ro', cols: [['M', 'matches'], ['Ct', 'catches'], ['St', 'stumpings']] },
   { category: 'FIELDING', key: 'directHits', title: 'Most Direct Hit Run Outs', icon: 'target', value: (r) => r.directHits, unit: 'dh', cols: [['M', 'matches'], ['RO', 'runOuts'], ['DH', 'directHits']] },
@@ -346,9 +353,21 @@ export default function TeamStats({ teamId, show = 'stats' }) {
                     onPress={() => navigation.navigate('TeamStatLeaderboard', {
                       teamId, boardKey: board.key, category,
                     })}>
-                    <Icon name={board.icon} size={18} color={DS.textMuted} style={{ width: 24 }} />
+                    {/* The three cap boards wear the cap instead of a grey
+                        glyph — it is the fastest way to find them in a list of
+                        thirty-five, and the colour is the whole point. */}
+                    {board.cap
+                      ? <View style={{ width: 24, alignItems: 'center' }}><CricketCap cap={board.cap} size={20} /></View>
+                      : <Icon name={board.icon} size={18} color={DS.textMuted} style={{ width: 24 }} />}
                     <View style={{ flex: 1 }}>
-                      <Text style={s.boardRowTitle} numberOfLines={1}>{board.title}</Text>
+                      <View style={s.boardRowTitleRow}>
+                        <Text style={s.boardRowTitle} numberOfLines={1}>{board.title}</Text>
+                        {!!board.cap && (
+                          <Text style={[s.capTag, { color: CAP_COLORS[board.cap] }]}>
+                            {CAP_LABELS[board.cap].toUpperCase()}
+                          </Text>
+                        )}
+                      </View>
                       {/* Who currently tops it. A list of thirty-four names with
                           nothing beside them is an index you have to open at
                           random; the leader is the reason to open one. */}
@@ -356,6 +375,7 @@ export default function TeamStats({ teamId, show = 'stats' }) {
                         <Text style={s.boardRowLead} numberOfLines={1}>
                           {leader.name} · {board.value(leader)}{board.unit ? ` ${board.unit}` : ''}
                         </Text>
+
                       )}
                     </View>
                     <Icon name="chevron-right" size={20} color={DS.textMuted} />
@@ -457,7 +477,9 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.surface,
   },
   boardRowLast: { borderBottomWidth: 0 },
-  boardRowTitle: { fontSize: 14.5, fontWeight: '700', color: DS.textPrimary },
+  boardRowTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  boardRowTitle: { fontSize: 14.5, fontWeight: '700', color: DS.textPrimary, flexShrink: 1 },
+  capTag: { fontSize: 8.5, fontWeight: '900', letterSpacing: 0.6 },
   boardRowLead: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
 
   root: { flex: 1 },

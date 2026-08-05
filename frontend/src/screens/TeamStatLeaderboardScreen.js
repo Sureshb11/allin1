@@ -8,6 +8,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import legendsApi from '../services/LegendsApi';
 import { BOARDS } from '../components/TeamStats';
+import CricketCap, { CAP_COLORS, CAP_LABELS } from '../components/CricketCap';
 
 const RANK = ['#d4af37', '#9ca3af', '#b87333']; // gold, silver, bronze
 
@@ -105,8 +106,17 @@ export default function TeamStatLeaderboardScreen() {
         </TouchableOpacity>
 
         <View style={s.topBarText}>
-          <Text style={s.topBarTitle} numberOfLines={1}>{board ? board.title : 'Leaderboard'}</Text>
-          {!!category && <Text style={s.topBarSub} numberOfLines={1}>{category}</Text>}
+          <View style={s.topBarTitleRow}>
+            {!!board?.cap && <CricketCap cap={board.cap} size={19} />}
+            <Text style={s.topBarTitle} numberOfLines={1}>{board ? board.title : 'Leaderboard'}</Text>
+          </View>
+          {/* On a cap board the subtitle names the prize rather than repeating
+              the category, which the row you tapped to get here already said. */}
+          {board?.cap
+            ? <Text style={[s.topBarSub, { color: CAP_COLORS[board.cap] }]} numberOfLines={1}>
+                {CAP_LABELS[board.cap].toUpperCase()}
+              </Text>
+            : !!category && <Text style={s.topBarSub} numberOfLines={1}>{category}</Text>}
         </View>
 
         <TouchableOpacity onPress={shareBoard} style={s.iconBtn}
@@ -174,11 +184,15 @@ export default function TeamStatLeaderboardScreen() {
 
           {/* Table Rows */}
           {data.map((row, index) => {
-            const medal = index < 3 ? RANK[index] : null;
+            // The leader of a cap board wears its colour, not gold — the cap is
+            // the award, and #1 here is not just a medal position.
+            const medal = index === 0 && board?.cap ? CAP_COLORS[board.cap]
+              : index < 3 ? RANK[index] : null;
+            const onMedal = index === 0 && board?.cap ? '#fff' : '#1a1a1a';
             return (
               <View key={row.playerId || index} style={s.tr}>
                 <View style={[s.rankBadge, medal && { backgroundColor: medal }]}>
-                  <Text style={[s.rankText, medal && { color: '#1a1a1a' }]}>{index + 1}</Text>
+                  <Text style={[s.rankText, medal && { color: onMedal }]}>{index + 1}</Text>
                 </View>
                 
                 <View style={s.playerInfo}>
@@ -193,6 +207,7 @@ export default function TeamStatLeaderboardScreen() {
                     </View>
                   )}
                   <Text style={s.tdName} numberOfLines={1}>{row.name}</Text>
+                  {index === 0 && !!board?.cap && <CricketCap cap={board.cap} size={17} />}
                 </View>
                 
                 {cols.map(([_, attr]) => (
@@ -294,6 +309,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   topBarText: { flex: 1, paddingHorizontal: 4 },
+  topBarTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   topBarTitle: { fontSize: 17, fontWeight: '800', color: DS.textPrimary, letterSpacing: -0.2 },
   topBarSub: { fontSize: 11, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.8, marginTop: 1 },
   filterDot: {
