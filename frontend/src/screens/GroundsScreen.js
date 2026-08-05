@@ -4,7 +4,7 @@ import {
   Image, ActivityIndicator, RefreshControl,
   ScrollView, Platform, Alert, TextInput, Animated, Modal, Pressable
 } from 'react-native';
-import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCurrentUser } from '../utils/currentUser';
@@ -462,7 +462,7 @@ const GroundField = ({ label, value, onChangeText, placeholder, multiline, keybo
   return (
     <View style={{ marginBottom: 16 }}>
       <Text style={styles.formLabel}>{label}{required ? ' *' : ''}</Text>
-      <TextInput style={[styles.formInput, multiline && styles.formTextArea]} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={DS.textMuted} multiline={multiline} numberOfLines={multiline ? 4 : 1} keyboardType={keyboardType || 'default'} />
+      <BottomSheetTextInput style={[styles.formInput, multiline && styles.formTextArea]} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={DS.textMuted} multiline={multiline} numberOfLines={multiline ? 4 : 1} keyboardType={keyboardType || 'default'} />
     </View>
   );
 };
@@ -625,7 +625,7 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
               <SectionLabel text="Price (per hour)" />
               <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceLow, borderRadius: 10, paddingHorizontal: 14 }}>
                 <Text style={{ color: DS.textMuted, fontSize: 18, fontWeight: '700', marginRight: 4 }}>₹</Text>
-                <TextInput style={[styles.formInput, { flex: 1, backgroundColor: 'transparent', paddingHorizontal: 0 }]} value={price} onChangeText={setPrice} placeholder="e.g. 500" placeholderTextColor={DS.textMuted} keyboardType="numeric" />
+                <BottomSheetTextInput style={[styles.formInput, { flex: 1, backgroundColor: 'transparent', paddingHorizontal: 0 }]} value={price} onChangeText={setPrice} placeholder="e.g. 500" placeholderTextColor={DS.textMuted} keyboardType="numeric" />
               </View>
             </View>
             <View style={styles.formCardBlock}>
@@ -639,11 +639,11 @@ const AddGroundForm = ({ onSubmit, onCancel, styles, initialLocation, DS }) => {
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '600', marginBottom: 6 }}>Opens at</Text>
-                  <TextInput style={styles.formInput} value={openTime} onChangeText={setOpenTime} placeholder="06:00" placeholderTextColor={DS.textMuted} />
+                  <BottomSheetTextInput style={styles.formInput} value={openTime} onChangeText={setOpenTime} placeholder="06:00" placeholderTextColor={DS.textMuted} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '600', marginBottom: 6 }}>Closes at</Text>
-                  <TextInput style={styles.formInput} value={closeTime} onChangeText={setCloseTime} placeholder="22:00" placeholderTextColor={DS.textMuted} />
+                  <BottomSheetTextInput style={styles.formInput} value={closeTime} onChangeText={setCloseTime} placeholder="22:00" placeholderTextColor={DS.textMuted} />
                 </View>
               </View>
             </View>
@@ -1085,7 +1085,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
         <View style={styles.placeSheet}>
           <Text style={styles.placeTitle}>Your location</Text>
           <Text style={styles.placeHint}>Grounds are filtered to this town or city. Leave it empty to see them all.</Text>
-          <TextInput
+          <BottomSheetTextInput
             style={styles.placeInput}
             value={placeDraft}
             onChangeText={setPlaceDraft}

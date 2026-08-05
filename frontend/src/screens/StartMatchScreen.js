@@ -209,7 +209,6 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cri
                 onChangeText={setNewName}
                 placeholder="e.g. Mumbai Warriors"
                 placeholderTextColor={K.textMuted}
-                autoFocus
                 maxLength={40}
               />
               <View style={s.createFormActions}>
@@ -279,6 +278,21 @@ const StartMatchScreen = ({ navigation, route }) => {
 
   const [team1, setTeam1]       = useState(null);
 
+  const pulseAnim = useSharedValue(1);
+  useEffect(() => {
+    pulseAnim.value = withRepeat(
+      withSequence(
+        withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseAnim.value }]
+  }));
 
   useLayoutEffect(() => {
     // No nav header: it read "Start Match" directly above this screen's own
@@ -1266,18 +1280,20 @@ const makeS = (K) => StyleSheet.create({
   },
   saveBtn: {
     flex: 2,
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: K.lime,
   },
   saveBtnDisabled: {
-    opacity: 0.35,
+    opacity: 0.5,
   },
   saveBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: K.black,
+    color: K.bg,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 1.2
   },
 });
 

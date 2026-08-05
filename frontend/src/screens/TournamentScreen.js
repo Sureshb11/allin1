@@ -936,53 +936,54 @@ export default function TournamentScreen({ navigation, route }) {
       </View>
 
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <BottomSheetScrollView
-          ref={scrollRef}
-          style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}>
-          {body}
-          {last && (
-            <View style={styles.legalNote}>
-              <Icon name="information-outline" size={13} color={DS.textMuted} />
-              <Text style={styles.legalText}>
-                Publishing opens the tournament to teams. Once a team is approved it stays in for the
-                duration — a side that doesn’t appear forfeits that match rather than withdrawing.
-              </Text>
-            </View>
-          )}
-        </BottomSheetScrollView>
-      </KeyboardAvoidingView>
+      <BottomSheetScrollView
+        ref={scrollRef}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 14, paddingBottom: 24 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}>
+        {body}
+        {last && (
+          <TouchableOpacity
+            style={[styles.submitBtn, busy === 'publish' && { opacity: 0.7 }]}
+            onPress={publish}
+            disabled={busy === 'publish'}
+            activeOpacity={0.9}>
+            {busy === 'publish'
+              ? <ActivityIndicator size="small" color={DS.onLime} />
+              : <Text style={styles.submitBtnText}>{editingId ? 'Save Changes' : 'Post Listing'}</Text>}
+          </TouchableOpacity>
+        )}
+        {last && (
+          <View style={styles.legalNote}>
+            <Icon name="information-outline" size={13} color={DS.textMuted} />
+            <Text style={styles.legalText}>
+              Publishing opens the tournament to teams. Once a team is approved it stays in for the
+              duration — a side that doesn’t appear forfeits that match rather than withdrawing.
+            </Text>
+          </View>
+        )}
+      </BottomSheetScrollView>
 
       {/* Sticky action bar. */}
       {/* The floating dock renders over the bottom `tabClear` of every screen in
           the tab stack, so the bar clears it rather than sitting under it. */}
-      <View style={[styles.actionBar, { paddingBottom: tabClear + 12 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.85}>
-          <Icon name={step === 0 ? 'close' : 'chevron-left'} size={18} color={DS.textPrimary} />
-          <Text style={styles.backBtnText}>{step === 0 ? 'Cancel' : 'Back'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.nextBtn, busy === 'publish' && { opacity: 0.7 }]}
-          onPress={last ? publish : onNext}
-          disabled={busy === 'publish'}
-          activeOpacity={0.9}>
-          {busy === 'publish'
-            ? <ActivityIndicator size="small" color={DS.onLime} />
-            : (
-              <>
-                <Text style={styles.nextBtnText}>
-                  {last ? (editingId ? 'Save Changes' : 'Publish Tournament') : 'Continue'}
-                </Text>
-                <Icon name={last ? (editingId ? 'content-save-outline' : 'rocket-launch-outline') : 'chevron-right'}
-                      size={18} color={DS.onLime} />
-              </>
-            )}
-        </TouchableOpacity>
-      </View>
+      {!last && (
+        <View style={[styles.actionBar, { paddingBottom: tabClear + 12 }]}>
+          <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.85}>
+            <Icon name={step === 0 ? 'close' : 'chevron-left'} size={18} color={DS.textPrimary} />
+            <Text style={styles.backBtnText}>{step === 0 ? 'Cancel' : 'Back'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.nextBtn, busy === 'publish' && { opacity: 0.7 }]}
+            onPress={onNext}
+            activeOpacity={0.9}>
+            <Text style={styles.nextBtnText}>Continue</Text>
+            <Icon name="chevron-right" size={18} color={DS.onLime} />
+          </TouchableOpacity>
+        </View>
+      )}
       </BottomSheetModal>
     </View>
   );
@@ -1048,7 +1049,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   legalNote: {
     flexDirection: 'row', gap: 8, alignItems: 'flex-start',
-    paddingHorizontal: 4, paddingVertical: 6, marginBottom: 4,
+    paddingHorizontal: 4, paddingVertical: 6, marginBottom: 4, marginTop: 16,
   },
   legalText: { flex: 1, fontSize: 11, fontWeight: '600', color: DS.textMuted, lineHeight: 15 },
 
@@ -1070,6 +1071,21 @@ const makeStyles = (DS) => StyleSheet.create({
     borderRadius: 12,
   },
   nextBtnText: {
+    color: DS.bg,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 1.2
+  },
+  submitBtn: {
+    backgroundColor: DS.lime,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 32,
+    marginBottom: 40
+  },
+  submitBtnText: {
     color: DS.bg,
     fontSize: 15,
     fontWeight: '800',

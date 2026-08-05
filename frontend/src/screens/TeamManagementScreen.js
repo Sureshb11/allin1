@@ -773,14 +773,17 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   modalConfirmButton: {
     backgroundColor: DS.lime,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 10
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1
   },
   modalConfirmText: {
+    color: DS.bg,
     fontSize: 15,
-    fontWeight: '700',
-    color: DS.bg
+    fontWeight: '800',
+    letterSpacing: 1.2
   }
 });
 
