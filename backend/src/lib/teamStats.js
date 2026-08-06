@@ -55,6 +55,21 @@ export async function teamStats(teamId, filters = {}) {
       OR: [{ team1Id: teamId }, { team2Id: teamId }],
       status: 'completed',
     };
+  // A year (optionally narrowed to a month) is a window, and the query only
+  // speaks windows. Resolving it here rather than in the screen means every
+  // caller gets it: the Stats tab was converting year+month to from/to itself,
+  // while the leaderboard sent `year=2026` straight through and the filter did
+  // nothing at all — it rendered, it highlighted, it refetched, and the numbers
+  // never changed.
+  if (filters.year && !filters.from && !filters.to) {
+    const y = Number(filters.year);
+    const mo = filters.month == null || filters.month === '' ? null : Number(filters.month);
+    filters = {
+      ...filters,
+      from: new Date(y, mo ?? 0, 1).toISOString(),
+      to: (mo == null ? new Date(y, 11, 31, 23, 59, 59) : new Date(y, mo + 1, 0, 23, 59, 59)).toISOString(),
+    };
+  }
   if (filters.from || filters.to) {
     where.startTime = {};
     if (filters.from) where.startTime.gte = new Date(filters.from);

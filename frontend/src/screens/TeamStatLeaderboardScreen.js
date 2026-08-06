@@ -9,6 +9,7 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import legendsApi from '../services/LegendsApi';
 import { BOARDS } from '../components/leaderboardBoards';
 import CricketCap, { CAP_COLORS, CAP_LABELS } from '../components/CricketCap';
+import StatsFilterSheet from '../components/StatsFilterSheet';
 
 const RANK = ['#d4af37', '#9ca3af', '#b87333']; // gold, silver, bronze
 
@@ -37,10 +38,10 @@ export default function TeamStatLeaderboardScreen() {
   const [options, setOptions] = useState({ years: [], matchTypes: [], oppositions: [] });
   const [filters, setFilters] = useState({});
   const [picker, setPicker] = useState(null); // 'main' | 'matchType' | 'year' | 'venue' | 'opposition'
-  // Staged, because the sheet has an APPLY. Changing four dropdowns should be
-  // one refetch, not four — and it lets you back out of a half-made change.
-  const [draft, setDraft] = useState({});
-  const openFilters = () => { setDraft(filters); setPicker('main'); };
+  // The chips are shortcuts into the same sheet, not a second way of setting
+  // the same filter — two controls that stage differently is how a screen ends
+  // up disagreeing with itself.
+  const openFilters = () => setPicker('main');
   // Clearing a filter leaves the key behind holding null, so counting keys
   // would badge "3 filters" on a board showing everything.
   const active = Object.values(filters).filter(Boolean).length;
@@ -62,11 +63,6 @@ export default function TeamStatLeaderboardScreen() {
         message: board?.title || 'Leaderboard',
       });
     } catch { /* cancelled, or nothing to capture */ }
-  };
-  const applyFilters = () => { setFilters(draft); setPicker(null); };
-  const draftLabel = (k, fallback) => {
-    if (k === 'oppositionId') return draft.oppositionId ? getOppName(draft.oppositionId) : 'All';
-    return draft[k] || fallback;
   };
 
   // Fetch filter options — nothing to fetch when there are no filters.
@@ -143,19 +139,19 @@ export default function TeamStatLeaderboardScreen() {
       {!isTournament && (
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         style={s.filterStripOuter} contentContainerStyle={s.filterStrip}>
-        <TouchableOpacity style={s.filterChip} onPress={() => setPicker('year')}>
+        <TouchableOpacity style={s.filterChip} onPress={openFilters}>
           <Text style={s.filterChipLabel}>Year: </Text>
           <Text style={s.filterChipVal}>{filters.year || 'All Time'}</Text>
           <Icon name="chevron-down" size={16} color={DS.textMuted} />
         </TouchableOpacity>
         
-        <TouchableOpacity style={s.filterChip} onPress={() => setPicker('matchType')}>
+        <TouchableOpacity style={s.filterChip} onPress={openFilters}>
           <Text style={s.filterChipLabel}>Format: </Text>
           <Text style={s.filterChipVal}>{filters.matchType || 'Any'}</Text>
           <Icon name="chevron-down" size={16} color={DS.textMuted} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={s.filterChip} onPress={() => setPicker('opposition')}>
+        <TouchableOpacity style={s.filterChip} onPress={openFilters}>
           <Text style={s.filterChipLabel}>Opposition: </Text>
           <Text style={s.filterChipVal} numberOfLines={1}>{filters.oppositionId ? getOppName(filters.oppositionId) : 'All'}</Text>
           <Icon name="chevron-down" size={16} color={DS.textMuted} />
@@ -232,79 +228,13 @@ export default function TeamStatLeaderboardScreen() {
         </ScrollView>
       )}
 
-      {/* Filter Modal */}
-      {!isTournament && picker && (
-        <Modal transparent animationType="slide" visible={true} onRequestClose={() => setPicker(null)}>
-          <Pressable style={s.backdrop} onPress={() => setPicker(null)} />
-          <View style={s.sheet}>
-            <View style={s.grab} />
-            {picker === 'main' ? (
-              <View style={s.sheetHead}>
-                <Text style={s.sheetTitle}>FILTERS</Text>
-                <TouchableOpacity style={s.applyBtn} onPress={applyFilters} accessibilityRole="button">
-                  <Text style={s.applyText}>APPLY</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <Text style={s.sheetTitle}>
-                {picker === 'year' ? 'Select Year'
-                  : picker === 'matchType' ? 'Select Format'
-                  : picker === 'venue' ? 'Select Ground' : 'Select Opposition'}
-              </Text>
-            )}
-
-            <ScrollView style={s.sheetScroll}>
-              {/* The whole set in one place, staged until APPLY. The button in
-                  the header opened this sheet and nothing rendered inside it —
-                  a filter control that showed an empty tray. */}
-              {picker === 'main' && [
-                ['matchType', 'Match Type', 'Any', 'matchType'],
-                ['year', 'Year', 'All Time', 'year'],
-                ['venue', 'Ground', 'All grounds', 'venue'],
-                ['oppositionId', 'Opposition', 'All', 'opposition'],
-              ].map(([key, label, fallback, sub]) => (
-                <TouchableOpacity key={key} style={s.filterRow} onPress={() => setPicker(sub)}>
-                  <Text style={s.filterRowLabel}>{label}</Text>
-                  <Text style={s.filterRowValue} numberOfLines={1}>{draftLabel(key, fallback)}</Text>
-                  <Icon name="chevron-down" size={18} color={DS.textMuted} />
-                </TouchableOpacity>
-              ))}
-
-              {picker === 'year' && [null, ...options.years].map(y => (
-                <TouchableOpacity key={String(y)} style={s.option} onPress={() => { setDraft((d) => ({ ...d, year: y })); setPicker('main'); }}>
-                  <Text style={[s.optionText, draft.year === y && s.optionTextOn]}>{y || 'All Time'}</Text>
-                  {draft.year === y && <Icon name="check" size={20} color={DS.primary} />}
-                </TouchableOpacity>
-              ))}
-
-              {picker === 'matchType' && [null, ...options.matchTypes].map(m => (
-                <TouchableOpacity key={String(m)} style={s.option} onPress={() => { setDraft((d) => ({ ...d, matchType: m })); setPicker('main'); }}>
-                  <Text style={[s.optionText, draft.matchType === m && s.optionTextOn]}>{m || 'Any Format'}</Text>
-                  {draft.matchType === m && <Icon name="check" size={20} color={DS.primary} />}
-                </TouchableOpacity>
-              ))}
-
-              {picker === 'venue' && [null, ...(options.venues || [])].map(v => (
-                <TouchableOpacity key={String(v)} style={s.option}
-                  onPress={() => { setDraft((d) => ({ ...d, venue: v })); setPicker('main'); }}>
-                  <Text style={[s.optionText, draft.venue === v && s.optionTextOn]}>{v || 'All grounds'}</Text>
-                  {draft.venue === v && <Icon name="check" size={20} color={DS.primary} />}
-                </TouchableOpacity>
-              ))}
-
-              {picker === 'opposition' && [null, ...options.oppositions].map(opp => {
-                const isSelected = opp === null ? (draft.oppositionId == null) : draft.oppositionId === opp.id;
-                return (
-                  <TouchableOpacity key={String(opp ? opp.id : 'all')} style={s.option} onPress={() => { setDraft((d) => ({ ...d, oppositionId: opp ? opp.id : null })); setPicker('main'); }}>
-                    <Text style={[s.optionText, isSelected && s.optionTextOn]}>{opp ? opp.name : 'All Teams'}</Text>
-                    {isSelected && <Icon name="check" size={20} color={DS.primary} />}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </Modal>
-      )}
+      <StatsFilterSheet
+        visible={!isTournament && picker === 'main'}
+        onClose={() => setPicker(null)}
+        onApply={(next) => { setFilters(next); setPicker(null); }}
+        options={options}
+        filters={filters}
+      />
     </SafeAreaView>
   );
 }

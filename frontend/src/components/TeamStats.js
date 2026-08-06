@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
-  Modal, Pressable, Image, LayoutAnimation, Platform, UIManager,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import LeaderboardIndex from './LeaderboardIndex';
+import StatsFilterSheet from './StatsFilterSheet';
 import { BOARDS } from './leaderboardBoards';
 
 // Team → Stats.
@@ -28,18 +28,9 @@ import { BOARDS } from './leaderboardBoards';
 // collapse rather than lazy load, because the whole payload is one request that
 // has already arrived — lazy loading it would add round trips, not remove them.
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'];
-
 // Each board: what it ranks on, and the columns worth showing for it. Keeping
 // this as data means a new board is a row here, not another block of JSX.
 export { BOARDS };
-
-const RANK = ['#FBBF24', '#94A3B8', '#B45309']; // Gold, Silver, Bronze
 
 import { useNavigation } from '@react-navigation/native';
 
@@ -78,70 +69,50 @@ export default function TeamStats({ teamId, show = 'stats' }) {
     return () => { alive = false; };
   }, [teamId, filters]);
 
-  const set = useCallback((patch) => setFilters((f) => ({ ...f, ...patch })), []);
-
-  // Which filters are on, as chips — so what's applied is visible without
-  // opening anything.
-  const active = useMemo(() => {
-    const out = [];
-    if (filters.year) out.push({ key: 'year', label: String(filters.year) });
-    if (filters.month != null) out.push({ key: 'month', label: MONTHS[filters.month] });
-    if (filters.matchType) out.push({ key: 'matchType', label: filters.matchType });
-    if (filters.venue) out.push({ key: 'venue', label: filters.venue });
-    if (filters.tournamentId) {
-      const t = options.tournaments.find((x) => x.id === filters.tournamentId);
-      out.push({ key: 'tournamentId', label: t?.name || 'Tournament' });
-    }
-    return out;
-  }, [filters, options.tournaments]);
-
-  // Year + month are the friendly controls; the API takes a window, so they
-  // resolve to one here rather than the server carrying two date vocabularies.
-  const applyPeriod = (year, month) => {
-    const next = { ...filters, year, month };
-    if (year == null) { delete next.from; delete next.to; delete next.year; delete next.month; }
-    else {
-      const m = month ?? null;
-      const from = new Date(year, m ?? 0, 1);
-      const to = m == null ? new Date(year, 11, 31, 23, 59, 59) : new Date(year, m + 1, 0, 23, 59, 59);
-      next.from = from.toISOString();
-      next.to = to.toISOString();
-    }
-    setFilters(next);
-  };
-
-  const clear = (key) => {
-    if (key === 'year' || key === 'month') return applyPeriod(key === 'month' ? filters.year : null, key === 'month' ? null : null);
-    const next = { ...filters };
-    delete next[key];
-    setFilters(next);
-  };
+  // What is applied, in the pills' own words.
+  const oppName = options.oppositions?.find((o) => o.id === filters.oppositionId)?.name;
+  const tourName = options.tournaments?.find((t) => t.id === filters.tournamentId)?.name;
+  const activeCount = Object.values(filters).filter(Boolean).length;
+  const openFilters = () => setPicker('main');
 
   const st = data?.team_stats;
 
   return (
     <View style={s.root}>
       {show === 'stats' && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
-          <FilterPill type="year" label="Year" value={filters.year} icon="calendar-month-outline" />
-          <FilterPill type="matchType" label="Format" value={filters.matchType} icon="cricket" />
-          <FilterPill type="venue" label="Ground" value={filters.venue} icon="map-marker-outline" />
-          <FilterPill type="tournamentId" label="Tournament" value={filters.tournamentId} icon="trophy-outline" />
-          
-          {(filters.year || filters.matchType || filters.venue || filters.tournamentId) && (
-            <TouchableOpacity style={s.clearBtn} onPress={() => setFilters({})}>
-              <Icon name="close" size={16} color={DS.textMuted} />
-              <Text style={s.clearText}>Clear</Text>
-            </TouchableOpacity>
-          )}
-        </ScrollView>
+        <View style={s.filterBar}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            style={s.filterScroll} contentContainerStyle={s.filterRow}>
+            {/* Every pill opens the one sheet. They used to be a stub with no
+                onPress at all — four controls that looked live and did nothing,
+                in front of a sheet whose body was a TODO comment. */}
+            <FilterPill label="Year" value={filters.year} icon="calendar-month-outline" onPress={openFilters} s={s} DS={DS} />
+            <FilterPill label="Format" value={filters.matchType} icon="cricket" onPress={openFilters} s={s} DS={DS} />
+            <FilterPill label="Ground" value={filters.venue} icon="map-marker-outline" onPress={openFilters} s={s} DS={DS} />
+            <FilterPill label="Opposition" value={oppName} icon="shield-outline" onPress={openFilters} s={s} DS={DS} />
+            {options.tournaments?.length > 0 && (
+              <FilterPill label="Tournament" value={tourName} icon="trophy-outline" onPress={openFilters} s={s} DS={DS} />
+            )}
+            {activeCount > 0 && (
+              <TouchableOpacity style={s.clearBtn} onPress={() => setFilters({})}>
+                <Icon name="close" size={16} color={DS.coral} />
+                <Text style={s.clearText}>Clear</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+          <TouchableOpacity style={s.tuneBtn} onPress={openFilters}
+            accessibilityRole="button" accessibilityLabel="Filters">
+            <Icon name="tune-variant" size={20} color={activeCount ? DS.lime : DS.textVariant} />
+            {activeCount > 0 && <View style={s.tuneDot}><Text style={s.tuneDotText}>{activeCount}</Text></View>}
+          </TouchableOpacity>
+        </View>
       )}
 
       {loading ? <Skeleton s={s} DS={DS} />
         : !st ? <Empty icon="chart-box-outline" title="No stats yet"
                        hint="They appear once this team has a completed match." s={s} DS={DS} />
         : show === 'stats' ? (
-          <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 24 }}>
+          <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
             <View style={s.hero}>
               <View style={s.heroTop}>
                 <View>
@@ -241,15 +212,14 @@ export default function TeamStats({ teamId, show = 'stats' }) {
         : renderLeaderboardMenu()
       }
 
-      {picker && (
-        <Modal transparent animationType="fade" visible={true} onRequestClose={() => setPicker(null)}>
-          <Pressable style={s.backdrop} onPress={() => setPicker(null)} />
-          <View style={s.sheet}>
-            <Text style={s.sheetTitle}>{picker}</Text>
-            {/* Logic for options would go here */}
-          </View>
-        </Modal>
-      )}
+      <StatsFilterSheet
+        visible={picker === 'main'}
+        onClose={() => setPicker(null)}
+        onApply={(next) => { setFilters(next); setPicker(null); }}
+        options={options}
+        filters={filters}
+        fields={['matchType', 'year', 'venue', 'oppositionId', 'tournamentId']}
+      />
     </View>
   );
 
@@ -282,12 +252,17 @@ function Legend({ n, label, c, s }) {
   );
 }
 
+// A row, not a tile. The same shape the leaderboard index uses — grey band per
+// category, plain rows under it — because these are the same kind of thing: a
+// long list of named numbers. As a grid of 47 tiles the labels wrapped to two
+// lines, `adjustsFontSizeToFit` clipped the values on Android rather than
+// shrinking them, and nothing lined up to scan down.
 function Stat({ label, value, s }) {
   if (value === null || value === undefined || value === '' || value === '—') return null;
   return (
-    <View style={s.stat}>
-      <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{String(value)}</Text>
-      <Text style={s.statLabel} numberOfLines={2}>{label}</Text>
+    <View style={s.statRow}>
+      <Text style={s.statRowLabel} numberOfLines={1}>{label}</Text>
+      <Text style={s.statRowValue} numberOfLines={1}>{String(value)}</Text>
     </View>
   );
 }
@@ -295,27 +270,32 @@ function Stat({ label, value, s }) {
 function Group({ title, icon, children, s, DS }) {
   const shown = (Array.isArray(children) ? children : [children]).filter(Boolean);
   if (!shown.length) return null;
+  const last = shown.length - 1;
   return (
-    <View style={s.group}>
-      <View style={s.groupHead}>
-        <Icon name={icon} size={14} color={DS.lime} />
-        <Text style={s.groupTitle}>{title}</Text>
+    <View>
+      <View style={s.catHead}>
+        <Icon name={icon} size={13} color={DS.textMuted} />
+        <Text style={s.catHeadText}>{title}</Text>
       </View>
-      <View style={s.statGrid}>{shown}</View>
+      {shown.map((child, i) => (
+        <View key={i} style={i === last ? s.statRowLast : null}>{child}</View>
+      ))}
     </View>
   );
 }
 
-function FilterPill({ type, label, value, icon }) {
-  // We'll just render a stub since this is only for the global stats, which isn't the main focus,
-  // but to keep it from crashing:
-  const DS = useTheme().colors;
-  const s = useThemedStyles(makeStyles);
-  const on = value !== undefined && value !== null;
+// Shows the applied value, not just the field name — "Format: T20" is the
+// answer to the question the pill asks, and a pill that only ever reads
+// "Format" tells you nothing about what you are looking at.
+function FilterPill({ label, value, icon, onPress, s, DS }) {
+  const on = value !== undefined && value !== null && value !== '';
   return (
-    <TouchableOpacity style={[s.chip, on && s.chipOn]} activeOpacity={0.8}>
+    <TouchableOpacity style={[s.chip, on && s.chipOn]} activeOpacity={0.8} onPress={onPress}
+      accessibilityRole="button" accessibilityLabel={`${label}: ${on ? value : 'all'}`}>
       <Icon name={icon} size={13} color={on ? DS.onLime : DS.textVariant} />
-      <Text style={[s.chipText, on && { color: DS.onLime }]} numberOfLines={1}>{label}</Text>
+      <Text style={[s.chipText, on && s.chipTextOn]} numberOfLines={1}>
+        {label}{on ? `: ${value}` : ''}
+      </Text>
       <Icon name="chevron-down" size={14} color={on ? DS.onLime : DS.textMuted} />
     </TouchableOpacity>
   );
@@ -342,30 +322,18 @@ const Skeleton = ({ s }) => (
 );
 
 const makeStyles = (DS) => StyleSheet.create({
-  // ── Leaderboard index ──
-  // A grey band names the category, plain rows name the boards, a hairline
-  // separates them. The same shape every cricket app uses for this, because a
-  // list of thirty-four things needs to read as a list.
-  catHead: {
-    paddingHorizontal: 16, paddingVertical: 9,
-    backgroundColor: DS.surfaceHigh,
-    borderTopWidth: 1, borderBottomWidth: 1, borderColor: DS.faint,
-  },
-  catHeadText: { fontSize: 11, fontWeight: '900', color: DS.textMuted, letterSpacing: 1 },
-  boardRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    minHeight: 56, paddingHorizontal: 16, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: DS.faint,
-    backgroundColor: DS.surface,
-  },
-  boardRowLast: { borderBottomWidth: 0 },
-  boardRowTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  boardRowTitle: { fontSize: 14.5, fontWeight: '700', color: DS.textPrimary, flexShrink: 1 },
-  capTag: { fontSize: 8.5, fontWeight: '900', letterSpacing: 0.6 },
-  boardRowLead: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
 
   root: { flex: 1 },
-  filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingVertical: 10 },
+  filterBar: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: DS.faint },
+  filterScroll: { flexGrow: 0, flexShrink: 1 },
+  filterRow: { flexDirection: 'row', gap: 8, paddingLeft: 14, paddingRight: 4, paddingVertical: 10 },
+  tuneBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: 4 },
+  tuneDot: {
+    position: 'absolute', top: 6, right: 3,
+    minWidth: 15, height: 15, borderRadius: 8, paddingHorizontal: 3,
+    backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center',
+  },
+  tuneDotText: { fontSize: 9.5, fontWeight: '900', color: DS.onLime },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: 190,
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
@@ -373,11 +341,12 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   chipOn: { backgroundColor: DS.lime, borderColor: DS.lime },
   chipText: { fontSize: 12, fontWeight: '700', color: DS.textVariant, flexShrink: 1 },
+  chipTextOn: { color: DS.onLime },
   clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 8 },
   clearText: { fontSize: 12, fontWeight: '800', color: DS.coral },
   hero: {
     backgroundColor: DS.surface, borderRadius: 18, borderWidth: 1, borderColor: DS.border,
-    padding: 16, marginBottom: 14,
+    padding: 16, margin: 14,
   },
   heroTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   heroValue: { fontSize: 38, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1 },
@@ -390,19 +359,23 @@ const makeStyles = (DS) => StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 12, fontWeight: '700', color: DS.textVariant },
-  group: {
-    backgroundColor: DS.surface, borderRadius: 18, borderWidth: 1, borderColor: DS.border,
-    padding: 14, marginBottom: 14,
+  // Same bands and rows as the leaderboard index — see LeaderboardIndex.js.
+  catHead: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    paddingHorizontal: 16, paddingVertical: 9,
+    backgroundColor: DS.surfaceHigh,
+    borderTopWidth: 1, borderBottomWidth: 1, borderColor: DS.faint,
   },
-  groupHead: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
-  groupTitle: { fontSize: 13, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.3 },
-  statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  stat: {
-    width: '31.5%', backgroundColor: DS.surfaceHigh, borderRadius: 12,
-    paddingVertical: 11, paddingHorizontal: 8, alignItems: 'center',
+  catHeadText: { fontSize: 11, fontWeight: '900', color: DS.textMuted, letterSpacing: 1 },
+  statRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    minHeight: 46, paddingHorizontal: 16, paddingVertical: 8,
+    borderBottomWidth: 1, borderBottomColor: DS.faint,
+    backgroundColor: DS.surface,
   },
-  statValue: { fontSize: 19, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
-  statLabel: { fontSize: 10, fontWeight: '700', color: DS.textMuted, textAlign: 'center', marginTop: 3, letterSpacing: 0.2 },
+  statRowLast: { marginBottom: 0 },
+  statRowLabel: { flex: 1, fontSize: 13.5, fontWeight: '600', color: DS.textVariant },
+  statRowValue: { fontSize: 14.5, fontWeight: '800', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
   avatar: { width: 34, height: 34, borderRadius: 17 },
   avatarFallback: { backgroundColor: '#0a5227', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 14, fontWeight: '800', color: '#fff' },

@@ -446,11 +446,17 @@ router.put('/:id/members/:playerId/admin', authMiddleware, async (req, res) => {
 // clients; this is the one the tab reads.
 router.get('/:id/stats', async (req, res) => {
   try {
-    const { from, to, matchType, venue, tournamentId } = req.query;
+    // year/month and oppositionId were missing from this list, so two of the
+    // four controls on the Stats tab and two of the four in the leaderboard's
+    // filter sheet sent a value the server threw away. teamStats has always
+    // implemented oppositionId; nothing ever handed it one.
+    const { from, to, year, month, matchType, venue, tournamentId, oppositionId } = req.query;
     const data = await teamStats(req.params.id, {
       from: from || undefined, to: to || undefined,
+      year: year || undefined, month: month || undefined,
       matchType: matchType || undefined, venue: venue || undefined,
       tournamentId: tournamentId || undefined,
+      oppositionId: oppositionId || undefined,
     });
     res.json(data);
   } catch (e) {
