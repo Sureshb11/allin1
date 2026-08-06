@@ -115,6 +115,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   // swiping did nothing here while it worked everywhere else.
   const tabSwipe = useFilterSwipe(TABS, activeTab, setActiveTab);
 
+
   // The underline slides rather than blinking from one tab to the next. These
   // four are equal flex:1 widths, so unlike the team profile's word-width tabs
   // there is nothing to measure per tab — one bar width is enough.
@@ -543,6 +544,11 @@ export default function TournamentDetailScreen({ route, navigation }) {
     );
   }
 
+  // Whether the add-team FAB is drawn. One source, because the tab bodies have
+  // to reserve room for it and it is the only thing left floating over them now
+  // that the dock does not render on this route.
+  const showFab = ['upcoming', 'ongoing'].includes(tournament.status);
+
   const statusColor = STATUS_COLORS[tournament.status] || STATUS_COLORS.upcoming;
 
   // Only the creator manages the tournament. Legacy tournaments with no recorded
@@ -597,7 +603,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   })();
 
   const renderOverview = () => (
-    <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
+    <ScrollView {...hideTabBar} contentContainerStyle={[styles.tabContent, showFab && styles.tabContentFab]}>
       {/* Info Grid */}
       {/* Five cards, not eight. Type moved to a header chip and Venue has its
           own section below, so both were being said twice; Start and End were
@@ -972,7 +978,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
     };
 
     return (
-      <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
+      <ScrollView {...hideTabBar} contentContainerStyle={[styles.tabContent, showFab && styles.tabContentFab]}>
         {pointsTable.length === 0 ? (
           <View style={styles.empty}>
             <Icon name="table-large" size={36} color={DS.textMuted} />
@@ -1204,7 +1210,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
       );
     }
     return (
-      <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
+      <ScrollView {...hideTabBar} contentContainerStyle={[styles.tabContent, showFab && styles.tabContentFab]}>
         {toggle}
         {rounds.map((r) => {
           const done = byRound[r].every(({ f }) => f.status === 'completed');
@@ -1316,7 +1322,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
       );
     }
     return (
-      <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
+      <ScrollView {...hideTabBar} contentContainerStyle={[styles.tabContent, showFab && styles.tabContentFab]}>
         {series && (
           <View style={styles.mvpCard}>
             <Icon name="trophy-variant" size={22} color={DS.bg} />
@@ -1489,7 +1495,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
         </Reanimated.View>
       </GestureDetector>
 
-      {['upcoming', 'ongoing'].includes(tournament.status) && (
+      {showFab && (
         <TouchableOpacity style={styles.fab} onPress={() => setShowTeamPicker(true)} activeOpacity={0.85}>
           <Icon name="plus" size={28} color={DS.white} />
         </TouchableOpacity>
@@ -1795,7 +1801,12 @@ const makeStyles = (DS) => StyleSheet.create({
   tabBody: { flex: 1 },
   tabText: { fontSize: 13, fontWeight: '600', color: DS.textMuted },
   tabTextActive: { color: DS.lime, fontWeight: '700' },
-  tabContent: { padding: 16, gap: 12, paddingBottom: 96 },
+  // 96 of paddingBottom used to clear the dock. There is no dock on this route
+  // now (GlassDock's FULLSCREEN list), so that would be a blank band under the
+  // last row — the same "still bottom empty space" as the drawer footers. What
+  // is left to clear is the FAB, and only when the FAB is drawn.
+  tabContent: { padding: 16, gap: 12, paddingBottom: 24 },
+  tabContentFab: { paddingBottom: 92 },
 
   // Overview
   infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
