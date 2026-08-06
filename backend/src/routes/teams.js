@@ -8,13 +8,54 @@ import { isTeamAdmin } from '../lib/teamAuth.js';
 
 const router = Router();
 
+// The four faces on a team card, and how many are left over.
+//
+// Captain, vice-captain and keeper are the three people a squad is actually
+// identified by, so they lead — in that order — and the fourth is simply the
+// next player, to show the card is a squad rather than three officials. Chosen
+// here rather than in the screen so the rule lives once, and chosen
+// DETERMINISTICALLY rather than at random: a genuinely random fourth face would
+// change on every pull-to-refresh, which reads as the list reshuffling itself.
+//
+// Keeper comes off the free-text `role`, the same test the scorer uses
+// (ScoringScreen: /keep/i or ^wk$) — there is no keeper flag on Player the way
+// there is for captain and vice-captain.
+const isKeeper = (r) => /keep/i.test(r || '') || /^wk$/i.test(r || '');
+
+const PILE = 4;
+
+function teamFacepile(players = []) {
+  const picked = [];
+  const take = (p, tag) => { if (p && !picked.some((x) => x.id === p.id)) picked.push({ ...p, tag }); };
+  take(players.find((p) => p.isCaptain), 'C');
+  take(players.find((p) => p.isViceCaptain), 'VC');
+  take(players.find((p) => isKeeper(p.role)), 'WK');
+  // Then fill to four with whoever else is in the squad. Not one filler — four
+  // slots. Nothing sets a team captain today (0 of 288 players carry the flag;
+  // captain and keeper are chosen per match at the toss), so a squad of eleven
+  // was showing two faces and a "+9".
+  for (const p of players) {
+    if (picked.length >= PILE) break;
+    take(p, null);
+  }
+  return picked.slice(0, PILE).map((p) => ({
+    id: p.id,
+    name: p.name,
+    avatarUrl: p.user?.avatarUrl || null,
+    tag: p.tag,
+  }));
+}
+
 router.get('/', async (req, res) => {
   // Sport isolation: scope the team list to a sport when asked (the team pickers
   // pass the current sport so, e.g., a cricket tournament never sees football teams).
   const { sport } = req.query;
   const teams = await prisma.team.findMany({
     where: sport ? { sport: String(sport) } : {},
-    include: { players: true },
+    // The face pile on the team card needs photos, and a player's photo lives on
+    // the user they are linked to — same join teamStats uses to put faces on a
+    // leaderboard. `players` itself stays as it was; other callers read it.
+    include: { players: { include: { user: { select: { avatarUrl: true } } } } },
   });
 
   // Attach REAL records computed from completed matches. Team.stats is a JSON
@@ -70,7 +111,10 @@ router.get('/', async (req, res) => {
       winRate: r.matches ? Math.round((r.wins / r.matches) * 100) : 0,
       totalRuns: runsFor[t.id] || 0,
       totalWickets: wktsFor[t.id] || 0,
-    } };
+    },
+    facepile: teamFacepile(t.players),
+    squadSize: (t.players || []).length,
+    };
   });
 
   res.json({ teams: enriched });
@@ -91,7 +135,7 @@ router.get('/categorized', authMiddleware, async (req, res) => {
 
     const mine = await prisma.team.findMany({
       where: { ...inSport, OR: [{ ownerId: uid }, { players: { some: { userId: uid } } }] },
-      include: { players: true },
+      include: { players: { include: { user: { select: { avatarUrl: true } } } } },
       orderBy: { name: 'asc' },
     });
     const mineIds = mine.map((t) => t.id);
@@ -110,19 +154,21 @@ router.get('/categorized', authMiddleware, async (req, res) => {
       }
       if (oppIds.size) {
         opponents = await prisma.team.findMany({
-          where: { ...inSport, id: { in: [...oppIds] } }, include: { players: true }, orderBy: { name: 'asc' },
+          where: { ...inSport, id: { in: [...oppIds] } }, include: { players: { include: { user: { select: { avatarUrl: true } } } } }, orderBy: { name: 'asc' },
         });
       }
     }
 
     const follows = await prisma.teamFollow.findMany({
       where: { userId: uid, ...(sport ? { team: { sport } } : {}) },
-      include: { team: { include: { players: true } } },
+      include: { team: { include: { players: { include: { user: { select: { avatarUrl: true } } } } } } },
       orderBy: { createdAt: 'desc' },
     });
     const followed = follows.map((f) => f.team);
 
-    res.json({ mine, opponents, followed });
+    // Same four faces on every card, wherever the card is listed.
+    const withPile = (t) => ({ ...t, facepile: teamFacepile(t.players), squadSize: (t.players || []).length });
+    res.json({ mine: mine.map(withPile), opponents: opponents.map(withPile), followed: followed.map(withPile) });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

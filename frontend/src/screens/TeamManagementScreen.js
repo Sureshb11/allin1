@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Animated,
   Pressable,
+  Image,
   Modal } from
 'react-native';
 import Reanimated, { useSharedValue, useAnimatedStyle, withTiming, Easing, withSpring, SlideInRight, SlideInLeft } from 'react-native-reanimated';
@@ -233,6 +234,8 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     captain: t.players && t.players[0]?.name || 'TBD',
     players: t.players ? t.players.length : 0,
     playersList: t.players || [],
+    facepile: t.facepile || [],
+    squadSize: t.squadSize ?? (t.players ? t.players.length : 0),
     ownerId: t.ownerId,
     matches: 0,
     wins: 0,
@@ -289,35 +292,39 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     if (res.success) loadData();
   };
 
-  const HoneycombPreview = ({ teamIdStr, count }) => {
+  // The squad, as four overlapping hexagons and a count of the rest.
+  //
+  // It used to invent them: two letters derived from the team's id
+  // (`65 + ((teamId + i * 3) % 26)`) in a colour derived the same way, so every
+  // card showed four confident-looking initials belonging to nobody. These are
+  // the real squad — captain, vice-captain, keeper and the next player, chosen
+  // server-side so the rule lives once (see teamFacepile in routes/teams.js).
+  //
+  // Nothing sets a team captain today, so C/VC tags will be rare until someone
+  // does; the pile falls back to filling with whoever is in the squad.
+  const HoneycombPreview = ({ facepile = [], squadSize = 0 }) => {
     const size = 28;
-    const teamId = parseInt((teamIdStr || '').replace(/\D/g, '') || '0', 10);
-    const numAvatars = Math.min(count, 4);
-    if (numAvatars === 0) return null;
-    
-    const avatars = Array.from({ length: numAvatars }).map((_, i) => {
-      const charCode1 = 65 + ((teamId + i * 3) % 26);
-      const charCode2 = 65 + ((teamId + i * 7 + 12) % 26);
-      const colorIdx = (teamId + i * 5) % AVATAR_COLORS.length;
-      return {
-        id: i,
-        initials: String.fromCharCode(charCode1) + String.fromCharCode(charCode2),
-        color: AVATAR_COLORS[colorIdx]
-      };
-    });
-
+    if (!facepile.length) return null;
+    const rest = Math.max(0, squadSize - facepile.length);
     return (
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        {avatars.map((av, i) => (
-          <View key={av.id} style={{ marginLeft: i === 0 ? 0 : -10, zIndex: 10 - i }}>
-            <HexAvatar size={size} color={av.color} style={{ borderWidth: 1, borderColor: DS.surface }}>
-              <Text style={{ fontSize: 9, fontWeight: '700', color: '#fff' }}>{av.initials}</Text>
+        {facepile.map((p, i) => (
+          <View key={p.id} style={{ marginLeft: i === 0 ? 0 : -10, zIndex: 10 - i }}>
+            <HexAvatar size={size} color={getAvatarColor(p.name)} style={{ borderWidth: 1, borderColor: DS.surface }}>
+              {p.avatarUrl
+                ? <Image source={{ uri: p.avatarUrl }} style={{ width: size, height: size }} />
+                : <Text style={{ fontSize: 9, fontWeight: '700', color: '#fff' }}>{getInitials(p.name)}</Text>}
             </HexAvatar>
+            {!!p.tag && (
+              <View style={styles.pileTag}>
+                <Text style={styles.pileTagText}>{p.tag}</Text>
+              </View>
+            )}
           </View>
         ))}
-        {count > 4 && (
-          <View style={{ marginLeft: 6 }}>
-            <Text style={{ fontSize: 10, fontWeight: '700', color: DS.textMuted }}>+{count - 4}</Text>
+        {rest > 0 && (
+          <View style={[styles.pileMore, { marginLeft: -10 }]}>
+            <Text style={styles.pileMoreText}>+{rest}</Text>
           </View>
         )}
       </View>
@@ -362,7 +369,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
             {mineTab && <Text style={styles.roleTag}>CAPTAIN</Text>}
           </View>
           <View style={{ flex: 1, alignItems: 'flex-end', justifyContent: 'center' }}>
-             <HoneycombPreview teamIdStr={item.id} count={item.players} />
+             <HoneycombPreview facepile={item.facepile} squadSize={item.squadSize} />
           </View>
         </View>
         <View style={[styles.statsRow, { justifyContent: 'space-between' }]}>
@@ -759,6 +766,19 @@ const makeStyles = (DS) => StyleSheet.create({
     fontWeight: '800',
     color: DS.white
   },
+  // The C / VC / WK badge on a face, and the "+N" that closes the pile.
+  pileTag: {
+    position: 'absolute', bottom: -3, alignSelf: 'center',
+    paddingHorizontal: 3, borderRadius: 4,
+    backgroundColor: DS.lime,
+  },
+  pileTagText: { fontSize: 7, fontWeight: '900', color: DS.onLime, letterSpacing: 0.2 },
+  pileMore: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.surface,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pileMoreText: { fontSize: 10, fontWeight: '800', color: DS.textVariant },
   teamInfo: {
     flex: 1
   },
