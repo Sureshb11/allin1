@@ -413,23 +413,24 @@ const StartMatchScreen = ({ navigation, route }) => {
   const renderMatchFooter = useCallback((props) => (
     <BottomSheetFooter {...props} bottomInset={0}>
       <StickyFooter>
-        <View style={s.createFormActions}>
-          <TouchableOpacity style={s.cancelBtn} onPress={closeMatch} activeOpacity={0.8}>
-            <Text style={s.cancelBtnText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[s.saveBtn, (!team1 || !team2 || emptyTeams.length > 0) && s.saveBtnDisabled]} 
-            onPress={onCreate} 
-            activeOpacity={0.85}
-            disabled={!team1 || !team2 || emptyTeams.length > 0 || loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={K.bg} size="small" />
-            ) : (
-              <Text style={s.saveBtnText}>{scheduleAt ? 'Schedule' : 'Create'}</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        {/* The design system's button, not a local copy of one. This footer
+            hand-rolled its own pair — which is why it sat out the pass that
+            made every other drawer's submit black and brought it down to the
+            48pt touch minimum: PrimaryButton was already imported here and
+            never used.
+
+            Cancel is gone. The drawer has a back arrow, a swipe-down and a
+            backdrop tap, all of which already leave — a fourth way to go
+            nowhere was taking a third of the footer from the one control the
+            screen is for. */}
+        <PrimaryButton
+          label={scheduleAt ? 'Schedule' : 'Create'}
+          icon={scheduleAt ? 'calendar-check' : 'check'}
+          onPress={onCreate}
+          loading={loading}
+          done={created}
+          disabled={!team1 || !team2 || emptyTeams.length > 0}
+        />
       </StickyFooter>
     </BottomSheetFooter>
     // eslint-disable-next-line react-hooks/exhaustive-deps
