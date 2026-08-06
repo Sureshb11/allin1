@@ -19,7 +19,7 @@ import React, { useState, useEffect, useCallback, useLayoutEffect, useRef } from
 import {
   View, Text, StyleSheet, ScrollView, Image, TextInput, TouchableOpacity,
   ActivityIndicator, Modal, Dimensions, Alert, Switch, Animated, Linking, RefreshControl } from 'react-native';
-import Reanimated, { Layout } from 'react-native-reanimated';
+import Reanimated, { FadeInRight, FadeInLeft, useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { getFind } from '../sports/find';
@@ -140,6 +140,47 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const TAB_KEYS = tabs.map(([key]) => key);
   // Swipe steps the tabs, as it does on every other list screen in the app.
   const tabSwipe = useFilterSwipe(TAB_KEYS, tab, setTab);
+
+  // ── The underline ──
+  // ONE indicator that slides between tabs, rather than a highlight mounted
+  // inside whichever tab is active. That distinction is the whole reason the old
+  // one could not animate: a view that unmounts on the tab you left and mounts
+  // on the tab you arrived at has nothing to travel between, so `layout` had
+  // nothing to do and the change simply snapped.
+  //
+  // Widths are measured rather than assumed, because these labels are words of
+  // very different lengths and the bar scrolls.
+  const [tabLayout, setTabLayout] = useState({});
+  const lineX = useSharedValue(0);
+  const lineW = useSharedValue(0);
+  const linePlaced = useRef(false);
+
+  useEffect(() => {
+    const l = tabLayout[tab];
+    if (!l) return;
+    // First placement is instant. Animating from zero would slide the underline
+    // in from the left edge every time the screen opens.
+    const move = (sv, to) => {
+      sv.value = linePlaced.current
+        ? withTiming(to, { duration: 260, easing: Easing.out(Easing.cubic) })
+        : to;
+    };
+    move(lineX, l.x);
+    move(lineW, l.width);
+    linePlaced.current = true;
+  }, [tab, tabLayout, lineX, lineW]);
+
+  const lineStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: lineX.value }],
+    width: lineW.value,
+  }));
+
+  // Which way the content should come in from — swiping forward should look
+  // like the next tab arriving from the right, not appearing in place.
+  const tabIndex = TAB_KEYS.indexOf(tab);
+  const prevTabIndex = useRef(tabIndex);
+  const forward = tabIndex >= prevTabIndex.current;
+  useEffect(() => { prevTabIndex.current = tabIndex; }, [tabIndex]);
 
   const joinStatus = data?.viewerJoinStatus || 'none';
   const isOwner = joinStatus === 'owner';
@@ -581,14 +622,15 @@ const TeamProfileScreen = ({ navigation, route }) => {
           const count = key === 'squad' ? (data.members || []).length
             : key === 'matches' ? (data.recentMatches || []).length : null;
           return (
-          <TouchableOpacity key={key} onPress={() => setTab(key)} style={[C.filterChip, { position: 'relative', backgroundColor: 'transparent', borderColor: 'transparent' }]}>
-            {on && (
-              <Reanimated.View 
-                layout={Layout.springify()} 
-                style={[StyleSheet.absoluteFill, { backgroundColor: DS.surfaceHighest, borderRadius: 999, borderWidth: 1, borderColor: DS.lime }]} 
-              />
-            )}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, zIndex: 1 }}>
+          <TouchableOpacity
+            key={key}
+            onPress={() => setTab(key)}
+            onLayout={(e) => {
+              const { x, width } = e.nativeEvent.layout;
+              setTabLayout((m) => (m[key]?.x === x && m[key]?.width === width ? m : { ...m, [key]: { x, width } }));
+            }}
+            style={C.filterChip}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Icon name={icon} size={13} color={on ? DS.lime : DS.textMuted} />
               <Text style={[C.filterText, on && C.filterTextActive]}>{label}</Text>
               {count > 0 && (
@@ -599,13 +641,23 @@ const TeamProfileScreen = ({ navigation, route }) => {
             </View>
           </TouchableOpacity>);
         })}
+
+        {/* Inside the content container, so it scrolls with the tabs it marks. */}
+        <Reanimated.View pointerEvents="none" style={[styles.tabUnderline, lineStyle]} />
       </ScrollView>
 
       {/* ── Tab content ──
           Swipe steps the tabs, the same gesture the Matches, Teams,
           Tournaments and Pavilion screens use for their filter rows. ── */}
       <GestureDetector gesture={tabSwipe}>
-      <View style={styles.section}>
+      {/* Keyed on the tab, so switching remounts and the entering animation
+          runs. Direction-aware: swipe forward and the new tab comes in from the
+          right, back and it comes from the left — which is what makes a step
+          read as movement rather than a swap. */}
+      <Reanimated.View
+        key={tab}
+        entering={(forward ? FadeInRight : FadeInLeft).duration(220)}
+        style={styles.section}>
         {tab === 'squad' && (
           <SquadTab
             members={data.members || []} isAdmin={isAdmin} styles={styles} DS={DS}
@@ -640,7 +692,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
           <GalleryTab photos={data.gallery || []} isAdmin={isAdmin} styles={styles} DS={DS}
             onAdd={addPhoto} onRemove={removePhoto} busy={busy} />
         )}
-      </View>
+      </Reanimated.View>
       </GestureDetector>
 
       {/* ── Add-award modal ── */}
@@ -1165,6 +1217,12 @@ const makeStyles = (DS) => StyleSheet.create({
   ctaTxt: { fontSize: 14, fontWeight: '800', color: DS.lime },
 
   tabRow: { marginTop: 16 },
+  // Sits on the bar's own hairline. `left: 0` with translateX doing the moving,
+  // so the position animates on the native driver rather than through layout.
+  tabUnderline: {
+    position: 'absolute', left: 0, bottom: 0, height: 2,
+    borderRadius: 2, backgroundColor: DS.lime,
+  },
 
   section: { paddingHorizontal: 16, paddingTop: 16 },
   emptyTxt: { color: DS.textMuted, fontSize: 14, paddingVertical: 24, textAlign: 'center' },
