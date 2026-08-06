@@ -85,6 +85,24 @@ export default function TeamStatLeaderboardScreen() {
     });
   }, [teamId, tournamentId, isTournament, filters, boardKey]);
 
+  // ── Podium ─────────────────────────────────────────────────────────────────
+  // It REPLACES rows 1-3 rather than sitting above them, which is what makes it
+  // affordable: three table rows are about 168dp and this is about 150, so the
+  // ceremony costs the table nothing and nothing is shown twice.
+  //
+  // Not shared with the Rankings podium — that one says in its own comment that
+  // it is tied to that screen's data shape, and it carries a confetti cannon,
+  // levitating avatars and shimmer text. Same 2-1-3 arrangement so they read as
+  // the same idea; none of the machinery.
+  //
+  // Not on Most Ducks. A gold-silver-bronze podium for the most ducks is a joke
+  // at the expense of whoever is on top of it, and this app is played by people
+  // who know each other.
+  const NO_PODIUM = ['ducks'];
+  const showPodium = data.length >= 3 && !NO_PODIUM.includes(boardKey);
+  const podium = showPodium ? [data[1], data[0], data[2]] : [];   // 2 · 1 · 3
+  const tableRows = showPodium ? data.slice(3) : data;
+
   const getOppName = (id) => {
     return options.oppositions?.find(o => o.id === id)?.name || id;
   };
@@ -179,7 +197,38 @@ export default function TeamStatLeaderboardScreen() {
         // is no longer there.
         <ScrollView style={s.tableWrap} contentContainerStyle={{ paddingBottom: 24 }}>
           <ViewShot ref={shotRef} options={{ format: 'jpg', quality: 0.9 }}>
-          {/* Table Header */}
+          {showPodium && (
+            <View style={s.podium}>
+              {podium.map((row, i) => {
+                const place = i === 1 ? 1 : i === 0 ? 2 : 3;
+                // The leader of a cap board stands in the cap's colour.
+                const tint = place === 1 && board?.cap ? CAP_COLORS[board.cap] : RANK[place - 1];
+                return (
+                  <View key={row.playerId || place} style={[s.podCol, place === 1 && s.podColLead]}>
+                    {place === 1 && !!board?.cap && <CricketCap cap={board.cap} size={20} />}
+                    {row.avatar
+                      ? <Image source={{ uri: row.avatar }} style={[s.podAvatar, place === 1 && s.podAvatarLead, { borderColor: tint }]} />
+                      : <View style={[s.podAvatar, place === 1 && s.podAvatarLead, s.podAvatarFallback, { borderColor: tint }]}>
+                          <Text style={s.podInitial}>{String(row.name || '?').charAt(0).toUpperCase()}</Text>
+                        </View>}
+                    {/* Two lines here too — the podium is the last place a name
+                        should be cut down to an initial and an ellipsis. */}
+                    <Text style={[s.podName, place === 1 && s.podNameLead]} numberOfLines={2}>{row.name}</Text>
+                    <Text style={[s.podVal, { color: tint }]} numberOfLines={1}>{board?.value(row)}</Text>
+                    {/* The bar says the same thing the number does. */}
+                    <View style={[s.podBar, { backgroundColor: tint, height: place === 1 ? 34 : place === 2 ? 24 : 18 }]}>
+                      <Text style={s.podPlace}>{place}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Table Header — only if there is a table. A board with exactly three
+              players is entirely on the podium, and a header above nothing reads
+              as a list that failed to load. */}
+          {tableRows.length > 0 && (
           <View style={s.tableHead}>
             <Text style={[s.th, s.thRank]}>#</Text>
             <Text style={[s.th, s.thName]}>PLAYER</Text>
@@ -188,18 +237,21 @@ export default function TeamStatLeaderboardScreen() {
             ))}
             <Text style={[s.th, s.thNum, s.thHighlight]}>{board?.head || board?.unit || 'VAL'}</Text>
           </View>
+          )}
 
-          {/* Table Rows */}
-          {data.map((row, index) => {
+          {/* Table Rows — from 4th down when the podium has the top three, so the
+              rank numbers have to be offset rather than taken from the index. */}
+          {tableRows.map((row, i) => {
+            const rank = showPodium ? i + 4 : i + 1;
             // The leader of a cap board wears its colour, not gold — the cap is
             // the award, and #1 here is not just a medal position.
-            const medal = index === 0 && board?.cap ? CAP_COLORS[board.cap]
-              : index < 3 ? RANK[index] : null;
-            const onMedal = index === 0 && board?.cap ? '#fff' : '#1a1a1a';
+            const medal = rank === 1 && board?.cap ? CAP_COLORS[board.cap]
+              : rank <= 3 ? RANK[rank - 1] : null;
+            const onMedal = rank === 1 && board?.cap ? '#fff' : '#1a1a1a';
             return (
-              <View key={row.playerId || index} style={s.tr}>
+              <View key={row.playerId || rank} style={s.tr}>
                 <View style={[s.rankBadge, medal && { backgroundColor: medal }]}>
-                  <Text style={[s.rankText, medal && { color: onMedal }]}>{index + 1}</Text>
+                  <Text style={[s.rankText, medal && { color: onMedal }]}>{rank}</Text>
                 </View>
                 
                 <View style={s.playerInfo}>
@@ -214,7 +266,7 @@ export default function TeamStatLeaderboardScreen() {
                     </View>
                   )}
                   <Text style={s.tdName} numberOfLines={2}>{row.name}</Text>
-                  {index === 0 && !!board?.cap && <CricketCap cap={board.cap} size={17} />}
+                  {rank === 1 && !!board?.cap && <CricketCap cap={board.cap} size={17} />}
                 </View>
                 
                 {cols.map(([_, attr]) => (
@@ -275,6 +327,31 @@ const makeStyles = (DS) => StyleSheet.create({
   // The table takes every pixel below the strip — this is a full-screen table
   // and the point of putting it on its own screen was the room.
   tableWrap: { flex: 1, backgroundColor: DS.surface },
+
+  // ── Podium ──
+  // 2 · 1 · 3, bottom-aligned so the bars form the steps. ~150dp all in, which
+  // is less than the three table rows it stands in for.
+  podium: {
+    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center',
+    gap: 6, paddingHorizontal: 12, paddingTop: 14, paddingBottom: 0,
+    backgroundColor: DS.surface,
+    borderBottomWidth: 1, borderBottomColor: DS.faint,
+  },
+  podCol: { flex: 1, alignItems: 'center', gap: 3 },
+  podColLead: { flex: 1.15 },
+  podAvatar: { width: 42, height: 42, borderRadius: 21, borderWidth: 2 },
+  podAvatarLead: { width: 54, height: 54, borderRadius: 27, borderWidth: 2.5 },
+  podAvatarFallback: { backgroundColor: '#0a5227', alignItems: 'center', justifyContent: 'center' },
+  podInitial: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  podName: { fontSize: 11, fontWeight: '700', color: DS.textPrimary, textAlign: 'center', lineHeight: 14 },
+  podNameLead: { fontSize: 12.5, fontWeight: '800' },
+  podVal: { fontSize: 15, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  podBar: {
+    alignSelf: 'stretch', marginTop: 2,
+    borderTopLeftRadius: 6, borderTopRightRadius: 6,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  podPlace: { fontSize: 12, fontWeight: '900', color: '#1a1a1a' },
   tableHead: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: DS.border, backgroundColor: DS.surfaceHigh },
   th: { fontSize: 11, fontWeight: '800', color: DS.textMuted, textTransform: 'uppercase' },
   thRank: { width: 32 },
