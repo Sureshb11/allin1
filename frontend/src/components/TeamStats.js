@@ -101,11 +101,6 @@ export default function TeamStats({ teamId, show = 'stats' }) {
           </TouchableOpacity>
         )}
       </ScrollView>
-      <TouchableOpacity style={s.tuneBtn} onPress={openFilters}
-        accessibilityRole="button" accessibilityLabel="Filters">
-        <Icon name="tune-variant" size={20} color={activeCount ? DS.lime : DS.textVariant} />
-        {activeCount > 0 && <View style={s.tuneDot}><Text style={s.tuneDotText}>{activeCount}</Text></View>}
-      </TouchableOpacity>
     </View>
   );
 
@@ -385,16 +380,9 @@ const makeStyles = (DS) => StyleSheet.create({
   // content resolves against an unbounded height — on some devices that comes
   // out as zero and the tab renders blank.
   root: {},
-  filterBar: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: DS.faint },
-  filterScroll: { flexGrow: 0, flexShrink: 1 },
-  filterRow: { flexDirection: 'row', gap: 8, paddingLeft: 14, paddingRight: 4, paddingVertical: 10 },
-  tuneBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: 4 },
-  tuneDot: {
-    position: 'absolute', top: 6, right: 3,
-    minWidth: 15, height: 15, borderRadius: 8, paddingHorizontal: 3,
-    backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center',
-  },
-  tuneDotText: { fontSize: 9.5, fontWeight: '900', color: DS.onLime },
+  filterBar: { borderBottomWidth: 1, borderBottomColor: DS.faint },
+  filterScroll: { flexGrow: 0 },
+  filterRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10 },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: 190,
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
