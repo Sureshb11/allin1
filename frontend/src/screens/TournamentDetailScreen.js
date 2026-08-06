@@ -480,6 +480,17 @@ export default function TournamentDetailScreen({ route, navigation }) {
     });
   };
 
+  // Any fixture that was played through the app has a real match behind it, and
+  // its scorecard was unreachable from here: the card is a plain View, and the
+  // only actions were organiser-only AND gated on `!completed`. So the one thing
+  // everybody wants after a game — the scorecard — was the one thing a finished
+  // fixture would not give you. Not gated on isOrganizer: reading a scorecard is
+  // not an organiser's privilege.
+  const openFixtureScorecard = (fixture) => {
+    if (!fixture?.matchId) return;
+    navigation.navigate('Scorecard', { matchId: fixture.matchId });
+  };
+
   const resumeFixtureMatch = (fixture) => {
     if (!fixture?.matchId) return;
     navigation.navigate('Scoring', { resume: true, matchId: fixture.matchId });
@@ -1020,8 +1031,20 @@ export default function TournamentDetailScreen({ route, navigation }) {
     const oversLabel = (ov) => ov != null ? ` (${ov}${totalOv ? `/${totalOv}` : ''})` : (totalOv ? ` (${totalOv} ov)` : '');
     const win1 = completed && item.winnerTeamId && item.winnerTeamId === item.team1?.id;
     const win2 = completed && item.winnerTeamId && item.winnerTeamId === item.team2?.id;
+    // A card that opens something should be the thing you press, but a tappable
+    // card with no cue is just a secret — hence the explicit row at the bottom.
+    const hasScorecard = !!item.matchId;
+    const Card = hasScorecard ? TouchableOpacity : View;
     return (
-      <View key={item.id} style={styles.fixtureCard}>
+      <Card
+        key={item.id}
+        style={styles.fixtureCard}
+        {...(hasScorecard ? {
+          onPress: () => openFixtureScorecard(item),
+          activeOpacity: 0.85,
+          accessibilityRole: 'button',
+          accessibilityLabel: `Scorecard, ${item.team1?.name || 'TBD'} versus ${item.team2?.name || 'TBD'}`,
+        } : {})}>
         <View style={styles.fixtureMeta}>
           <Text style={styles.roundText}>Match {index + 1}</Text>
           {!!item.scheduledAt && (
@@ -1086,7 +1109,17 @@ export default function TournamentDetailScreen({ route, navigation }) {
             )}
           </View>
         )}
-      </View>
+
+        {hasScorecard && !actionable && (
+          <View style={styles.scorecardRow}>
+            <Icon name="clipboard-text-outline" size={14} color={DS.lime} />
+            <Text style={styles.scorecardRowText}>
+              {completed ? 'View scorecard' : 'Watch live scorecard'}
+            </Text>
+            <Icon name="chevron-right" size={16} color={DS.lime} />
+          </View>
+        )}
+      </Card>
     );
   };
 
@@ -1802,6 +1835,14 @@ const makeStyles = (DS) => StyleSheet.create({
   scoreCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 4 },
   scoreCtaText: { fontSize: 11, fontWeight: '700', color: DS.lime },
   fixtureActions: { alignItems: 'center', gap: 10, marginTop: 0 },
+  // Sits under the fixture on its own hairline, so a finished match reads as
+  // something you can open rather than a result you can only look at.
+  scorecardRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    marginTop: 10, paddingTop: 10,
+    borderTopWidth: 1, borderTopColor: DS.faint,
+  },
+  scorecardRowText: { fontSize: 12.5, fontWeight: '800', color: DS.lime, letterSpacing: 0.3 },
   startBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, alignSelf: 'stretch', backgroundColor: DS.blueDeep, paddingVertical: 14, borderRadius: 12 },
   startBtnText: { fontSize: 14, fontWeight: '800', color: DS.white },
   manualLink: { fontSize: 12, fontWeight: '700', color: DS.lime, textDecorationLine: 'underline' },

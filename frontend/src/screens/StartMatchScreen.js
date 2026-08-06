@@ -469,23 +469,15 @@ const StartMatchScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Back + Top label + Headline ─────────── */}
-        <View style={s.topRow}>
-          <TouchableOpacity onPress={closeMatch} style={s.backBtn} hitSlop={10}>
-            <Icon name="arrow-left" size={22} color={K.text} />
-          </TouchableOpacity>
-          <View style={s.topLabel}>
-            <Text style={s.topLabelText}>{(sport.name || 'New').toUpperCase()} · NEW SESSION</Text>
-          </View>
-        </View>
-
-        {/* The same header the other three drawers use. It was a hand-rolled
-            headline and subheadline at their own sizes; now it is the shared
-            component, so all four read identically at the top. */}
+        {/* The shared drawer header, with the close button in it — the row of
+            back-arrow-plus-sport-label that used to sit above this said nothing
+            the title does not, and cost 54dp on a form being asked to fit one
+            screen. */}
         <DrawerHeader
           icon={sportDef?.icon || 'cricket'}
           title="Create New Match"
-          subtitle="Set up your match and start scoring live"
+          subtitle={`${sport.name || 'Match'} · set up and start scoring`}
+          onClose={closeMatch}
         />
 
         {/* ── 01 · Match Format ───────────────────── */}
@@ -525,7 +517,7 @@ const StartMatchScreen = ({ navigation, route }) => {
             <Text style={s.teamRoleTag}>{indiv ? 'PLAYER 1' : 'TEAM A'}</Text>
             {team1 ? (
               <>
-                <HexAvatar size={48} color={K.lime}>
+                <HexAvatar size={40} color={K.lime}>
                   <Text style={s.teamCardInitial}>{team1.name.charAt(0).toUpperCase()}</Text>
                 </HexAvatar>
                 <Text style={s.teamCardName} numberOfLines={2}>{team1.name}</Text>
@@ -539,11 +531,10 @@ const StartMatchScreen = ({ navigation, route }) => {
               </>
             ) : (
               <Reanimated.View style={[{ alignItems: 'center', gap: 8 }, pulseStyle]}>
-                <HexAvatar size={48} color={K.surfaceHigh}>
-                  <Icon name="plus" size={22} color={K.lime} />
+                <HexAvatar size={40} color={K.surfaceHigh}>
+                  <Icon name="plus" size={20} color={K.lime} />
                 </HexAvatar>
                 <Text style={s.teamCardPlaceholder}>Select Team</Text>
-                <Text style={s.teamCardAction}>Tap to add</Text>
               </Reanimated.View>
             )}
           </TouchableOpacity>
@@ -564,7 +555,7 @@ const StartMatchScreen = ({ navigation, route }) => {
             <Text style={s.teamRoleTag}>{indiv ? 'PLAYER 2' : 'TEAM B'}</Text>
             {team2 ? (
               <>
-                <HexAvatar size={48} color={K.lime}>
+                <HexAvatar size={40} color={K.lime}>
                   <Text style={s.teamCardInitial}>{team2.name.charAt(0).toUpperCase()}</Text>
                 </HexAvatar>
                 <Text style={s.teamCardName} numberOfLines={2}>{team2.name}</Text>
@@ -578,11 +569,10 @@ const StartMatchScreen = ({ navigation, route }) => {
               </>
             ) : (
               <Reanimated.View style={[{ alignItems: 'center', gap: 8 }, pulseStyle]}>
-                <HexAvatar size={48} color={K.surfaceHigh}>
-                  <Icon name="plus" size={22} color={K.lime} />
+                <HexAvatar size={40} color={K.surfaceHigh}>
+                  <Icon name="plus" size={20} color={K.lime} />
                 </HexAvatar>
                 <Text style={s.teamCardPlaceholder}>Select Team</Text>
-                <Text style={s.teamCardAction}>Tap to add</Text>
               </Reanimated.View>
             )}
           </TouchableOpacity>
@@ -663,14 +653,6 @@ const StartMatchScreen = ({ navigation, route }) => {
           )}
         </View>
 
-        {/* Info banner */}
-        <View style={s.infoBanner}>
-          <Icon name="information-outline" size={16} color={K.textMuted} style={{ marginTop: 2 }} />
-          <Text style={s.infoText}>
-            The Momentum Meter will automatically track possession based on your live updates
-          </Text>
-        </View>
-
         {/* ── Squad-required warning ──────────────── */}
         {emptyTeams.length > 0 && (
           <View style={[s.squadWarn, { borderColor: c.warn, backgroundColor: c.warn + '18' }]}>
@@ -691,7 +673,8 @@ const StartMatchScreen = ({ navigation, route }) => {
 
         {/* ── 04 · When: start now, or schedule ───── */}
         <SectionHead num="04" label="When" />
-        <View style={s.whenRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          style={s.whenScroll} contentContainerStyle={s.whenRow}>
           <TouchableOpacity
             style={[s.whenChip, !scheduleAt && s.whenChipActive]}
             onPress={() => setScheduleAt(null)}
@@ -725,7 +708,7 @@ const StartMatchScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             );
           })()}
-        </View>
+        </ScrollView>
         {scheduleAt && (
           <Text style={s.whenReadout}>
             Fixture: {scheduleAt.toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -781,7 +764,7 @@ const StartMatchScreen = ({ navigation, route }) => {
 /* ─── Styles ─────────────────────────────────────────────── */
 const makeS = (K) => StyleSheet.create({
   root: { flex: 1, backgroundColor: K.bg },
-  scroll: { padding: 16, paddingBottom: 20 },
+  scroll: { paddingHorizontal: 14, paddingTop: 0, paddingBottom: 20 },
 
   /* ── Top area ──────────────────────────────── */
   // Back sits on the label's row: with the nav header gone this is the only way
@@ -806,14 +789,14 @@ const makeS = (K) => StyleSheet.create({
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 6,
-    gap: 10,
+    marginTop: 8,
+    marginBottom: 4,
+    gap: 8,
   },
   sectionNumBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: K.limeDim,
     justifyContent: 'center',
     alignItems: 'center',
@@ -826,7 +809,7 @@ const makeS = (K) => StyleSheet.create({
     color: K.lime,
   },
   sectionLabel: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '800',
     color: K.textVariant,
     letterSpacing: 1.5,
@@ -841,10 +824,10 @@ const makeS = (K) => StyleSheet.create({
   formatCard: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 16,
+    paddingVertical: 8,
+    borderRadius: 14,
     backgroundColor: K.surfaceLow,
-    gap: 8,
+    gap: 4,
   },
   formatCardActive: {
     backgroundColor: K.lime,
@@ -879,19 +862,19 @@ const makeS = (K) => StyleSheet.create({
     elevation: 4,
     borderWidth: 1,
     borderColor: K.surfaceHigh,
-    marginTop: 10,
-    marginBottom: 10,
+    marginTop: 6,
+    marginBottom: 6,
   },
   teamCard: {
     flex: 1,
     backgroundColor: 'transparent',
     borderRadius: 20,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 8,
-    minHeight: 112,
+    minHeight: 88,
     justifyContent: 'center',
-    gap: 8,
+    gap: 5,
   },
   teamCardFilled: {
     backgroundColor: K.surfaceHigh + '40',
@@ -1014,9 +997,9 @@ const makeS = (K) => StyleSheet.create({
   configRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    gap: 10,
   },
   configIconWrap: {
     width: 34,
@@ -1124,7 +1107,8 @@ const makeS = (K) => StyleSheet.create({
   squadWarnBtnText: { color: K.lime, fontSize: 12.5, fontWeight: '800' },
 
   /* ── When (schedule) ───────────────────────── */
-  whenRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  whenScroll: { flexGrow: 0, marginTop: 2 },
+  whenRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 4 },
   whenChip: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: K.surfaceHigh, borderRadius: 12,
