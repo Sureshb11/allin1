@@ -1295,7 +1295,6 @@ export default function TournamentDetailScreen({ route, navigation }) {
           <LeaderboardIndex
             leaderboards={boards}
             emptyHint="Boards fill in once a fixture has been scored."
-            scrollProps={{ scrollEnabled: false }}
             contentContainerStyle={{ paddingBottom: 0 }}
             onOpen={(board, category) => navigation.navigate('TeamStatLeaderboard', {
               tournamentId, boardKey: board.key, category,

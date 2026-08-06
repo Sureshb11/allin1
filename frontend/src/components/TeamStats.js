@@ -120,7 +120,7 @@ export default function TeamStats({ teamId, show = 'stats' }) {
             </View>
           )
         : show === 'stats' ? (
-          <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+          <View style={{ paddingBottom: 24 }}>
             <Animated.View style={s.hero} entering={FadeInDown.duration(400).springify()}>
               <Svg height="100%" width="100%" style={StyleSheet.absoluteFill}>
                 <LinearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -226,7 +226,7 @@ export default function TeamStats({ teamId, show = 'stats' }) {
               <Stat label="Highest Successful Chase" value={st.bestChase} s={s} />
               <Stat label="Lowest Defended Score" value={st.lowestDefended} s={s} />
             </Group>
-          </ScrollView>
+          </View>
         )
         : renderLeaderboardMenu()
       }
@@ -380,7 +380,11 @@ const Skeleton = ({ s }) => {
 
 const makeStyles = (DS) => StyleSheet.create({
 
-  root: { flex: 1 },
+  // No flex. This whole component renders inside the team screen's ScrollView
+  // (see the note at the top of the file), and `flex: 1` on a child of scroll
+  // content resolves against an unbounded height — on some devices that comes
+  // out as zero and the tab renders blank.
+  root: {},
   filterBar: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: DS.faint },
   filterScroll: { flexGrow: 0, flexShrink: 1 },
   filterRow: { flexDirection: 'row', gap: 8, paddingLeft: 14, paddingRight: 4, paddingVertical: 10 },

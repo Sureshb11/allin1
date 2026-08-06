@@ -11,7 +11,7 @@
 // from.
 
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Animated, { FadeInUp, FadeOutUp, Layout, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
@@ -80,7 +80,7 @@ function LeaderboardGroup({ category, valid, lds, onOpen, s, DS, defaultOpen }) 
   );
 }
 
-export default function LeaderboardIndex({ leaderboards, onOpen, emptyHint, contentContainerStyle, scrollProps }) {
+export default function LeaderboardIndex({ leaderboards, onOpen, emptyHint, contentContainerStyle }) {
   const DS = useTheme().colors;
   const s = useThemedStyles(makeStyles);
 
@@ -107,8 +107,14 @@ export default function LeaderboardIndex({ leaderboards, onOpen, emptyHint, cont
     .map(([category, boards]) => ({ category, valid: boards.filter((b) => lds[b.key]?.length > 0) }))
     .filter(g => g.valid.length > 0);
 
+  // A View, NOT a ScrollView. Both callers embed this inside a screen that is
+  // already a vertical ScrollView, and a vertical scroller nested in a vertical
+  // scroller is handed unbounded height by its parent — so it resolves to zero
+  // and draws nothing. Whether it collapses depends on the measure pass, which
+  // is why the leaderboard appeared on some phones and not others rather than
+  // failing everywhere. The parent does the scrolling; this is a column.
   return (
-    <ScrollView contentContainerStyle={[{ paddingBottom: 24 }, contentContainerStyle]} {...scrollProps}>
+    <View style={[{ paddingBottom: 24 }, contentContainerStyle]}>
       {validGroups.map(({ category, valid }, index) => (
         <LeaderboardGroup
           key={category}
@@ -121,7 +127,7 @@ export default function LeaderboardIndex({ leaderboards, onOpen, emptyHint, cont
           defaultOpen={index < 2} // First 2 open by default
         />
       ))}
-    </ScrollView>
+    </View>
   );
 }
 
