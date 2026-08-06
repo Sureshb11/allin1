@@ -398,6 +398,10 @@ const TeamProfileScreen = ({ navigation, route }) => {
     else showToast(res.error || 'Could not open team chat', 'error');
   };
 
+  // Above the early returns, or this screen renders a different number of hooks
+  // once the team has loaded than it did while loading.
+  const scrollY = useRef(new Animated.Value(0)).current;
+
   if (loading) {
     return <TeamProfileSkeleton DS={DS} />;
   }
@@ -405,7 +409,10 @@ const TeamProfileScreen = ({ navigation, route }) => {
     return <View style={[styles.container, styles.center]}><Text style={styles.muted}>Team not found.</Text></View>;
   }
 
-  const scrollY = useRef(new Animated.Value(0)).current;
+  // The Honours tab reads this. It sat on the line the scroll ref took, and
+  // went with it — `stats` was left undefined at its one call site, which is a
+  // crash the moment that tab is opened.
+  const stats = data.stats || {};
 
   return (
     <Animated.ScrollView
@@ -746,7 +753,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 };
 

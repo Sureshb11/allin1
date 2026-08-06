@@ -287,13 +287,17 @@ function Stat({ label, value, s }) {
 }
 
 function Group({ title, icon, children, s, DS, index = 0 }) {
-  const shown = (Array.isArray(children) ? children : [children]).filter(Boolean);
-  if (!shown.length) return null;
-  const last = shown.length - 1;
+  // Hooks first, THEN the early return. They were the other way round, and the
+  // moment a group's rows all disappear — which the filters can now do, since a
+  // year with no matches empties whole sections — this instance would render
+  // with two fewer hooks than last time and React would throw.
   const [open, setOpen] = useState(index <= 2);
   const arrowStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: withTiming(open ? '180deg' : '0deg') }]
   }));
+  const shown = (Array.isArray(children) ? children : [children]).filter(Boolean);
+  if (!shown.length) return null;
+  const last = shown.length - 1;
   return (
     <Animated.View entering={FadeInDown.delay(index * 100).duration(400).springify()} layout={Layout.springify()}>
       <TouchableOpacity 
