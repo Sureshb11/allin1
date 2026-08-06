@@ -15,8 +15,11 @@ import FocusedImage from '../components/FocusedImage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { useHideTabBarOnScroll } from '../components/AutoHideTabBar';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Reanimated, { FadeInRight, FadeInLeft, useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import useFilterSwipe from '../utils/useFilterSwipe';
 
-const TABS = ['Overview', 'Points Table', 'Schedule', 'Leaders'];
+const TABS = ['Overview', 'Points Table', 'Schedule', 'Leaderboard'];
 
 // Create Tournament asks for ten sections' worth of detail. This screen showed
 // six info cards, the description and the organiser's name — so a logo, a cover
@@ -106,6 +109,33 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const [schedule, setSchedule] = useState([]);
   const [showAllTeams, setShowAllTeams] = useState(false);
   const [activeTab, setActiveTab] = useState(TABS.includes(route.params?.initialTab) ? route.params.initialTab : 'Overview');
+
+  // Swipe between tabs, the same gesture the team profile and every list screen
+  // use. This screen had none — not a dead one, none at all, which is why
+  // swiping did nothing here while it worked everywhere else.
+  const tabSwipe = useFilterSwipe(TABS, activeTab, setActiveTab);
+
+  // The underline slides rather than blinking from one tab to the next. These
+  // four are equal flex:1 widths, so unlike the team profile's word-width tabs
+  // there is nothing to measure per tab — one bar width is enough.
+  const [barW, setBarW] = useState(0);
+  const tabIndex = Math.max(0, TABS.indexOf(activeTab));
+  const lineX = useSharedValue(0);
+  const linePlaced = useRef(false);
+  useEffect(() => {
+    if (!barW) return;
+    const to = (barW / TABS.length) * tabIndex;
+    lineX.value = linePlaced.current
+      ? withTiming(to, { duration: 240, easing: Easing.out(Easing.cubic) })
+      : to;
+    linePlaced.current = true;
+  }, [tabIndex, barW, lineX]);
+  const lineStyle = useAnimatedStyle(() => ({ transform: [{ translateX: lineX.value }] }));
+
+  // Which way the arriving tab comes in from, so a swipe looks like one.
+  const prevTabIndex = useRef(tabIndex);
+  const forward = tabIndex >= prevTabIndex.current;
+  useEffect(() => { prevTabIndex.current = tabIndex; }, [tabIndex]);
   const [loading, setLoading] = useState(true);
   const [showTeamPicker, setShowTeamPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState('add'); // 'add' (organiser) | 'join' (participant request)
@@ -222,7 +252,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
 
   // Lazily load the leaderboard the first time the Leaders tab is opened.
   useEffect(() => {
-    if (activeTab === 'Leaders' && !leaderboard) {
+    if (activeTab === 'Leaderboard' && !leaderboard) {
       legendsApi.getTournamentLeaderboard(tournamentId).then(r =>
         setLeaderboard(r.success ? r.data : { batsmen: [], bowlers: [], awards: [] }));
       // The thirty-five boards, same as a team's. Separate call because the two
@@ -1434,18 +1464,30 @@ export default function TournamentDetailScreen({ route, navigation }) {
       )}
 
       {/* Tabs */}
-      <View style={styles.tabs}>
+      <View style={styles.tabs} onLayout={(e) => setBarW(e.nativeEvent.layout.width)}>
         {TABS.map(t => (
-          <TouchableOpacity key={t} style={[styles.tab, activeTab === t && styles.tabActive]} onPress={() => setActiveTab(t)}>
-            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>{t}</Text>
+          <TouchableOpacity key={t} style={styles.tab} onPress={() => setActiveTab(t)}
+            accessibilityRole="button" accessibilityState={{ selected: activeTab === t }}>
+            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]} numberOfLines={1}>{t}</Text>
           </TouchableOpacity>
         ))}
+        {barW > 0 && (
+          <Reanimated.View pointerEvents="none"
+            style={[styles.tabUnderline, { width: barW / TABS.length }, lineStyle]} />
+        )}
       </View>
 
-      {activeTab === 'Overview' && renderOverview()}
-      {activeTab === 'Points Table' && renderPointsTable()}
-      {activeTab === 'Schedule' && renderSchedule()}
-      {activeTab === 'Leaders' && renderLeaders()}
+      <GestureDetector gesture={tabSwipe}>
+        <Reanimated.View
+          key={activeTab}
+          entering={(forward ? FadeInRight : FadeInLeft).duration(200)}
+          style={styles.tabBody}>
+          {activeTab === 'Overview' && renderOverview()}
+          {activeTab === 'Points Table' && renderPointsTable()}
+          {activeTab === 'Schedule' && renderSchedule()}
+          {activeTab === 'Leaderboard' && renderLeaders()}
+        </Reanimated.View>
+      </GestureDetector>
 
       {['upcoming', 'ongoing'].includes(tournament.status) && (
         <TouchableOpacity style={styles.fab} onPress={() => setShowTeamPicker(true)} activeOpacity={0.85}>
@@ -1745,8 +1787,12 @@ const makeStyles = (DS) => StyleSheet.create({
   awardPts: { fontSize: 10, fontWeight: '700', color: DS.textMuted, fontVariant: ['tabular-nums'] },
   statusText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   tabs: { flexDirection: 'row', backgroundColor: DS.bg, borderBottomWidth: 1, borderBottomColor: DS.faint },
-  tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: DS.lime },
+  tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  // One line that slides, not a border per tab that blinks on and off.
+  tabUnderline: { position: 'absolute', left: 0, bottom: 0, height: 2, borderRadius: 2, backgroundColor: DS.lime },
+  // The bodies are ScrollViews; without flex:1 here they get no height inside
+  // the animated wrapper and the tab renders blank.
+  tabBody: { flex: 1 },
   tabText: { fontSize: 13, fontWeight: '600', color: DS.textMuted },
   tabTextActive: { color: DS.lime, fontWeight: '700' },
   tabContent: { padding: 16, gap: 12, paddingBottom: 96 },
