@@ -764,10 +764,11 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
               {TABS.map((t) => {
                 const on = tab === t.id;
                 return (
-                  <TouchableOpacity key={t.id} style={[styles.segBtn, on && styles.segBtnOn]}
+                  <TouchableOpacity key={t.id} style={styles.segBtn}
                     onPress={() => handleTabChange(t.id)} activeOpacity={0.85}>
-                    <Icon name={t.icon} size={14} color={on ? '#0f4c3a' : '#475569'} />
-                    <Text style={[styles.segText, on && styles.segTextOn]}>{t.label}</Text>
+                    {on && <Reanimated.View layout={LinearTransition.springify().damping(18).stiffness(150)} style={[StyleSheet.absoluteFillObject, styles.segBtnOn, { zIndex: 0 }]} />}
+                    <Icon name={t.icon} size={14} color={on ? '#0f4c3a' : '#475569'} style={{ zIndex: 1 }} />
+                    <Text style={[styles.segText, on && styles.segTextOn, { zIndex: 1 }]}>{t.label}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -824,11 +825,12 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                       return (
                         <TouchableOpacity
                           key={t.id}
-                          style={[styles.segBtn, on && styles.segBtnOn]}
+                          style={styles.segBtn}
                           onPress={() => handleTabChange(t.id)}
                           activeOpacity={0.85}>
-                          <Icon name={t.icon} size={14} color={on ? '#0f4c3a' : '#475569'} />
-                          <Text style={[styles.segText, on && styles.segTextOn]}>{t.label}</Text>
+                          {on && <Reanimated.View layout={LinearTransition.springify().damping(18).stiffness(150)} style={[StyleSheet.absoluteFillObject, styles.segBtnOn, { zIndex: 0 }]} />}
+                          <Icon name={t.icon} size={14} color={on ? '#0f4c3a' : '#475569'} style={{ zIndex: 1 }} />
+                          <Text style={[styles.segText, on && styles.segTextOn, { zIndex: 1 }]}>{t.label}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -989,17 +991,18 @@ const makeStyles = (DS) => StyleSheet.create({
   podiumBar: {
     alignSelf: 'stretch', marginTop: 4,
     borderTopLeftRadius: 12, borderTopRightRadius: 12,
-    borderTopWidth: 2, borderLeftWidth: 1, borderRightWidth: 1,
+    borderTopWidth: 2, borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 6,
     alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4
   },
-  podiumBar1: { backgroundColor: '#fef9c3', borderColor: '#fef08a' },
-  podiumPlace1: { color: '#ca8a04', fontSize: 20, fontWeight: '800' },
+  podiumBar1: { backgroundColor: '#fef9c3', borderTopColor: '#fef08a', borderLeftColor: '#fef08a', borderRightColor: '#eab308', borderBottomColor: '#ca8a04' },
+  podiumPlace1: { color: '#a16207', fontSize: 20, fontWeight: '900', textShadowColor: 'rgba(255,255,255,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 1 },
 
-  podiumBar2: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0' },
-  podiumPlace2: { color: '#64748b', fontSize: 18, fontWeight: '700' },
+  podiumBar2: { backgroundColor: '#f8fafc', borderTopColor: '#f1f5f9', borderLeftColor: '#f1f5f9', borderRightColor: '#cbd5e1', borderBottomColor: '#94a3b8' },
+  podiumPlace2: { color: '#475569', fontSize: 18, fontWeight: '800', textShadowColor: 'rgba(255,255,255,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 1 },
 
-  podiumBar3: { backgroundColor: '#fff7ed', borderColor: '#fed7aa' },
-  podiumPlace3: { color: '#ea580c', fontSize: 18, fontWeight: '700' },
+  podiumBar3: { backgroundColor: '#fff7ed', borderTopColor: '#ffedd5', borderLeftColor: '#ffedd5', borderRightColor: '#fb923c', borderBottomColor: '#c2410c' },
+  podiumPlace3: { color: '#c2410c', fontSize: 18, fontWeight: '800', textShadowColor: 'rgba(255,255,255,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 1 },
 
   /* ── Compact rank rows (replaced the tall stat cards) ── */
   row: { 
@@ -1063,7 +1066,7 @@ const makeStyles = (DS) => StyleSheet.create({
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 10, borderRadius: 999, backgroundColor: '#f1f5f9',
   },
-  segBtnOn: { backgroundColor: '#e6f4ea' },
+  segBtnOn: { backgroundColor: '#e6f4ea', borderRadius: 999 },
   segText: { fontSize: 14, fontWeight: '600', color: '#475569' },
   segTextOn: { color: '#0f4c3a', fontWeight: 'bold' },
   searchBtn: {

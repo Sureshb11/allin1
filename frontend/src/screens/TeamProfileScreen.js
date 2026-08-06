@@ -18,7 +18,8 @@ import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import React, { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, TextInput, TouchableOpacity,
-  ActivityIndicator, Modal, Dimensions, Alert, Switch, Animated, Linking } from 'react-native';
+  ActivityIndicator, Modal, Dimensions, Alert, Switch, Animated, Linking, RefreshControl } from 'react-native';
+import Reanimated, { Layout } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { getFind } from '../sports/find';
@@ -162,6 +163,13 @@ const TeamProfileScreen = ({ navigation, route }) => {
     } else showToast(res.error || 'Could not load team', 'error');
     setLoading(false);
   }, [teamId]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -397,20 +405,33 @@ const TeamProfileScreen = ({ navigation, route }) => {
     return <View style={[styles.container, styles.center]}><Text style={styles.muted}>Team not found.</Text></View>;
   }
 
-  const stats = data.stats || {};
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   return (
-    <ScrollView
+    <Animated.ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
+      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+      scrollEventThrottle={16}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}
       {...hideTabBar}
       contentContainerStyle={{ paddingBottom: tabClear + 24 }}>
 
       {/* ── Cover + logo header ── */}
       <View style={styles.coverWrap}>
         {team.coverUrl
-          ? <Image source={{ uri: team.coverUrl }} style={styles.cover} />
-          : <View style={[styles.cover, styles.coverEmpty]} />}
+          ? <Animated.Image source={{ uri: team.coverUrl }} style={[styles.cover, {
+              transform: [
+                { translateY: scrollY.interpolate({ inputRange: [-200, 0, 300], outputRange: [-100, 0, 150], extrapolateRight: 'clamp' }) },
+                { scale: scrollY.interpolate({ inputRange: [-200, 0, 1], outputRange: [2, 1, 1], extrapolateRight: 'clamp' }) }
+              ]
+            }]} />
+          : <Animated.View style={[styles.cover, styles.coverEmpty, {
+              transform: [
+                { translateY: scrollY.interpolate({ inputRange: [-200, 0, 300], outputRange: [-100, 0, 150], extrapolateRight: 'clamp' }) },
+                { scale: scrollY.interpolate({ inputRange: [-200, 0, 1], outputRange: [2, 1, 1], extrapolateRight: 'clamp' }) }
+              ]
+            }]} />}
         {/* Floats over the cover: without it, hiding the navigator header would
             leave this screen with no way out. */}
         <TouchableOpacity style={styles.coverBackBtn} onPress={() => navigation.goBack()} hitSlop={8}>
@@ -553,14 +574,22 @@ const TeamProfileScreen = ({ navigation, route }) => {
           const count = key === 'squad' ? (data.members || []).length
             : key === 'matches' ? (data.recentMatches || []).length : null;
           return (
-          <TouchableOpacity key={key} onPress={() => setTab(key)} style={[C.filterChip, on && C.filterChipActive]}>
-            <Icon name={icon} size={13} color={on ? DS.lime : DS.textMuted} />
-            <Text style={[C.filterText, on && C.filterTextActive]}>{label}</Text>
-            {count > 0 && (
-              <View style={[C.filterCount, on && C.filterCountOn]}>
-                <Text style={[C.filterCountText, on && C.filterCountTextOn]}>{count}</Text>
-              </View>
+          <TouchableOpacity key={key} onPress={() => setTab(key)} style={[C.filterChip, { position: 'relative', backgroundColor: 'transparent', borderColor: 'transparent' }]}>
+            {on && (
+              <Reanimated.View 
+                layout={Layout.springify()} 
+                style={[StyleSheet.absoluteFill, { backgroundColor: DS.surfaceHighest, borderRadius: 999, borderWidth: 1, borderColor: DS.lime }]} 
+              />
             )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, zIndex: 1 }}>
+              <Icon name={icon} size={13} color={on ? DS.lime : DS.textMuted} />
+              <Text style={[C.filterText, on && C.filterTextActive]}>{label}</Text>
+              {count > 0 && (
+                <View style={[C.filterCount, on && C.filterCountOn]}>
+                  <Text style={[C.filterCountText, on && C.filterCountTextOn]}>{count}</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>);
         })}
       </ScrollView>
@@ -1061,7 +1090,7 @@ const makeStyles = (DS) => StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center' },
   muted: { color: DS.textMuted, fontSize: 15 },
 
-  coverWrap: { height: 150, backgroundColor: DS.surfaceHigh },
+  coverWrap: { height: 150, backgroundColor: DS.surfaceHigh, overflow: 'hidden' },
   coverBackBtn: {
     position: 'absolute', left: 12, top: 48,
     width: 36, height: 36, borderRadius: 18,

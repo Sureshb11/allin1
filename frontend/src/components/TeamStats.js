@@ -3,6 +3,9 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Svg, { LinearGradient, Defs, Rect, Stop } from 'react-native-svg';
+import Animated, { FadeIn, FadeInDown, FadeInUp, FadeOutUp, Layout, useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import legendsApi from '../services/LegendsApi';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import LeaderboardIndex from './LeaderboardIndex';
@@ -77,72 +80,88 @@ export default function TeamStats({ teamId, show = 'stats' }) {
 
   const st = data?.team_stats;
 
+  const renderFilterBar = () => (
+    <View style={s.filterBar}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        style={s.filterScroll} contentContainerStyle={s.filterRow}>
+        <FilterPill label="Year" value={filters.year} icon="calendar-month-outline" onPress={openFilters} s={s} DS={DS} />
+        <FilterPill label="Format" value={filters.matchType} icon="cricket" onPress={openFilters} s={s} DS={DS} />
+        <FilterPill label="Ground" value={filters.venue} icon="map-marker-outline" onPress={openFilters} s={s} DS={DS} />
+        <FilterPill label="Opposition" value={oppName} icon="shield-outline" onPress={openFilters} s={s} DS={DS} />
+        {options.tournaments?.length > 0 && (
+          <FilterPill label="Tournament" value={tourName} icon="trophy-outline" onPress={openFilters} s={s} DS={DS} />
+        )}
+        {activeCount > 0 && (
+          <TouchableOpacity style={s.clearBtn} onPress={() => {
+            ReactNativeHapticFeedback.trigger('impactLight', { enableVibrateFallback: false });
+            setFilters({});
+          }}>
+            <Icon name="close" size={16} color={DS.coral} />
+            <Text style={s.clearText}>Clear</Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+      <TouchableOpacity style={s.tuneBtn} onPress={openFilters}
+        accessibilityRole="button" accessibilityLabel="Filters">
+        <Icon name="tune-variant" size={20} color={activeCount ? DS.lime : DS.textVariant} />
+        {activeCount > 0 && <View style={s.tuneDot}><Text style={s.tuneDotText}>{activeCount}</Text></View>}
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={s.root}>
-      {show === 'stats' && (
-        <View style={s.filterBar}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}
-            style={s.filterScroll} contentContainerStyle={s.filterRow}>
-            {/* Every pill opens the one sheet. They used to be a stub with no
-                onPress at all — four controls that looked live and did nothing,
-                in front of a sheet whose body was a TODO comment. */}
-            <FilterPill label="Year" value={filters.year} icon="calendar-month-outline" onPress={openFilters} s={s} DS={DS} />
-            <FilterPill label="Format" value={filters.matchType} icon="cricket" onPress={openFilters} s={s} DS={DS} />
-            <FilterPill label="Ground" value={filters.venue} icon="map-marker-outline" onPress={openFilters} s={s} DS={DS} />
-            <FilterPill label="Opposition" value={oppName} icon="shield-outline" onPress={openFilters} s={s} DS={DS} />
-            {options.tournaments?.length > 0 && (
-              <FilterPill label="Tournament" value={tourName} icon="trophy-outline" onPress={openFilters} s={s} DS={DS} />
-            )}
-            {activeCount > 0 && (
-              <TouchableOpacity style={s.clearBtn} onPress={() => setFilters({})}>
-                <Icon name="close" size={16} color={DS.coral} />
-                <Text style={s.clearText}>Clear</Text>
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-          <TouchableOpacity style={s.tuneBtn} onPress={openFilters}
-            accessibilityRole="button" accessibilityLabel="Filters">
-            <Icon name="tune-variant" size={20} color={activeCount ? DS.lime : DS.textVariant} />
-            {activeCount > 0 && <View style={s.tuneDot}><Text style={s.tuneDotText}>{activeCount}</Text></View>}
-          </TouchableOpacity>
-        </View>
-      )}
-
       {loading ? <Skeleton s={s} DS={DS} />
-        : !st ? <Empty icon="chart-box-outline" title="No stats yet"
-                       hint="They appear once this team has a completed match." s={s} DS={DS} />
+        : !st ? (
+            <View>
+              {show === 'stats' && renderFilterBar()}
+              <Empty icon="chart-box-outline" title="No stats yet"
+                     hint="They appear once this team has a completed match." s={s} DS={DS} />
+            </View>
+          )
         : show === 'stats' ? (
           <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-            <View style={s.hero}>
-              <View style={s.heroTop}>
-                <View>
-                  <Text style={s.heroValue}>{st.winPct}%</Text>
-                  <Text style={s.heroLabel}>WIN RATE · {st.played} {st.played === 1 ? 'MATCH' : 'MATCHES'}</Text>
+            <Animated.View style={s.hero} entering={FadeInDown.duration(400).springify()}>
+              <Svg height="100%" width="100%" style={StyleSheet.absoluteFill}>
+                <LinearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor={DS.lime} stopOpacity="1" />
+                  <Stop offset="100%" stopColor="#052E16" stopOpacity="1" />
+                </LinearGradient>
+                <Rect x="0" y="0" width="100%" height="100%" fill="url(#grad)" />
+              </Svg>
+              <View style={s.heroContent}>
+                <View style={s.heroTop}>
+                  <View>
+                    <Text style={s.heroValue}>{st.winPct}%</Text>
+                    <Text style={s.heroLabel}>WIN RATE · {st.played} {st.played === 1 ? 'MATCH' : 'MATCHES'}</Text>
+                  </View>
+                  <View style={s.formRow}>
+                    {(st.form || []).map((r, i) => (
+                      <View key={i} style={[s.formDot, { backgroundColor: r === 'W' ? DS.success : r === 'L' ? DS.coral : 'rgba(255,255,255,0.3)' }]}>
+                        <Text style={s.formDotText}>{r}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
-                <View style={s.formRow}>
-                  {(st.form || []).map((r, i) => (
-                    <View key={i} style={[s.formDot, { backgroundColor: r === 'W' ? DS.success : r === 'L' ? DS.coral : DS.textMuted }]}>
-                      <Text style={s.formDotText}>{r}</Text>
-                    </View>
-                  ))}
+                <View style={s.wlBar}>
+                  {[['won', st.won, DS.success], ['tied', st.tied, 'rgba(255,255,255,0.6)'], ['noResult', st.noResult, 'rgba(255,255,255,0.4)'], ['lost', st.lost, DS.coral]]
+                    .filter(([, n]) => n > 0)
+                    .map(([k, n, c]) => (
+                      <View key={k} style={{ flex: n, backgroundColor: c, height: '100%' }} />
+                    ))}
+                </View>
+                <View style={s.wlLegend}>
+                  <Legend n={st.won} label="Won" c={DS.success} s={s} />
+                  <Legend n={st.lost} label="Lost" c={DS.coral} s={s} />
+                  {st.tied > 0 && <Legend n={st.tied} label="Tied" c="rgba(255,255,255,0.6)" s={s} />}
+                  {st.noResult > 0 && <Legend n={st.noResult} label="No result" c="rgba(255,255,255,0.4)" s={s} />}
                 </View>
               </View>
-              <View style={s.wlBar}>
-                {[['won', st.won, DS.success], ['tied', st.tied, DS.textVariant], ['noResult', st.noResult, DS.textMuted], ['lost', st.lost, DS.coral]]
-                  .filter(([, n]) => n > 0)
-                  .map(([k, n, c]) => (
-                    <View key={k} style={{ flex: n, backgroundColor: c, height: '100%' }} />
-                  ))}
-              </View>
-              <View style={s.wlLegend}>
-                <Legend n={st.won} label="Won" c={DS.success} s={s} />
-                <Legend n={st.lost} label="Lost" c={DS.coral} s={s} />
-                {st.tied > 0 && <Legend n={st.tied} label="Tied" c={DS.textVariant} s={s} />}
-                {st.noResult > 0 && <Legend n={st.noResult} label="No result" c={DS.textMuted} s={s} />}
-              </View>
-            </View>
+            </Animated.View>
             
-            <Group title="MATCH STATISTICS" icon="cricket" s={s} DS={DS}>
+            {renderFilterBar()}
+            
+            <Group title="MATCH STATISTICS" icon="cricket" s={s} DS={DS} index={1}>
               <Stat label="Total Matches" value={st.played} s={s} />
               <Stat label="Wins" value={st.won} s={s} />
               <Stat label="Losses" value={st.lost} s={s} />
@@ -154,7 +173,7 @@ export default function TeamStats({ teamId, show = 'stats' }) {
               <Stat label="Longest Loss Streak" value={st.longestLossStreak} s={s} />
             </Group>
 
-            <Group title="BATTING STATISTICS" icon="baseball-bat" s={s} DS={DS}>
+            <Group title="BATTING STATISTICS" icon="baseball-bat" s={s} DS={DS} index={2}>
               <Stat label="Total Runs" value={st.totalRuns} s={s} />
               <Stat label="Highest Team Score" value={st.highestScore} s={s} />
               <Stat label="Lowest Team Score" value={st.lowestScore} s={s} />
@@ -168,7 +187,7 @@ export default function TeamStats({ teamId, show = 'stats' }) {
               <Stat label="Total Extras Received" value={st.extras} s={s} />
             </Group>
 
-            <Group title="BOWLING STATISTICS" icon="bowling" s={s} DS={DS}>
+            <Group title="BOWLING STATISTICS" icon="bowling" s={s} DS={DS} index={3}>
               <Stat label="Total Wickets" value={st.totalWickets} s={s} />
               <Stat label="Runs Conceded" value={st.totalRunsConceded} s={s} />
               <Stat label="Team Economy Rate" value={st.teamEconomy} s={s} />
@@ -179,7 +198,7 @@ export default function TeamStats({ teamId, show = 'stats' }) {
               <Stat label="Best Bowling Figures" value={data?.leaderboards?.bestBowling?.[0] ? `${data.leaderboards.bestBowling[0].best} (${data.leaderboards.bestBowling[0].name.split(' ')[0]})` : '—'} s={s} />
             </Group>
 
-            <Group title="FIELDING STATISTICS" icon="hand-back-right-outline" s={s} DS={DS}>
+            <Group title="FIELDING STATISTICS" icon="hand-back-right-outline" s={s} DS={DS} index={4}>
               <Stat label="Total Catches" value={st.catches} s={s} />
               <Stat label="Total Run Outs" value={st.runOuts} s={s} />
               <Stat label="Direct Hit Run Outs" value={st.directHits} s={s} />
@@ -188,7 +207,7 @@ export default function TeamStats({ teamId, show = 'stats' }) {
               <Stat label="Total Dismissals" value={st.dismissals} s={s} />
             </Group>
 
-            <Group title="TOSS & MATCH STATISTICS" icon="rotate-360" s={s} DS={DS}>
+            <Group title="TOSS & MATCH STATISTICS" icon="rotate-360" s={s} DS={DS} index={5}>
               <Stat label="Tosses Won" value={st.tossWon} s={s} />
               <Stat label="Tosses Lost" value={Math.max(0, st.tossKnown - st.tossWon)} s={s} />
               <Stat label="Wins Batting First" value={st.batFirstWins} s={s} />
@@ -198,7 +217,7 @@ export default function TeamStats({ teamId, show = 'stats' }) {
               <Stat label="Neutral Venue Wins" value={st.neutralWins} s={s} />
             </Group>
 
-            <Group title="TEAM RECORDS" icon="trophy-outline" s={s} DS={DS}>
+            <Group title="TEAM RECORDS" icon="trophy-outline" s={s} DS={DS} index={6}>
               <Stat label="Biggest Win (Runs)" value={st.bestWinRuns !== null ? `${st.bestWinRuns} runs` : '—'} s={s} />
               <Stat label="Biggest Win (Wickets)" value={st.bestWinWickets !== null ? `${st.bestWinWickets} wkts` : '—'} s={s} />
               <Stat label="Closest Win (Runs)" value={st.closestWinRuns !== null ? `${st.closestWinRuns} runs` : '—'} s={s} />
@@ -267,20 +286,39 @@ function Stat({ label, value, s }) {
   );
 }
 
-function Group({ title, icon, children, s, DS }) {
+function Group({ title, icon, children, s, DS, index = 0 }) {
   const shown = (Array.isArray(children) ? children : [children]).filter(Boolean);
   if (!shown.length) return null;
   const last = shown.length - 1;
+  const [open, setOpen] = useState(index <= 2);
+  const arrowStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: withTiming(open ? '180deg' : '0deg') }]
+  }));
   return (
-    <View>
-      <View style={s.catHead}>
-        <Icon name={icon} size={13} color={DS.textMuted} />
-        <Text style={s.catHeadText}>{title}</Text>
-      </View>
-      {shown.map((child, i) => (
-        <View key={i} style={i === last ? s.statRowLast : null}>{child}</View>
-      ))}
-    </View>
+    <Animated.View entering={FadeInDown.delay(index * 100).duration(400).springify()} layout={Layout.springify()}>
+      <TouchableOpacity 
+        style={[s.catHead, { justifyContent: 'space-between' }]} 
+        activeOpacity={0.7} 
+        onPress={() => {
+          ReactNativeHapticFeedback.trigger('impactLight', { enableVibrateFallback: false });
+          setOpen(!open);
+        }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Icon name={icon} size={13} color={DS.textMuted} />
+          <Text style={s.catHeadText}>{title}</Text>
+        </View>
+        <Animated.View style={arrowStyle}>
+          <Icon name="chevron-down" size={16} color={DS.textMuted} />
+        </Animated.View>
+      </TouchableOpacity>
+      {open && (
+        <Animated.View entering={FadeInUp} exiting={FadeOutUp}>
+          {shown.map((child, i) => (
+            <View key={i} style={i === last ? s.statRowLast : null}>{child}</View>
+          ))}
+        </Animated.View>
+      )}
+    </Animated.View>
   );
 }
 
@@ -290,7 +328,11 @@ function Group({ title, icon, children, s, DS }) {
 function FilterPill({ label, value, icon, onPress, s, DS }) {
   const on = value !== undefined && value !== null && value !== '';
   return (
-    <TouchableOpacity style={[s.chip, on && s.chipOn]} activeOpacity={0.8} onPress={onPress}
+    <TouchableOpacity style={[s.chip, on && s.chipOn]} activeOpacity={0.8}
+      onPress={() => {
+        ReactNativeHapticFeedback.trigger('impactLight', { enableVibrateFallback: false });
+        onPress();
+      }}
       accessibilityRole="button" accessibilityLabel={`${label}: ${on ? value : 'all'}`}>
       <Icon name={icon} size={13} color={on ? DS.onLime : DS.textVariant} />
       <Text style={[s.chipText, on && s.chipTextOn]} numberOfLines={1}>
@@ -309,17 +351,28 @@ const Empty = ({ icon, title, hint, s, DS }) => (
   </View>
 );
 
-const Skeleton = ({ s }) => (
-  <View>
-    <View style={[s.hero, { height: 128 }]} />
-    <View style={s.group}>
-      <View style={[s.skelBar, { width: 110, marginBottom: 12 }]} />
-      <View style={s.statGrid}>
-        {[0, 1, 2, 3].map((j) => <View key={j} style={[s.stat, { height: 62 }]} />)}
+const Skeleton = ({ s }) => {
+  const op = useSharedValue(0.4);
+  useEffect(() => {
+    op.value = withRepeat(withSequence(
+      withTiming(1, { duration: 800 }),
+      withTiming(0.4, { duration: 800 })
+    ), -1, true);
+  }, []);
+  const animStyle = useAnimatedStyle(() => ({ opacity: op.value }));
+  
+  return (
+    <Animated.View style={animStyle}>
+      <View style={[s.hero, { height: 128 }]} />
+      <View style={s.group}>
+        <View style={[s.skelBar, { width: 110, marginBottom: 12 }]} />
+        <View style={s.statGrid}>
+          {[0, 1, 2, 3].map((j) => <View key={j} style={[s.stat, { height: 62 }]} />)}
+        </View>
       </View>
-    </View>
-  </View>
-);
+    </Animated.View>
+  );
+};
 
 const makeStyles = (DS) => StyleSheet.create({
 
@@ -345,37 +398,47 @@ const makeStyles = (DS) => StyleSheet.create({
   clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 8 },
   clearText: { fontSize: 12, fontWeight: '800', color: DS.coral },
   hero: {
-    backgroundColor: DS.surface, borderRadius: 18, borderWidth: 1, borderColor: DS.border,
-    padding: 16, margin: 14,
+    borderRadius: 18,
+    margin: 14,
+    overflow: 'hidden', // Ensure the gradient doesn't bleed out
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  heroContent: {
+    padding: 20,
+    zIndex: 1, // Stay above the absolute SVG background
   },
   heroTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  heroValue: { fontSize: 38, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1 },
-  heroLabel: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8, marginTop: 2 },
-  formRow: { flexDirection: 'row', gap: 4 },
-  formDot: { width: 20, height: 20, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  formDotText: { fontSize: 10, fontWeight: '900', color: '#fff' },
-  wlBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', marginTop: 14, backgroundColor: DS.surfaceHigh },
-  wlLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 12, fontWeight: '700', color: DS.textVariant },
+  heroValue: { fontSize: 44, fontWeight: '900', color: '#ffffff', letterSpacing: -1 }, // More vibrant, pure white
+  heroLabel: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.8)', letterSpacing: 1.2, marginTop: 4 },
+  formRow: { flexDirection: 'row', gap: 6 },
+  formDot: { width: 22, height: 22, borderRadius: 8, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 2, shadowOffset: { width: 0, height: 1 } },
+  formDotText: { fontSize: 11, fontWeight: '900', color: '#fff' },
+  wlBar: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', marginTop: 18, backgroundColor: 'rgba(255,255,255,0.2)' },
+  wlLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 14 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendText: { fontSize: 13, fontWeight: '800', color: 'rgba(255,255,255,0.9)' },
   // Same bands and rows as the leaderboard index — see LeaderboardIndex.js.
   catHead: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    paddingHorizontal: 16, paddingVertical: 9,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 18, paddingVertical: 12,
     backgroundColor: DS.surfaceHigh,
     borderTopWidth: 1, borderBottomWidth: 1, borderColor: DS.faint,
   },
-  catHeadText: { fontSize: 11, fontWeight: '900', color: DS.textMuted, letterSpacing: 1 },
+  catHeadText: { fontSize: 12, fontWeight: '900', color: DS.lime, letterSpacing: 1.5, textTransform: 'uppercase' }, // enhanced typography
   statRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    minHeight: 46, paddingHorizontal: 16, paddingVertical: 8,
+    minHeight: 52, paddingHorizontal: 18, paddingVertical: 10,
     borderBottomWidth: 1, borderBottomColor: DS.faint,
     backgroundColor: DS.surface,
   },
-  statRowLast: { marginBottom: 0 },
-  statRowLabel: { flex: 1, fontSize: 13.5, fontWeight: '600', color: DS.textVariant },
-  statRowValue: { fontSize: 14.5, fontWeight: '800', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
+  statRowLast: { marginBottom: 0, borderBottomWidth: 0 },
+  statRowLabel: { flex: 1, fontSize: 14.5, fontWeight: '600', color: DS.textVariant, letterSpacing: 0.2 },
+  statRowValue: { fontSize: 16, fontWeight: '900', color: DS.textPrimary, fontVariant: ['tabular-nums'] },
   avatar: { width: 34, height: 34, borderRadius: 17 },
   avatarFallback: { backgroundColor: '#0a5227', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 14, fontWeight: '800', color: '#fff' },
