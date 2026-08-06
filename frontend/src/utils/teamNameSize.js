@@ -20,12 +20,16 @@ const BASE = 13;   // what a short name gets — unchanged from before
 const MIN = 9;     // below this it stops being readable on a card
 const FITS = 11;   // characters that fit at BASE in the narrowest column we use
 
-export const teamNameSize = (name, base = BASE, min = MIN) => {
+// `fits` is how many characters the caller's column holds at `base`. The default
+// is tuned for the narrowest one (a match card); a team profile's header is far
+// wider, so it passes its own rather than shrinking "Mumbai Mavericks" that a
+// column has plenty of room for.
+export const teamNameSize = (name, base = BASE, min = MIN, fits = FITS) => {
   const n = (name || '').trim().length;
-  if (n <= FITS) return base;
+  if (n <= fits) return base;
   // Half a point per character over the threshold, floored. 16 chars → 10.5,
   // 27 chars → the floor.
-  return Math.max(min, Math.round((base - (n - FITS) * 0.5) * 2) / 2);
+  return Math.max(min, Math.round((base - (n - fits) * 0.5) * 2) / 2);
 };
 
 /** The style object to merge onto a team-name Text. */

@@ -26,6 +26,7 @@ import { getFind } from '../sports/find';
 import legendsApi from '../services/LegendsApi';
 import TeamStats from '../components/TeamStats';
 import { makeControls, controlColors } from '../theme/controls';
+import { teamNameSize } from '../utils/teamNameSize';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
 import { pickAndUploadImage } from '../utils/imageUpload';
@@ -513,10 +514,27 @@ const TeamProfileScreen = ({ navigation, route }) => {
 
         <View style={styles.identityText}>
           <View style={styles.nameRow}>
-            <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
+            {/* Shrinks to fit rather than truncating. A name is the one thing on
+                this screen that cannot be abbreviated into meaning, and
+                adjustsFontSizeToFit clips instead of shrinking on Android — so
+                the size is computed from the character count (teamNameSize),
+                the same helper the match cards use, with this header's own
+                wider budget. */}
+            <Text style={[styles.teamName, { fontSize: teamNameSize(team.name, 21, 15, 18) }]}
+              numberOfLines={1}>{team.name}</Text>
             {/* The short code, beside the name it stands in for. */}
             {!!team.shortName && (
               <View style={styles.shortTag}><Text style={styles.shortTagTxt}>{team.shortName}</Text></View>
+            )}
+            {/* Edit belongs to the name it edits. It was a pencil-plus-"Edit"
+                pill in the far corner beside Chat, which read as two equal
+                actions when one of them is only for admins. */}
+            {isAdmin && (
+              <TouchableOpacity style={styles.nameEditBtn} onPress={() => navigation.navigate('EditTeamProfile', { teamId })}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button" accessibilityLabel="Edit team profile">
+                <Icon name="pencil" size={15} color={DS.lime} />
+              </TouchableOpacity>
             )}
           </View>
           <Text style={styles.teamMeta} numberOfLines={1}>
@@ -539,14 +557,9 @@ const TeamProfileScreen = ({ navigation, route }) => {
 
         <View style={styles.identityActions}>
           {canChat && (
-            <TouchableOpacity style={styles.chatBtn} onPress={openTeamChat} disabled={openingChat}>
+            <TouchableOpacity style={styles.chatBtn} onPress={openTeamChat} disabled={openingChat}
+              accessibilityRole="button" accessibilityLabel="Team chat">
               {openingChat ? <ActivityIndicator size="small" color={DS.lime} /> : <Icon name="chat-outline" size={18} color={DS.lime} />}
-            </TouchableOpacity>
-          )}
-          {isAdmin && (
-            <TouchableOpacity style={styles.editProfileBtn} onPress={() => navigation.navigate('EditTeamProfile', { teamId })}>
-              <Icon name="pencil" size={14} color={DS.lime} />
-              <Text style={styles.editProfileTxt}>Edit</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1179,24 +1192,20 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   identityText: { flex: 1, marginLeft: 12, marginBottom: 4 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  nameEditBtn: { padding: 2 },
   shortTag: {
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6,
     backgroundColor: DS.surfaceHighest, borderWidth: 1, borderColor: DS.border,
   },
   shortTagTxt: { fontSize: 10, fontWeight: '900', color: DS.textVariant, letterSpacing: 0.8 },
   teamSite: { fontSize: 12, fontWeight: '700', color: DS.lime, marginTop: 3 },
-  teamName: { fontSize: 21, fontWeight: '900', color: DS.textPrimary },
+  teamName: { fontSize: 21, fontWeight: '900', color: DS.textPrimary, flexShrink: 1 },
   teamMeta: { fontSize: 13, color: DS.textMuted, marginTop: 2 },
   identityActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   chatBtn: {
     width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: DS.lime,
   },
-  editProfileBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderWidth: 1, borderColor: DS.lime, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
-  },
-  editProfileTxt: { color: DS.lime, fontSize: 12, fontWeight: '800' },
   bio: { color: DS.textVariant, fontSize: 14, lineHeight: 20, paddingHorizontal: 16, marginTop: 12 },
   factRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginTop: 10 },
   fact: {
