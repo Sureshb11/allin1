@@ -40,10 +40,13 @@ const ASSIST_WKT = new Set(['caught', 'stumped']);
 // points that disagree with the printed figures read as a bug in the points, and
 // the two used to disagree in four places.
 
+import { isLegalDelivery } from './deliveries.js';
+
 // Not one of the over's six. 'deadBall' is a wicket taken without a delivery (the
-// non-striker run out backing up, Law 38.3).
-const NON_BALL_EXTRAS = ['wide', 'noBall', 'penalty', 'retired', 'deadBall'];
-const countsAsBall = (b) => !NON_BALL_EXTRAS.includes(b.extraType);
+// non-striker run out backing up, Law 38.3). The list itself lives in
+// lib/deliveries.js — it used to be declared identically here, in teamStats.js
+// and in routes/matches.js.
+const countsAsBall = isLegalDelivery;
 
 // A ball FACED by the striker. A no ball is faced (it can be hit, and the striker
 // can be run out off it); a wide is not, and neither is anything that wasn't bowled.

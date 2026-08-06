@@ -8,6 +8,7 @@
 // and notifies participants — so both paths behave identically.
 
 import { prisma } from './prisma.js';
+import { isLegalDelivery, oversDecimal } from './deliveries.js';
 import { persistStandings, computeStandings } from './standings.js';
 import { resolveBracket } from './bracket.js';
 import { notifyTeams, notifyAllParticipants, safeNotify } from './notify.js';
@@ -119,24 +120,43 @@ async function maybeCompleteTournament(tournamentId, tName) {
 // winner = more aggregate runs (equal = tie), plus the NRR inputs the standings
 // engine expects. Returns null if the match has no scorable innings.
 export async function deriveResultFromMatch(match) {
-  const innings = await prisma.inning.findMany({ where: { matchId: match.id } });
+  // Overs come from the DELIVERIES, not from Inning.totalOvers.
+  //
+  // That column is initialised to 0 and nothing ever updates it — it reads 0 on
+  // all 52 innings in the database — so every fixture finished through the app
+  // recorded runs correctly and overs as zero. On the schedule card that showed
+  // as "0/8", and in the standings it made net run rate `scored / 0` → 0 for
+  // every team in every tournament, which is a wrong table rather than an ugly
+  // one. The truth was always in the Ball rows.
+  const innings = await prisma.inning.findMany({
+    where: { matchId: match.id },
+    select: {
+      battingTeamId: true, totalRuns: true,
+      oversData: { select: { balls: { select: { extraType: true } } } },
+    },
+  });
   if (!innings.length) return null;
 
-  const agg = {}; // teamId → { scored, overs }
+  const agg = {}; // teamId → { scored, balls }
   for (const inn of innings) {
-    const a = (agg[inn.battingTeamId] ||= { scored: 0, overs: 0 });
+    const a = (agg[inn.battingTeamId] ||= { scored: 0, balls: 0 });
     a.scored += inn.totalRuns || 0;
-    a.overs += inn.totalOvers || 0;
+    for (const ov of inn.oversData) {
+      for (const b of ov.balls) if (isLegalDelivery(b)) a.balls += 1;
+    }
   }
   const t1 = match.team1Id, t2 = match.team2Id;
-  const s1 = agg[t1]?.scored || 0, o1 = agg[t1]?.overs || 0;
-  const s2 = agg[t2]?.scored || 0, o2 = agg[t2]?.overs || 0;
+  const s1 = agg[t1]?.scored || 0, b1 = agg[t1]?.balls || 0;
+  const s2 = agg[t2]?.scored || 0, b2 = agg[t2]?.balls || 0;
 
   const resultKind = s1 === s2 ? 'tie' : 'win';
   const winnerTeamId = s1 === s2 ? null : (s1 > s2 ? t1 : t2);
+  // Two forms on purpose. oversFaced is a true decimal because the standings
+  // engine divides by it; ballsFaced is the exact count so a card can print
+  // cricket's own 8.3 without having to guess it back out of 8.5.
   const stats = {
-    [t1]: { scored: s1, conceded: s2, oversFaced: o1, oversBowled: o2 },
-    [t2]: { scored: s2, conceded: s1, oversFaced: o2, oversBowled: o1 },
+    [t1]: { scored: s1, conceded: s2, oversFaced: oversDecimal(b1), oversBowled: oversDecimal(b2), ballsFaced: b1, ballsBowled: b2 },
+    [t2]: { scored: s2, conceded: s1, oversFaced: oversDecimal(b2), oversBowled: oversDecimal(b1), ballsFaced: b2, ballsBowled: b1 },
   };
   return { winnerTeamId, resultKind, stats };
 }

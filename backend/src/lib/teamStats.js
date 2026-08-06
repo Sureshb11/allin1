@@ -11,9 +11,11 @@
 // that did, so it loads the window once and accumulates everything together.
 
 import { prisma } from './prisma.js';
+import { isLegalDelivery } from './deliveries.js';
 
-const NON_BALL = ['wide', 'noBall', 'penalty', 'retired', 'deadBall'];
-const isLegal = (b) => !NON_BALL.includes(b.extraType);
+// One definition, in lib/deliveries.js — this list used to exist here, in
+// mvp.js and in routes/matches.js, identically and separately.
+const isLegal = isLegalDelivery;
 // Runs credited to the batter: not byes, leg byes, or the wide's own penalty.
 const batRuns = (b) => (['bye', 'legBye', 'penalty'].includes(b.extraType) ? 0 : b.runs || 0);
 // A ball the batter is judged on. A wide isn't; a no ball is.

@@ -1061,8 +1061,16 @@ export default function TournamentDetailScreen({ route, navigation }) {
     const isCricket = (tournament.sport || 'cricket') === 'cricket';
     const s1 = item.resultStats?.[item.team1?.id]?.scored;
     const s2 = item.resultStats?.[item.team2?.id]?.scored;
-    const ov1 = item.resultStats?.[item.team1?.id]?.oversFaced;
-    const ov2 = item.resultStats?.[item.team2?.id]?.oversFaced;
+    // Overs to SHOW, in cricket's notation. resultStats now carries the exact
+    // legal-ball count as well as the decimal overs the standings divide by:
+    // 51 balls is "8.3" on a card and 8.5 in a run rate, and printing the
+    // decimal as if it were the notation is how 8.3 becomes 8.5 on screen.
+    // Older rows have no ball count, so the decimal is the fallback.
+    const b1 = item.resultStats?.[item.team1?.id]?.ballsFaced;
+    const b2 = item.resultStats?.[item.team2?.id]?.ballsFaced;
+    const notation = (balls) => `${Math.floor(balls / 6)}.${balls % 6}`;
+    const ov1 = b1 != null ? notation(b1) : item.resultStats?.[item.team1?.id]?.oversFaced;
+    const ov2 = b2 != null ? notation(b2) : item.resultStats?.[item.team2?.id]?.oversFaced;
     const totalOv = tournament.overs;
     const oversLabel = (ov) => ov != null ? ` (${ov}${totalOv ? `/${totalOv}` : ''})` : (totalOv ? ` (${totalOv} ov)` : '');
     const win1 = completed && item.winnerTeamId && item.winnerTeamId === item.team1?.id;
