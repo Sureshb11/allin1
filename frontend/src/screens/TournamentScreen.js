@@ -984,7 +984,7 @@ export default function TournamentScreen({ navigation, route }) {
       <BottomSheetScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 14, paddingBottom: tabClear + FOOTER_CLEARANCE }}
+        contentContainerStyle={{ padding: 14, paddingBottom: FOOTER_CLEARANCE }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}>

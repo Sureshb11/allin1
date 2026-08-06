@@ -19,7 +19,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, Animated, Easing, Alert,
-  ScrollView,
+  ScrollView, Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { BottomSheetTextInput, BottomSheetScrollView, useBottomSheetInternal } from '@gorhom/bottom-sheet';
@@ -77,16 +77,22 @@ export function Pressable({ onPress, disabled, style, children, ...rest }) {
  *   const sheet = useDrawerSheet();
  *   <BottomSheetModal ref={r} {...sheet} backdropComponent={…} footerComponent={…}>
  *
- * Keyboard handling is part of it, not an afterthought: `interactive` keeps the
- * sheet glued to the keyboard as it animates, `restore` puts it back on blur,
- * and adjustResize is what makes Android behave at all.
+ * Keyboard handling is part of it, not an afterthought — and it is per-platform,
+ * for the reason spelled out on the prop below.
  */
 export function useDrawerSheet() {
   const DS = useTheme().colors;
   return useMemo(() => ({
     snapPoints: ['94%'],
     enablePanDownToClose: true,
-    keyboardBehavior: 'interactive',
+    // `interactive` offsets the whole sheet by the keyboard's height. These
+    // sheets already sit at 94%, and on Android the window is ALSO resizing
+    // (adjustResize, set here and in the manifest) — so two mechanisms move the
+    // content on every keystroke and the scroll fights them both. `extend`
+    // extends the sheet to its maximum snap point, which at 94% is where it
+    // already is, leaving the window resize to do the work on its own.
+    // iOS has no adjustResize, so there the interactive offset is still right.
+    keyboardBehavior: Platform.OS === 'android' ? 'extend' : 'interactive',
     keyboardBlurBehavior: 'restore',
     android_keyboardInputMode: 'adjustResize',
     backgroundStyle: { backgroundColor: DS.bg },

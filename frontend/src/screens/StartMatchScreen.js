@@ -465,7 +465,7 @@ const StartMatchScreen = ({ navigation, route }) => {
       >
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={K.bg} />
       <BottomSheetScrollView
-        contentContainerStyle={[s.scroll, { paddingBottom: tabClear + FOOTER_CLEARANCE }]}
+        contentContainerStyle={[s.scroll, { paddingBottom: FOOTER_CLEARANCE }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >

@@ -339,18 +339,18 @@ export default function MyMatchesScreen({ navigation }) {
     let firstInningId;
     const innRes = await legendsApi.getMatchInnings(m.id);
     if (innRes.success && innRes.data?.length) firstInningId = innRes.data[0].id;
-    navigation.navigate('HomeTab', {
-      screen: 'TossLineup',
-      params: {
-        matchId: m.id,
-        team1: t1.name, team2: t2.name,
-        team1Id: t1.id, team2Id: t2.id,
-        overs: String(m.overs || 20),
-        venue: m.venue || '',
-        matchType: m.matchType || 'T20',
-        firstInningId,
-        sport: m.sport || 'cricket',
-      },
+    // Not via HomeTab. This screen and TossLineup are both in the stack this
+    // screen is already in — routing through the tab meant coming back landed
+    // on the feed instead of the match list you started from.
+    navigation.navigate('TossLineup', {
+      matchId: m.id,
+      team1: t1.name, team2: t2.name,
+      team1Id: t1.id, team2Id: t2.id,
+      overs: String(m.overs || 20),
+      venue: m.venue || '',
+      matchType: m.matchType || 'T20',
+      firstInningId,
+      sport: m.sport || 'cricket',
     });
   };
 
@@ -506,9 +506,9 @@ export default function MyMatchesScreen({ navigation }) {
           <MatchCard
             m={item}
             isScorer={!!item.isScorer}
-            onPress={() => navigation.navigate('HomeTab', { screen: 'Scorecard', params: { matchId: item.id } })}
+            onPress={() => navigation.navigate('Scorecard', { matchId: item.id })}
             onStart={startMatch}
-            onResume={(m) => navigation.navigate('HomeTab', { screen: 'Scoring', params: { resume: true, matchId: m.id } })}
+            onResume={(m) => navigation.navigate('Scoring', { resume: true, matchId: m.id })}
           />
         )}
         ListEmptyComponent={

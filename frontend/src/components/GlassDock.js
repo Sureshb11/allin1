@@ -66,7 +66,16 @@ export default function GlassDock({
     if (!ev.defaultPrevented) navigation.navigate(name, screen ? { screen } : undefined);
   };
   const goProfile   = goTab('ProfileTab', 'Profile');
-  const startMatch  = () => navigation.navigate('HomeTab', { screen: 'StartMatch' });
+  // Open Create Match on the tab you are ALREADY on, not by jumping to HomeTab
+  // first. All four tabs render the same stack, so StartMatch is reachable from
+  // any of them — and pushing it onto the current one is what makes closing the
+  // drawer put you back where you opened it. Hard-coding HomeTab meant every
+  // close landed on the feed, from wherever you had been, because the feed is
+  // that tab's root and the drawer had been pushed on top of it.
+  const startMatch = () => {
+    const here = state.routes[state.index]?.name || 'HomeTab';
+    navigation.navigate(here, { screen: 'StartMatch' });
+  };
 
   // The dock wears the active sport, so the whole app reads as that arena.
   // Cricket resolves to the brand green, i.e. unchanged.
