@@ -25,7 +25,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getFind } from '../sports/find';
 import legendsApi from '../services/LegendsApi';
 import TeamStats from '../components/TeamStats';
-import { makeControls } from '../theme/controls';
+import { makeControls, controlColors } from '../theme/controls';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
 import { pickAndUploadImage } from '../utils/imageUpload';
@@ -84,6 +84,9 @@ const TeamProfileScreen = ({ navigation, route }) => {
   // with DS.bg text — which is the fourth copy of a control Matches, Teams and
   // Tournaments already share. Same job, so the same control.
   const C = useThemedStyles(makeControls);
+  // The control language's own colours, so the tab icon, its label and the
+  // underline are all the same green — and all flip with the theme together.
+  const CTL = controlColors(DS);
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
   const me = useCurrentUser();
@@ -631,7 +634,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
             }}
             style={C.filterChip}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Icon name={icon} size={13} color={on ? DS.lime : DS.textMuted} />
+              <Icon name={icon} size={13} color={on ? CTL.green : CTL.slate} />
               <Text style={[C.filterText, on && C.filterTextActive]}>{label}</Text>
               {count > 0 && (
                 <View style={[C.filterCount, on && C.filterCountOn]}>
@@ -1221,7 +1224,7 @@ const makeStyles = (DS) => StyleSheet.create({
   // so the position animates on the native driver rather than through layout.
   tabUnderline: {
     position: 'absolute', left: 0, bottom: 0, height: 2,
-    borderRadius: 2, backgroundColor: DS.lime,
+    borderRadius: 2, backgroundColor: controlColors(DS).green,
   },
 
   section: { paddingHorizontal: 16, paddingTop: 16 },
