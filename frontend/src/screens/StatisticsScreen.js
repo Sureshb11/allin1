@@ -1053,7 +1053,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: 'rgba(255,255,255,0.85)', paddingTop: 52, paddingBottom: 12, paddingHorizontal: 16
+    backgroundColor: 'rgba(255,255,255,0.85)', paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16
   },
   heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
 
@@ -1097,7 +1097,7 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14, fontWeight: '600', color: DS.textPrimary, padding: 0 },
 
-  list: { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
+  list: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, gap: 10 },
 
 
   findMe: {
