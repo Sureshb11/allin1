@@ -25,16 +25,27 @@ const LOCAL_URL = Platform.select({
 // Deployed Local Legends API (Vercel project "allin1-api", Neon Postgres) — live.
 const PROD_URL = 'https://allin1-api.vercel.app';
 
-// Use the hosted backend by default (it's live). Flip to true to develop against
-// the local server in ../../backend (npm run dev on :4000).
-const USE_LOCAL_BACKEND = true;
+// Develop against the local server in ../../backend (npm run dev on :4000)?
+// Flip this freely — it is ONLY consulted in a dev build.
+const DEV_USES_LOCAL_BACKEND = true;
+
+// A release build always talks to the deployed API. It used to be one
+// hand-flipped constant for both, and it was left on local: every APK built
+// after that pointed at http://10.0.2.2:4000, which is the Android emulator's
+// route to the host machine and nothing at all on a real phone. The app opened,
+// looked fine, and no screen ever loaded.
+//
+// The flag a person has to remember to flip back is the flag that ships wrong,
+// so `__DEV__` decides and the manual switch cannot reach a release build.
+const useLocal = __DEV__ && DEV_USES_LOCAL_BACKEND;
 
 const apiConfig = {
   API_PORT,
   LOCAL_URL,
   PROD_URL,
+  useLocal,
   // Active base URL. Override at runtime via global.API_BASE_URL if needed.
-  BASE_URL: USE_LOCAL_BACKEND ? LOCAL_URL : PROD_URL,
+  BASE_URL: useLocal ? LOCAL_URL : PROD_URL,
 };
 
 export default apiConfig;
