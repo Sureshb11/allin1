@@ -213,7 +213,7 @@ export default function TeamStatLeaderboardScreen() {
                       <Text style={s.avatarText}>{String(row.name || '?').charAt(0).toUpperCase()}</Text>
                     </View>
                   )}
-                  <Text style={s.tdName} numberOfLines={1}>{row.name}</Text>
+                  <Text style={s.tdName} numberOfLines={2}>{row.name}</Text>
                   {index === 0 && !!board?.cap && <CricketCap cap={board.cap} size={17} />}
                 </View>
                 
@@ -279,20 +279,20 @@ const makeStyles = (DS) => StyleSheet.create({
   th: { fontSize: 11, fontWeight: '800', color: DS.textMuted, textTransform: 'uppercase' },
   thRank: { width: 32 },
   thName: { flex: 1 },
-  thNum: { width: 44, textAlign: 'right' },
-  thHighlight: { color: DS.primary, width: 56 },
+  thNum: { width: 38, textAlign: 'right' },
+  thHighlight: { color: DS.primary, width: 50 },
 
-  tr: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: DS.faint },
+  tr: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingHorizontal: 16, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: DS.faint },
   rankBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
   rankText: { fontSize: 11, fontWeight: '800', color: DS.textMuted },
-  playerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  avatar: { width: 32, height: 32, borderRadius: 16 },
-  avatarFallback: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#0a5227', alignItems: 'center', justifyContent: 'center' },
+  playerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  avatar: { width: 28, height: 28, borderRadius: 14 },
+  avatarFallback: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#0a5227', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 13, fontWeight: '800', color: '#fff' },
-  tdName: { flex: 1, fontSize: 14, fontWeight: '700', color: DS.textPrimary },
+  tdName: { flex: 1, fontSize: 13.5, lineHeight: 17, fontWeight: '700', color: DS.textPrimary },
   td: { fontSize: 13, color: DS.textPrimary },
-  tdNum: { width: 44, textAlign: 'right', color: DS.textMuted },
-  tdHighlight: { fontWeight: '800', width: 56, textAlign: 'right', color: DS.primary, fontSize: 14 },
+  tdNum: { width: 38, textAlign: 'right', color: DS.textMuted, fontSize: 12.5 },
+  tdHighlight: { fontWeight: '800', width: 50, textAlign: 'right', color: DS.primary, fontSize: 14 },
 
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: { backgroundColor: DS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 40, maxHeight: '80%' },
