@@ -32,14 +32,29 @@ const bowlerWicket = (b) =>
  * @param {object} filters { from, to, matchType, venue, tournamentId }
  */
 export async function teamStats(teamId, filters = {}) {
-  const team = await prisma.team.findUnique({ where: { id: teamId } });
-  if (!team) throw new Error('Team not found');
+  // teamId null = "every player in these matches, whoever they played for".
+  // That is what a tournament's leaderboards are, and it is the only difference
+  // between them and a team's: same deliveries, same rules, same thirty-five
+  // boards, a wider net. Writing a second aggregator for tournaments would mean
+  // two copies of cricket's scoring rules drifting apart one fix at a time —
+  // this file already carries the awkward ones (a no-ball credits the batter but
+  // not the bowler's economy; a direct hit is one fielder, an assisted run-out
+  // is several), and they only stay right in one place.
+  //
+  // The team-only figures — won/lost, home and away, toss, winning margins —
+  // have no meaning without a team and are skipped rather than computed wrong;
+  // the tournament route reads `leaderboards` and nothing else.
+  const allTeams = !teamId;
+  const team = allTeams ? null : await prisma.team.findUnique({ where: { id: teamId } });
+  if (!allTeams && !team) throw new Error('Team not found');
 
   // ── Which matches are in scope ────────────────────────────────────────────
-  const where = {
-    OR: [{ team1Id: teamId }, { team2Id: teamId }],
-    status: 'completed',
-  };
+  const where = allTeams
+    ? { status: 'completed', id: { in: filters.matchIds || [] } }
+    : {
+      OR: [{ team1Id: teamId }, { team2Id: teamId }],
+      status: 'completed',
+    };
   if (filters.from || filters.to) {
     where.startTime = {};
     if (filters.from) where.startTime.gte = new Date(filters.from);
@@ -132,7 +147,7 @@ export async function teamStats(teamId, filters = {}) {
   const F = (name) => (field[name] ||= { name, catches: 0, runOuts: 0, directHits: 0, assistedRunOuts: 0, stumpings: 0 });
   const P = (id, name) => (part[id] ||= { id, name, matches: 0 });
 
-  const homeGround = (team.homeGround || '').trim().toLowerCase();
+  const homeGround = (team?.homeGround || '').trim().toLowerCase();
 
   for (const m of matches) {
     t.played++;
@@ -141,22 +156,25 @@ export async function teamStats(teamId, filters = {}) {
     const res = String(m.result || '').toLowerCase();
     const noResult = /no result|abandon/.test(res);
     const tied = /\btie|tied\b/.test(res);
-    const won = !noResult && !tied && res.includes(String(team.name || '').toLowerCase());
+    // "Did WE win" needs a we. Across a whole tournament there isn't one.
+    const won = !allTeams && !noResult && !tied && res.includes(String(team.name || '').toLowerCase());
 
-    if (noResult) { t.noResult++; results.push('N'); }
-    else if (tied) { t.tied++; results.push('T'); }
-    else if (won) { t.won++; results.push('W'); }
-    else { t.lost++; results.push('L'); }
+    if (!allTeams) {
+      if (noResult) { t.noResult++; results.push('N'); }
+      else if (tied) { t.tied++; results.push('T'); }
+      else if (won) { t.won++; results.push('W'); }
+      else { t.lost++; results.push('L'); }
 
-    // Toss, and what the team did with it.
-    if (m.tossWinnerId) {
-      t.tossKnown++;
-      if (m.tossWinnerId === teamId) t.tossWon++;
+      // Toss, and what the team did with it.
+      if (m.tossWinnerId) {
+        t.tossKnown++;
+        if (m.tossWinnerId === teamId) t.tossWon++;
+      }
     }
 
     // Participation
     for (const s of m.squads) {
-      if (s.teamId === teamId) {
+      if (allTeams || s.teamId === teamId) {
         const p = P(s.playerId, s.player?.name);
         p.matches++;
       }
@@ -170,12 +188,14 @@ export async function teamStats(teamId, filters = {}) {
       else { t.awayPlayed++; if (won) t.awayWins++; }
     }
 
-    const ours = m.innings.filter((i) => i.battingTeamId === teamId);
-    const theirs = m.innings.filter((i) => i.bowlingTeamId === teamId);
+    // Every innings is "ours" when there is no us — that one line is what turns
+    // this into a tournament aggregate.
+    const ours = allTeams ? m.innings : m.innings.filter((i) => i.battingTeamId === teamId);
+    const theirs = allTeams ? m.innings : m.innings.filter((i) => i.bowlingTeamId === teamId);
 
     // Batting first or second, and how that went.
     const firstInn = m.innings.find((i) => i.inningNumber === 1);
-    if (firstInn) {
+    if (firstInn && !allTeams) {
       if (firstInn.battingTeamId === teamId) { t.batFirstPlayed++; if (won) t.batFirstWins++; }
       else if (firstInn.bowlingTeamId === teamId) { t.fieldFirstPlayed++; if (won) t.fieldFirstWins++; }
     }
@@ -303,10 +323,10 @@ export async function teamStats(teamId, filters = {}) {
       }
     }
 
-    const cap = m.squads.find((s) => s.teamId === teamId && s.isCaptain);
+    const cap = allTeams ? null : m.squads.find((s) => s.teamId === teamId && s.isCaptain);
     if (cap && won) capWins[cap.playerId] = (capWins[cap.playerId] || 0) + 1;
 
-    if (m.innings.length === 2 && !noResult && !tied) {
+    if (!allTeams && m.innings.length === 2 && !noResult && !tied) {
       const our = ours[0], their = theirs.find((i) => i.battingTeamId === opponentId);
       if (our && their) {
         if (our.inningNumber === 1) {
@@ -334,7 +354,7 @@ export async function teamStats(teamId, filters = {}) {
   }
 
   for (const m of matches) {
-    for (const inn of m.innings.filter((i) => i.bowlingTeamId === teamId)) {
+    for (const inn of (allTeams ? m.innings : m.innings.filter((i) => i.bowlingTeamId === teamId))) {
       const perInn = {};
       for (const ov of inn.oversData) {
         for (const b of ov.balls) {
@@ -474,7 +494,7 @@ export async function teamStats(teamId, filters = {}) {
   const top = (arr, n = 10) => arr.slice(0, n);
 
   return {
-    team: { id: team.id, name: team.name, logoUrl: team.logoUrl },
+    team: team ? { id: team.id, name: team.name, logoUrl: team.logoUrl } : null,
     filters,
     matchCount: matches.length,
     team_stats: {
@@ -559,6 +579,24 @@ export async function teamStats(teamId, filters = {}) {
     },
     qualification: { minInnings, minOvers },
   };
+}
+
+/**
+ * A tournament's leaderboards: the same thirty-five boards, over every match
+ * played as one of its fixtures, for every player who took part.
+ *
+ * No filters. A tournament is already a window — one competition, one season,
+ * one set of teams — so a year picker would offer the year it was played in and
+ * an opposition picker would offer everyone in it. The team boards need filters
+ * because a club's history runs for years; a tournament's does not.
+ */
+export async function tournamentStats(tournamentId) {
+  const fixtures = await prisma.tournamentMatch.findMany({
+    where: { tournamentId, matchId: { not: null } },
+    select: { matchId: true },
+  });
+  const matchIds = [...new Set(fixtures.map((f) => f.matchId))];
+  return teamStats(null, { matchIds });
 }
 
 // The values the filter controls should offer — derived from this team's own

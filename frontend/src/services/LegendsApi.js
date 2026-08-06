@@ -1418,6 +1418,16 @@ class LegendsApi {
   }
 
   // The values the filters should offer, from this team's own matches.
+  // A tournament's full board set. No filters — see TeamStatLeaderboardScreen.
+  async getTournamentStats(tournamentId) {
+    try {
+      const json = await this.request(`/tournaments/${tournamentId}/stats`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message, data: { leaderboards: {} } };
+    }
+  }
+
   async getTeamStatsOptions(teamId) {
     try {
       const json = await this.request(`/teams/${teamId}/stats/options`);

@@ -413,14 +413,23 @@ const StartMatchScreen = ({ navigation, route }) => {
   const renderMatchFooter = useCallback((props) => (
     <BottomSheetFooter {...props} bottomInset={0}>
       <StickyFooter>
-        <PrimaryButton
-          label={scheduleAt ? 'Schedule Match' : 'Create Match'}
-          icon={scheduleAt ? 'calendar-check' : 'play-circle'}
-          loading={loading}
-          done={created}
-          disabled={!team1 || !team2 || emptyTeams.length > 0}
-          onPress={onCreate}
-        />
+        <View style={s.createFormActions}>
+          <TouchableOpacity style={s.cancelBtn} onPress={closeMatch} activeOpacity={0.8}>
+            <Text style={s.cancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[s.saveBtn, (!team1 || !team2 || emptyTeams.length > 0) && s.saveBtnDisabled]} 
+            onPress={onCreate} 
+            activeOpacity={0.85}
+            disabled={!team1 || !team2 || emptyTeams.length > 0 || loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={K.bg} size="small" />
+            ) : (
+              <Text style={s.saveBtnText}>{scheduleAt ? 'Schedule' : 'Create'}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </StickyFooter>
     </BottomSheetFooter>
     // eslint-disable-next-line react-hooks/exhaustive-deps

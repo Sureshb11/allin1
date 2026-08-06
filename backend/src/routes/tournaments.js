@@ -6,6 +6,7 @@ import { computeStandings, computeStageStandings } from '../lib/standings.js';
 import { applyTournamentResult } from '../lib/tournamentResult.js';
 import { notifyTeams, notifyUsers, notifyAllParticipants, safeNotify } from '../lib/notify.js';
 import { tournamentLeaderboard } from '../lib/leaderboard.js';
+import { tournamentStats } from '../lib/teamStats.js';
 import { seriesAwards } from '../lib/awards.js';
 import { zonedTime } from '../lib/zonedTime.js';
 
@@ -60,6 +61,15 @@ router.get('/:id/standings', async (req, res) => {
 // Note `mvp` in this payload is a different, older thing: a fantasy-points
 // ranking (runs + boundaries + 20/wicket) that predates the MVP algorithm the
 // match awards use. It stays for older clients; `awards` is the real honour.
+// The full board set — the same thirty-five the team page shows, over this
+// tournament's fixtures. `/leaderboard` above stays as it is: it feeds the
+// existing Orange/Purple/MVP strip and the awards, and is a different shape.
+router.get('/:id/stats', async (req, res) => {
+  try {
+    res.json(await tournamentStats(req.params.id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.get('/:id/leaderboard', async (req, res) => {
   try {
     const [board, awards] = await Promise.all([

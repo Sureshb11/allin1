@@ -7,7 +7,7 @@ import Share from 'react-native-share';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import legendsApi from '../services/LegendsApi';
-import { BOARDS } from '../components/TeamStats';
+import { BOARDS } from '../components/leaderboardBoards';
 import CricketCap, { CAP_COLORS, CAP_LABELS } from '../components/CricketCap';
 
 const RANK = ['#d4af37', '#9ca3af', '#b87333']; // gold, silver, bronze
@@ -15,7 +15,12 @@ const RANK = ['#d4af37', '#9ca3af', '#b87333']; // gold, silver, bronze
 export default function TeamStatLeaderboardScreen() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { teamId, boardKey, category } = route.params;
+  const { teamId, tournamentId, boardKey, category } = route.params;
+  // A tournament is already a window — one competition, one season, one set of
+  // teams — so it gets the same boards with no filters at all: a year picker
+  // would offer the year it was played in, an opposition picker everyone in it.
+  // The team boards need filters because a club's history runs for years.
+  const isTournament = !!tournamentId;
 
   const DS = useTheme().colors;
   const s = useThemedStyles(makeStyles);
@@ -64,23 +69,25 @@ export default function TeamStatLeaderboardScreen() {
     return draft[k] || fallback;
   };
 
-  // Fetch filter options
+  // Fetch filter options — nothing to fetch when there are no filters.
   useEffect(() => {
+    if (isTournament) return;
     legendsApi.getTeamStatsOptions(teamId).then((r) => {
       if (r.success) setOptions(r.data);
     });
-  }, [teamId]);
+  }, [teamId, isTournament]);
 
   // Fetch stats whenever filters change
   useEffect(() => {
     setLoading(true);
-    legendsApi.getTeamStats(teamId, filters).then((r) => {
-      if (r.success) {
-        setData(r.data.leaderboards[boardKey] || []);
-      }
+    const req = isTournament
+      ? legendsApi.getTournamentStats(tournamentId)
+      : legendsApi.getTeamStats(teamId, filters);
+    req.then((r) => {
+      if (r.success) setData(r.data.leaderboards?.[boardKey] || []);
       setLoading(false);
     });
-  }, [teamId, filters, boardKey]);
+  }, [teamId, tournamentId, isTournament, filters, boardKey]);
 
   const getOppName = (id) => {
     return options.oppositions?.find(o => o.id === id)?.name || id;
@@ -123,14 +130,17 @@ export default function TeamStatLeaderboardScreen() {
           accessibilityRole="button" accessibilityLabel="Share this leaderboard">
           <Icon name="share-variant" size={21} color={DS.textPrimary} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={openFilters} style={s.iconBtn}
-          accessibilityRole="button" accessibilityLabel="Filters">
-          <Icon name="tune-variant" size={22} color={active ? DS.lime : DS.textPrimary} />
-          {active > 0 && <View style={s.filterDot}><Text style={s.filterDotText}>{active}</Text></View>}
-        </TouchableOpacity>
+        {!isTournament && (
+          <TouchableOpacity onPress={openFilters} style={s.iconBtn}
+            accessibilityRole="button" accessibilityLabel="Filters">
+            <Icon name="tune-variant" size={22} color={active ? DS.lime : DS.textPrimary} />
+            {active > 0 && <View style={s.filterDot}><Text style={s.filterDotText}>{active}</Text></View>}
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Applied Filters Strip */}
+      {/* Applied Filters Strip — team boards only. */}
+      {!isTournament && (
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         style={s.filterStripOuter} contentContainerStyle={s.filterStrip}>
         <TouchableOpacity style={s.filterChip} onPress={() => setPicker('year')}>
@@ -157,6 +167,7 @@ export default function TeamStatLeaderboardScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+      )}
 
       {loading ? (
         <View style={s.center}><ActivityIndicator size="large" color={DS.primary} /></View>
@@ -222,7 +233,7 @@ export default function TeamStatLeaderboardScreen() {
       )}
 
       {/* Filter Modal */}
-      {picker && (
+      {!isTournament && picker && (
         <Modal transparent animationType="slide" visible={true} onRequestClose={() => setPicker(null)}>
           <Pressable style={s.backdrop} onPress={() => setPicker(null)} />
           <View style={s.sheet}>

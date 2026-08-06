@@ -7,6 +7,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import { showToast } from '../components/Toast';
 import legendsApi from '../services/LegendsApi';
+import LeaderboardIndex from '../components/LeaderboardIndex';
 import { getSport } from '../sports';
 import { joinPolicy, capacity, effectiveStatus } from '../utils/tournamentPolicy';
 import FocusedImage from '../components/FocusedImage';
@@ -121,6 +122,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const [manualGroups, setManualGroups] = useState({});
   // Record-result modal state
   const [leaderboard, setLeaderboard] = useState(null); // { batsmen, bowlers, awards }
+  const [boards, setBoards] = useState(null);           // the full 35-board set
   const [scheduleView, setScheduleView] = useState(route.params?.bracket ? 'bracket' : 'fixtures'); // Schedule tab sub-view
   const [resultFixture, setResultFixture] = useState(null); // fixture being scored
   const [abandoned, setAbandoned] = useState(false);        // washout: no result, no NRR
@@ -223,6 +225,11 @@ export default function TournamentDetailScreen({ route, navigation }) {
     if (activeTab === 'Leaders' && !leaderboard) {
       legendsApi.getTournamentLeaderboard(tournamentId).then(r =>
         setLeaderboard(r.success ? r.data : { batsmen: [], bowlers: [], awards: [] }));
+      // The thirty-five boards, same as a team's. Separate call because the two
+      // answer different questions: this is the board set, the one above is the
+      // series awards that sit at the top of the tab.
+      legendsApi.getTournamentStats(tournamentId).then(r =>
+        setBoards(r.success ? (r.data.leaderboards || {}) : {}));
     }
   }, [activeTab, leaderboard, tournamentId]);
 
@@ -385,6 +392,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
     if (stRes.success && stRes.data.length) setPointsTable(stRes.data);
     if (tRes.success) setTournament(tRes.data);
     setLeaderboard(null); // stale after a result → re-fetch when Leaders tab reopens
+    setBoards(null);
   };
 
   const openResult = (fixture) => {
@@ -1244,17 +1252,6 @@ export default function TournamentDetailScreen({ route, navigation }) {
         </View>
       );
     }
-    const capRow = (rank, name, team, main, sub, highlight) => (
-      <View key={name + rank} style={[styles.ptRow, rank % 2 === 0 && styles.ptRowAlt, rank === 1 && highlight]}>
-        <Text style={[styles.ptNum, { width: 22, color: rank === 1 ? DS.lime : DS.textMuted, fontWeight: rank === 1 ? '800' : '400' }]}>{rank}</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.ptTeamName} numberOfLines={1}>{name}</Text>
-          {!!team && <Text style={styles.leaderTeam} numberOfLines={1}>{team}</Text>}
-          {!!sub && <Text style={styles.leaderSub}>{sub}</Text>}
-        </View>
-        <Text style={styles.leaderMain}>{main}</Text>
-      </View>
-    );
     return (
       <ScrollView {...hideTabBar} contentContainerStyle={styles.tabContent}>
         {series && (
@@ -1288,13 +1285,23 @@ export default function TournamentDetailScreen({ route, navigation }) {
           </View>
         )}
 
-        <Text style={styles.leaderTitle}>🧡  Orange Cap · Most Runs</Text>
-        {batsmen.map((b, i) => capRow(i + 1, b.name, b.team, `${b.runs}`,
-          `${b.balls}b · SR ${b.strikeRate} · ${b.fours}×4 ${b.sixes}×6 · HS ${b.highest}`, styles.orangeLead))}
-
-        <Text style={[styles.leaderTitle, { marginTop: 24 }]}>🟣  Purple Cap · Most Wickets</Text>
-        {bowlers.map((b, i) => capRow(i + 1, b.name, b.team, `${b.wickets}`,
-          `${b.overs} ov · econ ${b.economy} · ${b.runs} runs`, styles.purpleLead))}
+        {/* The full board set, the same index the team page shows — two flat
+            top-20 lists were the only leaderboards a tournament had, so a
+            tournament's best fielder, highest score or most sixes had nowhere
+            to be seen. Scoped to this tournament's fixtures and unfiltered:
+            a tournament is already the filter. */}
+        <Text style={styles.leaderTitle}>All Leaderboards</Text>
+        <View style={styles.boardsWrap}>
+          <LeaderboardIndex
+            leaderboards={boards}
+            emptyHint="Boards fill in once a fixture has been scored."
+            scrollProps={{ scrollEnabled: false }}
+            contentContainerStyle={{ paddingBottom: 0 }}
+            onOpen={(board, category) => navigation.navigate('TeamStatLeaderboard', {
+              tournamentId, boardKey: board.key, category,
+            })}
+          />
+        </View>
       </ScrollView>
     );
   };
@@ -1685,6 +1692,9 @@ const makeStyles = (DS) => StyleSheet.create({
   championBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.success, marginHorizontal: 16, marginBottom: 8, paddingVertical: 10, borderRadius: 12 },
   championText: { fontSize: 14, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
   leaderTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginBottom: 8, marginLeft: 4 },
+  // The index draws its own full-width bands, so it gets its own card
+  // rather than sitting loose inside the tab's horizontal padding.
+  boardsWrap: { marginHorizontal: -16, borderRadius: 0, overflow: 'hidden' },
   leaderTeam: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
   leaderSub: { fontSize: 10, color: DS.textMuted, marginTop: 2 },
   leaderMain: { fontSize: 18, fontWeight: '800', color: DS.textPrimary, minWidth: 42, textAlign: 'right', fontVariant: ['tabular-nums'] },
