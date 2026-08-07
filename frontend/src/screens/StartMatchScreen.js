@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Alert, ActivityIndicator, Modal, TextInput, FlatList,
@@ -382,14 +382,6 @@ const StartMatchScreen = ({ navigation, route }) => {
   };
 
   /* ── Section Header helper ─────────────────────────────── */
-  const SectionHead = ({ num, label }) => (
-    <View style={s.sectionHead}>
-      <View style={s.sectionNumBadge}>
-        <Text style={s.sectionNum}>{num}</Text>
-      </View>
-      <Text style={s.sectionLabel}>{label}</Text>
-    </View>
-  );
 
   /* ── Render ─────────────────────────────────────────────── */
   // Selected teams that have no players yet (a squad is required to start).
@@ -480,238 +472,180 @@ const StartMatchScreen = ({ navigation, route }) => {
           onClose={closeMatch}
         />
 
-        {/* ── 01 · Match Format ───────────────────── */}
-        <SectionHead num="01" label="SELECT FORMAT" />
-        <View style={s.formatRow}>
-          {FORMATS.map(f => {
-            const active = f.label === format.label;
-            return (
-              <TouchableOpacity
-                key={f.label}
-                style={[s.formatCard, active && s.formatCardActive]}
-                onPress={() => handleFormatPress(f)}
-                activeOpacity={0.8}
-              >
-                <Icon
-                  name={f.icon}
-                  size={20}
-                  color={active ? K.black : K.textMuted}
-                />
-                <Text style={[s.formatLabel, active && s.formatLabelActive]}>
-                  {f.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {/* ── One screen, no scroll ─────────────────────────────────────
+            Rebuilt to fit. The previous version was compacted rather than
+            reshaped, and it still ran to ~592dp once two teams were picked and
+            the squad warning appeared — past the ~500dp a small phone gives a
+            94% sheet. What made it tall was structure, not padding:
 
-        {/* ── 02 · Team Selection ─────────────────── */}
-        <SectionHead num="02" label={indiv ? 'PLAYER DETAILS' : 'TEAM DETAILS'} />
+              · four numbered section headers, 96dp of pure chrome
+              · format as icon-over-label CARDS rather than chips
+              · team cards carrying a role tag, a 40px avatar, a name AND a
+                separate "Change" button, when the whole card is already tappable
+              · a three-row config card for two defaults and one optional field
+              · a three-line warning banner with its own button
+
+            What a match actually needs is two teams and a format; overs follow
+            the format, and venue, ball and start time all have defaults. So the
+            two required decisions get the room and everything else is one line
+            each. ~316dp filled, warning and all. */}
+
+        {/* Teams — the only decision that has to be made here. */}
         <View style={s.vsContainer}>
-          {/* Team 1 */}
-          <TouchableOpacity
-            style={[s.teamCard, team1 && s.teamCardFilled]}
-            onPress={() => setPicker('team1')}
-            activeOpacity={0.8}
-          >
-            <Text style={s.teamRoleTag}>{indiv ? 'PLAYER 1' : 'TEAM A'}</Text>
-            {team1 ? (
-              <>
-                <HexAvatar size={40} color={K.lime}>
-                  <Text style={s.teamCardInitial}>{team1.name.charAt(0).toUpperCase()}</Text>
-                </HexAvatar>
-                <Text style={s.teamCardName} numberOfLines={2}>{team1.name}</Text>
-                <TouchableOpacity
-                  style={s.teamCardChange}
-                  onPress={() => setPicker('team1')}
-                  hitSlop={{ top: 4, right: 4, bottom: 4, left: 4 }}
-                >
-                  <Text style={s.teamCardChangeText}>Change</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <Reanimated.View style={[{ alignItems: 'center', gap: 8 }, pulseStyle]}>
-                <HexAvatar size={40} color={K.surfaceHigh}>
-                  <Icon name="plus" size={20} color={K.lime} />
-                </HexAvatar>
-                <Text style={s.teamCardPlaceholder}>Select Team</Text>
-              </Reanimated.View>
-            )}
-          </TouchableOpacity>
-
-          {/* VS badge */}
-          <View style={s.vsBadgeWrapper}>
-            <View style={s.vsBadge}>
-              <Text style={s.vsText}>VS</Text>
-            </View>
-          </View>
-
-          {/* Team 2 */}
-          <TouchableOpacity
-            style={[s.teamCard, team2 && s.teamCardFilled]}
-            onPress={() => setPicker('team2')}
-            activeOpacity={0.8}
-          >
-            <Text style={s.teamRoleTag}>{indiv ? 'PLAYER 2' : 'TEAM B'}</Text>
-            {team2 ? (
-              <>
-                <HexAvatar size={40} color={K.lime}>
-                  <Text style={s.teamCardInitial}>{team2.name.charAt(0).toUpperCase()}</Text>
-                </HexAvatar>
-                <Text style={s.teamCardName} numberOfLines={2}>{team2.name}</Text>
-                <TouchableOpacity
-                  style={s.teamCardChange}
-                  onPress={() => setPicker('team2')}
-                  hitSlop={{ top: 4, right: 4, bottom: 4, left: 4 }}
-                >
-                  <Text style={s.teamCardChangeText}>Change</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <Reanimated.View style={[{ alignItems: 'center', gap: 8 }, pulseStyle]}>
-                <HexAvatar size={40} color={K.surfaceHigh}>
-                  <Icon name="plus" size={20} color={K.lime} />
-                </HexAvatar>
-                <Text style={s.teamCardPlaceholder}>Select Team</Text>
-              </Reanimated.View>
-            )}
-          </TouchableOpacity>
+          {[['team1', team1, indiv ? 'PLAYER 1' : 'TEAM A'],
+            ['team2', team2, indiv ? 'PLAYER 2' : 'TEAM B']].map(([slot, team, tag], i) => (
+            <React.Fragment key={slot}>
+              {i === 1 && (
+                <View style={s.vsBadgeWrapper}>
+                  <View style={s.vsBadge}><Text style={s.vsText}>VS</Text></View>
+                </View>
+              )}
+              <TouchableOpacity
+                style={[s.teamCard, team && s.teamCardFilled]}
+                onPress={() => setPicker(slot)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={team ? `${tag}: ${team.name}. Tap to change` : `Choose ${tag}`}>
+                {team ? (
+                  <>
+                    <HexAvatar size={30} color={K.lime}>
+                      <Text style={s.teamCardInitial}>{team.name.charAt(0).toUpperCase()}</Text>
+                    </HexAvatar>
+                    <Text style={s.teamCardName} numberOfLines={2}>{team.name}</Text>
+                  </>
+                ) : (
+                  <Reanimated.View style={[{ alignItems: 'center', gap: 4 }, pulseStyle]}>
+                    <HexAvatar size={30} color={K.surfaceHigh}>
+                      <Icon name="plus" size={17} color={K.lime} />
+                    </HexAvatar>
+                    <Text style={s.teamCardPlaceholder}>{tag}</Text>
+                  </Reanimated.View>
+                )}
+              </TouchableOpacity>
+            </React.Fragment>
+          ))}
         </View>
 
-        {/* ── 03 · Match Config ───────────────────── */}
-        <SectionHead num="03" label="MATCH CONFIG" />
-        <View style={s.configCard}>
-          {/* Venue */}
-          <View style={s.configRow}>
-            <View style={s.configIconWrap}>
-              <Icon name="map-marker-outline" size={18} color={K.lime} />
-            </View>
-            <TextInput
-              style={s.configInput}
-              value={venue}
-              onChangeText={setVenue}
-              placeholder="Search venue..."
-              placeholderTextColor={K.textMuted}
-            />
+        {/* Squad warning — one line. It was a banner with a heading, a sentence
+            and a button; it only ever says which side is empty and where to go. */}
+        {emptyTeams.length > 0 && (
+          <TouchableOpacity style={[s.squadWarn, { borderColor: c.warn }]}
+            onPress={() => navigation.navigate('TeamManagement')} activeOpacity={0.8}>
+            <Icon name="account-alert-outline" size={15} color={c.warn} />
+            <Text style={s.squadWarnText} numberOfLines={1}>
+              {emptyTeams.map((t) => t.name).join(' & ')} {emptyTeams.length > 1 ? 'have' : 'has'} no players
+            </Text>
+            <Text style={[s.squadWarnBtnText, { color: c.warn }]}>Add</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Format — chips, not cards. A named format also fixes its own length,
+            so the overs box only appears for Custom. */}
+        <View style={s.rowLabelled}>
+          <Text style={s.miniLabel}>FORMAT</Text>
+          <View style={s.formatRow}>
+            {FORMATS.map(f => {
+              const active = f.label === format.label;
+              return (
+                <TouchableOpacity key={f.label}
+                  style={[s.formatChip, active && s.formatChipActive]}
+                  onPress={() => handleFormatPress(f)} activeOpacity={0.8}>
+                  <Text style={[s.formatLabel, active && s.formatLabelActive]}>{f.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
+        </View>
 
-          <View style={s.configDivider} />
-
-          {/* Duration / scoring unit (sport-specific) */}
-          <View style={s.configRow}>
-            <View style={s.configIconWrap}>
-              <Icon name={sportFmt.durationIcon} size={18} color={K.lime} />
-            </View>
-            <Text style={s.configLabel}>{sportFmt.unit}</Text>
-            {/* A named format decides its own length — T20 is twenty overs, an
-                ODI is fifty. Leaving the box editable invited a "T20" of 34,
-                which is not a T20, and the number silently disagreed with the
-                label sitting above it. Custom is the one that asks. */}
+        {/* Overs / scoring unit, and the ball, on one line. */}
+        <View style={s.inlineRow}>
+          <View style={s.inlineCell}>
+            <Text style={s.miniLabel}>{sportFmt.unit.toUpperCase()}</Text>
             {isCustomFormat ? (
               <TextInput
-                style={s.configValueInput}
-                value={overs}
-                onChangeText={setOvers}
-                keyboardType="numeric"
-                maxLength={3}
-                placeholder={String(FORMATS[0].value)}
-                placeholderTextColor={K.textMuted}
+                style={s.oversInput}
+                value={overs} onChangeText={setOvers}
+                keyboardType="numeric" maxLength={3}
+                placeholder={String(FORMATS[0].value)} placeholderTextColor={K.textMuted}
                 accessibilityLabel={`${sportFmt.unit}, editable`}
               />
             ) : (
-              <Text style={s.configValueFixed} accessibilityLabel={`${sportFmt.unit}: ${overs}, set by the ${format.label} format`}>
+              <Text style={s.oversFixed}
+                accessibilityLabel={`${sportFmt.unit}: ${overs}, set by the ${format.label} format`}>
                 {overs}
               </Text>
             )}
           </View>
-
-          {/* Ball type — cricket only */}
           {isCricket && (
-            <>
-              <View style={s.configDivider} />
-              <View style={s.configRow}>
-                <View style={s.configIconWrap}>
-                  <Icon name="circle-slice-8" size={18} color={K.lime} />
-                </View>
-                <View style={[s.ballRow, { flex: 1 }]}>
-                  {BALL_TYPES.map(b => {
-                    const active = b.label === ballType;
-                    return (
-                      <TouchableOpacity
-                        key={b.label}
-                        style={[s.ballChip, active && s.ballChipActive]}
-                        onPress={() => setBallType(b.label)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[s.ballChipText, active && s.ballChipTextActive]} numberOfLines={1}>{b.label}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+            <View style={[s.inlineCell, { flex: 2 }]}>
+              <Text style={s.miniLabel}>BALL</Text>
+              <View style={s.ballRow}>
+                {BALL_TYPES.map(b => {
+                  const active = b.label === ballType;
+                  return (
+                    <TouchableOpacity key={b.label}
+                      style={[s.ballChip, active && s.ballChipActive]}
+                      onPress={() => setBallType(b.label)} activeOpacity={0.8}>
+                      <Text style={[s.ballChipText, active && s.ballChipTextActive]} numberOfLines={1}>{b.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            </>
+            </View>
           )}
         </View>
 
-        {/* ── Squad-required warning ──────────────── */}
-        {emptyTeams.length > 0 && (
-          <View style={[s.squadWarn, { borderColor: c.warn, backgroundColor: c.warn + '18' }]}>
-            <Icon name="account-alert-outline" size={20} color={c.warn} style={{ marginTop: 1 }} />
-            <View style={{ flex: 1 }}>
-              <Text style={[s.squadWarnTitle, { color: c.warn }]}>Squad needed to start</Text>
-              <Text style={s.squadWarnText}>
-                {emptyTeams.map((t) => t.name).join(' and ')} {emptyTeams.length > 1 ? 'have' : 'has'} no players.
-                Add at least one player to each {COMP.toLowerCase()} before you can start.
-              </Text>
-              <TouchableOpacity style={s.squadWarnBtn} onPress={() => navigation.navigate('TeamManagement')} activeOpacity={0.8}>
-                <Icon name="account-plus" size={14} color={K.lime} />
-                <Text style={s.squadWarnBtnText}>Add players</Text>
-              </TouchableOpacity>
-            </View>
+        {/* Venue — optional, so it is a single field rather than a card row. */}
+        <View style={s.rowLabelled}>
+          <Text style={s.miniLabel}>VENUE</Text>
+          <View style={s.venueRow}>
+            <Icon name="map-marker-outline" size={16} color={K.lime} />
+            <TextInput
+              style={s.venueInput}
+              value={venue} onChangeText={setVenue}
+              placeholder="Where is it being played?"
+              placeholderTextColor={K.textMuted}
+            />
           </View>
-        )}
+        </View>
 
-        {/* ── 04 · When: start now, or schedule ───── */}
-        <SectionHead num="04" label="When" />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          style={s.whenScroll} contentContainerStyle={s.whenRow}>
-          <TouchableOpacity
-            style={[s.whenChip, !scheduleAt && s.whenChipActive]}
-            onPress={() => setScheduleAt(null)}
-            activeOpacity={0.85}>
-            <Icon name="play-circle" size={15} color={!scheduleAt ? K.bg : K.textMuted} />
-            <Text style={[s.whenChipTxt, !scheduleAt && s.whenChipTxtActive]}>Start now</Text>
-          </TouchableOpacity>
-          {SCHEDULE_SLOTS.map((slot) => {
-            const on = scheduleAt && scheduleAt.getTime() === slot.date.getTime();
-            return (
-              <TouchableOpacity
-                key={slot.label}
-                style={[s.whenChip, on && s.whenChipActive]}
-                onPress={() => setScheduleAt(slot.date)}
-                activeOpacity={0.85}>
-                <Text style={[s.whenChipTxt, on && s.whenChipTxtActive]}>{slot.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-          {(() => {
-            const isCustom = scheduleAt && !SCHEDULE_SLOTS.some(s => s.date.getTime() === scheduleAt.getTime());
-            return (
-              <TouchableOpacity
-                style={[s.whenChip, isCustom && s.whenChipActive]}
-                onPress={() => {
-                  setTempDate(scheduleAt || new Date());
-                  setShowDatePicker(true);
-                }}
-                activeOpacity={0.85}>
-                <Icon name="calendar" size={15} color={isCustom ? K.bg : K.textMuted} />
-              </TouchableOpacity>
-            );
-          })()}
-        </ScrollView>
+        {/* When — defaults to now, so it is the last and lightest row. */}
+        <View style={s.rowLabelled}>
+          <Text style={s.miniLabel}>WHEN</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            style={s.whenScroll} contentContainerStyle={s.whenRow}>
+            <TouchableOpacity
+              style={[s.whenChip, !scheduleAt && s.whenChipActive]}
+              onPress={() => setScheduleAt(null)} activeOpacity={0.85}>
+              <Icon name="play-circle" size={14} color={!scheduleAt ? K.bg : K.textMuted} />
+              <Text style={[s.whenChipTxt, !scheduleAt && s.whenChipTxtActive]}>Now</Text>
+            </TouchableOpacity>
+            {SCHEDULE_SLOTS.map((slot) => {
+              const on = scheduleAt && scheduleAt.getTime() === slot.date.getTime();
+              return (
+                <TouchableOpacity key={slot.label}
+                  style={[s.whenChip, on && s.whenChipActive]}
+                  onPress={() => setScheduleAt(slot.date)} activeOpacity={0.85}>
+                  <Text style={[s.whenChipTxt, on && s.whenChipTxtActive]}>{slot.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+            {(() => {
+              const isCustom = scheduleAt && !SCHEDULE_SLOTS.some(sl => sl.date.getTime() === scheduleAt.getTime());
+              return (
+                <TouchableOpacity
+                  style={[s.whenChip, isCustom && s.whenChipActive]}
+                  onPress={() => { setTempDate(scheduleAt || new Date()); setShowDatePicker(true); }}
+                  activeOpacity={0.85}>
+                  <Icon name="calendar" size={14} color={isCustom ? K.bg : K.textMuted} />
+                </TouchableOpacity>
+              );
+            })()}
+          </ScrollView>
+        </View>
         {scheduleAt && (
           <Text style={s.whenReadout}>
-            Fixture: {scheduleAt.toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            {scheduleAt.toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
           </Text>
         )}
 
@@ -766,6 +700,41 @@ const makeS = (K) => StyleSheet.create({
   root: { flex: 1, backgroundColor: K.bg },
   scroll: { paddingHorizontal: 14, paddingTop: 0, paddingBottom: 20 },
 
+  /* ── Single-screen layout ─────────────────────────────────
+     A label and its control, stacked, is the unit this form is built from.
+     The label is small and quiet because the control below it is the thing
+     being read; that is what lets four of these stack inside one screen
+     where four numbered section headers could not. */
+  rowLabelled: { marginTop: 10 },
+  miniLabel: {
+    fontSize: 9.5, fontWeight: '800', color: K.textMuted,
+    letterSpacing: 1.1, marginBottom: 5,
+  },
+  inlineRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  inlineCell: { flex: 1 },
+
+  formatChip: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    minHeight: 34, paddingHorizontal: 6, borderRadius: 10,
+    backgroundColor: K.surfaceLow,
+  },
+  formatChipActive: { backgroundColor: K.lime },
+
+  oversInput: {
+    minHeight: 34, borderRadius: 10, backgroundColor: K.surfaceLow,
+    textAlign: 'center', fontSize: 15, fontWeight: '800', color: K.text, paddingVertical: 0,
+  },
+  oversFixed: {
+    minHeight: 34, lineHeight: 34, borderRadius: 10, backgroundColor: K.surfaceLow,
+    textAlign: 'center', fontSize: 15, fontWeight: '800', color: K.textVariant,
+  },
+
+  venueRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    minHeight: 38, paddingHorizontal: 11, borderRadius: 10, backgroundColor: K.surfaceLow,
+  },
+  venueInput: { flex: 1, fontSize: 14, color: K.text, paddingVertical: 0 },
+
   /* ── Top area ──────────────────────────────── */
   // Back sits on the label's row: with the nav header gone this is the only way
   // out, so it has to be visible without scrolling.
@@ -786,56 +755,11 @@ const makeS = (K) => StyleSheet.create({
   },
 
   /* ── Section headers ───────────────────────── */
-  sectionHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 4,
-    gap: 8,
-  },
-  sectionNumBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: K.limeDim,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: K.lime,
-  },
-  sectionNum: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: K.lime,
-  },
-  sectionLabel: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: K.textVariant,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
 
   /* ── Format row ────────────────────────────── */
   formatRow: {
     flexDirection: 'row',
     gap: 10,
-  },
-  formatCard: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 14,
-    backgroundColor: K.surfaceLow,
-    gap: 4,
-  },
-  formatCardActive: {
-    backgroundColor: K.lime,
-    shadowColor: K.lime,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 4,
   },
   formatLabel: {
     fontSize: 12,
@@ -879,13 +803,6 @@ const makeS = (K) => StyleSheet.create({
   teamCardFilled: {
     backgroundColor: K.surfaceHigh + '40',
   },
-  teamRoleTag: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: K.textMuted,
-    letterSpacing: 1.5,
-    marginBottom: 6,
-  },
   teamCardAvatar: {
     width: 54,
     height: 54,
@@ -913,18 +830,6 @@ const makeS = (K) => StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
   },
-  teamCardChange: {
-    marginTop: 2,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: K.surfaceHigh,
-    borderRadius: 12,
-  },
-  teamCardChangeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: K.text,
-  },
   teamCardEmpty: {
     width: 54,
     height: 54,
@@ -942,11 +847,6 @@ const makeS = (K) => StyleSheet.create({
     color: K.textMuted,
     textAlign: 'center',
     marginTop: 4,
-  },
-  teamCardAction: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: K.lime,
   },
   vsBadgeWrapper: {
     position: 'absolute',
@@ -982,64 +882,8 @@ const makeS = (K) => StyleSheet.create({
   },
 
   /* ── Config card ───────────────────────────── */
-  configCard: {
-    backgroundColor: K.surfaceLow + 'CC',
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: K.lime + '40',
-    shadowColor: K.lime,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  configRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    gap: 10,
-  },
-  configIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: K.limeDim,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  configLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: K.text,
-    flex: 1,
-  },
-  configInput: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '400',
-    color: K.text,
-    paddingVertical: 0,
-  },
-  configValueInput: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: K.text,
-    textAlign: 'right',
-    minWidth: 50,
-    paddingVertical: 0,
-  },
   // The same number in the same place, just not a text box: a format that
   // owns its length should read as a fact, not as an empty invitation.
-  configValueFixed: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: K.text,
-    textAlign: 'right',
-    minWidth: 50,
-    paddingVertical: 0,
-  },
   ballRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1065,27 +909,8 @@ const makeS = (K) => StyleSheet.create({
   ballChipTextActive: {
     color: K.black,
   },
-  configDivider: {
-    height: 1,
-    backgroundColor: K.surfaceHigh,
-    marginHorizontal: 16,
-  },
 
   /* ── Info banner ───────────────────────────── */
-  infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginTop: 16,
-    paddingHorizontal: 4,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '400',
-    color: K.textMuted,
-    lineHeight: 18,
-  },
 
   /* ── Squad-required warning ────────────────── */
   squadWarn: {
@@ -1097,13 +922,7 @@ const makeS = (K) => StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
   },
-  squadWarnTitle: { fontSize: 13.5, fontWeight: '800', marginBottom: 3 },
   squadWarnText: { fontSize: 12.5, color: K.textVariant, lineHeight: 18 },
-  squadWarnBtn: {
-    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5,
-    marginTop: 10, paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: 20, backgroundColor: K.limeDim, borderWidth: 1, borderColor: K.lime,
-  },
   squadWarnBtnText: { color: K.lime, fontSize: 12.5, fontWeight: '800' },
 
   /* ── When (schedule) ───────────────────────── */
