@@ -1,0 +1,28 @@
+{
+  // Type checking WITHOUT converting anything.
+  //
+  // `allowJs` lets tsc read the .js files we already have; `checkJs` is OFF so
+  // it stays silent by default. A file opts in by putting `// @ts-check` at the
+  // top, which means we can type the places that actually bite — the API
+  // boundary — without 158 files shouting at once.
+  //
+  // `noEmit` because Babel does the transform for React Native. tsc is a linter
+  // here, not a compiler; it never produces output.
+  //
+  //   npm run typecheck
+  //
+  // New files can be written in .ts/.tsx and will just work. Nothing existing
+  // has to change.
+  "extends": "@react-native/typescript-config/tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["src/**/*", "App.js", "index.js"],
+  "exclude": ["node_modules", "android", "ios"]
+}
