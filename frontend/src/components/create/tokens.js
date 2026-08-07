@@ -211,23 +211,27 @@ export const makeCreateStyles = (DS) => {
       borderTopWidth: 1, borderTopColor: DS.faint,
       ...sh.footer,
     },
-    // Black, and smaller than it was — 54 was a slab across the foot of every
-    // drawer. 48 is the touch-target minimum this system promises, so it is as
-    // small as the button is allowed to get.
+    // Green with black on it, and 48 tall — the touch-target minimum this system
+    // promises, so as small as the button is allowed to get. It was 54, a slab
+    // across the foot of every drawer, and then a solid near-black.
     //
-    // "Black" means the highest-contrast solid against the page, which is a
-    // near-black on the light theme and a near-white on the dark one. A literal
-    // black button on the dark theme's #0f1214 background would be a rectangle
-    // you could not see; inverting keeps it the strongest thing on screen,
-    // which is what a submit button is for.
+    // The accent, rather than black, because black made the drawers the one
+    // place in the app with a CTA that wasn't the brand's: the dock's active
+    // tab, the chips, the filter sheet's APPLY are all lime with dark ink on
+    // them. A submit button should be the strongest thing on the page AND the
+    // same colour as everything else that means "yes".
+    //
+    // Both halves flip with the theme and both are checked, not assumed:
+    // #3ecf6e on #06210f is 8.40:1 in dark, #0a5227 on #ffffff is 9.34:1 in
+    // light. AAA on both.
     primary: {
       minHeight: TAP,
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACE.sm,
       borderRadius: RADIUS.field,
-      backgroundColor: DS.textPrimary,
+      backgroundColor: DS.lime,
     },
     primaryOff: { opacity: 0.4 },
-    primaryText: { ...TYPE.button, color: DS.bg },
+    primaryText: { ...TYPE.button, color: DS.onLime },
     secondary: {
       minHeight: TAP,
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACE.sm,

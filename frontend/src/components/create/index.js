@@ -431,15 +431,17 @@ export function PrimaryButton({ label, icon = 'check', onPress, loading, disable
       style={[s.primary, off && s.primaryOff]}
       accessibilityRole="button" accessibilityState={{ disabled: !!off, busy: !!loading }}
       accessibilityLabel={label}>
-      {/* The button is the page's ink, so everything on it is the page. onLime
-          was right when it was green and would be invisible now. */}
-      {loading ? <ActivityIndicator color={DS.bg} /> : done ? (
+      {/* The button is the accent again, so everything on it is onLime — the
+          ink the palette defines for exactly this. These three were DS.bg from
+          the black-button pass; left alone they would be a page-coloured
+          spinner and a page-coloured tick sitting on green. */}
+      {loading ? <ActivityIndicator color={DS.onLime} /> : done ? (
         <Animated.View style={{ transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }] }}>
-          <Icon name="check-circle" size={22} color={DS.bg} />
+          <Icon name="check-circle" size={22} color={DS.onLime} />
         </Animated.View>
       ) : (
         <>
-          {!!icon && <Icon name={icon} size={18} color={DS.bg} />}
+          {!!icon && <Icon name={icon} size={18} color={DS.onLime} />}
           <Text style={s.primaryText}>{label}</Text>
         </>
       )}
