@@ -544,11 +544,6 @@ export default function TournamentDetailScreen({ route, navigation }) {
     );
   }
 
-  // Whether the add-team FAB is drawn. One source, because the tab bodies have
-  // to reserve room for it and it is the only thing left floating over them now
-  // that the dock does not render on this route.
-  const showFab = ['upcoming', 'ongoing'].includes(tournament.status);
-
   const statusColor = STATUS_COLORS[tournament.status] || STATUS_COLORS.upcoming;
 
   // Only the creator manages the tournament. Legacy tournaments with no recorded
@@ -581,6 +576,24 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const cap = capacity(tournament, (tournament.teams || []).length);
   const liveStatus = effectiveStatus(tournament, (tournament.teams || []).length);
   const acceptsTeams = ['upcoming', 'ongoing'].includes(liveStatus) && !cap.full;
+
+  // The add-teams FAB. It used to be gated on the tournament's status ALONE, and
+  // its onPress never set pickerMode — so it fell through to the state's default
+  // of 'add', the organiser flow. An accepted participant tapping it got the
+  // organiser's "Select Teams" picker and could try to add teams to someone
+  // else's tournament. The server always refused (POST /:id/teams is behind
+  // requireOrganizer), so this was an offer the app could not honour rather than
+  // a way in — but offering it at all is the bug.
+  //
+  // Same rule the "Add More Teams / Request to Join" link below the team list
+  // already used: the organiser adds, everyone else may only ask, and only while
+  // the tournament is open to asking.
+  //
+  // One flag, because the tab bodies reserve bottom padding for this button and
+  // it is the only thing floating over them now the dock is gone from the route.
+  const canAddTeams = isOrganizer && ['upcoming', 'ongoing'].includes(tournament.status);
+  const canRequestJoin = !isOrganizer && acceptsTeams && policy.open && myEntryTeams.length > 0;
+  const showFab = canAddTeams || canRequestJoin;
   // Anything drawn over the cover photo needs the light treatment; without a
   // cover the header is an ordinary surface and keeps the theme's colours.
   const onCover = !!tournament.banner;
@@ -1504,8 +1517,11 @@ export default function TournamentDetailScreen({ route, navigation }) {
       </GestureDetector>
 
       {showFab && (
-        <TouchableOpacity style={styles.fab} onPress={() => setShowTeamPicker(true)} activeOpacity={0.85}>
-          <Icon name="plus" size={28} color={DS.white} />
+        <TouchableOpacity style={styles.fab} activeOpacity={0.85}
+          onPress={() => { setPickerMode(isOrganizer ? 'add' : 'join'); setShowTeamPicker(true); }}
+          accessibilityRole="button"
+          accessibilityLabel={isOrganizer ? 'Add teams to this tournament' : 'Request to join this tournament'}>
+          <Icon name={isOrganizer ? 'plus' : 'account-plus-outline'} size={28} color={DS.white} />
         </TouchableOpacity>
       )}
 
