@@ -11,6 +11,7 @@ import LeaderboardIndex from '../components/LeaderboardIndex';
 import { getSport } from '../sports';
 import { joinPolicy, capacity, effectiveStatus } from '../utils/tournamentPolicy';
 import FocusedImage from '../components/FocusedImage';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -1404,8 +1405,23 @@ export default function TournamentDetailScreen({ route, navigation }) {
         {!!tournament.banner && (
           <>
             <FocusedImage uri={tournament.banner} focus={tournament.media?.bannerFocus} style={styles.coverImg} />
-            {/* The title has to stay readable on whatever photo lands here. */}
-            <View style={styles.coverScrim} />
+            {/* A gradient, not a flat wash. This was #000000a6 across the whole
+                cover — 65% black over every pixel — which kept the title legible
+                by blacking out the photograph the organiser chose. The text all
+                sits in the lower half, so that is the only part that needs
+                protecting: clear at the top, deepening to 78% at the very
+                bottom where the name and chips are. */}
+            <Svg style={styles.coverScrim} pointerEvents="none">
+              <Defs>
+                <LinearGradient id="coverFade" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor="#000" stopOpacity="0.10" />
+                  <Stop offset="0.42" stopColor="#000" stopOpacity="0.24" />
+                  <Stop offset="0.75" stopColor="#000" stopOpacity="0.58" />
+                  <Stop offset="1" stopColor="#000" stopOpacity="0.78" />
+                </LinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height="100%" fill="url(#coverFade)" />
+            </Svg>
           </>
         )}
 
@@ -1762,7 +1778,7 @@ const makeStyles = (DS) => StyleSheet.create({
   headerTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   headerMain: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   coverImg: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-  coverScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000a6' },
+  coverScrim: { ...StyleSheet.absoluteFillObject },
   logoImg: { width: 46, height: 46, borderRadius: 14, backgroundColor: DS.surfaceHigh, borderWidth: 1.5, borderColor: DS.lime },
   headerChips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 12 },
   metaChipOnCover: { backgroundColor: '#ffffff2e' },
