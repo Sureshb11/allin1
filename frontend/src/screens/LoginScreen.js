@@ -281,15 +281,6 @@ export default function LoginScreen({ navigation }) {const { colors: DS, isDark 
               height={56}
               style={s.primary}
               textStyle={{ fontSize: 16 }} />
-
-              <View style={s.divider}>
-                <View style={s.divLine} /><Text style={s.divTxt}>OR</Text><View style={s.divLine} />
-              </View>
-
-              <TouchableOpacity style={s.secondary} onPress={() => navigation.navigate('SignUp')} activeOpacity={0.9}>
-                <Icon name="account-plus-outline" size={18} color={DS.blueSoft} />
-                <Text style={s.secondaryTxt}>Create New Account</Text>
-              </TouchableOpacity>
             </>
           }
         </View>
@@ -348,13 +339,8 @@ const makeS = (DS) => StyleSheet.create({
 
   primary: { borderRadius: 16, marginTop: 22 },
 
-  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 18 },
-  divLine: { flex: 1, height: 1, backgroundColor: DS.line },
-  divTxt: { fontSize: 11, color: DS.textMuted, fontWeight: '800', letterSpacing: 1 },
 
   // Secondary action — component-layer fill, on-surface blue text. No outline.
-  secondary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.surfaceHigh, borderRadius: 16, height: 54 },
-  secondaryTxt: { fontSize: 15, fontWeight: '800', color: DS.blueSoft },
 
   altRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
   linkMuted: { fontSize: 15, color: DS.textVariant, fontWeight: '700', paddingVertical: 8 },
