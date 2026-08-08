@@ -4,15 +4,17 @@ import {createStackNavigator} from '@react-navigation/stack';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import MobileVerificationScreen from '../screens/MobileVerificationScreen';
+import { useTheme } from '../theme/ThemeContext';
 
 const Stack = createStackNavigator();
 
 const AuthNavigator = () => {
+  const { colors } = useTheme();
   return (
     <Stack.Navigator 
       screenOptions={{ 
         headerShown: false,
-        cardStyle: { backgroundColor: '#0f131f' }
+        cardStyle: { backgroundColor: colors.bg }
       }}
     >
       <Stack.Screen name="Login" component={LoginScreen} />

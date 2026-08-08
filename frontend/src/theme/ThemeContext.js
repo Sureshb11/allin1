@@ -43,10 +43,10 @@ const dark = {
   coral: '#ff5b52',       // semantic red — wicket / danger / live
   wicketBg: 'rgba(255,91,82,0.16)',
   wicketText: '#ff5b52',
-  blue: '#3ecf6e',        // blue removed → folds into the single green accent
-  blueDeep: '#3ecf6e',
-  blueSoft: '#3ecf6e',
-  onBlue: '#06210f',
+  blue: '#3b82f6',
+  blueDeep: '#2563eb',
+  blueSoft: '#60a5fa',
+  onBlue: '#ffffff',
   textPrimary: '#eaeced',
   textVariant: '#a3a9ae',
   textSecondary: '#a3a9ae',
@@ -92,9 +92,9 @@ const light = {
   coral: '#c62828',       // semantic red — wicket / danger / live
   wicketBg: 'rgba(198,40,40,0.10)',
   wicketText: '#c62828',
-  blue: '#0a5227',        // blue removed → folds into the single green accent
-  blueDeep: '#0a5227',
-  blueSoft: '#0a5227',
+  blue: '#2563eb',
+  blueDeep: '#1d4ed8',
+  blueSoft: '#3b82f6',
   onBlue: '#ffffff',
   textPrimary: '#131619', // near-black — survives glare
   textVariant: '#464c52',
@@ -191,7 +191,7 @@ export const shadows = {
   lg: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 8 },
 };
 
-const ThemeContext = createContext({
+export const ThemeContext = createContext({
   mode: 'light',
   pref: 'system',
   colors: light,
@@ -261,6 +261,29 @@ export function ThemeProvider({ children }) {
     setMode,
     toggle,
   }), [mode, pref, colors, sportId, setMode, toggle]);
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+export function ForcedDarkThemeProvider({ children }) {
+  const current = useContext(ThemeContext);
+  
+  // Only override if the current mode is not dark.
+  const value = useMemo(() => {
+    if (current.isDark) return current;
+    
+    // For sport accent overriding in forced dark mode:
+    const accent = current.sportId && current.sportId !== 'cricket' ? sportColor(current.sportId, true) : null;
+    const darkColors = applySportAccent(PALETTES.dark, accent);
+    
+    return {
+      ...current,
+      mode: 'dark',
+      isDark: true,
+      colors: darkColors,
+      typography: typographyDark,
+    };
+  }, [current]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

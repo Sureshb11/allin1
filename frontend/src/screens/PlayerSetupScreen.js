@@ -9,6 +9,7 @@ import { validateHowIPlay } from '../sports/cricketProfile';
 import { markPlayerSetup } from '../utils/playerSetup';
 import legendsApi from '../services/LegendsApi';
 import { showToast } from '../components/Toast';
+import ThemeToggleButton from '../components/ThemeToggleButton';
 
 // The one question the app asks on the way into cricket: do you play?
 //
@@ -101,6 +102,7 @@ export default function PlayerSetupScreen({ navigation, route }) {
   if (checking) {
     return (
       <SafeAreaView style={s.screen}>
+        <ThemeToggleButton style={{ position: 'absolute', top: 56, right: 24, zIndex: 10 }} />
         <View style={s.center}><ActivityIndicator color={DS.lime} /></View>
       </SafeAreaView>
     );
@@ -110,9 +112,10 @@ export default function PlayerSetupScreen({ navigation, route }) {
   if (step === 'ask') {
     return (
       <SafeAreaView style={s.screen}>
+        <ThemeToggleButton style={{ position: 'absolute', top: 16, right: 24, zIndex: 10 }} />
         <View style={s.body}>
           <View style={s.badge}>
-            <Icon name="cricket" size={13} color={DS.lime} />
+            <Icon name={sport.icon || sport.mci || 'star'} size={13} color={DS.lime} />
             <Text style={s.badgeText}>{String(sportName).toUpperCase()}</Text>
           </View>
           <Text style={s.h1}>Do you play?</Text>
@@ -122,11 +125,11 @@ export default function PlayerSetupScreen({ navigation, route }) {
 
           <TouchableOpacity style={s.choice} activeOpacity={0.85} onPress={() => setStep('form')}>
             <View style={[s.choiceIcon, { backgroundColor: DS.lime }]}>
-              <Icon name="cricket" size={21} color={DS.onLime} />
+              <Icon name={sport.icon || sport.mci || 'star'} size={21} color={DS.onLime} />
             </View>
             <View style={s.choiceText}>
               <Text style={s.choiceTitle}>Yes, I play</Text>
-              <Text style={s.choiceBlurb}>Three quick questions — role, batting hand, bowling style</Text>
+              <Text style={s.choiceBlurb}>Set up your player profile for the team</Text>
             </View>
             <Icon name="chevron-right" size={20} color={DS.textMuted} />
           </TouchableOpacity>
@@ -149,6 +152,7 @@ export default function PlayerSetupScreen({ navigation, route }) {
   // ── Door 2: the three questions ──
   return (
     <SafeAreaView style={s.screen}>
+      <ThemeToggleButton style={{ position: 'absolute', top: 56, right: 24, zIndex: 10 }} />
       <View style={s.topBar}>
         <TouchableOpacity onPress={() => setStep('ask')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="chevron-left" size={26} color={DS.textPrimary} />

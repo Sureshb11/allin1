@@ -27,7 +27,7 @@ const PROD_URL = 'https://allin1-api.vercel.app';
 
 // Develop against the local server in ../../backend (npm run dev on :4000)?
 // Flip this freely — it is ONLY consulted in a dev build.
-const DEV_USES_LOCAL_BACKEND = true;
+const DEV_USES_LOCAL_BACKEND = false;
 
 // A release build always talks to the deployed API. It used to be one
 // hand-flipped constant for both, and it was left on local: every APK built

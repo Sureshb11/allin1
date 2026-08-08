@@ -1,4 +1,5 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useRef } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,26 +8,18 @@ import {
   TextInput,
   Alert,
   ScrollView,
-  ActivityIndicator } from
-'react-native';
+  ActivityIndicator,
+  Pressable
+} from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { registerForPush } from '../services/push';
-import BrandLogo from "../components/BrandLogo";
+import BrandLogo from '../components/BrandLogo';
+import ThemeToggleButton from '../components/ThemeToggleButton';
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+const MobileVerificationScreen = ({ route, navigation }) => {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
   const [otp, setOtp] = useState(['', '', '', '']);
   const [timer, setTimer] = useState(120); // 2 minutes
   const [canResend, setCanResend] = useState(false);
@@ -34,8 +27,7 @@ const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme
   const [activeIndex, setActiveIndex] = useState(0);
 
   const inputRefs = useRef([]);
-
-  const { phoneNumber, countryCode, newUser = false } = route.params || {};
+  const { phoneNumber, countryCode } = route.params || {};
 
   useEffect(() => {
     const countdown = setInterval(() => {
@@ -52,21 +44,29 @@ const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme
     return () => clearInterval(countdown);
   }, []);
 
+  const focusInput = (index) => {
+    const idx = index !== undefined ? index : activeIndex;
+    const target = inputRefs.current[idx] || inputRefs.current[0];
+    if (target) {
+      target.blur();
+      setTimeout(() => target.focus(), 50);
+    }
+  };
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.
-    toString().
-    padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleOtpChange = (value, index) => {
+    const cleanValue = value.replace(/\D/g, '');
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = cleanValue;
     setOtp(newOtp);
 
-    // Auto-advance to next input
-    if (value && index < 3) {
+    // Auto-advance to next input box
+    if (cleanValue && index < 3) {
       inputRefs.current[index + 1]?.focus();
       setActiveIndex(index + 1);
     }
@@ -84,12 +84,12 @@ const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme
   const handleVerifyOtp = async () => {
     const otpString = getOtpString();
     if (otpString.length < 4) {
-      Alert.alert('Error', 'Please enter the complete verification code');
+      Alert.alert('Error', 'Please enter the complete 4-digit verification code');
       return;
     }
 
     if (!phoneNumber) {
-      Alert.alert('Error', 'Missing phone number. Please start over.');
+      Alert.alert('Error', 'Missing phone number. Please go back and try again.');
       return;
     }
     setLoading(true);
@@ -97,15 +97,13 @@ const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme
       const cleaned = String(phoneNumber).replace(/\s/g, '');
       const res = await legendsApi.verifyOtp(cleaned, otpString, countryCode);
       if (res.success) {
-        // Fresh sign-in: ask for notification permission and register this
-        // device for match/award pushes. Fire-and-forget — never blocks entry.
         registerForPush();
         navigation.replace('SportPicker');
       } else {
         Alert.alert('Invalid OTP', res.error || 'Please check and enter the correct verification code');
       }
     } catch {
-      Alert.alert('Error', 'Server unreachable. Check your connection.');
+      Alert.alert('Error', 'Server unreachable. Check your internet connection.');
     } finally {
       setLoading(false);
     }
@@ -118,7 +116,6 @@ const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme
     setCanResend(false);
     setTimer(120);
 
-    // Restart timer
     const countdown = setInterval(() => {
       setTimer((prev) => {
         if (prev <= 1) {
@@ -133,303 +130,316 @@ const MobileVerificationScreen = ({ route, navigation }) => {const DS = useTheme
     const cleaned = String(phoneNumber || '').replace(/\s/g, '');
     const res = await legendsApi.sendOtp(cleaned, countryCode);
     setLoading(false);
-    Alert.alert(res.success ? 'OTP Resent' : 'Error',
-      res.success ? 'A new verification code has been sent to your phone' : (res.error || 'Could not resend the code'));
-  };
-
-  const handleCallVerification = () => {
     Alert.alert(
-      'Call Verification',
-      'You will receive a call with your verification code within 2 minutes.',
-      [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Request Call',
-        onPress: () => {
-          Alert.alert(
-            'Call Requested',
-            'You will receive a verification call shortly'
-          );
-        }
-      }]
-
+      res.success ? 'OTP Resent' : 'Error',
+      res.success ? 'A new verification code has been sent to your phone' : (res.error || 'Could not resend the code')
     );
   };
 
-  const displayPhone = phoneNumber ?
-  `${countryCode || ''} ${phoneNumber}` :
-  '+1 234 567 890';
+  const displayPhone = phoneNumber ? `${countryCode || ''} ${phoneNumber}` : '+91 98765 43210';
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
-      keyboardShouldPersistTaps="handled">
-      {/* Header with back arrow and brand */}
-      <View style={styles.topBar}>
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Top Bar */}
+      <View style={[styles.topBar, { justifyContent: 'space-between' }]}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}>
-          <Text style={styles.backArrow}>{'\u2190'}</Text>
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Icon name="arrow-left" size={20} color={DS.textPrimary} />
         </TouchableOpacity>
-        <View style={styles.brandRow}>
-          <View style={styles.starBadge}>
-            <Text style={styles.starIcon}>{'\u2605'}</Text>
-          </View>
-          <BrandLogo scale={0.75} />
-        </View>
+        <BrandLogo scale={0.8} />
+        <ThemeToggleButton />
       </View>
 
-      {/* Main content */}
+      {/* Main Content Card */}
       <View style={styles.mainContent}>
+        <View style={styles.pillBadge}>
+          <Icon name="shield-check" size={14} color={DS.lime} />
+          <Text style={styles.pillBadgeTxt}>SECURITY VERIFICATION</Text>
+        </View>
+
         <Text style={styles.title}>Verify Your Number</Text>
         <Text style={styles.subtitle}>
           Enter the 4-digit code sent to{'\n'}
           <Text style={styles.phoneHighlight}>{displayPhone}</Text>
         </Text>
 
-        {/* OTP boxes */}
-        <View style={styles.otpRow}>
-          {otp.map((digit, index) =>
-          <TextInput
-            key={index}
-            ref={(ref) => inputRefs.current[index] = ref}
-            style={[
-            styles.otpBox,
-            activeIndex === index && styles.otpBoxActive,
-            digit !== '' && styles.otpBoxFilled]
-            }
-            value={digit}
-            onChangeText={(value) => handleOtpChange(value, index)}
-            onKeyPress={(e) => handleKeyPress(e, index)}
-            onFocus={() => setActiveIndex(index)}
-            keyboardType="numeric"
-            maxLength={1}
-            textAlign="center"
-            selectionColor={DS.lime} />
+        {/* OTP Boxes Container */}
+        <Pressable
+          style={styles.otpRowContainer}
+          onPress={() => focusInput(activeIndex)}
+        >
+          <View style={styles.otpRow}>
+            {otp.map((digit, index) => (
+              <TouchableOpacity
+                key={index}
+                activeOpacity={0.9}
+                onPress={() => focusInput(index)}
+                style={{ flex: 1 }}
+              >
+                <TextInput
+                  ref={(ref) => inputRefs.current[index] = ref}
+                  style={[
+                    styles.otpBox,
+                    activeIndex === index && styles.otpBoxActive,
+                    digit !== '' && styles.otpBoxFilled
+                  ]}
+                  value={digit}
+                  onChangeText={(value) => handleOtpChange(value, index)}
+                  onKeyPress={(e) => handleKeyPress(e, index)}
+                  onFocus={() => setActiveIndex(index)}
+                  keyboardType="numeric"
+                  maxLength={1}
+                  textAlign="center"
+                  selectionColor={DS.lime}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
 
-          )}
-        </View>
+        {/* Auto-fill Test Code Chip */}
+        <TouchableOpacity
+          style={styles.testCodeChip}
+          activeOpacity={0.7}
+          onPress={() => {
+            setOtp(['1', '2', '3', '4']);
+            focusInput(3);
+          }}
+        >
+          <Icon name="lightning-bolt" size={14} color={DS.lime} />
+          <Text style={styles.testCodeTxt}>
+            Test Code: <Text style={styles.testCodeBold}>1234</Text> (Tap to fill)
+          </Text>
+        </TouchableOpacity>
 
         {/* Timer */}
-        {timer > 0 &&
-        <Text style={styles.timerText}>
-            Resend code in{' '}
-            <Text style={styles.timerHighlight}>{formatTime(timer)}</Text>
+        {timer > 0 ? (
+          <Text style={styles.timerText}>
+            Resend code in <Text style={styles.timerHighlight}>{formatTime(timer)}</Text>
           </Text>
-        }
+        ) : null}
 
-        {/* Verify button */}
+        {/* Verify Button */}
         <TouchableOpacity
           style={[styles.verifyButton, loading && styles.verifyButtonDisabled]}
           onPress={handleVerifyOtp}
           disabled={loading}
-          activeOpacity={0.8}>
-          {loading ?
-          <ActivityIndicator color={DS.white} size="small" /> :
-
-          <Text style={styles.verifyButtonText}>VERIFY</Text>
-          }
+          activeOpacity={0.8}
+        >
+          {loading ? (
+            <ActivityIndicator color={DS.bg} size="small" />
+          ) : (
+            <View style={styles.btnRow}>
+              <Text style={styles.verifyButtonText}>VERIFY & JOIN</Text>
+              <Icon name="arrow-right" size={18} color={DS.bg} />
+            </View>
+          )}
         </TouchableOpacity>
 
-        {/* Resend section */}
+        {/* Resend Section */}
         <View style={styles.resendSection}>
-          <Text style={styles.didntReceiveText}>
-            Didn't receive the code?
-          </Text>
-          <TouchableOpacity
-            onPress={handleResendOtp}
-            disabled={!canResend || loading}>
-            <Text
-              style={[
-              styles.resendCodeText,
-              (!canResend || loading) && styles.resendCodeDisabled]
-              }>
+          <Text style={styles.didntReceiveText}>Didn't receive the code?</Text>
+          <TouchableOpacity onPress={handleResendOtp} disabled={!canResend || loading}>
+            <Text style={[styles.resendCodeText, (!canResend || loading) && styles.resendCodeDisabled]}>
               RESEND CODE
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Alternative options */}
-        <View style={styles.alternativeOptions}>
-          <TouchableOpacity onPress={handleCallVerification}>
-            <Text style={styles.callText}>Get verification call instead</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.changeNumberText}>
-              Wrong number? Change it
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 12 }}>
+          <Text style={styles.changeNumberText}>Wrong number? Change it</Text>
+        </TouchableOpacity>
       </View>
-    </ScrollView>);
-
+    </ScrollView>
+  );
 };
 
 const makeStyles = (DS) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: DS.bg
+    backgroundColor: DS.bg,
   },
   contentContainer: {
     flexGrow: 1,
-    paddingBottom: 40
+    paddingBottom: 40,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 12
+    paddingTop: 54,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    gap: 12,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     backgroundColor: DS.surfaceLow,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14
-  },
-  backArrow: {
-    color: DS.textPrimary,
-    fontSize: 20,
-    fontWeight: '600'
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  starBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: DS.lime,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8
-  },
-  starIcon: {
-    color: DS.bg,
-    fontSize: 14,
-    fontWeight: '700'
-  },
-  brandText: {
-    color: DS.textPrimary,
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 2
   },
   mainContent: {
-    paddingHorizontal: 28,
-    paddingTop: 40,
-    alignItems: 'center'
+    marginHorizontal: 16,
+    marginTop: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 28,
+    backgroundColor: DS.surfaceLow,
+    borderRadius: 24,
+    alignItems: 'center',
+  },
+  pillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: DS.lime + '18',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginBottom: 16,
+  },
+  pillBadgeTxt: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: DS.lime,
+    letterSpacing: 1.5,
   },
   title: {
-    fontSize: 30,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '900',
     color: DS.textPrimary,
-    marginBottom: 12,
-    textAlign: 'center'
+    marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: DS.textMuted,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 40
+    lineHeight: 21,
+    marginBottom: 28,
   },
   phoneHighlight: {
     color: DS.textVariant,
-    fontWeight: '600'
+    fontWeight: '700',
+  },
+  otpRowContainer: {
+    width: '100%',
+    marginVertical: 6,
   },
   otpRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 14,
-    marginBottom: 28
+    gap: 12,
+    width: '100%',
   },
   otpBox: {
-    width: 64,
     height: 64,
-    borderRadius: 14,
-    backgroundColor: DS.surfaceLow,
-    borderWidth: 1.5,
-    borderColor: DS.surfaceHighest,
-    borderStyle: 'dashed',
-    fontSize: 24,
-    fontWeight: '700',
+    borderRadius: 16,
+    backgroundColor: DS.surfaceHigh,
+    borderWidth: 2,
+    borderColor: DS.surfaceHighest || '#2a2f42',
+    fontSize: 26,
+    fontWeight: '900',
     color: DS.textPrimary,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   otpBoxActive: {
     borderColor: DS.lime,
-    borderStyle: 'solid',
-    borderWidth: 2
+    backgroundColor: DS.lime + '0a',
   },
   otpBoxFilled: {
-    borderStyle: 'solid',
-    borderColor: DS.surfaceHighest
+    borderColor: DS.blueSoft || '#3b82f6',
+    backgroundColor: (DS.blueSoft || '#3b82f6') + '0a',
+  },
+  testCodeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: DS.lime + '14',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  testCodeTxt: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: DS.textSecondary,
+  },
+  testCodeBold: {
+    color: DS.lime,
+    fontWeight: '800',
   },
   timerText: {
-    fontSize: 14,
+    fontSize: 13,
     color: DS.textMuted,
-    marginBottom: 32
+    marginBottom: 24,
   },
   timerHighlight: {
-    color: DS.textVariant,
-    fontWeight: '600'
+    color: DS.lime,
+    fontWeight: '700',
   },
   verifyButton: {
     width: '100%',
-    height: 54,
-    borderRadius: 14,
-    backgroundColor: DS.blue,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: DS.lime,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32
+    marginBottom: 24,
+    shadowColor: DS.lime,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   verifyButtonDisabled: {
-    opacity: 0.5
+    opacity: 0.5,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   verifyButtonText: {
-    color: DS.white,
+    color: DS.bg,
     fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 2
+    fontWeight: '900',
+    letterSpacing: 1.5,
   },
   resendSection: {
     alignItems: 'center',
-    marginBottom: 32
+    marginBottom: 12,
   },
   didntReceiveText: {
-    fontSize: 14,
+    fontSize: 13,
     color: DS.textMuted,
-    marginBottom: 8
+    marginBottom: 6,
   },
   resendCodeText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: DS.lime,
-    letterSpacing: 2
+    fontSize: 13,
+    fontWeight: '800',
+    color: DS.blueSoft || '#3b82f6',
+    letterSpacing: 1.5,
   },
   resendCodeDisabled: {
-    opacity: 0.4
-  },
-  alternativeOptions: {
-    alignItems: 'center',
-    gap: 16
-  },
-  callText: {
-    fontSize: 14,
-    color: DS.textMuted
+    opacity: 0.4,
   },
   changeNumberText: {
     fontSize: 14,
-    color: DS.blue,
-    fontWeight: '600'
-  }
+    color: DS.textSecondary,
+    fontWeight: '600',
+  },
 });
 
 export default MobileVerificationScreen;

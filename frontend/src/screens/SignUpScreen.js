@@ -1,4 +1,6 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState } from 'react';
+import { haptic } from '../utils/haptics';
+import ThemeToggleButton from '../components/ThemeToggleButton';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ScrollView, StatusBar } from
@@ -69,7 +71,7 @@ export default function SignUpScreen({ navigation }) {const DS = useTheme().colo
       <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
 
       {/* ── HEADER ── */}
-      <View style={s.header}>
+      <View style={[s.header, { justifyContent: 'space-between', paddingRight: 24 }]}>
         <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
           <Icon name="arrow-left" size={22} color={DS.textPrimary} />
         </TouchableOpacity>
@@ -83,6 +85,7 @@ export default function SignUpScreen({ navigation }) {const DS = useTheme().colo
             <Text style={s.logoLegends}>LEGENDS</Text>
           </View>
         </View>
+        <ThemeToggleButton />
       </View>
 
       <ScrollView
@@ -98,18 +101,46 @@ export default function SignUpScreen({ navigation }) {const DS = useTheme().colo
           <Text style={s.tagline}>{BRAND_TAGLINE}</Text>
         </View>
 
-        {/* ── NAME INPUT ── */}
-        <View style={s.inputWrap}>
-          <Text style={s.inputLabel}>FULL NAME</Text>
+        {/* ── ARENA PLAYER CARD ── */}
+        <View style={s.namePreviewBox}>
+          <View style={s.avatarCircle}>
+            <Text style={s.avatarInitials}>
+              {name.trim()
+                ? name
+                    .trim()
+                    .split(' ')
+                    .filter(Boolean)
+                    .map((n) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()
+                : '⚡'}
+            </Text>
+          </View>
+          <View style={s.namePreviewTextWrap}>
+            <Text style={s.previewTitle}>ARENA PLAYER CARD</Text>
+            <Text style={s.previewName} numberOfLines={1}>
+              {name.trim() || 'Your Name'}
+            </Text>
+            <Text style={s.previewTag}>Local Legends • Verified Athlete</Text>
+          </View>
+        </View>
+
+        <Text style={s.inputLabel}>ENTER YOUR FULL NAME</Text>
+        <View style={s.nameInputContainer}>
           <TextInput
             style={s.input}
-            placeholder="ENTER YOUR NAME"
-            placeholderTextColor={DS.surfaceHighest}
+            placeholder="e.g. Alex Chen"
+            placeholderTextColor={DS.textMuted}
             value={name}
             onChangeText={setName}
-            autoCapitalize="characters" />
+            autoCapitalize="words" />
           
-          <View style={s.inputUnderline} />
+          {name.length > 0 && (
+            <TouchableOpacity onPress={() => setName('')} style={s.clearInputBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Icon name="close-circle" size={20} color={DS.textMuted} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── SPORT SELECTION ── */}
@@ -212,14 +243,30 @@ const makeS = (DS) => StyleSheet.create({
   },
 
   // Input
-  inputWrap: { marginBottom: 28 },
-  inputLabel: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 1.8, marginBottom: 8 },
-  input: {
-    fontSize: 20, fontWeight: '800', color: DS.textPrimary,
-    backgroundColor: 'transparent', paddingVertical: 8, paddingHorizontal: 0,
-    letterSpacing: 1
+  namePreviewBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: DS.surfaceHigh, borderRadius: 20, padding: 14, marginBottom: 18,
+    borderWidth: 1.5, borderColor: (DS.blueSoft || '#3b82f6') + '40'
   },
-  inputUnderline: { height: 2, backgroundColor: DS.surfaceHighest },
+  avatarCircle: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center',
+    shadowColor: DS.lime, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4
+  },
+  avatarInitials: { fontSize: 20, fontWeight: '900', color: DS.bg },
+  namePreviewTextWrap: { flex: 1 },
+  previewTitle: { fontSize: 10, fontWeight: '800', color: DS.blueSoft || '#3b82f6', letterSpacing: 1.5 },
+  previewName: { fontSize: 18, fontWeight: '900', color: DS.textPrimary, marginTop: 2 },
+  previewTag: { fontSize: 11, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
+
+  inputLabel: { fontSize: 10, fontWeight: '700', color: DS.textSecondary, letterSpacing: 1.8, marginBottom: 8 },
+  nameInputContainer: { position: 'relative', justifyContent: 'center', marginBottom: 28 },
+  input: {
+    backgroundColor: DS.surfaceHigh, borderRadius: 16, paddingLeft: 16, paddingRight: 44, height: 58,
+    fontSize: 19, fontWeight: '800', color: DS.textPrimary,
+    borderWidth: 1.5, borderColor: DS.surfaceHighest || '#2a2f42'
+  },
+  clearInputBtn: { position: 'absolute', right: 14 },
 
   // Section header
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },

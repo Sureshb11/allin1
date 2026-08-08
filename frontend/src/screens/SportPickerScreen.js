@@ -598,29 +598,18 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
               <Path d="M14 4 7 11l7 7" stroke={A.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
-          {/* The brand logo stays the house cricket-green here — it's the app's
-              identity, not the focused sport. Pin it explicitly, because the
-              committed theme accent (BrandLogo's default) could be any sport. */}
-          <BrandLogo scale={0.8} textColor={A.ink} badgeColor={sportColor('cricket', isDark)} />
+          {/* The brand logo adopts the currently focused sport's color or universal lime */}
+          <BrandLogo scale={0.8} textColor={A.ink} badgeColor={moodInk} />
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
-            style={[s.avatar, { marginRight: 8 }]}
+            style={s.avatar}
             activeOpacity={0.8}
             onPress={toggle}
           >
             <Icon name={isDark ? 'white-balance-sunny' : 'weather-night'} size={18} color={A.ink} />
           </TouchableOpacity>
-          {/* Just the user's photo — display only, no navigation on tap. */}
-          <View style={s.avatar}>
-            {me?.avatarUrl
-              ? <Image source={{ uri: me.avatarUrl }} style={s.avatarImg} />
-              : <Svg width={20} height={20} viewBox="0 0 20 20" fill={A.inkDim}>
-                  <Path d="M10 3.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Z" />
-                  <Path d="M3.5 18a6.5 6.5 0 0 1 13 0Z" />
-                </Svg>}
-          </View>
         </View>
       </View>
 
