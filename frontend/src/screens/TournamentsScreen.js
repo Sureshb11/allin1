@@ -719,14 +719,13 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: DS.blueDeep,
     backgroundColor: DS.lime,
     paddingVertical: 10,
     borderRadius: 8,
     gap: 6,
     elevation: 4,
-    shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }
     shadowColor: DS.lime, shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }
+  },
   ctaButtonText: {
     fontSize: 13,
     fontWeight: '800',
