@@ -463,7 +463,6 @@ const TournamentsScreen = ({ navigation, inline }) => {
           regWindow:    t.regWindow,
         })));
       }
-    } catch {}
     } catch (e) {}
     finally { setLoading(false); }
   const onRefresh = async () => {
@@ -699,8 +698,8 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   ctaAccent: {
     width: 4,
-    backgroundColor: DS.blueDeep
-    backgroundColor: DS.lime
+    backgroundColor: DS.lime,
+  },
   ctaContent: {
     flex: 1,
     padding: 20
