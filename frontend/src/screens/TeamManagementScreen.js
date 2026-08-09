@@ -693,7 +693,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
       {tab === 'mine' && (
         <AnimatedPulse style={[styles.fabWrap, { bottom: 24 + tabClear }]}>
           <TouchableOpacity style={styles.fab} onPress={openCreateTeam}>
-            <Icon name="plus" size={28} color={DS.onBlue} />
+            <Icon name="plus" size={28} color={DS.white} />
           </TouchableOpacity>
         </AnimatedPulse>
       )}
@@ -732,12 +732,12 @@ const makeStyles = (DS) => StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: DS.blueDeep,
+    backgroundColor: DS.lime,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 8,
     zIndex: 999,
-    shadowColor: DS.blueDeep,
+    shadowColor: DS.lime,
     shadowOpacity: 0.5,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },

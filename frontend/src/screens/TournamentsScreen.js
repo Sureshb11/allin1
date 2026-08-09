@@ -56,7 +56,7 @@ const makeStatusColors = (DS) => ({
   Full:      '#fbbf24',   // amber — not open, not yet started
   Ongoing:   '#fbbf24', // Gold
   Active:    '#fbbf24', // Gold
-  Upcoming:  DS.blue,
+  Upcoming:  DS.textVariant,
   Completed: DS.textMuted,
 });
 
@@ -254,12 +254,11 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
           </Svg>
         )}
         <View style={[{ position: 'absolute', top: 12, right: 12 }]}>
-          <View style={[styles.statusBadge, { backgroundColor: statusColor + '40', borderColor: statusColor + '80', borderWidth: 1 }]}>
-            <Text style={[styles.statusBadgeText, { color: DS.bg }]}>
+          <View style={[styles.statusBadge, { backgroundColor: 'rgba(255, 255, 255, 0.85)' }]}>
+            <Text style={[styles.statusBadgeText, { color: '#000000' }]}>
               {state.toUpperCase()}
             </Text>
           </View>
-          {isGold && <LiveRing DS={DS} />}
         </View>
         {!!item.format && (
           <View style={styles.bannerFormat}>
@@ -465,9 +464,8 @@ const TournamentsScreen = ({ navigation, inline }) => {
         })));
       }
     } catch {}
+    } catch (e) {}
     finally { setLoading(false); }
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
     await loadTournaments();
@@ -702,7 +700,7 @@ const makeStyles = (DS) => StyleSheet.create({
   ctaAccent: {
     width: 4,
     backgroundColor: DS.blueDeep
-  },
+    backgroundColor: DS.lime
   ctaContent: {
     flex: 1,
     padding: 20
@@ -723,13 +721,13 @@ const makeStyles = (DS) => StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'flex-start',
     backgroundColor: DS.blueDeep,
-    paddingHorizontal: 20,
+    backgroundColor: DS.lime,
     paddingVertical: 10,
     borderRadius: 8,
     gap: 6,
     elevation: 4,
     shadowColor: DS.blueDeep, shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }
-  },
+    shadowColor: DS.lime, shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }
   ctaButtonText: {
     fontSize: 13,
     fontWeight: '800',
@@ -742,12 +740,12 @@ const makeStyles = (DS) => StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: DS.blueDeep,
-    alignItems: 'center',
+    backgroundColor: DS.lime,
     justifyContent: 'center',
     elevation: 8,
     zIndex: 999,
     shadowColor: DS.blueDeep,
-    shadowOpacity: 0.5,
+    shadowColor: DS.lime,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
   },
@@ -757,7 +755,7 @@ const makeStyles = (DS) => StyleSheet.create({
   createBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: DS.blueDeep, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 11,
+    backgroundColor: DS.lime, borderRadius: 10,
   },
   createBtnText: { fontSize: 12, fontWeight: '900', color: DS.white, letterSpacing: 0.5 },
 
@@ -833,10 +831,10 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   slotsLeft: { fontSize: 12, color: DS.textMuted, fontWeight: '600', flex: 1 },
   joinBtn: {
-    backgroundColor: DS.blueDeep, borderRadius: 10,
-    paddingHorizontal: 20, paddingVertical: 12,
+    backgroundColor: DS.mode === 'dark' ? '#ffffff' : '#000000', borderRadius: 10,
+    paddingHorizontal: 16, paddingVertical: 8,
   },
-  joinBtnText: { fontSize: 13, fontWeight: '900', color: DS.white },
+  joinBtnText: { fontSize: 13, fontWeight: '900', color: DS.mode === 'dark' ? '#000000' : '#ffffff' },
   chipBtn: {
     backgroundColor: 'transparent', borderRadius: 8, alignItems: 'center',
     borderWidth: 1.5, borderColor: DS.faint,
