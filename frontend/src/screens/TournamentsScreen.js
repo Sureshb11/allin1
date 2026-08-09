@@ -465,6 +465,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
       }
     } catch (e) {}
     finally { setLoading(false); }
+  };
   const onRefresh = async () => {
     setRefreshing(true);
     await loadTournaments();
