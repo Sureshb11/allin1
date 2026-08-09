@@ -9,11 +9,15 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
-  Pressable
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+  Animated
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { registerForPush } from '../services/push';
+import { haptic } from '../utils/haptics';
 import BrandLogo from '../components/BrandLogo';
 import ThemeToggleButton from '../components/ThemeToggleButton';
 
@@ -21,10 +25,12 @@ const MobileVerificationScreen = ({ route, navigation }) => {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const [otp, setOtp] = useState(['', '', '', '']);
-  const [timer, setTimer] = useState(120); // 2 minutes
+  const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [successAnim, setSuccessAnim] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const checkScale = useRef(new Animated.Value(0)).current;
 
   const inputRefs = useRef([]);
   const { phoneNumber, countryCode } = route.params || {};
@@ -82,6 +88,7 @@ const MobileVerificationScreen = ({ route, navigation }) => {
   const getOtpString = () => otp.join('');
 
   const handleVerifyOtp = async () => {
+    haptic.tick();
     const otpString = getOtpString();
     if (otpString.length < 4) {
       Alert.alert('Error', 'Please enter the complete 4-digit verification code');
@@ -97,8 +104,13 @@ const MobileVerificationScreen = ({ route, navigation }) => {
       const cleaned = String(phoneNumber).replace(/\s/g, '');
       const res = await legendsApi.verifyOtp(cleaned, otpString, countryCode);
       if (res.success) {
-        registerForPush();
-        navigation.replace('SportPicker');
+        haptic.success();
+        setSuccessAnim(true);
+        Animated.spring(checkScale, { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }).start();
+        setTimeout(() => {
+          registerForPush();
+          navigation.replace('SportPicker');
+        }, 1200);
       } else {
         Alert.alert('Invalid OTP', res.error || 'Please check and enter the correct verification code');
       }
@@ -139,14 +151,9 @@ const MobileVerificationScreen = ({ route, navigation }) => {
   const displayPhone = phoneNumber ? `${countryCode || ''} ${phoneNumber}` : '+91 98765 43210';
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Top Bar */}
-      <View style={[styles.topBar, { justifyContent: 'space-between' }]}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Top Bar - Glassmorphism style */}
+      <View style={[styles.topBar, { justifyContent: 'space-between', backgroundColor: DS.bg + 'E6' }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -157,6 +164,13 @@ const MobileVerificationScreen = ({ route, navigation }) => {
         <BrandLogo scale={0.8} />
         <ThemeToggleButton />
       </View>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
 
       {/* Main Content Card */}
       <View style={styles.mainContent}>
@@ -228,22 +242,6 @@ const MobileVerificationScreen = ({ route, navigation }) => {
         ) : null}
 
         {/* Verify Button */}
-        <TouchableOpacity
-          style={[styles.verifyButton, loading && styles.verifyButtonDisabled]}
-          onPress={handleVerifyOtp}
-          disabled={loading}
-          activeOpacity={0.8}
-        >
-          {loading ? (
-            <ActivityIndicator color={DS.bg} size="small" />
-          ) : (
-            <View style={styles.btnRow}>
-              <Text style={styles.verifyButtonText}>VERIFY & JOIN</Text>
-              <Icon name="arrow-right" size={18} color={DS.bg} />
-            </View>
-          )}
-        </TouchableOpacity>
-
         {/* Resend Section */}
         <View style={styles.resendSection}>
           <Text style={styles.didntReceiveText}>Didn't receive the code?</Text>
@@ -259,6 +257,30 @@ const MobileVerificationScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
     </ScrollView>
+
+    <View style={{ paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 30 : 20, paddingTop: 10, backgroundColor: DS.bg }}>
+      <TouchableOpacity
+        style={[styles.verifyButton, loading && styles.verifyButtonDisabled]}
+        onPress={handleVerifyOtp}
+        disabled={loading}
+        activeOpacity={0.8}
+      >
+        {loading ? (
+          <ActivityIndicator color={DS.bg} size="small" />
+        ) : successAnim ? (
+          <Animated.View style={{ transform: [{ scale: checkScale }] }}>
+            <Icon name="check-circle" size={32} color={DS.bg} />
+          </Animated.View>
+        ) : (
+          <View style={styles.btnRow}>
+            <Text style={styles.verifyButtonText}>VERIFY & JOIN</Text>
+            <Icon name="arrow-right" size={18} color={DS.onLime || '#ffffff'} />
+          </View>
+        )}
+      </TouchableOpacity>
+    </View>
+
+    </KeyboardAvoidingView>
   );
 };
 
@@ -269,12 +291,14 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   contentContainer: {
     flexGrow: 1,
+    paddingTop: 100, // accommodate absolute header
     paddingBottom: 40,
   },
   topBar: {
+    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 54,
+    paddingTop: Platform.OS === 'ios' ? 54 : 34,
     paddingHorizontal: 20,
     paddingBottom: 16,
     gap: 12,
@@ -410,9 +434,11 @@ const makeStyles = (DS) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    zIndex: 2,
+    elevation: 2,
   },
   verifyButtonText: {
-    color: DS.bg,
+    color: DS.onLime || '#ffffff',
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: 1.5,

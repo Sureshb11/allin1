@@ -10,8 +10,8 @@
 // Props: label, icon (MaterialCommunityIcons name, optional), onPress,
 // disabled, loading, style (outer), textStyle, iconRight (bool), height.
 
-import { useState } from 'react';
-import { TouchableOpacity, Text, View, ActivityIndicator, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { TouchableOpacity, Text, View, ActivityIndicator, StyleSheet, LayoutAnimation } from 'react-native';
 import Svg, { Defs, LinearGradient as SvgGrad, Stop, Rect } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/ThemeContext';
@@ -38,11 +38,16 @@ export default function GradientButton({
   const blue = variant === 'blue';
   const from = blue ? (c.blueDeep || '#0041c8') : (c.lime || '#abd600');
   const to = blue ? (c.blueDeep || '#0041c8') : (c.limeBright || '#c4f82a');
-  const ink = blue ? (c.onBlue || '#ffffff') : (c.onLime || '#12151c');
+  const fallbackInk = c.mode === 'dark' ? '#000000' : '#ffffff';
+  const ink = blue ? (c.onBlue || '#ffffff') : (c.onLime || fallbackInk);
 
   const IconEl = icon ? <Icon name={icon} size={20} color={ink} /> : null;
 
   const press = () => { haptic.impact(); onPress?.(); };
+
+  useEffect(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  }, [loading]);
 
   return (
     <TouchableOpacity
@@ -50,7 +55,12 @@ export default function GradientButton({
       onPress={press}
       disabled={disabled || loading}
       onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
-      style={[styles.btn, { height, opacity: disabled ? 0.5 : 1 }, style]}
+      style={[
+        styles.btn, 
+        { height, opacity: disabled ? 0.5 : 1 }, 
+        style,
+        loading && { width: height, alignSelf: 'center', borderRadius: height / 2 }
+      ]}
     >
       {/* 135° gradient fill (top-left → bottom-right) behind the content */}
       <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
@@ -85,6 +95,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, zIndex: 2, elevation: 2 },
   label: { fontSize: 15, fontWeight: '800', letterSpacing: 0.5 },
 });

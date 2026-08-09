@@ -6,7 +6,7 @@ import { useTheme, useThemedStyles } from "../theme/ThemeContext"; // Toast — 
 //   showToast('OTP sent · code 1234', 'success');
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Text, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
+import { Text, StyleSheet, Animated, Easing, TouchableOpacity, PanResponder } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 
@@ -26,33 +26,56 @@ export function showToast(message, type = 'info', duration = 2600) {
 export function ToastHost() {const s = useThemedStyles(makeS);
   const [toast, setToast] = useState(null);
   const a = useRef(new Animated.Value(0)).current;
+  const pan = useRef(new Animated.ValueXY()).current;
   const timer = useRef(null);
 
   const hide = () => {
-    Animated.timing(a, { toValue: 0, duration: 180, easing: Easing.in(Easing.quad), useNativeDriver: true }).
+    Animated.timing(a, { toValue: 0, duration: 180, easing: Easing.in(Easing.quad), useNativeDriver: false }).
     start(() => setToast(null));
   };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 5,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy < 0) { // Only allow swiping up
+          pan.y.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy < -20) {
+          hide();
+        } else {
+          Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
+        }
+      }
+    })
+  ).current;
 
   useEffect(() => {
     listener = (t) => {
       clearTimeout(timer.current);
       setToast(t);
       a.setValue(0);
-      Animated.spring(a, { toValue: 1, friction: 7, tension: 70, useNativeDriver: true }).start();
+      pan.setValue({ x: 0, y: 0 });
+      Animated.spring(a, { toValue: 1, friction: 7, tension: 70, useNativeDriver: false }).start();
       timer.current = setTimeout(hide, t.duration);
     };
     return () => {listener = null;clearTimeout(timer.current);};
-  }, [a]);
+  }, [a, pan]);
 
   if (!toast) return null;
   const k = KIND[toast.type] || KIND.info;
   const style = {
     opacity: a,
-    transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [-24, 0] }) }]
+    transform: [
+      { translateY: a.interpolate({ inputRange: [0, 1], outputRange: [-24, 0] }) },
+      { translateY: pan.y }
+    ]
   };
 
   return (
-    <Animated.View pointerEvents="box-none" style={[s.wrap, style]}>
+    <Animated.View pointerEvents="box-none" style={[s.wrap, style]} {...panResponder.panHandlers}>
       <TouchableOpacity activeOpacity={0.9} onPress={hide} style={[s.card, { borderLeftColor: k.color }]}>
         <Icon name={k.icon} size={20} color={k.color} />
         <Text style={s.msg} numberOfLines={2}>{toast.message}</Text>

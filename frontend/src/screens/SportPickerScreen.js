@@ -180,19 +180,34 @@ const Disc = React.memo(function Disc({ cell, scale, opacity, focused, attract, 
     const t = setTimeout(() => setPlay(true), 250);
     return () => clearTimeout(t);
   }, [focused]);
+
+  const pressScale = useRef(new Animated.Value(1)).current;
+  const handlePressIn = () => {
+    Animated.spring(pressScale, { toValue: 0.95, useNativeDriver: true }).start();
+  };
+  const handlePressOut = () => {
+    Animated.spring(pressScale, { toValue: 1, friction: 3, tension: 200, useNativeDriver: true }).start();
+  };
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={() => onSelect(cell)}
-      style={{
-        position: 'absolute',
-        left: -CELL / 2,
-        top: -CELL / 2,
-        width: CELL,
-        height: CELL,
-        opacity,
-        transform: [{ scale }]
-      }}>
+    <Animated.View style={{
+      position: 'absolute',
+      left: -CELL / 2,
+      top: -CELL / 2,
+      width: CELL,
+      height: CELL,
+      opacity,
+      transform: [{ scale }, { scale: pop }, { scale: pressScale }]
+    }}>
+      <TouchableOpacity
+        activeOpacity={1}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={() => {
+        haptic.impact();
+        onSelect(cell);
+      }}
+        style={{ flex: 1 }}>
       {focused &&
       <Animated.View
         pointerEvents="none"
@@ -212,7 +227,8 @@ const Disc = React.memo(function Disc({ cell, scale, opacity, focused, attract, 
         <SportLogoIcon id={cell.id} size={CELL + 6} color={glyph} active={play || attract} /> :
         <SportIcon id={cell.id} size={iconSize} color={glyph} />}
       </Animated.View>
-    </TouchableOpacity>);
+    </TouchableOpacity>
+  </Animated.View>);
 
 }, (prev, next) =>
   prev.cell.id === next.cell.id &&
@@ -593,11 +609,6 @@ export default function SportPickerScreen({ navigation }) {const A = useArenaCol
       {/* ── TOP BAR ── */}
       <View style={s.topBar}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-            <Svg width={22} height={22} viewBox="0 0 22 22" fill="none">
-              <Path d="M14 4 7 11l7 7" stroke={A.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-          </TouchableOpacity>
           {/* The brand logo adopts the currently focused sport's color or universal lime */}
           <BrandLogo scale={0.8} textColor={A.ink} badgeColor={moodInk} />
         </View>

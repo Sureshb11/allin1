@@ -2,11 +2,12 @@
 // Deep-night surfaces with an electric-blue glow; the blue gradient is the
 // primary action identity, lime is reserved for the LIVE signal.
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Pressable,
-  KeyboardAvoidingView, Platform, StatusBar, ScrollView, Modal
+  KeyboardAvoidingView, Platform, StatusBar, ScrollView, Modal, Animated
 } from 'react-native';
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import legendsApi from '../services/LegendsApi';
@@ -26,17 +27,46 @@ const COUNTRIES = [
 ];
 
 function TopGlow({ color, dim }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const animX = useRef(new Animated.Value(0)).current;
+  const animY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(scale, { toValue: 1.15, duration: 3000, useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 1, duration: 3000, useNativeDriver: true })
+        ])
+      ),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(animX, { toValue: 40, duration: 4000, useNativeDriver: true }),
+          Animated.timing(animY, { toValue: 20, duration: 3500, useNativeDriver: true }),
+          Animated.timing(animX, { toValue: -20, duration: 4500, useNativeDriver: true }),
+          Animated.timing(animY, { toValue: 0, duration: 3000, useNativeDriver: true }),
+          Animated.timing(animX, { toValue: 0, duration: 3000, useNativeDriver: true }),
+        ])
+      )
+    ]).start();
+  }, []);
+
   return (
-    <Svg pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0 }} width="100%" height={420}>
-      <Defs>
-        <RadialGradient id="lg" cx="50%" cy="0%" r="85%">
-          <Stop offset="0" stopColor={color} stopOpacity={dim ? 0.18 : 0.35} />
-          <Stop offset="0.6" stopColor={color} stopOpacity={0.05} />
-          <Stop offset="1" stopColor={color} stopOpacity={0} />
-        </RadialGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="420" fill="url(#lg)" />
-    </Svg>
+    <Animated.View pointerEvents="none" style={{ 
+      position: 'absolute', top: -50, left: -50, right: -50, bottom: -50, 
+      transform: [{ scale }, { translateX: animX }, { translateY: animY }] 
+    }}>
+      <Svg width="100%" height={420}>
+        <Defs>
+          <RadialGradient id="lg" cx="50%" cy="0%" r="85%">
+            <Stop offset="0" stopColor={color} stopOpacity={dim ? 0.18 : 0.35} />
+            <Stop offset="0.6" stopColor={color} stopOpacity={0.05} />
+            <Stop offset="1" stopColor={color} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="420" fill="url(#lg)" />
+      </Svg>
+    </Animated.View>
   );
 }
 
@@ -44,10 +74,24 @@ export default function LoginScreen({ navigation }) {
   const { colors: DS, isDark } = useTheme();
   const s = useThemedStyles(makeS);
   const [countryCode, setCountryCode] = useState('+91');
-  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
+  const [successAnim, setSuccessAnim] = useState(false);
+  const focusPhoneAnim = useRef(new Animated.Value(0)).current;
   const [showOtpStep, setShowOtpStep] = useState(false);
+  
+  // Bottom Sheet Ref for Country Code
+  const bottomSheetModalRef = useRef(null);
+  const snapPoints = ['50%'];
+  const handlePresentModalPress = useCallback(() => {
+    bottomSheetModalRef.current?.present();
+  }, []);
+  const handleSheetChanges = useCallback((index) => {
+    // console.log('handleSheetChanges', index);
+  }, []);
+  const renderBackdrop = useCallback((props) => (
+    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.6} />
+  ), []);
   const [showNameStep, setShowNameStep] = useState(false);
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -67,6 +111,7 @@ export default function LoginScreen({ navigation }) {
   };
 
   const handleSendOtp = async () => {
+    haptic.tick();
     const cleaned = phoneNumber.replace(/\s/g, '');
     if (cleaned.length < 10) {
       showToast('Enter a valid 10-digit phone number', 'error');
@@ -330,49 +375,75 @@ export default function LoginScreen({ navigation }) {
             </>
           ) : (
             <>
-              <Text style={s.label}>PHONE NUMBER</Text>
+              <Animated.Text style={[s.label, { 
+                opacity: focusPhoneAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }),
+                transform: [{ translateY: focusPhoneAnim.interpolate({ inputRange: [0, 1], outputRange: [15, 0] }) }]
+              }]}>
+                PHONE NUMBER
+              </Animated.Text>
               <View style={s.phoneRow}>
                 <TouchableOpacity
                   style={s.country}
-                  onPress={() => setShowCountryPicker((v) => !v)}
+                  onPress={handlePresentModalPress}
                   activeOpacity={0.8}
                 >
                   <Text style={s.flag}>{selectedCountry.flag}</Text>
                   <Text style={s.code}>{countryCode}</Text>
-                  <Icon name={showCountryPicker ? 'chevron-up' : 'chevron-down'} size={16} color={DS.textMuted} />
+                  <Icon name="chevron-down" size={16} color={DS.textMuted} />
                 </TouchableOpacity>
 
-                <TextInput
-                  style={s.phoneInput}
-                  placeholder="00000 00000"
-                  placeholderTextColor={DS.textMuted}
-                  value={phoneNumber}
-                  onChangeText={(t) => setPhoneNumber(t.replace(/\D/g, '').slice(0, 10))}
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  editable={!loading}
-                />
+                <Animated.View style={[s.phoneInputWrap, { 
+                  borderColor: focusPhoneAnim.interpolate({ inputRange: [0, 1], outputRange: [DS.surfaceHighest || '#2a2f42', DS.blueSoft || '#3b82f6'] })
+                }]}>
+                  <TextInput
+                    style={s.phoneInputInner}
+                    placeholder="00000 00000"
+                    placeholderTextColor={DS.textMuted}
+                    value={phoneNumber}
+                    onChangeText={(t) => {
+                      setPhoneNumber(t.replace(/\D/g, '').slice(0, 10));
+                      if (t.length > 0) Animated.timing(focusPhoneAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
+                    }}
+                    onFocus={() => Animated.timing(focusPhoneAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start()}
+                    onBlur={() => { if (!phoneNumber) Animated.timing(focusPhoneAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start(); }}
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                    editable={!loading}
+                  />
+                </Animated.View>
               </View>
 
-              {showCountryPicker && (
-                <View style={s.dropdown}>
+              {/* Bottom Sheet for Country Code Selection */}
+              <BottomSheetModal
+                ref={bottomSheetModalRef}
+                index={0}
+                snapPoints={snapPoints}
+                onChange={handleSheetChanges}
+                backdropComponent={renderBackdrop}
+                backgroundStyle={{ backgroundColor: DS.surfaceHigh }}
+                handleIndicatorStyle={{ backgroundColor: DS.textMuted }}
+              >
+                <BottomSheetScrollView contentContainerStyle={{ paddingVertical: 10 }}>
+                  <Text style={[s.label, { paddingHorizontal: 20, marginBottom: 12, marginTop: 4, letterSpacing: 1.2 }]}>
+                    SELECT COUNTRY
+                  </Text>
                   {COUNTRIES.map((c) => (
                     <TouchableOpacity
                       key={c.code}
                       style={[s.dropRow, c.code === countryCode && s.dropRowActive]}
                       onPress={() => {
                         setCountryCode(c.code);
-                        setShowCountryPicker(false);
+                        bottomSheetModalRef.current?.dismiss();
                       }}
                     >
                       <Text style={s.flag}>{c.flag}</Text>
                       <Text style={s.dropName}>{c.name}</Text>
                       <Text style={s.dropCode}>{c.code}</Text>
-                      {c.code === countryCode && <Icon name="check-circle" size={16} color={DS.lime} />}
+                      {c.code === countryCode && <Icon name="check-circle" size={18} color={DS.lime} />}
                     </TouchableOpacity>
                   ))}
-                </View>
-              )}
+                </BottomSheetScrollView>
+              </BottomSheetModal>
 
               <GradientButton
                 label="Send OTP"
@@ -427,10 +498,13 @@ const makeS = (DS) => StyleSheet.create({
   },
   flag: { fontSize: 20 },
   code: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
-  phoneInput: {
-    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 16, paddingHorizontal: 16, height: 58,
-    fontSize: 19, fontWeight: '800', color: DS.textPrimary, letterSpacing: 1.2,
-    borderWidth: 1.5, borderColor: DS.surfaceHighest || '#2a2f42'
+  phoneInputWrap: {
+    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 16, height: 58,
+    borderWidth: 1.5, overflow: 'hidden'
+  },
+  phoneInputInner: {
+    flex: 1, paddingHorizontal: 16,
+    fontSize: 19, fontWeight: '800', color: DS.textPrimary, letterSpacing: 1.2
   },
   namePreviewBox: {
     flexDirection: 'row', alignItems: 'center', gap: 14,

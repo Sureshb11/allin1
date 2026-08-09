@@ -3,9 +3,11 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { haptic } from '../utils/haptics';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import PlayerRoleFields from '../components/PlayerRoleFields';
 import { validateHowIPlay } from '../sports/cricketProfile';
+import Shimmer from '../components/Shimmer';
 import { markPlayerSetup } from '../utils/playerSetup';
 import legendsApi from '../services/LegendsApi';
 import { showToast } from '../components/Toast';
@@ -78,6 +80,7 @@ export default function PlayerSetupScreen({ navigation, route }) {
   }, []);
 
   const save = async () => {
+    haptic.tick();
     const problems = validateHowIPlay(profile);
     setErrors(problems);
     if (Object.keys(problems).length) return;
@@ -103,7 +106,13 @@ export default function PlayerSetupScreen({ navigation, route }) {
     return (
       <SafeAreaView style={s.screen}>
         <ThemeToggleButton style={{ position: 'absolute', top: 56, right: 24, zIndex: 10 }} />
-        <View style={s.center}><ActivityIndicator color={DS.lime} /></View>
+        <View style={s.center}>
+          <Shimmer width={120} height={120} borderRadius={60} style={{ marginBottom: 32 }} />
+          <Shimmer width="80%" height={32} style={{ marginBottom: 16 }} />
+          <Shimmer width="60%" height={20} style={{ marginBottom: 40 }} />
+          <Shimmer width="100%" height={64} borderRadius={24} style={{ marginBottom: 16 }} />
+          <Shimmer width="100%" height={64} borderRadius={24} />
+        </View>
       </SafeAreaView>
     );
   }
@@ -152,7 +161,7 @@ export default function PlayerSetupScreen({ navigation, route }) {
   // ── Door 2: the three questions ──
   return (
     <SafeAreaView style={s.screen}>
-      <ThemeToggleButton style={{ position: 'absolute', top: 56, right: 24, zIndex: 10 }} />
+      <ThemeToggleButton style={{ position: 'absolute', top: 56, right: 24, zIndex: 11 }} />
       <View style={s.topBar}>
         <TouchableOpacity onPress={() => setStep('ask')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="chevron-left" size={26} color={DS.textPrimary} />
@@ -211,17 +220,19 @@ const makeStyles = (DS) => StyleSheet.create({
   choiceBlurb: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 3, lineHeight: 15 },
 
   topBar: {
+    position: 'absolute', top: 40, left: 0, right: 0, zIndex: 10,
+    backgroundColor: DS.bg + 'E6', // Glassmorphism translucent
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 18, paddingTop: 12, paddingBottom: 4,
+    paddingHorizontal: 18, paddingTop: 12, paddingBottom: 12,
   },
   skip: { fontSize: 14, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.2 },
 
-  formBody: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 30 },
+  formBody: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 30 },
 
   footer: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 18 },
   cta: {
     height: 52, borderRadius: 15, backgroundColor: DS.lime,
     alignItems: 'center', justifyContent: 'center',
   },
-  ctaText: { fontSize: 15, fontWeight: '900', color: DS.onLime, letterSpacing: 0.3 },
+  ctaText: { fontSize: 15, fontWeight: '900', color: DS.onLime || '#ffffff', letterSpacing: 0.3 },
 });

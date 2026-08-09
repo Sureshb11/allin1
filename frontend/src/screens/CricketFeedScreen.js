@@ -259,7 +259,7 @@ function CircleMatchCard({ match, onPress }) {
           // scores already carry the state, and losing them lets the card sit
           // compact with the CTA straight under the teams.
           <View style={c.primaryBtn}>
-            <Icon name="chart-box" size={16} color={DS.onBlue} />
+            <Icon name="chart-box" size={16} color={DS.onLime} />
             <Text style={c.primaryBtnTxt}>{match.isScorer ? 'RESUME' : 'LIVE SCORECARD'}</Text>
           </View>
         ) : completed ? (
@@ -287,9 +287,9 @@ function HighlightCard({ item, onLike, onOpen }) {const DS = useTheme().colors;c
   const isMilestone = item.type === 'milestone';
   return (
     <TouchableOpacity activeOpacity={0.85} style={h.card} onPress={onOpen}>
-      <View style={[h.badge, { backgroundColor: (isMilestone ? DS.lime : DS.blue) + '22' }]}>
-        <Icon name={isMilestone ? 'trophy-variant' : 'scoreboard-outline'} size={16} color={isMilestone ? DS.lime : DS.blue} />
-        <Text style={[h.badgeTxt, { color: isMilestone ? DS.lime : DS.blue }]}>
+      <View style={[h.badge, { backgroundColor: DS.lime + '22' }]}>
+        <Icon name={isMilestone ? 'trophy-variant' : 'scoreboard-outline'} size={16} color={DS.lime} />
+        <Text style={[h.badgeTxt, { color: DS.lime }]}>
           {isMilestone ? 'MILESTONE' : 'RESULT'}
         </Text>
       </View>
@@ -322,7 +322,7 @@ function FeedPhoto({ uri, styles: m }) {
     Image.getSize(uri, (w, h) => { if (live && w && h) setRatio(w / h); }, () => {});
     return () => { live = false; };
   }, [uri]);
-  const cardW = SW;                                          // full-bleed card width
+  const cardW = SW - 32;                                      // card width (with 16px margins)
   const height = Math.min(cardW / ratio, cardW * 1.25);       // cap extreme portraits
   return <Image source={{ uri }} style={[m.photo, { height }]} resizeMode="cover" />;
 }
@@ -450,9 +450,12 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
           position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
           alignItems: 'center', justifyContent: 'center',
           opacity: heartOverlay,
-          transform: [{ scale: heartOverlay.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }],
+          transform: [
+            { scale: heartOverlay.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1.2] }) },
+            { rotate: heartOverlay.interpolate({ inputRange: [0, 1], outputRange: ['-15deg', '0deg'] }) }
+          ],
         }}>
-          <Icon name="heart" size={80} color={DS.white} style={{ textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: {width: 0, height: 2}, textShadowRadius: 10 }} />
+          <Icon name="heart" size={90} color={DS.white} style={{ textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: {width: 0, height: 4}, textShadowRadius: 15 }} />
         </Animated.View>
       </TouchableOpacity>
 
@@ -618,6 +621,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [posting, setPosting] = useState(false);
   const scrollX = useRef(new Animated.Value(0)).current;
+
   // Signatures of the last-applied server payloads. The 5s poll compares against
   // these and only re-renders the (heavy, animated) feed when data actually
   // changed — an unconditional setState every tick was re-rendering the whole
@@ -971,7 +975,9 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
 
       {/* top bar */}
-      <AppHeader showCompose onComposePress={() => setComposeOpen(true)} />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, backgroundColor: DS.surfaceLow + 'E6', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DS.border }}>
+        <AppHeader showCompose onComposePress={() => setComposeOpen(true)} transparent={true} />
+      </View>
 
       <FlatList
         {...hideTabBar}
@@ -994,62 +1000,69 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
         // Was declared twice on this list — the second one won, so paddingBottom
         // was a flat 24 and the tab-bar clearance it was meant to carry never
         // applied. The last post sat behind the dock. Both intents, once.
-        contentContainerStyle={{ paddingBottom: tabClear + 24 }} />
+        contentContainerStyle={{ paddingBottom: tabClear + 24, paddingTop: 80 }} />
 
 
       <CommentsSheet post={sheetPost} onClose={() => setActivePost(null)} onAdd={addComment} />
 
-      {/* Create-post FAB */}
-      {/* Lift clear of the floating dock: the FAB is absolutely positioned, so
-          it never got the bottom padding the scroll content has — the dock sat
-          on top of it and the + was unreachable. */}
-      <TouchableOpacity style={[s.fab, { bottom: 24 + tabClear }]} activeOpacity={0.9} onPress={() => setComposeOpen(true)}>
-        <Icon name="plus" size={28} color={DS.onBlue} />
-      </TouchableOpacity>
+
 
       {/* Compose sheet */}
       <Modal visible={composeOpen} animationType="slide" transparent onRequestClose={() => setComposeOpen(false)}>
         <View style={s.composeBackdrop}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <View style={s.composeSheet}>
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: DS.line, alignSelf: 'center', marginBottom: 16 }} />
+              
               <View style={s.composeHead}>
                 <TouchableOpacity onPress={() => setComposeOpen(false)} hitSlop={8}>
                   <Text style={s.composeCancel}>Cancel</Text>
                 </TouchableOpacity>
-                <Text style={s.composeTitle}>New Post</Text>
                 <TouchableOpacity
+                  style={[s.composePostBtn, (!composeText.trim() && !composeImage) && s.composePostBtnOff]}
                   onPress={submitPost}
                   disabled={posting || (!composeText.trim() && !composeImage)}
                   hitSlop={8}>
                   {posting
-                    ? <ActivityIndicator color={DS.lime} />
-                    : <Text style={[s.composePost, (!composeText.trim() && !composeImage) && s.composePostOff]}>Post</Text>}
+                    ? <ActivityIndicator color={DS.onLime} size="small" />
+                    : <Text style={s.composePost}>Post</Text>}
                 </TouchableOpacity>
               </View>
-              <TextInput
-                style={s.composeInput}
-                placeholder={`Share a ${sportName.toLowerCase()} moment…`}
-                placeholderTextColor={DS.textMuted}
-                value={composeText}
-                onChangeText={setComposeText}
-                multiline
-                autoFocus
-                maxLength={500}
-                editable={!posting} />
-              {composeImage &&
-                <View style={s.composePreviewWrap}>
-                  <Image source={{ uri: composeImage }} style={s.composePreview} resizeMode="cover" />
-                  <TouchableOpacity style={s.composePreviewX} onPress={() => setComposeImage(null)}>
-                    <Icon name="close" size={16} color={DS.white} />
-                  </TouchableOpacity>
+
+              <View style={{ flexDirection: 'row', marginTop: 4 }}>
+                <View style={{ marginRight: 12 }}>
+                  <HexAvatar round size={40} color={DS.surfaceHigh} uri={meUser?.avatarUrl} />
                 </View>
-              }
+                
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    style={s.composeInput}
+                    placeholder={`What's happening in ${sportName.toLowerCase()}?`}
+                    placeholderTextColor={DS.textMuted}
+                    value={composeText}
+                    onChangeText={setComposeText}
+                    multiline
+                    autoFocus
+                    maxLength={500}
+                    editable={!posting} />
+                  
+                  {composeImage &&
+                    <View style={s.composePreviewWrap}>
+                      <Image source={{ uri: composeImage }} style={s.composePreview} resizeMode="cover" />
+                      <TouchableOpacity style={s.composePreviewX} onPress={() => setComposeImage(null)}>
+                        <Icon name="close" size={16} color={DS.white} />
+                      </TouchableOpacity>
+                    </View>
+                  }
+                </View>
+              </View>
+
               <View style={s.composeToolbar}>
                 <TouchableOpacity style={s.composePhotoBtn} onPress={addComposePhoto} disabled={uploadingPhoto}>
                   {uploadingPhoto ? <ActivityIndicator size="small" color={DS.lime} />
-                    : <><Icon name="image-plus" size={20} color={DS.lime} /><Text style={s.composePhotoTxt}>Photo</Text></>}
+                    : <Icon name="image-outline" size={24} color={DS.lime} />}
                 </TouchableOpacity>
-                <Text style={s.composeCount}>{composeText.length}/500</Text>
+                <Text style={[s.composeCount, { color: composeText.length > 450 ? DS.red : DS.textMuted, fontWeight: composeText.length > 450 ? '700' : '500' }]}>{composeText.length}/500</Text>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -1078,23 +1091,23 @@ const makeS = (DS) => StyleSheet.create({
   resumeBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginHorizontal: 16, marginTop: 14, padding: 14, borderRadius: 16,
-    backgroundColor: DS.blueDeep,
+    backgroundColor: DS.lime,
   },
   resumeDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: DS.live },
-  resumeTitle: { color: DS.onBlue, fontSize: 11, fontWeight: '900', letterSpacing: 0.6, opacity: 0.9 },
-  resumeSub: { color: DS.onBlue, fontSize: 15, fontWeight: '800', marginTop: 2 },
+  resumeTitle: { color: DS.onLime, fontSize: 11, fontWeight: '900', letterSpacing: 0.6, opacity: 0.9 },
+  resumeSub: { color: DS.onLime, fontSize: 15, fontWeight: '800', marginTop: 2 },
   resumeCta: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: DS.surfaceHighest, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7,
   },
-  resumeCtaTxt: { color: DS.onBlue, fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+  resumeCtaTxt: { color: DS.onLime, fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
 
   sectionHead: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: 16
   },
   sectionTitle: { color: DS.textPrimary, fontSize: 20, fontWeight: '800', letterSpacing: 0.2 },
-  seeAll: { color: DS.blueDeep, fontSize: 14, fontWeight: '700' },
+  seeAll: { color: DS.lime, fontSize: 14, fontWeight: '700' },
   sectionSub: { color: DS.textVariant, fontSize: 13, fontWeight: '500', paddingHorizontal: 16, marginTop: 2 },
 
   railContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4, gap: CARD_GAP },
@@ -1105,32 +1118,30 @@ const makeS = (DS) => StyleSheet.create({
   feedEmptyTxt: { color: DS.textPrimary, fontSize: 15, fontWeight: '700', marginTop: 4 },
   feedEmptySub: { color: DS.textMuted, fontSize: 13 },
 
-  // Solid electric blue — the theme's primary action identity ("Stadium Under
-  // Lights" #0052ff), with an illuminated-scoreboard glow instead of plain black.
-  fab: {
-    position: 'absolute', right: 18, bottom: 24, width: 56, height: 56, borderRadius: 28,
-    backgroundColor: DS.blueDeep, alignItems: 'center', justifyContent: 'center',
-    shadowColor: DS.blueDeep, shadowOpacity: 0.45, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8,
-  },
-  composeBackdrop: { flex: 1, backgroundColor: DS.overlay, justifyContent: 'flex-end' },
-  composeSheet: { backgroundColor: DS.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 28 },
-  composeHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  composeTitle: { color: DS.textPrimary, fontSize: 16, fontWeight: '800' },
-  composeCancel: { color: DS.textMuted, fontSize: 15, fontWeight: '600' },
-  composePost: { color: DS.blueSoft, fontSize: 15, fontWeight: '800' },
-  composePostOff: { opacity: 0.4 },
-  composeInput: { color: DS.textPrimary, fontSize: 16, lineHeight: 22, minHeight: 120, maxHeight: 240, textAlignVertical: 'top', backgroundColor: DS.surface, borderRadius: 14, borderWidth: 1, borderColor: DS.line, padding: 14 },
-  composeCount: { color: DS.textMuted, fontSize: 12 },
-  composeToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
-  composePhotoBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
-  composePhotoTxt: { color: DS.lime, fontSize: 13, fontWeight: '800' },
-  composePreviewWrap: { marginTop: 12, borderRadius: 14, overflow: 'hidden' },
-  composePreview: { width: '100%', height: 200, borderRadius: 14 },
-  composePreviewX: { position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 14, backgroundColor: DS.overlay, alignItems: 'center', justifyContent: 'center' }
+
+  fabText: { color: DS.onLime, fontWeight: '800', fontSize: 14, letterSpacing: 0.5 },
+  composeBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  composeSheet: { backgroundColor: DS.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32 },
+  composeHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  composeCancel: { color: DS.textPrimary, fontSize: 16, fontWeight: '500' },
+  composePostBtn: { backgroundColor: DS.lime, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20 },
+  composePostBtnOff: { opacity: 0.5 },
+  composePost: { color: DS.onLime, fontSize: 15, fontWeight: '700' },
+  composeInput: { color: DS.textPrimary, fontSize: 18, lineHeight: 26, minHeight: 80, maxHeight: 240, textAlignVertical: 'top', paddingTop: 6, paddingBottom: 16 },
+  composeCount: { fontSize: 13 },
+  composeToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, borderTopWidth: 1, borderTopColor: DS.line, paddingTop: 12 },
+  composePhotoBtn: { padding: 4 },
+  composePreviewWrap: { marginTop: 12, borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
+  composePreview: { width: '100%', height: 200, borderRadius: 16 },
+  composePreviewX: { position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }
 });
 
 const makeH = (DS) => StyleSheet.create({
-  card: { width: 190, backgroundColor: DS.surface, borderRadius: 18, padding: 14, gap: 6 },
+  card: { 
+    width: 190, backgroundColor: DS.surface, borderRadius: 18, padding: 14, gap: 6,
+    borderWidth: 1, borderColor: DS.line,
+    shadowColor: '#000', shadowOpacity: DS.mode === 'dark' ? 0.3 : 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3
+  },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   badgeTxt: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   title: { color: DS.textPrimary, fontSize: 15, fontWeight: '800', marginTop: 2 },
@@ -1146,7 +1157,7 @@ const makeC = (DS, TYPO) => StyleSheet.create({
     borderWidth: 1, borderColor: DS.line,
     shadowColor: '#000', shadowOpacity: DS.mode === 'dark' ? 0.3 : 0.07, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 3,
   },
-  cardLive: { borderWidth: 1.5, borderColor: DS.blueDeep + (DS.mode === 'dark' ? '55' : '33') },
+  cardLive: { borderWidth: 1.5, borderColor: DS.lime + (DS.mode === 'dark' ? '55' : '33') },
 
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -1154,9 +1165,9 @@ const makeC = (DS, TYPO) => StyleSheet.create({
   liveTxt: { fontFamily: TYPO.label.fontFamily, color: DS.live, fontSize: 12, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase' },
   statusTxt: { fontFamily: TYPO.label.fontFamily, color: DS.textMuted, fontSize: 12, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase' },
   leaguePill: { backgroundColor: DS.surfaceHigh, borderRadius: 5, paddingHorizontal: 8, paddingVertical: 3 },
-  leaguePillLive: { backgroundColor: DS.blueDeep },
+  leaguePillLive: { backgroundColor: DS.lime },
   leaguePillTxt: { fontFamily: TYPO.label.fontFamily, color: DS.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: -0.5, textTransform: 'uppercase' },
-  leaguePillTxtLive: { color: DS.onBlue },
+  leaguePillTxtLive: { color: DS.onLime },
 
   teamsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   team: { flex: 1, alignItems: 'center', gap: 6 },
@@ -1180,8 +1191,8 @@ const makeC = (DS, TYPO) => StyleSheet.create({
   track: { height: 5, backgroundColor: DS.surfaceHigh, borderRadius: 3, overflow: 'hidden', marginBottom: 12 },
   fill: { height: 5, backgroundColor: DS.lime, borderRadius: 3, shadowColor: DS.lime, shadowOpacity: 0.6, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
 
-  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: DS.blueDeep, height: 40, borderRadius: 10, shadowColor: DS.blueDeep, shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
-  primaryBtnTxt: { fontFamily: TYPO.label.fontFamily, color: DS.onBlue, fontSize: 13, fontWeight: '700', letterSpacing: 0.8 },
+  primaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: DS.lime, height: 40, borderRadius: 10, shadowColor: DS.lime, shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
+  primaryBtnTxt: { fontFamily: TYPO.label.fontFamily, color: DS.onLime, fontSize: 13, fontWeight: '700', letterSpacing: 0.8 },
   // Same style as My Cricket → Matches: soft green-tint fill, green bold text,
   // sentence case (no uppercase) — e.g. "D-Vigo-S XI won by 5 wickets".
 });
@@ -1210,7 +1221,11 @@ const makeM = (DS) => StyleSheet.create({
 });
 
 const makeP = (DS) => StyleSheet.create({
-  card: { backgroundColor: DS.surface, marginTop: 8, paddingBottom: 14, borderRadius: 0 },
+  card: { 
+    backgroundColor: DS.surface, marginTop: 16, marginHorizontal: 16, paddingBottom: 14, borderRadius: 24,
+    borderWidth: 1, borderColor: DS.line, overflow: 'hidden',
+    shadowColor: '#000', shadowOpacity: DS.mode === 'dark' ? 0.2 : 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4
+  },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 11 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   name: { color: DS.textPrimary, fontSize: 14, fontWeight: '800' },
@@ -1241,5 +1256,5 @@ const makeCm = (DS) => StyleSheet.create({
     borderTopWidth: 1, borderTopColor: DS.line, paddingTop: 12
   },
   input: { flex: 1, color: DS.textPrimary, fontSize: 14, paddingVertical: 6 },
-  post: { color: DS.blueSoft, fontSize: 14, fontWeight: '800' }
+  post: { color: DS.lime, fontSize: 14, fontWeight: '800' }
 });

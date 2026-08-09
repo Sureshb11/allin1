@@ -18,8 +18,8 @@
 // reveal and clearance measurement all keep working unchanged. Hides entirely
 // on full-screen scoring routes (same rule the old bar used).
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Platform, UIManager, Animated } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/ThemeContext';
 import { useCurrentUser } from '../utils/currentUser';
@@ -47,15 +47,15 @@ export default function GlassDock({
 }) {
   const { colors: DS, isDark } = useTheme();
   const me = useCurrentUser();          // logged-in user → "You" tab avatar
-  const [size, setSize] = useState({ w: 0, h: 0 });
 
   const tabRoute = state.routes[state.index];
   const deep = tabRoute.state?.routes?.[tabRoute.state.index]?.name;
-  if (FULLSCREEN.includes(deep)) return null;
-
+  
   const active =
     deep === 'StartMatch' ? 'ball' :
     ({ HomeTab: 'home', MyCricketTab: 'mycricket', PavilionTab: 'pavilion', ProfileTab: 'profile' }[tabRoute.name] || 'home');
+
+  if (FULLSCREEN.includes(deep)) return null;
 
   // Each dock item goes to ITS screen (not just its tab) — otherwise "Home"
   // from Profile would land back on Profile, since Profile/StartMatch live on
@@ -88,27 +88,41 @@ export default function GlassDock({
   
   // `glyph` renders a custom icon (given the current tint) in place of the
   // named MaterialCommunityIcons glyph — used for the floodlit stadium.
+  const AnimatedIcon = Animated.createAnimatedComponent(Icon);
+
   const Item = ({ id, activeIcon, inactiveIcon, glyph, onPress, label }) => {
     const on = active === id;
-    const tint = on ? accent : idle;
+    
+    // Smooth transition between 0 and 1
+    const anim = useRef(new Animated.Value(on ? 1 : 0)).current;
+    
+    useEffect(() => {
+      Animated.timing(anim, {
+        toValue: on ? 1 : 0,
+        duration: 250,
+        useNativeDriver: false, // Color interpolation requires JS driver
+      }).start();
+    }, [on]);
+
+    const tint = anim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [idle, accent]
+    });
+
     const iconName = on ? (activeIcon || inactiveIcon) : (inactiveIcon || activeIcon);
+    
     return (
-      <TouchableOpacity
-        onPress={onPress} style={s.item} hitSlop={{ top: 8, bottom: 4, left: 4, right: 4 }}
-        activeOpacity={0.7}
-        accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: on }}>
-        {glyph ? glyph(tint, on) : <Icon name={iconName} size={28} color={tint} />}
-        <Text numberOfLines={1} style={[s.label, { color: tint }, on && s.labelOn]}>{label}</Text>
-        <View style={[s.dot, on && { backgroundColor: accent }]} />
+      <TouchableOpacity style={s.item} onPress={onPress} activeOpacity={0.8} hitSlop={8}>
+        {glyph ? glyph(on ? accent : idle, on) : <AnimatedIcon name={iconName} size={28} style={{ color: tint }} />}
+        <Animated.Text numberOfLines={1} style={[s.label, { color: tint }]}>{label}</Animated.Text>
+        <Animated.View style={[s.dot, { opacity: anim, transform: [{ scale: anim }], backgroundColor: accent }]} />
       </TouchableOpacity>
     );
   };
 
   return (
     <View style={s.wrap} pointerEvents="box-none">
-      <View
-        style={s.capsule}
-        onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
+      <View style={s.capsule}>
         
         <Item id="home"      activeIcon="home" inactiveIcon="home-outline" onPress={goTab('HomeTab', homeRoute)}      label="Home" />
         <Item id="mycricket" activeIcon={sportIcon} inactiveIcon={sportIcon} onPress={goTab('MyCricketTab', 'Home')}    label={sportName} />
@@ -150,8 +164,7 @@ const makeStyles = (isDark, DS) => StyleSheet.create({
     shadowOffset: { width: 0, height: 8 }, elevation: 10,
   },
   item: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
-  label: { fontSize: 10.5, marginTop: 3, letterSpacing: 0.2, fontWeight: '500' },
-  labelOn: { fontWeight: '700' },
+  label: { fontSize: 10.5, marginTop: 3, letterSpacing: 0.2, fontWeight: '600' },
   dot: { width: 4, height: 4, borderRadius: 2, marginTop: 3, backgroundColor: 'transparent' },
   // "You" tab avatar — ring takes the current tint (green when selected).
   avatar: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.6, backgroundColor: DS.surfaceHigh },

@@ -19,7 +19,14 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { getSelectedSport, subscribeSport } from '../utils/selectedSport';
 import { sportColor } from '../sports/colors';
-import { Appearance } from 'react-native';
+import { Appearance, LayoutAnimation, Platform, UIManager } from 'react-native';
+
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'theme:mode';
@@ -231,11 +238,13 @@ export function ThemeProvider({ children }) {
   useEffect(() => subscribeSport((s) => setSportId(s?.id || null)), []);
 
   const setMode = useCallback((next) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setPref(next);
     AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
   }, []);
 
   const toggle = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setPref((cur) => {
       const resolved = cur === 'system' ? (Appearance.getColorScheme() || 'light') : cur;
       const next = resolved === 'dark' ? 'light' : 'dark';

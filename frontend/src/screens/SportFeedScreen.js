@@ -287,7 +287,7 @@ export default function SportFeedScreen({ navigation }) {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 28 }}
+        contentContainerStyle={{ paddingBottom: 28, paddingTop: 100 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accent} colors={[accent]} progressBackgroundColor={D.surfaceLow} />
         }
@@ -440,7 +440,7 @@ export default function SportFeedScreen({ navigation }) {
 
 const makeStyles = (D) => StyleSheet.create({
   root: { flex: 1, backgroundColor: D.bg },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 52, paddingBottom: 10, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: D.line },
+  topBar: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, backgroundColor: D.surfaceLow + 'E6', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 52, paddingBottom: 10, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: D.line },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brandTxt: { color: D.ink, fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   sportTag: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },

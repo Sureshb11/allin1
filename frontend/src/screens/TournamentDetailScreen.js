@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Modal, Alert, TextInput, Image, Linking
+  ActivityIndicator, Modal, Alert, TextInput, Image, Linking, Platform
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
@@ -619,10 +619,6 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const renderOverview = () => (
     <ScrollView {...hideTabBar} contentContainerStyle={[styles.tabContent, showFab && styles.tabContentFab]}>
       {/* Info Grid */}
-      {/* Five cards, not eight. Type moved to a header chip and Venue has its
-          own section below, so both were being said twice; Start and End were
-          two cards describing one range. What's left is what nothing else on
-          the screen tells you. */}
       <View style={styles.infoGrid}>
         {[
           { icon: 'trophy-outline', label: 'Format',
@@ -635,13 +631,14 @@ export default function TournamentDetailScreen({ route, navigation }) {
           { icon: 'cricket', label: 'Ball', value: tournament.ballType },
         ].filter((c) => c.value).map(({ icon, label, value }) => (
           <View key={label} style={styles.infoCard}>
-            <Icon name={icon} size={20} color={DS.blue} />
+            <Icon name={icon} size={20} color={DS.textPrimary} />
             <Text style={styles.infoLabel}>{label}</Text>
             <Text style={styles.infoValue} numberOfLines={2}>{value}</Text>
           </View>
         ))}
       </View>
 
+      {/* About Section */}
       {!!tournament.description && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
@@ -649,54 +646,182 @@ export default function TournamentDetailScreen({ route, navigation }) {
         </View>
       )}
 
-      <DetailSection title="Where" icon="map-marker-outline" rows={[
-        ['Ground', loc.ground],
-        ['Venue', tournament.venue],
-        ['City', joinWith(tournament.city, loc.state, loc.country)],
-      ]} />
+      {/* Details & Schedule Compact Grid */}
+      <View style={styles.section}>
+        <View style={styles.detailHead}>
+          <Icon name="clipboard-text-clock-outline" size={15} color={DS.lime} />
+          <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Details & Schedule</Text>
+        </View>
+        <View style={styles.grid2Col}>
+          {!!loc.ground && (
+            <View style={styles.grid2ColCell}>
+              <Text style={styles.gridLabel}>Ground</Text>
+              <Text style={styles.gridVal} numberOfLines={1}>{loc.ground}</Text>
+            </View>
+          )}
+          {!!tournament.venue && (
+            <View style={styles.grid2ColCell}>
+              <Text style={styles.gridLabel}>Venue</Text>
+              <Text style={styles.gridVal} numberOfLines={1}>{tournament.venue}</Text>
+            </View>
+          )}
+          {!!(tournament.city || loc.state) && (
+            <View style={styles.grid2ColCell}>
+              <Text style={styles.gridLabel}>City</Text>
+              <Text style={styles.gridVal} numberOfLines={1}>{joinWith(tournament.city, loc.state, loc.country)}</Text>
+            </View>
+          )}
+          {!!reg.opensAt && (
+            <View style={styles.grid2ColCell}>
+              <Text style={styles.gridLabel}>Reg Opens</Text>
+              <Text style={styles.gridVal}>{fmtDay(reg.opensAt)}</Text>
+            </View>
+          )}
+          {!!reg.closesAt && (
+            <View style={styles.grid2ColCell}>
+              <Text style={styles.gridLabel}>Reg Closes</Text>
+              <Text style={styles.gridVal}>{fmtDay(reg.closesAt)}</Text>
+            </View>
+          )}
+          {!!tournament.startDate && (
+            <View style={styles.grid2ColCell}>
+              <Text style={styles.gridLabel}>First Ball</Text>
+              <Text style={styles.gridVal}>
+                {reg.startTime ? `${fmtDay(tournament.startDate)} · ${reg.startTime}` : fmtDay(tournament.startDate)}
+              </Text>
+            </View>
+          )}
+          {entry.entryFee != null && (
+            <View style={styles.grid2ColCell}>
+              <Text style={styles.gridLabel}>Entry Fee</Text>
+              <Text style={styles.gridVal}>{entry.entryFee === 0 ? 'Free' : `${sign}${entry.entryFee}`}</Text>
+            </View>
+          )}
+          {!!(entry.minPlayers || entry.maxPlayers) && (
+            <View style={styles.grid2ColCell}>
+              <Text style={styles.gridLabel}>Squad Size</Text>
+              <Text style={styles.gridVal}>{`${entry.minPlayers || '—'} to ${entry.maxPlayers || '—'} players`}</Text>
+            </View>
+          )}
+          {!!entry.playingXi && (
+            <View style={styles.grid2ColCell}>
+              <Text style={styles.gridLabel}>Playing XI</Text>
+              <Text style={styles.gridVal}>{`${entry.playingXi} + ${entry.substitutes || 0} subs`}</Text>
+            </View>
+          )}
+          {!!entry.type && (
+            <View style={styles.grid2ColCell}>
+              <Text style={styles.gridLabel}>Joining</Text>
+              <Text style={styles.gridVal}>{REG_TYPE_LABELS[entry.type] || '—'}</Text>
+            </View>
+          )}
+        </View>
+      </View>
 
-      <DetailSection title="Registration" icon="clipboard-text-clock-outline" rows={[
-        ['Opens', fmtDay(reg.opensAt)],
-        ['Closes', fmtDay(reg.closesAt)],
-        ['First ball', joinWith(reg.startTime, reg.timeZone)],
-        ['Entry fee', entry.entryFee === 0 ? 'Free'
-          : entry.entryFee != null ? `${sign}${entry.entryFee}` : ''],
-        ['Teams', entry.minTeams ? `${entry.minTeams}–${tournament.maxTeams || '?'}` : ''],
-        ['Squad', entry.minPlayers ? `${entry.minPlayers}–${entry.maxPlayers}` : ''],
-        ['Playing XI', entry.playingXi ? `${entry.playingXi}${entry.substitutes ? ` + ${entry.substitutes} subs` : ''}` : ''],
-        ['Joining', REG_TYPE_LABELS[entry.type]],
-      ]} />
+      {/* Rules & Prizes Consolidated Section */}
+      <View style={styles.section}>
+        <View style={styles.detailHead}>
+          <Icon name="gavel" size={15} color={DS.lime} />
+          <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Rules & Prizes</Text>
+        </View>
 
-      {/* Rules read as chips rather than a list of "yes" — what's ON is the
-          information; nine rows each saying Enabled is not. */}
-      {enabledRules.length > 0 && (
-        <DetailSection title="Match rules" icon="gavel" rows={[
-          ['Powerplay', rules.powerplay && rules.powerplayOvers ? `${rules.powerplayOvers} overs` : ''],
-          ['Bowler quota', rules.maxOversPerBowler ? `${rules.maxOversPerBowler} overs` : ''],
-        ]}>
-          <View style={styles.chipWrap}>
+        {/* Points system laid out horizontally */}
+        <View style={styles.pointsCompactRow}>
+          <View style={styles.pointsCompactItem}>
+            <Text style={styles.pointsCompactLabel}>WIN</Text>
+            <Text style={styles.pointsCompactVal}>{pts.win != null ? `${pts.win} pts` : '—'}</Text>
+          </View>
+          <View style={styles.pointsCompactItem}>
+            <Text style={styles.pointsCompactLabel}>LOSS</Text>
+            <Text style={styles.pointsCompactVal}>{pts.loss != null ? `${pts.loss} pts` : '—'}</Text>
+          </View>
+          <View style={styles.pointsCompactItem}>
+            <Text style={styles.pointsCompactLabel}>TIE</Text>
+            <Text style={styles.pointsCompactVal}>{pts.tie != null ? `${pts.tie} pts` : '—'}</Text>
+          </View>
+          <View style={styles.pointsCompactItem}>
+            <Text style={styles.pointsCompactLabel}>N/R</Text>
+            <Text style={styles.pointsCompactVal}>{pts.noResult != null ? `${pts.noResult} pts` : '—'}</Text>
+          </View>
+        </View>
+
+        {/* Tie-breaks */}
+        {!!(pts.tieBreak || []).length && (
+          <View style={{ marginTop: 8, paddingHorizontal: 4 }}>
+            <Text style={styles.gridLabel}>Tie-Breaks</Text>
+            <Text style={[styles.gridVal, { fontSize: 12 }]} numberOfLines={1}>
+              {(pts.tieBreak || []).map((t) => TIEBREAK_LABELS[t] || t).join(' → ')}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.divider} />
+
+        {/* Prizes Row (Winner/Runner-up side-by-side) */}
+        {(prizes.winner || prizes.runnerUp || prizes.semiFinal) && (
+          <>
+            <View style={styles.prizesRow}>
+              {!!prizes.winner && (
+                <View style={styles.prizeCell}>
+                  <Icon name="trophy" size={16} color="#ffd700" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.prizeLabel}>Winner</Text>
+                    <Text style={styles.prizeVal}>{sign}{prizes.winner}</Text>
+                  </View>
+                </View>
+              )}
+              {!!prizes.runnerUp && (
+                <View style={styles.prizeCell}>
+                  <Icon name="trophy-outline" size={16} color="#c0c0c0" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.prizeLabel}>Runner-Up</Text>
+                    <Text style={styles.prizeVal}>{sign}{prizes.runnerUp}</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+            {!!prizes.semiFinal && (
+              <View style={[styles.prizeCell, { marginTop: 8 }]}>
+                <Icon name="medal" size={16} color="#cd7f32" />
+                <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.prizeLabel}>Semi-Finalist</Text>
+                  <Text style={styles.prizeVal}>{sign}{prizes.semiFinal}</Text>
+                </View>
+              </View>
+            )}
+            <View style={styles.divider} />
+          </>
+        )}
+
+        {/* Match rules */}
+        <View style={styles.grid2Col}>
+          {!!rules.maxOversPerBowler && (
+            <View style={styles.grid2ColCell}>
+              <Text style={styles.gridLabel}>Bowler Quota</Text>
+              <Text style={styles.gridVal}>{rules.maxOversPerBowler} ov max per bowler</Text>
+            </View>
+          )}
+          {!!(rules.powerplay && rules.powerplayOvers) && (
+            <View style={styles.grid2ColCell}>
+              <Text style={styles.gridLabel}>Powerplay</Text>
+              <Text style={styles.gridVal}>{rules.powerplayOvers} overs</Text>
+            </View>
+          )}
+        </View>
+
+        {enabledRules.length > 0 && (
+          <View style={[styles.chipWrap, { marginTop: 6 }]}>
             {enabledRules.map((k) => (
               <View key={k} style={styles.ruleChip}>
-                <Icon name="check" size={11} color={DS.lime} />
+                <Icon name="check" size={10} color={DS.lime} />
                 <Text style={styles.ruleChipText}>{RULE_LABELS[k]}</Text>
               </View>
             ))}
           </View>
-        </DetailSection>
-      )}
+        )}
+      </View>
 
-      <DetailSection title="Points system" icon="format-list-numbered" rows={[
-        ['Win', pts.win], ['Tie', pts.tie], ['No result', pts.noResult], ['Loss', pts.loss],
-        ['Bonus point', pts.bonus ? 'Yes' : ''],
-        ['Tie-breaks', (pts.tieBreak || []).map((t) => TIEBREAK_LABELS[t] || t).join(' → ')],
-      ]} />
-
-      <DetailSection title="Prizes" icon="medal-outline" rows={[
-        ['Winner', prizes.winner ? `${sign}${prizes.winner}` : ''],
-        ['Runner-up', prizes.runnerUp ? `${sign}${prizes.runnerUp}` : ''],
-        ['Semi-finalist', prizes.semiFinal ? `${sign}${prizes.semiFinal}` : ''],
-      ]} />
-
+      {/* Organizer Info */}
       {!!tournament.organizer && (
         <View style={styles.section}>
           <View style={styles.detailHead}>
@@ -704,8 +829,6 @@ export default function TournamentDetailScreen({ route, navigation }) {
             <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Organizer</Text>
           </View>
           <Text style={styles.organizerText}>{tournament.organizer}</Text>
-          {/* Contact details are served to signed-in callers only (the API
-              nulls them otherwise), and each one is the action it describes. */}
           <View style={styles.chipWrap}>
             {[
               contact.phone && { icon: 'phone', label: 'Call', url: `tel:${contact.phone}` },
@@ -722,6 +845,43 @@ export default function TournamentDetailScreen({ route, navigation }) {
           </View>
         </View>
       )}
+
+      {/* Resources (Media & Rules PDF side-by-side) */}
+      <View style={styles.section}>
+        <View style={styles.detailHead}>
+          <Icon name="folder-open-outline" size={15} color={DS.lime} />
+          <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Resources</Text>
+        </View>
+        <View style={styles.resourcesRow}>
+          <TouchableOpacity
+            style={styles.resourceCard}
+            activeOpacity={0.85}
+            onPress={() => Alert.alert(
+              "Tournament Gallery",
+              "No photos or videos have been uploaded for this tournament yet. Once the tournament begins, media will appear here."
+            )}
+          >
+            <Icon name="image-multiple" size={18} color={DS.lime} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.resourceTitle}>Gallery</Text>
+              <Text style={styles.resourceSub}>View media</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.resourceCard}
+            activeOpacity={0.85}
+            onPress={() => Linking.openURL('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf').catch(() => {
+              Alert.alert("Error", "Could not open rulebook PDF.");
+            })}
+          >
+            <Icon name="file-document-outline" size={18} color={DS.lime} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.resourceTitle}>Rulebook</Text>
+              <Text style={styles.resourceSub}>Download PDF</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* Registered Teams */}
       {((tournament.teams || []).length > 0 || ['upcoming', 'ongoing'].includes(tournament.status)) && (
@@ -868,7 +1028,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Your pending request — participant side. Mirrors the organiser's card
+      {/* Your pending request — participant side — participant side. Mirrors the organiser's card
           so both halves of the conversation can reach the same room. */}
       {!isOrganizer && myRequests.filter(r => r.status === 'pending').length > 0 && (
         <View style={styles.section}>
@@ -898,36 +1058,6 @@ export default function TournamentDetailScreen({ route, navigation }) {
           ))}
         </View>
       )}
-
-      {/* Tournament Media */}
-      <View style={styles.mediaCard}>
-        <View style={styles.mediaThumb}>
-          <Icon name="image-multiple" size={26} color={DS.white} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.mediaTitle}>Tournament Media</Text>
-          <Text style={styles.mediaSub}>Access photos, videos and highlights from previous years.</Text>
-          <View style={styles.mediaLinkRow}>
-            <Text style={styles.mediaLink}>Open Gallery</Text>
-            <Icon name="chevron-right" size={16} color={DS.blue} />
-          </View>
-        </View>
-      </View>
-
-      {/* Rules & Regulations */}
-      <View style={styles.mediaCard}>
-        <View style={[styles.mediaThumb, { backgroundColor: DS.blueDeep }]}>
-          <Icon name="file-document-outline" size={26} color={DS.white} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.mediaTitle}>Rules &amp; Regulations</Text>
-          <Text style={styles.mediaSub}>Read the official {tournament.format || 'T20'} rulebook for this tournament.</Text>
-          <View style={styles.mediaLinkRow}>
-            <Text style={styles.mediaLink}>Download PDF</Text>
-            <Icon name="download" size={15} color={DS.blue} />
-          </View>
-        </View>
-      </View>
     </ScrollView>
   );
 
@@ -1116,7 +1246,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
         <View style={styles.fixtureTeams}>
           <View style={styles.fixtureTeamCol}>
             <HexAvatar size={52} color={DS.surfaceHigh}>
-              <Text style={[styles.fixtureAvatarText, { color: DS.blue }]}>{initials2(item.team1?.name || item.placeholder1)}</Text>
+              <Text style={[styles.fixtureAvatarText, { color: DS.textPrimary }]}>{initials2(item.team1?.name || item.placeholder1)}</Text>
             </HexAvatar>
             <Text style={[styles.fixtureTeamName, win1 && styles.winnerName]} numberOfLines={2}>
               {item.team1?.name || item.placeholder1 || 'TBD'}
@@ -1425,74 +1555,56 @@ export default function TournamentDetailScreen({ route, navigation }) {
           </>
         )}
 
-        {/* Three rows, not one.
-            Back, logo, title and Edit were all siblings in a single row, so the
-            title got whatever width the other three left it — about 230 of 411
-            — and a name like "Maduravoyal Premier League" truncated at two
-            lines while the chips underneath wrapped and staggered inside the
-            same narrow column. The controls get their own row; the name and the
-            chips get the full width. */}
-        <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={8}>
-            <Icon name="arrow-left" size={22} color={onCover ? '#fff' : DS.textPrimary} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }} />
-          {/* Everything the organiser typed on the way in is editable on the
-              way back — the create wizard reopens with this tournament. */}
-          {isOrganizer && (
-            <TouchableOpacity
-              style={[styles.editBtn, onCover && { borderColor: '#fff', backgroundColor: '#00000040' }]}
-              onPress={() => navigation.navigate('CreateTournament', { tournamentId })}
-              activeOpacity={0.85}>
-              <Icon name="pencil-outline" size={14} color={onCover ? '#fff' : DS.lime} />
-              <Text style={[styles.editBtnText, onCover && { color: '#fff' }]}>Edit</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Icon name="arrow-left" size={24} color={onCover ? '#fff' : DS.textPrimary} />
+        </TouchableOpacity>
 
-        <View style={styles.headerMain}>
-          {!!tournament.logoUrl && (
-            <Image source={{ uri: tournament.logoUrl }} style={styles.logoImg} resizeMode="cover" />
-          )}
-          <View style={{ flex: 1 }}>
-            <View style={styles.eyebrowRow}>
-              <Icon name="trophy-outline" size={13} color={onCover ? '#ffffffcc' : DS.textMuted} />
-              <Text style={[styles.eyebrowText, onCover && { color: '#ffffffcc' }]} numberOfLines={1}>
-                {tournament.shortName || 'TOURNAMENT DETAILS'}
+        <View style={styles.headerInner}>
+          <View style={styles.headerMain}>
+            {!!tournament.logoUrl && (
+              <Image source={{ uri: tournament.logoUrl }} style={styles.logoImg} resizeMode="cover" />
+            )}
+            <View style={{ flex: 1 }}>
+              <View style={styles.titleRow}>
+                <Text style={[styles.headerTitle, onCover && { color: '#fff' }]} numberOfLines={2}>
+                  {tournament.name}
+                </Text>
+                {isOrganizer && (
+                  <TouchableOpacity
+                    style={[styles.editIconBtn]}
+                    onPress={() => navigation.navigate('CreateTournament', { tournamentId })}
+                    activeOpacity={0.85}>
+                    <Icon name="pencil-outline" size={18} color={onCover ? '#fff' : DS.lime} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* Chips row */}
+          <View style={styles.headerChips}>
+            <View style={[styles.statusChip, onCover
+              ? { backgroundColor: statusColor.text }
+              : { backgroundColor: statusColor.bg }]}>
+              <Text style={[styles.statusText, { color: onCover ? '#fff' : statusColor.text }]}>
+                {liveStatus.toUpperCase()}
               </Text>
             </View>
-            <Text style={[styles.headerTitle, onCover && { color: '#fff' }]} numberOfLines={2}>
-              {tournament.name}
-            </Text>
+            {!!tournament.category && (
+              <View style={[styles.metaChip, onCover && styles.metaChipOnCover]}>
+                <Icon name="sitemap-outline" size={11} color={onCover ? '#fff' : DS.textVariant} />
+                <Text style={[styles.metaChipText, onCover && { color: '#fff' }]}>{tournament.category}</Text>
+              </View>
+            )}
+            {!!(tournament.city || tournament.venue) && (
+              <View style={[styles.metaChip, onCover && styles.metaChipOnCover]}>
+                <Icon name="map-marker" size={11} color={onCover ? '#fff' : DS.textVariant} />
+                <Text style={[styles.metaChipText, onCover && { color: '#fff' }]} numberOfLines={1}>
+                  {tournament.city || tournament.venue}
+                </Text>
+              </View>
+            )}
           </View>
-        </View>
-
-        {/* One row, left-aligned under the name, wrapping as a set. Over a cover
-            they all take the same translucent treatment so they read as one
-            group — the status pill was tinted lime-on-lime, which went to mush
-            against a photo. */}
-        <View style={styles.headerChips}>
-          <View style={[styles.statusChip, onCover
-            ? { backgroundColor: statusColor.text }
-            : { backgroundColor: statusColor.bg }]}>
-            <Text style={[styles.statusText, { color: onCover ? '#fff' : statusColor.text }]}>
-              {liveStatus.toUpperCase()}
-            </Text>
-          </View>
-          {!!tournament.category && (
-            <View style={[styles.metaChip, onCover && styles.metaChipOnCover]}>
-              <Icon name="sitemap-outline" size={11} color={onCover ? '#fff' : DS.textVariant} />
-              <Text style={[styles.metaChipText, onCover && { color: '#fff' }]}>{tournament.category}</Text>
-            </View>
-          )}
-          {!!(tournament.city || tournament.venue) && (
-            <View style={[styles.metaChip, onCover && styles.metaChipOnCover]}>
-              <Icon name="map-marker" size={11} color={onCover ? '#fff' : DS.textVariant} />
-              <Text style={[styles.metaChipText, onCover && { color: '#fff' }]} numberOfLines={1}>
-                {tournament.city || tournament.venue}
-              </Text>
-            </View>
-          )}
         </View>
       </View>
 
@@ -1774,16 +1886,18 @@ const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
   errorText: { fontSize: 18, fontWeight: '700', color: DS.coral, marginTop: 12 },
-  header: { backgroundColor: DS.bg, paddingTop: 44, paddingBottom: 14, paddingHorizontal: 16, overflow: 'hidden' },
-  headerTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  header: { backgroundColor: DS.bg, overflow: 'hidden' },
+  headerInner: { paddingTop: Platform.OS === 'ios' ? 88 : 64, paddingBottom: 14, paddingHorizontal: 16 },
   headerMain: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  editIconBtn: { paddingLeft: 2 },
   coverImg: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-  coverScrim: { ...StyleSheet.absoluteFillObject },
+  coverScrim: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   logoImg: { width: 46, height: 46, borderRadius: 14, backgroundColor: DS.surfaceHigh, borderWidth: 1.5, borderColor: DS.lime },
   headerChips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 12 },
   metaChipOnCover: { backgroundColor: '#ffffff2e' },
-  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: DS.lime },
-  editBtnText: { fontSize: 12, fontWeight: '800', color: DS.lime },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: DS.textPrimary },
+  editBtnText: { fontSize: 12, fontWeight: '800', color: DS.textPrimary },
   teamSno: { width: 20, fontSize: 12, fontWeight: '800', color: DS.textMuted, fontVariant: ['tabular-nums'] },
   fullChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: DS.lime + '1f' },
   fullChipText: { fontSize: 11, fontWeight: '800', color: DS.lime },
@@ -1796,19 +1910,35 @@ const makeStyles = (DS) => StyleSheet.create({
   metaChipText: { fontSize: 10, fontWeight: '800', color: DS.textVariant, letterSpacing: 0.3 },
   policyNote: { fontSize: 11, fontWeight: '700', color: DS.textMuted, maxWidth: 150, textAlign: 'right' },
   detailHead: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
-  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 5 },
-  detailKey: { width: 104, fontSize: 12, fontWeight: '700', color: DS.textMuted },
-  detailVal: { flex: 1, fontSize: 13, fontWeight: '700', color: DS.textPrimary, textAlign: 'right' },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 10 },
   ruleChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border },
   ruleChipText: { fontSize: 11, fontWeight: '700', color: DS.textVariant },
   contactChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: DS.lime },
   contactChipText: { fontSize: 12, fontWeight: '800', color: DS.lime },
-  backBtn: { padding: 4, marginTop: 6 },
+  backBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 44 : 20, left: 16, zIndex: 10, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  
+  // Grid and Compact styles
+  grid2Col: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, marginTop: 4 },
+  grid2ColCell: { width: '50%', paddingHorizontal: 6, paddingVertical: 6 },
+  gridLabel: { fontSize: 10, fontWeight: '700', color: DS.textMuted, textTransform: 'uppercase', letterSpacing: 0.3 },
+  gridVal: { fontSize: 13, fontWeight: '700', color: DS.textPrimary, marginTop: 2 },
+  pointsCompactRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, marginTop: 4 },
+  pointsCompactItem: { alignItems: 'center', flex: 1 },
+  pointsCompactLabel: { fontSize: 9, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.5 },
+  pointsCompactVal: { fontSize: 14, fontWeight: '800', color: DS.textPrimary, marginTop: 2 },
+  divider: { height: 1, backgroundColor: DS.border, marginVertical: 12, opacity: 0.5 },
+  prizesRow: { flexDirection: 'row', gap: 12 },
+  prizeCell: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: DS.surfaceHigh, padding: 10, borderRadius: 12 },
+  prizeLabel: { fontSize: 9, fontWeight: '800', color: DS.textMuted, textTransform: 'uppercase', letterSpacing: 0.3 },
+  prizeVal: { fontSize: 13, fontWeight: '800', color: DS.textPrimary, marginTop: 1 },
+  resourcesRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  resourceCard: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: DS.surfaceHigh, padding: 12, borderRadius: 12 },
+  resourceTitle: { fontSize: 13, fontWeight: '800', color: DS.textPrimary },
+  resourceSub: { fontSize: 10, fontWeight: '600', color: DS.textMuted, marginTop: 1 },
   eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
   eyebrowText: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 1.2 },
   headerTitle: { fontSize: 26, fontWeight: '900', color: DS.textPrimary, letterSpacing: -0.3 },
-  statusChip: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 8 },
+  statusChip: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   championBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: DS.success, marginHorizontal: 16, marginBottom: 8, paddingVertical: 10, borderRadius: 12 },
   championText: { fontSize: 14, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
   leaderTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, marginBottom: 8, marginLeft: 4 },
@@ -1831,7 +1961,7 @@ const makeStyles = (DS) => StyleSheet.create({
   awardLabel: { fontSize: 9, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.4, textTransform: 'uppercase' },
   awardName: { fontSize: 13, fontWeight: '800', color: DS.textPrimary },
   awardPts: { fontSize: 10, fontWeight: '700', color: DS.textMuted, fontVariant: ['tabular-nums'] },
-  statusText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
   tabs: { flexDirection: 'row', backgroundColor: DS.bg, borderBottomWidth: 1, borderBottomColor: DS.faint },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
   // One line that slides, not a border per tab that blinks on and off.
@@ -1867,14 +1997,14 @@ const makeStyles = (DS) => StyleSheet.create({
   countBadge: { backgroundColor: DS.surfaceHigh, minWidth: 26, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, alignItems: 'center' },
   countBadgeText: { fontSize: 12, fontWeight: '800', color: DS.textVariant },
   showAllRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingTop: 14 },
-  viewAllText: { fontSize: 14, fontWeight: '700', color: DS.blue },
+  viewAllText: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
   mediaCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 14, marginTop: 4 },
   mediaThumb: { width: 72, height: 72, borderRadius: 12, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
   mediaTitle: { fontSize: 15, fontWeight: '800', color: DS.textPrimary },
   mediaSub: { fontSize: 12, color: DS.textMuted, marginTop: 3, lineHeight: 17 },
   mediaLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 8 },
-  mediaLink: { fontSize: 13, fontWeight: '700', color: DS.blue },
-  fab: { position: 'absolute', bottom: 24, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: DS.blueDeep, alignItems: 'center', justifyContent: 'center', elevation: 8, shadowColor: DS.blueDeep, shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  mediaLink: { fontSize: 13, fontWeight: '700', color: DS.textPrimary },
+  fab: { position: 'absolute', bottom: 24, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', elevation: 8, shadowColor: DS.lime, shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
 
   // Points Table
   ptRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 4 },
@@ -1940,8 +2070,8 @@ const makeStyles = (DS) => StyleSheet.create({
     borderTopWidth: 1, borderTopColor: DS.faint,
   },
   scorecardRowText: { fontSize: 12.5, fontWeight: '800', color: DS.lime, letterSpacing: 0.3 },
-  startBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, alignSelf: 'stretch', backgroundColor: DS.blueDeep, paddingVertical: 14, borderRadius: 12 },
-  startBtnText: { fontSize: 14, fontWeight: '800', color: DS.white },
+  startBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, alignSelf: 'stretch', backgroundColor: DS.lime, paddingVertical: 14, borderRadius: 12 },
+  startBtnText: { fontSize: 14, fontWeight: '800', color: DS.onLime },
   manualLink: { fontSize: 12, fontWeight: '700', color: DS.lime, textDecorationLine: 'underline' },
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   resultTeam: { flex: 1, fontSize: 14, fontWeight: '700', color: DS.textPrimary },

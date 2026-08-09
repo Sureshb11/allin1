@@ -5,13 +5,15 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo from './BrandLogo';
+import HexAvatar from './HexAvatar';
+import { Text } from 'react-native';
 
-export default function AppHeader({ onComposePress, showCompose = false }) {
+export default function AppHeader({ onComposePress, showCompose = false, transparent = false }) {
   const navigation = useNavigation();
   const DS = useTheme().colors;
 
   return (
-    <View style={[styles.topBar, { borderBottomColor: DS.border, backgroundColor: DS.surfaceLow }]}>
+    <View style={[styles.topBar, { borderBottomColor: DS.border, backgroundColor: transparent ? 'transparent' : DS.surfaceLow }]}>
       {/* Brand Logo - Matches Feeds screen */}
       <TouchableOpacity 
         activeOpacity={1} 
@@ -29,8 +31,13 @@ export default function AppHeader({ onComposePress, showCompose = false }) {
       <View style={styles.topActions}>
         {/* Compose Icon or Spacer */}
         {showCompose ? (
-          <TouchableOpacity hitSlop={8} onPress={onComposePress}>
-            <Icon name="plus-box-outline" size={24} color={DS.textPrimary} />
+          <TouchableOpacity 
+            hitSlop={8} 
+            onPress={onComposePress}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: DS.surfaceHigh, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: DS.lime + '40' }}
+          >
+            <Icon name="plus" size={16} color={DS.lime} />
+            <Text style={{ color: DS.lime, fontWeight: '700', fontSize: 13, letterSpacing: 0.3 }}>Post</Text>
           </TouchableOpacity>
         ) : (
           <View style={{ width: 24 }} />
@@ -47,6 +54,7 @@ export default function AppHeader({ onComposePress, showCompose = false }) {
         <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Notification')}>
           <Icon name="bell-outline" size={22} color={DS.textPrimary} />
         </TouchableOpacity>
+
       </View>
     </View>
   );

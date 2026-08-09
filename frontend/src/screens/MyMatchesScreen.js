@@ -74,7 +74,7 @@ const AnimatedPulse = ({ children, style }) => {
 };
 
 // ── Shimmer Skeleton ────────────────────────────────────────────────────────
-function MatchSkeleton({ DS }) {
+export function MatchSkeleton({ DS }) {
   const shimmer = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.loop(

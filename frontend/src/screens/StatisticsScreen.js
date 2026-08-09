@@ -508,14 +508,23 @@ function RankRow({ item, rank, board, cols, isMe, isTeam, onPress, onDoubleTapSt
   );
 }
 
-export default function StatisticsScreen({ navigation, inline, pagerGesture }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
-  const [tab, setTab] = useState('Players');
+export default function StatisticsScreen({ navigation, inline, pagerGesture, mode }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
+  const [internalTab, setInternalTab] = useState('Players');
+  const tab = mode || internalTab;
   // Cricket keeps its Runs/Wickets/Economy boards; other sports rank on their
   // own event tallies (goals, cards …) so the tab labels match the sport.
   const sportId = getSelectedSport().sport?.id || 'cricket';
   const sportBoards = getRankingBoards(sportId);
   const activeBoards = sportBoards.length ? sportBoards : PLAYER_BOARDS;
   const [boardId, setBoardId] = useState(activeBoards[0].id);
+
+  useEffect(() => {
+    if (mode) {
+      setBoardId(mode === 'Players' ? activeBoards[0].id : TEAM_BOARDS[0].id);
+      scrollBoardTo(0);
+    }
+  }, [mode, activeBoards]);
+
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -818,7 +827,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture }) {
                   point is now density. Search collapses to its icon until it's
                   wanted, and takes the row when it is. */}
               <Reanimated.View style={styles.controlRow} layout={LinearTransition.springify()}>
-                {!searchOpen && (
+                {!searchOpen && !mode && (
                   <Reanimated.View style={styles.segment} exiting={SlideOutRight.duration(150)}>
                     {TABS.map((t) => {
                       const on = tab === t.id;

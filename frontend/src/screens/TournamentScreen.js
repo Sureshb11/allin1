@@ -119,7 +119,7 @@ const TIME_ZONES = [
 ];
 
 const deviceZone = () => {
-  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata'; } catch { return 'Asia/Kolkata'; }
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata'; } catch (e) { return 'Asia/Kolkata'; }
 };
 
 // ICC: nobody bowls more than a fifth of the innings. The server enforces this
@@ -287,7 +287,7 @@ export default function TournamentScreen({ navigation, route }) {
               { text: 'Continue', onPress: () => { setForm({ ...blank(), ...draft.form }); setStep(draft.step || 0); } },
             ],
           );
-        } catch { /* a corrupt draft is not worth a dialog */ }
+        } catch (e) { /* a corrupt draft is not worth a dialog */ }
       }
       if (me?.success) {
         const u = me.data?.user, p = me.data?.player;

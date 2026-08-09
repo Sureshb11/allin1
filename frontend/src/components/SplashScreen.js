@@ -12,6 +12,8 @@ export default function SplashScreen() {
   const animScale = useRef(new Animated.Value(0.7)).current;
   const animOpacity = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
+  const animX = useRef(new Animated.Value(0)).current;
+  const animY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -23,6 +25,17 @@ export default function SplashScreen() {
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1, duration: 900, easing: Easing.out(Easing.ease), useNativeDriver: true }),
         Animated.timing(pulseAnim, { toValue: 0.3, duration: 900, easing: Easing.in(Easing.ease), useNativeDriver: true }),
+      ])
+    ).start();
+
+    // Slowly wandering gradient mesh
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(animX, { toValue: 40, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(animY, { toValue: -30, duration: 3500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(animX, { toValue: -20, duration: 4500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(animY, { toValue: 0, duration: 3000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(animX, { toValue: 0, duration: 3000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     ).start();
   }, []);
@@ -45,16 +58,21 @@ export default function SplashScreen() {
   return (
     <View style={s.root}>
       {/* Stadium Background Glow */}
-      <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%">
-        <Defs>
-          <RadialGradient id="splashGlow" cx="50%" cy="45%" r="60%">
-            <Stop offset="0" stopColor={C.lime} stopOpacity={0.15} />
-            <Stop offset="0.6" stopColor={C.blueSoft} stopOpacity={0.05} />
-            <Stop offset="1" stopColor={C.bg} stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#splashGlow)" />
-      </Svg>
+      <Animated.View style={[StyleSheet.absoluteFill, { 
+        width: '120%', height: '120%', top: '-10%', left: '-10%',
+        transform: [{ translateX: animX }, { translateY: animY }] 
+      }]}>
+        <Svg pointerEvents="none" width="100%" height="100%">
+          <Defs>
+            <RadialGradient id="splashGlow" cx="50%" cy="45%" r="60%">
+              <Stop offset="0" stopColor={C.lime} stopOpacity={0.25} />
+              <Stop offset="0.7" stopColor={C.blueSoft} stopOpacity={0.08} />
+              <Stop offset="1" stopColor={C.bg} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#splashGlow)" />
+        </Svg>
+      </Animated.View>
 
       <ThemeToggleButton style={{ position: 'absolute', top: 56, right: 24, zIndex: 10 }} />
 

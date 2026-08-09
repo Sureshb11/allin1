@@ -257,7 +257,7 @@ const buildWhen = (form) => {
   return parts.join(' · ');
 };
 
-export default function LookingForScreen({ navigation, route, inline, onRegisterFab, pagerGesture }) {
+export default function LookingForScreen({ navigation, route, inline, onRegisterFab, pagerGesture, role }) {
   const DS = useTheme().colors;
   const P = pav(DS);
   const styles = useThemedStyles(makeStyles);
@@ -298,7 +298,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   );
   const tabClear = useTabBarClearance();
   // Optional deep-link category (e.g. from the search screen's "Looking for" list).
-  const initialType = FILTER_TYPES.includes(route?.params?.initialType) ? route.params.initialType : 'all';
+  const initialType = role || (FILTER_TYPES.includes(route?.params?.initialType) ? route.params.initialType : 'all');
   const meUser = useCurrentUser();
   const myId = meUser?.id;
   // Listings you've chosen not to see. Local and device-only: this is "not for
@@ -327,6 +327,12 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   const [loading, setLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [activeType, setActiveType] = useState(initialType);
+  
+  useEffect(() => {
+    if (role && role !== activeType) {
+      selectType(role);
+    }
+  }, [role]);
   // Swipe the listings left/right to step through the filter tabs. A ref mirrors
   // the current filter so the (once-created) responder never reads a stale value,
   // and the filter row auto-scrolls the newly-active chip into view.
@@ -987,52 +993,54 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       </View>
 
       {/* Filter Tabs */}
-      <Animated.View style={{ zIndex: 10, transform: [
-        { translateY: scrollY.interpolate({ inputRange: [-100, 0, 100], outputRange: [0, 0, -25], extrapolate: 'clamp' }) },
-        { scale: scrollY.interpolate({ inputRange: [-100, 0], outputRange: [1.1, 1], extrapolateRight: 'clamp' }) }
-      ] }}>
-        <GestureDetector gesture={filterPanBlocking}>
-          <Reanimated.ScrollView
-            ref={filterScroll}
-            horizontal
-            scrollEnabled={false}
-            showsHorizontalScrollIndicator={false}
-            style={styles.tabs}
-            contentContainerStyle={styles.tabsContent}
-            onLayout={(e) => { filterViewW.current = e.nativeEvent.layout.width; recomputeMax(); }}
-            onContentSizeChange={(w) => { filterContentW.current = w; recomputeMax(); }}
-          >
-            {FILTER_TYPES.map((t, idx) => {
-              const on = activeType === t;
-              const n = t === 'all' ? total : (countsByType[t] || 0);
-              const empty = n === 0 && !on;
-              return (
-                <TouchableOpacity
-                  key={t}
-                  activeOpacity={0.7}
-                  style={[styles.tab, on && styles.tabActive, empty && styles.tabEmpty]}
-                  onLayout={(e) => { chipX.current[idx] = e.nativeEvent.layout.x; }}
-                  onPress={() => {
-                    selectType(t);
-                    // Bring the tapped chip into view so the selection is never clipped.
-                    scrollChipIntoView(idx);
-                  }}
-                >
-                  {/* Every chip carries its name now. Icon-only pills meant ten of
-                      these eleven categories were a guess. */}
-                  {t === 'all' && <Icon name={TYPE_ICONS[t]} size={16} color={on ? P.control : DS.textVariant} />}
-                  <Text style={[styles.tabText, on && styles.tabTextActive]} numberOfLines={1}>
-                    {TYPE_LABELS[t] || t}
-                  </Text>
-                  <View style={[styles.tabCountWrap, on && styles.tabCountWrapActive]}>
-                    <Text style={[styles.tabCount, on && styles.tabCountActive]}>{n}</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </Reanimated.ScrollView>
-        </GestureDetector>
-      </Animated.View>
+      {!role && (
+        <Animated.View style={{ zIndex: 10, transform: [
+          { translateY: scrollY.interpolate({ inputRange: [-100, 0, 100], outputRange: [0, 0, -25], extrapolate: 'clamp' }) },
+          { scale: scrollY.interpolate({ inputRange: [-100, 0], outputRange: [1.1, 1], extrapolateRight: 'clamp' }) }
+        ] }}>
+          <GestureDetector gesture={filterPanBlocking}>
+            <Reanimated.ScrollView
+              ref={filterScroll}
+              horizontal
+              scrollEnabled={false}
+              showsHorizontalScrollIndicator={false}
+              style={styles.tabs}
+              contentContainerStyle={styles.tabsContent}
+              onLayout={(e) => { filterViewW.current = e.nativeEvent.layout.width; recomputeMax(); }}
+              onContentSizeChange={(w) => { filterContentW.current = w; recomputeMax(); }}
+            >
+              {FILTER_TYPES.map((t, idx) => {
+                const on = activeType === t;
+                const n = t === 'all' ? total : (countsByType[t] || 0);
+                const empty = n === 0 && !on;
+                return (
+                  <TouchableOpacity
+                    key={t}
+                    activeOpacity={0.7}
+                    style={[styles.tab, on && styles.tabActive, empty && styles.tabEmpty]}
+                    onLayout={(e) => { chipX.current[idx] = e.nativeEvent.layout.x; }}
+                    onPress={() => {
+                      selectType(t);
+                      // Bring the tapped chip into view so the selection is never clipped.
+                      scrollChipIntoView(idx);
+                    }}
+                  >
+                    {/* Every chip carries its name now. Icon-only pills meant ten of
+                        these eleven categories were a guess. */}
+                    {t === 'all' && <Icon name={TYPE_ICONS[t]} size={16} color={on ? P.control : DS.textVariant} />}
+                    <Text style={[styles.tabText, on && styles.tabTextActive]} numberOfLines={1}>
+                      {TYPE_LABELS[t] || t}
+                    </Text>
+                    <View style={[styles.tabCountWrap, on && styles.tabCountWrapActive]}>
+                      <Text style={[styles.tabCount, on && styles.tabCountActive]}>{n}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </Reanimated.ScrollView>
+          </GestureDetector>
+        </Animated.View>
+      )}
 
       <GestureDetector gesture={swipe}>
       <View style={{ flex: 1 }}>
