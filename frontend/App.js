@@ -23,6 +23,12 @@ import { loadSelectedSport } from './src/utils/selectedSport';
 import AppNavigator from './src/navigation/AppNavigator';
 import SportPickerScreen from './src/screens/SportPickerScreen';
 import PlayerSetupScreen from './src/screens/PlayerSetupScreen';
+import HistoricalStatsQuestionScreen from './src/screens/HistoricalStatsQuestionScreen';
+import HistoricalStatsSourceScreen from './src/screens/HistoricalStatsSourceScreen';
+import HistoricalStatsUploadScreen from './src/screens/HistoricalStatsUploadScreen';
+import HistoricalStatsOcrScreen from './src/screens/HistoricalStatsOcrScreen';
+import HistoricalStatsReviewScreen from './src/screens/HistoricalStatsReviewScreen';
+import HistoricalStatsSuccessScreen from './src/screens/HistoricalStatsSuccessScreen';
 import RummyHomeScreen from './src/sports/rummy/screens/RummyHomeScreen';
 import RummyNewGameScreen from './src/sports/rummy/screens/RummyNewGameScreen';
 import RummyGameScreen from './src/sports/rummy/screens/RummyGameScreen';
@@ -127,6 +133,12 @@ const Root = () => {
           <Stack.Screen name="SportPicker" component={SportPickerScreen} />
           {/* Asked once on the way into cricket, and skippable — see the screen. */}
           <Stack.Screen name="PlayerSetup" component={PlayerSetupScreen} />
+          <Stack.Screen name="HistoricalStatsQuestion" component={HistoricalStatsQuestionScreen} />
+          <Stack.Screen name="HistoricalStatsSource" component={HistoricalStatsSourceScreen} />
+          <Stack.Screen name="HistoricalStatsUpload" component={HistoricalStatsUploadScreen} />
+          <Stack.Screen name="HistoricalStatsOcr" component={HistoricalStatsOcrScreen} />
+          <Stack.Screen name="HistoricalStatsReview" component={HistoricalStatsReviewScreen} />
+          <Stack.Screen name="HistoricalStatsSuccess" component={HistoricalStatsSuccessScreen} />
           <Stack.Screen name="RummyHome" component={RummyHomeScreen} />
           <Stack.Screen name="RummyNewGame" component={RummyNewGameScreen} />
           <Stack.Screen name="RummyGame" component={RummyGameScreen} />

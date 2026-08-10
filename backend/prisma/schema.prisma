@@ -172,6 +172,7 @@ model Player {
   ballsNonStriker Ball[]        @relation("nonStriker")
   matchPlayers    MatchPlayer[]
   oversBowled     Over[]
+  historicalStats HistoricalStatSubmission[]
   team            Team?         @relation(fields: [teamId], references: [id])
   user            User?         @relation(fields: [userId], references: [id])
 
@@ -179,6 +180,21 @@ model Player {
   @@index([userId])
   @@index([teamId])
 }
+
+model HistoricalStatSubmission {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  playerId  String
+  status    String   @default("pending") // pending, approved, rejected
+  data      Json
+  imageUrls String[]
+  player    Player   @relation(fields: [playerId], references: [id])
+
+  @@index([playerId])
+  @@index([status])
+}
+
 
 model Match {
   id             String        @id @default(cuid())

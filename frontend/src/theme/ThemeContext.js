@@ -238,13 +238,11 @@ export function ThemeProvider({ children }) {
   useEffect(() => subscribeSport((s) => setSportId(s?.id || null)), []);
 
   const setMode = useCallback((next) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setPref(next);
     AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
   }, []);
 
   const toggle = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setPref((cur) => {
       const resolved = cur === 'system' ? (Appearance.getColorScheme() || 'light') : cur;
       const next = resolved === 'dark' ? 'light' : 'dark';

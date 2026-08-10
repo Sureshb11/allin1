@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, Share, ActivityIndicator, Image, RefreshControl, Animated, Easing,
+  Alert, Share, ActivityIndicator, Image, RefreshControl, Animated, Easing, Platform
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { pickAndUploadImage } from '../utils/imageUpload';
 import { useFocusEffect } from '@react-navigation/native';
 import AppHeader from '../components/AppHeader';
@@ -20,19 +22,6 @@ import { getSport } from '../sports';
 import { canonicalRole } from '../utils/squadOrder';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-// The career numbers used to live here too — a bento grid, a BATTING/BOWLING
-// table and a recent-form list, all built from the same GET /users/me/stats
-// that the My Stats tab renders far better (CareerBoard: form chart, honours,
-// per-panel breakdowns). Two screens, one endpoint, two different-looking
-// answers to "how have I played" — and the profile's was the worse one.
-//
-// So this screen is now about WHO you are, and it finally shows what Edit
-// Profile has been collecting all along: how you play, your team, where you
-// are, your bio. Career lives one tap away, in the place built for it.
-
-// Shape-matching placeholder — cover, avatar, name, then the cards. The bare
-// centred spinner it replaces said "something is coming" but not what, so the
-// screen jumped when it arrived. Same pattern as My Stats (StatsSkeleton).
 function ProfileSkeleton({ DS }) {
   const pulse = useRef(new Animated.Value(0.35)).current;
   useEffect(() => {
@@ -48,17 +37,17 @@ function ProfileSkeleton({ DS }) {
   );
   return (
     <View style={{ flex: 1, backgroundColor: DS.bg }}>
-      <Bar width="100%" height={160} r={0} />
+      <Bar width="100%" height={220} r={0} />
       <View style={{ alignItems: 'center', marginTop: -60 }}>
         <Bar width={120} height={120} r={60} />
-        <View style={{ height: 14 }} />
-        <Bar width={160} height={20} />
-        <View style={{ height: 8 }} />
-        <Bar width={90} height={12} />
+        <View style={{ height: 16 }} />
+        <Bar width={180} height={24} />
+        <View style={{ height: 10 }} />
+        <Bar width={100} height={14} />
       </View>
-      <View style={{ padding: 16, gap: 12, marginTop: 20 }}>
-        <Bar width="100%" height={150} r={16} />
-        <Bar width="100%" height={70} r={16} />
+      <View style={{ padding: 20, gap: 16, marginTop: 24 }}>
+        <Bar width="100%" height={160} r={20} />
+        <Bar width="100%" height={80} r={20} />
       </View>
     </View>
   );
@@ -71,56 +60,31 @@ export default function ProfileScreen({ navigation }) {
   const tabClear = useTabBarClearance();
   const toggleTheme = () => setMode(isDark ? 'light' : 'dark');
 
-  // Hex action button (Share / Edit / Theme in the action bar) — the Arena
-  // honeycomb motif, same as the avatar and the app's other hex tiles.
-  const ActionIcon = ({ icon, label, color, onPress }) => (
+  const ActionIcon = ({ icon, color, onPress }) => (
     <TouchableOpacity style={styles.actionItem} activeOpacity={0.7} onPress={onPress}>
       <View style={styles.actionIconWrap}>
-        <Icon name={icon} size={24} color={color || DS.lime} />
+        <Icon name={icon} size={24} color={color || DS.textPrimary} />
       </View>
-      <Text style={styles.actionLabel} numberOfLines={1}>{label}</Text>
     </TouchableOpacity>
   );
+
   const [profile, setProfile] = useState({});
-  // How this person plays lives on their PLAYER row, not their account — role,
-  // batting hand, bowling style and the team they turn out for. The hero has
-  // been printing `profile.role || 'Player'` and a `profile.teamName` pill since
-  // it was written; User has neither column, so it read "Player" for everybody
-  // and the team pill has never once rendered.
   const [player, setPlayer] = useState(null);
-  // Every club, not just one. A Player row IS a team membership, so someone in
-  // three clubs has three rows and the hero could only ever name the first.
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [uploading, setUploading] = useState(null);   // 'avatar' | 'cover' | null
+  const [uploading, setUploading] = useState(null);
+  const [hasHistoricalStats, setHasHistoricalStats] = useState(false); 
 
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: false,
-    });
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
-
-  // One labelled fact — "Bats · Right handed". Value greys out when nothing has
-  // been said yet, which is a prompt rather than a blank.
-  const Fact = ({ icon, label, value }) => (
-    <View style={styles.factRow}>
-      <Icon name={icon} size={17} color={DS.textMuted} style={{ width: 22 }} />
-      <Text style={styles.factLabel}>{label}</Text>
-      <Text style={[styles.factValue, !value && styles.factValueEmpty]} numberOfLines={1}>
-        {value || 'Not set'}
-      </Text>
-    </View>
-  );
 
   const uploadRef = useRef(false);
 
   const loadProfile = useCallback(async () => {
     if (uploadRef.current) return;
     try {
-      // Scoped to the sport being viewed: a user can hold a player row per
-      // sport, and an unscoped lookup returned whichever came first — so a
-      // footballer's profile could describe them as a right-arm quick.
       const profileRes = await legendsApi.getUserProfile(getSelectedSport().sport?.id);
       if (profileRes.success) {
         setProfile(profileRes.data);
@@ -128,6 +92,9 @@ export default function ProfileScreen({ navigation }) {
         setTeams(profileRes.teams || []);
         setCurrentAvatar(profileRes.data?.avatarUrl || null);
       }
+      
+      const statsFlag = await AsyncStorage.getItem('hasHistoricalStats');
+      setHasHistoricalStats(statsFlag === 'true');
     } catch {
       Alert.alert('Error', 'Failed to load profile data');
     } finally {
@@ -135,9 +102,6 @@ export default function ProfileScreen({ navigation }) {
     }
   }, []);
 
-  // On focus, not once on mount. This screen offers two routes into Edit
-  // Profile and then never re-read the result: you'd change your role, come
-  // back, and the card would still show the old one until the app restarted.
   useFocusEffect(useCallback(() => { loadProfile(); }, [loadProfile]));
 
   const onRefresh = useCallback(() => {
@@ -148,9 +112,6 @@ export default function ProfileScreen({ navigation }) {
   const shareProfile = async () => {
     const sp = getSelectedSport().sport || { name: 'Cricket' };
     const name = profile.name || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Player';
-    // Who they are, not what they've scored. My Stats has its own Share Card
-    // action that sends the career board as an image — a profile share that
-    // repeated three of those numbers as text was the weaker of the two.
     const bits = [
       canonicalRole(player?.role, sp.id) || player?.role,
       player?.team?.name && `plays for ${player.team.name}`,
@@ -170,11 +131,10 @@ export default function ProfileScreen({ navigation }) {
       {
         text: 'Logout', style: 'destructive',
         onPress: async () => {
-          await unregisterFromPush();                      // stop pushes to this device
-          await legendsApi.logout();                       // clear persisted JWT
-          clearCurrentUser();                              // wipe cached id/name/avatar
-          clearPlayerSetup();                              // next account answers "do you play?" itself
-          // Reset the ROOT navigator back to the auth flow.
+          await unregisterFromPush();
+          await legendsApi.logout();
+          clearCurrentUser();
+          clearPlayerSetup();
           const root = navigation.getParent('RootStack') || navigation;
           root.reset({ index: 0, routes: [{ name: 'Auth' }] });
         },
@@ -182,16 +142,10 @@ export default function ProfileScreen({ navigation }) {
     ]);
   };
 
-  // Avatar and cover were two copies of the same twenty lines, differing by one
-  // field name. `which` is also what the spinner keys off: picking an image and
-  // uploading it takes seconds during which nothing on screen changed at all,
-  // so the tap read as ignored and people tapped again.
   const uploadPhoto = async (which) => {
     const field = which === 'avatar' ? 'avatarUrl' : 'coverUrl';
     try {
       uploadRef.current = true;
-      // Both go to the 'avatars' folder — it is the one the upload allow-list
-      // compresses for photos of people (backend/src/routes/upload.js).
       const result = await pickAndUploadImage('avatars');
       if (result?.url) {
         setUploading(which);
@@ -217,19 +171,11 @@ export default function ProfileScreen({ navigation }) {
     .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   const isPremium = profile.plan === 'pro';
   const sport = getSelectedSport().sport || { id: 'cricket', name: 'Cricket' };
-  const sportAccent = getSport(sport.id)?.accent || DS.lime;
-
-  // The role, spelled the app's way. Player.role is free text typed by whoever
-  // added the player, so the same person reads "Bat" here and "Batter" in a
-  // squad list unless it's folded (utils/squadOrder).
   const role = canonicalRole(player?.role, sport.id) || (player?.role !== 'Player' ? player?.role : null);
   const isCricket = sport.id === 'cricket';
-  // Nothing said yet — either they've never played, or they tapped "I'm here to
-  // watch" on the way in. Both get an invitation rather than a row of dashes.
   const hasPlayInfo = !!(role || player?.battingStyle || player?.bowlingStyle);
   const place = [profile.city, profile.district, profile.state, profile.country]
     .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ');
-  // How long they've been here. User.createdAt has always been in the payload.
   const memberSince = profile.createdAt
     ? new Date(profile.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
     : null;
@@ -243,306 +189,355 @@ export default function ProfileScreen({ navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh}
             tintColor={DS.lime} colors={[DS.lime]} />
         }>
-      {/* Hero Header */}
-      <View style={styles.hero}>
-        {/* Background Cover */}
-        <View style={styles.coverWrap}>
-          <TouchableOpacity activeOpacity={0.9} onPress={() => uploadPhoto('cover')}
-            disabled={!!uploading} style={{ width: '100%', height: '100%' }}>
+        
+        {/* ── Premium Player Card Hero ── */}
+        <View style={styles.hero}>
+          <TouchableOpacity activeOpacity={0.9} onPress={() => uploadPhoto('cover')} disabled={!!uploading} style={styles.coverWrap}>
             {profile.coverUrl ? (
               <Image source={{ uri: profile.coverUrl }} style={styles.coverPhoto} resizeMode="cover" />
             ) : profile.avatarUrl ? (
-              <Image source={{ uri: profile.avatarUrl }} style={styles.coverPhoto} resizeMode="cover" blurRadius={15} />
+              <Image source={{ uri: profile.avatarUrl }} style={styles.coverPhoto} resizeMode="cover" blurRadius={20} />
             ) : (
-              // Last resort: the sport's own colour, not a stock CRICKET photo
-              // (which is what this was — a hotlinked Unsplash cricket shot
-              // shown on every sport's profile). Also removes a network
-              // dependency from the profile header.
-              <View style={[styles.coverPhoto, { backgroundColor: sportAccent }]} />
-            )}
-            <View style={styles.coverDarkenOverlay} />
-            <View style={styles.coverUploadOverlay}>
-              {uploading === 'cover'
-                ? <ActivityIndicator size="small" color="#FFF" />
-                : <Icon name="camera" size={20} color="#FFF" />}
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Overlapping Profile Picture */}
-        <View style={styles.avatarContainer}>
-          <TouchableOpacity activeOpacity={0.9} onPress={() => uploadPhoto('avatar')} disabled={!!uploading}>
-            {profile.avatarUrl ? (
-              <Image source={{ uri: profile.avatarUrl }} style={styles.largeAvatar} resizeMode="cover" />
-            ) : (
-              <View style={[styles.largeAvatar, { alignItems: 'center', justifyContent: 'center' }]}>
-                <Text style={styles.avatarText}>{initials}</Text>
-              </View>
+              <View style={[styles.coverPhoto, { backgroundColor: DS.lime }]} />
             )}
             
-            <View style={styles.uploadOverlay}>
-              {uploading === 'avatar'
-                ? <ActivityIndicator size="small" color={DS.lime} />
-                : <Icon name="camera" size={16} color={DS.textPrimary} />}
+            {/* Smooth Gradient Fade to Background */}
+            <View style={StyleSheet.absoluteFillObject}>
+              <Svg width="100%" height="100%">
+                <Defs>
+                  <LinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={DS.bg} stopOpacity="0" />
+                    <Stop offset="0.6" stopColor={DS.bg} stopOpacity="0.4" />
+                    <Stop offset="1" stopColor={DS.bg} stopOpacity="1" />
+                  </LinearGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill="url(#fade)" />
+              </Svg>
+            </View>
+
+            <View style={styles.coverUploadOverlay}>
+              {uploading === 'cover' ? <ActivityIndicator size="small" color="#FFF" /> : <Icon name="camera" size={18} color="#FFF" />}
             </View>
           </TouchableOpacity>
-        </View>
 
-        {/* User Info */}
-        <View style={styles.heroInfo}>
-          <Text style={styles.heroName}>{displayName}</Text>
-          {/* Only when it's true. This line said "Player" for every account in
-              the app, because it read a column User does not have. */}
-          {!!role && <Text style={styles.heroRole}>{role}</Text>}
-          {!!profile.phone && <Text style={styles.heroPhone}>{profile.phone}</Text>}
-          <View style={styles.heroPills}>
-            {isPremium && (
-              <View style={styles.membershipPill}>
-                <Icon name="star-circle" size={12} color={DS.lime} />
-                <Text style={[styles.membershipText, { color: DS.lime }]}>Premium</Text>
-              </View>
-            )}
-            {!!place && (
-              <View style={styles.teamPill}>
-                <Icon name="map-marker" size={11} color={DS.textMuted} />
-                <Text style={styles.teamPillText} numberOfLines={1}>{place}</Text>
-              </View>
-            )}
-            {!!memberSince && (
-              <View style={styles.teamPill}>
-                <Icon name="calendar-blank" size={11} color={DS.textMuted} />
-                <Text style={styles.teamPillText}>Since {memberSince}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.body}>
-        {/* ── How I play ──
-            The three answers the app now asks for on the way in, and the only
-            place they are ever shown. Everything under here is something Edit
-            Profile has always collected and no screen ever displayed. */}
-        <View style={styles.section}>
-          <View style={styles.cardHead}>
-            <Text style={styles.sectionTitle}>How I play</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('EditPlayerProfile')} hitSlop={10}>
-              <Text style={styles.cardAction}>Edit</Text>
-            </TouchableOpacity>
-          </View>
-
-          {hasPlayInfo ? (
-            <>
-              <Fact icon="account-star" label="Role" value={role} />
-              {isCricket && <Fact icon="cricket" label="Bats" value={player?.battingStyle} />}
-              {isCricket && (
-                <Fact icon="bowling" label="Bowls"
-                  value={player?.bowlingStyle === 'None' ? "Doesn't bowl" : player?.bowlingStyle} />
+          {/* Floating Glass Avatar */}
+          <View style={styles.avatarWrap}>
+            <TouchableOpacity activeOpacity={0.9} onPress={() => uploadPhoto('avatar')} disabled={!!uploading} style={styles.largeAvatar}>
+              {profile.avatarUrl ? (
+                <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
+              ) : (
+                <View style={[styles.avatarImage, { backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={[styles.avatarText, { color: DS.lime }]}>{initials}</Text>
+                </View>
               )}
-            </>
-          ) : (
-            // Said nothing yet — either they've never played, or they chose
-            // "I'm here to watch". Neither deserves a row of dashes, and both
-            // can change their mind from right here.
-            <TouchableOpacity style={styles.invite} activeOpacity={0.85}
-              onPress={() => navigation.navigate('EditPlayerProfile')}>
-              <Icon name="account-plus-outline" size={19} color={DS.lime} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inviteTitle}>Tell us how you play</Text>
-                <Text style={styles.inviteBlurb}>
-                  Your role and style show up in squad lists and on scorecards.
-                </Text>
+              <View style={styles.uploadOverlay}>
+                {uploading === 'avatar' ? <ActivityIndicator size="small" color={DS.textPrimary} /> : <Icon name="camera" size={16} color={DS.textPrimary} />}
               </View>
-              <Icon name="chevron-right" size={19} color={DS.textMuted} />
             </TouchableOpacity>
-          )}
+          </View>
+
+          {/* Player Identity */}
+          <View style={styles.heroInfo}>
+            <Text style={styles.heroName}>{displayName}</Text>
+            {!!role && <Text style={[styles.heroRole, { color: DS.lime }]}>{role.toUpperCase()}</Text>}
+            {!!profile.phone && <Text style={styles.heroPhone}>{profile.phone}</Text>}
+            
+            {/* Sleek Pills */}
+            <View style={styles.heroPills}>
+              {isPremium && (
+                <View style={[styles.pill, { borderColor: DS.lime, backgroundColor: DS.lime + '1A' }]}>
+                  <Icon name="star-circle" size={12} color={DS.lime} />
+                  <Text style={[styles.pillText, { color: DS.lime }]}>Premium</Text>
+                </View>
+              )}
+              {!!place && (
+                <View style={styles.pill}>
+                  <Icon name="map-marker" size={12} color={DS.textVariant} />
+                  <Text style={styles.pillText} numberOfLines={1}>{place}</Text>
+                </View>
+              )}
+              {!!memberSince && (
+                <View style={styles.pill}>
+                  <Icon name="calendar-blank" size={12} color={DS.textVariant} />
+                  <Text style={styles.pillText}>Since {memberSince}</Text>
+                </View>
+              )}
+            </View>
+          </View>
         </View>
 
-        {/* ── Teams ──
-            The hero used to carry a single team pill. A Player row IS a team
-            membership, so a person in three clubs has three rows and that pill
-            could only ever name whichever one the database returned first. */}
-        {teams.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.cardHead}>
-              <Text style={styles.sectionTitle}>
-                {teams.length === 1 ? 'My team' : `My teams · ${teams.length}`}
-              </Text>
+        <View style={styles.body}>
+          
+          {/* ── Bento Box: How I Play ── */}
+          <View style={styles.bentoSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Sports Identity</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('EditPlayerProfile')} hitSlop={10}>
+                <Text style={[styles.sectionAction, { color: DS.lime }]}>Edit</Text>
+              </TouchableOpacity>
             </View>
-            {teams.map((t) => (
-              <TouchableOpacity key={t.id} style={styles.teamRow} activeOpacity={0.8}
-                onPress={() => navigation.navigate('TeamProfile', { teamId: t.id })}>
-                {t.logoUrl
-                  ? <Image source={{ uri: t.logoUrl }} style={styles.teamLogo} resizeMode="cover" />
-                  : (
-                    <View style={[styles.teamLogo, styles.teamLogoFallback]}>
-                      <Text style={styles.teamLogoText}>{(t.name || '?').charAt(0).toUpperCase()}</Text>
+            
+            {hasPlayInfo ? (
+              <View style={styles.bentoGrid}>
+                {/* Full Width Role Card */}
+                <View style={[styles.bentoCard, styles.bentoFullWidth]}>
+                  <View style={[styles.bentoIconBadge, { backgroundColor: DS.lime + '22' }]}>
+                    <Icon name="account-star" size={20} color={DS.lime} />
+                  </View>
+                  <View>
+                    <Text style={styles.bentoLabel}>Role</Text>
+                    <Text style={styles.bentoValue}>{role || 'Not set'}</Text>
+                  </View>
+                </View>
+                
+                {/* Half Width Cards */}
+                {isCricket && (
+                  <View style={styles.bentoRow}>
+                    <View style={styles.bentoCardHalf}>
+                      <View style={[styles.bentoIconBadge, { backgroundColor: DS.surfaceHighest }]}>
+                        <Icon name="cricket" size={20} color={DS.textPrimary} />
+                      </View>
+                      <View style={{ marginTop: 16 }}>
+                        <Text style={styles.bentoLabel}>Bats</Text>
+                        <Text style={styles.bentoValue} numberOfLines={1}>{player?.battingStyle || 'Not set'}</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.bentoCardHalf}>
+                      <View style={[styles.bentoIconBadge, { backgroundColor: DS.surfaceHighest }]}>
+                        <Icon name="bowling" size={20} color={DS.textPrimary} />
+                      </View>
+                      <View style={{ marginTop: 16 }}>
+                        <Text style={styles.bentoLabel}>Bowls</Text>
+                        <Text style={styles.bentoValue} numberOfLines={1}>{player?.bowlingStyle === 'None' ? "Doesn't bowl" : (player?.bowlingStyle || 'Not set')}</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <TouchableOpacity style={[styles.bentoCard, styles.inviteCard, { borderColor: DS.lime }]} activeOpacity={0.85} onPress={() => navigation.navigate('EditPlayerProfile')}>
+                <View style={[styles.bentoIconBadge, { backgroundColor: DS.lime + '22' }]}>
+                  <Icon name="account-plus" size={22} color={DS.lime} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 16 }}>
+                  <Text style={styles.inviteTitle}>Tell us how you play</Text>
+                  <Text style={styles.inviteBlurb}>Your role and style show up in squad lists and scorecards.</Text>
+                </View>
+                <Icon name="chevron-right" size={22} color={DS.lime} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* ── Teams Banner ── */}
+          {teams.length > 0 && (
+            <View style={styles.bentoSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{teams.length === 1 ? 'My Team' : `My Teams (${teams.length})`}</Text>
+              </View>
+              {teams.map((t) => (
+                <TouchableOpacity key={t.id} style={styles.teamBanner} activeOpacity={0.85} onPress={() => navigation.navigate('TeamProfile', { teamId: t.id })}>
+                  {t.logoUrl ? (
+                    <Image source={{ uri: t.logoUrl }} style={styles.teamLogoLarge} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.teamLogoLarge, styles.teamLogoFallback]}>
+                      <Text style={[styles.teamLogoText, { color: DS.lime }]}>{(t.name || '?').charAt(0).toUpperCase()}</Text>
                     </View>
                   )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.teamName} numberOfLines={1}>{t.name}</Text>
-                  {!!(t.city || t.homeGround) && (
-                    <Text style={styles.teamMeta} numberOfLines={1}>{t.city || t.homeGround}</Text>
-                  )}
+                  <View style={{ flex: 1, paddingRight: 16 }}>
+                    <Text style={styles.teamBannerName} numberOfLines={1}>{t.name}</Text>
+                    {!!(t.city || t.homeGround) && <Text style={styles.teamBannerMeta} numberOfLines={1}>{t.city || t.homeGround}</Text>}
+                  </View>
+                  <Icon name="chevron-right" size={24} color={DS.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* ── About ── */}
+          {!!profile.bio && (
+            <View style={styles.bentoSection}>
+              <Text style={styles.sectionTitle}>About</Text>
+              <View style={styles.bioCard}>
+                <Text style={styles.bioText}>{profile.bio}</Text>
+              </View>
+            </View>
+          )}
+
+          {/* ── Tactile Stats Cards ── */}
+          <View style={styles.bentoSection}>
+            <Text style={styles.sectionTitle}>Performance</Text>
+            
+            {!hasHistoricalStats && (
+              <TouchableOpacity style={styles.statsCard} activeOpacity={0.8} onPress={() => navigation.navigate('HistoricalStatsSource', { sport })}>
+                <View style={[styles.statsCardIcon, { backgroundColor: DS.lime }]}>
+                  <Icon name="cloud-upload" size={22} color="#fff" />
                 </View>
-                <Icon name="chevron-right" size={19} color={DS.textMuted} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.statsCardTitle}>Upload Past Stats</Text>
+                  <Text style={styles.statsCardBlurb}>Bring in your old scorecards</Text>
+                </View>
+                <Icon name="chevron-right" size={22} color={DS.textMuted} />
               </TouchableOpacity>
-            ))}
-          </View>
-        )}
+            )}
 
-        {/* ── About ── bio, collected since the beginning and never once shown */}
-        {!!profile.bio && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>About</Text>
-            <Text style={styles.bio}>{profile.bio}</Text>
+            <TouchableOpacity style={styles.statsCard} activeOpacity={0.8} onPress={() => navigation.navigate('Pavilion', { tab: 'My Stats' })}>
+              <View style={[styles.statsCardIcon, { backgroundColor: DS.lime + '1a' }]}>
+                <Icon name="chart-box" size={22} color={DS.lime} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.statsCardTitle}>My Stats & Career</Text>
+                <Text style={styles.statsCardBlurb}>Career totals, recent form and honours</Text>
+              </View>
+              <Icon name="chevron-right" size={22} color={DS.textMuted} />
+            </TouchableOpacity>
           </View>
-        )}
 
-        {/* Career lives in the tab built for it — form chart, honours, the full
-            batting and bowling boards. This screen used to render a thinner
-            copy of the same payload. */}
-        <TouchableOpacity style={styles.linkRow} activeOpacity={0.8}
-          onPress={() => navigation.navigate('Pavilion', { tab: 'My Stats' })}>
-          <View style={[styles.linkIcon, { backgroundColor: sportAccent + '1f' }]}>
-            <Icon name="chart-line" size={19} color={sportAccent} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.linkTitle}>My stats</Text>
-            <Text style={styles.linkBlurb}>Career, recent form and honours</Text>
-          </View>
-          <Icon name="chevron-right" size={20} color={DS.textMuted} />
-        </TouchableOpacity>
+          {/* Logout */}
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
+            <Icon name="logout" size={16} color={DS.textMuted} />
+            <Text style={styles.logoutText}>Log Out of Local Legends</Text>
+          </TouchableOpacity>
 
-        {/* Icon action bar — Share · Edit · Sport · Theme */}
-        <View style={styles.actionBar}>
-          <ActionIcon icon="whatsapp" label="Share" color="#25D366" onPress={shareProfile} />
-          <ActionIcon icon="account-edit" label="Edit" onPress={() => navigation.navigate('EditPlayerProfile')} />
+        </View>
+      </ScrollView>
+
+      {/* ── Floating Action Dock ── */}
+      <View style={styles.floatingDockWrap}>
+        <View style={styles.floatingDock}>
+          <ActionIcon icon="share-variant" onPress={shareProfile} color={isDark ? DS.textPrimary : DS.textSecondary} />
+          <View style={styles.dockDivider} />
+          <ActionIcon icon="account-edit" onPress={() => navigation.navigate('EditPlayerProfile')} color={isDark ? DS.textPrimary : DS.textSecondary} />
+          <View style={styles.dockDivider} />
           <SportSwitcher navigation={navigation} variant="iconButton" />
+          <View style={styles.dockDivider} />
           <ActionIcon
             icon={isDark ? 'white-balance-sunny' : 'weather-night'}
-            label={isDark ? 'Light' : 'Dark'}
-            color={DS.blue}
+            color={isDark ? '#FDB813' : DS.blue}
             onPress={toggleTheme}
           />
         </View>
-
-        {/* Logout — a quiet text link. It used to be the boldest card on a
-            screen about your career; a destructive action shouldn't anchor it. */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
-          <Icon name="logout" size={15} color={DS.textMuted} />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
       </View>
-      </ScrollView>
     </View>
   );
 }
 
-const makeStyles = (DS, typo, radii, shadows) => StyleSheet.create({
+const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
 
-  // Hero
+  // Hero / Player Card
   hero: { backgroundColor: DS.bg, paddingBottom: 24 },
-  coverWrap: { width: '100%', height: 160, position: 'relative' },
+  coverWrap: { width: '100%', height: 200, position: 'relative' },
   coverPhoto: { width: '100%', height: '100%' },
-  coverDarkenOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)' },
   coverUploadOverlay: {
-    position: 'absolute', top: 12, right: 12,
+    position: 'absolute', top: 16, right: 16,
     backgroundColor: 'rgba(0,0,0,0.5)', width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
   
-  avatarContainer: { alignItems: 'center', marginTop: -60, marginBottom: 12 },
+  avatarWrap: { alignItems: 'center', marginTop: -60, zIndex: 10 },
   largeAvatar: {
     width: 120, height: 120, borderRadius: 60,
-    borderWidth: 4, borderColor: DS.bg,
     backgroundColor: DS.surfaceHighest,
+    padding: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 10,
   },
+  avatarImage: { width: '100%', height: '100%', borderRadius: 60, backgroundColor: DS.surfaceHigh },
+  avatarText: { fontSize: 44, fontWeight: '900', letterSpacing: -1 },
   uploadOverlay: {
-    position: 'absolute', bottom: 4, right: 4,
-    backgroundColor: DS.surfaceHigh, width: 32, height: 32, borderRadius: 16,
+    position: 'absolute', bottom: 0, right: 0,
+    backgroundColor: DS.surfaceHigh, width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 3, borderColor: DS.bg,
   },
-  avatarText: { fontSize: 40, fontWeight: '900', color: DS.lime },
   
-  heroInfo: { alignItems: 'center', gap: 2, paddingHorizontal: 16 },
-  heroName: { fontSize: 26, fontWeight: '800', color: DS.textPrimary, textAlign: 'center' },
-  heroRole: { fontSize: 14, color: DS.textVariant, marginTop: 4, fontWeight: '600', textAlign: 'center' },
-  heroPhone: { fontSize: 12, color: DS.textMuted, marginTop: 2, textAlign: 'center' },
-  heroPills: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  membershipPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: DS.surfaceHigh, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12,
+  heroInfo: { alignItems: 'center', marginTop: 12, paddingHorizontal: 20 },
+  heroName: { fontSize: 28, fontWeight: '900', color: DS.textPrimary, letterSpacing: -0.5, textAlign: 'center' },
+  heroRole: { fontSize: 13, fontWeight: '800', letterSpacing: 1.5, marginTop: 4, textAlign: 'center' },
+  heroPhone: { fontSize: 13, color: DS.textMuted, marginTop: 4, fontWeight: '500', textAlign: 'center' },
+  
+  heroPills: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 16 },
+  pill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: DS.surfaceHigh, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
+    borderWidth: 1, borderColor: DS.surfaceHighest,
   },
-  membershipText: { fontSize: 12, color: DS.textMuted, fontWeight: '700' },
-  teamPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: DS.surfaceHigh, paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 12,
+  pillText: { fontSize: 12, color: DS.textVariant, fontWeight: '700' },
+
+  body: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 100 },
+
+  // Bento Sections
+  bentoSection: { marginBottom: 24 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingHorizontal: 4 },
+  sectionTitle: { fontSize: 13, fontWeight: '800', color: DS.textMuted, letterSpacing: 1, textTransform: 'uppercase' },
+  sectionAction: { fontSize: 13, fontWeight: '800' },
+  
+  bentoGrid: { gap: 12 },
+  bentoRow: { flexDirection: 'row', gap: 12 },
+  bentoCard: {
+    backgroundColor: DS.surfaceHigh, borderRadius: 20, padding: 18,
+    borderWidth: 1, borderColor: DS.surfaceHighest,
   },
-  teamPillText: { fontSize: 12, color: DS.textVariant, fontWeight: '600' },
-
-  body: { padding: 16, gap: 12 },
-
-  // Icon action bar (Share · Edit · Sport · Theme)
-  actionBar: {
-    flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-start',
-    backgroundColor: DS.surfaceHigh, borderRadius: radii?.lg || 24, paddingVertical: 16, paddingHorizontal: 8,
-    borderWidth: 1, borderColor: DS.border,
-    ...(shadows?.sm || {}),
+  bentoFullWidth: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  bentoCardHalf: {
+    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 20, padding: 18,
+    borderWidth: 1, borderColor: DS.surfaceHighest,
   },
-  actionItem: { alignItems: 'center', gap: 6, width: 64 },
-  actionIconWrap: {
-    width: 52, height: 52, borderRadius: radii?.pill || 999,
-    backgroundColor: DS.surfaceLow,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: DS.border,
+  bentoIconBadge: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  bentoLabel: { fontSize: 12, fontWeight: '600', color: DS.textMuted, marginBottom: 4 },
+  bentoValue: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
+
+  inviteCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5 },
+  inviteTitle: { fontSize: 16, fontWeight: '800', color: DS.textPrimary, marginBottom: 4 },
+  inviteBlurb: { fontSize: 13, fontWeight: '500', color: DS.textMuted, lineHeight: 18 },
+
+  // Teams Banner
+  teamBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16,
+    backgroundColor: DS.surfaceHigh, borderRadius: 20,
+    borderWidth: 1, borderColor: DS.surfaceHighest,
+    marginBottom: 10,
   },
-  actionLabel: { fontSize: 11, fontWeight: '700', color: DS.textVariant },
-
-  // Cards
-  section: { backgroundColor: DS.surfaceHigh, borderRadius: radii?.md || 16, padding: 16, gap: 8, borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}) },
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4 },
-  cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardAction: { fontSize: 12, fontWeight: '800', color: DS.lime, letterSpacing: 0.3 },
-
-  // How I play
-  factRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: DS.faint },
-  factLabel: { fontSize: 13, fontWeight: '600', color: DS.textVariant, width: 52 },
-  factValue: { flex: 1, fontSize: 14, fontWeight: '700', color: DS.textPrimary, textAlign: 'right' },
-  factValueEmpty: { color: DS.textMuted, fontWeight: '600' },
-
-  invite: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingTop: 4 },
-  inviteTitle: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
-  inviteBlurb: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 2, lineHeight: 15 },
-
-  bio: { fontSize: 13.5, fontWeight: '600', color: DS.textVariant, lineHeight: 20 },
-
-  // Teams
-  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 9, borderTopWidth: 1, borderTopColor: DS.faint },
-  teamLogo: { width: 38, height: 38, borderRadius: 12, backgroundColor: DS.surfaceLow },
+  teamLogoLarge: { width: 56, height: 56, borderRadius: 16, backgroundColor: DS.surfaceLow },
   teamLogoFallback: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: DS.border },
-  teamLogoText: { fontSize: 15, fontWeight: '900', color: DS.lime },
-  teamName: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
-  teamMeta: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
+  teamLogoText: { fontSize: 24, fontWeight: '900' },
+  teamBannerName: { fontSize: 18, fontWeight: '800', color: DS.textPrimary, marginBottom: 4 },
+  teamBannerMeta: { fontSize: 13, fontWeight: '600', color: DS.textMuted },
 
-  // Link out to the tab that owns career numbers
-  linkRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
-    backgroundColor: DS.surfaceHigh, borderRadius: radii?.md || 16,
-    borderWidth: 1, borderColor: DS.border, ...(shadows?.sm || {}),
+  // Bio
+  bioCard: { backgroundColor: DS.surfaceHigh, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: DS.surfaceHighest },
+  bioText: { fontSize: 15, fontWeight: '500', color: DS.textPrimary, lineHeight: 24 },
+
+  // Tactile Stats Cards
+  statsCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16,
+    backgroundColor: DS.surface, borderRadius: 20,
+    borderWidth: 1, borderColor: DS.border,
+    marginBottom: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: DS.mode === 'dark' ? 0.2 : 0.05, shadowRadius: 8, elevation: 3,
   },
-  linkIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  linkTitle: { fontSize: 14.5, fontWeight: '800', color: DS.textPrimary },
-  linkBlurb: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
+  statsCardIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  statsCardTitle: { fontSize: 16, fontWeight: '800', color: DS.textPrimary, marginBottom: 2 },
+  statsCardBlurb: { fontSize: 13, fontWeight: '500', color: DS.textMuted },
 
   // Logout
-  logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 14, marginTop: 4, marginBottom: 24,
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 24, marginTop: 12 },
+  logoutText: { fontSize: 14, fontWeight: '700', color: DS.textMuted },
+
+  // Floating Action Dock
+  floatingDockWrap: {
+    position: 'absolute', bottom: Platform.OS === 'ios' ? 32 : 24, left: 0, right: 0,
+    alignItems: 'center', justifyContent: 'center',
   },
-  logoutText: { fontSize: 13, fontWeight: '700', color: DS.textMuted },
+  floatingDock: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: DS.mode === 'dark' ? 'rgba(32, 37, 41, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 36, paddingHorizontal: 12, paddingVertical: 8,
+    borderWidth: 1, borderColor: DS.border,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: DS.mode === 'dark' ? 0.4 : 0.15, shadowRadius: 16, elevation: 12,
+  },
+  actionItem: { padding: 12, alignItems: 'center', justifyContent: 'center' },
+  actionIconWrap: { alignItems: 'center', justifyContent: 'center' },
+  dockDivider: { width: 1, height: 24, backgroundColor: DS.border, marginHorizontal: 4 },
 });

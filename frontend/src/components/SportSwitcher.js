@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import HexAvatar from './HexAvatar';
+
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport, setSelectedSport } from '../utils/selectedSport';
 import { SPORTS } from '../sports/dashboard';
@@ -64,10 +64,13 @@ export default function SportSwitcher({ navigation, current: currentOverride, va
       {variant === 'iconButton'
         ? (
           <TouchableOpacity style={s.actionItem} activeOpacity={0.85} onPress={openArenaPicker}>
-            <HexAvatar size={52} color={C.surfaceLow}>
-              <Icon name={current.icon} size={22} color={C.lime} />
-            </HexAvatar>
-            <Text style={s.actionLabel} numberOfLines={1}>Sport</Text>
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name={current.icon} size={24} color={C.lime} />
+              <View style={{ position: 'absolute', bottom: -6, right: -10, backgroundColor: C.surface, borderRadius: 8, padding: 2, borderWidth: 1.5, borderColor: C.bg }}>
+                <Icon name="swap-horizontal" size={10} color={C.lime} />
+              </View>
+            </View>
+            {/* The user requested to remove the label name */}
           </TouchableOpacity>
         )
         : (

@@ -158,7 +158,38 @@ const enriched = players.map((p) => {
   computed.catches = catches[nm] || 0;
   computed.runOuts = runOuts[nm] || 0;
   if (mp[p.id]) computed.matches = mp[p.id];
-  return { ...p, stats: stripPII({ ...(p.stats || {}), ...computed }) };
+
+  // Aggregate with baseline (Historical Stats)
+  const baseline = p.stats || {};
+  const aggregated = {};
+  
+  const add = (key) => (Number(baseline[key]) || 0) + (computed[key] || 0);
+  
+  aggregated.runs = add('runs');
+  aggregated.matches = add('matches');
+  aggregated.innings = add('innings');
+  aggregated.ballsFaced = add('ballsFaced');
+  aggregated.fours = add('fours');
+  aggregated.sixes = add('sixes');
+  aggregated.centuries = add('centuries');
+  aggregated.halfCenturies = add('halfCenturies');
+  aggregated.highestScore = Math.max(Number(baseline.highestScore) || 0, computed.highestScore || 0);
+  
+  aggregated.wickets = add('wickets');
+  aggregated.runsConceded = add('runsConceded');
+  aggregated.ballsBowled = add('ballsBowled');
+  aggregated.catches = add('catches');
+  aggregated.runOuts = add('runOuts');
+
+  // Recalculate derived fields across the combined totals
+  const totalOuts = (Number(baseline.outs) || 0) + (dis[p.id] || 0);
+  aggregated.average = totalOuts ? +(aggregated.runs / totalOuts).toFixed(1) : aggregated.runs;
+  aggregated.strikeRate = aggregated.ballsFaced ? +(aggregated.runs / aggregated.ballsFaced * 100).toFixed(1) : Number(baseline.strikeRate) || 0;
+  
+  aggregated.oversBowled = `${Math.floor(aggregated.ballsBowled / 6)}.${aggregated.ballsBowled % 6}`;
+  aggregated.economy = aggregated.ballsBowled ? +(aggregated.runsConceded / (aggregated.ballsBowled / 6)).toFixed(2) : Number(baseline.economy) || 0;
+
+  return { ...p, stats: stripPII({ ...baseline, ...computed, ...aggregated }) };
 });
 
   return enriched;

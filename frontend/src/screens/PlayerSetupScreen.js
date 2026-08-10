@@ -1,60 +1,50 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, SafeAreaView,
+  ImageBackground, Platform, StatusBar, Modal, Pressable
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { haptic } from '../utils/haptics';
-import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import PlayerRoleFields from '../components/PlayerRoleFields';
-import { validateHowIPlay } from '../sports/cricketProfile';
-import Shimmer from '../components/Shimmer';
 import { markPlayerSetup } from '../utils/playerSetup';
 import legendsApi from '../services/LegendsApi';
 import { showToast } from '../components/Toast';
+import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import ThemeToggleButton from '../components/ThemeToggleButton';
+import { BATTING_STYLES, BOWLING_STYLES } from '../sports/cricketProfile';
 
-// The one question the app asks on the way into cricket: do you play?
-//
-// It has to be asked, because until now nothing ever did — you signed up with a
-// phone number and a name and the app decided you were a "Player" with no role,
-// which is why the database holds eight spellings of four roles and why squads
-// sort by whatever a team admin happened to type.
-//
-// And it has to be SKIPPABLE, because a large share of the people who open this
-// app are not players. They are a parent, a partner, a friend following a match.
-// Asking them what kind of bowler they are, and not letting them past until they
-// answer, would be asking the wrong person the wrong question at the worst
-// moment — they opened the app to watch a game that is happening now.
-//
-// So: two doors, both of which lead into the app. Answered either way, it never
-// asks again (utils/playerSetup), and either answer can be changed later in
-// Edit Profile — which is the same three fields, from the same component.
+const bgImageRole = "https://lh3.googleusercontent.com/aida-public/AB6AXuCVSML0CIC5ZV7B_wKNRxJ8xUasBrR0BX8i0VAa7Mw7KwFZDbiyoWmZ594YyIH9y7aYE7y_EnV3XINdMcqxC9P1DIjyqEzeKDAaIdz0ehPR6GDfErtUSyjQhD6PK3ALLkD7f1XRpNoPu9BzibABPAayD4hPxTBA5mtmKZf7TxGdH4tAxUF1slU-XzqEZy2jRS_sr717Vc1pLVktuDjVeXIHyD3C4zYkvv8BPxWwQmjUBYArZtryzR3zOh1WImJOZFGEV1KciaVAHXQ";
+
+const ROLES = [
+  { id: 'Batter', title: 'Batter', desc: 'Focus on scoring runs, building partnerships, and anchoring the innings.', icon: 'cricket' },
+  { id: 'Bowler', title: 'Bowler', desc: "Take crucial wickets and relentlessly restrict the opposition's scoring rate.", icon: 'baseball' },
+  { id: 'All-rounder', title: 'All-rounder', desc: 'Provide vital balance to the team by contributing with both bat and ball.', icon: 'swap-horizontal' },
+  { id: 'Wicketkeeper', title: 'Wicketkeeper', desc: 'The anchor of the fielding unit, commanding the game from behind the stumps.', icon: 'hand-back-left' },
+];
+
 export default function PlayerSetupScreen({ navigation, route }) {
   const DS = useTheme().colors;
   const s = useThemedStyles(makeStyles);
+  
   const sport = route.params?.sport;
   const sportId = sport?.id || 'cricket';
-  const sportName = sport?.label || sport?.name || 'cricket';
 
   const [checking, setChecking] = useState(true);
-  const [step, setStep] = useState('ask');            // 'ask' | 'form'
+  const [step, setStep] = useState('ask'); // ask -> form -> styles
   const [saving, setSaving] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [profile, setProfile] = useState({ primaryRole: null, battingStyle: null, bowlingStyle: null });
-
+  const [selectedRoleIds, setSelectedRoleIds] = useState([]);
+  const [battingStyle, setBattingStyle] = useState(null);
+  const [bowlingStyle, setBowlingStyle] = useState(null);
+  const [bowlingOpen, setBowlingOpen] = useState(false);
+  
   const enter = async (answer) => {
     await markPlayerSetup(sportId, answer);
-    navigation.reset({ index: 0, routes: [{ name: 'MainApp', params: { sport } }] });
+    if (answer === 'player') {
+      navigation.navigate('HistoricalStatsQuestion', { sport });
+    } else {
+      navigation.reset({ index: 0, routes: [{ name: 'MainApp', params: { sport } }] });
+    }
   };
 
-  // Someone who already has a role on their player record has answered this
-  // before — on another device, or by editing their profile. Ask them again and
-  // the question looks broken. Straight through, and remember it locally.
-  //
-  // On a failure this falls through to the question rather than blocking: the
-  // step is skippable, so the worst case of guessing wrong is one extra tap,
-  // and a spinner that never resolves would be the worst case of guessing the
-  // other way.
   useEffect(() => {
     let live = true;
     legendsApi.getUserProfile().then((res) => {
@@ -64,175 +54,293 @@ export default function PlayerSetupScreen({ navigation, route }) {
         enter('player');
         return;
       }
-      // Anything already on record pre-fills, so a half-finished profile is
-      // finished rather than re-typed.
-      if (p) {
-        setProfile((prev) => ({
-          ...prev,
-          primaryRole: p.role && p.role !== 'Player' ? p.role : null,
-          battingStyle: p.battingStyle || null,
-          bowlingStyle: p.bowlingStyle || null,
-        }));
-      }
       setChecking(false);
     }).catch(() => live && setChecking(false));
     return () => { live = false; };
   }, []);
 
-  const save = async () => {
+  const saveRoles = async () => {
     haptic.tick();
-    const problems = validateHowIPlay(profile);
-    setErrors(problems);
-    if (Object.keys(problems).length) return;
-
+    if (selectedRoleIds.length === 0 || !battingStyle) return;
     setSaving(true);
+    const primaryRole = selectedRoleIds.join(', ');
     const res = await legendsApi.saveMyPlayer({
       sport: sportId,
-      role: profile.primaryRole,
-      battingStyle: profile.battingStyle,
-      bowlingStyle: profile.bowlingStyle,
+      role: primaryRole,
+      battingStyle: battingStyle,
+      bowlingStyle: bowlingStyle,
     });
     setSaving(false);
     if (!res.success) {
-      // Never a dead end: this step is optional, so a failed save must not trap
-      // anyone outside the app. Say so, and leave them on the form to retry.
       showToast(res.error || 'Could not save that — try again, or skip for now.', 'error');
       return;
     }
     enter('player');
   };
 
+  const toggleRole = (roleId) => {
+    haptic.impact();
+    setSelectedRoleIds(prev => 
+      prev.includes(roleId) ? prev.filter(r => r !== roleId) : [...prev, roleId]
+    );
+  };
+
+
   if (checking) {
     return (
-      <SafeAreaView style={s.screen}>
-        <ThemeToggleButton style={{ position: 'absolute', top: 56, right: 24, zIndex: 10 }} />
-        <View style={s.center}>
-          <Shimmer width={120} height={120} borderRadius={60} style={{ marginBottom: 32 }} />
-          <Shimmer width="80%" height={32} style={{ marginBottom: 16 }} />
-          <Shimmer width="60%" height={20} style={{ marginBottom: 40 }} />
-          <Shimmer width="100%" height={64} borderRadius={24} style={{ marginBottom: 16 }} />
-          <Shimmer width="100%" height={64} borderRadius={24} />
+      <SafeAreaView style={s.root}>
+        <StatusBar barStyle={DS.mode === 'dark' ? 'light-content' : 'dark-content'} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={DS.lime} size="large" />
         </View>
       </SafeAreaView>
     );
   }
 
-  // ── Door 1: which of the two are you? ──
-  if (step === 'ask') {
-    return (
-      <SafeAreaView style={s.screen}>
-        <ThemeToggleButton style={{ position: 'absolute', top: 16, right: 24, zIndex: 10 }} />
-        <View style={s.body}>
-          <View style={s.badge}>
-            <Icon name={sport.icon || sport.mci || 'star'} size={13} color={DS.lime} />
-            <Text style={s.badgeText}>{String(sportName).toUpperCase()}</Text>
-          </View>
-          <Text style={s.h1}>Do you play?</Text>
-          <Text style={s.sub}>
-            Just so we know how to list you. You can change it any time in your profile.
-          </Text>
-
-          <TouchableOpacity style={s.choice} activeOpacity={0.85} onPress={() => setStep('form')}>
-            <View style={[s.choiceIcon, { backgroundColor: DS.lime }]}>
-              <Icon name={sport.icon || sport.mci || 'star'} size={21} color={DS.onLime} />
-            </View>
-            <View style={s.choiceText}>
-              <Text style={s.choiceTitle}>Yes, I play</Text>
-              <Text style={s.choiceBlurb}>Set up your player profile for the team</Text>
-            </View>
-            <Icon name="chevron-right" size={20} color={DS.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={s.choice} activeOpacity={0.85} onPress={() => enter('watching')}>
-            <View style={s.choiceIcon}>
-              <Icon name="eye-outline" size={21} color={DS.textVariant} />
-            </View>
-            <View style={s.choiceText}>
-              <Text style={s.choiceTitle}>I'm here to watch</Text>
-              <Text style={s.choiceBlurb}>Follow matches, teams and players. Nothing to fill in</Text>
-            </View>
-            <Icon name="chevron-right" size={20} color={DS.textMuted} />
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ── Door 2: the three questions ──
   return (
-    <SafeAreaView style={s.screen}>
-      <ThemeToggleButton style={{ position: 'absolute', top: 56, right: 24, zIndex: 11 }} />
-      <View style={s.topBar}>
-        <TouchableOpacity onPress={() => setStep('ask')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Icon name="chevron-left" size={26} color={DS.textPrimary} />
-        </TouchableOpacity>
-        {/* Skip stays visible on this step too. Deciding you play is not a
-            commitment to filling in a form right now. */}
-        <TouchableOpacity onPress={() => enter('skipped')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={s.skip}>Skip</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={s.root}>
+      <StatusBar barStyle={DS.mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+      
+      {/* Background Image */}
+      <ImageBackground source={{ uri: bgImageRole }} style={s.bgImage} imageStyle={{ opacity: DS.mode === 'dark' ? 0.3 : 0.05 }} />
+      <View style={[s.ambientGlow, { backgroundColor: DS.lime }]} />
 
-      <ScrollView contentContainerStyle={s.formBody} keyboardShouldPersistTaps="handled">
-        <Text style={s.h1}>How do you play?</Text>
-        <Text style={s.sub}>This is how you'll appear in a squad list and on a scorecard.</Text>
+      <SafeAreaView style={{ flex: 1 }}>
+        <ThemeToggleButton style={{ position: 'absolute', top: Platform.OS === 'ios' ? 60 : 40, right: 16, zIndex: 100 }} />
+        
+        {/* Top Bar */}
+        <View style={s.topBar}>
+          <TouchableOpacity style={s.backBtn} onPress={() => step === 'styles' ? setStep('form') : step === 'form' ? setStep('ask') : navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Icon name="arrow-left" size={24} color={DS.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[s.stepText, { color: DS.lime }]}>{step === 'ask' ? 'STEP 1 OF 3' : step === 'form' ? 'STEP 2 OF 3' : 'STEP 3 OF 3'}</Text>
+          <TouchableOpacity style={s.skipBtn} onPress={() => enter('skipped')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Text style={s.skipTxt}>Skip</Text>
+          </TouchableOpacity>
+        </View>
 
-        <View style={{ height: 22 }} />
-        <PlayerRoleFields value={profile} onChange={setProfile} errors={errors} />
-      </ScrollView>
+        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+          {/* Progress Bar */}
+          <View style={s.stepper}>
+            <View style={[s.stepDot, { backgroundColor: DS.lime }]} />
+            <View style={[s.stepDot, (step === 'form' || step === 'styles') ? { backgroundColor: DS.lime } : {}]} />
+            <View style={[s.stepDot, step === 'styles' ? { backgroundColor: DS.lime } : {}]} />
+          </View>
 
-      <View style={s.footer}>
-        <TouchableOpacity style={[s.cta, saving && { opacity: 0.6 }]} onPress={save} disabled={saving} activeOpacity={0.85}>
-          {saving
-            ? <ActivityIndicator color={DS.onLime} />
-            : <Text style={s.ctaText}>Save & continue</Text>}
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+          {/* Header */}
+          <View style={s.header}>
+            <Text style={s.h1}>{step === 'ask' ? "What's your role?" : step === 'form' ? "What's your game?" : "How do you play?"}</Text>
+            <Text style={s.sub}>{step === 'ask' ? "How do you experience the game?" : step === 'form' ? "Tell us how you play. You can choose more than one." : "Your styles show up in squad lists and scorecards."}</Text>
+          </View>
+
+          {step === 'ask' && (
+            <View style={s.askGrid}>
+              <TouchableOpacity style={s.roleCard} activeOpacity={0.8} onPress={() => { haptic.impact(); setStep('form'); }}>
+                <View style={s.iconContainer}>
+                  <Icon name="cricket" size={40} color={DS.lime} />
+                </View>
+                <Text style={s.cardTitle}>I'm a Player</Text>
+                <Text style={s.cardDesc}>I play, compete and build my stats</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={s.roleCard} activeOpacity={0.8} onPress={() => { haptic.impact(); enter('watching'); }}>
+                <View style={s.iconContainer}>
+                  <Icon name="stadium" size={40} color={DS.lime} />
+                </View>
+                <Text style={s.cardTitle}>I'm a Spectator</Text>
+                <Text style={s.cardDesc}>I follow matches, teams and local legends</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {step === 'form' && (
+            <View style={s.formGrid}>
+              {ROLES.map(role => {
+                const isSelected = selectedRoleIds.includes(role.id);
+                return (
+                  <TouchableOpacity 
+                    key={role.id} 
+                    style={[s.bentoCard, isSelected && { borderColor: DS.lime, backgroundColor: DS.lime + '0F' }]} 
+                    activeOpacity={0.8} 
+                    onPress={() => toggleRole(role.id)}
+                  >
+                    <View style={s.bentoHeader}>
+                      <View style={[s.bentoIcon, isSelected && { backgroundColor: DS.lime + '33' }]}>
+                        <Icon name={role.icon} size={28} color={DS.lime} />
+                      </View>
+                      <View style={[s.checkCircle, isSelected && { backgroundColor: DS.lime, borderColor: DS.lime }]}>
+                        {isSelected && <Icon name="check" size={14} color={DS.onLime || '#fff'} />}
+                      </View>
+                    </View>
+                    <Text style={[s.bentoTitle, isSelected && { color: DS.lime }]}>{role.title}</Text>
+                    <Text style={s.bentoDesc}>{role.desc}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+          {step === 'styles' && (
+            <View style={s.stylesGrid}>
+              <View style={s.head}>
+                <Text style={s.label}>Batting style</Text>
+                <Text style={s.req}>Required</Text>
+              </View>
+              <View style={s.segment}>
+                {BATTING_STYLES.map((b) => {
+                  const on = battingStyle === b;
+                  return (
+                    <TouchableOpacity key={b} style={[s.segBtn, on && s.segBtnOn]}
+                      onPress={() => setBattingStyle(b)} activeOpacity={0.85}>
+                      <Text style={[s.segText, on && s.segTextOn]}>{b.replace(' Bat', '')}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={[s.head, { marginTop: 32 }]}>
+                <Text style={s.label}>Bowling style</Text>
+                <Text style={s.opt}>Optional</Text>
+              </View>
+              <TouchableOpacity style={s.select} onPress={() => setBowlingOpen(true)} activeOpacity={0.8}>
+                <Icon name="bowling" size={20} color={DS.textMuted} />
+                <Text style={[s.selectText, !bowlingStyle && { color: DS.textMuted }]}>
+                  {bowlingStyle || 'Add a bowling style'}
+                </Text>
+                <Icon name="chevron-down" size={24} color={DS.textMuted} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+        </ScrollView>
+
+        {(step === 'form' || step === 'styles') && (
+          <View style={s.footer}>
+            <TouchableOpacity 
+              style={[s.cta, (step === 'form' ? selectedRoleIds.length === 0 : !battingStyle) ? s.ctaDisabled : { backgroundColor: DS.lime }]} 
+              activeOpacity={0.8} 
+              onPress={() => step === 'form' ? setStep('styles') : saveRoles()}
+              disabled={(step === 'form' ? selectedRoleIds.length === 0 : !battingStyle) || saving}
+            >
+              {saving ? <ActivityIndicator color={DS.onLime || '#fff'} /> : (
+                <>
+                  <Text style={[s.ctaText, (step === 'form' ? selectedRoleIds.length === 0 : !battingStyle) ? s.ctaTextDisabled : { color: DS.onLime || '#fff' }]}>{step === 'form' ? 'Continue' : 'Save & Continue'}</Text>
+                  <Icon name="arrow-right" size={24} color={(step === 'form' ? selectedRoleIds.length === 0 : !battingStyle) ? DS.textMuted : (DS.onLime || '#fff')} style={{ opacity: (step === 'form' ? selectedRoleIds.length === 0 : !battingStyle) ? 0.5 : 1 }} />
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </SafeAreaView>
+
+      <Modal visible={bowlingOpen} transparent animationType="slide" onRequestClose={() => setBowlingOpen(false)}>
+        <Pressable style={s.backdrop} onPress={() => setBowlingOpen(false)} />
+        <View style={s.sheet}>
+          <View style={s.grab} />
+          <Text style={s.sheetTitle}>Bowling style</Text>
+          <ScrollView style={{ maxHeight: 400 }}>
+            {BOWLING_STYLES.map((g) => (
+              <View key={g.group}>
+                <Text style={s.groupLabel}>{g.group.toUpperCase()}</Text>
+                {g.options.map((o) => {
+                  const on = bowlingStyle === o;
+                  return (
+                    <TouchableOpacity key={o} style={s.optionRow}
+                      onPress={() => { setBowlingStyle(o); setBowlingOpen(false); }}>
+                      <Text style={[s.optionText, on && { color: DS.lime, fontWeight: '800' }]}>{o}</Text>
+                      {on && <Icon name="check" size={17} color={DS.lime} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const makeStyles = (DS) => StyleSheet.create({
-  screen: { flex: 1, backgroundColor: DS.bg },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  body: { flex: 1, paddingHorizontal: 20, paddingTop: 40 },
-
-  badge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
-    backgroundColor: DS.lime + '1a', marginBottom: 16,
+  root: { flex: 1, backgroundColor: DS.bg },
+  bgImage: { position: 'absolute', inset: 0, width: '100%', height: '100%', mixBlendMode: 'overlay' },
+  ambientGlow: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0.05 },
+  
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 64, backgroundColor: DS.bg + 'CC' },
+  backBtn: { padding: 8, marginLeft: -8, width: 40, alignItems: 'center' },
+  stepText: { fontSize: 14, fontWeight: '700', letterSpacing: 2 },
+  skipBtn: { padding: 8, marginRight: 24, width: 40, alignItems: 'center' }, // adjusted marginRight to make room for theme toggle
+  skipTxt: { color: DS.textMuted, fontSize: 14, fontWeight: '600' },
+  
+  scroll: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 120 },
+  
+  stepper: { flexDirection: 'row', gap: 8, marginBottom: 40, width: '100%', maxWidth: 200, alignSelf: 'center' },
+  stepDot: { height: 6, flex: 1, backgroundColor: DS.surfaceHighest, borderRadius: 3 },
+  
+  header: { alignItems: 'center', marginBottom: 40 },
+  h1: { fontSize: 36, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1.5, textAlign: 'center' },
+  sub: { fontSize: 16, color: DS.textVariant, marginTop: 8, textAlign: 'center', maxWidth: '80%', lineHeight: 22 },
+  
+  askGrid: { gap: 16, alignItems: 'center' },
+  roleCard: { 
+    width: '100%', maxWidth: 400, backgroundColor: DS.surface, borderRadius: 20, 
+    borderWidth: 1, borderColor: DS.border, padding: 32, alignItems: 'center' 
   },
-  badgeText: { fontSize: 10, fontWeight: '900', color: DS.lime, letterSpacing: 1 },
+  iconContainer: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 24, backgroundColor: DS.surfaceHigh },
+  cardTitle: { fontSize: 24, fontWeight: '700', color: DS.textPrimary, marginBottom: 8 },
+  cardDesc: { fontSize: 15, color: DS.textVariant, textAlign: 'center' },
 
-  h1: { fontSize: 30, fontWeight: '900', color: DS.textPrimary, letterSpacing: -0.6 },
-  sub: { fontSize: 13.5, fontWeight: '600', color: DS.textMuted, marginTop: 8, lineHeight: 19, marginBottom: 28 },
-
-  choice: {
-    flexDirection: 'row', alignItems: 'center', gap: 13, padding: 15, marginBottom: 12,
-    borderRadius: 18, backgroundColor: DS.surfaceHigh, borderWidth: 1.5, borderColor: DS.border,
+  formGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'center' },
+  bentoCard: { 
+    width: '47%', minWidth: 160, backgroundColor: DS.surface, borderRadius: 20, 
+    borderWidth: 2, borderColor: DS.border, padding: 20 
   },
-  choiceIcon: {
-    width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: DS.surfaceHighest,
+  bentoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  bentoIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
+  checkCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: DS.textMuted, alignItems: 'center', justifyContent: 'center' },
+  bentoTitle: { fontSize: 18, fontWeight: '700', color: DS.textPrimary, marginBottom: 8 },
+  bentoDesc: { fontSize: 13, color: DS.textVariant, lineHeight: 18 },
+  
+  footer: { 
+    position: 'absolute', bottom: 0, left: 0, right: 0, 
+    paddingHorizontal: 16, paddingBottom: Platform.OS === 'ios' ? 32 : 24, paddingTop: 16,
+    backgroundColor: DS.bg + 'F2'
   },
-  choiceText: { flex: 1 },
-  choiceTitle: { fontSize: 15.5, fontWeight: '900', color: DS.textPrimary },
-  choiceBlurb: { fontSize: 11.5, fontWeight: '600', color: DS.textMuted, marginTop: 3, lineHeight: 15 },
-
-  topBar: {
-    position: 'absolute', top: 40, left: 0, right: 0, zIndex: 10,
-    backgroundColor: DS.bg + 'E6', // Glassmorphism translucent
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 18, paddingTop: 12, paddingBottom: 12,
-  },
-  skip: { fontSize: 14, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.2 },
-
-  formBody: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 30 },
-
-  footer: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 18 },
   cta: {
-    height: 52, borderRadius: 15, backgroundColor: DS.lime,
-    alignItems: 'center', justifyContent: 'center',
+    height: 56, borderRadius: 16, flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'center', gap: 8,
+    shadowColor: DS.lime, shadowOffset: { width: 0, height: 4 }, shadowOpacity: DS.mode === 'dark' ? 0.3 : 0.1, shadowRadius: 10, elevation: 5
   },
-  ctaText: { fontSize: 15, fontWeight: '900', color: DS.onLime || '#ffffff', letterSpacing: 0.3 },
+  ctaDisabled: { backgroundColor: DS.surfaceHigh, shadowOpacity: 0, elevation: 0 },
+  ctaText: { fontSize: 18, fontWeight: '700' },
+  ctaTextDisabled: { color: DS.textMuted },
+
+  // Step 3 Styles
+  stylesGrid: { gap: 8 },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  label: { fontSize: 14, fontWeight: '800', color: DS.textPrimary, letterSpacing: 0.5 },
+  req: { fontSize: 12, fontWeight: '800', color: DS.lime, letterSpacing: 0.5 },
+  opt: { fontSize: 12, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.5 },
+
+  segment: { flexDirection: 'row', gap: 12 },
+  segBtn: {
+    flex: 1, paddingVertical: 18, borderRadius: 16, alignItems: 'center',
+    backgroundColor: DS.surface, borderWidth: 2, borderColor: DS.border,
+  },
+  segBtnOn: { borderColor: DS.lime, backgroundColor: DS.lime + '1A' },
+  segText: { fontSize: 15, fontWeight: '800', color: DS.textVariant },
+  segTextOn: { color: DS.lime },
+
+  select: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surface,
+    borderWidth: 2, borderColor: DS.border, borderRadius: 16, padding: 18, gap: 12
+  },
+  selectText: { flex: 1, fontSize: 15, fontWeight: '800', color: DS.textPrimary },
+
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+  sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: DS.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 20 },
+  grab: { width: 40, height: 6, backgroundColor: DS.border, borderRadius: 3, alignSelf: 'center', marginBottom: 24 },
+  sheetTitle: { fontSize: 22, fontWeight: '900', color: DS.textPrimary, marginBottom: 16, textAlign: 'center' },
+  groupLabel: { fontSize: 14, fontWeight: '800', color: DS.textMuted, marginTop: 16, marginBottom: 12, letterSpacing: 1 },
+  optionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: DS.faint },
+  optionText: { fontSize: 17, fontWeight: '700', color: DS.textPrimary },
 });

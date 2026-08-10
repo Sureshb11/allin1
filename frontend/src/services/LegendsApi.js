@@ -148,11 +148,22 @@ class LegendsApi {
   async deleteSportEvent(matchId, eventId) {
     try {
       await this.request(`/matches/${matchId}/sport-events/${eventId}`, { method: 'DELETE' });
-      return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
     }
   }
+
+  async submitHistoricalStats(playerId, payload) {
+    try {
+      const json = await this.request(`/players/${playerId}/historical-stats`, {
+        method: 'POST', body: payload
+      });
+      return { success: true, data: json.submission };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
 
   async getSportEvents(matchId) {
     try {

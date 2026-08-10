@@ -86,72 +86,131 @@ export async function playerCareer(player, alsoIds = []) {
   ]);
 
   const computed = {};
-  if (batBalls.length) {
-    const runs = batBalls.reduce((t, b) => t + b.runs, 0);
-    const faced = batBalls.filter((b) => b.extraType !== 'wide').length;
-    // Per-innings totals → high score, 50s, 100s.
-    const perInning = {};
-    for (const b of batBalls) perInning[b.over.inningId] = (perInning[b.over.inningId] || 0) + b.runs;
-    const innScores = Object.values(perInning);
-    computed.runs          = runs;
-    computed.ballsFaced    = faced;
-    computed.strikeRate    = faced ? +(runs / faced * 100).toFixed(1) : 0;
-    computed.average       = dismissals ? +(runs / dismissals).toFixed(1) : runs;
-    computed.highestScore  = Math.max(0, ...innScores);
-    computed.centuries     = innScores.filter((r) => r >= 100).length;
-    computed.halfCenturies = innScores.filter((r) => r >= 50 && r < 100).length;
-    computed.fours         = batBalls.filter((b) => b.runs === 4).length;
-    computed.sixes         = batBalls.filter((b) => b.runs === 6).length;
-    computed.notOuts       = Math.max(0, innScores.length - dismissals);
-  }
+  
+  // ── Batting ─────────────────────────────────────────────────────────────
+  const appRuns = batBalls.reduce((t, b) => t + b.runs, 0);
+  const appFaced = batBalls.filter((b) => b.extraType !== 'wide').length;
+  const perInning = {};
+  for (const b of batBalls) perInning[b.over.inningId] = (perInning[b.over.inningId] || 0) + b.runs;
+  const appInnScores = Object.values(perInning);
+  
+  const appHighestScore = appInnScores.length ? Math.max(0, ...appInnScores) : 0;
+  const appCenturies = appInnScores.filter((r) => r >= 100).length;
+  const appHalfCenturies = appInnScores.filter((r) => r >= 50 && r < 100).length;
+  const appFours = batBalls.filter((b) => b.runs === 4).length;
+  const appSixes = batBalls.filter((b) => b.runs === 6).length;
+  const appNotOuts = Math.max(0, appInnScores.length - dismissals);
+  const appDucks = appInnScores.filter((r) => r === 0).length;
+  const appBattingDotBalls = batBalls.filter((b) => b.runs === 0 && b.extraType !== 'wide').length;
+  
+  // Combine with historical baseline (s)
+  const runs = (s.runs || 0) + appRuns;
+  let historicalFaced = 0;
+  if (s.battingStrikeRate && s.runs) historicalFaced = s.runs / (s.battingStrikeRate / 100);
+  const totalFaced = Math.round(historicalFaced) + appFaced;
 
-  if (bowlBalls.length) {
-    // ── What a delivery costs its bowler ──────────────────────────────────────
-    // These two rules are the scorecard's (ScorecardScreen → computeBowling, and
-    // the same in lib/mvp.js and lib/leaderboard.js): wides cost their extras, a
-    // no-ball costs the extras and whatever was hit off it, byes and leg-byes
-    // cost nothing (they aren't the bowler's), and a penalty or retirement isn't
-    // a delivery at all.
-    const chargedRuns = (b) =>
-      b.extraType === 'wide' ? b.extras
-      : b.extraType === 'noBall' ? b.runs + b.extras
-      : (b.extraType && b.extraType !== 'bye' && b.extraType !== 'legBye') ? 0
-      : (b.extraType ? 0 : b.runs);
-    // One of the over's six. Wides and no-balls are re-bowled; a penalty,
-    // retirement or dead ball was never bowled.
-    const isLegal = (b) => !['wide', 'noBall', 'penalty', 'retired', 'deadBall'].includes(b.extraType);
-    // A boundary is one hit off the bat — four byes are not the bowler's four.
-    const offTheBat = (b) => !b.extraType || b.extraType === 'noBall';
-
-    const bowled = bowlBalls.filter((b) => b.extraType !== 'penalty');
-    const legal = bowled.filter(isLegal).length;
-    const conceded = bowled.reduce((t, b) => t + chargedRuns(b), 0);
-    const wickets = bowled.filter((b) => b.isWicket && b.wicketType !== 'runOut').length;
-    // Per-innings figures → best bowling ("3/12") + five-wicket hauls.
-    const fig = {};
-    for (const b of bowled) {
-      const k = b.over.inningId;
-      fig[k] = fig[k] || { w: 0, r: 0 };
-      fig[k].r += chargedRuns(b);
-      if (b.isWicket && b.wicketType !== 'runOut') fig[k].w += 1;
-    }
-    const best = Object.values(fig).sort((a, b) => b.w - a.w || a.r - b.r)[0];
-    computed.wickets        = wickets;
-    computed.ballsBowled    = legal;
-    computed.oversBowled    = `${Math.floor(legal / 6)}.${legal % 6}`;
-    computed.runsConceded   = conceded;
-    computed.economy        = legal ? +(conceded / (legal / 6)).toFixed(2) : 0;
-    computed.bowlingAverage = wickets ? +(conceded / wickets).toFixed(1) : null;
-    computed.bestBowling    = best ? `${best.w}/${best.r}` : null;
-    computed.fiveWickets    = Object.values(fig).filter((f) => f.w >= 5).length;
-    // A dot is a delivery that cost the bowler nothing — the same test the
-    // scorecard applies six times over to call an over a maiden, so a leg bye
-    // scampered off a good ball doesn't take the dot away from the bowler.
-    computed.dotBalls       = bowled.filter((b) => isLegal(b) && chargedRuns(b) === 0).length;
-    computed.foursConceded  = bowled.filter((b) => offTheBat(b) && b.runs === 4).length;
-    computed.sixesConceded  = bowled.filter((b) => offTheBat(b) && b.runs === 6).length;
+  let historicalDismissals = 0;
+  if (s.battingAverage && s.runs) {
+      historicalDismissals = s.runs / s.battingAverage;
+  } else if (s.innings !== undefined && s.notOuts !== undefined) {
+      historicalDismissals = s.innings - s.notOuts;
   }
-  if (xiMatches) computed.matches = xiMatches;
+  const totalDismissals = Math.round(historicalDismissals) + dismissals;
+
+  computed.runs = runs;
+  computed.ballsFaced = totalFaced;
+  computed.battingStrikeRate = totalFaced ? +(runs / totalFaced * 100).toFixed(1) : (s.battingStrikeRate || 0);
+  computed.strikeRate = computed.battingStrikeRate;
+  computed.battingAverage = totalDismissals ? +(runs / totalDismissals).toFixed(1) : runs;
+  computed.average = computed.battingAverage;
+  computed.highestScore = Math.max(s.highestScore || 0, appHighestScore);
+  computed.centuries = (s.centuries || 0) + appCenturies;
+  computed.halfCenturies = (s.halfCenturies || 0) + appHalfCenturies;
+  computed.fours = (s.fours || 0) + appFours;
+  computed.sixes = (s.sixes || 0) + appSixes;
+  computed.notOuts = (s.notOuts || 0) + appNotOuts;
+  computed.ducks = (s.ducks || 0) + appDucks;
+  computed.battingDotBalls = (s.battingDotBalls || 0) + appBattingDotBalls;
+  computed.innings = (s.innings || 0) + appInnScores.length;
+
+  // ── Bowling ─────────────────────────────────────────────────────────────
+  const chargedRuns = (b) =>
+    b.extraType === 'wide' ? b.extras
+    : b.extraType === 'noBall' ? b.runs + b.extras
+    : (b.extraType && b.extraType !== 'bye' && b.extraType !== 'legBye') ? 0
+    : (b.extraType ? 0 : b.runs);
+  const isLegal = (b) => !['wide', 'noBall', 'penalty', 'retired', 'deadBall'].includes(b.extraType);
+  const offTheBat = (b) => !b.extraType || b.extraType === 'noBall';
+
+  const bowled = bowlBalls.filter((b) => b.extraType !== 'penalty');
+  const legal = bowled.filter(isLegal).length;
+  const conceded = bowled.reduce((t, b) => t + chargedRuns(b), 0);
+  const wickets = bowled.filter((b) => b.isWicket && b.wicketType !== 'runOut').length;
+  
+  const fig = {};
+  for (const b of bowled) {
+    const k = b.over.inningId;
+    fig[k] = fig[k] || { w: 0, r: 0 };
+    fig[k].r += chargedRuns(b);
+    if (b.isWicket && b.wicketType !== 'runOut') fig[k].w += 1;
+  }
+  const best = Object.values(fig).sort((a, b) => b.w - a.w || a.r - b.r)[0];
+  const appFiveWickets = Object.values(fig).filter((f) => f.w >= 5).length;
+  const appDotBalls = bowled.filter((b) => isLegal(b) && chargedRuns(b) === 0).length;
+  const appFoursConceded = bowled.filter((b) => offTheBat(b) && b.runs === 4).length;
+  const appSixesConceded = bowled.filter((b) => offTheBat(b) && b.runs === 6).length;
+  const appWides = bowlBalls.filter(b => b.extraType === 'wide').length;
+  const appNoBalls = bowlBalls.filter(b => b.extraType === 'noBall').length;
+
+  // Combine with historical baseline (s)
+  const totalWickets = (s.wickets || 0) + wickets;
+  const totalConceded = (s.runsConceded || 0) + conceded;
+  
+  let historicalBalls = 0;
+  if (s.oversBowled !== undefined) {
+      const obs = parseFloat(s.oversBowled);
+      historicalBalls = Math.floor(obs) * 6 + Math.round((obs - Math.floor(obs)) * 10);
+  } else if (s.economy && s.runsConceded) {
+      const overs = s.runsConceded / s.economy;
+      historicalBalls = Math.round(overs * 6);
+  }
+  const totalBallsBowled = historicalBalls + legal;
+
+  computed.wickets = totalWickets;
+  computed.ballsBowled = totalBallsBowled;
+  computed.oversBowled = `${Math.floor(totalBallsBowled / 6)}.${totalBallsBowled % 6}`;
+  computed.runsConceded = totalConceded;
+  computed.economy = totalBallsBowled ? +(totalConceded / (totalBallsBowled / 6)).toFixed(2) : (s.economy || 0);
+  computed.bowlingAverage = totalWickets ? +(totalConceded / totalWickets).toFixed(1) : (s.bowlingAverage || null);
+  
+  let histBestW = 0, histBestR = 0;
+  if (s.bestBowling && typeof s.bestBowling === 'string') {
+      const parts = s.bestBowling.split('/');
+      if (parts.length === 2) {
+          histBestW = parseInt(parts[0], 10) || 0;
+          histBestR = parseInt(parts[1], 10) || 0;
+      }
+  }
+  let overallBestW = histBestW;
+  let overallBestR = histBestR;
+  if (best) {
+      if (best.w > overallBestW || (best.w === overallBestW && best.r < overallBestR)) {
+          overallBestW = best.w;
+          overallBestR = best.r;
+      }
+  }
+  computed.bestBowling = (overallBestW > 0 || overallBestR > 0) ? `${overallBestW}/${overallBestR}` : null;
+  
+  computed.fiveWickets = (s.fiveWickets || 0) + appFiveWickets;
+  computed.dotBalls = (s.dotBalls || 0) + appDotBalls;
+  computed.wides = (s.wides || 0) + appWides;
+  computed.noBalls = (s.noBalls || 0) + appNoBalls;
+  computed.foursConceded = (s.foursConceded || 0) + appFoursConceded;
+  computed.sixesConceded = (s.sixesConceded || 0) + appSixesConceded;
+  computed.maidens = s.maidens || 0;
+  computed.bowlingStrikeRate = totalWickets ? +(totalBallsBowled / totalWickets).toFixed(1) : (s.bowlingStrikeRate || 0);
+
+  computed.matches = (s.matches || 0) + xiMatches;
 
   // ── Recent form: the player's last 5 completed matches ────────────────────
   // Win/loss comes from Match.result, which is free text ("<Team> won by 42

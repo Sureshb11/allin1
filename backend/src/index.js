@@ -34,6 +34,7 @@ import feedRoutes from './routes/feed.js';
 import uploadRoutes from './routes/upload.js';
 import galleryRoutes from './routes/gallery.js';
 import pincodeRoutes from './routes/pincodes.js';
+import historicalStatsRoutes from './routes/historicalStats.js';
 
 const app = express();
 // Live-scoring API: never serve 304s — RN's fetch surfaces the empty 304 body
@@ -102,6 +103,7 @@ app.use('/feed', feedRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/gallery', galleryRoutes);
 app.use('/pincodes', pincodeRoutes);
+app.use('/', historicalStatsRoutes);
 
 // Not found
 app.use((req, res) => res.status(404).json({ error: 'Not Found' }));
