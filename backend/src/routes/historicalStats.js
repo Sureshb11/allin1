@@ -50,7 +50,7 @@ router.post('/players/:playerId/historical-stats', authMiddleware, async (req, r
     if (!player) return res.status(404).json({ error: 'Player not found' });
     
     // Authorization: User must own this player or be an admin.
-    if (player.userId !== req.user.id && !req.user.isAdmin) {
+    if (player.userId !== req.user.sub && !req.user.isAdmin) {
       return res.status(403).json({ error: 'Not authorized to submit stats for this player' });
     }
 
