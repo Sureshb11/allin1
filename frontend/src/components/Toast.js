@@ -6,7 +6,7 @@ import { useTheme, useThemedStyles } from "../theme/ThemeContext"; // Toast — 
 //   showToast('OTP sent · code 1234', 'success');
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Text, StyleSheet, Animated, Easing, TouchableOpacity, PanResponder } from 'react-native';
+import { Text, StyleSheet, Animated, Easing, TouchableOpacity, PanResponder, View } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 
