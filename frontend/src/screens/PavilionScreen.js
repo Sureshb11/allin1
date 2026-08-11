@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { BlurView } from '@react-native-community/blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { makeControls, controlColors } from '../theme/controls';
 
@@ -42,6 +43,7 @@ export default function PavilionScreen({ navigation, route }) {
   const P = pav(DS);
   const meUser = useCurrentUser();
   const tabClear = useTabBarClearance();
+  const insets = useSafeAreaInsets();
   
   const sportId = getSelectedSport().sport?.id || 'cricket';
 
@@ -179,7 +181,7 @@ export default function PavilionScreen({ navigation, route }) {
           blurAmount={20}
           reducedTransparencyFallbackColor={DS.bg}
         >
-          <View style={{ backgroundColor: DS.bg + '99' }}> 
+          <View style={{ backgroundColor: DS.bg + 'A6', paddingTop: insets.top }}> 
             <AppHeader transparent />
             <View style={{ borderBottomWidth: 1, borderBottomColor: DS.border }}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[C.navRow, { paddingHorizontal: 16, borderBottomWidth: 0, paddingBottom: 10 }]}>
