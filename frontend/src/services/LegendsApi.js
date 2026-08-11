@@ -164,6 +164,15 @@ class LegendsApi {
     }
   }
 
+  async getHistoricalStatsStatus(playerId) {
+    try {
+      const json = await this.request(`/players/${playerId}/historical-stats/status`);
+      return { success: true, submission: json.submission };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
 
   async getSportEvents(matchId) {
     try {

@@ -74,6 +74,7 @@ export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState(null);
+  const [statsStatus, setStatsStatus] = useState(null);
 
 
   useLayoutEffect(() => {
@@ -91,6 +92,13 @@ export default function ProfileScreen({ navigation }) {
         setPlayer(profileRes.player || null);
         setTeams(profileRes.teams || []);
         setCurrentAvatar(profileRes.data?.avatarUrl || null);
+
+        if (profileRes.player?.id) {
+          const statusRes = await legendsApi.getHistoricalStatsStatus(profileRes.player.id);
+          if (statusRes.success) {
+            setStatsStatus(statusRes.submission);
+          }
+        }
       }
       
 
@@ -367,16 +375,47 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.bentoSection}>
             <Text style={styles.sectionTitle}>Performance</Text>
             
-              <TouchableOpacity style={styles.statsCard} activeOpacity={0.8} onPress={() => navigation.navigate('HistoricalStatsSource', { sport })}>
-                <View style={[styles.statsCardIcon, { backgroundColor: DS.lime }]}>
-                  <Icon name="cloud-upload" size={22} color="#fff" />
+            {(!statsStatus || statsStatus.status !== 'approved') && (
+              <TouchableOpacity 
+                style={[
+                  styles.statsCard, 
+                  statsStatus?.status === 'rejected' && { borderColor: '#ef4444', borderWidth: 1 }
+                ]} 
+                activeOpacity={statsStatus?.status === 'pending' ? 1 : 0.8} 
+                onPress={() => {
+                  if (statsStatus?.status !== 'pending') {
+                    navigation.navigate('HistoricalStatsSource', { sport });
+                  }
+                }}
+              >
+                <View style={[
+                  styles.statsCardIcon, 
+                  { backgroundColor: statsStatus?.status === 'pending' ? DS.textMuted : (statsStatus?.status === 'rejected' ? '#ef4444' : DS.lime) }
+                ]}>
+                  <Icon 
+                    name={statsStatus?.status === 'pending' ? "clock-outline" : (statsStatus?.status === 'rejected' ? "alert-circle" : "cloud-upload")} 
+                    size={22} 
+                    color="#fff" 
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.statsCardTitle}>Upload Past Stats</Text>
-                  <Text style={styles.statsCardBlurb}>Bring in your old scorecards</Text>
+                  <Text style={[
+                    styles.statsCardTitle,
+                    statsStatus?.status === 'rejected' && { color: '#ef4444' }
+                  ]}>
+                    {statsStatus?.status === 'pending' ? 'Pending Verification' : (statsStatus?.status === 'rejected' ? 'Upload Rejected' : 'Upload Past Stats')}
+                  </Text>
+                  <Text style={styles.statsCardBlurb}>
+                    {statsStatus?.status === 'pending' 
+                      ? 'Admin is reviewing your scorecard' 
+                      : (statsStatus?.status === 'rejected' 
+                          ? (statsStatus.adminNote || 'Please try uploading again') 
+                          : 'Bring in your old scorecards')}
+                  </Text>
                 </View>
-                <Icon name="chevron-right" size={22} color={DS.textMuted} />
+                {statsStatus?.status !== 'pending' && <Icon name="chevron-right" size={22} color={DS.textMuted} />}
               </TouchableOpacity>
+            )}
 
             <TouchableOpacity style={styles.statsCard} activeOpacity={0.8} onPress={() => navigation.navigate('Pavilion', { tab: 'My Stats' })}>
               <View style={[styles.statsCardIcon, { backgroundColor: DS.lime + '1a' }]}>

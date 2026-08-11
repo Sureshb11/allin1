@@ -9,6 +9,7 @@ export default function Dashboard() {
   const [selectedSub, setSelectedSub] = useState(null); // For the modal
   const [extracting, setExtracting] = useState(false);
   const [editableData, setEditableData] = useState({});
+  const [fullscreenImage, setFullscreenImage] = useState(null);
 
   const [error, setError] = useState(null);
 
@@ -74,8 +75,13 @@ export default function Dashboard() {
   };
 
   const handleReject = async (id) => {
+    const reason = window.prompt('Why are you rejecting this upload? (Optional)');
+    if (reason === null) return; // User cancelled
+
     try {
-      await api.post(`/admin/historical-stats/${id}/reject`);
+      await api.post(`/admin/historical-stats/${id}/reject`, {
+        adminNote: reason
+      });
       setSelectedSub(null);
       fetchData(); // refresh list
     } catch (err) {
@@ -215,7 +221,13 @@ export default function Dashboard() {
                 {selectedSub.images && selectedSub.images.length > 0 ? (
                   <div className="grid grid-cols-1 gap-4">
                     {selectedSub.images.map((img, i) => (
-                      <img key={i} src={img} className="rounded-xl border border-gray-200 w-full object-contain bg-gray-50 max-h-64" />
+                      <img 
+                        key={i} 
+                        src={img} 
+                        onClick={() => setFullscreenImage(img)}
+                        className="rounded-xl border border-gray-200 w-full object-contain bg-gray-50 max-h-64 cursor-zoom-in hover:opacity-90 transition-opacity" 
+                        alt="Scorecard Evidence"
+                      />
                     ))}
                   </div>
                 ) : (
@@ -276,6 +288,26 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Lightbox Overlay */}
+      {fullscreenImage && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 cursor-zoom-out"
+          onClick={() => setFullscreenImage(null)}
+        >
+          <img 
+            src={fullscreenImage} 
+            className="max-w-full max-h-[95vh] object-contain rounded-lg"
+            alt="Fullscreen Evidence"
+          />
+          <button 
+            className="absolute top-6 right-6 text-white/70 hover:text-white"
+            onClick={(e) => { e.stopPropagation(); setFullscreenImage(null); }}
+          >
+            <XCircle size={36} />
+          </button>
         </div>
       )}
     </div>

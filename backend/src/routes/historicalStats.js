@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
 import { extractStatsFromImages } from '../lib/gemini.js';
 import { put } from '@vercel/blob';
+import { notifyUsers } from '../lib/notify.js';
 
 const router = express.Router();
 
@@ -38,6 +39,24 @@ const StatsSchema = z.object({
   foursConceded: z.number().optional(),
   sixesConceded: z.number().optional(),
 }).catchall(z.any());
+
+// Get latest historical stats submission status for a player
+router.get('/players/:playerId/historical-stats/status', authMiddleware, async (req, res) => {
+  try {
+    const { playerId } = req.params;
+
+    const submission = await prisma.historicalStatSubmission.findFirst({
+      where: { playerId },
+      orderBy: { createdAt: 'desc' },
+      select: { status: true, adminNote: true }
+    });
+
+    res.json({ success: true, submission });
+  } catch (err) {
+    console.error('Get stats status error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Submit historical stats for verification
 router.post('/players/:playerId/historical-stats', authMiddleware, async (req, res) => {
@@ -169,6 +188,15 @@ router.post('/admin/historical-stats/:id/approve', authMiddleware, async (req, r
       })
     ]);
 
+    // Send push notification
+    if (player.userId) {
+      await notifyUsers([player.userId], {
+        type: 'stats',
+        title: 'Stats Verified! 🎉',
+        message: 'Your past scorecards have been verified and added to your profile.',
+      }).catch(e => console.error('Push notification failed:', e));
+    }
+
     res.json({ success: true, message: 'Stats approved and merged' });
   } catch (err) {
     console.error('Approve stats error:', err);
@@ -184,11 +212,32 @@ router.post('/admin/historical-stats/:id/reject', authMiddleware, async (req, re
     }
     
     const { id } = req.params;
+    const { adminNote } = req.body;
     
+    // We need the player's userId for the notification
+    const existingSub = await prisma.historicalStatSubmission.findUnique({
+      where: { id },
+      include: { player: true }
+    });
+
+    if (!existingSub) return res.status(404).json({ error: 'Submission not found' });
+
     const submission = await prisma.historicalStatSubmission.update({
       where: { id },
-      data: { status: 'rejected' }
+      data: { 
+        status: 'rejected',
+        adminNote: adminNote || null
+      }
     });
+
+    // Send push notification
+    if (existingSub.player?.userId) {
+      await notifyUsers([existingSub.player.userId], {
+        type: 'stats',
+        title: 'Stats Upload Rejected ⚠️',
+        message: adminNote || 'There was an issue with your scorecard upload. Please try again.',
+      }).catch(e => console.error('Push notification failed:', e));
+    }
 
     res.json({ success: true, submission });
   } catch (err) {

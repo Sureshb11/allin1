@@ -188,6 +188,7 @@ model HistoricalStatSubmission {
   updatedAt DateTime @updatedAt
   playerId  String
   status    String   @default("pending") // pending, approved, rejected
+  adminNote String?
   data      Json
   imageUrls String[]
   player    Player   @relation(fields: [playerId], references: [id])
