@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, LayoutAnimation, ScrollView } from 'react-native';
-import Reanimated, { SlideInRight, SlideInLeft, useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, LinearTransition } from 'react-native-reanimated';
+import Reanimated, { ZoomIn, SlideInRight, SlideInLeft, useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, LinearTransition } from 'react-native-reanimated';
 import Svg, { Polyline, Polygon, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import ViewShot from 'react-native-view-shot';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -317,7 +317,7 @@ function StatCell({ s, i, styles }) {
 
   return (
     <GestureDetector gesture={composedGesture}>
-      <View style={{ width: '31%', aspectRatio: 0.9 }}>
+      <Reanimated.View entering={ZoomIn.delay(i * 75).springify().damping(12)} style={{ width: '31%', aspectRatio: 0.9 }}>
         <Reanimated.View style={[styles.cell, { overflow: 'hidden', width: '100%', height: '100%' }, frontStyle]}>
           <Reanimated.View style={spotlightStyle} pointerEvents="none" />
           <CountingText style={[styles.cellVal, i === 0 && styles.cellValLead]} numberOfLines={1} value={s.value} burstOnFinish={i === 0} />
@@ -327,7 +327,7 @@ function StatCell({ s, i, styles }) {
           <Text style={{ color: '#fed7aa', fontSize: 10, fontWeight: '800', textAlign: 'center' }}>CAREER TOTAL</Text>
           <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', marginTop: 4 }}>{s.value}</Text>
         </Reanimated.View>
-      </View>
+      </Reanimated.View>
     </GestureDetector>
   );
 }
@@ -635,11 +635,11 @@ const makeStyles = (DS) => StyleSheet.create({
   cell: { 
     paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center',
     backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1
+    shadowColor: DS.lime, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 4
   },
-  cellValLead: { color: DS.lime, fontSize: 19, fontWeight: '800' },
-  cellVal: { fontSize: 17, fontWeight: '700', color: DS.textPrimary, marginBottom: 2 },
-  cellLbl: { fontSize: 11, fontWeight: '600', color: DS.textMuted, textAlign: 'center', textTransform: 'uppercase' },
+  cellValLead: { color: DS.lime, fontSize: 24, fontWeight: '900', letterSpacing: 0.5 },
+  cellVal: { fontSize: 21, fontWeight: '800', color: DS.textPrimary, marginBottom: 2, letterSpacing: 0.5 },
+  cellLbl: { fontSize: 11, fontWeight: '700', color: DS.textVariant, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1.2 },
 
   chartCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 16, paddingVertical: 12, gap: 16, marginBottom: 16 },
   

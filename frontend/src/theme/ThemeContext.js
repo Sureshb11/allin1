@@ -37,16 +37,16 @@ const STORAGE_KEY = 'theme:mode';
 // on borders). Mirrors the light theme so the app is consistent in both.
 const dark = {
   mode: 'dark',
-  bg: '#080C11',
-  surfaceLow: '#0D131A',
-  surface: '#141B24',
-  surfaceHigh: '#1C2632',
-  surfaceHighest: '#253241',
+  bg: '#000000',
+  surfaceLow: '#080808',
+  surface: '#111111',
+  surfaceHigh: '#1A1A1A',
+  surfaceHighest: '#242424',
   white: '#ffffff',
   lime: '#10B981',        // Richer emerald/neon green
   limeBright: '#34D399',
   lime2: '#10B981',
-  onLime: '#022C22',      // Dark ink for the lime accent
+  onLime: '#000000',      // True black for contrast
   coral: '#F87171',       // Slightly softer red for better contrast
   wicketBg: 'rgba(248,113,113,0.16)',
   wicketText: '#F87171',
@@ -54,30 +54,30 @@ const dark = {
   blueDeep: '#2563EB',
   blueSoft: '#60A5FA',
   onBlue: '#ffffff',
-  textPrimary: '#F1F5F9', // Crisp cool white
-  textVariant: '#94A3B8',
-  textSecondary: '#94A3B8',
-  textMuted: '#64748B',
-  faint: '#202B38',
-  onDark: '#F1F5F9',
-  onDarkDim: '#94A3B8',
+  textPrimary: '#FFFFFF', // Pure white
+  textVariant: '#A3A3A3',
+  textSecondary: '#A3A3A3',
+  textMuted: '#737373',
+  faint: '#262626',
+  onDark: '#FFFFFF',
+  onDarkDim: '#A3A3A3',
   limeDark: '#064E3B',
   live: '#F87171',
   danger: '#EF4444',
   dangerTxt: '#F87171',
   warn: '#F59E0B',
   success: '#10B981',
-  border: '#2A3746',
-  line: '#2A3746',
+  border: '#262626',
+  line: '#262626',
   overlay: 'rgba(0,0,0,0.8)',
   // Arena fallback roles
-  navy0: '#080C11',
-  navy1: '#0D131A',
-  navy2: '#141B24',
-  cell: '#141B24',
-  cellHi: '#1C2632',
-  ink: '#F1F5F9',
-  inkDim: '#64748B',
+  navy0: '#000000',
+  navy1: '#080808',
+  navy2: '#111111',
+  cell: '#111111',
+  cellHi: '#1A1A1A',
+  ink: '#FFFFFF',
+  inkDim: '#737373',
 };
 
 // ── LIGHT (outdoor / day) — ONE deep-green accent, pure white, red = semantic ─
