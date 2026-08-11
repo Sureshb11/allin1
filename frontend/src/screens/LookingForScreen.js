@@ -1268,7 +1268,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Search — pill-shaped, prominent. */
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: DS.bg },
-  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, gap: 8, borderWidth: 0 },
+  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, gap: 8, borderWidth: 0 },
   createBtn: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   searchInput: { flex: 1, fontSize: 15, color: DS.textPrimary, padding: 0 },
   searchPlaceholder: { fontSize: 15, color: DS.textMuted },
@@ -1284,15 +1284,15 @@ const makeStyles = (DS) => StyleSheet.create({
     paddingVertical: 12, paddingHorizontal: 4,
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
-  tabActive: { borderBottomColor: '#0f4c3a' },
+  tabActive: { borderBottomColor: DS.lime },
   // Zero listings: still there, still tappable, just visibly quieter.
   tabEmpty: { opacity: 0.45 },
   tabText: { fontSize: 14, color: DS.textVariant, fontWeight: '600', includeFontPadding: false },
-  tabTextActive: { color: '#0f4c3a', fontWeight: 'bold' },
-  tabCountWrap: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: '#f1f5f9' },
-  tabCountWrapActive: { backgroundColor: '#0f4c3a' + '15' },
+  tabTextActive: { color: DS.lime, fontWeight: 'bold' },
+  tabCountWrap: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: DS.surfaceHigh },
+  tabCountWrapActive: { backgroundColor: DS.lime + '15' },
   tabCount: { fontSize: 11, color: DS.textMuted, fontWeight: '600', includeFontPadding: false },
-  tabCountActive: { color: '#0f4c3a', fontWeight: '800', opacity: 1 },
+  tabCountActive: { color: DS.lime, fontWeight: '800', opacity: 1 },
 
   /* List — bordered rows, not floating cards: ~5 listings a screen instead of 2. */
   list: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 28 },
@@ -1302,7 +1302,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   row: { 
     flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 14,
-    backgroundColor: '#ffffff', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', 
+    backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, 
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 
   },
   rowIconAvatar: {

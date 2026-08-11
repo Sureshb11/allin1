@@ -999,9 +999,9 @@ const makeStyles = (DS) => StyleSheet.create({
   podiumCol: { flex: 1, alignItems: 'center', gap: 4, maxWidth: 100 },
   // The leader gets the width as well as the height.
   podiumColLead: { flex: 1.2, maxWidth: 120, zIndex: 10 },
-  podiumName: { fontSize: 12, fontWeight: '500', color: '#475569', maxWidth: '100%', textAlign: 'center' },
-  podiumNameLead: { fontSize: 14, color: '#191c1d', fontWeight: 'bold' },
-  podiumVal: { fontSize: 20, fontWeight: 'bold', color: '#0f4c3a' },
+  podiumName: { fontSize: 12, fontWeight: '500', color: DS.textMuted, maxWidth: '100%', textAlign: 'center' },
+  podiumNameLead: { fontSize: 14, color: DS.textPrimary, fontWeight: 'bold' },
+  podiumVal: { fontSize: 20, fontWeight: 'bold', color: DS.lime },
   podiumValLead: { fontSize: 22 },
   avatarGlow: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2, marginBottom: 2 },
   avatarGlowLead: { shadowColor: '#fef08a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.6, shadowRadius: 8, elevation: 4 },
@@ -1025,53 +1025,53 @@ const makeStyles = (DS) => StyleSheet.create({
   /* ── Compact rank rows (replaced the tall stat cards) ── */
   row: { 
     flexDirection: 'row', alignItems: 'center', gap: 16, padding: 12, 
-    backgroundColor: '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', 
+    backgroundColor: DS.surface, borderRadius: 12, borderWidth: 1, borderColor: DS.border, 
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 
   },
   /* Top three: taller, brighter, and carrying a medal. The board's whole point
      is who's winning, and every row looked identical to every other. */
   // The logged-in player's own row, so "Find me" lands somewhere obvious.
-  rowMe: { backgroundColor: '#f0fdf4', borderColor: '#d1fae5' },
+  rowMe: { backgroundColor: DS.lime + '1A', borderColor: DS.lime + '33' },
   sep: { display: 'none' },
   rankBox: {
-    width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: '#cbd5e1',
+    width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: DS.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  rankNum: { fontSize: 12, fontWeight: '600', color: '#475569' },
+  rankNum: { fontSize: 12, fontWeight: '600', color: DS.textMuted },
   // Dark ink on gold/silver/bronze — white on these fails contrast badly.
   // Two backgrounds, two inks. onLime is white, which is right on the leader's
   // lime disc (9.3:1) and effectively invisible on the grey one every other
   // avatar uses (1.2:1) — "SK", "HB", "SC" were unreadable on device. The
   // shared PlayerAvatar component already got this right; only this screen's
   // HexAvatar usage hardcoded the white.
-  avatarText: { fontSize: 14, fontWeight: '600', color: '#0f4c3a' },
-  avatarTextOnLime: { color: '#ffffff' },
+  avatarText: { fontSize: 14, fontWeight: '600', color: DS.lime },
+  avatarTextOnLime: { color: DS.onLime },
   avatarImg: {
     width: 40, height: 40, borderRadius: 20, backgroundColor: DS.surfaceHighest,
     borderWidth: 1.5, borderColor: 'transparent',
   },
   rowMain: { flex: 1, minWidth: 0, gap: 2 },
-  rowName: { fontSize: 14, fontWeight: '600', color: '#191c1d' },
-  rowMeta: { fontSize: 12, color: '#475569' },
+  rowName: { fontSize: 14, fontWeight: '600', color: DS.textPrimary },
+  rowMeta: { fontSize: 12, color: DS.textVariant },
   // The one figure this board sorts on, given the weight it earns.
   headlineBox: { alignItems: 'flex-end', minWidth: 56 },
-  headlineVal: { fontSize: 18, fontWeight: 'bold', color: '#0f4c3a' },
-  headlineLbl: { fontSize: 10, fontWeight: '500', color: '#475569', letterSpacing: 0.5, textTransform: 'uppercase' },
+  headlineVal: { fontSize: 18, fontWeight: 'bold', color: DS.lime },
+  headlineLbl: { fontSize: 10, fontWeight: '500', color: DS.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
 
   empty: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 16 },
   emptyBox: { 
     width: '100%', alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24,
-    backgroundColor: '#ffffff', borderRadius: 24, borderWidth: 1.5, borderColor: '#e2e8f0', borderStyle: 'dashed' 
+    backgroundColor: DS.surface, borderRadius: 24, borderWidth: 1.5, borderColor: DS.faint, borderStyle: 'dashed' 
   },
-  emptyIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#f0fdf4', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  emptyTitle: { fontSize: 17, fontWeight: '800', color: '#191c1d', marginTop: 12, textAlign: 'center' },
-  emptySub: { fontSize: 13.5, color: '#475569', marginTop: 6, textAlign: 'center', lineHeight: 20 },
+  emptyIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: DS.lime + '20', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  emptyTitle: { fontSize: 17, fontWeight: '800', color: DS.textPrimary, marginTop: 12, textAlign: 'center' },
+  emptySub: { fontSize: 13.5, color: DS.textMuted, marginTop: 6, textAlign: 'center', lineHeight: 20 },
 
   container: { flex: 1, backgroundColor: DS.bg },
 
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: 'rgba(255,255,255,0.85)', paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16
+    backgroundColor: DS.bg + 'D9', paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16
   },
   heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
 
@@ -1082,11 +1082,11 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   segBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 10, borderRadius: 999, backgroundColor: '#f1f5f9',
+    paddingVertical: 10, borderRadius: 999, backgroundColor: DS.surfaceHigh,
   },
-  segBtnOn: { backgroundColor: '#e6f4ea', borderRadius: 999 },
-  segText: { fontSize: 14, fontWeight: '600', color: '#475569' },
-  segTextOn: { color: '#0f4c3a', fontWeight: 'bold' },
+  segBtnOn: { backgroundColor: DS.lime + '20', borderRadius: 999 },
+  segText: { fontSize: 14, fontWeight: '600', color: DS.textMuted },
+  segTextOn: { color: DS.lime, fontWeight: 'bold' },
   searchBtn: {
     width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
     backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint,

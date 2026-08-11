@@ -581,7 +581,7 @@ const makeStyles = (DS) => StyleSheet.create({
   segment: {
     flexDirection: 'row', 
     borderBottomWidth: 1, 
-    borderColor: '#e2e8f0',
+    borderColor: DS.faint,
     marginBottom: 6,
   },
   segBtn: { 
@@ -592,9 +592,9 @@ const makeStyles = (DS) => StyleSheet.create({
     borderBottomWidth: 2, 
     borderBottomColor: 'transparent' 
   },
-  segBtnOn: { borderBottomColor: '#0f4c3a' },
-  segText: { fontSize: 14, fontWeight: '600', color: '#475569' },
-  segTextOn: { color: '#0f4c3a', fontWeight: 'bold' },
+  segBtnOn: { borderBottomColor: DS.lime },
+  segText: { fontSize: 14, fontWeight: '600', color: DS.textMuted },
+  segTextOn: { color: DS.lime, fontWeight: 'bold' },
 
   /* Shared card chrome — one surface, a hairline, a tiny caps label. */
   card: { backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 13, paddingVertical: 12, gap: 11 },
@@ -607,11 +607,11 @@ const makeStyles = (DS) => StyleSheet.create({
   honour: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
-    backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0',
+    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border,
   },
   honourMajor: {},
-  honourCount: { fontSize: 10, fontWeight: '500', color: '#475569', textTransform: 'uppercase' },
-  honourLabel: { fontSize: 10, fontWeight: '500', color: '#475569', textTransform: 'uppercase' },
+  honourCount: { fontSize: 10, fontWeight: '500', color: DS.textMuted, textTransform: 'uppercase' },
+  honourLabel: { fontSize: 10, fontWeight: '500', color: DS.textMuted, textTransform: 'uppercase' },
   honourTextMajor: {},
 
   /* Last five results: won / lost / tied, tappable through to the match. */
@@ -623,25 +623,25 @@ const makeStyles = (DS) => StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 3, elevation: 3
   },
   formDiscText: { fontSize: 14, fontWeight: '700' },
-  formStar: { position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: 8, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
-  formSub: { fontSize: 12, fontWeight: '500', color: '#64748b', fontVariant: ['tabular-nums'], marginTop: 4 },
-  formSubLatest: { color: '#475569' },
+  formStar: { position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: 8, backgroundColor: DS.surface, alignItems: 'center', justifyContent: 'center' },
+  formSub: { fontSize: 12, fontWeight: '500', color: DS.textMuted, fontVariant: ['tabular-nums'], marginTop: 4 },
+  formSubLatest: { color: DS.textPrimary },
 
   /* Bento-box stats layout */
   gridWrap: { marginTop: 12 },
   gridHead: { width: '100%', marginBottom: 8, paddingHorizontal: 4 },
-  gridHeadText: { fontSize: 11, fontWeight: '800', color: '#64748b', letterSpacing: 0.8 },
+  gridHeadText: { fontSize: 11, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   cell: { 
     paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#ffffff', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0',
+    backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1
   },
-  cellValLead: { color: '#0f4c3a', fontSize: 19, fontWeight: '800' },
-  cellVal: { fontSize: 17, fontWeight: '700', color: '#1e293b', marginBottom: 2 },
-  cellLbl: { fontSize: 11, fontWeight: '600', color: '#64748b', textAlign: 'center', textTransform: 'uppercase' },
+  cellValLead: { color: DS.lime, fontSize: 19, fontWeight: '800' },
+  cellVal: { fontSize: 17, fontWeight: '700', color: DS.textPrimary, marginBottom: 2 },
+  cellLbl: { fontSize: 11, fontWeight: '600', color: DS.textMuted, textAlign: 'center', textTransform: 'uppercase' },
 
-  chartCard: { backgroundColor: '#ecfdf5', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 16, paddingVertical: 12, gap: 16, marginBottom: 16 },
+  chartCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, borderWidth: 1, borderColor: DS.border, paddingHorizontal: 16, paddingVertical: 12, gap: 16, marginBottom: 16 },
   
   dropdownWrap: {
     paddingHorizontal: 16,
