@@ -179,8 +179,9 @@ export default function Dashboard() {
                           {sub.player.name.charAt(0)}
                         </div>
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <h3 className="font-bold text-gray-900">{sub.player.name}</h3>
+                    </div>
                   <div className="flex flex-col items-end">
                     <p className="text-xs text-gray-500 mb-1">{new Date(sub.createdAt).toLocaleDateString()}</p>
                     {sub.data?.ballType && sub.data.ballType !== 'overall' && (
