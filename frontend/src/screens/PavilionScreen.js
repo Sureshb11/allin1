@@ -164,7 +164,7 @@ export default function PavilionScreen({ navigation, route }) {
             const isVisible = Math.abs(idx - activeIdx) <= 1;
 
             return (
-              <View key={page.key} style={{ width: SCREEN_W, flex: 1, paddingTop: 130 + insets.top }}>
+              <View key={page.key} style={{ width: SCREEN_W, flex: 1, paddingTop: (page.l2 ? 175 : 130) + insets.top }}>
                 {isVisible ? (
                   <Comp navigation={navigation} route={route} inline={true} onRegisterFab={registerFab(page.id)} ballTypeOverride={page.l2} />
                 ) : null}
