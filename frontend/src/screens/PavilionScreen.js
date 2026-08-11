@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Dimensions, Animated as RNAnimated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, useWindowDimensions, Animated as RNAnimated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -17,7 +17,7 @@ import { pav } from '../theme/pavilion';
 import AppHeader from '../components/AppHeader';
 import NestedSwipeNav from '../components/NestedSwipeNav';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+
 
 const PAVILION_TAB_KEY = '@ll_pavilion_tab';
 
@@ -44,6 +44,7 @@ const FAB_FOR = (P) => ({
 });
 
 export default function PavilionScreen({ navigation, route }) {
+  const { width: SCREEN_W } = useWindowDimensions();
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const C = useThemedStyles(makeControls);

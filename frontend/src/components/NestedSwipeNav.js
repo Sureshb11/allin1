@@ -1,7 +1,5 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Animated, StyleSheet, Dimensions } from 'react-native';
-
-const { width: SCREEN_W } = Dimensions.get('window');
+import { View, Text, TouchableOpacity, Animated, StyleSheet, useWindowDimensions } from 'react-native';
 
 /**
  * NestedSwipeNav
@@ -15,6 +13,7 @@ const { width: SCREEN_W } = Dimensions.get('window');
  * @param {Function} renderItem - Optional custom render function for the content
  */
 export default function NestedSwipeNav({ schema, colors, renderItem, onIndexChange, renderL1 }) {
+  const { width: SCREEN_W } = useWindowDimensions();
   const listRef = useRef(null);
   const scrollX = useRef(new Animated.Value(0)).current;
   const [currentIndex, setCurrentIndex] = useState(0);
