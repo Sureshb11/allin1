@@ -181,9 +181,15 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <h3 className="font-bold text-gray-900">{sub.player.name}</h3>
-                      <p className="text-sm text-gray-500">Submitted {new Date(sub.createdAt).toLocaleDateString()}</p>
-                    </div>
+                  <div className="flex flex-col items-end">
+                    <p className="text-xs text-gray-500 mb-1">{new Date(sub.createdAt).toLocaleDateString()}</p>
+                    {sub.data?.ballType && sub.data.ballType !== 'overall' && (
+                      <span className="bg-lime-100 text-lime-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                        {sub.data.ballType}
+                      </span>
+                    )}
                   </div>
+                </div>
                   
                   <div className="bg-gray-50 rounded-lg p-3 mb-4 flex items-center justify-center gap-2">
                     <CheckCircle size={16} className="text-gray-400" />
@@ -212,7 +218,14 @@ export default function Dashboard() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Review {selectedSub.player.name}'s Stats</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-gray-900">Review {selectedSub.player.name}'s Stats</h2>
+                {selectedSub.data?.ballType && selectedSub.data.ballType !== 'overall' && (
+                  <span className="bg-lime-100 text-lime-800 text-xs font-bold px-2.5 py-1 rounded-md uppercase">
+                    {selectedSub.data.ballType} Match
+                  </span>
+                )}
+              </div>
               <button onClick={() => { setSelectedSub(null); setModalError(null); }} className="text-gray-400 hover:text-gray-600">
                 <XCircle size={28} />
               </button>

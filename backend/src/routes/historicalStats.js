@@ -63,7 +63,7 @@ router.get('/players/:playerId/historical-stats/status', authMiddleware, async (
 router.post('/players/:playerId/historical-stats', authMiddleware, async (req, res) => {
   try {
     const { playerId } = req.params;
-    const { data, imageUrls } = req.body;
+    const { data, imageUrls, ballType = 'overall' } = req.body;
 
     const player = await prisma.player.findUnique({
       where: { id: playerId }
@@ -77,6 +77,7 @@ router.post('/players/:playerId/historical-stats', authMiddleware, async (req, r
     }
 
     const validatedData = StatsSchema.parse(data || {});
+    validatedData.ballType = ballType; // Save the ballType selected by user
 
     // Handle Vercel Blob Uploads
     const finalImageUrls = [];
@@ -170,9 +171,18 @@ router.post('/admin/historical-stats/:id/approve', authMiddleware, async (req, r
     
     // Merge new data into existing player.stats
     const existingStats = (player.stats && typeof player.stats === 'object') ? player.stats : {};
-    const newData = (editedData && typeof editedData === 'object') ? editedData : ((submission.data && typeof submission.data === 'object') ? submission.data : {});
+    let newData = (editedData && typeof editedData === 'object') ? editedData : ((submission.data && typeof submission.data === 'object') ? submission.data : {});
     
-    const mergedStats = { ...existingStats, ...newData };
+    // Extract ballType and remove it from the stats payload
+    const ballType = newData.ballType || (submission.data && submission.data.ballType) || 'overall';
+    if (newData.ballType) delete newData.ballType;
+    
+    let mergedStats = { ...existingStats };
+    if (ballType === 'leather' || ballType === 'tennis') {
+      mergedStats[ballType] = { ...(existingStats[ballType] || {}), ...newData };
+    } else {
+      mergedStats = { ...existingStats, ...newData };
+    }
 
     // Transaction to update submission status and player stats atomically
     await prisma.$transaction([

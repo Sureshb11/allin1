@@ -8,7 +8,10 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
-import CareerBoard, { hasCareer } from '../components/CareerBoard';
+import { getCareerPanels, readStat, hasCareer } from '../sports/careerStats';
+import SegmentedControl from '../components/SegmentedControl';
+import { pav } from '../theme/pavilion';
+import CareerBoard from '../components/CareerBoard';
 import { useCurrentUser } from '../utils/currentUser';
 
 // Shape-matching placeholder: the career line, then the stat table. The spinner
@@ -56,6 +59,7 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
   const sportId = getSelectedSport().sport?.id || 'cricket';
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [ballType, setBallType] = useState('overall'); // 'overall', 'leather', 'tennis'
   const shotRef = useRef(null);
 
   useLayoutEffect(() => {
@@ -92,7 +96,8 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
     }
   }, [sportId, meUser]);
 
-  const mine = hasCareer(stats, sportId);
+  const statsToPass = ballType === 'overall' ? stats : (stats?.[ballType] || {});
+  const mine = hasCareer(statsToPass, sportId);
 
   useEffect(() => {
     // Only offer the share action once there is a card to share — with no
@@ -117,10 +122,25 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
       )}
 
       <View style={styles.body}>
+        {/* Only show the toggle if it's cricket (which uses ball types). Football etc don't need it. */}
+        {sportId === 'cricket' && stats && (
+          <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 }}>
+            <SegmentedControl
+              options={[
+                { id: 'overall', label: 'OVERALL' },
+                { id: 'leather', label: 'LEATHER' },
+                { id: 'tennis', label: 'TENNIS' },
+              ]}
+              value={ballType}
+              onChange={setBallType}
+            />
+          </View>
+        )}
+
         {loading ? (
           <StatsSkeleton DS={DS} />
         ) : mine ? (
-          <CareerBoard stats={stats} sportId={sportId} navigation={navigation} captureRef={shotRef}>
+          <CareerBoard stats={statsToPass} sportId={sportId} navigation={navigation} captureRef={shotRef}>
             {/* Branding footer — only meaningful once the card is shared out,
                 but harmless (and a subtle attribution) in-app. The icon follows
                 the sport; it was a cricket bat on a footballer's card. */}

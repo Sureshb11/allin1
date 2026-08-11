@@ -9,6 +9,7 @@ import { showToast } from '../components/Toast';
 import legendsApi from '../services/LegendsApi';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator } from 'react-native';
+import SegmentedControl from '../components/SegmentedControl';
 
 export default function HistoricalStatsUploadScreen({ navigation, route }) {
   const { colors: DS, isDark } = useTheme();
@@ -18,6 +19,7 @@ export default function HistoricalStatsUploadScreen({ navigation, route }) {
   const [imageUris, setImageUris] = useState([]);
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [ballType, setBallType] = useState('overall'); // 'overall', 'leather', 'tennis'
 
   const pickImage = async () => {
     haptic.tick();
@@ -58,7 +60,8 @@ export default function HistoricalStatsUploadScreen({ navigation, route }) {
 
       const res = await legendsApi.submitHistoricalStats(profileRes.player.id, {
         data: {}, // No data sent from user anymore
-        imageUrls: imageUris // Now contains objects with base64 and type
+        imageUrls: imageUris, // Contains objects with base64 and type
+        ballType // Include ballType in payload
       });
       
       if (res.success) {
@@ -122,21 +125,36 @@ export default function HistoricalStatsUploadScreen({ navigation, route }) {
         )}
 
         {imageUris.length > 0 && (
-          <TouchableOpacity 
-            style={s.confirmBox} 
-            activeOpacity={0.9} 
-            onPress={() => {
-              haptic.tick();
-              setConfirmed(!confirmed);
-            }}
-          >
-            <View style={[s.checkbox, confirmed && s.checkboxActive]}>
-              {confirmed && <Icon name="check" size={16} color="#fff" />}
-            </View>
-            <Text style={s.confirmText}>
-              I confirm these are my stats and I have the right to upload them.
+          <View style={{ marginTop: 24 }}>
+            <Text style={{ color: DS.textMuted, fontSize: 13, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              These stats are for:
             </Text>
-          </TouchableOpacity>
+            <SegmentedControl
+              options={[
+                { id: 'overall', label: 'OVERALL' },
+                { id: 'leather', label: 'LEATHER' },
+                { id: 'tennis', label: 'TENNIS' },
+              ]}
+              value={ballType}
+              onChange={setBallType}
+              style={{ marginBottom: 24, height: 42 }}
+            />
+            <TouchableOpacity 
+              style={s.confirmBox} 
+              activeOpacity={0.9} 
+              onPress={() => {
+                haptic.tick();
+                setConfirmed(!confirmed);
+              }}
+            >
+              <View style={[s.checkbox, confirmed && s.checkboxActive]}>
+                {confirmed && <Icon name="check" size={16} color="#fff" />}
+              </View>
+              <Text style={s.confirmText}>
+                I confirm these are my stats and I have the right to upload them.
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
