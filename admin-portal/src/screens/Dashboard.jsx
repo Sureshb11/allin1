@@ -185,7 +185,7 @@ export default function Dashboard() {
                     <p className="text-xs text-gray-500 mb-1">{new Date(sub.createdAt).toLocaleDateString()}</p>
                     {sub.data?.ballType && sub.data.ballType !== 'overall' && (
                       <span className="bg-lime-100 text-lime-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
-                        {sub.data.ballType}
+                        {sub.data.ballType === 'indoor' ? 'box cricket' : sub.data.ballType}
                       </span>
                     )}
                   </div>
@@ -222,7 +222,7 @@ export default function Dashboard() {
                 <h2 className="text-2xl font-bold text-gray-900">Review {selectedSub.player.name}'s Stats</h2>
                 {selectedSub.data?.ballType && selectedSub.data.ballType !== 'overall' && (
                   <span className="bg-lime-100 text-lime-800 text-xs font-bold px-2.5 py-1 rounded-md uppercase">
-                    {selectedSub.data.ballType} Match
+                    {selectedSub.data.ballType === 'indoor' ? 'box cricket' : selectedSub.data.ballType} Match
                   </span>
                 )}
               </div>
