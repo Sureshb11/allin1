@@ -48,10 +48,10 @@ export default function PavilionScreen({ navigation, route }) {
     const pages = [];
     L1_TABS.forEach(tab => {
       if (tab.id === 'mystats' && sportId === 'cricket') {
-        pages.push({ ...tab, l2: 'overall', l2Label: 'OVERALL', key: 'mystats-overall' });
-        pages.push({ ...tab, l2: 'leather', l2Label: 'LEATHER', key: 'mystats-leather' });
-        pages.push({ ...tab, l2: 'tennis', l2Label: 'TENNIS', key: 'mystats-tennis' });
-        pages.push({ ...tab, l2: 'indoor', l2Label: 'BOX CRICKET', key: 'mystats-indoor' });
+        pages.push({ ...tab, l2: 'overall', l2Label: 'Overall', key: 'mystats-overall' });
+        pages.push({ ...tab, l2: 'leather', l2Label: 'Leather', key: 'mystats-leather' });
+        pages.push({ ...tab, l2: 'tennis', l2Label: 'Tennis', key: 'mystats-tennis' });
+        pages.push({ ...tab, l2: 'indoor', l2Label: 'Box Cricket', key: 'mystats-indoor' });
       } else {
         pages.push({ ...tab, l2: null, l2Label: null, key: tab.id });
       }
