@@ -10,7 +10,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import AnimatedPressable from '../components/AnimatedPressable';
 import AmbientBackground from '../components/AmbientBackground';
-import SegmentedControl from '../components/SegmentedControl';
+import FilterTabBar from '../components/FilterTabBar';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getRankingBoards, rankValue } from '../sports/careerStats';
@@ -879,8 +879,8 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
               </Reanimated.View>
 
               {sportId === 'cricket' && tab === 'Players' && (
-                <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
-                  <SegmentedControl
+                <View style={{ paddingTop: 8, paddingBottom: 16 }}>
+                  <FilterTabBar
                     options={[
                       { id: 'overall', label: 'OVERALL' },
                       { id: 'leather', label: 'LEATHER' },
@@ -889,7 +889,6 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
                     ]}
                     value={ballTypeFilter}
                     onChange={setBallTypeFilter}
-                    style={{ height: 36 }}
                   />
                 </View>
               )}

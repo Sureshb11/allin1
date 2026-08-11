@@ -220,7 +220,6 @@ export async function playerCareer(player, alsoIds = []) {
   const formRows = await prisma.matchPlayer.findMany({
     where: { playerId: { in: ids }, match: { status: 'completed' } },
     orderBy: { match: { startTime: 'desc' } },
-    take: 5,
     include: {
       team:  { select: { name: true } },
       match: { select: {

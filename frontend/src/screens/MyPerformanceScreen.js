@@ -9,7 +9,7 @@ import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
 import { getCareerPanels, readStat } from '../sports/careerStats';
-import SegmentedControl from '../components/SegmentedControl';
+import FilterTabBar from '../components/FilterTabBar';
 import { pav } from '../theme/pavilion';
 import CareerBoard, { hasCareer } from '../components/CareerBoard';
 import { useCurrentUser } from '../utils/currentUser';
@@ -124,8 +124,8 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
       <View style={styles.body}>
         {/* Only show the toggle if it's cricket (which uses ball types). Football etc don't need it. */}
         {sportId === 'cricket' && stats && (
-          <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 }}>
-            <SegmentedControl
+          <View style={{ paddingTop: 8 }}>
+            <FilterTabBar
               options={[
                 { id: 'overall', label: 'OVERALL' },
                 { id: 'leather', label: 'LEATHER' },
@@ -141,7 +141,7 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
         {loading ? (
           <StatsSkeleton DS={DS} />
         ) : mine ? (
-          <CareerBoard stats={statsToPass} sportId={sportId} navigation={navigation} captureRef={shotRef}>
+          <CareerBoard stats={statsToPass} sportId={sportId} ballType={ballType} navigation={navigation} captureRef={shotRef}>
             {/* Branding footer — only meaningful once the card is shared out,
                 but harmless (and a subtle attribution) in-app. The icon follows
                 the sport; it was a cricket bat on a footballer's card. */}

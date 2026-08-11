@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import Reanimated, { SlideInRight, SlideInLeft, useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate } from 'react-native-reanimated';
-import Svg, { Polyline, Polygon, Circle, Line, Text as SvgText } from 'react-native-svg';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, LayoutAnimation, ScrollView } from 'react-native';
+import Reanimated, { SlideInRight, SlideInLeft, useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, LinearTransition } from 'react-native-reanimated';
+import Svg, { Polyline, Polygon, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import ViewShot from 'react-native-view-shot';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
@@ -192,7 +192,13 @@ function TrendChart({ values, color, areaColor, width }) {
       <View style={{ height: H, overflow: 'hidden' }}>
         <Animated.View style={{ opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [H, 0] }) }] }}>
           <Svg width={width} height={H}>
-          <Polygon points={`${INSET},${H} ${points} ${x(values.length - 1)},${H}`} fill={areaColor || color} fillOpacity={areaColor ? 0.5 : 0.14} />
+          <Defs>
+            <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={areaColor || color} stopOpacity={areaColor ? 0.5 : 0.25} />
+              <Stop offset="1" stopColor={areaColor || color} stopOpacity="0" />
+            </LinearGradient>
+          </Defs>
+          <Polygon points={`${INSET},${H} ${points} ${x(values.length - 1)},${H}`} fill="url(#grad)" />
           {/* Career mean — the line every innings is judged against. */}
           <Line x1={0} y1={y(mean)} x2={width} y2={y(mean)} stroke="#cbd5e1" strokeWidth={1} strokeDasharray="2 2" opacity={1} />
           <Polyline points={points} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
@@ -211,6 +217,25 @@ function TrendChart({ values, color, areaColor, width }) {
         ))}
       </View>
     </GestureDetector>
+  );
+}
+
+function AnimatedChevron({ isOpen, color }) {
+  const rot = useSharedValue(isOpen ? 1 : 0);
+  useEffect(() => {
+    rot.value = withTiming(isOpen ? 1 : 0, { duration: 250 });
+  }, [isOpen]);
+
+  const animStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ rotate: `${interpolate(rot.value, [0, 1], [0, 180])}deg` }]
+    };
+  });
+
+  return (
+    <Reanimated.View style={animStyle}>
+      <Icon name="chevron-down" size={20} color={color} />
+    </Reanimated.View>
   );
 }
 
@@ -307,9 +332,11 @@ function StatCell({ s, i, styles }) {
   );
 }
 
-export default function CareerBoard({ stats, sportId, navigation, captureRef, children }) {
+export default function CareerBoard({ stats, sportId, ballType, navigation, captureRef, children }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
+  
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const panels = getCareerPanels(sportId);
   const [tab, setTab] = useState(panels[0].id);
   const [chartW, setChartW] = useState(0);
@@ -329,9 +356,9 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
     .map((a) => ({ ...a, n: awardCounts[a.key] || 0 }))
     .filter((a) => a.n > 0);
 
-  // Last five completed matches, real results, reversed to run oldest → latest
-  // so it reads in the same direction as the chart underneath it.
-  const form = [...(stats?.recentForm || [])].reverse();
+  // The user wants 'recent to start order' (latest match first).
+  // The backend already returns `recentForm` sorted by `startTime: 'desc'`.
+  const form = [...(stats?.recentForm || [])];
   // What each match contributed, in the terms of the panel being looked at.
   // Fielding and the event sports have nothing per-match to say, so the line
   // under the discs is dropped rather than filled with placeholders.
@@ -380,115 +407,131 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
     selectPanel(panels[next].id);
   }, [panels, tab]);
 
-  // Was a PanResponder with its own 18/45 thresholds. The shared hook now, so
-  // stepping Batting → Bowling → Fielding on My Stats commits at the same
-  // distance as stepping a filter anywhere else in the app.
-  const panelIds = React.useMemo(() => panels.map((p) => p.id), [panels]);
-  const swipe = useFilterSwipe(panelIds, tab, (id) => {
-    stepPanel(panelIds.indexOf(id) > panelIds.indexOf(tab) ? 1 : -1);
-  });
-
   return (
-    <GestureDetector gesture={swipe}>
     <View style={styles.wrap}>
-      {/* Panel segment — a one-panel sport has nothing to switch between, so the
-          control doesn't render. Same pill shape and position as Rankings. */}
-      {panels.length > 1 && (
-        <View style={styles.segment}>
-          {panels.map((p) => {
-            const on = tab === p.id;
-            return (
-              <TouchableOpacity
-                key={p.id}
-                style={[styles.segBtn, on && styles.segBtnOn]}
-                onPress={() => selectPanel(p.id)}
-                activeOpacity={0.85}>
-                <Text style={[styles.segText, on && styles.segTextOn]}>{p.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-
       <ViewShot ref={captureRef} options={{ format: 'png', quality: 0.95 }} style={{ backgroundColor: DS.bg }}>
-        <Reanimated.View key={tab} entering={swipeDir.current === 1 ? SlideInRight.duration(200).withInitialValues({ transform: [{ translateX: 50 }] }) : SlideInLeft.duration(200).withInitialValues({ transform: [{ translateX: -50 }] })} style={{ gap: 10 }}>
-          {/* Career line + last five results. */}
-          <View style={styles.card}>
-          <View style={styles.cardHead}>
-            <Text style={styles.cardLabel}>{sportName.toUpperCase()} CAREER</Text>
-            <Text style={styles.cardMetaText}>{matches} {matches === 1 ? 'match' : 'matches'}</Text>
-          </View>
-
-          {form.length > 0 && (
-            <View style={styles.formRow}>
-              {form.map((m, i) => {
-                const won = m.result === 'W', lost = m.result === 'L';
-                const latest = i === form.length - 1;
-                // What was taken home from that match, if anything. `isMOM` is
-                // the older field and only ever meant Man of the Match.
-                const award = m.award || (m.isMOM ? 'motm' : null);
-                return (
-                  <TouchableOpacity
-                    key={m.matchId || i}
-                    style={styles.formCol}
-                    activeOpacity={m.matchId && navigation ? 0.7 : 1}
-                    onPress={() => openMatch(m)}
-                    accessibilityLabel={`${won ? 'Won' : lost ? 'Lost' : 'Tied'} vs ${m.opponent || 'unknown'}`
-                      + (award ? `, ${AWARD_NAME[award] || 'award'}` : '')}>
-                    <View style={[styles.formDisc, {
-                      backgroundColor: won ? '#0f4c3a' : lost ? '#dc2626' : '#94a3b8',
-                    }]}>
-                      <Text style={[styles.formDiscText, {
-                        color: '#ffffff',
-                      }]}>{m.result || 'T'}</Text>
-                      {award && (
-                        <View style={styles.formStar}>
-                          <Icon name={AWARD_ICON[award] || 'star'} size={10} color="#0f4c3a" />
-                        </View>
-                      )}
-                    </View>
-                    {showContribution && (
-                      <Text style={[styles.formSub, latest && styles.formSubLatest]} numberOfLines={1}>
-                        {contribution(m) || '·'}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-              {/* Two matches played shouldn't stretch two discs across the card
-                  — the strip always keeps its five-match pitch. */}
-              {Array.from({ length: Math.max(0, 5 - form.length) }, (_, k) => (
-                <View key={`gap${k}`} style={styles.formCol} />
-              ))}
+        <View style={{ gap: 10 }}>
+          <View style={[styles.card, { padding: 0, borderWidth: 0, backgroundColor: 'transparent', shadowColor: DS.lime, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 8 }]}>
+            <View style={[StyleSheet.absoluteFill, { borderRadius: 16, overflow: 'hidden' }]}>
+              <Svg height="100%" width="100%">
+                <Defs>
+                  <LinearGradient id="heroGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <Stop offset="0%" stopColor={DS.lime} stopOpacity="1" />
+                    <Stop offset="100%" stopColor="#052E16" stopOpacity="1" />
+                  </LinearGradient>
+                </Defs>
+                <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroGrad)" />
+              </Svg>
             </View>
-          )}
+            <View style={[StyleSheet.absoluteFill, { borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', pointerEvents: 'none' }]} />
 
-          {/* Honours. Nothing renders for a career without any — an empty trophy
-              shelf is worse than no shelf. */}
-          {honours.length > 0 && (
-            <View style={styles.honours}>
-              {honours.map((a) => (
-                <View key={a.key} style={[styles.honour, a.major && styles.honourMajor]}>
-                  <Icon name={a.icon} size={12} color={a.major ? '#0f4c3a' : '#0f4c3a'} />
-                  <Text style={[styles.honourCount, a.major && styles.honourTextMajor]}>{a.n}</Text>
-                  <Text style={[styles.honourLabel, a.major && styles.honourTextMajor]}>{a.label}</Text>
+            <View style={{ padding: 16 }}>
+              <Text style={{ fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 12 }}>{sportName.toUpperCase()} CAREER</Text>
+              
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 42, fontWeight: '900', color: '#ffffff', letterSpacing: -2, lineHeight: 46, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>{matches}</Text>
+                  
+                  {form.length > 0 && (
+                    <>
+                      <Text style={{ fontSize: 28, fontWeight: '300', color: 'rgba(255,255,255,0.4)', marginHorizontal: 12, marginTop: -4 }}>-</Text>
+                      <View style={{ flex: 1 }}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4, paddingVertical: 4, alignItems: 'center' }}>
+                          {form.map((m, i) => {
+                            const won = m.result === 'W', lost = m.result === 'L';
+                            const award = m.award || (m.isMOM ? 'motm' : null);
+                            return (
+                              <TouchableOpacity
+                                key={m.matchId || i}
+                                activeOpacity={m.matchId && navigation ? 0.7 : 1}
+                                onPress={() => openMatch(m)}
+                                accessibilityLabel={`${won ? 'Won' : lost ? 'Lost' : 'Tied'} vs ${m.opponent || 'unknown'}`
+                                  + (award ? `, ${AWARD_NAME[award] || 'award'}` : '')}
+                                style={{
+                                  width: 30, height: 30, borderRadius: 15,
+                                  alignItems: 'center', justifyContent: 'center',
+                                  backgroundColor: won ? DS.success : lost ? DS.coral : 'rgba(255,255,255,0.2)',
+                                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
+                                  shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 4
+                                }}>
+                                <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>{m.result || 'T'}</Text>
+                                {award && (
+                                  <View style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 3, shadowOffset: { width: 0, height: 2 }, elevation: 4 }}>
+                                    <Icon name={AWARD_ICON[award] || 'star'} size={10} color="#0f4c3a" />
+                                  </View>
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      </View>
+                    </>
+                  )}
                 </View>
-              ))}
-            </View>
-          )}
-        </View>
+                
+                <Text style={{ fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.8)', letterSpacing: 1.5, marginTop: 2, paddingLeft: 2 }}>
+                  {matches === 1 ? 'MATCH' : 'MATCHES'}
+                </Text>
+              </View>
 
-        {/* Career table: one surface ruled into thirds, not a grid of tiles. */}
-        {tabStats.length > 0 && (
-          <View style={styles.gridWrap}>
-            <View style={styles.gridHead}>
-              <Text style={styles.gridHeadText}>{activePanel.label.toUpperCase()}</Text>
+              {honours.length > 0 && (
+                <View style={{ marginTop: 12 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
+                    {honours.map((a) => (
+                      <View key={a.key} style={[styles.honour, a.major && styles.honourMajor, { 
+                        backgroundColor: a.major ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.1)', 
+                        borderWidth: 1, 
+                        borderColor: a.major ? 'rgba(255,215,0,0.4)' : 'rgba(255,255,255,0.2)',
+                        paddingVertical: 4, paddingHorizontal: 8,
+                        margin: 0, gap: 4
+                      }]}>
+                        <Icon name={a.icon} size={12} color={a.major ? '#ffd700' : '#ffffff'} />
+                        <Text style={[styles.honourCount, { color: a.major ? '#ffd700' : '#ffffff', fontSize: 11, fontWeight: '800' }]}>{a.n}</Text>
+                        <Text style={[styles.honourLabel, { color: a.major ? '#ffd700' : 'rgba(255,255,255,0.8)', fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }]}>{a.label}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
             </View>
-            <View style={styles.grid}>
-              {tabStats.map((s, i) => (
-                <StatCell key={s.label} s={s} i={i} styles={styles} />
-              ))}
-            </View>
+          </View>
+        {/* Accordion Panels */}
+        {panels.length > 0 && (
+          <View style={{ gap: 8, marginTop: 4 }}>
+            {panels.map((p) => {
+              const isOpen = tab === p.id;
+              const pStats = p.rows.map((r) => ({
+                label: r.label,
+                value: readStat(r, stats),
+              })).filter((s) => s.value !== '—');
+              
+              if (pStats.length === 0) return null;
+
+              return (
+                <Reanimated.View key={p.id} style={styles.accordionWrap} layout={LinearTransition.springify().damping(18).stiffness(150)}>
+                  <TouchableOpacity 
+                    style={styles.accordionHeader} 
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      haptic.tick();
+                      setTab(isOpen ? null : p.id);
+                    }}
+                  >
+                    <Text style={styles.accordionTitle}>{p.label.toUpperCase()}</Text>
+                    <AnimatedChevron isOpen={isOpen} color={DS.textMuted} />
+                  </TouchableOpacity>
+                  {isOpen && (
+                    <View style={styles.accordionBody}>
+                      <View style={styles.grid}>
+                        {pStats.map((s, i) => (
+                          <StatCell key={s.label} s={s} i={i} styles={styles} />
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                </Reanimated.View>
+              );
+            })}
           </View>
         )}
 
@@ -499,12 +542,6 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
             the trend below answers "lately". Read in that order it tells a
             story; the other way round it was an abstract diagram standing
             between you and your runs. */}
-        {sportId === 'cricket' && (
-          <View style={{ width: '100%', alignItems: 'center' }} onLayout={(e) => setRadarW(e.nativeEvent.layout.width)}>
-            {radarW > 0 && <CricketRadarChart stats={stats} width={radarW} />}
-          </View>
-        )}
-
         {/* Trend — cricket only for now; other sports have no per-match series
             yet, and a chart of invented numbers is worse than none. */}
         {chartData.length > 0 && (
@@ -518,89 +555,11 @@ export default function CareerBoard({ stats, sportId, navigation, captureRef, ch
         )}
 
         {children}
-        </Reanimated.View>
+        </View>
       </ViewShot>
     </View>
-    </GestureDetector>
   );
 }
-
-function CricketRadarChart({ stats, width }) {
-  const DS = useTheme().colors;
-  const H = 240;
-  const cx = width / 2;
-  const cy = H / 2;
-  const radius = Math.min(cx, cy) - 25;
-  const axes = [
-    { label: 'Runs', val: stats?.runs || 0, max: 500 },
-    { label: 'Average', val: stats?.battingAverage || 0, max: 50 },
-    { label: 'Strike Rate', val: stats?.battingStrikeRate || 0, max: 200 },
-    { label: 'Highest', val: stats?.highestScore || 0, max: 100 },
-    { label: 'Boundaries', val: (stats?.fours || 0) + (stats?.sixes || 0), max: 50 }
-  ];
-
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    anim.setValue(0);
-    Animated.spring(anim, { toValue: 1, useNativeDriver: true, tension: 50, friction: 7 }).start();
-  }, [stats]);
-
-  const angleStep = (Math.PI * 2) / axes.length;
-  const getPoint = (val, max, i, r) => {
-    const norm = Math.max(0, Math.min(val / (max || 1), 1));
-    const angle = i * angleStep - Math.PI / 2;
-    return {
-      x: cx + r * norm * Math.cos(angle),
-      y: cy + r * norm * Math.sin(angle)
-    };
-  };
-
-  const bgPoints = [0.2, 0.4, 0.6, 0.8, 1].map(scale => {
-    return axes.map((_, i) => {
-      const angle = i * angleStep - Math.PI / 2;
-      return `${cx + radius * scale * Math.cos(angle)},${cy + radius * scale * Math.sin(angle)}`;
-    }).join(' ');
-  });
-
-  const dataPoints = axes.map((axis, i) => {
-    const pt = getPoint(axis.val, axis.max, i, radius);
-    return `${pt.x},${pt.y}`;
-  }).join(' ');
-
-  return (
-    <View style={{ width, height: H, alignItems: 'center', justifyContent: 'center', marginVertical: 16 }}>
-      <Svg width={width} height={H}>
-        {bgPoints.map((pts, i) => (
-          <Polygon key={i} points={pts} fill="none" stroke={DS.border} strokeWidth={1} />
-        ))}
-        {axes.map((_, i) => {
-          const angle = i * angleStep - Math.PI / 2;
-          return <Line key={i} x1={cx} y1={cy} x2={cx + radius * Math.cos(angle)} y2={cy + radius * Math.sin(angle)} stroke={DS.border} strokeWidth={1} />
-        })}
-        {axes.map((axis, i) => {
-          const angle = i * angleStep - Math.PI / 2;
-          const x = cx + (radius + 15) * Math.cos(angle);
-          const y = cy + (radius + 15) * Math.sin(angle);
-          return (
-            <SvgText key={i} x={x} y={y + 4} fontSize="9" fontWeight="800" fill={DS.textMuted} textAnchor="middle">
-              {axis.label.toUpperCase()}
-            </SvgText>
-          );
-        })}
-      </Svg>
-      <Animated.View style={{ position: 'absolute', opacity: anim, transform: [{ scale: anim }] }}>
-        <Svg width={width} height={H}>
-          <Polygon points={dataPoints} fill="#10b981" fillOpacity={0.3} stroke="#0f4c3a" strokeWidth={2} strokeLinejoin="round" />
-          {axes.map((axis, i) => {
-            const pt = getPoint(axis.val, axis.max, i, radius);
-            return <Circle key={i} cx={pt.x} cy={pt.y} r={3} fill="#0f4c3a" />
-          })}
-        </Svg>
-      </Animated.View>
-    </View>
-  );
-}
-
 /**
  * Is there a career here at all? Both callers ask before drawing, because a
  * successful fetch is not the same as a player with something to show —
@@ -657,8 +616,12 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Last five results: won / lost / tied, tappable through to the match. */
   formRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8, marginBottom: 8 },
-  formCol: { alignItems: 'center' },
-  formDisc: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 },
+  formCol: { flex: 1, alignItems: 'center', gap: 6 },
+  formDisc: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 3, elevation: 3
+  },
   formDiscText: { fontSize: 14, fontWeight: '700' },
   formStar: { position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: 8, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
   formSub: { fontSize: 12, fontWeight: '500', color: '#64748b', fontVariant: ['tabular-nums'], marginTop: 4 },
@@ -679,4 +642,39 @@ const makeStyles = (DS) => StyleSheet.create({
   cellLbl: { fontSize: 11, fontWeight: '600', color: '#64748b', textAlign: 'center', textTransform: 'uppercase' },
 
   chartCard: { backgroundColor: '#ecfdf5', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 16, paddingVertical: 12, gap: 16, marginBottom: 16 },
+  
+  dropdownWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+    flexDirection: 'row',
+  },
+  accordionWrap: {
+    backgroundColor: DS.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: DS.border,
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  accordionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  accordionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: DS.textPrimary,
+  },
+  accordionBody: {
+    paddingHorizontal: 12,
+    paddingBottom: 16,
+  }
 });
