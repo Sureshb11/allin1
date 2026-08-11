@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, StatusBar, useWindowDimension
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { BlurView } from '@react-native-community/blur';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { makeControls, controlColors } from '../theme/controls';
 
@@ -145,55 +146,9 @@ export default function PavilionScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={DS.bg} />
-      <AppHeader />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       
       <View style={{ flex: 1 }}>
-        <View style={{ borderBottomWidth: 1, borderBottomColor: DS.border }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[C.navRow, { paddingHorizontal: 16, borderBottomWidth: 0, paddingBottom: 10 }]}>
-            {L1_TABS.map((tab) => {
-              const isActive = activeL1 === tab.label;
-              return (
-                <TouchableOpacity
-                  key={tab.label}
-                  style={[C.navPillTight, isActive ? C.navPillActive : C.navPillInactive]}
-                  onPress={() => goToL1(tab.label)}
-                  activeOpacity={0.85}
-                >
-                  <Icon name={tab.icon} size={14} color={isActive ? CONTROL.onGreen : CONTROL.slate} />
-                  <Text
-                    style={[C.navPillTextTight, { color: isActive ? CONTROL.onGreen : CONTROL.slate }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.7}
-                  >{tab.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          
-          {/* Level 2 Tabs */}
-          {PAGES.filter(p => p.label === activeL1 && p.l2).length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 24, paddingHorizontal: 16, paddingBottom: 0 }}>
-              {PAGES.filter(p => p.label === activeL1 && p.l2).map((p) => {
-                const isActive = activePage.l2 === p.l2;
-                return (
-                  <TouchableOpacity
-                    key={p.l2}
-                    style={{ paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: isActive ? DS.lime : 'transparent' }}
-                    onPress={() => goToL2(p.l2)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={{ fontSize: 12, letterSpacing: 0.5, color: isActive ? DS.lime : DS.textMuted, fontWeight: isActive ? '800' : '600' }}>
-                      {p.l2Label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
-        </View>
-
         <ScrollView
           ref={scrollViewRef}
           horizontal
@@ -208,7 +163,7 @@ export default function PavilionScreen({ navigation, route }) {
             const isVisible = Math.abs(idx - activeIdx) <= 1;
 
             return (
-              <View key={page.key} style={{ width: SCREEN_W, flex: 1 }}>
+              <View key={page.key} style={{ width: SCREEN_W, flex: 1, paddingTop: 130 }}>
                 {isVisible ? (
                   <Comp navigation={navigation} route={route} inline={true} onRegisterFab={registerFab(page.id)} ballTypeOverride={page.l2} />
                 ) : null}
@@ -216,7 +171,64 @@ export default function PavilionScreen({ navigation, route }) {
             );
           })}
         </ScrollView>
+
+        {/* Floating Glassmorphic Header & Tabs */}
+        <BlurView 
+          style={{ position: 'absolute', top: 0, left: 0, right: 0 }}
+          blurType={isDark ? 'dark' : 'light'}
+          blurAmount={20}
+          reducedTransparencyFallbackColor={DS.bg}
+        >
+          <View style={{ backgroundColor: DS.bg + '99' }}> 
+            <AppHeader transparent />
+            <View style={{ borderBottomWidth: 1, borderBottomColor: DS.border }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[C.navRow, { paddingHorizontal: 16, borderBottomWidth: 0, paddingBottom: 10 }]}>
+                {L1_TABS.map((tab) => {
+                  const isActive = activeL1 === tab.label;
+                  return (
+                    <TouchableOpacity
+                      key={tab.label}
+                      style={[C.navPillTight, isActive ? C.navPillActive : C.navPillInactive]}
+                      onPress={() => goToL1(tab.label)}
+                      activeOpacity={0.85}
+                    >
+                      <Icon name={tab.icon} size={14} color={isActive ? CONTROL.onGreen : CONTROL.slate} />
+                      <Text
+                        style={[C.navPillTextTight, { color: isActive ? CONTROL.onGreen : CONTROL.slate }]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.7}
+                      >{tab.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              
+              {/* Level 2 Tabs */}
+              {PAGES.filter(p => p.label === activeL1 && p.l2).length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 24, paddingHorizontal: 16, paddingBottom: 0 }}>
+                  {PAGES.filter(p => p.label === activeL1 && p.l2).map((p) => {
+                    const isActive = activePage.l2 === p.l2;
+                    return (
+                      <TouchableOpacity
+                        key={p.l2}
+                        style={{ paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: isActive ? DS.lime : 'transparent' }}
+                        onPress={() => goToL2(p.l2)}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={{ fontSize: 12, letterSpacing: 0.5, color: isActive ? DS.lime : DS.textMuted, fontWeight: isActive ? '800' : '600' }}>
+                          {p.l2Label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </BlurView>
       </View>
+
 
       {fab && (
         <RNAnimated.View
