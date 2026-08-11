@@ -151,11 +151,17 @@ export default function PavilionScreen({ navigation, route }) {
           onMomentumScrollEnd={handleMomentumScrollEnd}
           scrollEventThrottle={16}
         >
-          {TABS.map((tab) => {
+          {TABS.map((tab, idx) => {
             const Comp = tab.component;
+            const activeIdx = TABS.findIndex(t => t.id === activeItem.id);
+            // Lazy load: only render the active tab and its immediate neighbors
+            const isVisible = Math.abs(idx - activeIdx) <= 1;
+
             return (
               <View key={tab.id} style={{ width: SCREEN_W, flex: 1 }}>
-                <Comp navigation={navigation} route={route} inline={true} onRegisterFab={registerFab(tab.id)} />
+                {isVisible ? (
+                  <Comp navigation={navigation} route={route} inline={true} onRegisterFab={registerFab(tab.id)} />
+                ) : null}
               </View>
             );
           })}
