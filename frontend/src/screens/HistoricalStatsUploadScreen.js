@@ -134,6 +134,7 @@ export default function HistoricalStatsUploadScreen({ navigation, route }) {
                 { id: 'overall', label: 'OVERALL' },
                 { id: 'leather', label: 'LEATHER' },
                 { id: 'tennis', label: 'TENNIS' },
+                { id: 'indoor', label: 'INDOOR' },
               ]}
               value={ballType}
               onChange={setBallType}

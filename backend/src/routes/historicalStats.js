@@ -178,7 +178,7 @@ router.post('/admin/historical-stats/:id/approve', authMiddleware, async (req, r
     if (newData.ballType) delete newData.ballType;
     
     let mergedStats = { ...existingStats };
-    if (ballType === 'leather' || ballType === 'tennis') {
+    if (ballType === 'leather' || ballType === 'tennis' || ballType === 'indoor') {
       mergedStats[ballType] = { ...(existingStats[ballType] || {}), ...newData };
     } else {
       mergedStats = { ...existingStats, ...newData };

@@ -130,6 +130,7 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
                 { id: 'overall', label: 'OVERALL' },
                 { id: 'leather', label: 'LEATHER' },
                 { id: 'tennis', label: 'TENNIS' },
+                { id: 'indoor', label: 'INDOOR' },
               ]}
               value={ballType}
               onChange={setBallType}

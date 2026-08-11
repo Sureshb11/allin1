@@ -176,19 +176,23 @@ async function enrichPlayers(players) {
   const getOverall = await aggregateStats(null, overRows);
   const getLeather = await aggregateStats({ ballType: 'leather' }, overRows);
   const getTennis = await aggregateStats({ ballType: 'tennis' }, overRows);
+  const getIndoor = await aggregateStats({ ballType: 'indoor' }, overRows);
 
   const enriched = players.map((p) => {
     const baseline = p.stats || {};
     const overallComputed = getOverall(p.id, p.name);
     const leatherComputed = getLeather(p.id, p.name);
     const tennisComputed = getTennis(p.id, p.name);
+    const indoorComputed = getIndoor(p.id, p.name);
 
     const mergedOverall = mergeStats(baseline, overallComputed);
     const mergedLeather = mergeStats(baseline.leather || {}, leatherComputed);
     const mergedTennis = mergeStats(baseline.tennis || {}, tennisComputed);
+    const mergedIndoor = mergeStats(baseline.indoor || {}, indoorComputed);
 
     mergedOverall.leather = mergedLeather;
     mergedOverall.tennis = mergedTennis;
+    mergedOverall.indoor = mergedIndoor;
 
     return { ...p, stats: stripPII(mergedOverall) };
   });
