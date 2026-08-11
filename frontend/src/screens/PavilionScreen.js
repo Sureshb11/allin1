@@ -15,25 +15,13 @@ import { useTabBarClearance, useDockTranslate } from '../components/AutoHideTabB
 import { haptic } from '../utils/haptics';
 import { pav } from '../theme/pavilion';
 import AppHeader from '../components/AppHeader';
-import NestedSwipeNav from '../components/NestedSwipeNav';
-
-
-
 const PAVILION_TAB_KEY = '@ll_pavilion_tab';
 
-const pavilionSchema = [
-  // L1: My Stats
-  { l1: 'My Stats', l2: 'Overview', id: 'mystats', component: MyPerformanceScreen },
-  // L1: Rankings
-  { l1: 'Rankings', l2: 'Players', id: 'rankings-players', component: StatisticsScreen, props: { mode: 'Players' } },
-  { l1: 'Rankings', l2: 'Teams', id: 'rankings-teams', component: StatisticsScreen, props: { mode: 'Teams' } },
-  // L1: Scout
-  { l1: 'Scout', l2: 'Players', id: 'scout-players', component: LookingForScreen, props: { role: 'player' } },
-  { l1: 'Scout', l2: 'Teams', id: 'scout-teams', component: LookingForScreen, props: { role: 'team' } },
-  { l1: 'Scout', l2: 'Opponents', id: 'scout-opp', component: LookingForScreen, props: { role: 'opponent' } },
-  { l1: 'Scout', l2: 'Tournaments', id: 'scout-tourn', component: LookingForScreen, props: { role: 'tournament' } },
-  // L1: Grounds
-  { l1: 'Grounds', l2: 'All', id: 'grounds', component: GroundsScreen }
+const TABS = [
+  { label: 'My Stats', icon: 'chart-line', component: MyPerformanceScreen, id: 'mystats' },
+  { label: 'Rankings', icon: 'podium', component: StatisticsScreen, id: 'rankings' },
+  { label: 'Scout',    icon: 'telescope', component: LookingForScreen, id: 'scout' },
+  { label: 'Grounds',  icon: 'earth', component: GroundsScreen, id: 'grounds' },
 ];
 
 const FAB_FOR = (P) => ({
@@ -53,8 +41,8 @@ export default function PavilionScreen({ navigation, route }) {
   const meUser = useCurrentUser();
   const tabClear = useTabBarClearance();
   
-  const [activeItem, setActiveItem] = useState(pavilionSchema[0]);
-  const activeL1 = activeItem.l1;
+  const [activeItem, setActiveItem] = useState(TABS[0]);
+  const activeL1 = activeItem.label;
 
   const fabActions = useRef({}).current;
   const registerFab = (id) => (fn) => {
@@ -82,63 +70,52 @@ export default function PavilionScreen({ navigation, route }) {
     navigation.setOptions({ headerShown: false, headerTitle: 'Pavilion' });
   }, [navigation]);
 
+  const scrollViewRef = useRef(null);
+  const scrollX = useRef(new RNAnimated.Value(0)).current;
+
   const handleIndexChange = useCallback((idx) => {
-    const item = pavilionSchema[idx];
-    if (item.l1 !== activeItem.l1) {
+    const item = TABS[idx];
+    if (item.label !== activeItem.label) {
       haptic.tick();
+      setActiveItem(item);
+      AsyncStorage.setItem(PAVILION_TAB_KEY, String(idx)).catch(() => {});
     }
-    setActiveItem(item);
-    AsyncStorage.setItem(PAVILION_TAB_KEY, String(idx)).catch(() => {});
-  }, [activeItem.l1]);
+  }, [activeItem.label]);
+
+  const handleScroll = RNAnimated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    {
+      useNativeDriver: true,
+      listener: (e) => {
+        const x = e.nativeEvent.contentOffset.x;
+        const idx = Math.round(x / SCREEN_W);
+        if (idx >= 0 && idx < TABS.length && TABS[idx].label !== activeItem.label) {
+          handleIndexChange(idx);
+        }
+      }
+    }
+  );
+
+  const goToL1 = (label) => {
+    const idx = TABS.findIndex(t => t.label === label);
+    if (idx >= 0) {
+      scrollViewRef.current?.scrollTo({ x: idx * SCREEN_W, animated: true });
+    }
+  };
 
   useEffect(() => {
     AsyncStorage.getItem(PAVILION_TAB_KEY).then((v) => {
       const n = Number(v);
-      if (Number.isInteger(n) && n >= 0 && n < pavilionSchema.length) {
-        // Simple hydrate, but we lack imperative setIndex on NestedSwipeNav for now
+      if (Number.isInteger(n) && n >= 0 && n < TABS.length) {
+        // Hydrate position
+        setTimeout(() => {
+          scrollViewRef.current?.scrollTo({ x: n * SCREEN_W, animated: false });
+        }, 100);
       }
     }).catch(() => {});
-  }, []);
+  }, [SCREEN_W]);
 
-  const renderItem = ({ item }) => {
-    const Comp = item.component;
-    return (
-      <View style={{ width: SCREEN_W, flex: 1 }}>
-        <Comp navigation={navigation} route={route} inline={true} onRegisterFab={registerFab(item.id)} {...(item.props || {})} />
-      </View>
-    );
-  };
 
-  const TABS = [
-    { label: 'My Stats', icon: 'chart-line' },
-    { label: 'Rankings', icon: 'podium' },
-    { label: 'Scout',    icon: 'telescope' },
-    { label: 'Grounds',  icon: 'earth' },
-  ];
-
-  const customRenderL1 = ({ l1Groups, activeL1, goToL1 }) => (
-    <View style={C.navRow}>
-      {TABS.map((tab) => {
-        const isActive = activeL1 === tab.label;
-        return (
-          <TouchableOpacity
-            key={tab.label}
-            style={[C.navPillTight, isActive ? C.navPillActive : C.navPillInactive]}
-            onPress={() => goToL1(tab.label)}
-            activeOpacity={0.85}
-          >
-            <Icon name={tab.icon} size={14} color={isActive ? CONTROL.onGreen : CONTROL.slate} />
-            <Text
-              style={[C.navPillTextTight, { color: isActive ? CONTROL.onGreen : CONTROL.slate }]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.7}
-            >{tab.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -146,13 +123,44 @@ export default function PavilionScreen({ navigation, route }) {
       <AppHeader />
       
       <View style={{ flex: 1 }}>
-        <NestedSwipeNav 
-          schema={pavilionSchema} 
-          colors={DS} 
-          renderItem={renderItem}
-          renderL1={customRenderL1}
-          onIndexChange={handleIndexChange} 
-        />
+        <View style={[C.navRow, { paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: DS.border }]}>
+          {TABS.map((tab) => {
+            const isActive = activeL1 === tab.label;
+            return (
+              <TouchableOpacity
+                key={tab.label}
+                style={[C.navPillTight, isActive ? C.navPillActive : C.navPillInactive]}
+                onPress={() => goToL1(tab.label)}
+                activeOpacity={0.85}
+              >
+                <Icon name={tab.icon} size={14} color={isActive ? CONTROL.onGreen : CONTROL.slate} />
+                <Text
+                  style={[C.navPillTextTight, { color: isActive ? CONTROL.onGreen : CONTROL.slate }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <RNAnimated.ScrollView
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+        >
+          {TABS.map((tab) => {
+            const Comp = tab.component;
+            return (
+              <View key={tab.id} style={{ width: SCREEN_W, flex: 1 }}>
+                <Comp navigation={navigation} route={route} inline={true} onRegisterFab={registerFab(tab.id)} />
+              </View>
+            );
+          })}
+        </RNAnimated.ScrollView>
       </View>
 
       {fab && (
