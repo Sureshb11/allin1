@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [extracting, setExtracting] = useState(false);
   const [editableData, setEditableData] = useState({});
   const [fullscreenImage, setFullscreenImage] = useState(null);
+  const [modalError, setModalError] = useState(null);
 
   const [error, setError] = useState(null);
 
@@ -42,6 +43,7 @@ export default function Dashboard() {
   };
 
   const handleApprove = async (id) => {
+    setModalError(null);
     try {
       await api.post(`/admin/historical-stats/${id}/approve`, {
         editedData: editableData
@@ -49,19 +51,20 @@ export default function Dashboard() {
       setSelectedSub(null);
       fetchData(); // refresh list
     } catch (err) {
-      alert('Error approving');
+      setModalError(err.response?.data?.error || 'Error approving stats');
     }
   };
 
   const handleExtract = async (id) => {
     setExtracting(true);
+    setModalError(null);
     try {
       const res = await api.post(`/admin/historical-stats/${id}/extract`);
       if (res.data.extractedData) {
         setEditableData(res.data.extractedData);
       }
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to extract data via AI');
+      setModalError(err.response?.data?.error || 'Failed to extract data via AI');
     } finally {
       setExtracting(false);
     }
@@ -77,7 +80,8 @@ export default function Dashboard() {
   const handleReject = async (id) => {
     const reason = window.prompt('Why are you rejecting this upload? (Optional)');
     if (reason === null) return; // User cancelled
-
+    
+    setModalError(null);
     try {
       await api.post(`/admin/historical-stats/${id}/reject`, {
         adminNote: reason
@@ -85,7 +89,7 @@ export default function Dashboard() {
       setSelectedSub(null);
       fetchData(); // refresh list
     } catch (err) {
-      alert('Error rejecting');
+      setModalError(err.response?.data?.error || 'Error rejecting stats');
     }
   };
 
@@ -209,10 +213,25 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900">Review {selectedSub.player.name}'s Stats</h2>
-              <button onClick={() => setSelectedSub(null)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => { setSelectedSub(null); setModalError(null); }} className="text-gray-400 hover:text-gray-600">
                 <XCircle size={28} />
               </button>
             </div>
+            
+            {modalError && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 mx-6 mt-6 rounded-r">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <XCircle className="h-5 w-5 text-red-400" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-red-700 font-medium">
+                      {modalError}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="flex-1 overflow-y-auto p-6 flex gap-8">
               {/* Evidence/Source Images */}
