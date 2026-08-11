@@ -11,7 +11,7 @@ const router = express.Router();
 const StatsSchema = z.object({
   // Batting
   matches: z.number().optional(),
-  innings: z.number().optional(),
+  battingInnings: z.number().optional(),
   notOuts: z.number().optional(),
   runs: z.number().optional(),
   highestScore: z.number().optional(),
@@ -25,6 +25,7 @@ const StatsSchema = z.object({
   ducks: z.number().optional(),
 
   // Bowling
+  bowlingInnings: z.number().optional(),
   oversBowled: z.number().optional(),
   maidens: z.number().optional(),
   wickets: z.number().optional(),

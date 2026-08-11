@@ -9,7 +9,8 @@ Do NOT wrap the output in markdown code blocks like \`\`\`json. Return only the 
 
 {
   "matches": number,
-  "innings": number, // total innings across batting/bowling
+  "battingInnings": number,
+  "bowlingInnings": number,
   "runs": number, // batting runs
   "highestScore": number,
   "notOuts": number,
