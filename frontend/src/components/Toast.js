@@ -76,7 +76,8 @@ export function ToastHost() {const s = useThemedStyles(makeS);
 
   return (
     <Animated.View pointerEvents="box-none" style={[s.wrap, style]} {...panResponder.panHandlers}>
-      <TouchableOpacity activeOpacity={0.9} onPress={hide} style={[s.card, { borderLeftColor: k.color }]}>
+      <TouchableOpacity activeOpacity={0.9} onPress={hide} style={[s.card, { backgroundColor: s.card.backgroundColor, borderColor: k.color + '33' }]}>
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: k.color + '1A', borderRadius: 20 }]} />
         <Icon name={k.icon} size={20} color={k.color} />
         <Text style={s.msg} numberOfLines={2}>{toast.message}</Text>
       </TouchableOpacity>
@@ -88,8 +89,8 @@ const makeS = (C) => StyleSheet.create({
   wrap: { position: 'absolute', top: 54, left: 16, right: 16, zIndex: 9999, alignItems: 'center' },
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: C.bg, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 16,
-    borderLeftWidth: 4, maxWidth: 520, width: '100%',
+    backgroundColor: C.surface, borderRadius: 20, paddingVertical: 13, paddingHorizontal: 16,
+    borderWidth: 1, maxWidth: 520, width: '100%',
     shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 14, elevation: 12
   },
   msg: { flex: 1, color: C.ink, fontSize: 14, fontWeight: '600', lineHeight: 19 }

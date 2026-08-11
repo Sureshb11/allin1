@@ -58,6 +58,10 @@ export default function GradientButton({
       style={[
         styles.btn, 
         { height, opacity: disabled ? 0.5 : 1 }, 
+        c.mode === 'dark' ? {
+          shadowColor: from, shadowOpacity: 0.25, shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 }, elevation: 6
+        } : {},
         style,
         loading && { width: height, alignSelf: 'center', borderRadius: height / 2 }
       ]}
@@ -90,11 +94,11 @@ export default function GradientButton({
 
 const styles = StyleSheet.create({
   btn: {
-    borderRadius: 10,
+    borderRadius: 16,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, zIndex: 2, elevation: 2 },
-  label: { fontSize: 15, fontWeight: '800', letterSpacing: 0.5 },
+  label: { fontSize: 16, fontWeight: '800', letterSpacing: 0.8 },
 });

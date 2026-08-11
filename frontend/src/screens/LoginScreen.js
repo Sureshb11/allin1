@@ -485,7 +485,13 @@ const makeS = (DS) => StyleSheet.create({
   h1Accent: { color: DS.blueSoft || '#3b82f6' },
   sub: { fontSize: 15, fontWeight: '600', color: DS.textVariant, lineHeight: 22, marginTop: 12 },
 
-  form: { marginHorizontal: 16, backgroundColor: DS.surfaceLow, borderRadius: 24, padding: 20 },
+  form: {
+    marginHorizontal: 16, backgroundColor: DS.surfaceLow, borderRadius: 28, padding: 20,
+    ...(DS.mode === 'dark' ? {
+      shadowColor: DS.blueSoft || '#3b82f6', shadowOpacity: 0.15, shadowRadius: 20,
+      shadowOffset: { width: 0, height: 0 }, elevation: 6,
+    } : {}),
+  },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   label: { fontSize: 12, fontWeight: '800', color: DS.textSecondary, letterSpacing: 1.8 },
   tapKeyboardTxt: { fontSize: 12, fontWeight: '700', color: DS.lime },
@@ -493,13 +499,13 @@ const makeS = (DS) => StyleSheet.create({
   phoneRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
   country: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: DS.surfaceHigh, borderRadius: 16, paddingHorizontal: 14, height: 58,
+    backgroundColor: DS.surfaceHigh, borderRadius: 20, paddingHorizontal: 14, height: 58,
     borderWidth: 1.5, borderColor: DS.surfaceHighest || '#2a2f42'
   },
   flag: { fontSize: 20 },
   code: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
   phoneInputWrap: {
-    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 16, height: 58,
+    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 20, height: 58,
     borderWidth: 1.5, overflow: 'hidden'
   },
   phoneInputInner: {
@@ -539,7 +545,7 @@ const makeS = (DS) => StyleSheet.create({
   otpContainer: { position: 'relative', marginVertical: 8, height: 68 },
   otpRow: { flexDirection: 'row', gap: 12, flex: 1 },
   otpCell: {
-    flex: 1, height: 66, borderRadius: 16, backgroundColor: DS.surfaceHigh,
+    flex: 1, height: 66, borderRadius: 20, backgroundColor: DS.surfaceHigh,
     borderWidth: 2, borderColor: DS.surfaceHighest || '#2a2f42',
     alignItems: 'center', justifyContent: 'center'
   },
@@ -559,7 +565,7 @@ const makeS = (DS) => StyleSheet.create({
   testCodeTxt: { fontSize: 12, fontWeight: '600', color: DS.textSecondary },
   testCodeBold: { color: DS.lime, fontWeight: '800' },
 
-  primary: { borderRadius: 16, marginTop: 18 },
+  primary: { borderRadius: 20, marginTop: 18 },
 
   altRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
   linkMuted: { fontSize: 14, color: DS.textVariant, fontWeight: '700', paddingVertical: 6 },

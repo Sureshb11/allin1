@@ -460,25 +460,27 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
       </TouchableOpacity>
 
       {/* actions */}
-      <View style={p.actions}>
-        <TouchableOpacity onPress={handleLike} hitSlop={8} style={p.actionBtn} activeOpacity={0.7}>
-          <Animated.View style={{ transform: [{ scale: popRef }] }}>
-            <Icon name={post.liked ? 'heart' : 'heart-outline'} size={26} color={post.liked ? DS.live : DS.textPrimary} />
-          </Animated.View>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => onComment(post)} hitSlop={8} style={p.actionBtn} activeOpacity={0.7}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-            <Icon name="comment-outline" size={24} color={DS.textPrimary} />
-            {(post.commentCount || 0) > 0 && <Text style={{ color: DS.textMuted, fontSize: 12, fontWeight: '700' }}>{post.commentCount}</Text>}
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => onShare(post)} hitSlop={8} style={p.actionBtn} activeOpacity={0.7}>
-          <Icon name="share-outline" size={25} color={DS.textPrimary} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }} />
-        <TouchableOpacity hitSlop={8} activeOpacity={0.7} onPress={toggleSave}>
-          <Icon name={saved ? 'bookmark' : 'bookmark-outline'} size={24} color={saved ? DS.lime : DS.textPrimary} />
-        </TouchableOpacity>
+      <View style={p.actionWrap}>
+        <View style={p.actions}>
+          <TouchableOpacity onPress={handleLike} hitSlop={8} style={p.actionBtn} activeOpacity={0.7}>
+            <Animated.View style={{ transform: [{ scale: popRef }] }}>
+              <Icon name={post.liked ? 'heart' : 'heart-outline'} size={26} color={post.liked ? DS.live : DS.textPrimary} />
+            </Animated.View>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onComment(post)} hitSlop={8} style={p.actionBtn} activeOpacity={0.7}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <Icon name="comment-outline" size={24} color={DS.textPrimary} />
+              {(post.commentCount || 0) > 0 && <Text style={{ color: DS.textMuted, fontSize: 12, fontWeight: '700' }}>{post.commentCount}</Text>}
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onShare(post)} hitSlop={8} style={p.actionBtn} activeOpacity={0.7}>
+            <Icon name="share-outline" size={25} color={DS.textPrimary} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity hitSlop={8} activeOpacity={0.7} onPress={toggleSave}>
+            <Icon name={saved ? 'bookmark' : 'bookmark-outline'} size={24} color={saved ? DS.lime : DS.textPrimary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* likes */}
@@ -1138,9 +1140,12 @@ const makeS = (DS) => StyleSheet.create({
 
 const makeH = (DS) => StyleSheet.create({
   card: { 
-    width: 190, backgroundColor: DS.surface, borderRadius: 18, padding: 14, gap: 6,
+    width: 190, backgroundColor: DS.surface, borderRadius: 20, padding: 14, gap: 6,
     borderWidth: 1, borderColor: DS.line,
-    shadowColor: '#000', shadowOpacity: DS.mode === 'dark' ? 0.3 : 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3
+    shadowColor: DS.mode === 'dark' ? DS.lime : '#000',
+    shadowOpacity: DS.mode === 'dark' ? 0.2 : 0.05,
+    shadowRadius: DS.mode === 'dark' ? 14 : 8,
+    shadowOffset: { width: 0, height: 4 }, elevation: 3
   },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   badgeTxt: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
@@ -1226,11 +1231,12 @@ const makeP = (DS) => StyleSheet.create({
     borderWidth: 1, borderColor: DS.line, overflow: 'hidden',
     shadowColor: '#000', shadowOpacity: DS.mode === 'dark' ? 0.25 : 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 5
   },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 11 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 13 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
-  name: { color: DS.textPrimary, fontSize: 14, fontWeight: '800' },
+  name: { fontSize: 15, fontWeight: '800', color: DS.textPrimary, letterSpacing: -0.3 },
   sub: { color: DS.textMuted, fontSize: 12, marginTop: 1 },
-
+  
+  actionWrap: { borderTopWidth: 1, borderTopColor: DS.line, paddingTop: 4 },
   actions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 12, gap: 16 },
   actionBtn: {},
 
