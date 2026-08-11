@@ -77,7 +77,6 @@ export default function PavilionScreen({ navigation, route }) {
   }, [navigation]);
 
   const scrollViewRef = useRef(null);
-  const scrollX = useRef(new RNAnimated.Value(0)).current;
 
   const handleIndexChange = useCallback((idx) => {
     const item = TABS[idx];
@@ -87,11 +86,6 @@ export default function PavilionScreen({ navigation, route }) {
       AsyncStorage.setItem(PAVILION_TAB_KEY, String(idx)).catch(() => {});
     }
   }, [activeItem.label]);
-
-  const handleScroll = RNAnimated.event(
-    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-    { useNativeDriver: true }
-  );
 
   const handleMomentumScrollEnd = (e) => {
     const x = e.nativeEvent.contentOffset.x;
@@ -149,12 +143,11 @@ export default function PavilionScreen({ navigation, route }) {
             );
           })}
         </View>
-        <RNAnimated.ScrollView
+        <ScrollView
           ref={scrollViewRef}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
           onMomentumScrollEnd={handleMomentumScrollEnd}
           scrollEventThrottle={16}
         >
@@ -166,7 +159,7 @@ export default function PavilionScreen({ navigation, route }) {
               </View>
             );
           })}
-        </RNAnimated.ScrollView>
+        </ScrollView>
       </View>
 
       {fab && (
