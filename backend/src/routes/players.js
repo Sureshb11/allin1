@@ -143,6 +143,7 @@ const enriched = players.map((p) => {
     // rate stats, so one 185-run knock with a single dismissal can't top the
     // averages table over a full season.
     computed.innings   = scores.length;
+    computed.battingInnings = scores.length;
     computed.ballsFaced = faced;
   }
   if (w) {
@@ -153,6 +154,7 @@ const enriched = players.map((p) => {
     computed.ballsBowled  = legal;
     computed.oversBowled  = `${Math.floor(legal / 6)}.${legal % 6}`;
     computed.economy      = legal ? +(conceded / (legal / 6)).toFixed(2) : 0;
+    computed.bowlingInnings = w._sum.wickets !== null || legal > 0 ? 1 : 0; // naive per-match proxy if needed
   }
   const nm = (p.name || '').trim();
   computed.catches = catches[nm] || 0;
@@ -167,7 +169,9 @@ const enriched = players.map((p) => {
   
   aggregated.runs = add('runs');
   aggregated.matches = add('matches');
-  aggregated.innings = add('innings');
+  aggregated.innings = add('innings'); 
+  aggregated.battingInnings = add('battingInnings') || add('innings'); 
+  aggregated.bowlingInnings = add('bowlingInnings');
   aggregated.ballsFaced = add('ballsFaced');
   aggregated.fours = add('fours');
   aggregated.sixes = add('sixes');
