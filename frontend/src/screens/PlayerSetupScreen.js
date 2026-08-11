@@ -49,11 +49,8 @@ export default function PlayerSetupScreen({ navigation, route }) {
     let live = true;
     legendsApi.getUserProfile().then((res) => {
       if (!live) return;
-      const p = res?.player || null;
-      if (p?.role && p.role !== 'Player' && p.battingStyle) {
-        enter('player');
-        return;
-      }
+      // Removed backend auto-skip so the onboarding flow shows up on every login
+      // (when the local AsyncStorage cache is cleared).
       setChecking(false);
     }).catch(() => live && setChecking(false));
     return () => { live = false; };
