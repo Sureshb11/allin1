@@ -24,12 +24,17 @@ export default function HistoricalStatsUploadScreen({ navigation, route }) {
     const result = await launchImageLibrary({ 
       mediaType: 'photo', 
       quality: 0.8,
+      includeBase64: true,
       selectionLimit: 3 - imageUris.length, // Allow up to 3 total
     });
     
     if (result.assets && result.assets.length > 0) {
-      const newUris = result.assets.map(a => a.uri);
-      setImageUris(prev => [...prev, ...newUris].slice(0, 3));
+      const newImages = result.assets.map(a => ({
+        uri: a.uri,
+        base64: a.base64,
+        type: a.type || 'image/jpeg'
+      }));
+      setImageUris(prev => [...prev, ...newImages].slice(0, 3));
     }
   };
 
@@ -53,7 +58,7 @@ export default function HistoricalStatsUploadScreen({ navigation, route }) {
 
       const res = await legendsApi.submitHistoricalStats(profileRes.player.id, {
         data: {}, // No data sent from user anymore
-        imageUrls: imageUris
+        imageUrls: imageUris // Now contains objects with base64 and type
       });
       
       if (res.success) {
@@ -98,9 +103,9 @@ export default function HistoricalStatsUploadScreen({ navigation, route }) {
         ) : (
           <View style={s.previewContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.previewScroll}>
-              {imageUris.map((uri, index) => (
+              {imageUris.map((img, index) => (
                 <View key={index} style={s.previewWrapper}>
-                  <Image source={{ uri }} style={s.previewImage} resizeMode="cover" />
+                  <Image source={{ uri: img.uri }} style={s.previewImage} resizeMode="cover" />
                   <TouchableOpacity style={s.removeBtn} onPress={() => removeImage(index)}>
                     <Icon name="close" size={16} color="#fff" />
                   </TouchableOpacity>

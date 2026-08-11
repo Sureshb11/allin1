@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
 import { extractStatsFromImages } from '../lib/gemini.js';
+import { put } from '@vercel/blob';
 
 const router = express.Router();
 
@@ -57,11 +58,33 @@ router.post('/players/:playerId/historical-stats', authMiddleware, async (req, r
 
     const validatedData = StatsSchema.parse(data || {});
 
+    // Handle Vercel Blob Uploads
+    const finalImageUrls = [];
+    if (Array.isArray(imageUrls)) {
+      for (let i = 0; i < imageUrls.length; i++) {
+        const img = imageUrls[i];
+        if (img && typeof img === 'object' && img.base64) {
+          try {
+            const buffer = Buffer.from(img.base64, 'base64');
+            const ext = img.type?.split('/')[1] || 'jpeg';
+            const filename = `stats-proof-${playerId}-${Date.now()}-${i}.${ext}`;
+            const { url } = await put(filename, buffer, { access: 'public' });
+            finalImageUrls.push(url);
+          } catch (uploadErr) {
+            console.error('Failed to upload image to Blob:', uploadErr);
+          }
+        } else if (typeof img === 'string') {
+          // Fallback if it's already a URL
+          finalImageUrls.push(img);
+        }
+      }
+    }
+
     const submission = await prisma.historicalStatSubmission.create({
       data: {
         playerId,
         data: validatedData,
-        imageUrls: Array.isArray(imageUrls) ? imageUrls : [],
+        imageUrls: finalImageUrls,
         status: 'pending'
       }
     });
