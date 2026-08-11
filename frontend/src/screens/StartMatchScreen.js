@@ -47,9 +47,9 @@ const makeK = (c) => ({
 
 /* ─── Match formats (per sport) ──────────────────────────── */
 const BALL_TYPES = [
-  { label: 'Leather', icon: 'cricket' },
-  { label: 'Tennis',  icon: 'tennis-ball' },
-  { label: 'Rubber',  icon: 'circle-outline' },
+  { id: 'leather', label: 'Leather', icon: 'cricket' },
+  { id: 'tennis', label: 'Tennis',  icon: 'tennis-ball' },
+  { id: 'indoor', label: 'Box Cricket',  icon: 'stadium-outline' },
 ];
 
 // Quick fixture slots, computed relative to now. Includes near-term options so
@@ -272,7 +272,7 @@ const StartMatchScreen = ({ navigation, route }) => {
   const isCricket = sport.id === 'cricket';
   const [format, setFormat]     = useState(FORMATS[0]);
   const [overs, setOvers]       = useState(String(FORMATS[0].value));
-  const [ballType, setBallType] = useState('Leather');
+  const [ballType, setBallType] = useState('leather');
   const [venue, setVenue]       = useState('');
   // 'now' → toss & score immediately; a Date → schedule as an Upcoming fixture.
   const [scheduleAt, setScheduleAt] = useState(null);
@@ -581,11 +581,11 @@ const StartMatchScreen = ({ navigation, route }) => {
               <Text style={s.miniLabel}>BALL</Text>
               <View style={s.ballRow}>
                 {BALL_TYPES.map(b => {
-                  const active = b.label === ballType;
+                  const active = b.id === ballType;
                   return (
-                    <TouchableOpacity key={b.label}
+                    <TouchableOpacity key={b.id}
                       style={[s.ballChip, active && s.ballChipActive]}
-                      onPress={() => setBallType(b.label)} activeOpacity={0.8}>
+                      onPress={() => setBallType(b.id)} activeOpacity={0.8}>
                       <Text style={[s.ballChipText, active && s.ballChipTextActive]} numberOfLines={1}>{b.label}</Text>
                     </TouchableOpacity>
                   );
