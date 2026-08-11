@@ -246,6 +246,18 @@ export default function Dashboard() {
               </div>
             )}
             
+            {selectedSub.data?.aiDetectedBallType && (
+              <div className="bg-indigo-50 border-l-4 border-indigo-500 p-4 mx-6 mt-6 rounded-r">
+                <div className="flex">
+                  <div className="ml-3">
+                    <p className="text-sm text-indigo-700 font-medium">
+                      🤖 AI auto-detected this as a {selectedSub.data.ballType === 'indoor' ? 'Box Cricket' : selectedSub.data.ballType} match based on scorecard context.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="flex-1 overflow-y-auto p-6 flex gap-8">
               {/* Evidence/Source Images */}
               <div className="flex-1 space-y-4">

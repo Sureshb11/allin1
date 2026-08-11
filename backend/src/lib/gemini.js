@@ -5,9 +5,11 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const PROMPT = `You are a sports data extraction AI.
 Look at the provided cricket scorecard screenshots. Extract the player's overall batting and bowling statistics and output them strictly as a valid JSON object matching the schema below.
 If a value is not found in the images, omit the key or return null. Use numbers for all stats, except bestBowling which is a string (e.g. "4/12").
+Also attempt to auto-detect the ball type based on tournament names or context clues (e.g. 'Tennis', 'Leather', 'Indoor', 'Box'). Return this as predictedBallType (values: 'leather', 'tennis', 'indoor', or 'overall').
 Do NOT wrap the output in markdown code blocks like \`\`\`json. Return only the raw JSON.
 
 {
+  "predictedBallType": string,
   "matches": number,
   "battingInnings": number,
   "bowlingInnings": number,

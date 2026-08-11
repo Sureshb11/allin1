@@ -10,6 +10,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import AnimatedPressable from '../components/AnimatedPressable';
 import AmbientBackground from '../components/AmbientBackground';
+import SegmentedControl from '../components/SegmentedControl';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getRankingBoards, rankValue } from '../sports/careerStats';
@@ -529,6 +530,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
   const [teams, setTeams] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [ballTypeFilter, setBallTypeFilter] = useState('overall');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const islandRef = useRef(null);
@@ -653,7 +655,12 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
   const boards = tab === 'Players' ? activeBoards : TEAM_BOARDS;
   const board = boards.find((b) => b.id === boardId) || boards[0];
   const rawData = tab === 'Players' ? players : teams;
-  const ranked = rawData
+  
+  const processedData = tab === 'Players' && sportId === 'cricket' && ballTypeFilter !== 'overall'
+    ? rawData.map(p => ({ ...p, stats: { ...(p.stats || {}), ...(p.stats?.[ballTypeFilter] || {}) } }))
+    : rawData;
+
+  const ranked = processedData
     .filter(board.qualify)
     .sort(sortFor(board))
     .map((item, i) => ({ ...item, standing: i }));
@@ -870,6 +877,22 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
                   </TouchableOpacity>
                 )}
               </Reanimated.View>
+
+              {sportId === 'cricket' && tab === 'Players' && (
+                <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+                  <SegmentedControl
+                    options={[
+                      { id: 'overall', label: 'OVERALL' },
+                      { id: 'leather', label: 'LEATHER' },
+                      { id: 'tennis', label: 'TENNIS' },
+                      { id: 'indoor', label: 'BOX CRICKET' },
+                    ]}
+                    value={ballTypeFilter}
+                    onChange={setBallTypeFilter}
+                    style={{ height: 36 }}
+                  />
+                </View>
+              )}
 
               {/* Board selector — what this leaderboard is actually ranking. Drag
                   to scroll (self-driven, blocks the pager); tap scrolls into view. */}

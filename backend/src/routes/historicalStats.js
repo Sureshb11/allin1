@@ -275,14 +275,29 @@ router.post('/admin/historical-stats/:id/extract', authMiddleware, async (req, r
     }
 
     const extractedData = await extractStatsFromImages(submission.imageUrls);
+    
+    // Merge extracted data with existing data (to preserve user's ballType selection)
+    const existingData = submission.data || {};
+    const mergedData = { ...existingData, ...extractedData };
+    
+    // Auto-detect ballType if the user left it as 'overall'
+    if (existingData.ballType === 'overall' && extractedData.predictedBallType) {
+      const pred = extractedData.predictedBallType.toLowerCase();
+      if (['leather', 'tennis', 'indoor'].includes(pred)) {
+        mergedData.ballType = pred;
+        mergedData.aiDetectedBallType = true; // flag for admin UI
+      }
+    }
+    
+    delete mergedData.predictedBallType; // clean up payload
 
     // Save the extracted data back to the pending submission so we don't lose it
     const updatedSubmission = await prisma.historicalStatSubmission.update({
       where: { id },
-      data: { data: extractedData }
+      data: { data: mergedData }
     });
 
-    res.json({ success: true, submission: updatedSubmission, extractedData });
+    res.json({ success: true, submission: updatedSubmission, extractedData: mergedData });
   } catch (err) {
     console.error('Extract stats error:', err);
     res.status(500).json({ error: err.message || 'Server error during extraction' });
