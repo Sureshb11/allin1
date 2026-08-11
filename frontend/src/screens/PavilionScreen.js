@@ -84,17 +84,16 @@ export default function PavilionScreen({ navigation, route }) {
 
   const handleScroll = RNAnimated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-    {
-      useNativeDriver: true,
-      listener: (e) => {
-        const x = e.nativeEvent.contentOffset.x;
-        const idx = Math.round(x / SCREEN_W);
-        if (idx >= 0 && idx < TABS.length && TABS[idx].label !== activeItem.label) {
-          handleIndexChange(idx);
-        }
-      }
-    }
+    { useNativeDriver: true }
   );
+
+  const handleMomentumScrollEnd = (e) => {
+    const x = e.nativeEvent.contentOffset.x;
+    const idx = Math.round(x / SCREEN_W);
+    if (idx >= 0 && idx < TABS.length) {
+      handleIndexChange(idx);
+    }
+  };
 
   const goToL1 = (label) => {
     const idx = TABS.findIndex(t => t.label === label);
@@ -150,6 +149,7 @@ export default function PavilionScreen({ navigation, route }) {
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onScroll={handleScroll}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
           scrollEventThrottle={16}
         >
           {TABS.map((tab) => {
