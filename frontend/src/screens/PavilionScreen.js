@@ -45,9 +45,15 @@ export default function PavilionScreen({ navigation, route }) {
   const activeL1 = activeItem.label;
 
   const fabActions = useRef({}).current;
-  const registerFab = (id) => (fn) => {
-    fabActions[id] = fn;
-    setFabOff((o) => (!!o[id] === !fn ? o : { ...o, [id]: !fn }));
+  const fabRegisterers = useRef({});
+  const registerFab = (id) => {
+    if (!fabRegisterers.current[id]) {
+      fabRegisterers.current[id] = (fn) => {
+        fabActions[id] = fn;
+        setFabOff((o) => (!!o[id] === !fn ? o : { ...o, [id]: !fn }));
+      };
+    }
+    return fabRegisterers.current[id];
   };
   const FABS = FAB_FOR(P);
   const [fabOff, setFabOff] = useState({});
