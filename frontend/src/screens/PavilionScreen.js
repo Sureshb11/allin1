@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, useWindowDimensions, Animated as RNAnimated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, useWindowDimensions, ScrollView, Animated as RNAnimated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
