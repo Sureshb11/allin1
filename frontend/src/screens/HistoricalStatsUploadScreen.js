@@ -62,7 +62,6 @@ export default function HistoricalStatsUploadScreen({ navigation, route }) {
       });
       
       if (res.success) {
-        await AsyncStorage.setItem('hasHistoricalStats', 'true');
         navigation.navigate('HistoricalStatsSuccess');
       } else {
         showToast(res.error || 'Failed to submit stats.', 'error');

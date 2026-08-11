@@ -74,7 +74,7 @@ export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState(null);
-  const [hasHistoricalStats, setHasHistoricalStats] = useState(false); 
+
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -93,8 +93,7 @@ export default function ProfileScreen({ navigation }) {
         setCurrentAvatar(profileRes.data?.avatarUrl || null);
       }
       
-      const statsFlag = await AsyncStorage.getItem('hasHistoricalStats');
-      setHasHistoricalStats(statsFlag === 'true');
+
     } catch {
       Alert.alert('Error', 'Failed to load profile data');
     } finally {
@@ -368,7 +367,6 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.bentoSection}>
             <Text style={styles.sectionTitle}>Performance</Text>
             
-            {!hasHistoricalStats && (
               <TouchableOpacity style={styles.statsCard} activeOpacity={0.8} onPress={() => navigation.navigate('HistoricalStatsSource', { sport })}>
                 <View style={[styles.statsCardIcon, { backgroundColor: DS.lime }]}>
                   <Icon name="cloud-upload" size={22} color="#fff" />
@@ -379,7 +377,6 @@ export default function ProfileScreen({ navigation }) {
                 </View>
                 <Icon name="chevron-right" size={22} color={DS.textMuted} />
               </TouchableOpacity>
-            )}
 
             <TouchableOpacity style={styles.statsCard} activeOpacity={0.8} onPress={() => navigation.navigate('Pavilion', { tab: 'My Stats' })}>
               <View style={[styles.statsCardIcon, { backgroundColor: DS.lime + '1a' }]}>
