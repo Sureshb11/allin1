@@ -211,9 +211,9 @@ export const ThemeContext = createContext({
 });
 
 export function ThemeProvider({ children }) {
-  // `pref` is the user's choice: 'system' | 'light' | 'dark'. On a fresh install
-  // (nothing saved) we force the light theme by default.
-  const [pref, setPref] = useState('light');
+  // `pref` is the user's choice: 'system' | 'light' | 'dark'.
+  // Defaulting to 'dark' per user request for the dark mode aesthetic.
+  const [pref, setPref] = useState('dark');
   const [sysScheme, setSysScheme] = useState(() => Appearance.getColorScheme() || 'light');
 
   // Restore the persisted preference on launch (fresh installs default to light).
