@@ -8,10 +8,10 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
-import { getCareerPanels, readStat, hasCareer } from '../sports/careerStats';
+import { getCareerPanels, readStat } from '../sports/careerStats';
 import SegmentedControl from '../components/SegmentedControl';
 import { pav } from '../theme/pavilion';
-import CareerBoard from '../components/CareerBoard';
+import CareerBoard, { hasCareer } from '../components/CareerBoard';
 import { useCurrentUser } from '../utils/currentUser';
 
 // Shape-matching placeholder: the career line, then the stat table. The spinner
