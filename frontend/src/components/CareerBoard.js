@@ -250,6 +250,7 @@ function AnimatedChevron({ isOpen, color }) {
  *                    footer on My Stats).
  */
 function StatCell({ s, i, styles }) {
+  const DS = useTheme().colors;
   const isPressed = useSharedValue(0);
   const touchX = useSharedValue(0);
   const touchY = useSharedValue(0);
@@ -307,25 +308,25 @@ function StatCell({ s, i, styles }) {
       backfaceVisibility: 'hidden',
       position: 'absolute',
       top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: '#0f4c3a',
+      backgroundColor: DS.limeDark,
       justifyContent: 'center',
       alignItems: 'center',
       borderRadius: 16,
-      borderWidth: 1, borderColor: '#e2e8f0'
+      borderWidth: 1, borderColor: DS.border
     };
   });
 
   return (
     <GestureDetector gesture={composedGesture}>
       <Reanimated.View entering={ZoomIn.delay(i * 75).springify().damping(12)} style={{ width: '31%', aspectRatio: 0.9 }}>
-        <Reanimated.View style={[styles.cell, { overflow: 'hidden', width: '100%', height: '100%' }, frontStyle]}>
+        <Reanimated.View style={[styles.cell, { overflow: 'hidden', width: '100%', height: '100%', backgroundColor: i === 0 ? (DS.lime + '0A') : styles.cell.backgroundColor }, frontStyle]}>
           <Reanimated.View style={spotlightStyle} pointerEvents="none" />
           <CountingText style={[styles.cellVal, i === 0 && styles.cellValLead]} numberOfLines={1} value={s.value} burstOnFinish={i === 0} />
           <Text style={styles.cellLbl} numberOfLines={1}>{s.label}</Text>
         </Reanimated.View>
         <Reanimated.View style={[backStyle, { padding: 8, width: '100%', height: '100%' }]}>
-          <Text style={{ color: '#fed7aa', fontSize: 10, fontWeight: '800', textAlign: 'center' }}>CAREER TOTAL</Text>
-          <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', marginTop: 4 }}>{s.value}</Text>
+          <Text style={{ color: DS.limeBright, fontSize: 10, fontWeight: '800', textAlign: 'center' }}>CAREER TOTAL</Text>
+          <Text style={{ color: DS.textPrimary, fontSize: 15, fontWeight: '900', marginTop: 4 }}>{s.value}</Text>
         </Reanimated.View>
       </Reanimated.View>
     </GestureDetector>

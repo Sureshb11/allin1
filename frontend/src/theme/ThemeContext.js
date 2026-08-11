@@ -55,20 +55,20 @@ const dark = {
   blueSoft: '#60A5FA',
   onBlue: '#ffffff',
   textPrimary: '#FFFFFF', // Pure white
-  textVariant: '#A3A3A3',
-  textSecondary: '#A3A3A3',
-  textMuted: '#737373',
+  textVariant: '#B0B0B0', // Warmer grey for better readability
+  textSecondary: '#B0B0B0',
+  textMuted: '#8B8B8B',   // Warmer muted for legibility
   faint: '#262626',
   onDark: '#FFFFFF',
-  onDarkDim: '#A3A3A3',
+  onDarkDim: '#B0B0B0',
   limeDark: '#064E3B',
   live: '#F87171',
   danger: '#EF4444',
   dangerTxt: '#F87171',
   warn: '#F59E0B',
   success: '#10B981',
-  border: '#262626',
-  line: '#262626',
+  border: '#2A2A2A',      // Warmer border for depth
+  line: '#2A2A2A',
   overlay: 'rgba(0,0,0,0.8)',
   // Arena fallback roles
   navy0: '#000000',
@@ -77,7 +77,7 @@ const dark = {
   cell: '#111111',
   cellHi: '#1A1A1A',
   ink: '#FFFFFF',
-  inkDim: '#737373',
+  inkDim: '#8B8B8B',
 };
 
 // ── LIGHT (outdoor / day) — ONE deep-green accent, pure white, red = semantic ─

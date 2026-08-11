@@ -1153,11 +1153,11 @@ const makeH = (DS) => StyleSheet.create({
 
 const makeC = (DS, TYPO) => StyleSheet.create({
   card: {
-    width: MATCH_CARD_W, backgroundColor: DS.surface, borderRadius: 14, padding: 13,
+    width: MATCH_CARD_W, backgroundColor: DS.surface, borderRadius: 18, padding: 15,
     borderWidth: 1, borderColor: DS.line,
-    shadowColor: '#000', shadowOpacity: DS.mode === 'dark' ? 0.3 : 0.07, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 3,
+    shadowColor: '#000', shadowOpacity: DS.mode === 'dark' ? 0.35 : 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
-  cardLive: { borderWidth: 1.5, borderColor: DS.lime + (DS.mode === 'dark' ? '55' : '33') },
+  cardLive: { borderWidth: 1.5, borderColor: DS.lime + '88', shadowColor: DS.lime, shadowOpacity: 0.2, shadowRadius: 14 },
 
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -1222,9 +1222,9 @@ const makeM = (DS) => StyleSheet.create({
 
 const makeP = (DS) => StyleSheet.create({
   card: { 
-    backgroundColor: DS.surface, marginTop: 16, marginHorizontal: 16, paddingBottom: 14, borderRadius: 24,
+    backgroundColor: DS.surface, marginTop: 16, marginHorizontal: 16, paddingBottom: 16, borderRadius: 28,
     borderWidth: 1, borderColor: DS.line, overflow: 'hidden',
-    shadowColor: '#000', shadowOpacity: DS.mode === 'dark' ? 0.2 : 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4
+    shadowColor: '#000', shadowOpacity: DS.mode === 'dark' ? 0.25 : 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 5
   },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 11 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
