@@ -218,9 +218,9 @@ export default function Dashboard() {
               {/* Evidence/Source Images */}
               <div className="flex-1 space-y-4">
                 <h3 className="font-bold text-gray-700 uppercase text-xs tracking-wider">Source Evidence</h3>
-                {selectedSub.images && selectedSub.images.length > 0 ? (
+                {selectedSub.imageUrls && selectedSub.imageUrls.length > 0 ? (
                   <div className="grid grid-cols-1 gap-4">
-                    {selectedSub.images.map((img, i) => (
+                    {selectedSub.imageUrls.map((img, i) => (
                       <img 
                         key={i} 
                         src={img} 
