@@ -26,8 +26,6 @@ import PlayerSetupScreen from './src/screens/PlayerSetupScreen';
 import HistoricalStatsQuestionScreen from './src/screens/HistoricalStatsQuestionScreen';
 import HistoricalStatsSourceScreen from './src/screens/HistoricalStatsSourceScreen';
 import HistoricalStatsUploadScreen from './src/screens/HistoricalStatsUploadScreen';
-import HistoricalStatsOcrScreen from './src/screens/HistoricalStatsOcrScreen';
-import HistoricalStatsReviewScreen from './src/screens/HistoricalStatsReviewScreen';
 import HistoricalStatsSuccessScreen from './src/screens/HistoricalStatsSuccessScreen';
 import RummyHomeScreen from './src/sports/rummy/screens/RummyHomeScreen';
 import RummyNewGameScreen from './src/sports/rummy/screens/RummyNewGameScreen';
@@ -136,8 +134,7 @@ const Root = () => {
           <Stack.Screen name="HistoricalStatsQuestion" component={HistoricalStatsQuestionScreen} />
           <Stack.Screen name="HistoricalStatsSource" component={HistoricalStatsSourceScreen} />
           <Stack.Screen name="HistoricalStatsUpload" component={HistoricalStatsUploadScreen} />
-          <Stack.Screen name="HistoricalStatsOcr" component={HistoricalStatsOcrScreen} />
-          <Stack.Screen name="HistoricalStatsReview" component={HistoricalStatsReviewScreen} />
+
           <Stack.Screen name="HistoricalStatsSuccess" component={HistoricalStatsSuccessScreen} />
           <Stack.Screen name="RummyHome" component={RummyHomeScreen} />
           <Stack.Screen name="RummyNewGame" component={RummyNewGameScreen} />

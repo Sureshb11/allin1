@@ -2,6 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
+import { extractStatsFromImages } from '../lib/gemini.js';
 
 const router = express.Router();
 
@@ -75,20 +76,30 @@ router.post('/players/:playerId/historical-stats', authMiddleware, async (req, r
 // Admin: List pending stats
 router.get('/admin/historical-stats', authMiddleware, async (req, res) => {
   try {
-    // Basic admin check (Assuming req.user.isAdmin exists or similar)
-    // For MVP, we just return all pending stats if authenticated.
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized: Admin access required.' });
+    }
     
     const pending = await prisma.historicalStatSubmission.findMany({
       where: { status: 'pending' },
       include: {
         player: {
-          select: { name: true, sport: true, id: true }
+          select: { name: true, sport: true, id: true, userId: true }
         }
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json({ success: true, pending });
+    // Group by sport
+    const grouped = {};
+    pending.forEach(sub => {
+      const sport = sub.player.sport || 'cricket';
+      if (!grouped[sport]) grouped[sport] = { sport, count: 0, submissions: [] };
+      grouped[sport].count++;
+      grouped[sport].submissions.push(sub);
+    });
+
+    res.json({ success: true, data: Object.values(grouped), totalPending: pending.length });
   } catch (err) {
     console.error('List pending stats error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -98,7 +109,11 @@ router.get('/admin/historical-stats', authMiddleware, async (req, res) => {
 // Admin: Approve stats
 router.post('/admin/historical-stats/:id/approve', authMiddleware, async (req, res) => {
   try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized: Admin access required.' });
+    }
     const { id } = req.params;
+    const { editedData } = req.body;
     
     const submission = await prisma.historicalStatSubmission.findUnique({
       where: { id },
@@ -112,7 +127,7 @@ router.post('/admin/historical-stats/:id/approve', authMiddleware, async (req, r
     
     // Merge new data into existing player.stats
     const existingStats = (player.stats && typeof player.stats === 'object') ? player.stats : {};
-    const newData = (submission.data && typeof submission.data === 'object') ? submission.data : {};
+    const newData = (editedData && typeof editedData === 'object') ? editedData : ((submission.data && typeof submission.data === 'object') ? submission.data : {});
     
     const mergedStats = { ...existingStats, ...newData };
 
@@ -120,7 +135,10 @@ router.post('/admin/historical-stats/:id/approve', authMiddleware, async (req, r
     await prisma.$transaction([
       prisma.historicalStatSubmission.update({
         where: { id },
-        data: { status: 'approved' }
+        data: { 
+          status: 'approved',
+          data: newData // Save the final approved data
+        }
       }),
       prisma.player.update({
         where: { id: player.id },
@@ -138,6 +156,10 @@ router.post('/admin/historical-stats/:id/approve', authMiddleware, async (req, r
 // Admin: Reject stats
 router.post('/admin/historical-stats/:id/reject', authMiddleware, async (req, res) => {
   try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized: Admin access required.' });
+    }
+    
     const { id } = req.params;
     
     const submission = await prisma.historicalStatSubmission.update({
@@ -149,6 +171,38 @@ router.post('/admin/historical-stats/:id/reject', authMiddleware, async (req, re
   } catch (err) {
     console.error('Reject stats error:', err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Admin: Extract stats via AI
+router.post('/admin/historical-stats/:id/extract', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized: Admin access required.' });
+    }
+    
+    const { id } = req.params;
+    const submission = await prisma.historicalStatSubmission.findUnique({
+      where: { id }
+    });
+
+    if (!submission) return res.status(404).json({ error: 'Submission not found' });
+    if (!submission.imageUrls || submission.imageUrls.length === 0) {
+      return res.status(400).json({ error: 'No images available to extract from' });
+    }
+
+    const extractedData = await extractStatsFromImages(submission.imageUrls);
+
+    // Save the extracted data back to the pending submission so we don't lose it
+    const updatedSubmission = await prisma.historicalStatSubmission.update({
+      where: { id },
+      data: { data: extractedData }
+    });
+
+    res.json({ success: true, submission: updatedSubmission, extractedData });
+  } catch (err) {
+    console.error('Extract stats error:', err);
+    res.status(500).json({ error: err.message || 'Server error during extraction' });
   }
 });
 

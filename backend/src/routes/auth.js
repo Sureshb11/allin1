@@ -23,7 +23,7 @@ router.post('/signup', async (req, res) => {
     const user = await prisma.user.create({
       data: { ...data, passwordHash }
     });
-    const token = signToken({ sub: user.id, email: user.email });
+    const token = signToken({ sub: user.id, email: user.email, isAdmin: user.isAdmin });
     res.json({ token, user: publicUser(user) });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -42,7 +42,7 @@ router.post('/login', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = signToken({ sub: user.id, email: user.email });
+    const token = signToken({ sub: user.id, email: user.email, isAdmin: user.isAdmin });
     res.json({ token, user: publicUser(user) });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -106,7 +106,7 @@ router.post('/verify-otp', async (req, res) => {
       });
     }
 
-    const token = signToken({ sub: user.id, phone: fullPhone });
+    const token = signToken({ sub: user.id, phone: fullPhone, isAdmin: user.isAdmin });
     res.json({
       success: true,
       token,

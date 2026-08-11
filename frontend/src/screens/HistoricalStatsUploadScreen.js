@@ -5,6 +5,10 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { haptic } from '../utils/haptics';
 import GradientButton from '../components/GradientButton';
+import { showToast } from '../components/Toast';
+import legendsApi from '../services/LegendsApi';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ActivityIndicator } from 'react-native';
 
 export default function HistoricalStatsUploadScreen({ navigation, route }) {
   const { colors: DS, isDark } = useTheme();
@@ -13,6 +17,7 @@ export default function HistoricalStatsUploadScreen({ navigation, route }) {
   
   const [imageUris, setImageUris] = useState([]);
   const [confirmed, setConfirmed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const pickImage = async () => {
     haptic.tick();
@@ -33,10 +38,35 @@ export default function HistoricalStatsUploadScreen({ navigation, route }) {
     setImageUris(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  const handleExtract = () => {
+  const handleExtract = async () => {
     if (imageUris.length === 0 || !confirmed) return;
     haptic.impact();
-    navigation.navigate('HistoricalStatsOcr', { sport, imageUris });
+    
+    setSubmitting(true);
+    try {
+      const profileRes = await legendsApi.getUserProfile(sport?.id);
+      if (!profileRes.success || !profileRes.player?.id) {
+        showToast('Could not find your player profile.', 'error');
+        setSubmitting(false);
+        return;
+      }
+
+      const res = await legendsApi.submitHistoricalStats(profileRes.player.id, {
+        data: {}, // No data sent from user anymore
+        imageUrls: imageUris
+      });
+      
+      if (res.success) {
+        await AsyncStorage.setItem('hasHistoricalStats', 'true');
+        navigation.navigate('HistoricalStatsSuccess');
+      } else {
+        showToast(res.error || 'Failed to submit stats.', 'error');
+      }
+    } catch (e) {
+      showToast('An error occurred while uploading.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -107,17 +137,24 @@ export default function HistoricalStatsUploadScreen({ navigation, route }) {
       </View>
 
       <View style={s.footer}>
-        <GradientButton
-          label="Extract Stats"
-          icon="auto-fix"
-          iconRight
-          onPress={handleExtract}
-          disabled={imageUris.length === 0 || !confirmed}
-          height={56}
-          style={s.primaryBtn}
-          textStyle={{ fontSize: 16 }}
-          colors={[DS.lime, DS.lime]}
-        />
+        {submitting ? (
+          <View style={s.uploadingState}>
+            <ActivityIndicator size="large" color={DS.lime} />
+            <Text style={s.uploadingText}>Uploading proof to Admin...</Text>
+          </View>
+        ) : (
+          <GradientButton
+            label="Submit Proof"
+            icon="cloud-upload"
+            iconRight
+            onPress={handleExtract}
+            disabled={imageUris.length === 0 || !confirmed}
+            height={56}
+            style={s.primaryBtn}
+            textStyle={{ fontSize: 16 }}
+            colors={[DS.lime, DS.lime]}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -158,19 +195,26 @@ const makeStyles = (DS) => StyleSheet.create({
     borderStyle: 'dashed', backgroundColor: DS.surfaceHigh,
     alignItems: 'center', justifyContent: 'center',
   },
-  addMoreText: { fontSize: 14, fontWeight: '600', color: DS.lime, marginTop: 8 },
-
-  confirmBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 32,
-    backgroundColor: DS.surfaceHigh, padding: 16, borderRadius: 16,
-  },
+  addMoreText: { fontSize: 14, fontWeight: '800', color: DS.lime, marginTop: 8 },
+  
   checkbox: {
-    width: 24, height: 24, borderRadius: 8, borderWidth: 2, borderColor: DS.textMuted,
-    alignItems: 'center', justifyContent: 'center',
+    width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: DS.surfaceHighest,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: DS.surface,
   },
   checkboxActive: { backgroundColor: DS.lime, borderColor: DS.lime },
+  confirmBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 24,
+    backgroundColor: DS.surfaceHigh, padding: 16, borderRadius: 16,
+    borderWidth: 1, borderColor: DS.surfaceHighest || '#2a2f42'
+  },
   confirmText: { flex: 1, fontSize: 14, fontWeight: '600', color: DS.textSecondary, lineHeight: 20 },
-
-  footer: { paddingHorizontal: 24, paddingBottom: 32, paddingTop: 16 },
+  
+  footer: { paddingHorizontal: 24, paddingBottom: 40, paddingTop: 16 },
   primaryBtn: { borderRadius: 16 },
+  uploadingState: {
+    alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12
+  },
+  uploadingText: {
+    fontSize: 16, fontWeight: '800', color: DS.lime
+  }
 });

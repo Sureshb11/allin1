@@ -27,6 +27,7 @@ model User {
   pincode       String?
   state         String?
   coverUrl      String?
+  isAdmin       Boolean        @default(false)
   chatRooms     ChatMember[]
   chatMessages  ChatMessage[]
   notifications Notification[]
