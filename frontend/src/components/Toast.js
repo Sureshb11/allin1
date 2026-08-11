@@ -76,7 +76,7 @@ export function ToastHost() {const s = useThemedStyles(makeS);
 
   return (
     <Animated.View pointerEvents="box-none" style={[s.wrap, style]} {...panResponder.panHandlers}>
-      <TouchableOpacity activeOpacity={0.9} onPress={hide} style={[s.card, { backgroundColor: s.card.backgroundColor, borderColor: k.color + '33' }]}>
+      <TouchableOpacity activeOpacity={0.9} onPress={hide} style={[s.card, { borderColor: k.color + '33' }]}>
         <View style={[StyleSheet.absoluteFill, { backgroundColor: k.color + '1A', borderRadius: 20 }]} />
         <Icon name={k.icon} size={20} color={k.color} />
         <Text style={s.msg} numberOfLines={2}>{toast.message}</Text>
