@@ -174,17 +174,17 @@ export default function PavilionScreen({ navigation, route }) {
           
           {/* Level 2 Tabs */}
           {PAGES.filter(p => p.label === activeL1 && p.l2).length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[C.navRow, { paddingTop: 0, paddingBottom: 10, paddingHorizontal: 16 }]}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 24, paddingHorizontal: 16, paddingBottom: 0 }}>
               {PAGES.filter(p => p.label === activeL1 && p.l2).map((p) => {
                 const isActive = activePage.l2 === p.l2;
                 return (
                   <TouchableOpacity
                     key={p.l2}
-                    style={[C.navPillTight, isActive ? C.navPillActive : C.navPillInactive, { paddingVertical: 8, paddingHorizontal: 16 }]}
+                    style={{ paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: isActive ? DS.lime : 'transparent' }}
                     onPress={() => goToL2(p.l2)}
                     activeOpacity={0.85}
                   >
-                    <Text style={[C.navPillTextTight, { color: isActive ? CONTROL.onGreen : CONTROL.slate, fontSize: 13 }]}>
+                    <Text style={{ fontSize: 12, letterSpacing: 0.5, color: isActive ? DS.lime : DS.textMuted, fontWeight: isActive ? '800' : '600' }}>
                       {p.l2Label}
                     </Text>
                   </TouchableOpacity>
