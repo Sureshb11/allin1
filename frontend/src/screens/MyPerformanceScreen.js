@@ -9,7 +9,6 @@ import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
 import { getCareerPanels, readStat } from '../sports/careerStats';
-import FilterTabBar from '../components/FilterTabBar';
 import { pav } from '../theme/pavilion';
 import CareerBoard, { hasCareer } from '../components/CareerBoard';
 import { useCurrentUser } from '../utils/currentUser';
@@ -53,13 +52,14 @@ function StatsSkeleton({ DS }) {
   );
 }
 
-export default function MyPerformanceScreen({ navigation, inline, onRegisterFab }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
+export default function MyPerformanceScreen({ navigation, inline, onRegisterFab, ballTypeOverride }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
   const meUser = useCurrentUser();
   const [stats, setStats] = useState(null);
   const sportId = getSelectedSport().sport?.id || 'cricket';
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [ballType, setBallType] = useState('overall'); // 'overall', 'leather', 'tennis'
+  const [ballType, setBallType] = useState('overall'); // fallback for standalone use
+  const activeBallType = ballTypeOverride || ballType;
   const shotRef = useRef(null);
 
   useLayoutEffect(() => {
@@ -96,7 +96,7 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
     }
   }, [sportId, meUser]);
 
-  const statsToPass = ballType === 'overall' ? stats : (stats?.[ballType] || {});
+  const statsToPass = activeBallType === 'overall' ? stats : (stats?.[activeBallType] || {});
   const mine = hasCareer(statsToPass, sportId);
 
   useEffect(() => {
@@ -122,26 +122,11 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab 
       )}
 
       <View style={styles.body}>
-        {/* Only show the toggle if it's cricket (which uses ball types). Football etc don't need it. */}
-        {sportId === 'cricket' && stats && (
-          <View style={{ paddingTop: 8 }}>
-            <FilterTabBar
-              options={[
-                { id: 'overall', label: 'OVERALL' },
-                { id: 'leather', label: 'LEATHER' },
-                { id: 'tennis', label: 'TENNIS' },
-                { id: 'indoor', label: 'BOX CRICKET' },
-              ]}
-              value={ballType}
-              onChange={setBallType}
-            />
-          </View>
-        )}
 
         {loading ? (
           <StatsSkeleton DS={DS} />
         ) : mine ? (
-          <CareerBoard stats={statsToPass} sportId={sportId} ballType={ballType} navigation={navigation} captureRef={shotRef}>
+          <CareerBoard stats={statsToPass} sportId={sportId} ballType={activeBallType} navigation={navigation} captureRef={shotRef}>
             {/* Branding footer — only meaningful once the card is shared out,
                 but harmless (and a subtle attribution) in-app. The icon follows
                 the sport; it was a cricket bat on a footballer's card. */}

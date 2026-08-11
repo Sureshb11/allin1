@@ -713,7 +713,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
     const oldIdx = ['Players', 'Teams'].indexOf(tab);
     const newIdx = ['Players', 'Teams'].indexOf(newTab);
     swipeDir.current = newIdx > oldIdx ? 1 : -1;
-    setTab(newTab);
+    setInternalTab(newTab);
     setBoardId((newTab === 'Players' ? activeBoards : TEAM_BOARDS)[0].id);
     scrollBoardTo(0);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -878,20 +878,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
                 )}
               </Reanimated.View>
 
-              {sportId === 'cricket' && tab === 'Players' && (
-                <View style={{ paddingTop: 8, paddingBottom: 16 }}>
-                  <FilterTabBar
-                    options={[
-                      { id: 'overall', label: 'OVERALL' },
-                      { id: 'leather', label: 'LEATHER' },
-                      { id: 'tennis', label: 'TENNIS' },
-                      { id: 'indoor', label: 'BOX CRICKET' },
-                    ]}
-                    value={ballTypeFilter}
-                    onChange={setBallTypeFilter}
-                  />
-                </View>
-              )}
+              {/* Removed ball type filters from Rankings as per request */}
 
               {/* Board selector — what this leaderboard is actually ranking. Drag
                   to scroll (self-driven, blocks the pager); tap scrolls into view. */}

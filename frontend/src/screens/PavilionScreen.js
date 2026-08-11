@@ -15,9 +15,10 @@ import { useTabBarClearance, useDockTranslate } from '../components/AutoHideTabB
 import { haptic } from '../utils/haptics';
 import { pav } from '../theme/pavilion';
 import AppHeader from '../components/AppHeader';
+import { getSelectedSport } from '../utils/selectedSport';
 const PAVILION_TAB_KEY = '@ll_pavilion_tab';
 
-const TABS = [
+const L1_TABS = [
   { label: 'My Stats', icon: 'chart-line', component: MyPerformanceScreen, id: 'mystats' },
   { label: 'Rankings', icon: 'podium', component: StatisticsScreen, id: 'rankings' },
   { label: 'Scout',    icon: 'telescope', component: LookingForScreen, id: 'scout' },
@@ -41,8 +42,26 @@ export default function PavilionScreen({ navigation, route }) {
   const meUser = useCurrentUser();
   const tabClear = useTabBarClearance();
   
-  const [activeItem, setActiveItem] = useState(TABS[0]);
-  const activeL1 = activeItem.label;
+  const sportId = getSelectedSport().sport?.id || 'cricket';
+
+  const PAGES = React.useMemo(() => {
+    const pages = [];
+    L1_TABS.forEach(tab => {
+      if (tab.id === 'mystats' && sportId === 'cricket') {
+        pages.push({ ...tab, l2: 'overall', l2Label: 'OVERALL', key: 'mystats-overall' });
+        pages.push({ ...tab, l2: 'leather', l2Label: 'LEATHER', key: 'mystats-leather' });
+        pages.push({ ...tab, l2: 'tennis', l2Label: 'TENNIS', key: 'mystats-tennis' });
+        pages.push({ ...tab, l2: 'indoor', l2Label: 'BOX CRICKET', key: 'mystats-indoor' });
+      } else {
+        pages.push({ ...tab, l2: null, l2Label: null, key: tab.id });
+      }
+    });
+    return pages;
+  }, [sportId]);
+
+  const [activeIdx, setActiveIdx] = useState(0);
+  const activePage = PAGES[activeIdx] || PAGES[0];
+  const activeL1 = activePage.label;
 
   const fabActions = useRef({}).current;
   const fabRegisterers = useRef({});
@@ -57,7 +76,7 @@ export default function PavilionScreen({ navigation, route }) {
   };
   const FABS = FAB_FOR(P);
   const [fabOff, setFabOff] = useState({});
-  const fab = fabOff[activeItem.id] ? null : FABS[activeL1];
+  const fab = fabOff[activePage.id] ? null : FABS[activeL1];
 
   const dockY = useDockTranslate();
 
@@ -79,25 +98,33 @@ export default function PavilionScreen({ navigation, route }) {
   const scrollViewRef = useRef(null);
 
   const handleIndexChange = useCallback((idx) => {
-    const item = TABS[idx];
-    if (item.label !== activeItem.label) {
+    if (idx !== activeIdx && idx >= 0 && idx < PAGES.length) {
       haptic.tick();
-      setActiveItem(item);
+      setActiveIdx(idx);
       AsyncStorage.setItem(PAVILION_TAB_KEY, String(idx)).catch(() => {});
     }
-  }, [activeItem.label]);
+  }, [activeIdx, PAGES.length]);
 
   const handleMomentumScrollEnd = (e) => {
     const x = e.nativeEvent.contentOffset.x;
     const idx = Math.round(x / SCREEN_W);
-    if (idx >= 0 && idx < TABS.length) {
+    if (idx >= 0 && idx < PAGES.length) {
       handleIndexChange(idx);
     }
   };
 
   const goToL1 = (label) => {
-    const idx = TABS.findIndex(t => t.label === label);
+    const idx = PAGES.findIndex(t => t.label === label);
     if (idx >= 0) {
+      handleIndexChange(idx);
+      scrollViewRef.current?.scrollTo({ x: idx * SCREEN_W, animated: true });
+    }
+  };
+
+  const goToL2 = (l2) => {
+    const idx = PAGES.findIndex(t => t.label === activeL1 && t.l2 === l2);
+    if (idx >= 0) {
+      handleIndexChange(idx);
       scrollViewRef.current?.scrollTo({ x: idx * SCREEN_W, animated: true });
     }
   };
@@ -105,14 +132,14 @@ export default function PavilionScreen({ navigation, route }) {
   useEffect(() => {
     AsyncStorage.getItem(PAVILION_TAB_KEY).then((v) => {
       const n = Number(v);
-      if (Number.isInteger(n) && n >= 0 && n < TABS.length) {
+      if (Number.isInteger(n) && n >= 0 && n < PAGES.length) {
         // Hydrate position
         setTimeout(() => {
           scrollViewRef.current?.scrollTo({ x: n * SCREEN_W, animated: false });
         }, 100);
       }
     }).catch(() => {});
-  }, [SCREEN_W]);
+  }, [SCREEN_W, PAGES.length]);
 
 
 
@@ -122,27 +149,51 @@ export default function PavilionScreen({ navigation, route }) {
       <AppHeader />
       
       <View style={{ flex: 1 }}>
-        <View style={[C.navRow, { paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: DS.border }]}>
-          {TABS.map((tab) => {
-            const isActive = activeL1 === tab.label;
-            return (
-              <TouchableOpacity
-                key={tab.label}
-                style={[C.navPillTight, isActive ? C.navPillActive : C.navPillInactive]}
-                onPress={() => goToL1(tab.label)}
-                activeOpacity={0.85}
-              >
-                <Icon name={tab.icon} size={14} color={isActive ? CONTROL.onGreen : CONTROL.slate} />
-                <Text
-                  style={[C.navPillTextTight, { color: isActive ? CONTROL.onGreen : CONTROL.slate }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.7}
-                >{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
+        <View style={{ borderBottomWidth: 1, borderBottomColor: DS.border }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[C.navRow, { paddingHorizontal: 16, borderBottomWidth: 0, paddingBottom: 10 }]}>
+            {L1_TABS.map((tab) => {
+              const isActive = activeL1 === tab.label;
+              return (
+                <TouchableOpacity
+                  key={tab.label}
+                  style={[C.navPillTight, isActive ? C.navPillActive : C.navPillInactive]}
+                  onPress={() => goToL1(tab.label)}
+                  activeOpacity={0.85}
+                >
+                  <Icon name={tab.icon} size={14} color={isActive ? CONTROL.onGreen : CONTROL.slate} />
+                  <Text
+                    style={[C.navPillTextTight, { color: isActive ? CONTROL.onGreen : CONTROL.slate }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                  >{tab.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          
+          {/* Level 2 Tabs */}
+          {PAGES.filter(p => p.label === activeL1 && p.l2).length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[C.navRow, { paddingTop: 0, paddingBottom: 10, paddingHorizontal: 16 }]}>
+              {PAGES.filter(p => p.label === activeL1 && p.l2).map((p) => {
+                const isActive = activePage.l2 === p.l2;
+                return (
+                  <TouchableOpacity
+                    key={p.l2}
+                    style={[C.navPillTight, isActive ? C.navPillActive : C.navPillInactive, { paddingVertical: 8, paddingHorizontal: 16 }]}
+                    onPress={() => goToL2(p.l2)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[C.navPillTextTight, { color: isActive ? CONTROL.onGreen : CONTROL.slate, fontSize: 13 }]}>
+                      {p.l2Label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
         </View>
+
         <ScrollView
           ref={scrollViewRef}
           horizontal
@@ -151,16 +202,15 @@ export default function PavilionScreen({ navigation, route }) {
           onMomentumScrollEnd={handleMomentumScrollEnd}
           scrollEventThrottle={16}
         >
-          {TABS.map((tab, idx) => {
-            const Comp = tab.component;
-            const activeIdx = TABS.findIndex(t => t.id === activeItem.id);
+          {PAGES.map((page, idx) => {
+            const Comp = page.component;
             // Lazy load: only render the active tab and its immediate neighbors
             const isVisible = Math.abs(idx - activeIdx) <= 1;
 
             return (
-              <View key={tab.id} style={{ width: SCREEN_W, flex: 1 }}>
+              <View key={page.key} style={{ width: SCREEN_W, flex: 1 }}>
                 {isVisible ? (
-                  <Comp navigation={navigation} route={route} inline={true} onRegisterFab={registerFab(tab.id)} />
+                  <Comp navigation={navigation} route={route} inline={true} onRegisterFab={registerFab(page.id)} ballTypeOverride={page.l2} />
                 ) : null}
               </View>
             );
@@ -177,7 +227,7 @@ export default function PavilionScreen({ navigation, route }) {
             style={[styles.fab, { backgroundColor: DS.lime }]}
             onPress={() => {
               haptic.impact();
-              fabActions[activeItem.id]?.();
+              fabActions[activePage.id]?.();
             }}
             activeOpacity={0.85}
           >
