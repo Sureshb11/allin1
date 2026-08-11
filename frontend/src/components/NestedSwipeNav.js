@@ -99,8 +99,15 @@ export default function NestedSwipeNav({ schema, colors, renderItem, onIndexChan
     }
   }, [currentIndex]);
 
-  // Render L2 Header (Single continuous track)
+  // Render L2 Header (Separate track per L1)
   const renderL2Header = () => {
+    const activeGroupItems = l1Groups.find(g => g.l1 === activeL1)?.items || [];
+    
+    // If only 1 item (e.g. "My Stats -> Overview"), hide the L2 bar entirely so it doesn't waste space.
+    if (activeGroupItems.length <= 1) {
+      return null;
+    }
+
     return (
       <View style={s.l2Wrapper}>
         <Animated.ScrollView 
@@ -109,7 +116,8 @@ export default function NestedSwipeNav({ schema, colors, renderItem, onIndexChan
           showsHorizontalScrollIndicator={false} 
           contentContainerStyle={{ gap: 12, alignItems: 'center', paddingHorizontal: 16 }}
         >
-          {schema.map((item, idx) => {
+          {activeGroupItems.map((item) => {
+            const idx = item.globalIndex;
             const isActive = idx === currentIndex;
             
             const tabScale = scrollX.interpolate({
