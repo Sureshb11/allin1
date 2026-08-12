@@ -39,6 +39,7 @@ dependencyResolutionManagement {
         mavenCentral()
         maven { url "${settingsDir}/../node_modules/react-native/android" }
         maven { url "${settingsDir}/../node_modules/jsc-android/dist" }
+        maven { url "https://jitpack.io" }
     }
 }
 
