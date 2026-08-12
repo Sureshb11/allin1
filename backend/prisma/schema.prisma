@@ -224,6 +224,8 @@ model Match {
   team2          Team          @relation("team2", fields: [team2Id], references: [id])
   squads         MatchPlayer[]
   sportEvents    SportEvent[]
+  broadcasts     BroadcastSession[]
+  matchRoles     MatchRole[]
 
   @@index([sport, status])
   @@index([startTime])
@@ -1120,4 +1122,106 @@ model Like {
 
   @@unique([userId, targetType, targetId])
   @@index([targetType, targetId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Live Telecast — broadcast authorization and audit.
+//
+// Design principle (see docs/LIVE-TELECAST.md): a Match id IDENTIFIES a match
+// and is never a credential. Who you are comes from the JWT; what you may do
+// comes from UserRole (app-wide capability) + MatchRole (this match); and the
+// right to push video for one match comes from a BroadcastSession whose pairing
+// token is short-lived, single-use, and stored only as a hash.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// An app-wide capability grant. A user needs an ACTIVE BROADCASTER row before
+/// they may pair with any match at all — this is the gate that stops a random
+/// signed-up account from putting itself on air (spec §17).
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String // BROADCASTER | ORGANIZER
+  status    String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  grantedBy String?
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, role])
+  @@index([userId, status])
+}
+
+/// Per-match authority. Match.scorerId still names the working scorer (the
+/// scoring screens read it); this table is the *authorization* record and
+/// carries the organizer + any approved broadcasters alongside them.
+model MatchRole {
+  id        String   @id @default(cuid())
+  matchId   String
+  userId    String
+  role      String // ORGANIZER | SCORER | BROADCASTER
+  status    String   @default("ACTIVE") // ACTIVE | REVOKED
+  grantedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, userId, role])
+  @@index([userId, status])
+}
+
+/// One broadcaster's connection to one match.
+///
+/// `pairingTokenHash` / `overlayTokenHash` hold SHA-256 digests, never the
+/// token itself — a database leak must not hand anyone a live broadcast. Only
+/// one session per match may sit in an active state at a time; that invariant
+/// is enforced in lib/broadcastSession.js, not by a constraint, because it is a
+/// predicate over a status set that Postgres can't express as a unique index
+/// without a partial index Prisma won't model.
+model BroadcastSession {
+  id                 String    @id @default(cuid())
+  matchId            String
+  broadcasterUserId  String?
+  status             String    @default("PENDING") // see BROADCAST_STATUS
+  pairingCode        String? // 6 digits, display-only, cleared once paired
+  pairingTokenHash   String?   @unique
+  tokenExpiresAt     DateTime?
+  /// Wrong codes burn the session rather than the attacker's patience: a
+  /// 6-digit code is only 10^6 wide, so it is capped, not merely rate-limited.
+  pairAttempts       Int       @default(0)
+  overlayTokenHash   String?   @unique
+  youtubeBroadcastId String?
+  youtubeStreamId    String?
+  youtubeVideoId     String?
+  requestedAt        DateTime?
+  connectedAt        DateTime?
+  startedAt          DateTime?
+  endedAt            DateTime?
+  lastHeartbeatAt    DateTime?
+  revokedAt          DateTime?
+  revokedBy          String?
+  revokeReason       String?
+  createdBy          String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  match              Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId, status])
+  @@index([status, tokenExpiresAt])
+}
+
+/// Append-only record of every broadcast-affecting action (spec §18). Never
+/// updated or deleted — an audit trail that can be edited is not one.
+model BroadcastAuditLog {
+  id                 String   @id @default(cuid())
+  matchId            String
+  broadcastSessionId String?
+  userId             String?
+  action             String
+  detail             Json?
+  ip                 String?
+  userAgent          String?
+  createdAt          DateTime @default(now())
+
+  @@index([matchId, createdAt])
+  @@index([broadcastSessionId, createdAt])
 }
