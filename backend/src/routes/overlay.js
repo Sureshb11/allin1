@@ -77,11 +77,13 @@ router.get('/:sessionId', async (req, res, next) => {
  * step — an encoder on a laptop at a cricket ground should not need the network
  * to reach anything but this API.
  *
- * Layout is the broadcast convention (Star Sports et al): one full-bleed strip
- * across the bottom of frame, everything on a single line, segmented by rules.
- * That shape is what it is for a reason — it eats the least picture, it reads
- * at a glance, and on a phone in a YouTube player it stays legible where a
- * stacked card turns to mush.
+ * Layout follows the standard cricket scorebug: a full-bleed bar across the
+ * bottom of frame, split two-tone by an angled cut — dark block carrying team
+ * and score on the left, white panel carrying the players on the right — with
+ * the chase equation on its own strip beneath, and an over tracker at the far
+ * right. That shape is what it is for a reason: it eats little picture, the
+ * score reads at a glance, and the two-tone split gives the eye a fixed place
+ * to look for each kind of information.
  *
  * Scaled in vw/vh so it is identical at 720p and 1080p. Transparent background:
  * the encoder composites it over the camera.
@@ -100,101 +102,100 @@ export function overlayHtml(sessionId, token) {
   :root{
     --bg:#0f131f; --surface:#171b28; --surface-hi:#262a37;
     --lime:#abd600; --on-lime:#0f131f; --text:#dfe2f3; --muted:#8d90a2;
-    --coral:#ff5a5f; --rule:rgba(255,255,255,.10);
+    --coral:#ff5a5f; --ink:#0f131f; --ink-soft:#5b6070;
     /* One scale knob; everything below is in em of this. */
     font-size:calc(0.72vw + 0.35vh);
   }
   .stage{position:fixed;inset:0;}
 
-  /* ── The strip ─────────────────────────────────────────────────────────
-     Full-bleed to the left, right and bottom edges. A bottom bar is the one
-     element that *should* touch the frame edge — but overscan can eat the
-     lowest few percent of a TV picture, so the bar is tall enough that its
-     text baseline clears that zone even when the bar's own edge is clipped. */
-  .bar{position:absolute;left:0;right:0;bottom:0;height:4.5em;
-    display:flex;align-items:stretch;
-    background:linear-gradient(180deg,rgba(23,27,40,.96),rgba(15,19,31,.98));
-    border-top:.16em solid var(--lime);
-    box-shadow:0 -.5em 2em rgba(0,0,0,.5);
+  /* ── The dock: scorebug + chase strip, stacked, pinned to the frame edge ──
+     A bottom bar is the one element that should touch the edge. It is tall
+     enough that its text baseline clears the band an overscanning TV clips. */
+  .dock{position:absolute;left:0;right:0;bottom:0;overflow:hidden;
     transform:translateY(110%);animation:slideUp .6s .3s cubic-bezier(.16,1,.3,1) forwards;}
 
-  .seg{display:flex;align-items:center;padding:0 .95em;gap:.55em;
-    border-right:1px solid var(--rule);white-space:nowrap;flex:0 0 auto;}
-  .seg:last-child{border-right:0;}
-  .k{font-size:.62em;letter-spacing:.2em;color:var(--muted);font-weight:800;}
+  .bar{display:flex;align-items:stretch;height:4.3em;}
 
-  /* Brand block — the channel ident, left-most, like every sports strip. */
-  .brand{background:var(--lime);color:var(--on-lime);padding:0 1.05em;
-    font-size:.74em;font-weight:900;letter-spacing:.2em;line-height:1;
-    display:flex;align-items:center;border-right:0;}
-
-  /* Batting team + crest. */
-  .crest{width:1.75em;height:1.75em;border-radius:50%;object-fit:cover;
-    background:var(--surface-hi);}
-  .tname{font-size:1.12em;font-weight:800;letter-spacing:.04em;color:var(--text);
-    text-transform:uppercase;}
-
-  /* The hero: score + overs. Never allowed to shrink or truncate. */
-  .score{background:rgba(171,214,0,.12);gap:.6em;}
-  /* Sized against the real target, not the preview: at 1080p this lands near
-     38px, which is the band broadcast scorebugs actually use. It was 28px and
-     illegible once YouTube scaled the frame onto a phone. */
-  .runs{font-size:2.15em;font-weight:900;letter-spacing:-.01em;color:var(--lime);
-    font-variant-numeric:tabular-nums;line-height:1;}
-  .ov{font-size:.9em;font-weight:800;color:var(--text);opacity:.8;
-    font-variant-numeric:tabular-nums;}
-
-  /* First-innings total / target — only once there is a chase. */
-  .prev{color:var(--muted);font-size:.8em;font-weight:700;gap:.45em;}
-  .prev b{color:var(--text);font-weight:800;font-variant-numeric:tabular-nums;}
-
-  /* Batters and bowler. These are what give way when the frame is narrow,
-     because the score must not — so they may shrink (flex-shrink 1) while the
-     spacer below absorbs slack first. */
-  .people{flex:0 1 auto;min-width:0;overflow:hidden;gap:1.15em;}
-
-  /* Eats the leftover width so every segment's divider hugs its own content
-     instead of one segment stretching to the far side of the frame. Collapses
-     to nothing before any real content is asked to shrink. */
-  .spacer{flex:1 1 0;min-width:0;border-right:1px solid var(--rule);}
-  .p{display:flex;align-items:baseline;gap:.35em;font-size:.95em;min-width:0;}
-  .p .n{color:var(--text);font-weight:700;overflow:hidden;text-overflow:ellipsis;}
-  .p .f{color:var(--lime);font-weight:800;font-variant-numeric:tabular-nums;}
-  .p.on .n::after{content:'*';color:var(--lime);font-weight:900;margin-left:.08em;}
-  .bowl .f{color:var(--text);}
-
-  /* Rates. */
-  .rates{gap:.9em;background:rgba(0,0,0,.25);}
-  .rate{display:flex;gap:.35em;font-size:.76em;color:var(--muted);font-weight:800;
-    letter-spacing:.06em;}
-  .rate b{color:var(--lime);font-weight:900;font-variant-numeric:tabular-nums;}
-  .chase{font-size:.78em;color:var(--text);font-weight:800;letter-spacing:.03em;}
-
-  /* This over. */
-  .balls{display:flex;gap:.28em;align-items:center;}
-  .b{width:1.32em;height:1.32em;border-radius:50%;display:grid;place-items:center;
-    font-size:.7em;font-weight:900;background:var(--surface-hi);color:var(--text);}
-  .b.four{background:#2f6fed;color:#fff;} .b.six{background:#7b3fe4;color:#fff;}
-  .b.w{background:var(--coral);color:#fff;} .b.ex{background:#4a4f60;}
-
-  /* Live pip + sponsor, right-most. */
-  .live{gap:.42em;font-size:.74em;font-weight:900;letter-spacing:.16em;color:#fff;
+  /* Live pip — the round badge at the head of the bar. */
+  .livebadge{flex:0 0 auto;width:2.9em;display:grid;place-items:center;
     background:var(--coral);}
-  .live .dot{width:.5em;height:.5em;border-radius:50%;background:#fff;
+  .livebadge .dot{width:.86em;height:.86em;border-radius:50%;background:#fff;
     animation:pulse 1.6s infinite;}
-  .sponsor{gap:.5em;}
-  .sponsor img{max-height:2.3em;max-width:8em;object-fit:contain;}
+
+  /* ── Left: team + score, each a two-line cell ────────────────────────── */
+  .teamblock{flex:0 0 auto;display:flex;align-items:stretch;
+    background:linear-gradient(180deg,#1c2130,#12161f);padding-right:1.5em;}
+  .cell{display:flex;flex-direction:column;justify-content:center;
+    padding:0 1.05em;gap:.12em;}
+  .cell.num{align-items:flex-end;}
+  .big{font-size:1.5em;font-weight:900;letter-spacing:.02em;color:#fff;
+    line-height:1;text-transform:uppercase;white-space:nowrap;}
+  .big.score{color:var(--lime);font-size:2.25em;font-variant-numeric:tabular-nums;
+    letter-spacing:-.01em;}
+  .sub{font-size:.68em;font-weight:700;letter-spacing:.09em;color:var(--muted);
+    text-transform:uppercase;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .sub .k{color:var(--lime);opacity:.75;}
+
+  /* ── Right: the white player panel, with the angled leading edge ───────
+     The whole panel is skewed and its contents un-skewed, which is how this
+     shape is cut in broadcast graphics — one transform, no clip-path, and the
+     angle stays true at any width. It runs past the right edge and is clipped
+     by .dock, so only the left angle is ever visible. */
+  .panel{flex:1 1 auto;min-width:0;background:#fff;
+    transform:skewX(-13deg);margin-left:-1.1em;margin-right:-3em;
+    box-shadow:-.35em 0 0 0 var(--lime);}
+  .panel-inner{height:100%;transform:skewX(13deg);display:flex;align-items:center;
+    gap:1.5em;padding:0 3.4em 0 2.1em;min-width:0;}
+
+  .pl{display:flex;align-items:baseline;gap:.4em;min-width:0;white-space:nowrap;}
+  .pl .nm{font-size:.92em;font-weight:800;color:var(--ink);letter-spacing:.03em;
+    text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;}
+  .pl .r{font-size:1.28em;font-weight:900;color:var(--ink);line-height:1;
+    font-variant-numeric:tabular-nums;}
+  .pl .b{font-size:.74em;font-weight:800;color:var(--ink-soft);
+    font-variant-numeric:tabular-nums;}
+  /* The bat marks who is on strike. Drawn, not a glyph: OBS's embedded browser
+     does not reliably carry an emoji font, and a tofu box on air is forever. */
+  .pl .bat{width:1.02em;height:1.02em;flex:0 0 auto;fill:#2f7d1f;
+    align-self:center;}
+  .pl.bowl .nm{color:var(--ink-soft);}
+
+  /* Over tracker — this over's deliveries, empty slots for what's to come. */
+  .tracker{display:flex;gap:.3em;align-items:center;margin-left:auto;flex:0 0 auto;}
+  .t{width:1.3em;height:1.3em;border-radius:50%;display:grid;place-items:center;
+    font-size:.68em;font-weight:900;border:.12em solid #d3d6de;color:var(--ink-soft);
+    background:#fff;}
+  .t.on{border-color:transparent;background:#3a4050;color:#fff;}
+  .t.four{background:#2f6fed;border-color:transparent;color:#fff;}
+  .t.six{background:#7b3fe4;border-color:transparent;color:#fff;}
+  .t.w{background:var(--coral);border-color:transparent;color:#fff;}
+  .t.ex{background:#9aa0ae;border-color:transparent;color:#fff;}
+
+  /* ── Chase strip — its own line under the bug, like the reference ─────── */
+  .chase{display:none;background:linear-gradient(180deg,#1c2130,#12161f);
+    border-top:1px solid rgba(255,255,255,.10);
+    padding:.42em 1.4em;text-align:center;
+    font-size:.82em;font-weight:900;letter-spacing:.13em;color:#fff;
+    text-transform:uppercase;}
+  .chase.show{display:block;}
+  .chase b{color:var(--lime);}
 
   /* ── Event bursts: WICKET / FOUR / SIX (spec §11) ──────────────────── */
-  .burst{position:absolute;left:0;right:0;top:38%;display:grid;place-items:center;
+  .burst{position:absolute;left:0;right:0;top:36%;display:grid;place-items:center;
     pointer-events:none;opacity:0;}
   .burst.show{animation:burst 2.6s cubic-bezier(.16,1,.3,1);}
   .burst .word{font-size:7em;font-weight:900;letter-spacing:.06em;color:var(--lime);
     text-shadow:0 .1em .5em rgba(0,0,0,.85);-webkit-text-stroke:.04em rgba(0,0,0,.35);}
   .burst.wicket .word{color:var(--coral);}
 
-  /* ── Innings break / result banner ─────────────────────────────────── */
-  .banner{position:absolute;left:50%;bottom:5.6em;transform:translateX(-50%);
+  /* ── Brand watermark + status ─────────────────────────────────────────── */
+  .brand{position:absolute;top:2.6em;right:2.6em;font-size:1.05em;font-weight:900;
+    letter-spacing:.2em;color:#fff;opacity:.92;text-shadow:0 .12em .6em rgba(0,0,0,.7);}
+  .sponsor{position:absolute;top:2.4em;left:2.6em;display:none;align-items:center;gap:.5em;}
+  .sponsor img{max-height:3em;max-width:9em;object-fit:contain;
+    filter:drop-shadow(0 .2em .6em rgba(0,0,0,.6));}
+
+  .banner{position:absolute;left:50%;bottom:7.4em;transform:translateX(-50%);
     background:linear-gradient(180deg,rgba(23,27,40,.97),rgba(15,19,31,.97));
     border-radius:.4em;border-left:.2em solid var(--lime);padding:.7em 1.8em;
     text-align:center;box-shadow:0 1em 3em rgba(0,0,0,.6);display:none;}
@@ -202,7 +203,7 @@ export function overlayHtml(sessionId, token) {
   .banner .bk{font-size:.66em;letter-spacing:.28em;color:var(--lime);font-weight:800;}
   .banner .bv{font-size:1.25em;font-weight:900;color:var(--text);margin-top:.2em;}
 
-  .offline{position:absolute;right:1.4em;bottom:4.6em;font-size:.7em;font-weight:800;
+  .offline{position:absolute;right:1.6em;bottom:7.4em;font-size:.7em;font-weight:800;
     letter-spacing:.14em;color:var(--coral);background:rgba(15,19,31,.92);
     padding:.35em .8em;border-radius:.25em;display:none;}
   .offline.show{display:block;}
@@ -219,54 +220,39 @@ export function overlayHtml(sessionId, token) {
 </head>
 <body>
 <div class="stage">
+  <div class="brand">LOCAL LEGENDS</div>
+  <div class="sponsor" id="sponsor"><img id="sponsorImg" alt=""></div>
+
   <div class="burst" id="burst"><span class="word" id="burstWord"></span></div>
   <div class="banner" id="banner"><div class="bk" id="bannerK"></div><div class="bv" id="bannerV"></div></div>
   <div class="offline" id="offline">NO SIGNAL</div>
 
-  <div class="bar" id="bar">
-    <div class="seg brand">LOCAL LEGENDS</div>
+  <div class="dock" id="dock">
+    <div class="bar">
+      <div class="livebadge"><span class="dot"></span></div>
 
-    <div class="seg">
-      <img class="crest" id="crest" alt="">
-      <span class="tname" id="batTeam">—</span>
+      <div class="teamblock">
+        <div class="cell">
+          <div class="big" id="batTeam">—</div>
+          <div class="sub" id="vsTeam">—</div>
+        </div>
+        <div class="cell num">
+          <div class="big score" id="runs">0-0</div>
+          <div class="sub"><span class="k">OVR</span> <span id="overs">0.0</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-inner">
+          <span class="pl" id="p1"><svg class="bat" viewBox="0 0 24 24"><path d="M16.1 2.4a2.6 2.6 0 0 1 3.7 3.7l-1.6 1.6-3.7-3.7 1.6-1.6Z"/><path d="M13.2 5.3l3.7 3.7-8.1 8.1a3.4 3.4 0 0 1-1.6.9l-3.6.8.8-3.6a3.4 3.4 0 0 1 .9-1.6l7.9-8.3Z"/></svg><span class="nm">—</span><span class="r"></span><span class="b"></span></span>
+          <span class="pl" id="p2"><svg class="bat" viewBox="0 0 24 24"><path d="M16.1 2.4a2.6 2.6 0 0 1 3.7 3.7l-1.6 1.6-3.7-3.7 1.6-1.6Z"/><path d="M13.2 5.3l3.7 3.7-8.1 8.1a3.4 3.4 0 0 1-1.6.9l-3.6.8.8-3.6a3.4 3.4 0 0 1 .9-1.6l7.9-8.3Z"/></svg><span class="nm">—</span><span class="r"></span><span class="b"></span></span>
+          <span class="pl bowl" id="p3"><span class="nm">—</span><span class="r"></span><span class="b"></span></span>
+          <span class="tracker" id="tracker"></span>
+        </div>
+      </div>
     </div>
 
-    <div class="seg score">
-      <span class="runs" id="runs">0-0</span>
-      <span class="ov" id="overs">0.0</span>
-    </div>
-
-    <div class="seg prev" id="prevWrap" style="display:none">
-      <span id="prevTeam">—</span><b id="prevScore">—</b>
-    </div>
-
-    <div class="seg people">
-      <span class="p" id="p1"><span class="n">—</span><span class="f"></span></span>
-      <span class="p" id="p2"><span class="n">—</span><span class="f"></span></span>
-    </div>
-
-    <div class="seg people">
-      <span class="p bowl" id="p3"><span class="n">—</span><span class="f"></span></span>
-    </div>
-
-    <div class="spacer"></div>
-
-    <div class="seg" id="overWrap">
-      <span class="k">THIS OVER</span>
-      <span class="balls" id="balls"></span>
-    </div>
-
-    <div class="seg rates">
-      <span class="rate">CRR <b id="crr">0.00</b></span>
-      <span class="rate" id="rrrWrap" style="display:none">RRR <b id="rrr">0.00</b></span>
-      <span class="chase" id="chase"></span>
-    </div>
-
-    <div class="seg sponsor" id="sponsor" style="display:none">
-      <span class="k">POWERED BY</span><img id="sponsorImg" alt="">
-    </div>
-
-    <div class="seg live"><span class="dot"></span>LIVE</div>
+    <div class="chase" id="chaseRow"></div>
   </div>
 </div>
 
@@ -275,6 +261,7 @@ export function overlayHtml(sessionId, token) {
   var STATE_URL = ${JSON.stringify(stateUrl)};
   var $ = function(id){ return document.getElementById(id); };
   var lastSig = null, misses = 0;
+  var MAX_TRACKER = 9;              // 6 legal + a few extras before we trim
 
   // Sponsor/tournament art is passed on the URL so an operator can rebrand the
   // overlay per tournament without a redeploy: &sponsor=<url>
@@ -283,11 +270,11 @@ export function overlayHtml(sessionId, token) {
   if (sponsorUrl) { $('sponsorImg').src = sponsorUrl; $('sponsor').style.display = 'flex'; }
 
   function ballClass(b){
-    if (b.isWicket) return 'b w';
-    if (b.runs === 4) return 'b four';
-    if (b.runs === 6) return 'b six';
-    if (b.extraType) return 'b ex';
-    return 'b';
+    if (b.isWicket) return 't w';
+    if (b.runs === 4) return 't four';
+    if (b.runs === 6) return 't six';
+    if (b.extraType) return 't ex';
+    return 't on';
   }
   function ballText(b){
     if (b.isWicket) return 'W';
@@ -306,15 +293,23 @@ export function overlayHtml(sessionId, token) {
     el.className = 'burst show ' + (kind || '');
   }
 
-  function person(el, card, onStrike, isBowler){
+  function batter(el, card, onStrike){
     if (!card || !card.name) { el.style.display = 'none'; return; }
     el.style.display = 'flex';
-    el.className = 'p' + (isBowler ? ' bowl' : '') + (onStrike ? ' on' : '');
-    el.querySelector('.n').textContent = card.name;
-    // Bowling figures are written wickets-runs; batting is runs(balls).
-    el.querySelector('.f').textContent = isBowler
-      ? (card.wickets + '-' + card.runs + ' (' + card.overs + ')')
-      : (card.runs + '(' + card.balls + ')');
+    el.className = 'pl';
+    el.querySelector('.bat').style.display = onStrike ? 'inline' : 'none';
+    el.querySelector('.nm').textContent = card.name;
+    el.querySelector('.r').textContent = card.runs;
+    el.querySelector('.b').textContent = card.balls;
+  }
+
+  function bowler(el, card){
+    if (!card || !card.name) { el.style.display = 'none'; return; }
+    el.style.display = 'flex';
+    el.querySelector('.nm').textContent = card.name;
+    // Broadcast writes bowling figures wickets-runs, and the overs after.
+    el.querySelector('.r').textContent = card.wickets + '-' + card.runs;
+    el.querySelector('.b').textContent = card.overs;
   }
 
   function render(s){
@@ -322,46 +317,46 @@ export function overlayHtml(sessionId, token) {
     if (!L) return;
 
     $('batTeam').textContent = L.battingTeam.shortName || L.battingTeam.name;
-    if (L.battingTeam.logoUrl) { $('crest').src = L.battingTeam.logoUrl; }
-    else { $('crest').style.display = 'none'; }
-
+    $('vsTeam').textContent = 'V ' + (L.bowlingTeam.name || L.bowlingTeam.shortName || '');
     // Broadcast convention writes a cricket score with a hyphen, not a slash.
     $('runs').textContent = L.runs + '-' + L.wickets;
-    $('overs').textContent = L.overs + (L.maxOvers ? '/' + L.maxOvers : '') + ' OV';
-    $('crr').textContent = (L.runRate || 0).toFixed(2);
+    $('overs').textContent = L.overs + (L.maxOvers ? '/' + L.maxOvers : '');
 
-    if (L.inningNumber >= 2 && s.innings && s.innings[0]) {
-      var f = s.innings[0];
-      $('prevTeam').textContent = (f.battingTeam.shortName || f.battingTeam.name);
-      $('prevScore').textContent = f.runs + '-' + f.wickets;
-      $('prevWrap').style.display = 'flex';
-    } else {
-      $('prevWrap').style.display = 'none';
-    }
+    batter($('p1'), L.striker, true);
+    batter($('p2'), L.nonStriker, false);
+    bowler($('p3'), L.bowler);
 
-    person($('p1'), L.striker, true, false);
-    person($('p2'), L.nonStriker, false, false);
-    person($('p3'), L.bowler, false, true);
-
-    if (L.requiredRunRate != null) {
-      $('rrr').textContent = L.requiredRunRate.toFixed(2);
-      $('rrrWrap').style.display = 'flex';
-      $('chase').textContent = L.required > 0
-        ? ('NEED ' + L.required + ' OFF ' + L.ballsRemaining)
-        : '';
-    } else {
-      $('rrrWrap').style.display = 'none';
-      $('chase').textContent = '';
-    }
-
-    var wrap = $('balls');
-    wrap.innerHTML = '';
-    (L.recentBalls || []).forEach(function(b){
+    // Six legal slots, plus a circle for every extra delivery — an over with
+    // wides genuinely is longer than six balls, and the tracker should say so.
+    //
+    // Capped, though, and trimmed from the oldest: this is amateur cricket,
+    // where a nine-wide over is a real Sunday afternoon, and an uncapped
+    // tracker would push the batters off the panel.
+    var tr = $('tracker');
+    tr.innerHTML = '';
+    var over = (L.thisOver || []).slice(-MAX_TRACKER);
+    over.forEach(function(b){
       var d = document.createElement('span');
       d.className = ballClass(b); d.textContent = ballText(b);
-      wrap.appendChild(d);
+      tr.appendChild(d);
     });
-    $('overWrap').style.display = (L.recentBalls && L.recentBalls.length) ? 'flex' : 'none';
+    var legal = over.filter(function(b){
+      return ['wide','noBall','penalty','retired','deadBall'].indexOf(b.extraType) === -1;
+    }).length;
+    for (var i = legal; i < 6 && over.length + (i - legal) < MAX_TRACKER; i++) {
+      var e = document.createElement('span');
+      e.className = 't'; tr.appendChild(e);
+    }
+
+    // The chase equation gets its own line, and only exists in a chase.
+    var cr = $('chaseRow');
+    if (L.required != null && L.required > 0 && L.ballsRemaining) {
+      cr.innerHTML = 'NEED <b>' + L.required + '</b> RUNS IN <b>' + L.ballsRemaining +
+        '</b> BALLS AT <b>' + (L.requiredRunRate != null ? L.requiredRunRate.toFixed(2) : '—') + '</b> RPO';
+      cr.className = 'chase show';
+    } else {
+      cr.className = 'chase';
+    }
 
     // Fire a burst only on a genuinely new delivery — never on a refresh, a
     // reconnect, or a re-render of the same ball.
@@ -399,10 +394,10 @@ export function overlayHtml(sessionId, token) {
         render(s);
       })
       .catch(function(e){
-        // A revoked session blanks the strip rather than freezing on a stale
-        // score — a scorebug that keeps showing 153-4 after being pulled is
-        // worse than no scorebug.
-        if (String(e.message) === 'revoked') { $('bar').style.display = 'none'; return; }
+        // A revoked session blanks the bug rather than freezing on a stale
+        // score — a scorebug still showing 153-4 after being pulled is worse
+        // than no scorebug.
+        if (String(e.message) === 'revoked') { $('dock').style.display = 'none'; return; }
         // Two missed polls is a blip on a mobile signal; six is a real outage.
         if (++misses >= 6) $('offline').className = 'offline show';
       });

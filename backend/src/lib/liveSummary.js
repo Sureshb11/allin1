@@ -145,12 +145,23 @@ export async function liveSummary(matchId) {
     };
   };
 
-  const recent = balls.slice(-6).map((b) => ({
+  const shape = (b) => ({
     runs: b.runs,
     extras: b.extras,
     extraType: b.extraType,
     isWicket: b.isWicket,
-  }));
+  });
+
+  const recent = balls.slice(-6).map(shape);
+
+  // The over tracker renders *this over only*, so it has to be the current
+  // over's deliveries — not the last six of the innings, which straddle the
+  // over boundary and would show the previous bowler's work in this bowler's
+  // slot. A completed over reads as empty: the next one hasn't started.
+  const latestOver = inn.oversData[inn.oversData.length - 1];
+  const overBalls = latestOver ? latestOver.balls.map(shape) : [];
+  const legalThisOver = overBalls.filter(isLegalDelivery).length;
+  const thisOver = legalThisOver >= 6 ? [] : overBalls;
 
   return {
     ...base,
@@ -172,6 +183,7 @@ export async function liveSummary(matchId) {
       nonStriker: batterCard(inn.nonStrikerId),
       bowler: bowlerCard(inn.currentBowlerId),
       recentBalls: recent,
+      thisOver,
       lastBall: recent[recent.length - 1] || null,
     },
   };
