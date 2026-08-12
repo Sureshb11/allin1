@@ -1258,7 +1258,6 @@ const makeStyles = (DS) => StyleSheet.create({
   // 40x40: a 22px icon with 4px padding was a 30px target, well under the 44pt
   // minimum and the easiest thing on the screen to miss.
   backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
-  brandText: { flex: 1, fontSize: 13, fontWeight: '800', letterSpacing: 2.5, color: DS.lime },
   addBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
 
   /* Hero */
@@ -1269,9 +1268,7 @@ const makeStyles = (DS) => StyleSheet.create({
   /* Search — pill-shaped, prominent. */
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: DS.bg },
   searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, gap: 8, borderWidth: 0 },
-  createBtn: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   searchInput: { flex: 1, fontSize: 15, color: DS.textPrimary, padding: 0 },
-  searchPlaceholder: { fontSize: 15, color: DS.textMuted },
 
   /* Filter chips — labelled + counted; the row scrolls under a self-driven Pan. */
   tabs: { backgroundColor: DS.bg, flexGrow: 0, flexShrink: 0, borderBottomWidth: 1, borderBottomColor: DS.faint },
@@ -1428,10 +1425,6 @@ const makeStyles = (DS) => StyleSheet.create({
   emptyCtaText: { fontSize: 14, fontWeight: '800', color: DS.onLime },
 
   /* Modal */
-  modalOverlay: { flex: 1, backgroundColor: DS.overlay, justifyContent: 'flex-end' },
-  modalSheet: { backgroundColor: DS.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '92%' },
-  grabHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: DS.faint, marginTop: 10, marginBottom: 4 },
-  modalBody: { paddingHorizontal: 16, paddingTop: 8 },
   // DS.white on the accent green was ~2.2:1 — the selected format/age/day chips
   // were near-unreadable. DS.onLime is the dark ink the theme ships for exactly
   // this fill (~8.45:1), and it's what the filter and type chips already use.
