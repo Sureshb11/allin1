@@ -51,6 +51,31 @@ match id as evidence of anything.
 | Live state projection | `lib/liveSummary.js` | derived from Ball/Over/Inning, not stored |
 | Overlay engine | `routes/overlay.js` | self-contained page for a browser source |
 | Audit trail | `lib/broadcastAudit.js` | append-only, fire-and-forget |
+| **Spectator screen** | `screens/LiveMatchScreen.js` | in-app telecast + score + tabs (§12) |
+
+### Where the video actually plays
+
+Two different surfaces, and they are easy to confuse:
+
+- **`/overlay/:id` is not a viewing page.** Nobody watches it. The *encoder*
+  loads it as a browser source and composites it onto the camera, so the score
+  arrives inside the video. It is a production tool.
+- **`LiveMatchScreen` is what a spectator opens.** In-app: the YouTube live
+  player, the headline score under it, and Scorecard / Commentary / Players /
+  Info tabs. Reached by tapping a live match in the cricket feed.
+
+The score on that screen and the score burned into the video both come from
+`lib/liveSummary.js` — one function, so they cannot drift apart.
+
+`react-native-webview` was added for this and is pinned manually in
+`react-native.config.js` (RN 0.75's autolinker needs it). YouTube publishes no
+stream URL you may hand to a native player, so its iframe player is the only
+supported way to show a YouTube live broadcast in-app; `react-native-video`
+stays the right tool if the video ever moves to an HLS provider.
+
+**This needs a native rebuild** — new native module. Until then the screen
+detects the missing view manager and offers "Watch on YouTube" instead of
+crashing.
 
 ### Deliberate deviations from the spec
 
@@ -86,9 +111,9 @@ Be clear-eyed about this before planning around it.
   (see below) that hasn't been made.
 - **The compositing tier.** The overlay page exists and is the durable piece,
   but nothing yet drives an encoder. Phase 1 is OBS on a laptop; see below.
-- **React Native screens (spec §4, §5, §12).** No scorer QR screen, no
-  broadcaster pairing screen, no spectator live-match screen. The API they need
-  is complete and documented below.
+- **React Native screens for the operators (spec §4, §5).** No scorer QR
+  screen and no broadcaster pairing screen. The spectator screen (§12) is
+  built; these two are not. The API they need is complete and documented below.
 - **Rate limiting (spec §15).** The pairing attempt cap is DB-backed and works
   across instances; general per-IP rate limiting is not implemented and needs a
   shared store (Upstash/Redis), because in-memory counters are per-instance and
@@ -174,6 +199,17 @@ GET    /broadcast/me                     → { admin, capabilities, canBroadcast
 GET    /overlay/:sessionId               the page
 GET    /overlay/:sessionId/state         the score, edge-cached 2s
 ```
+
+### Spectator (public — a live telecast is public by definition)
+```
+GET    /matches/:id/live-summary         headline score, edge-cached 2s
+GET    /broadcast/matches/:matchId/public → { onAir, youtubeVideoId, verified }
+```
+
+`/live-summary` exists separately from `/scorecard` because the app polls it
+every 6s from a ground on mobile data: measured against a real completed match
+it is ~2.5KB, where `/scorecard` carries every delivery plus both full rosters.
+The screen fetches the big payload only when a tab needs it.
 
 ---
 

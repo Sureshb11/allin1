@@ -810,7 +810,10 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     }
 
     if (mt.status === 'live') {
-      navigation.navigate(mt.isScorer ? 'Scoring' : 'Scorecard', mt.isScorer ? { resume: true, matchId: mt.id } : { matchId: mt.id });
+      // A spectator tapping a live match lands on the watch screen: the telecast
+      // if someone is broadcasting, and the headline score with the scorecard a
+      // tab away if nobody is. The scorer still goes straight to scoring.
+      navigation.navigate(mt.isScorer ? 'Scoring' : 'LiveMatch', mt.isScorer ? { resume: true, matchId: mt.id } : { matchId: mt.id });
       return;
     }
     if (mt.status !== 'scheduled') { navigation.navigate('Scorecard', { matchId: mt.id }); return; }

@@ -35,6 +35,19 @@ module.exports = {
         },
       },
     },
+    // Carries the in-app YouTube player on the live match screen. YouTube has
+    // no public stream URL to hand react-native-video, so the only supported
+    // way to show a live broadcast inside the app is its iframe player in a
+    // WebView.
+    'react-native-webview': {
+      platforms: {
+        android: {
+          sourceDir: '../node_modules/react-native-webview/android',
+          packageImportPath: 'import com.reactnativecommunity.webview.RNCWebViewPackage;',
+          packageInstance: 'new RNCWebViewPackage()',
+        },
+      },
+    },
     // Firebase (push notifications). The app module keeps its ReactPackage in a
     // separate `reactnative` source set, but the import path is what matters here.
     '@react-native-firebase/app': {

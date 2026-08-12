@@ -162,6 +162,58 @@ router.post('/matches/:matchId/sessions', authMiddleware, requireBroadcastContro
   }
 });
 
+/**
+ * GET /broadcast/matches/:matchId/public
+ *
+ * What a spectator's Live Match screen needs, and nothing else (spec §12).
+ * Deliberately unauthenticated — the whole point of a public broadcast is that
+ * anyone can watch it — so this returns only what is already public the moment
+ * the stream goes out: whether it is on air, the YouTube video id, and the
+ * verification badges. No session id, no pairing state, no broadcaster
+ * identity beyond a display name, and never a token.
+ */
+router.get('/matches/:matchId/public', async (req, res, next) => {
+  try {
+    const match = await prisma.match.findUnique({
+      where: { id: req.params.matchId },
+      select: { id: true, status: true, scorerId: true, createdBy: true },
+    });
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+
+    const session = await prisma.broadcastSession.findFirst({
+      where: { matchId: match.id, status: { in: [BROADCAST_STATUS.LIVE, BROADCAST_STATUS.PAUSED] } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let broadcaster = null;
+    if (session?.broadcasterUserId) {
+      const u = await prisma.user.findUnique({
+        where: { id: session.broadcasterUserId },
+        select: { firstName: true, lastName: true },
+      });
+      if (u) broadcaster = `${u.firstName} ${u.lastName}`.trim();
+    }
+
+    res.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=15');
+    res.json({
+      onAir: session?.status === BROADCAST_STATUS.LIVE,
+      // The only id a viewer needs; it is public on YouTube anyway.
+      youtubeVideoId: session?.youtubeVideoId || null,
+      startedAt: session?.startedAt || null,
+      verified: {
+        // "Official" means the match has a real organiser and an assigned
+        // scorer behind it — not merely that someone pointed a camera at a park.
+        match: Boolean(match.createdBy && match.scorerId),
+        scorer: Boolean(match.scorerId),
+        broadcaster: Boolean(session?.broadcasterUserId),
+      },
+      broadcaster,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 /** GET /broadcast/matches/:matchId/session — current session, for the scorer's screen. */
 router.get('/matches/:matchId/session', authMiddleware, requireBroadcastControl, async (req, res, next) => {
   try {

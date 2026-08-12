@@ -41,6 +41,7 @@ import MatchSetupScreen from '../screens/MatchSetupScreen';
 import SportScoringScreen from '../screens/SportScoringScreen';
 import MyMatchesScreen from '../screens/MyMatchesScreen';
 import ScorecardScreen from '../screens/ScorecardScreen';
+import LiveMatchScreen from '../screens/LiveMatchScreen';
 import BallLabScreen from '../screens/BallLabScreen';
 import ClubProfileScreen from '../screens/ClubProfileScreen';
 import EditPlayerProfileScreen from '../screens/EditPlayerProfileScreen';
@@ -315,6 +316,17 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
         title: 'Notifications',
         headerStyle: {backgroundColor: DS.surfaceLow},
         headerTitleStyle: {color: DS.textPrimary},
+      }}
+    />
+    {/* Live Telecast — the spectator's watch screen (video + live score). */}
+    <Stack.Screen
+      name="LiveMatch"
+      component={LiveMatchScreen}
+      options={{
+        title: 'Live',
+        headerStyle: {backgroundColor: DS.surfaceLow},
+        headerTitleStyle: {color: DS.textPrimary},
+        headerTintColor: DS.textPrimary,
       }}
     />
     <Stack.Screen

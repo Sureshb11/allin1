@@ -631,6 +631,29 @@ class LegendsApi {
     }
   }
 
+  // Headline live score — small, cacheable, and computed by the same server
+  // function that feeds the broadcast overlay, so the two can never disagree.
+  // Poll this; fetch the full scorecard only when a tab needs it.
+  async getLiveSummary(matchId) {
+    try {
+      const json = await this.request(`/matches/${matchId}/live-summary`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Is this match being telecast right now, and is it a verified broadcast?
+  // Public — a live telecast is public by definition, so this needs no token.
+  async getMatchBroadcast(matchId) {
+    try {
+      const json = await this.request(`/broadcast/matches/${matchId}/public`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Tournament Management
   async createTournament(tournamentData) {
     try {

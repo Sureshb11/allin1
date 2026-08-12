@@ -10,6 +10,7 @@ import { reportMatchToTournament } from '../lib/tournamentResult.js';
 import { computeAwards } from '../lib/mvp.js';
 import { persistMatchAwards, hasMatchAwards } from '../lib/awards.js';
 import { safeNotify, notifyUsers, notifyMatchLive, notifyMatchResult, pingMatchWatchers } from '../lib/notify.js';
+import { liveSummary } from '../lib/liveSummary.js';
 
 const router = Router();
 
@@ -868,6 +869,32 @@ router.get('/:id/live-state', async (req, res) => {
       dismissedBatters: [...dismissedBatters],
       lastBall: lastBall ? { runs: lastBall.runs, extras: lastBall.extras, extraType: lastBall.extraType, isWicket: lastBall.isWicket } : null,
     });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * GET /:id/live-summary — the headline score, small and cacheable.
+ *
+ * The same `liveSummary` the broadcast overlay renders, so the score a
+ * spectator reads in the app and the score burned into the video are produced
+ * by one function and cannot drift apart. Public: a live score is public.
+ *
+ * Exists separately from /scorecard because the app polls this every few
+ * seconds from a cricket ground on mobile data, and /scorecard carries every
+ * delivery of the match plus both full rosters. Fetch that when someone opens
+ * a tab that needs it, not on a timer.
+ */
+router.get('/:id/live-summary', async (req, res) => {
+  try {
+    const summary = await liveSummary(req.params.id);
+    if (!summary) return res.status(404).json({ error: 'Match not found' });
+    const live = summary.status === 'live' || summary.status === 'break';
+    res.set('Cache-Control', live
+      ? 'public, s-maxage=2, stale-while-revalidate=8'
+      : 'public, s-maxage=30');
+    res.json(summary);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
