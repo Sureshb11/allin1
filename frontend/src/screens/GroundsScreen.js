@@ -386,7 +386,7 @@ const GroundsMap = ({ grounds, onAddRequest, onGroundPress, DS, P }) => {
   );
 };
 
-const AdminRequestCard = ({ ground, submitter, onApprove, onReject, styles, DS }) => (
+const AdminRequestCard = ({ ground, submitter, onApprove, onReject, onToggleBooking, styles, DS }) => (
   <View style={styles.adminCard}>
     <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
       <View style={{flex: 1}}>
@@ -396,11 +396,16 @@ const AdminRequestCard = ({ ground, submitter, onApprove, onReject, styles, DS }
           <Text style={styles.adminText}>{ground.location}</Text>
         </View>
       </View>
+      {/* It said PENDING on every card, which is no longer what any of them
+          are: a submitted ground is already on the map. The badge says what is
+          actually missing — nobody has vouched for it yet. */}
       <View style={{backgroundColor: DS.amber + '20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: DS.amber + '50'}}>
-        <Text style={{color: DS.amber, fontSize: 11, fontWeight: '800'}}>PENDING</Text>
+        <Text style={{color: DS.amber, fontSize: 11, fontWeight: '800'}}>
+          {ground.status === 'pending' ? 'PENDING' : 'UNVERIFIED'}
+        </Text>
       </View>
     </View>
-    
+
     {submitter && (
       <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 12, backgroundColor: DS.bg, padding: 10, borderRadius: 10}}>
         <Icon name="account-circle" size={18} color={DS.textVariant} />
@@ -408,12 +413,38 @@ const AdminRequestCard = ({ ground, submitter, onApprove, onReject, styles, DS }
       </View>
     )}
     
+    {/* Bookings are the separate, riskier decision: verifying says the ground
+        is real, this says whoever listed it may take money for it. Kept apart
+        from Approve so it is never granted by reflex, and reversible — turning
+        it off leaves the listing up. */}
+    <TouchableOpacity
+      style={[styles.bookingToggle, ground.bookingEnabled && styles.bookingToggleOn]}
+      onPress={() => onToggleBooking(ground.id, !ground.bookingEnabled)}
+      activeOpacity={0.8}
+    >
+      <Icon
+        name={ground.bookingEnabled ? 'calendar-check' : 'calendar-remove-outline'}
+        size={16}
+        color={ground.bookingEnabled ? DS.lime : DS.textMuted}
+      />
+      <View style={{ flex: 1, marginLeft: 8 }}>
+        <Text style={[styles.bookingToggleLabel, ground.bookingEnabled && { color: DS.lime }]}>
+          {ground.bookingEnabled ? 'Bookings on' : 'Listing only'}
+        </Text>
+        <Text style={styles.bookingToggleHint} numberOfLines={2}>
+          {ground.bookingEnabled
+            ? 'Players can request slots. Tap to stop bookings.'
+            : 'Tap to allow bookings — check the ground is real and the lister may let it out.'}
+        </Text>
+      </View>
+    </TouchableOpacity>
+
     <View style={styles.adminActions}>
       <TouchableOpacity style={[styles.adminBtn, styles.adminBtnReject]} onPress={() => onReject(ground.id)}>
         <Text style={styles.adminBtnTextReject}>Reject</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.adminBtn, styles.adminBtnApprove]} onPress={() => onApprove(ground.id)}>
-        <Text style={styles.adminBtnTextApprove}>Approve</Text>
+        <Text style={styles.adminBtnTextApprove}>{ground.verified ? 'Verified' : 'Verify'}</Text>
       </TouchableOpacity>
     </View>
   </View>
@@ -807,7 +838,22 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
     if (res.success) {
       setAdminRequests(prev => prev.filter(g => g.id !== id));
       setPendingRequests(prev => prev - 1);
-      Alert.alert('Success', 'Ground approved and published.');
+      // It said "approved and published" — but it was already published when
+      // the player added it. Verifying is a badge, not a door.
+      Alert.alert('Verified', 'Ground badged as verified. It now sorts above unverified grounds.');
+    }
+  };
+
+  // Kept off the approve path deliberately: this is the decision that lets
+  // someone take money, so it stays its own deliberate tap. The card stays in
+  // the queue afterwards — turning bookings on is not the same as vouching for
+  // the ground, and the admin may well want to do both.
+  const handleToggleBooking = async (id, enabled) => {
+    const res = await LegendsApi.setGroundBooking(id, enabled);
+    if (res.success) {
+      setAdminRequests(prev => prev.map(g => (g.id === id ? { ...g, bookingEnabled: enabled } : g)));
+    } else {
+      Alert.alert('Could not change bookings', res.error || 'Please try again.');
     }
   };
 
@@ -874,6 +920,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
               submitter={submitters[item.submittedById]}
               onApprove={handleApprove}
               onReject={handleReject}
+              onToggleBooking={handleToggleBooking}
               styles={styles}
               DS={DS}
             />
@@ -1110,6 +1157,14 @@ const makeStyles = (DS, P) => StyleSheet.create({
   adminActions: { flexDirection: 'row', marginTop: 20, gap: 12 },
   adminBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   adminBtnApprove: { backgroundColor: DS.lime },
+  bookingToggle: {
+    flexDirection: 'row', alignItems: 'center', marginTop: 12,
+    padding: 10, borderRadius: 10, backgroundColor: DS.bg,
+    borderWidth: 1, borderColor: DS.faint,
+  },
+  bookingToggleOn: { borderColor: DS.lime + '80', backgroundColor: DS.lime + '10' },
+  bookingToggleLabel: { color: DS.textPrimary, fontSize: 13, fontWeight: '800' },
+  bookingToggleHint: { color: DS.textMuted, fontSize: 11, fontWeight: '600', marginTop: 2 },
   adminBtnTextApprove: { color: DS.bg, fontWeight: '800', fontSize: 15 },
   adminBtnReject: { backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint },
   adminBtnTextReject: { color: DS.coral, fontWeight: '800', fontSize: 15 },

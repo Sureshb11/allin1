@@ -105,10 +105,19 @@ router.get('/', optionalAuth, async (req, res) => {
       _count: { _all: true },
     });
 
-    // Admin: pending count
+    // Admin: how many grounds still want a look.
+    //
+    // Must match the /admin/requests query exactly — this number is what shows
+    // the banner that opens that screen, so counting 'pending' while the queue
+    // lists unverified ones would hide the door to a queue that has items in it.
     let pendingCount = 0;
     if (req.user?.sub && isAdmin(req.user.sub)) {
-      pendingCount = await prisma.ground.count({ where: { status: 'pending' } });
+      pendingCount = await prisma.ground.count({
+        where: {
+          permanentlyClosed: false,
+          OR: [{ status: 'pending' }, { status: 'published', verified: false }],
+        },
+      });
     }
 
     // User's favourites for this page
@@ -413,8 +422,21 @@ router.get('/:id/reviews', async (req, res) => {
 // ── ADMIN: LIST PENDING REQUESTS ───────────────────────────────────────────
 router.get('/admin/requests', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    // The queue used to be status:'pending'. Nothing is pending any more —
+    // grounds publish on submission — so that query would return an empty list
+    // for ever and the review screen could never be opened.
+    //
+    // What needs a human now is a ground nobody has vouched for yet: published
+    // and unverified. 'pending' stays in the OR so any row written before this
+    // change is not stranded in a state nothing queries.
     const grounds = await prisma.ground.findMany({
-      where: { status: 'pending' },
+      where: {
+        permanentlyClosed: false,
+        OR: [
+          { status: 'pending' },
+          { status: 'published', verified: false },
+        ],
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         images: { where: { imageType: 'cover' }, take: 1 },
