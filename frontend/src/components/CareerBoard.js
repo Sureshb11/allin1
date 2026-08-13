@@ -377,8 +377,15 @@ export default function CareerBoard({ stats, sportId, ballType, navigation, capt
   // Trend: cricket has real per-match series; other sports don't yet, so the
   // chart is omitted rather than showing invented numbers. Two points is the
   // minimum that makes a trend.
+  // Named per panel rather than falling through to catches: the chain used to
+  // end in an `else`, so any panel that wasn't batting or bowling drew the
+  // fielding chart — which "How You Get Out" would have inherited, captioned
+  // "Catches & run outs".
   const chartSeries = sportId === 'cricket'
-    ? (tab === 'batting' ? stats?.recentScores : tab === 'bowling' ? stats?.recentWickets : stats?.recentCatches)
+    ? (tab === 'batting' ? stats?.recentScores
+      : tab === 'bowling' ? stats?.recentWickets
+      : tab === 'fielding' ? stats?.recentCatches
+      : null)
     : null;
   const chartData = chartSeries && chartSeries.length >= 2 ? chartSeries : [];
   // One accent, plus the app's wicket red where wickets are the subject.

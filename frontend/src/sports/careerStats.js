@@ -33,6 +33,12 @@ const CRICKET = [
     { label: 'Not Outs',     key: 'notOuts' },
     { label: 'Dot Balls',    key: 'battingDotBalls' },
     { label: 'Ducks',        key: 'ducks' },
+    // Average and strike rate say how much and how fast; these say how. Two
+    // batters on the same average are opposite players if one scores 80% of
+    // their runs in boundaries and the other 30%.
+    { label: 'Boundary %',   key: 'boundaryPercent', suffix: '%' },
+    { label: 'Dot Ball %',   key: 'dotBallPercent',  suffix: '%' },
+    { label: 'Balls/Bndry',  key: 'ballsPerBoundary' },
   ]},
   { id: 'bowling', label: 'Bowling', rows: [
     { label: 'Wickets',      key: 'wickets' },
@@ -55,10 +61,32 @@ const CRICKET = [
   // Cricket lost its fielding panel when these tables replaced the screen's
   // hardcoded tabs, and the payload had nothing to fill one with — even though
   // the scorer has recorded every catch and run-out since day one.
+  // The panel had three rows because the payload carried three numbers. The
+  // scorer has been recording the drops and the direct hits all along — the
+  // schema calls the drops "half the story" in amateur cricket — and none of it
+  // reached the player. A catch rate needs both halves to mean anything.
   { id: 'fielding', label: 'Fielding', rows: [
-    { label: 'Catches',    key: 'catches' },
-    { label: 'Run Outs',   key: 'runOuts' },
-    { label: 'Dismissals', key: 'dismissalsTaken' },
+    { label: 'Catches',     key: 'catches' },
+    { label: 'Run Outs',    key: 'runOuts' },
+    { label: 'Direct Hits', key: 'directHits' },
+    { label: 'Dismissals',  key: 'dismissalsTaken' },
+    { label: 'Drops',       key: 'drops' },
+    { label: 'Easy Drops',  key: 'dropsEasy' },
+    { label: 'Hard Drops',  key: 'dropsDifficult' },
+    { label: 'Catch %',     key: 'catchRate', suffix: '%' },
+  ]},
+  // The scorer has recorded the mode of every dismissal since day one and the
+  // career screen only ever counted them. "Out 12 times" and "lbw in a third of
+  // them" are different pieces of information, and only one is coachable.
+  // Every mode here is one the scorer can actually write.
+  { id: 'dismissals', label: 'How You Get Out', rows: [
+    { label: 'Bowled',     out: 'bowled' },
+    { label: 'Caught',     out: 'caught' },
+    { label: 'LBW',        out: 'lbw' },
+    { label: 'Run Out',    out: 'runout' },
+    { label: 'Stumped',    out: 'stumped' },
+    { label: 'Hit Wicket', out: 'hitwicket' },
+    { label: 'Retired',    out: 'retiredout' },
   ]},
 ];
 
@@ -132,8 +160,18 @@ export const getCareerPanels = (sportId) => PANELS[sportId] || GENERIC;
 /** Resolve one row against the stats payload; '—' when there's nothing to show. */
 export const readStat = (row, stats = {}) => {
   if (row.event) return stats.eventTotals?.[row.event] ?? 0;
+  // A dismissal mode is only worth listing once the player has been out at all;
+  // otherwise every mode reads 0 and the panel drops out entirely, which is the
+  // honest answer for someone who has never lost their wicket.
+  if (row.out) {
+    const d = stats.dismissalTypes;
+    if (!d || !Object.keys(d).length) return '—';
+    return d[row.out] ?? 0;
+  }
   const v = stats[row.key] ?? (row.alt ? stats[row.alt] : undefined);
-  return v ?? '—';
+  if (v == null) return '—';
+  // Percentages read as numbers otherwise: "82" is not "82%".
+  return row.suffix ? `${v}${row.suffix}` : v;
 };
 
 export default { getCareerPanels, readStat };

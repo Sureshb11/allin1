@@ -63,15 +63,28 @@ export async function playerCareer(player, alsoIds = []) {
   // matched back by name. wicketType separates the two: run-outs write to the
   // same column, and counting them as catches would make every fielder a slip.
   const fieldName = (player.name || '').trim();
-  const [batBalls, dismissals, bowlBalls, xiMatches, awards, catches, runOuts, fieldBalls] = await Promise.all([
+  const [batBalls, outsByType, bowlBalls, xiMatches, awards, catches, runOuts, fieldBalls,
+         dropRows, directHits] = await Promise.all([
     prisma.ball.findMany({
       where: { batterId: { in: ids } },
       select: { runs: true, extraType: true, over: { select: { inningId: true } } },
     }),
-    prisma.ball.count({ where: { dismissedPlayerId: { in: ids } } }),
+    // How the player got out, not just how often. Same rows the plain count
+    // read before — the total is the sum — but it can now answer "you are lbw
+    // a third of the time", which a number on its own never could.
+    prisma.ball.groupBy({
+      by: ['wicketType'],
+      where: { dismissedPlayerId: { in: ids } },
+      _count: { _all: true },
+    }),
     prisma.ball.findMany({
       where: { over: { bowlerId: { in: ids } } },
-      select: { runs: true, extras: true, extraType: true, isWicket: true, wicketType: true, over: { select: { inningId: true } } },
+      // over.id and the two bowlerIds are for maidens: an over is only a maiden
+      // if ONE bowler sent down all of it, so the balls have to be grouped by
+      // over and checked for a shared spell.
+      select: { runs: true, extras: true, extraType: true, isWicket: true, wicketType: true,
+                bowlerId: true,
+                over: { select: { id: true, inningId: true, bowlerId: true } } },
     }),
     prisma.matchPlayer.count({ where: { playerId: { in: ids } } }),
     // The honours cabinet: Man of the Match, Fighter, Best Batter / Bowler /
@@ -84,7 +97,19 @@ export async function playerCareer(player, alsoIds = []) {
       where: { isWicket: true, wicketAssists: fieldName, wicketType: { in: ['caught', 'runout'] } },
       select: { over: { select: { inningId: true } } },
     }),
+    // Drops and direct hits: recorded on every ball since the columns were
+    // added, aggregated nowhere. Both are matched by NAME, like wicketAssists
+    // above and for the same reason.
+    prisma.ball.groupBy({
+      by: ['dropDifficulty'],
+      where: { droppedBy: fieldName },
+      _count: { _all: true },
+    }),
+    prisma.ball.count({ where: { directHit: true, wicketAssists: fieldName } }),
   ]);
+
+  // The plain dismissal count the batting maths below still needs.
+  const dismissals = outsByType.reduce((t, r) => t + r._count._all, 0);
 
   const computed = {};
   
@@ -208,10 +233,63 @@ export async function playerCareer(player, alsoIds = []) {
   computed.noBalls = (s.noBalls || 0) + appNoBalls;
   computed.foursConceded = (s.foursConceded || 0) + appFoursConceded;
   computed.sixesConceded = (s.sixesConceded || 0) + appSixesConceded;
-  computed.maidens = s.maidens || 0;
+
+  // Maidens: an over with six legal balls and nothing charged to the bowler.
+  //
+  // This read `s.maidens || 0` — the imported historical figure and nothing
+  // else — so every maiden bowled in the app went uncounted, while the team
+  // page (teamStats.js) had been deriving them from the same balls all along.
+  // A shared over belongs to neither bowler, which is why the spell has to be
+  // checked rather than just the runs.
+  const byOver = {};
+  for (const b of bowlBalls) (byOver[b.over.id] ||= []).push(b);
+  const appMaidens = Object.values(byOver).filter((balls) => {
+    const spell = new Set(balls.map((b) => b.bowlerId || b.over.bowlerId));
+    if (spell.size !== 1) return false;                       // shared over
+    if (balls.filter(isLegal).length < 6) return false;       // unfinished
+    return balls.reduce((t, b) => t + chargedRuns(b), 0) === 0;
+  }).length;
+  computed.maidens = (s.maidens || 0) + appMaidens;
   computed.bowlingStrikeRate = totalWickets ? +(totalBallsBowled / totalWickets).toFixed(1) : (s.bowlingStrikeRate || 0);
 
   computed.matches = (s.matches || 0) + xiMatches;
+
+  // ── Fielding, past the two numbers it had ────────────────────────────────
+  // Catches and run-outs were the whole panel. The scorer has also been
+  // recording who shelled a chance and whether a run-out was a direct hit —
+  // the schema calls drops "half the story" in amateur cricket — and none of
+  // it reached the player. Catch rate needs both halves to mean anything.
+  const dropsEasy = dropRows.find((r) => r.dropDifficulty === 'easy')?._count._all || 0;
+  const dropsHard = dropRows.find((r) => r.dropDifficulty === 'difficult')?._count._all || 0;
+  const drops = dropRows.reduce((t, r) => t + r._count._all, 0);
+  computed.drops = drops;
+  // The easy/hard split of nothing is nothing: null so the panel drops those
+  // two rows rather than printing a breakdown of zero, the same way catchRate
+  // stays null until there has been a chance to take.
+  computed.dropsEasy = drops ? dropsEasy : null;
+  computed.dropsDifficult = drops ? dropsHard : null;
+  computed.directHits = directHits;
+  const chances = catches + drops;
+  computed.catchRate = chances ? +((catches / chances) * 100).toFixed(1) : null;
+
+  // ── How the player gets out ──────────────────────────────────────────────
+  // Keyed by the stored spelling, lowercased so the panel can read it without
+  // repeating the casing trap that credited run-outs to bowlers.
+  computed.dismissalTypes = Object.fromEntries(
+    outsByType
+      .filter((r) => r.wicketType)
+      .map((r) => [String(r.wicketType).toLowerCase().replace(/\s/g, ''), r._count._all]),
+  );
+  computed.dismissals = dismissals;
+
+  // ── Batting shape ────────────────────────────────────────────────────────
+  // Two batters averaging 30 can be opposite players; these say which is which.
+  const boundaryRuns = computed.fours * 4 + computed.sixes * 6;
+  computed.boundaryPercent = runs ? +((boundaryRuns / runs) * 100).toFixed(1) : null;
+  computed.dotBallPercent = totalFaced
+    ? +((computed.battingDotBalls / totalFaced) * 100).toFixed(1) : null;
+  const boundaries = computed.fours + computed.sixes;
+  computed.ballsPerBoundary = boundaries ? +(totalFaced / boundaries).toFixed(1) : null;
 
   // ── Recent form: the player's last 5 completed matches ────────────────────
   // Win/loss comes from Match.result, which is free text ("<Team> won by 42
