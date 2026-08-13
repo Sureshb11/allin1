@@ -57,6 +57,24 @@ export const BOWLER_WICKET_WHERE = {
   ],
 };
 
+/**
+ * Which phase of the innings an over belongs to: 'powerplay' | 'middle' | 'death'.
+ *
+ * Proportional to the match length rather than hardcoded, because this app
+ * scores T8 through 25-over cricket, not just T20. The proportions are the T20
+ * ones — first 30%, last 25% — so a 20-over match splits 1-6 / 7-15 / 16-20,
+ * exactly the convention a player already has in their head.
+ *
+ * `limit` is the match's over allowance; callers that don't know it can pass
+ * the innings' highest over number, which is the same thing once it's bowled.
+ */
+export const inningsPhase = (overNumber, limit) => {
+  if (!overNumber || !limit || limit < 3) return null;   // too short to have phases
+  if (overNumber <= Math.ceil(limit * 0.30)) return 'powerplay';
+  if (overNumber > limit - Math.ceil(limit * 0.25)) return 'death';
+  return 'middle';
+};
+
 /** Legal deliveries → cricket's own notation, 51 → "8.3". For display. */
 export const oversNotation = (balls) => `${Math.floor(balls / 6)}.${balls % 6}`;
 

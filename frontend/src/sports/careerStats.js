@@ -39,6 +39,10 @@ const CRICKET = [
     { label: 'Boundary %',   key: 'boundaryPercent', suffix: '%' },
     { label: 'Dot Ball %',   key: 'dotBallPercent',  suffix: '%' },
     { label: 'Balls/Bndry',  key: 'ballsPerBoundary' },
+    // When the runs came, not just how fast overall.
+    { label: 'Powerplay SR', phase: 'batting.powerplay.strikeRate' },
+    { label: 'Middle SR',    phase: 'batting.middle.strikeRate' },
+    { label: 'Death SR',     phase: 'batting.death.strikeRate' },
   ]},
   { id: 'bowling', label: 'Bowling', rows: [
     { label: 'Wickets',      key: 'wickets' },
@@ -57,6 +61,11 @@ const CRICKET = [
     { label: 'No Balls',     key: 'noBalls' },
     { label: 'Fours Given',  key: 'foursConceded' },
     { label: 'Sixes Given',  key: 'sixesConceded' },
+    // A career economy of 8 is one bowler at the death and another in the
+    // middle. These separate them.
+    { label: 'Powerplay Econ', phase: 'bowling.powerplay.economy' },
+    { label: 'Middle Econ',    phase: 'bowling.middle.economy' },
+    { label: 'Death Econ',     phase: 'bowling.death.economy' },
   ]},
   // Cricket lost its fielding panel when these tables replaced the screen's
   // hardcoded tabs, and the payload had nothing to fill one with — even though
@@ -167,6 +176,12 @@ export const readStat = (row, stats = {}) => {
     const d = stats.dismissalTypes;
     if (!d || !Object.keys(d).length) return '—';
     return d[row.out] ?? 0;
+  }
+  // 'bowling.death.economy' — null when the player hasn't bowled enough in that
+  // phase for a rate to mean anything, which drops the row.
+  if (row.phase) {
+    const v = row.phase.split('.').reduce((o, k) => o?.[k], stats.phases);
+    return v == null ? '—' : v;
   }
   const v = stats[row.key] ?? (row.alt ? stats[row.alt] : undefined);
   if (v == null) return '—';

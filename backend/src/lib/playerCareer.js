@@ -19,7 +19,7 @@
 
 import { prisma } from './prisma.js';
 import { careerAwards } from './awards.js';
-import { isBowlerWicket } from './deliveries.js';
+import { isBowlerWicket, inningsPhase } from './deliveries.js';
 
 const BASE = { matches: 0, runs: 0, wickets: 0, average: 0, strikeRate: 0, centuries: 0, halfCenturies: 0 };
 
@@ -67,7 +67,11 @@ export async function playerCareer(player, alsoIds = []) {
          dropRows, directHits] = await Promise.all([
     prisma.ball.findMany({
       where: { batterId: { in: ids } },
-      select: { runs: true, extraType: true, over: { select: { inningId: true } } },
+      // overNumber + the match's allowance are for the phase split: whether a
+      // ball was faced in the powerplay depends on how long the match was.
+      select: { runs: true, extraType: true,
+                over: { select: { inningId: true, overNumber: true,
+                                  inning: { select: { match: { select: { overs: true } } } } } } },
     }),
     // How the player got out, not just how often. Same rows the plain count
     // read before — the total is the sum — but it can now answer "you are lbw
@@ -84,7 +88,8 @@ export async function playerCareer(player, alsoIds = []) {
       // over and checked for a shared spell.
       select: { runs: true, extras: true, extraType: true, isWicket: true, wicketType: true,
                 bowlerId: true,
-                over: { select: { id: true, inningId: true, bowlerId: true } } },
+                over: { select: { id: true, inningId: true, bowlerId: true, overNumber: true,
+                                  inning: { select: { match: { select: { overs: true } } } } } } },
     }),
     prisma.matchPlayer.count({ where: { playerId: { in: ids } } }),
     // The honours cabinet: Man of the Match, Fighter, Best Batter / Bowler /
@@ -290,6 +295,50 @@ export async function playerCareer(player, alsoIds = []) {
     ? +((computed.battingDotBalls / totalFaced) * 100).toFixed(1) : null;
   const boundaries = computed.fours + computed.sixes;
   computed.ballsPerBoundary = boundaries ? +(totalFaced / boundaries).toFixed(1) : null;
+
+  // ── Powerplay / middle / death ───────────────────────────────────────────
+  // A career economy of 8 is one bowler at the death and a different one in the
+  // middle. Every over already carried its number; nothing had ever asked when
+  // in the innings the runs happened.
+  //
+  // Below one full over in a phase the rate is noise — a single expensive over
+  // reads as an economy of 24 — so a phase with less than six legal balls
+  // reports null and the row drops out rather than libelling anyone.
+  const MIN_PHASE_BALLS = 6;
+  const phaseOf = (b) => {
+    const limit = b.over?.inning?.match?.overs;
+    return inningsPhase(b.over?.overNumber, limit);
+  };
+  const emptyPhases = () => ({
+    powerplay: { runs: 0, balls: 0, wickets: 0 },
+    middle:    { runs: 0, balls: 0, wickets: 0 },
+    death:     { runs: 0, balls: 0, wickets: 0 },
+  });
+
+  const bowlPhases = emptyPhases();
+  for (const b of bowled) {
+    const p = phaseOf(b);
+    if (!p) continue;
+    bowlPhases[p].runs += chargedRuns(b);
+    if (isLegal(b)) bowlPhases[p].balls += 1;
+    if (isBowlerWicket(b)) bowlPhases[p].wickets += 1;
+  }
+  const batPhases = emptyPhases();
+  for (const b of batBalls) {
+    const p = phaseOf(b);
+    if (!p) continue;
+    batPhases[p].runs += b.runs;
+    if (b.extraType !== 'wide') batPhases[p].balls += 1;
+  }
+
+  const rate = (o, per) => (o.balls >= MIN_PHASE_BALLS ? +(o.runs / (o.balls / per)).toFixed(2) : null);
+  computed.phases = {
+    // Economy is runs per over; strike rate is runs per 100 balls.
+    bowling: Object.fromEntries(Object.entries(bowlPhases).map(([k, o]) =>
+      [k, { ...o, economy: rate(o, 6) }])),
+    batting: Object.fromEntries(Object.entries(batPhases).map(([k, o]) =>
+      [k, { ...o, strikeRate: o.balls >= MIN_PHASE_BALLS ? +((o.runs / o.balls) * 100).toFixed(1) : null }])),
+  };
 
   // ── Recent form: the player's last 5 completed matches ────────────────────
   // Win/loss comes from Match.result, which is free text ("<Team> won by 42
