@@ -27,7 +27,7 @@ const CRICKET = [
     { label: 'Balls Faced',  key: 'ballsFaced' },
     { label: 'Average',      key: 'battingAverage', alt: 'average' },
     { label: 'Strike Rate',  key: 'battingStrikeRate', alt: 'strikeRate' },
-    { label: 'Highest',      key: 'highestScore' },
+    { label: 'Highest',      key: 'highestScore', starWhen: 'highestNotOut' },
     { label: 'Fifties',      key: 'halfCenturies' },
     { label: 'Hundreds',     key: 'centuries' },
     { label: 'Fours',        key: 'fours' },
@@ -41,6 +41,8 @@ const CRICKET = [
     { label: 'Boundary %',   key: 'boundaryPercent', suffix: '%' },
     { label: 'Dot Ball %',   key: 'dotBallPercent',  suffix: '%' },
     { label: 'Balls/Bndry',  key: 'ballsPerBoundary' },
+    // 30 in a total of 90 is not 30 in a total of 240.
+    { label: 'Team Runs %',  key: 'teamRunShare', suffix: '%' },
     // When the runs came, not just how fast overall.
     { label: 'Powerplay SR', phase: 'batting.powerplay.strikeRate' },
     { label: 'Middle SR',    phase: 'batting.middle.strikeRate' },
@@ -203,6 +205,9 @@ export const readStat = (row, stats = {}) => {
   }
   const v = stats[row.key] ?? (row.alt ? stats[row.alt] : undefined);
   if (v == null) return '—';
+  // An unbeaten best is written 83*, never 83 — the star is part of the score,
+  // not decoration.
+  if (row.starWhen && stats[row.starWhen]) return `${v}*`;
   // Percentages read as numbers otherwise: "82" is not "82%".
   return row.suffix ? `${v}${row.suffix}` : v;
 };

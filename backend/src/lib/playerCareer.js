@@ -115,7 +115,8 @@ export async function playerCareer(player, alsoIds = []) {
     // nothing had ever grouped them by one.
     prisma.ball.findMany({
       where: { isWicket: true, dismissedPlayerId: { in: ids } },
-      select: { wicketType: true, isWicket: true, bowlerId: true, over: { select: { bowlerId: true } } },
+      select: { wicketType: true, isWicket: true, bowlerId: true,
+                over: { select: { bowlerId: true, inningId: true } } },
     }),
     // Partnerships. Each ball names both ends, so a stand is every ball sharing
     // an innings and a pair — runs AND extras, which is what a partnership is.
@@ -168,6 +169,18 @@ export async function playerCareer(player, alsoIds = []) {
   computed.battingAverage = totalDismissals ? +(runs / totalDismissals).toFixed(1) : runs;
   computed.average = computed.battingAverage;
   computed.highestScore = Math.max(s.highestScore || 0, appHighestScore);
+  // 83* is not 83. Every international career page marks an unbeaten best, and
+  // this one printed a bare number for an innings the player never lost.
+  //
+  // Only claimed when the app's own innings IS the highest: an imported
+  // historical figure carries no record of how it ended, and inventing a star
+  // for it would be worse than omitting one.
+  const outInnings = new Set(dismissalBalls.map((b) => b.over?.inningId).filter(Boolean));
+  const bestInnings = Object.entries(perInning).filter(([, r]) => r === appHighestScore);
+  computed.highestNotOut = appHighestScore > 0
+    && appHighestScore >= (s.highestScore || 0)
+    // Tied bests: an unbeaten one wins, the way a not-out 50 outranks a 50.
+    && bestInnings.some(([inn]) => !outInnings.has(inn));
   computed.centuries = (s.centuries || 0) + appCenturies;
   computed.halfCenturies = (s.halfCenturies || 0) + appHalfCenturies;
   computed.fours = (s.fours || 0) + appFours;
@@ -563,12 +576,26 @@ export async function playerCareer(player, alsoIds = []) {
   if (seriesInningIds.length) {
     const innings = await prisma.inning.findMany({
       where: { id: { in: seriesInningIds } },
-      select: { id: true, match: { select: { createdAt: true } } },
+      // totalRuns rides along for the contribution share below — the innings
+      // are already being fetched, so it costs nothing extra.
+      select: { id: true, totalRuns: true, match: { select: { createdAt: true } } },
     });
     orderedInnings = innings
       .sort((a, b) => new Date(a.match?.createdAt || 0) - new Date(b.match?.createdAt || 0))
       .slice(-10)                       // last ten appearances is what the chart plots
       .map((i) => i.id);
+
+    // What share of the runs were yours, across the innings you batted in.
+    // Not on any leaderboard, and it separates a 30 in a total of 90 from a 30
+    // in a total of 240 — the same score doing completely different work.
+    let mineRuns = 0, teamRuns = 0;
+    for (const inn of innings) {
+      const mine = perInning[inn.id];
+      if (mine === undefined) continue;         // an innings bowled in, not batted
+      mineRuns += mine;
+      teamRuns += inn.totalRuns || 0;
+    }
+    computed.teamRunShare = teamRuns > 0 ? +((mineRuns / teamRuns) * 100).toFixed(1) : null;
   }
   const seriesFor = (map) => orderedInnings.map((id) => map[id] || 0);
 

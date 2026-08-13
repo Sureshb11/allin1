@@ -8,11 +8,13 @@
 //   • Balls faced = every delivery except wides/penalty.
 //   • Runs charged to the bowler = bat runs + wides + no-ball extras (byes/leg-
 //     byes/penalty are not charged).
-//   • A wicket credits the bowler unless it's a run-out (or retired).
+//   • A wicket credits the bowler unless it's a run-out or a retirement —
+//     via isBowlerWicket() in deliveries.js, which is the one place that rule
+//     is written.
 
 import { prisma } from './prisma.js';
+import { isBowlerWicket } from './deliveries.js';
 
-const norm = (s) => String(s || '').toLowerCase().replace(/\s/g, '');
 const oversStr = (balls) => `${Math.floor(balls / 6)}.${balls % 6}`;
 
 export async function tournamentLeaderboard(tournamentId) {
@@ -58,10 +60,11 @@ export async function tournamentLeaderboard(tournamentId) {
         if (bId) {
           bowl[bId].runs += charged;
           if (legal) bowl[bId].balls += 1;
-          if (b.isWicket) {
-            const wt = norm(b.wicketType);
-            if (wt !== 'runout' && wt !== 'retired') bowl[bId].wickets += 1;
-          }
+          // Was its own spelling of the rule — case-safe, but it excluded
+          // 'retired' and not 'retiredout', so a retired-out still credited the
+          // bowler here while the career page had stopped counting it. Last
+          // copy; the rule lives in deliveries.js now.
+          if (isBowlerWicket(b)) bowl[bId].wickets += 1;
         }
         if (b.isWicket && b.dismissedPlayerId) {
           (bat[b.dismissedPlayerId] ||= { runs: 0, balls: 0, fours: 0, sixes: 0, outs: 0 }).outs += 1;
