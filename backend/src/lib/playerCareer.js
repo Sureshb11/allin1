@@ -200,6 +200,10 @@ export async function playerCareer(player, alsoIds = []) {
   }
   const best = Object.values(fig).sort((a, b) => b.w - a.w || a.r - b.r)[0];
   const appFiveWickets = Object.values(fig).filter((f) => f.w >= 5).length;
+  // Exactly four, not four-or-more: the 4w and 5w columns sit side by side on
+  // an international career page and a five-for belongs in one of them, not
+  // both.
+  const appFourWickets = Object.values(fig).filter((f) => f.w === 4).length;
   const appDotBalls = bowled.filter((b) => isLegal(b) && chargedRuns(b) === 0).length;
   const appFoursConceded = bowled.filter((b) => offTheBat(b) && b.runs === 4).length;
   const appSixesConceded = bowled.filter((b) => offTheBat(b) && b.runs === 6).length;
@@ -246,6 +250,7 @@ export async function playerCareer(player, alsoIds = []) {
   computed.bestBowling = (overallBestW > 0 || overallBestR > 0) ? `${overallBestW}/${overallBestR}` : null;
   
   computed.fiveWickets = (s.fiveWickets || 0) + appFiveWickets;
+  computed.fourWickets = (s.fourWickets || 0) + appFourWickets;
   computed.dotBalls = (s.dotBalls || 0) + appDotBalls;
   computed.wides = (s.wides || 0) + appWides;
   computed.noBalls = (s.noBalls || 0) + appNoBalls;
@@ -451,14 +456,22 @@ export async function playerCareer(player, alsoIds = []) {
       const id = b.over.inning.matchId;
       wktsBy[id] = (wktsBy[id] || 0) + 1;
     }
+    // One reading of the free-text result, used by both the form strip and the
+    // career record below. Two copies of this would drift the moment the
+    // sentence format changed, and only one of them would be noticed.
+    const outcomeOf = (r) => {
+      const mine = r.team?.name || '';
+      const res = r.match?.result || '';
+      if (mine && res.startsWith(mine)) return 'W';
+      if (res && !/tie/i.test(res)) return 'L';
+      return null;
+    };
+
     recentForm = formRows.map((r) => {
       const m = r.match;
       const mine = r.team?.name || '';
       const opponent = m.team1?.name === mine ? m.team2?.name : m.team1?.name;
-      const res = m.result || '';
-      let result = null;
-      if (mine && res.startsWith(mine)) result = 'W';
-      else if (res && !/tie/i.test(res)) result = 'L';
+      const result = outcomeOf(r);
       return {
         matchId: m.id,
         opponent: opponent || 'Unknown',
@@ -471,6 +484,21 @@ export async function playerCareer(player, alsoIds = []) {
         award: awardIn[m.id] || null,
       };
     });
+
+    // Every international career page leads with a played/won line, and this
+    // one had the answer in hand and never totalled it.
+    //
+    // Counted off formRows, not off recentForm: that array is what the form
+    // strip renders, and the day someone caps it to the last five the record
+    // would quietly become a last-five record instead.
+    //
+    // Ties and results the parser can't read stay out of both columns rather
+    // than being guessed into one, so wins + losses can be short of matches.
+    const outcomes = formRows.map(outcomeOf).filter(Boolean);
+    computed.wins = outcomes.filter((o) => o === 'W').length;
+    computed.losses = outcomes.filter((o) => o === 'L').length;
+    computed.winPercent = outcomes.length
+      ? +((computed.wins / outcomes.length) * 100).toFixed(1) : null;
   }
 
   const envelope = {

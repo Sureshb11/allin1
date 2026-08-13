@@ -23,6 +23,8 @@
 const CRICKET = [
   { id: 'batting', label: 'Batting', rows: [
     { label: 'Runs',         key: 'runs' },
+    { label: 'Innings',      key: 'innings' },
+    { label: 'Balls Faced',  key: 'ballsFaced' },
     { label: 'Average',      key: 'battingAverage', alt: 'average' },
     { label: 'Strike Rate',  key: 'battingStrikeRate', alt: 'strikeRate' },
     { label: 'Highest',      key: 'highestScore' },
@@ -56,6 +58,7 @@ const CRICKET = [
     { label: 'Bowling Avg',  key: 'bowlingAverage' },
     { label: 'Strike Rate',  key: 'bowlingStrikeRate' },
     { label: 'Best Figures', key: 'bestBowling' },
+    { label: '4-wkt Hauls',  key: 'fourWickets' },
     { label: '5-wkt Hauls',  key: 'fiveWickets' },
     // What the spell felt like from the other end: pressure built, and what it
     // cost when it broke.
@@ -100,6 +103,17 @@ const CRICKET = [
     { label: 'Hit Wicket', out: 'hitwicket' },
     { label: 'Retired',    out: 'retiredout' },
     { label: 'Most Out To', key: 'nemesisOuts', detail: 'nemesisName' },
+  ]},
+  // Last, not first: panels[0] is the accordion that opens by default, and that
+  // should stay Batting with its runs chart rather than a reference table.
+  // The played/won line every international career page opens with. Matches is
+  // in the screen's header too, but a record reads as a record only next to the
+  // games it came from.
+  { id: 'career', label: 'Career', rows: [
+    { label: 'Matches', key: 'matches' },
+    { label: 'Won',     key: 'wins' },
+    { label: 'Lost',    key: 'losses' },
+    { label: 'Win %',   key: 'winPercent', suffix: '%' },
   ]},
 ];
 
