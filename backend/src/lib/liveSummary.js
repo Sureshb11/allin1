@@ -12,7 +12,7 @@
 // cached, so the copy buys nothing it costs.
 
 import { prisma } from './prisma.js';
-import { isLegalDelivery } from './deliveries.js';
+import { isLegalDelivery, isBowlerWicket } from './deliveries.js';
 
 /** Overs as cricket writes them: 18.4 means eighteen overs and four balls. */
 function formatOvers(legalBalls) {
@@ -141,7 +141,7 @@ export async function liveSummary(matchId) {
         (n, b) => n + b.runs + (['bye', 'legBye'].includes(b.extraType) ? 0 : b.extras),
         0,
       ),
-      wickets: bowled.filter((b) => b.isWicket && b.wicketType !== 'runOut').length,
+      wickets: bowled.filter(isBowlerWicket).length,
     };
   };
 

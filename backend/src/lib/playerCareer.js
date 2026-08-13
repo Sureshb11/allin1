@@ -19,6 +19,7 @@
 
 import { prisma } from './prisma.js';
 import { careerAwards } from './awards.js';
+import { isBowlerWicket } from './deliveries.js';
 
 const BASE = { matches: 0, runs: 0, wickets: 0, average: 0, strikeRate: 0, centuries: 0, halfCenturies: 0 };
 
@@ -145,14 +146,14 @@ export async function playerCareer(player, alsoIds = []) {
   const bowled = bowlBalls.filter((b) => b.extraType !== 'penalty');
   const legal = bowled.filter(isLegal).length;
   const conceded = bowled.reduce((t, b) => t + chargedRuns(b), 0);
-  const wickets = bowled.filter((b) => b.isWicket && b.wicketType !== 'runOut').length;
+  const wickets = bowled.filter(isBowlerWicket).length;
   
   const fig = {};
   for (const b of bowled) {
     const k = b.over.inningId;
     fig[k] = fig[k] || { w: 0, r: 0 };
     fig[k].r += chargedRuns(b);
-    if (b.isWicket && b.wicketType !== 'runOut') fig[k].w += 1;
+    if (isBowlerWicket(b)) fig[k].w += 1;
   }
   const best = Object.values(fig).sort((a, b) => b.w - a.w || a.r - b.r)[0];
   const appFiveWickets = Object.values(fig).filter((f) => f.w >= 5).length;
@@ -266,7 +267,7 @@ export async function playerCareer(player, alsoIds = []) {
       runsBy[id] = (runsBy[id] || 0) + b.runs;
     }
     for (const b of fBowl) {
-      if (!b.isWicket || b.wicketType === 'runOut') continue;   // run-outs aren't the bowler's
+      if (!isBowlerWicket(b)) continue;   // run-outs aren't the bowler's
       const id = b.over.inning.matchId;
       wktsBy[id] = (wktsBy[id] || 0) + 1;
     }
@@ -342,12 +343,9 @@ export async function playerCareer(player, alsoIds = []) {
     return out;
   };
   const runsByInning = perInnings(batBalls, (b) => (b.extraType === 'bye' || b.extraType === 'legBye' ? 0 : b.runs || 0));
-  const wktsByInning = perInnings(bowlBalls, (b) => {
-    if (!b.isWicket) return 0;
-    const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
-    // Run-outs and retirements are never the bowler's wicket.
-    return (wt === 'runout' || wt === 'retired' || wt === 'retiredout' || wt === 'retiredhurt') ? 0 : 1;
-  });
+  // This one already lowercased correctly while the career total above did not,
+  // which is exactly why the two disagreed on screen. Same helper now.
+  const wktsByInning = perInnings(bowlBalls, (b) => (isBowlerWicket(b) ? 1 : 0));
   const fieldByInning = perInnings(fieldBalls, () => 1);
 
   const seriesInningIds = [...new Set([

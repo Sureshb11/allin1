@@ -8,6 +8,7 @@
 
 import { prisma } from './prisma.js';
 import { pushFeedItem } from './feed.js';
+import { BOWLER_WICKET_WHERE } from './deliveries.js';
 
 // Career thresholds per sport/stat. Editable; small lists → cheap to scan.
 const MILESTONES = {
@@ -26,7 +27,7 @@ const ordinal = (n) => {
 // Career count for a (player, sport, stat) from the event/ball logs.
 async function careerCount(playerId, sport, stat) {
   if (sport === 'cricket' && stat === 'wickets')
-    return prisma.ball.count({ where: { over: { bowlerId: playerId }, isWicket: true, wicketType: { not: 'runOut' } } });
+    return prisma.ball.count({ where: { over: { bowlerId: playerId }, ...BOWLER_WICKET_WHERE } });
   if (sport === 'cricket' && stat === 'runs') {
     const agg = await prisma.ball.aggregate({ _sum: { runs: true }, where: { batterId: playerId } });
     return agg._sum.runs || 0;
