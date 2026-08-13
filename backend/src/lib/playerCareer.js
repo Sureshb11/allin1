@@ -64,7 +64,7 @@ export async function playerCareer(player, alsoIds = []) {
   // same column, and counting them as catches would make every fielder a slip.
   const fieldName = (player.name || '').trim();
   const [batBalls, outsByType, bowlBalls, xiMatches, awards, catches, runOuts, fieldBalls,
-         dropRows, directHits] = await Promise.all([
+         dropRows, directHits, dismissalBalls, standBalls] = await Promise.all([
     prisma.ball.findMany({
       where: { batterId: { in: ids } },
       // overNumber + the match's allowance are for the phase split: whether a
@@ -111,6 +111,19 @@ export async function playerCareer(player, alsoIds = []) {
       _count: { _all: true },
     }),
     prisma.ball.count({ where: { directHit: true, wicketAssists: fieldName } }),
+    // Who keeps getting you out. Every dismissal already records the bowler;
+    // nothing had ever grouped them by one.
+    prisma.ball.findMany({
+      where: { isWicket: true, dismissedPlayerId: { in: ids } },
+      select: { wicketType: true, isWicket: true, bowlerId: true, over: { select: { bowlerId: true } } },
+    }),
+    // Partnerships. Each ball names both ends, so a stand is every ball sharing
+    // an innings and a pair — runs AND extras, which is what a partnership is.
+    prisma.ball.findMany({
+      where: { OR: [{ batterId: { in: ids } }, { nonStrikerId: { in: ids } }] },
+      select: { runs: true, extras: true, batterId: true, nonStrikerId: true,
+                over: { select: { inningId: true } } },
+    }),
   ]);
 
   // The plain dismissal count the batting maths below still needs.
@@ -339,6 +352,46 @@ export async function playerCareer(player, alsoIds = []) {
     batting: Object.fromEntries(Object.entries(batPhases).map(([k, o]) =>
       [k, { ...o, strikeRate: o.balls >= MIN_PHASE_BALLS ? +((o.runs / o.balls) * 100).toFixed(1) : null }])),
   };
+
+  // ── The people in your cricket ───────────────────────────────────────────
+  // A nemesis and a favourite partner are the two facts a player will actually
+  // repeat to someone else, and both were already sitting in the ball log: every
+  // dismissal names its bowler, every delivery names both ends.
+  const nemesisCount = {};
+  for (const b of dismissalBalls) {
+    if (!isBowlerWicket(b)) continue;                 // a run-out is nobody's spell
+    const bw = b.bowlerId || b.over?.bowlerId;
+    if (!bw || ids.includes(bw)) continue;            // don't count yourself
+    nemesisCount[bw] = (nemesisCount[bw] || 0) + 1;
+  }
+
+  // A stand is one innings and one pair of ends. Extras count: they are runs the
+  // partnership put on, which is why a partnership total is not two batters'
+  // scores added together.
+  const stands = {};
+  for (const b of standBalls) {
+    const inn = b.over?.inningId;
+    if (!inn) continue;
+    const partner = ids.includes(b.batterId) ? b.nonStrikerId : b.batterId;
+    if (!partner || ids.includes(partner)) continue;  // both ends can't be the same person
+    const k = `${inn}|${partner}`;
+    stands[k] = stands[k] || { partner, runs: 0 };
+    stands[k].runs += b.runs + b.extras;
+  }
+
+  const topNemesis = Object.entries(nemesisCount).sort((a, b) => b[1] - a[1])[0];
+  const topStand = Object.values(stands).sort((a, b) => b.runs - a.runs)[0];
+  const lookupIds = [topNemesis?.[0], topStand?.partner].filter(Boolean);
+  const names = lookupIds.length
+    ? Object.fromEntries((await prisma.player.findMany({
+        where: { id: { in: lookupIds } }, select: { id: true, name: true },
+      })).map((p) => [p.id, p.name]))
+    : {};
+
+  computed.nemesisOuts = topNemesis ? topNemesis[1] : null;
+  computed.nemesisName = topNemesis ? (names[topNemesis[0]] || null) : null;
+  computed.bestPartnership = topStand ? topStand.runs : null;
+  computed.bestPartnershipWith = topStand ? (names[topStand.partner] || null) : null;
 
   // ── Recent form: the player's last 5 completed matches ────────────────────
   // Win/loss comes from Match.result, which is free text ("<Team> won by 42

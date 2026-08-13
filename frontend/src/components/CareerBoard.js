@@ -324,9 +324,22 @@ function StatCell({ s, i, styles }) {
           <CountingText style={[styles.cellVal, i === 0 && styles.cellValLead]} numberOfLines={1} value={s.value} burstOnFinish={i === 0} />
           <Text style={styles.cellLbl} numberOfLines={1}>{s.label}</Text>
         </Reanimated.View>
+        {/* The back said CAREER TOTAL and then repeated the number already on
+            the front. Where a stat is about a person — a nemesis, a partner —
+            this is the only place their name fits. */}
         <Reanimated.View style={[backStyle, { padding: 8, width: '100%', height: '100%' }]}>
-          <Text style={{ color: DS.limeBright, fontSize: 10, fontWeight: '800', textAlign: 'center' }}>CAREER TOTAL</Text>
+          <Text style={{ color: DS.limeBright, fontSize: 10, fontWeight: '800', textAlign: 'center' }}>
+            {s.detail ? s.label.toUpperCase() : 'CAREER TOTAL'}
+          </Text>
           <Text style={{ color: DS.textPrimary, fontSize: 15, fontWeight: '900', marginTop: 4 }}>{s.value}</Text>
+          {!!s.detail && (
+            <Text
+              numberOfLines={2}
+              style={{ color: DS.textPrimary, fontSize: 10, fontWeight: '700', textAlign: 'center', marginTop: 3 }}
+            >
+              {s.detail}
+            </Text>
+          )}
         </Reanimated.View>
       </Reanimated.View>
     </GestureDetector>
@@ -511,6 +524,8 @@ export default function CareerBoard({ stats, sportId, ballType, navigation, capt
               const pStats = p.rows.map((r) => ({
                 label: r.label,
                 value: readStat(r, stats),
+                // Who the number is about — a name, shown on the cell's back.
+                detail: r.detail ? (stats?.[r.detail] || null) : null,
               })).filter((s) => s.value !== '—');
               
               if (pStats.length === 0) return null;

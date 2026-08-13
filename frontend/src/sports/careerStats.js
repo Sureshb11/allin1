@@ -43,6 +43,9 @@ const CRICKET = [
     { label: 'Powerplay SR', phase: 'batting.powerplay.strikeRate' },
     { label: 'Middle SR',    phase: 'batting.middle.strikeRate' },
     { label: 'Death SR',     phase: 'batting.death.strikeRate' },
+    // The number goes on the face, the partner's name on the back — a name does
+    // not fit a cell a third of the screen wide.
+    { label: 'Best Stand',   key: 'bestPartnership', detail: 'bestPartnershipWith' },
   ]},
   { id: 'bowling', label: 'Bowling', rows: [
     { label: 'Wickets',      key: 'wickets' },
@@ -96,6 +99,7 @@ const CRICKET = [
     { label: 'Stumped',    out: 'stumped' },
     { label: 'Hit Wicket', out: 'hitwicket' },
     { label: 'Retired',    out: 'retiredout' },
+    { label: 'Most Out To', key: 'nemesisOuts', detail: 'nemesisName' },
   ]},
 ];
 
