@@ -31,6 +31,7 @@ import { makeControls } from '../theme/controls';
 import { useHideTabBarOnScroll, useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
 import { useSupercluster } from '../components/useSupercluster';
 import { listSports, sportMeta } from '../sports';
+import { getGroundConfig, AMENITY_OPTIONS } from '../sports/grounds';
 import { getSelectedSport } from '../utils/selectedSport';
 
 function GroundSkeleton({ DS }) {
@@ -78,18 +79,11 @@ function GroundSkeleton({ DS }) {
   );
 }
 
-const FILTER_ICONS = {
-  All: 'view-grid-outline',
-  outdoor: 'tree-outline',
-  indoor: 'home-outline',
-  box_cricket: 'cube-outline',
-  nets: 'grid',
-  stadium: 'stadium'
-};
+// 'All' plus the types the CURRENT sport has. Was a fixed cricket list, so a
+// badminton player filtered grounds by "Box Cricket" and "Nets".
+const groundTypesFor = (sportId) => ['All', ...getGroundConfig(sportId).types.map((t) => t.key)];
 
-const GROUND_TYPES = ['All', 'outdoor', 'indoor', 'box_cricket', 'nets', 'stadium'];
-
-const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, place, onSetPlace, onToggleMap, mapOpen }) => {
+const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, place, onSetPlace, onToggleMap, mapOpen, groundTypes }) => {
   const filterScroll = useAnimatedRef();
   const filterOffset = useSharedValue(0);
   const filterStart = useSharedValue(0);
@@ -175,7 +169,7 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
           onContentSizeChange={(w) => { filterContentW.current = w; recomputeMax(); }}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 24, marginTop: 12, paddingBottom: 0 }}
         >
-          {GROUND_TYPES.map((t, index) => {
+          {groundTypes.map((t, index) => {
             const active = activeType === t;
             return (
               <TouchableOpacity
@@ -477,28 +471,9 @@ const AdminRequestCard = ({ ground, submitter, onApprove, onReject, onToggleBook
   </View>
 );
 
-const GROUND_TYPES_LIST = [
-  { key: 'outdoor', label: 'Outdoor', icon: 'weather-sunny' },
-  { key: 'indoor', label: 'Indoor', icon: 'home-city' },
-  { key: 'box_cricket', label: 'Box Cricket', icon: 'cube-outline' },
-  { key: 'stadium', label: 'Stadium', icon: 'stadium' },
-  { key: 'nets', label: 'Nets', icon: 'tennis' },
-  { key: 'academy', label: 'Academy', icon: 'school' },
-];
-const SURFACES = [
-  { key: 'turf', label: 'Turf' }, { key: 'grass', label: 'Grass' },
-  { key: 'mat', label: 'Mat' }, { key: 'concrete', label: 'Concrete' },
-  { key: 'synthetic', label: 'Synthetic' }, { key: 'clay', label: 'Clay' },
-];
-const BALL_TYPES_LIST = [
-  { key: 'leather', label: 'Leather' }, { key: 'tennis', label: 'Tennis' },
-  { key: 'soft', label: 'Soft' }, { key: 'tape', label: 'Tape' },
-];
-const AMENITY_OPTIONS = [
-  'Flood Lights', 'Parking', 'Washroom', 'Drinking Water', 'Dressing Room',
-  'Scorer Table', 'Practice Nets', 'Seating', 'Canteen', 'First Aid', 'WiFi', 'Sound System',
-];
-const CATEGORIES = ['Cricket Ground', 'Sports Complex', 'Stadium', 'Academy', 'Private Ground', 'Community Ground'];
+// The venue vocabulary these screens offer now lives per sport in
+// sports/grounds.js — see the note there about being asked for a ball type
+// when you are adding a badminton hall.
 
 const Chip = ({ label, active, onPress, icon }) => {
   const DS = useTheme().colors;
@@ -547,6 +522,21 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
   // beginning with a 'cricket' default and nothing ever set it, so every ground
   // a football or badminton club added filed itself under cricket.
   const [sport, setSport] = useState(() => getSelectedSport().sport?.id || 'cricket');
+  const groundCfg = getGroundConfig(sport);
+
+  // Switching sport re-asks the questions, so the answers to the old ones have
+  // to go: a ground typed "Box Cricket" on a mat, with a leather ball, does not
+  // silently stay that way when the sport becomes badminton. The chips would
+  // show nothing selected while the payload still carried cricket's values.
+  const onSportChange = (next) => {
+    if (!next || next === sport) return;
+    const cfg = getGroundConfig(next);
+    setSport(next);
+    setGroundType(cfg.types[0]?.key || 'outdoor');
+    setPlayingSurface('');
+    setBallTypes([]);
+    setCategory('');
+  };
   const [category, setCategory] = useState('');
   const [area, setArea] = useState('');
   const [city, setCity] = useState('');
@@ -650,8 +640,8 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
           <TextField label="Local name" value={localName} onChangeText={setLocalName}
             placeholder="e.g. Chepauk" helper="What people round there call it" />
           <ChipGroup label="Sport" options={listSports().map((sp) => ({ value: sp.id, label: sp.name, icon: sp.icon }))}
-            value={sport} onChange={(v) => v && setSport(v)} />
-          <ChipGroup label="Category" options={CATEGORIES} value={category}
+            value={sport} onChange={onSportChange} />
+          <ChipGroup label="Category" options={groundCfg.categories} value={category}
             onChange={(v) => setCategory(v || '')} last />
         </SectionCard>
 
@@ -668,13 +658,21 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
           )}
         </SectionCard>
 
-        <SectionCard title="Playing there" icon="cricket">
-          <ChipGroup label="Ground type" options={GROUND_TYPES_LIST.map((t) => ({ value: t.key, label: t.label, icon: t.icon }))}
+        {/* Icon follows the sport too — this card was headed with a cricket bat
+            whatever you were adding. */}
+        <SectionCard title="Playing there" icon={sportMeta(sport).icon}>
+          <ChipGroup label="Ground type" options={groundCfg.types.map((t) => ({ value: t.key, label: t.label, icon: t.icon }))}
             value={groundType} onChange={(v) => v && setGroundType(v)} />
-          <ChipGroup label="Surface" options={SURFACES.map((s) => ({ value: s.key, label: s.label }))}
-            value={playingSurface} onChange={(v) => setPlayingSurface(v || '')} />
-          <ChipGroup label="Ball types" multi options={BALL_TYPES_LIST.map((b) => ({ value: b.key, label: b.label }))}
-            value={ballTypes} onChange={setBallTypes} />
+          {groundCfg.surfaces.length > 0 && (
+            <ChipGroup label="Surface" options={groundCfg.surfaces.map((x) => ({ value: x.key, label: x.label }))}
+              value={playingSurface} onChange={(v) => setPlayingSurface(v || '')} />
+          )}
+          {/* Only cricket asks this. Every other sport was being offered
+              leather / tennis / soft / tape for a hall or a court. */}
+          {groundCfg.ballTypes.length > 0 && (
+            <ChipGroup label="Ball types" multi options={groundCfg.ballTypes.map((b) => ({ value: b.key, label: b.label }))}
+              value={ballTypes} onChange={setBallTypes} />
+          )}
           <ChipGroup label="Amenities" multi options={AMENITY_OPTIONS} value={amenities} onChange={setAmenities} last />
         </SectionCard>
 
@@ -757,12 +755,12 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   
   const swipeDir = useRef(1);
   const handleSetType = (t) => {
-    const idx = GROUND_TYPES.indexOf(t);
-    const currIdx = GROUND_TYPES.indexOf(type);
+    const idx = groundTypes.indexOf(t);
+    const currIdx = groundTypes.indexOf(type);
     swipeDir.current = idx > currIdx ? 1 : -1;
     setType(t);
   };
-  const filterSwipe = useFilterSwipe(GROUND_TYPES, type, handleSetType);
+  const filterSwipe = useFilterSwipe(groundTypes, type, handleSetType);
 
   const [meta, setMeta] = useState({});
   const [favs, setFavs] = useState(new Set());
@@ -784,6 +782,9 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   const [viewState, setViewState] = useState('list'); // 'list' | 'map' | 'form' | 'admin'
   const [adminRequests, setAdminRequests] = useState([]);
   const [adminScope, setAdminScope] = useState('review'); // 'review' | 'all'
+  // The sport being browsed drives the filter chips as well as the query.
+  const browsingSport = getSelectedSport().sport?.id || 'cricket';
+  const groundTypes = groundTypesFor(browsingSport);
   const [submitters, setSubmitters] = useState({});
   const [mapLocation, setMapLocation] = useState(null);
 
@@ -1021,6 +1022,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
           query={query} setQuery={setQuery} 
           activeType={type} setActiveType={handleSetType} 
           counts={meta.typeCounts} 
+          groundTypes={groundTypes}
           pagerGesture={pagerGesture}
           DS={DS} P={P} styles={styles} C={C}
           place={place}
