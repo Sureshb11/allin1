@@ -258,7 +258,32 @@ router.post('/', authMiddleware, async (req, res) => {
         ...data,
         ballTypes: data.ballTypes || [],
         submittedById: req.user.sub,
-        status: 'pending',
+        // Published on submission, unverified until an admin says otherwise.
+        //
+        // It used to be 'pending', and GET / only returns 'published' — so a
+        // submitted ground was invisible to everyone including the person who
+        // added it, until someone noticed the queue. A moderation gate nobody
+        // is watching does not read as careful, it reads as broken, and it is
+        // why this table is empty.
+        //
+        // `verified` is a separate column and carries the trust instead: a new
+        // ground is usable immediately, an approved one is badged and sorts
+        // first. Junk is now a takedown rather than a blockage, which is the
+        // right trade while the map is empty.
+        status: 'published',
+        verified: false,
+        // BOOKING IS NOT SELF-SERVE, and this line is the whole reason the two
+        // flags are separate.
+        //
+        // Listing a ground wrong wastes somebody a phone call. Taking bookings
+        // for a ground you do not control takes their money — so anyone may put
+        // a ground on the map, and only an admin may make it bookable, after
+        // checking the place is real and the submitter has any right to let it.
+        //
+        // Hardcoded rather than read from `data`: the request schema has no
+        // bookingEnabled field, and this makes it impossible for one to be
+        // added later and quietly become self-serve.
+        bookingEnabled: false,
         location: data.location || data.area || data.address || data.city,
         ...(imageCreates.length > 0 ? { images: { create: imageCreates } } : {}),
         ...(amenityCreates.length > 0 ? { amenities: { create: amenityCreates } } : {}),
@@ -415,11 +440,34 @@ router.get('/admin/requests', authMiddleware, requireAdmin, async (req, res) => 
 });
 
 // ── ADMIN: APPROVE GROUND ──────────────────────────────────────────────────
+// Approving now means VERIFIED, not visible — a ground is already visible the
+// moment it is submitted. This is the badge and the sort priority.
 router.post('/:id/approve', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const ground = await prisma.ground.update({
       where: { id: req.params.id },
-      data: { status: 'published', rejectionReason: null },
+      data: { status: 'published', verified: true, rejectionReason: null },
+    });
+    res.json({ success: true, ground });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// ── ADMIN: ALLOW / STOP BOOKINGS ───────────────────────────────────────────
+// Separate from approve on purpose. Verifying says "this ground is real";
+// enabling bookings says "and this submitter may take money for it", which is
+// the claim a scammer actually wants and the one worth a second look — the
+// ground exists, the pin is right, and whoever listed it has some right to let
+// it out. Reversible: the same endpoint switches bookings back off without
+// removing the listing.
+router.post('/:id/booking', authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const enabled = req.body?.enabled !== false;   // default on; pass false to stop
+    const ground = await prisma.ground.update({
+      where: { id: req.params.id },
+      data: { bookingEnabled: enabled },
+      select: { id: true, name: true, bookingEnabled: true, verified: true },
     });
     res.json({ success: true, ground });
   } catch (e) {
@@ -451,11 +499,34 @@ const BookingSchema = z.object({
 router.post('/book', authMiddleware, async (req, res) => {
   try {
     const data = BookingSchema.parse(req.body);
+
+    // Not every ground takes bookings. Most are a listing — an address, a
+    // photo and a phone number — and `bookingEnabled` has been on the model
+    // since the beginning to say which is which, checked nowhere: this handler
+    // would write a Booking row against any id a client sent, including a
+    // ground that does not exist, one still pending review, and one whose owner
+    // has never agreed to take bookings through the app.
+    const ground = await prisma.ground.findUnique({
+      where: { id: data.groundId },
+      select: { id: true, name: true, status: true, bookingEnabled: true, permanentlyClosed: true },
+    });
+    if (!ground) return res.status(404).json({ error: 'Ground not found' });
+    if (ground.status !== 'published' || ground.permanentlyClosed) {
+      return res.status(409).json({ error: 'This ground is not open for bookings' });
+    }
+    if (!ground.bookingEnabled) {
+      // 409 rather than 403: nothing is wrong with the caller, this ground is
+      // simply listed rather than bookable, and the client should show the
+      // phone number instead.
+      return res.status(409).json({ error: `${ground.name} is listed for reference — contact the ground directly to book` });
+    }
+
     const booking = await prisma.booking.create({
       data: { ...data, date: new Date(data.date), userId: req.user.sub },
     });
     res.status(201).json({ booking });
   } catch (e) {
+    if (e.name === 'ZodError') return res.status(400).json({ error: e.errors[0]?.message || 'Validation error' });
     res.status(400).json({ error: e.message });
   }
 });

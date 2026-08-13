@@ -769,6 +769,22 @@ class LegendsApi {
     }
   }
 
+  // Admin only, and deliberately separate from approving. Verifying says the
+  // ground is real; this says whoever listed it may take bookings for it —
+  // the claim worth checking, because that is the one a scammer wants. Pass
+  // false to switch bookings off again without removing the listing.
+  async setGroundBooking(id, enabled = true) {
+    try {
+      const json = await this.request(`/grounds/${id}/booking`, {
+        method: 'POST',
+        body: JSON.stringify({ enabled }),
+      });
+      return { success: true, data: json.ground };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
   async rejectGround(id, reason) {
     try {
       const json = await this.request(`/grounds/${id}/reject`, {

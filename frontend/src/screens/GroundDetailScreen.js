@@ -391,15 +391,48 @@ export default function GroundDetailScreen({ route, navigation }) {
         </View>
       </Animated.ScrollView>
 
-      {/* BOTTOM ACTION BAR */}
+      {/* BOTTOM ACTION BAR
+          Most grounds are a listing — an address and a phone number — and only
+          an admin turns bookings on, after checking the place is real and the
+          person listing it may actually let it out. Offering "Book Now" on the
+          rest sends the user into a request the server refuses with a 409. */}
       <View style={styles.bottomBar}>
         <View style={styles.priceCol}>
-          <Text style={styles.priceLabel}>Starting from</Text>
-          <Text style={styles.priceVal}>₹{ground.price || 500} <Text style={styles.priceUnit}>/ hr</Text></Text>
+          {ground.price ? (
+            <>
+              <Text style={styles.priceLabel}>Starting from</Text>
+              <Text style={styles.priceVal}>₹{ground.price} <Text style={styles.priceUnit}>/ hr</Text></Text>
+            </>
+          ) : (
+            /* The fallback here used to be ₹500/hr, invented for any ground
+               whose owner never gave a rate. A made-up price on a booking
+               screen is the one number that must never be a guess. */
+            <>
+              <Text style={styles.priceLabel}>Price</Text>
+              <Text style={styles.priceVal}>Ask the ground</Text>
+            </>
+          )}
         </View>
-        <TouchableOpacity style={styles.bookBtn} onPress={() => { ReactNativeHapticFeedback.trigger("impactLight"); setBookingModalVisible(true); }}>
-          <Text style={styles.bookBtnText}>Book Now</Text>
-        </TouchableOpacity>
+
+        {ground.bookingEnabled ? (
+          <TouchableOpacity style={styles.bookBtn} onPress={() => { ReactNativeHapticFeedback.trigger("impactLight"); setBookingModalVisible(true); }}>
+            <Text style={styles.bookBtnText}>Book Now</Text>
+          </TouchableOpacity>
+        ) : ground.phone ? (
+          <TouchableOpacity
+            style={styles.bookBtn}
+            onPress={() => {
+              ReactNativeHapticFeedback.trigger('impactLight');
+              Linking.openURL(`tel:${String(ground.phone).replace(/\s/g, '')}`).catch(() => {});
+            }}
+          >
+            <Text style={styles.bookBtnText}>Call Ground</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.bookBtn, { backgroundColor: DS.surfaceHigh }]}>
+            <Text style={[styles.bookBtnText, { color: DS.textMuted }]}>Listed only</Text>
+          </View>
+        )}
       </View>
 
       {/* FULLSCREEN LIGHTBOX MODAL */}
