@@ -749,6 +749,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
 
   const [viewState, setViewState] = useState('list'); // 'list' | 'map' | 'form' | 'admin'
   const [adminRequests, setAdminRequests] = useState([]);
+  const [adminScope, setAdminScope] = useState('review'); // 'review' | 'all'
   const [submitters, setSubmitters] = useState({});
   const [mapLocation, setMapLocation] = useState(null);
 
@@ -822,10 +823,11 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
     }
   };
 
-  const loadAdminRequests = async () => {
+  const loadAdminRequests = async (scope = adminScope) => {
     setLoading(true);
-    const res = await LegendsApi.getGroundRequests();
+    const res = await LegendsApi.getGroundRequests(scope);
     if (res.success) {
+      setAdminScope(scope);
       setAdminRequests(res.data.grounds);
       setSubmitters(res.data.submitters);
       setViewState('admin');
@@ -836,8 +838,14 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   const handleApprove = async (id) => {
     const res = await LegendsApi.approveGround(id);
     if (res.success) {
-      setAdminRequests(prev => prev.filter(g => g.id !== id));
-      setPendingRequests(prev => prev - 1);
+      // In the review list a verified ground has left the queue, so it goes. In
+      // the all-grounds list it has not gone anywhere — dropping it there would
+      // make "all" mean "all except the one you just touched", and hide the
+      // bookings switch the admin may have opened this view to reach.
+      setAdminRequests(prev => (adminScope === 'all'
+        ? prev.map(g => (g.id === id ? { ...g, verified: true, status: 'published' } : g))
+        : prev.filter(g => g.id !== id)));
+      setPendingRequests(prev => Math.max(0, prev - 1));
       // It said "approved and published" — but it was already published when
       // the player added it. Verifying is a badge, not a door.
       Alert.alert('Verified', 'Ground badged as verified. It now sorts above unverified grounds.');
@@ -908,8 +916,24 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
           <TouchableOpacity onPress={() => { setViewState('list'); fetchGrounds(); }} style={styles.backBtn}>
             <Icon name="arrow-left" size={24} color={DS.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.title}>Review Requests</Text>
+          <Text style={styles.title}>{adminScope === 'all' ? 'All Grounds' : 'Review Requests'}</Text>
           <View style={{width: 40}} />
+        </View>
+
+        {/* Verifying a ground takes it out of the review list, and the bookings
+            switch lives on these cards — so without a way back to a verified
+            ground there was no way to stop its bookings again. */}
+        <View style={styles.scopeRow}>
+          {[['review', 'Needs review'], ['all', 'All grounds']].map(([id, label]) => (
+            <TouchableOpacity
+              key={id}
+              style={[styles.scopeBtn, adminScope === id && styles.scopeBtnOn]}
+              onPress={() => { if (adminScope !== id) loadAdminRequests(id); }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.scopeBtnText, adminScope === id && styles.scopeBtnTextOn]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
         <FlatList
           data={adminRequests}
@@ -929,8 +953,12 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <View style={styles.emptyIconWrap}><Icon name="check-all" size={32} color={DS.lime} /></View>
-              <Text style={styles.emptyText}>All caught up</Text>
-              <Text style={styles.emptySubText}>No pending ground requests to review.</Text>
+              <Text style={styles.emptyText}>{adminScope === 'all' ? 'No grounds yet' : 'All caught up'}</Text>
+              <Text style={styles.emptySubText}>
+                {adminScope === 'all'
+                  ? 'Nobody has added a ground. They appear here as soon as someone does.'
+                  : 'Every ground has been reviewed. Switch to All grounds to change bookings on one.'}
+              </Text>
             </View>
           }
         />
@@ -1157,6 +1185,14 @@ const makeStyles = (DS, P) => StyleSheet.create({
   adminActions: { flexDirection: 'row', marginTop: 20, gap: 12 },
   adminBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   adminBtnApprove: { backgroundColor: DS.lime },
+  scopeRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 4 },
+  scopeBtn: {
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
+    backgroundColor: DS.surface, borderWidth: 1, borderColor: DS.faint,
+  },
+  scopeBtnOn: { backgroundColor: DS.lime + '18', borderColor: DS.lime },
+  scopeBtnText: { color: DS.textMuted, fontSize: 12, fontWeight: '800' },
+  scopeBtnTextOn: { color: DS.lime },
   bookingToggle: {
     flexDirection: 'row', alignItems: 'center', marginTop: 12,
     padding: 10, borderRadius: 10, backgroundColor: DS.bg,

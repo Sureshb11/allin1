@@ -751,9 +751,12 @@ class LegendsApi {
   }
 
   // Admin methods
-  async getGroundRequests() {
+  // scope 'review' (default) = grounds nobody has vouched for yet.
+  // scope 'all' = every ground, so a verified one can still be reached to stop
+  // its bookings — verifying removes it from the review list.
+  async getGroundRequests(scope = 'review') {
     try {
-      const json = await this.request('/grounds/admin/requests');
+      const json = await this.request(`/grounds/admin/requests${scope === 'all' ? '?scope=all' : ''}`);
       return { success: true, data: json };
     } catch (e) {
       return { success: false, error: e.message };

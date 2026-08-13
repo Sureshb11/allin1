@@ -429,14 +429,22 @@ router.get('/admin/requests', authMiddleware, requireAdmin, async (req, res) => 
     // What needs a human now is a ground nobody has vouched for yet: published
     // and unverified. 'pending' stays in the OR so any row written before this
     // change is not stranded in a state nothing queries.
+    const NEEDS_REVIEW = {
+      permanentlyClosed: false,
+      OR: [
+        { status: 'pending' },
+        { status: 'published', verified: false },
+      ],
+    };
+    // ?scope=all lists every ground instead. Verifying a ground removes it from
+    // the review list, and the bookings switch lives on these cards — so
+    // without this the only way to stop bookings on a ground was to have never
+    // verified it. An admin has to be able to reach a ground again after
+    // approving it.
+    const scope = req.query.scope === 'all' ? { permanentlyClosed: false } : NEEDS_REVIEW;
+
     const grounds = await prisma.ground.findMany({
-      where: {
-        permanentlyClosed: false,
-        OR: [
-          { status: 'pending' },
-          { status: 'published', verified: false },
-        ],
-      },
+      where: scope,
       orderBy: { createdAt: 'desc' },
       include: {
         images: { where: { imageType: 'cover' }, take: 1 },
