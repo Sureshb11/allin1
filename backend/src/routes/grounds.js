@@ -47,7 +47,13 @@ router.get('/', optionalAuth, async (req, res) => {
 
     const grounds = await prisma.ground.findMany({
       where,
-      orderBy: [{ featured: 'desc' }, { averageRating: 'desc' }, { createdAt: 'desc' }],
+      // Verified above unverified, under featured. Grounds publish the moment
+      // they are submitted now, so the list mixes vouched-for grounds with ones
+      // nobody has checked — and the ordering was the only thing that could say
+      // so before you tap in. Rating stays below it: a checked ground with no
+      // reviews yet is a safer suggestion than an unchecked one with four stars
+      // from its own submitter.
+      orderBy: [{ featured: 'desc' }, { verified: 'desc' }, { averageRating: 'desc' }, { createdAt: 'desc' }],
       take: dbLimit,
       ...(cursor && !(lat && lng) ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: {

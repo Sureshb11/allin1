@@ -244,10 +244,25 @@ const GroundCard = ({ ground, index, isFav, onToggleFav, onPress, styles, DS, P 
         <View style={{ paddingVertical: 12 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: DS.textPrimary }} numberOfLines={1}>
-                {ground.name}
-                <Text style={{ fontSize: 15, fontWeight: '400', color: DS.textMuted }}>, {ground.area || ground.city || ground.location}</Text>
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: DS.textPrimary, flexShrink: 1 }} numberOfLines={1}>
+                  {ground.name}
+                  <Text style={{ fontSize: 15, fontWeight: '400', color: DS.textMuted }}>, {ground.area || ground.city || ground.location}</Text>
+                </Text>
+                {/* Anyone can put a ground on the map — so the list has to say
+                    which ones somebody has actually checked. Only the badge is
+                    shown: marking the rest "unverified" would read as an
+                    accusation against grounds that are almost all genuine. */}
+                {!!ground.verified && (
+                  <Icon name="check-decagram" size={15} color={DS.lime} style={{ marginLeft: 5 }} />
+                )}
+              </View>
+              {!!ground.bookingEnabled && (
+                <View style={styles.bookablePill}>
+                  <Icon name="calendar-check" size={11} color={DS.lime} />
+                  <Text style={styles.bookablePillText}>Bookable</Text>
+                </View>
+              )}
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ color: DS.textMuted, fontWeight: '600', fontSize: 14 }}>{rating}</Text>
@@ -1185,6 +1200,12 @@ const makeStyles = (DS, P) => StyleSheet.create({
   adminActions: { flexDirection: 'row', marginTop: 20, gap: 12 },
   adminBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   adminBtnApprove: { backgroundColor: DS.lime },
+  bookablePill: {
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
+    marginTop: 5, paddingHorizontal: 7, paddingVertical: 2,
+    borderRadius: 6, backgroundColor: DS.lime + '18',
+  },
+  bookablePillText: { color: DS.lime, fontSize: 10, fontWeight: '800', marginLeft: 3 },
   scopeRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 4 },
   scopeBtn: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,

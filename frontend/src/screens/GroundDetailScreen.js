@@ -252,9 +252,31 @@ export default function GroundDetailScreen({ route, navigation }) {
         <View style={styles.content}>
           {/* TITLE & META */}
           <View style={{ marginBottom: 24 }}>
-            <Text style={styles.title}>{ground.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={[styles.title, { flexShrink: 1 }]}>{ground.name}</Text>
+              {!!ground.verified && (
+                <Icon name="check-decagram" size={19} color={DS.lime} style={{ marginLeft: 7 }} />
+              )}
+            </View>
             <Text style={styles.subtitle}>{ground.area || ground.city || ground.location}</Text>
-            
+
+            {/* Anyone can add a ground, so the page has to say whether anyone
+                has checked this one. Stated positively where it is true and
+                factually where it is not — "not verified yet" is the honest
+                status of a new listing, not a warning about it. */}
+            <View style={[styles.trustRow, ground.verified && styles.trustRowOn]}>
+              <Icon
+                name={ground.verified ? 'shield-check' : 'shield-alert-outline'}
+                size={15}
+                color={ground.verified ? DS.lime : DS.textMuted}
+              />
+              <Text style={[styles.trustText, ground.verified && { color: DS.lime }]}>
+                {ground.verified
+                  ? 'Verified ground — checked by Local Legends'
+                  : 'Not verified yet — added by a player, confirm details before you travel'}
+              </Text>
+            </View>
+
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
               <Text style={{ fontSize: 14 }}>🏏</Text>
               <Text style={{ color: DS.textPrimary, fontWeight: '700', fontSize: 14, marginLeft: 6 }}>Cricket</Text>
@@ -560,6 +582,13 @@ const makeStyles = (DS, P) => StyleSheet.create({
   
   title: { fontSize: 24, fontWeight: '800', color: DS.textPrimary, marginBottom: 4 },
   subtitle: { fontSize: 15, color: DS.textMuted, fontWeight: '500' },
+  trustRow: {
+    flexDirection: 'row', alignItems: 'center', marginTop: 12,
+    paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10,
+    backgroundColor: DS.surface, borderWidth: 1, borderColor: DS.faint,
+  },
+  trustRowOn: { backgroundColor: DS.lime + '12', borderColor: DS.lime + '55' },
+  trustText: { flex: 1, marginLeft: 8, fontSize: 12, fontWeight: '700', color: DS.textMuted },
 
   section: { paddingVertical: 8 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: DS.textPrimary },
