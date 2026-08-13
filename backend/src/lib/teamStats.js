@@ -11,7 +11,8 @@
 // that did, so it loads the window once and accumulates everything together.
 
 import { prisma } from './prisma.js';
-import { isLegalDelivery } from './deliveries.js';
+import { isLegalDelivery, isBowlerWicket } from './deliveries.js';
+import { venueKey } from './venue.js';
 
 // One definition, in lib/deliveries.js — this list used to exist here, in
 // mvp.js and in routes/matches.js, identically and separately.
@@ -24,10 +25,15 @@ const div = (a, b, dp = 2) => (b > 0 ? +(a / b).toFixed(dp) : 0);
 // Overs are stored as balls everywhere sane; display wants 4.3 for 27.
 const oversOf = (balls) => +(Math.floor(balls / 6) + (balls % 6) / 10).toFixed(1);
 
-// Wickets that belong to the bowler. A run out is nobody's wicket.
-const BOWLER_WICKETS = ['bowled', 'lbw', 'caught', 'caughtbowled', 'candb', 'stumped', 'hitwicket'];
-const bowlerWicket = (b) =>
-  b.isWicket && BOWLER_WICKETS.includes(String(b.wicketType || '').toLowerCase().replace(/[\s&]/g, ''));
+// Wickets that belong to the bowler — one definition, in lib/deliveries.js.
+//
+// This was an allowlist of the seven spellings someone thought of, and it named
+// the wrong seven: "caught behind" and "c&b" are the bowler's wicket and were
+// being refused, while the career page counted them. Naming what is NOT the
+// bowler's — a run out, a retirement — is the shorter and more durable list,
+// because it does not have to be extended every time a scorer writes a
+// dismissal a slightly different way.
+const bowlerWicket = isBowlerWicket;
 
 /**
  * @param {string} teamId
@@ -632,13 +638,17 @@ export async function teamStatsFilterOptions(teamId) {
   const years = [...new Set(matches.map((m) => m.startTime && new Date(m.startTime).getFullYear()).filter(Boolean))].sort((a, b) => b - a);
   const matchTypes = [...new Set(matches.map((m) => m.matchType).filter(Boolean))].sort();
   // Venues are free text and typed by hand — this team has "Chennai", "CHENNAI"
-  // and "chennai" as three separate grounds. Fold on case so the filter offers
-  // one entry, labelled with the spelling used most often.
+  // and "chennai" as three separate grounds. Fold them so the filter offers one
+  // entry, labelled with the spelling used most often.
+  //
+  // Grouped by venueKey() rather than a local toLowerCase(): new matches are
+  // canonicalised on write now, and the day that rule changes this list has to
+  // change with it rather than quietly disagreeing about what one ground is.
   const venueCounts = {};
   for (const m of matches) {
     const v = (m.venue || '').trim();
     if (!v) continue;
-    const key = v.toLowerCase();
+    const key = venueKey(v);
     (venueCounts[key] ||= {})[v] = ((venueCounts[key] || {})[v] || 0) + 1;
   }
   const venues = Object.values(venueCounts)

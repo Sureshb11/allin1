@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
+import { canonicalVenue } from '../lib/venue.js';
 
 const router = Router();
 
@@ -52,7 +53,7 @@ router.post('/register', authMiddleware, async (req, res) => {
 const BookingSchema = z.object({
   scorerId:  z.string(),
   matchDate: z.string().datetime(),
-  venue:     z.string().optional(),
+  venue:     z.string().optional().transform(canonicalVenue),
 });
 
 router.post('/book', authMiddleware, async (req, res) => {

@@ -9,6 +9,7 @@ import { tournamentLeaderboard } from '../lib/leaderboard.js';
 import { tournamentStats } from '../lib/teamStats.js';
 import { seriesAwards } from '../lib/awards.js';
 import { zonedTime } from '../lib/zonedTime.js';
+import { canonicalVenue } from '../lib/venue.js';
 
 const router = Router();
 
@@ -632,7 +633,7 @@ router.post('/:id/schedule', authMiddleware, requireOrganizer, async (req, res) 
         tournamentId: req.params.id,
         team1Id, team2Id,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
-        venue, round,
+        venue: canonicalVenue(venue), round,
         phaseId: phaseId || undefined,
         seriesId: seriesId || undefined,
         leg: leg != null ? Number(leg) : undefined,
@@ -1062,7 +1063,7 @@ const TournamentFields = z.object({
   status:      z.string().min(1),
   startDate:   z.string().datetime().optional(),
   endDate:     z.string().datetime().optional(),
-  venue:       z.string().optional(),
+  venue:       z.string().optional().transform(canonicalVenue),
   city:        z.string().optional(),
   maxTeams:    z.number().int().optional(),
   prizePool:   z.string().optional(),

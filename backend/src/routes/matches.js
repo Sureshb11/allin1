@@ -11,6 +11,7 @@ import { computeAwards } from '../lib/mvp.js';
 import { persistMatchAwards, hasMatchAwards } from '../lib/awards.js';
 import { safeNotify, notifyUsers, notifyMatchLive, notifyMatchResult, pingMatchWatchers } from '../lib/notify.js';
 import { liveSummary } from '../lib/liveSummary.js';
+import { canonicalVenue } from '../lib/venue.js';
 
 const router = Router();
 
@@ -219,7 +220,10 @@ const MatchSchema = z.object({
   team1Id: z.string(),
   team2Id: z.string(),
   status: z.string().default('scheduled'),
-  venue: z.string().optional(),
+  // Tidied here rather than in the handler so it cannot be written raw by a
+  // future code path that forgets: "porur" and "Porur" are one ground, and a
+  // blank becomes null instead of an empty-string venue.
+  venue: z.string().optional().transform(canonicalVenue),
   matchType: z.string().optional(),
   startTime: z.string().datetime().optional(),
   overs: z.number().int().optional(),
