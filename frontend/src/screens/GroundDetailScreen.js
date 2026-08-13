@@ -6,6 +6,11 @@ import {
 } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import Icon from 'react-native-vector-icons/Ionicons';
+// The sports registry stores MaterialCommunityIcons names, and this screen's
+// Icon is Ionicons — the two sets do not overlap, so the sport glyph needs its
+// own import rather than silently rendering nothing.
+import MCIcon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { sportMeta } from '../sports';
 import MapView, { Marker } from 'react-native-maps';
 import LegendsApi from '../services/LegendsApi';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -191,9 +196,10 @@ export default function GroundDetailScreen({ route, navigation }) {
     );
   }
 
-  const images = ground.images?.length > 0 
-    ? ground.images.map(img => img.imageUrl) 
-    : ['https://via.placeholder.com/600x400?text=No+Image'];
+  // Was a via.placeholder.com URL when a ground had no photos — a third-party
+  // request to draw the words "No Image", on the screen someone opens at a
+  // ground on weak signal. Empty is the truth; the header draws its own.
+  const images = ground.images?.length > 0 ? ground.images.map(img => img.imageUrl) : [];
 
   const rating = ground.averageRating ? ground.averageRating.toFixed(1) : 'New';
   const reviewsCount = ground.reviewCount || 0;
@@ -228,6 +234,12 @@ export default function GroundDetailScreen({ route, navigation }) {
       >
         {/* CAROUSEL IMAGE */}
         <View style={styles.imageContainer}>
+          {images.length === 0 && (
+            <View style={[styles.coverImage, { backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' }]}>
+              <MCIcon name={sportMeta(ground.sport).icon} size={54} color={DS.textMuted} />
+              <Text style={{ color: DS.textMuted, fontSize: 12, fontWeight: '700', marginTop: 8 }}>No photos yet</Text>
+            </View>
+          )}
           <ScrollView
             horizontal
             pagingEnabled
@@ -255,7 +267,7 @@ export default function GroundDetailScreen({ route, navigation }) {
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={[styles.title, { flexShrink: 1 }]}>{ground.name}</Text>
               {!!ground.verified && (
-                <Icon name="check-decagram" size={19} color={DS.lime} style={{ marginLeft: 7 }} />
+                <Icon name="checkmark-circle" size={19} color={DS.lime} style={{ marginLeft: 7 }} />
               )}
             </View>
             <Text style={styles.subtitle}>{ground.area || ground.city || ground.location}</Text>
@@ -266,7 +278,9 @@ export default function GroundDetailScreen({ route, navigation }) {
                 status of a new listing, not a warning about it. */}
             <View style={[styles.trustRow, ground.verified && styles.trustRowOn]}>
               <Icon
-                name={ground.verified ? 'shield-check' : 'shield-alert-outline'}
+                /* Ionicons here, not MaterialCommunityIcons — this screen imports a
+                   different set to the grounds list, and the names do not overlap. */
+                name={ground.verified ? 'shield-checkmark' : 'alert-circle-outline'}
                 size={15}
                 color={ground.verified ? DS.lime : DS.textMuted}
               />
@@ -278,8 +292,8 @@ export default function GroundDetailScreen({ route, navigation }) {
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
-              <Text style={{ fontSize: 14 }}>🏏</Text>
-              <Text style={{ color: DS.textPrimary, fontWeight: '700', fontSize: 14, marginLeft: 6 }}>Cricket</Text>
+              <MCIcon name={sportMeta(ground.sport).icon} size={14} color={DS.textPrimary} />
+              <Text style={{ color: DS.textPrimary, fontWeight: '700', fontSize: 14, marginLeft: 6 }}>{sportMeta(ground.sport).name}</Text>
               <Text style={{ color: DS.textMuted, fontSize: 14, marginHorizontal: 8 }}>•</Text>
               <Text style={{ color: DS.textPrimary, fontWeight: '700', fontSize: 14 }}>{rating} <Icon name="star" size={12} color="#FBBF24" /></Text>
               <Text style={{ color: DS.textMuted, fontSize: 14, marginLeft: 4 }}>({reviewsCount} ratings)</Text>
@@ -289,7 +303,7 @@ export default function GroundDetailScreen({ route, navigation }) {
           {/* ADDRESS SECTION */}
           <View style={styles.section}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-              <Icon name="map-marker-outline" size={20} color={DS.textMuted} style={{ marginTop: 2 }} />
+              <Icon name="location-outline" size={20} color={DS.textMuted} style={{ marginTop: 2 }} />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.paragraph}>{ground.address || ground.location}</Text>
                 <View style={{ flexDirection: 'row', marginTop: 16, gap: 12 }}>

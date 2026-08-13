@@ -30,6 +30,8 @@ import { pav } from '../theme/pavilion';
 import { makeControls } from '../theme/controls';
 import { useHideTabBarOnScroll, useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
 import { useSupercluster } from '../components/useSupercluster';
+import { listSports, sportMeta } from '../sports';
+import { getSelectedSport } from '../utils/selectedSport';
 
 function GroundSkeleton({ DS }) {
   const shimmers = useRef([new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)]).current;
@@ -206,7 +208,7 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
 };
 
 const GroundCard = ({ ground, index, isFav, onToggleFav, onPress, styles, DS, P }) => {
-  const image = ground.images?.[0]?.imageUrl || 'https://via.placeholder.com/400x200?text=No+Image';
+  const image = ground.images?.[0]?.imageUrl;
   const rating = ground.averageRating ? ground.averageRating.toFixed(1) : 'New';
   const typeStr = ground.groundType ? ground.groundType.replace('_', '-').replace(/\b\w/g, l => l.toUpperCase()) : 'Ground';
   const heartScale = useRef(new Animated.Value(1)).current;
@@ -224,7 +226,17 @@ const GroundCard = ({ ground, index, isFav, onToggleFav, onPress, styles, DS, P 
     <Reanimated.View style={{ flex: 1, marginBottom: 24 }} entering={FadeInDown.delay((index % 8) * 60).duration(400).springify()}>
       <AnimatedPressable style={{ backgroundColor: 'transparent' }} onPress={() => onPress(ground.id)}>
         <View style={{ width: '100%', height: 200, borderRadius: 16, overflow: 'hidden' }}>
-          <Image source={{ uri: image }} style={{ width: '100%', height: '100%' }} />
+          {image ? (
+            <Image source={{ uri: image }} style={{ width: '100%', height: '100%' }} />
+          ) : (
+            /* Was an <Image> pointing at via.placeholder.com — a request to a
+               third party to draw "No Image". At a ground on weak mobile data
+               that hangs, and if the host is blocked it never resolves. Drawn
+               locally instead, in the sport's own colour. */
+            <View style={{ width: '100%', height: '100%', backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name={sportMeta(ground.sport).icon} size={40} color={DS.textMuted} />
+            </View>
+          )}
           <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', backgroundColor: 'rgba(0,0,0,0.4)' }} />
           
           <TouchableOpacity style={styles.favButton} onPress={handleHeartPress} activeOpacity={0.8}>
@@ -236,8 +248,8 @@ const GroundCard = ({ ground, index, isFav, onToggleFav, onPress, styles, DS, P 
           </TouchableOpacity>
 
           <View style={{ position: 'absolute', bottom: 12, left: 12, backgroundColor: 'rgba(0,0,0,0.7)', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16 }}>
-            <Text style={{ fontSize: 13, marginRight: 4 }}>🏏</Text>
-            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>Cricket</Text>
+            <Icon name={sportMeta(ground.sport).icon} size={13} color="#FFF" style={{ marginRight: 5 }} />
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>{sportMeta(ground.sport).name}</Text>
           </View>
         </View>
 
@@ -531,6 +543,10 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
 
   const [name, setName] = useState('');
   const [localName, setLocalName] = useState('');
+  // Grounds are not all cricket grounds. The column has existed since the
+  // beginning with a 'cricket' default and nothing ever set it, so every ground
+  // a football or badminton club added filed itself under cricket.
+  const [sport, setSport] = useState(() => getSelectedSport().sport?.id || 'cricket');
   const [category, setCategory] = useState('');
   const [area, setArea] = useState('');
   const [city, setCity] = useState('');
@@ -589,6 +605,7 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
         name: name.trim(), localName: localName.trim() || undefined, category: category || undefined,
         location: area.trim() || undefined, area: area.trim() || undefined,
         city: city.trim(), state: stateName.trim() || undefined, address: address.trim() || undefined,
+        sport,
         latitude: lat || undefined, longitude: lng || undefined, groundType,
         playingSurface: playingSurface || undefined,
         ballTypes: ballTypes.length > 0 ? ballTypes : undefined,
@@ -632,6 +649,8 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
             error={errors.name} placeholder="e.g. M.A. Chidambaram Stadium" />
           <TextField label="Local name" value={localName} onChangeText={setLocalName}
             placeholder="e.g. Chepauk" helper="What people round there call it" />
+          <ChipGroup label="Sport" options={listSports().map((sp) => ({ value: sp.id, label: sp.name, icon: sp.icon }))}
+            value={sport} onChange={(v) => v && setSport(v)} />
           <ChipGroup label="Category" options={CATEGORIES} value={category}
             onChange={(v) => setCategory(v || '')} last />
         </SectionCard>
@@ -788,6 +807,9 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   const fetchGrounds = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
     const params = { 
+      // Every other screen renders the SELECTED sport; this one showed every
+      // ground to everybody, so a badminton player browsed cricket grounds.
+      sport: getSelectedSport().sport?.id || 'cricket',
       q: query, 
       type: type === 'All' ? '' : type,
       surface: filterSurface,
