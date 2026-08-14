@@ -110,12 +110,28 @@ export default function GlassDock({
     });
 
     const iconName = on ? (activeIcon || inactiveIcon) : (inactiveIcon || activeIcon);
-    
+
+    // The whole "which screen am I on" signal used to be a tint plus a 4px dot,
+    // sitting next to a 52px animated cricket ball lifted 30px out of the bar.
+    // The ball won that comparison every time — and it is the CREATE action,
+    // not a destination, so the loudest thing in the navigation was not
+    // somewhere you could be. A filled pill behind the active icon is the same
+    // shape Material's nav bar uses, and it reads at a glance without having to
+    // quieten the ball, which is the app's own hero art.
+    const pillOpacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.20] });
+    const pillScale = anim.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1] });
+
     return (
-      <TouchableOpacity style={s.item} onPress={onPress} activeOpacity={0.8} hitSlop={8}>
-        {glyph ? glyph(on ? accent : idle, on) : <AnimatedIcon name={iconName} size={28} style={{ color: tint }} />}
-        <Animated.Text numberOfLines={1} style={[s.label, { color: tint }]}>{label}</Animated.Text>
-        <Animated.View style={[s.dot, { opacity: anim, transform: [{ scale: anim }], backgroundColor: accent }]} />
+      <TouchableOpacity style={s.item} onPress={onPress} activeOpacity={0.8} hitSlop={8}
+        accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}>
+        <View style={s.iconWrap}>
+          <Animated.View
+            pointerEvents="none"
+            style={[s.activePill, { opacity: pillOpacity, transform: [{ scale: pillScale }], backgroundColor: accent }]}
+          />
+          {glyph ? glyph(on ? accent : idle, on) : <AnimatedIcon name={iconName} size={26} style={{ color: tint }} />}
+        </View>
+        <Animated.Text numberOfLines={1} style={[s.label, { color: tint, fontWeight: on ? '800' : '600' }]}>{label}</Animated.Text>
       </TouchableOpacity>
     );
   };
@@ -136,9 +152,16 @@ export default function GlassDock({
               <AnimatedCricketBall size={52} onPress={startMatch} />
             </View>
           ) : (
-            <TouchableOpacity style={s.plusBtn} activeOpacity={0.7} onPress={startMatch}
-              accessibilityRole="button" accessibilityLabel="Start a match">
-              <Icon name="plus" size={26} color={DS.textPrimary} />
+            /* On the create screen `active` is 'ball', so none of the four tabs
+               light up — right, since you are not on a tab, but it left the bar
+               with nothing selected at all. The create button now shows its own
+               state instead. */
+            <TouchableOpacity
+              style={[s.plusBtn, active === 'ball' && { backgroundColor: accent + '33', borderWidth: 1.5, borderColor: accent }]}
+              activeOpacity={0.7} onPress={startMatch}
+              accessibilityRole="button" accessibilityLabel="Start a match"
+              accessibilityState={{ selected: active === 'ball' }}>
+              <Icon name="plus" size={26} color={active === 'ball' ? accent : DS.textPrimary} />
             </TouchableOpacity>
           )}
         </View>
@@ -165,8 +188,12 @@ const makeStyles = (isDark, DS) => StyleSheet.create({
     shadowOffset: { width: 0, height: isDark ? 0 : 8 }, elevation: 12,
   },
   item: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
-  label: { fontSize: 10.5, marginTop: 3, letterSpacing: 0.3, fontWeight: '700' },
-  dot: { width: 4, height: 4, borderRadius: 2, marginTop: 3, backgroundColor: 'transparent' },
+  // The icon sits in a fixed box so the pill behind it is the same size on
+  // every tab, whatever the glyph — the avatar on "You" is a different shape
+  // to the icons beside it.
+  iconWrap: { width: 46, height: 30, alignItems: 'center', justifyContent: 'center' },
+  activePill: { ...StyleSheet.absoluteFillObject, borderRadius: 15 },
+  label: { fontSize: 10.5, marginTop: 2, letterSpacing: 0.3 },
   // "You" tab avatar — ring takes the current tint (green when selected).
   avatar: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.6, backgroundColor: DS.surfaceHigh },
   ballSlot: { width: 68, alignItems: 'center' },
