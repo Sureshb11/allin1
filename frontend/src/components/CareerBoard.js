@@ -402,6 +402,11 @@ export default function CareerBoard({ stats, sportId, ballType, navigation, capt
       : null;
   const showContribution = form.some((m) => contribution(m) != null);
 
+  // A record only reads as one when there is something in it. Ties and results
+  // the backend could not parse are in neither column, so W+L can be short of
+  // matches — that is deliberate, not a rounding error.
+  const hasRecord = (stats?.wins || 0) + (stats?.losses || 0) > 0;
+
   // The form strip is a horizontal ScrollView nested inside the Pavilion's own
   // horizontal pager (PavilionScreen wraps every page in <ScrollView horizontal
   // pagingEnabled>). Two scrollables on the same axis: the pager took the drag
@@ -570,9 +575,30 @@ export default function CareerBoard({ stats, sportId, ballType, navigation, capt
                   )}
                 </View>
                 
-                <Text style={{ fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.8)', letterSpacing: 1.5, marginTop: 2, paddingLeft: 2 }}>
-                  {matches === 1 ? 'MATCH' : 'MATCHES'}
-                </Text>
+                {/* The record moved up here from a "Career" panel at the very
+                    bottom, which listed Matches / Won / Lost / Win % — matches
+                    was already the big number two lines up, and won/lost was
+                    already the row of W and L discs beside it. Only the win
+                    rate was new, and it belongs next to the games it counts. */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3, paddingLeft: 2 }}>
+                  <Text style={{ fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.8)', letterSpacing: 1.5 }}>
+                    {matches === 1 ? 'MATCH' : 'MATCHES'}
+                  </Text>
+                  {hasRecord && (
+                    <>
+                      <Text style={styles.hdrSep}>·</Text>
+                      <Text style={styles.hdrRecord}>{stats.wins}W</Text>
+                      <Text style={styles.hdrRecordDim}> {stats.losses}L</Text>
+                      {stats.winPercent != null && (
+                        <>
+                          <Text style={styles.hdrSep}>·</Text>
+                          <Text style={styles.hdrRecord}>{stats.winPercent}%</Text>
+                          <Text style={styles.hdrRecordDim}> WON</Text>
+                        </>
+                      )}
+                    </>
+                  )}
+                </View>
               </View>
 
               {honours.length > 0 && (
@@ -721,6 +747,9 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.border,
   },
   honourMajor: {},
+  hdrSep: { color: 'rgba(255,255,255,0.45)', fontSize: 9, fontWeight: '800', marginHorizontal: 6 },
+  hdrRecord: { color: '#ffffff', fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+  hdrRecordDim: { color: 'rgba(255,255,255,0.7)', fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
   honourCount: { fontSize: 10, fontWeight: '500', color: DS.textMuted, textTransform: 'uppercase' },
   honourLabel: { fontSize: 10, fontWeight: '500', color: DS.textMuted, textTransform: 'uppercase' },
   honourTextMajor: {},
