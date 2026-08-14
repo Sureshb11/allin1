@@ -44,6 +44,14 @@ const AWARD_NAME = {
   batter: 'Best Batter', bowler: 'Best Bowler', fielder: 'Best Fielder',
 };
 
+// The flipped face of a stat tile: deep pitch green, the app's gold on it.
+// Deliberately literal rather than themed — the tokens this used to read
+// (limeDark for the fill, limeBright for the label) are the SAME colour in the
+// light theme, which is how a flipped tile ended up with an invisible label.
+// 8.70:1, AAA at this size, and identical in both themes.
+const FLIP_BG = '#03301F';
+const FLIP_FG = '#FBBF24';
+
 // 1,284 reads faster than 1284 in a table of career totals.
 const group = (v) => (typeof v === 'number' && Number.isInteger(v) && Math.abs(v) >= 1000)
   ? String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
@@ -308,11 +316,19 @@ function StatCell({ s, i, styles }) {
       backfaceVisibility: 'hidden',
       position: 'absolute',
       top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: DS.limeDark,
+      // Fixed, not themed. This face read backgroundColor: DS.limeDark with a
+      // DS.limeBright label — and in the LIGHT theme those two tokens are the
+      // same value (#0a5227), so the label sat at 1.00:1 against its own
+      // background and simply was not there. Flipping a tile showed a number
+      // with no idea what it was.
+      //
+      // The flipped card is one deliberate surface in both themes: deep pitch
+      // green with the app's gold on it, 8.70:1 — AAA at this text size.
+      backgroundColor: FLIP_BG,
       justifyContent: 'center',
       alignItems: 'center',
       borderRadius: 16,
-      borderWidth: 1, borderColor: DS.border
+      borderWidth: 1, borderColor: 'rgba(251,191,36,0.35)'
     };
   });
 
@@ -324,18 +340,22 @@ function StatCell({ s, i, styles }) {
           <CountingText style={[styles.cellVal, i === 0 && styles.cellValLead]} numberOfLines={1} value={s.value} burstOnFinish={i === 0} />
           <Text style={styles.cellLbl} numberOfLines={1}>{s.label}</Text>
         </Reanimated.View>
-        {/* The back said CAREER TOTAL and then repeated the number already on
-            the front. Where a stat is about a person — a nemesis, a partner —
-            this is the only place their name fits. */}
+        {/* The back carried a fixed "CAREER TOTAL" caption above the number,
+            so a flipped tile never said WHICH stat you were looking at — and in
+            the light theme that caption was invisible anyway. It shows the
+            tile's own label now, and where a stat is about a person — a
+            nemesis, a partner — their name underneath. */}
         <Reanimated.View style={[backStyle, { padding: 8, width: '100%', height: '100%' }]}>
-          <Text style={{ color: DS.limeBright, fontSize: 10, fontWeight: '800', textAlign: 'center' }}>
-            {s.detail ? s.label.toUpperCase() : 'CAREER TOTAL'}
+          {/* The label always shows now — it is what the number on the front
+              was, and a flipped tile without it is just a number. */}
+          <Text numberOfLines={2} style={{ color: FLIP_FG, fontSize: 10, fontWeight: '800', textAlign: 'center', letterSpacing: 0.5 }}>
+            {s.label.toUpperCase()}
           </Text>
-          <Text style={{ color: DS.textPrimary, fontSize: 15, fontWeight: '900', marginTop: 4 }}>{s.value}</Text>
+          <Text style={{ color: FLIP_FG, fontSize: 17, fontWeight: '900', marginTop: 4 }}>{s.value}</Text>
           {!!s.detail && (
             <Text
               numberOfLines={2}
-              style={{ color: DS.textPrimary, fontSize: 10, fontWeight: '700', textAlign: 'center', marginTop: 3 }}
+              style={{ color: FLIP_FG, fontSize: 10, fontWeight: '700', textAlign: 'center', marginTop: 3 }}
             >
               {s.detail}
             </Text>
