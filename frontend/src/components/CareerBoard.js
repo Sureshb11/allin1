@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, LayoutAnimation, ScrollView } from 'react-native';
-import Reanimated, { ZoomIn, SlideInRight, SlideInLeft, useSharedValue, useAnimatedStyle, withTiming, withSpring, interpolate, LinearTransition } from 'react-native-reanimated';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, LayoutAnimation } from 'react-native';
+import Reanimated, { ZoomIn, SlideInRight, SlideInLeft, useSharedValue, useAnimatedStyle, useAnimatedRef, scrollTo, withTiming, withSpring, interpolate, LinearTransition } from 'react-native-reanimated';
 import Svg, { Polyline, Polygon, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import ViewShot from 'react-native-view-shot';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -319,7 +319,7 @@ function StatCell({ s, i, styles }) {
   return (
     <GestureDetector gesture={composedGesture}>
       <Reanimated.View entering={ZoomIn.delay(i * 75).springify().damping(12)} style={{ width: '31%', aspectRatio: 0.9 }}>
-        <Reanimated.View style={[styles.cell, { overflow: 'hidden', width: '100%', height: '100%', backgroundColor: i === 0 ? (DS.lime + '0A') : styles.cell.backgroundColor }, frontStyle]}>
+        <Reanimated.View style={[styles.cell, { overflow: 'hidden', width: '100%', height: '100%' }, frontStyle]}>
           <Reanimated.View style={spotlightStyle} pointerEvents="none" />
           <CountingText style={[styles.cellVal, i === 0 && styles.cellValLead]} numberOfLines={1} value={s.value} burstOnFinish={i === 0} />
           <Text style={styles.cellLbl} numberOfLines={1}>{s.label}</Text>
@@ -381,6 +381,58 @@ export default function CareerBoard({ stats, sportId, ballType, navigation, capt
       : tab === 'batting' ? (m.runs != null ? `${m.runs}` : null)
       : null;
   const showContribution = form.some((m) => contribution(m) != null);
+
+  // The form strip is a horizontal ScrollView nested inside the Pavilion's own
+  // horizontal pager (PavilionScreen wraps every page in <ScrollView horizontal
+  // pagingEnabled>). Two scrollables on the same axis: the pager took the drag
+  // and the strip never moved, so a career of thirty matches showed the first
+  // six and no way to reach the rest.
+  //
+  // Driven by a pan rather than left to the two ScrollViews to negotiate —
+  // the same fix GroundsScreen's filter row uses, and for the same reason.
+  // activeOffsetX means a vertical scroll of the page still passes straight
+  // through; only a deliberate horizontal drag claims the strip.
+  const formScroll = useAnimatedRef();
+  const formOffset = useSharedValue(0);
+  const formStart = useSharedValue(0);
+  const formMax = useSharedValue(0);
+  const formViewW = useRef(0);
+  const formContentW = useRef(0);
+  const recomputeFormMax = () => {
+    formMax.value = Math.max(0, formContentW.current - formViewW.current);
+  };
+  const formPan = useMemo(() => Gesture.Pan()
+    .activeOffsetX([-8, 8])
+    .failOffsetY([-12, 12])
+    .onBegin(() => { formStart.value = formOffset.value; })
+    .onUpdate((e) => {
+      let next = formStart.value - e.translationX;
+      if (next < 0) next = 0; else if (next > formMax.value) next = formMax.value;
+      formOffset.value = next;
+      scrollTo(formScroll, next, 0, false);
+    }), [formScroll, formOffset, formStart, formMax]);
+
+  // Same nesting, same fix: nine award kinds can be on show, and the honours
+  // row sat in the pager too.
+  const honScroll = useAnimatedRef();
+  const honOffset = useSharedValue(0);
+  const honStart = useSharedValue(0);
+  const honMax = useSharedValue(0);
+  const honViewW = useRef(0);
+  const honContentW = useRef(0);
+  const recomputeHonMax = () => {
+    honMax.value = Math.max(0, honContentW.current - honViewW.current);
+  };
+  const honPan = useMemo(() => Gesture.Pan()
+    .activeOffsetX([-8, 8])
+    .failOffsetY([-12, 12])
+    .onBegin(() => { honStart.value = honOffset.value; })
+    .onUpdate((e) => {
+      let next = honStart.value - e.translationX;
+      if (next < 0) next = 0; else if (next > honMax.value) next = honMax.value;
+      honOffset.value = next;
+      scrollTo(honScroll, next, 0, false);
+    }), [honScroll, honOffset, honStart, honMax]);
   const openMatch = (m) => {
     if (!navigation || !m.matchId) return;
     if (sportId === 'cricket') navigation.navigate('Scorecard', { matchId: m.matchId });
@@ -457,7 +509,14 @@ export default function CareerBoard({ stats, sportId, ballType, navigation, capt
                     <>
                       <Text style={{ fontSize: 28, fontWeight: '300', color: 'rgba(255,255,255,0.4)', marginHorizontal: 12, marginTop: -4 }}>-</Text>
                       <View style={{ flex: 1 }}>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4, paddingVertical: 4, alignItems: 'center' }}>
+                        <GestureDetector gesture={formPan}>
+                        <Reanimated.ScrollView
+                          ref={formScroll}
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          onLayout={(e) => { formViewW.current = e.nativeEvent.layout.width; recomputeFormMax(); }}
+                          onContentSizeChange={(w) => { formContentW.current = w; recomputeFormMax(); }}
+                          contentContainerStyle={{ gap: 8, paddingRight: 4, paddingVertical: 4, alignItems: 'center' }}>
                           {form.map((m, i) => {
                             const won = m.result === 'W', lost = m.result === 'L';
                             const award = m.award || (m.isMOM ? 'motm' : null);
@@ -484,7 +543,8 @@ export default function CareerBoard({ stats, sportId, ballType, navigation, capt
                               </TouchableOpacity>
                             );
                           })}
-                        </ScrollView>
+                        </Reanimated.ScrollView>
+                        </GestureDetector>
                       </View>
                     </>
                   )}
@@ -497,7 +557,14 @@ export default function CareerBoard({ stats, sportId, ballType, navigation, capt
 
               {honours.length > 0 && (
                 <View style={{ marginTop: 12 }}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
+                  <GestureDetector gesture={honPan}>
+                  <Reanimated.ScrollView
+                    ref={honScroll}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    onLayout={(e) => { honViewW.current = e.nativeEvent.layout.width; recomputeHonMax(); }}
+                    onContentSizeChange={(w) => { honContentW.current = w; recomputeHonMax(); }}
+                    contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
                     {honours.map((a) => (
                       <View key={a.key} style={[styles.honour, a.major && styles.honourMajor, { 
                         backgroundColor: a.major ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.1)', 
@@ -511,7 +578,8 @@ export default function CareerBoard({ stats, sportId, ballType, navigation, capt
                         <Text style={[styles.honourLabel, { color: a.major ? '#ffd700' : 'rgba(255,255,255,0.8)', fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }]}>{a.label}</Text>
                       </View>
                     ))}
-                  </ScrollView>
+                  </Reanimated.ScrollView>
+                  </GestureDetector>
                 </View>
               )}
             </View>
