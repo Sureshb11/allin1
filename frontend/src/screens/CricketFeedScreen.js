@@ -50,6 +50,9 @@ const initials = (n) => n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpp
 // Single-accent: every avatar uses the deep green (white initials read on it in
 // both light and dark). Was a per-name rainbow palette.
 const colorFor = () => '#0a5227';
+// One size for every icon in a post's action row. They were 26 / 24 / 25.
+const ACTION_ICON = 24;
+
 const timeAgo = (iso) => {
   if (!iso) return '';
   const sec = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
@@ -462,31 +465,35 @@ function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().c
       {/* actions */}
       <View style={p.actionWrap}>
         <View style={p.actions}>
+          {/* One size and one layout box for all three. They were 26 / 24 / 25
+              with the comment icon alone wrapped in an extra row View, so the
+              three sat on slightly different baselines and the bubble read as
+              a different weight to the heart beside it. */}
           <TouchableOpacity onPress={handleLike} hitSlop={8} style={p.actionBtn} activeOpacity={0.7}>
             <Animated.View style={{ transform: [{ scale: popRef }] }}>
-              <Icon name={post.liked ? 'heart' : 'heart-outline'} size={26} color={post.liked ? DS.live : DS.textPrimary} />
+              <Icon name={post.liked ? 'heart' : 'heart-outline'} size={ACTION_ICON} color={post.liked ? DS.live : DS.textPrimary} />
             </Animated.View>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => onComment(post)} hitSlop={8} style={p.actionBtn} activeOpacity={0.7}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Icon name="comment-outline" size={24} color={DS.textPrimary} />
-              {(post.commentCount || 0) > 0 && <Text style={{ color: DS.textMuted, fontSize: 12, fontWeight: '700' }}>{post.commentCount}</Text>}
-            </View>
+            <Icon name="comment-outline" size={ACTION_ICON} color={DS.textPrimary} />
+            {(post.commentCount || 0) > 0 && <Text style={p.actionCount}>{post.commentCount}</Text>}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => onShare(post)} hitSlop={8} style={p.actionBtn} activeOpacity={0.7}>
-            <Icon name="share-outline" size={25} color={DS.textPrimary} />
+            <Icon name="share-outline" size={ACTION_ICON} color={DS.textPrimary} />
           </TouchableOpacity>
           <View style={{ flex: 1 }} />
-          <TouchableOpacity hitSlop={8} activeOpacity={0.7} onPress={toggleSave}>
-            <Icon name={saved ? 'bookmark' : 'bookmark-outline'} size={24} color={saved ? DS.lime : DS.textPrimary} />
+          <TouchableOpacity hitSlop={8} activeOpacity={0.7} onPress={toggleSave} style={p.actionBtn}>
+            <Icon name={saved ? 'bookmark' : 'bookmark-outline'} size={ACTION_ICON} color={saved ? DS.lime : DS.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* likes */}
+      {/* Likes. This line carried its own small red heart, which landed directly
+          beneath the red heart in the action row — two hearts stacked a few
+          pixels apart, reading as one clustered blob. The button above already
+          says whether YOU liked it; this line only has to say how many did. */}
       {post.likes > 0 &&
         <View style={p.likesRow}>
-          <Icon name="heart" size={13} color={DS.live} style={{ marginRight: 5 }} />
           <Text style={p.likes}>
             {post.likedBy
               ? <>Liked by <Text style={p.bold}>{post.likedBy}</Text> and <Text style={p.bold}>{(post.likes - 1).toLocaleString()} others</Text></>
@@ -1240,10 +1247,16 @@ const makeP = (DS) => StyleSheet.create({
   sub: { color: DS.textMuted, fontSize: 12, marginTop: 1 },
   
   actionWrap: { borderTopWidth: 1, borderTopColor: DS.line, paddingTop: 4 },
-  actions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 12, gap: 16 },
-  actionBtn: {},
+  actions: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2, gap: 18 },
+  // Fixed height and centred: the icons have different intrinsic glyph heights
+  // (a heart is taller than a speech bubble at the same point size), so without
+  // a box to sit in they align to their own bounding boxes and look staggered.
+  actionBtn: { height: ACTION_ICON + 4, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  actionCount: { color: DS.textMuted, fontSize: 12, fontWeight: '700' },
 
-  likesRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 10 },
+  // Sits under the action row, so it keeps the same 14pt gutter and a gap that
+  // reads as a separate line rather than a second row of the same control.
+  likesRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 8 },
   likes: { color: DS.textPrimary, fontSize: 13, fontWeight: '600' },
   bold: { fontWeight: '800', color: DS.textPrimary },
   caption: { color: DS.textVariant, fontSize: 13.5, lineHeight: 19, paddingHorizontal: 14, paddingTop: 5 },
