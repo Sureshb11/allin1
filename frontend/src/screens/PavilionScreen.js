@@ -26,6 +26,9 @@ const L1_TABS = [
   { label: 'Grounds',  icon: 'earth', component: GroundsScreen, id: 'grounds' },
 ];
 
+// `label` is no longer drawn — the button is a circular icon now — but it is
+// still the button's ACCESSIBLE NAME. An icon-only control with no label is
+// announced as just "button", so this is load-bearing, not leftover.
 const FAB_FOR = (P) => ({
   'My Stats': { icon: 'share-variant', label: 'Share Card', accent: P.accent },
   'Rankings': null,
@@ -236,6 +239,8 @@ export default function PavilionScreen({ navigation, route }) {
                   dockY ? { transform: [{ translateY: dockY }] } : null]}>
           <TouchableOpacity
             style={[styles.fab, { backgroundColor: DS.lime }]}
+            accessibilityRole="button"
+            accessibilityLabel={fab.label}
             onPress={() => {
               haptic.impact();
               fabActions[activePage.id]?.();
@@ -243,8 +248,7 @@ export default function PavilionScreen({ navigation, route }) {
             activeOpacity={0.85}
           >
             <Animated.View style={[styles.fabContent, fabContentStyle]}>
-              <Icon name={fab.icon} size={20} color={DS.onLime} />
-              <Text style={[styles.fabText, { color: DS.onLime }]}>{fab.label}</Text>
+              <Icon name={fab.icon} size={26} color={DS.onLime} />
             </Animated.View>
           </TouchableOpacity>
         </RNAnimated.View>
@@ -257,22 +261,16 @@ const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
   fabWrap: { position: 'absolute', right: 20 },
   fab: {
-    flexDirection: 'row',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 22,
-    borderRadius: 18,
-    gap: 9,
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.28,
     shadowRadius: 14,
     elevation: 8,
   },
-  fabContent: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  fabText: {
-    fontWeight: '800',
-    fontSize: 14,
-    letterSpacing: 0.5,
-  },
+  fabContent: { alignItems: 'center', justifyContent: 'center' },
 });
