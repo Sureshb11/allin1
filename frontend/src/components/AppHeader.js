@@ -2,6 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Image, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo from './BrandLogo';
@@ -11,9 +12,23 @@ import { Text } from 'react-native';
 export default function AppHeader({ onComposePress, showCompose = false, transparent = false }) {
   const navigation = useNavigation();
   const { colors: DS, isDark } = useTheme();
+  // The header clears the status bar itself.
+  //
+  // topBar had a flat paddingTop of 16, which only works while the app draws
+  // BELOW the status bar. PavilionScreen sets <StatusBar translucent />, and
+  // that is a global, imperative setting on Android — it stays applied after
+  // that screen goes away. So the moment Pavilion had mounted once (it is the
+  // neighbour of "You", and the pager renders neighbours), every screen started
+  // drawing under the clock, and a 16pt header went with it.
+  //
+  // Pavilion was the only one of the four screens using this header that padded
+  // for the inset, from the outside. Owning it here fixes the other three and
+  // means the header sits right whatever the status bar is doing.
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.topBar, {
+      paddingTop: insets.top + 12,
       borderBottomColor: isDark ? 'transparent' : DS.border,
       borderBottomWidth: isDark ? 0 : 1,
       backgroundColor: transparent ? 'transparent' : DS.surfaceLow,
@@ -73,7 +88,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 16,
+    // paddingTop is set inline from the safe-area inset — a constant here would
+    // be silently overridden, which is how you end up debugging a number that
+    // never applied.
     paddingBottom: 10,
     paddingHorizontal: 16,
     borderBottomWidth: 1,

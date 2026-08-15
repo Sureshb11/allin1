@@ -174,7 +174,12 @@ export default function PavilionScreen({ navigation, route }) {
         </ScrollView>
 
         {/* Floating Header & Tabs */}
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: DS.bg + 'E6', paddingTop: insets.top }}> 
+        {/* No paddingTop here any more — AppHeader clears the status bar itself
+            now, and this screen padding for it too would push the header down
+            by the inset twice. This was the only screen of the four that
+            compensated, which is why Pavilion looked right and Profile, Home
+            and the feed did not. */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: DS.bg + 'E6' }}> 
           <AppHeader transparent />
           <View style={{ borderBottomWidth: 1, borderBottomColor: DS.border }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[C.navRow, { paddingHorizontal: 16, borderBottomWidth: 0, paddingBottom: 10 }]}>
