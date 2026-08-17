@@ -193,7 +193,22 @@ export default function LiveMatchScreen({ route, navigation }) {
   const loadIntel = useCallback(async () => {
     if (!matchId) return;
     const r = await legendsApi.getMatchIntelligence(matchId);
-    if (r.success) setIntel(r);
+    if (!r.success) return;
+    // Only take the update when something ACTUALLY changed.
+    //
+    // A tracked innings draws roughly four hundred SVG nodes, and this polls
+    // every six seconds for as long as somebody leaves the tab open. Setting
+    // state unconditionally re-rendered the entire wheel on every poll to
+    // produce a pixel-identical picture — between deliveries, which is most of
+    // the time. Comparing the payload costs a sub-millisecond stringify of
+    // ~20KB; the render it avoids costs far more, on the phone of the person
+    // least likely to be plugged in.
+    setIntel((prev) => {
+      if (prev
+        && prev.latest?.id === r.latest?.id
+        && JSON.stringify(prev.shots) === JSON.stringify(r.shots)) return prev;
+      return r;
+    });
   }, [matchId]);
 
   useEffect(() => { loadIntel(); }, [loadIntel]);
@@ -448,8 +463,13 @@ function ShotsTab({ intel, styles, DS }) {
   const active = pickedInning || last?.inningId || innings[innings.length - 1]?.id || null;
 
   // Filtered locally from what is already in hand — switching innings is a
-  // state change, not a round trip.
-  const shots = active ? all.filter((s) => s.inningId === active) : all;
+  // state change, not a round trip. Memoised so the array KEEPS ITS IDENTITY
+  // between polls: the wheel below is memoised too, and a fresh array on every
+  // render would defeat it no matter how unchanged the contents were.
+  const shots = useMemo(
+    () => (active ? all.filter((s) => s.inningId === active) : all),
+    [all, active],
+  );
   const summary = intel?.byInnings?.find((i) => i.id === active)?.summary || intel?.summary;
   const hand = last?.batterHand || 'right';
 

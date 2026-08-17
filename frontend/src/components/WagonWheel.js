@@ -50,7 +50,7 @@ const shotColor = (s, C) => {
   return C.runs;
 };
 
-export default function WagonWheel({
+function WagonWheel({
   size = 280,
   hand = 'right',
   mode = 'display',
@@ -229,6 +229,19 @@ export default function WagonWheel({
     </View>
   );
 }
+
+/**
+ * Memoised, because this is the most expensive thing on a screen people leave
+ * open for hours.
+ *
+ * A tracked innings is three SVG nodes per shot plus the wedges, labels and
+ * chrome — roughly four hundred elements. The spectator tab polls every six
+ * seconds and its parent re-renders each time, so without this the whole wheel
+ * was rebuilt between deliveries to draw exactly the same picture. The default
+ * shallow compare is enough BECAUSE the caller keeps the shots array's identity
+ * stable across unchanged polls; the two go together, and neither works alone.
+ */
+export default React.memo(WagonWheel);
 
 /** The hand indicator that belongs beside every wheel — the picture is ambiguous without it. */
 export function HandBadge({ hand }) {
