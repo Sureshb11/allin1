@@ -6,6 +6,7 @@ import { isTeamAdmin } from '../lib/teamAuth.js';
 import { playerCareer } from '../lib/playerCareer.js';
 import { canonicalRole } from '../lib/squadOrder.js';
 import { resyncShotZones } from '../lib/ballIntelligence.js';
+import { LEGAL_DELIVERY_WHERE } from '../lib/deliveries.js';
 import { playerShots } from '../lib/playerShots.js';
 import { benchmarkForPlayer } from '../lib/benchmark.js';
 
@@ -69,7 +70,11 @@ async function aggregateStats(whereMatch, overRows) {
     prisma.ball.groupBy({ by: ['batterId', 'overId'], _sum: { runs: true }, where: whereMatch ? { over: { inning: { match: whereMatch } } } : undefined }),
     prisma.ball.groupBy({
       by: ['overId'], _count: { _all: true },
-      where: { OR: [{ extraType: null }, { extraType: { notIn: ['wide', 'noBall', 'penalty', 'retired'] } }], ...(whereMatch ? { over: { inning: { match: whereMatch } } } : {}) },
+      // Shared filter, not a fourth handwritten copy — this one was missing
+      // 'deadBall', so a non-striker run out before release counted toward the
+      // bowler's overs here and flattered the economy on every screen fed by
+      // this aggregate.
+      where: { ...LEGAL_DELIVERY_WHERE, ...(whereMatch ? { over: { inning: { match: whereMatch } } } : {}) },
     }),
   ]);
 

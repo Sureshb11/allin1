@@ -69,6 +69,24 @@ export const BOWLER_WICKET_WHERE = {
 };
 
 /**
+ * The legal-delivery rule as a Prisma filter, for counting in the database.
+ *
+ * The mirror of isLegalDelivery(), and it exists for the same reason
+ * BOWLER_WICKET_WHERE does: `notIn` excludes NULLs in SQL, so a ball with no
+ * extraType has to be matched back explicitly or every ordinary delivery
+ * vanishes from the count.
+ *
+ * Added because the list kept being retyped. leaderboard.js had drifted so that
+ * a dead ball counted as a delivery, and routes/players.js was missing
+ * 'deadBall' from its copy — the same fault in two files nobody had connected.
+ * Derived from NON_BALL_EXTRAS rather than spelled out again, so there is now
+ * one list and a query cannot disagree with the predicate beside it.
+ */
+export const LEGAL_DELIVERY_WHERE = {
+  OR: [{ extraType: null }, { extraType: { notIn: NON_BALL_EXTRAS } }],
+};
+
+/**
  * Which phase of the innings an over belongs to: 'powerplay' | 'middle' | 'death'.
  *
  * Proportional to the match length rather than hardcoded, because this app
