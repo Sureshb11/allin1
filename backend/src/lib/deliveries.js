@@ -69,6 +69,26 @@ export const BOWLER_WICKET_WHERE = {
 };
 
 /**
+ * Is this a ball the BATTER is judged on?
+ *
+ * Not the same question as isLegalDelivery(), which is about the over. A no ball
+ * does not advance the over but the batter certainly faced it; byes and leg byes
+ * advance the over and were also faced. A wide was not — the batter could not
+ * reach it — and a penalty, a retirement and a dead ball are not deliveries at
+ * all, though they are all stored with the striker's id on them.
+ *
+ * Four files had four versions of this. teamStats.js excluded all four
+ * non-deliveries; leaderboard.js and the live-state projection missed
+ * 'deadBall'; playerCareer.js excluded only wides, so it counted penalties and
+ * retirements as balls faced and understated the strike rate of every batter
+ * who was on strike for one. Nine such balls exist in production across five
+ * batters, which is why My Stats and the team screens disagreed about the same
+ * player.
+ */
+const NOT_FACED = ['wide', 'penalty', 'retired', 'deadBall'];
+export const isBallFaced = (b) => !NOT_FACED.includes(b?.extraType);
+
+/**
  * The legal-delivery rule as a Prisma filter, for counting in the database.
  *
  * The mirror of isLegalDelivery(), and it exists for the same reason

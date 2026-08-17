@@ -13,7 +13,7 @@
 //     is written.
 
 import { prisma } from './prisma.js';
-import { isBowlerWicket, isLegalDelivery } from './deliveries.js';
+import { isBowlerWicket, isLegalDelivery, isBallFaced } from './deliveries.js';
 
 const oversStr = (balls) => `${Math.floor(balls / 6)}.${balls % 6}`;
 
@@ -42,7 +42,7 @@ export async function tournamentLeaderboard(tournamentId) {
         const et = b.extraType;
         if (b.batterId) {
           const bf = (bat[b.batterId] ||= { runs: 0, balls: 0, fours: 0, sixes: 0, outs: 0 });
-          if (et !== 'wide' && et !== 'penalty' && et !== 'retired') bf.balls += 1;
+          if (isBallFaced(b)) bf.balls += 1;
           if (!et || et === 'noBall') {
             bf.runs += b.runs;
             if (b.runs === 4) bf.fours += 1;

@@ -11,7 +11,7 @@
 // that did, so it loads the window once and accumulates everything together.
 
 import { prisma } from './prisma.js';
-import { isLegalDelivery, isBowlerWicket } from './deliveries.js';
+import { isLegalDelivery, isBowlerWicket, isBallFaced } from './deliveries.js';
 import { venueKey } from './venue.js';
 
 // One definition, in lib/deliveries.js — this list used to exist here, in
@@ -20,7 +20,7 @@ const isLegal = isLegalDelivery;
 // Runs credited to the batter: not byes, leg byes, or the wide's own penalty.
 const batRuns = (b) => (['bye', 'legBye', 'penalty'].includes(b.extraType) ? 0 : b.runs || 0);
 // A ball the batter is judged on. A wide isn't; a no ball is.
-const ballFaced = (b) => b.extraType !== 'wide' && !['penalty', 'retired', 'deadBall'].includes(b.extraType);
+const ballFaced = isBallFaced;   // was its own copy; it was the correct one
 const div = (a, b, dp = 2) => (b > 0 ? +(a / b).toFixed(dp) : 0);
 // Overs are stored as balls everywhere sane; display wants 4.3 for 27.
 const oversOf = (balls) => +(Math.floor(balls / 6) + (balls % 6) / 10).toFixed(1);

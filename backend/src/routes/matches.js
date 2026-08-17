@@ -12,6 +12,7 @@ import { persistMatchAwards, hasMatchAwards } from '../lib/awards.js';
 import { safeNotify, notifyUsers, notifyMatchLive, notifyMatchResult, pingMatchWatchers } from '../lib/notify.js';
 import { liveSummary } from '../lib/liveSummary.js';
 import { canonicalVenue } from '../lib/venue.js';
+import { isBallFaced } from '../lib/deliveries.js';
 import { normaliseShot, shotOutcome, zoneFromAngle, shotLabel, zoneLabel } from '../lib/ballIntelligence.js';
 import { maybeStoreAiLine } from '../lib/momentCommentary.js';
 import { commentaryFor } from '../lib/shotCommentary.js';
@@ -1121,7 +1122,7 @@ router.get('/:id/live-state', async (req, res) => {
         const et = b.extraType;
         if (b.batterId) {
           if (!battingFigures[b.batterId]) battingFigures[b.batterId] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
-          if (et !== 'wide' && et !== 'penalty' && et !== 'retired') battingFigures[b.batterId].balls += 1;  // faced
+          if (isBallFaced(b)) battingFigures[b.batterId].balls += 1;   // faced
           if (!et || et === 'noBall') {                                                   // runs off the bat
             battingFigures[b.batterId].runs += b.runs;
             if (b.runs === 4) battingFigures[b.batterId].fours += 1;

@@ -19,7 +19,7 @@
 
 import { prisma } from './prisma.js';
 import { careerAwards } from './awards.js';
-import { isBowlerWicket, inningsPhase } from './deliveries.js';
+import { isBowlerWicket, inningsPhase , isBallFaced } from './deliveries.js';
 
 const BASE = { matches: 0, runs: 0, wickets: 0, average: 0, strikeRate: 0, centuries: 0, halfCenturies: 0 };
 
@@ -134,7 +134,7 @@ export async function playerCareer(player, alsoIds = []) {
   
   // ── Batting ─────────────────────────────────────────────────────────────
   const appRuns = batBalls.reduce((t, b) => t + b.runs, 0);
-  const appFaced = batBalls.filter((b) => b.extraType !== 'wide').length;
+  const appFaced = batBalls.filter(isBallFaced).length;
   const perInning = {};
   for (const b of batBalls) perInning[b.over.inningId] = (perInning[b.over.inningId] || 0) + b.runs;
   const appInnScores = Object.values(perInning);
@@ -146,7 +146,7 @@ export async function playerCareer(player, alsoIds = []) {
   const appSixes = batBalls.filter((b) => b.runs === 6).length;
   const appNotOuts = Math.max(0, appInnScores.length - dismissals);
   const appDucks = appInnScores.filter((r) => r === 0).length;
-  const appBattingDotBalls = batBalls.filter((b) => b.runs === 0 && b.extraType !== 'wide').length;
+  const appBattingDotBalls = batBalls.filter((b) => b.runs === 0 && isBallFaced(b)).length;
   
   // Combine with historical baseline (s)
   const runs = (s.runs || 0) + appRuns;
