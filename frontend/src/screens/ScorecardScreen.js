@@ -965,13 +965,20 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
   // — awards need a completed match the MVP algorithm could read — and dropping
   // the wagon wheel out of those branches would hide the whole feature behind
   // an unrelated failure.
+  // ONE BOARD PER INNINGS, not one for the match. A single wheel carrying both
+  // innings is two teams' batting drawn on top of each other, and its "scoring
+  // areas" belong to neither of them. Falls back to a combined board only if the
+  // per-innings breakdown is missing (an older API build).
   const shotSection = intel ? (
-    <ShotBoard
-      shots={intel.shots}
-      summary={intel.summary}
-      title="BALL INTELLIGENCE"
-      subtitle="Where the runs went"
-    />
+    (intel.byInnings?.length ? intel.byInnings : [null]).map((inn, i) => (
+      <ShotBoard
+        key={inn?.id || `all-${i}`}
+        shots={inn ? intel.shots.filter((s) => s.inningId === inn.id) : intel.shots}
+        summary={inn ? inn.summary : intel.summary}
+        title="BALL INTELLIGENCE"
+        subtitle={inn ? `${inn.battingTeam || `Innings ${inn.number}`} — where the runs went` : 'Where the runs went'}
+      />
+    ))
   ) : null;
 
   if (!awards) {

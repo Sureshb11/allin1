@@ -669,7 +669,12 @@ router.get('/:id/intelligence', async (req, res) => {
           ...(playerId ? { batterId: String(playerId) } : {}),
         },
       },
-      orderBy: { createdAt: 'asc' },
+      // Sorted below by where the ball sits in the innings, NOT by this. A shot
+      // is created when the scorer answers, which is not when the ball was
+      // bowled: an offline backlog flushes in a burst, and a shot corrected via
+      // SHOT keeps its original createdAt. Ordering the wheel — and especially
+      // `latest`, which a spectator reads as "the ball that just happened" — by
+      // capture time would eventually show the wrong delivery as the live one.
       include: {
         ball: {
           select: {
@@ -678,7 +683,13 @@ router.get('/:id/intelligence', async (req, res) => {
             wicketType: true, wicketAssists: true, droppedBy: true, dropDifficulty: true,
             batter: { select: { id: true, name: true, battingStyle: true } },
             bowler: { select: { id: true, name: true } },
-            over:   { select: { overNumber: true, inningId: true, bowler: { select: { name: true } } } },
+            over:   {
+              select: {
+                overNumber: true, inningId: true,
+                bowler: { select: { name: true } },
+                inning: { select: { inningNumber: true, battingTeam: { select: { name: true } } } },
+              },
+            },
           },
         },
       },
@@ -694,7 +705,13 @@ router.get('/:id/intelligence', async (req, res) => {
     // someone fills in "Left Hand Bat" every shot they had already played would
     // otherwise keep its right-handed name forever. The stored column is a
     // write-time cache for SQL aggregation; THIS is the answer.
-    const shots = rows.map((r) => ({
+    // Innings order, then over, then ball — the order they were actually bowled.
+    const inPlayOrder = [...rows].sort((a, b) =>
+      (a.ball?.over?.inning?.inningNumber ?? 0) - (b.ball?.over?.inning?.inningNumber ?? 0)
+      || (a.ball?.over?.overNumber ?? 0) - (b.ball?.over?.overNumber ?? 0)
+      || (a.ball?.ballNumber ?? 0) - (b.ball?.ballNumber ?? 0));
+
+    const shots = inPlayOrder.map((r) => ({
       id: r.id,
       ballId: r.ballId,
       angle: r.shotAngle,
@@ -709,6 +726,7 @@ router.get('/:id/intelligence', async (req, res) => {
       over: r.ball?.over?.overNumber ?? null,
       ballNumber: r.ball?.ballNumber ?? null,
       inningId: r.ball?.over?.inningId ?? null,
+      inningNumber: r.ball?.over?.inning?.inningNumber ?? null,
       batterId: r.ball?.batter?.id ?? null,
       batter: r.ball?.batter?.name ?? null,
       batterHand: handOf(r.ball?.batter),
@@ -731,13 +749,40 @@ router.get('/:id/intelligence', async (req, res) => {
     // The summary rides along rather than living at its own URL: every screen
     // that draws the wheel also wants the totals under it, and splitting them
     // would mean two round trips on a spectator's phone to render one card.
+    // Which innings are represented, and what to call them.
+    //
+    // A match wheel that plots both innings on one circle is two teams' batting
+    // drawn on top of each other, and "scoring areas" computed across both is a
+    // statistic about nobody. The client needs to be able to separate them
+    // WITHOUT a second request — a spectator switching innings should not wait
+    // on the network — so the shots carry their innings and this names them.
+    const inningsSeen = [];
+    for (const r of inPlayOrder) {
+      const id = r.ball?.over?.inningId;
+      if (!id || inningsSeen.some((i) => i.id === id)) continue;
+      inningsSeen.push({
+        id,
+        number: r.ball?.over?.inning?.inningNumber ?? null,
+        battingTeam: r.ball?.over?.inning?.battingTeam?.name || null,
+      });
+    }
+    inningsSeen.sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
+
+    // Per-innings summaries, so each one's scoring areas are its own. The
+    // whole-match summary stays for callers that genuinely want the aggregate.
+    const byInnings = inningsSeen.map((inn) => ({
+      ...inn,
+      summary: matchShotSummary(shots.filter((s) => s.inningId === inn.id)),
+    }));
+
     res.json({
       enabled: match.ballIntelligenceEnabled,
       count: shots.length,
       shots,
+      innings: inningsSeen,
+      byInnings,
       summary: matchShotSummary(shots),
-      // The most recent capture, for the spectator's "live shot" card. Last in
-      // the list because the query is ordered oldest-first for the wheel.
+      // The last delivery BOWLED — the list is in play order, not capture order.
       latest: shots.length ? shots[shots.length - 1] : null,
     });
   } catch (e) {

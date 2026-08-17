@@ -437,16 +437,51 @@ export default function LiveMatchScreen({ route, navigation }) {
    words, and the wheel it landed on. They interact with none of it — the
    scorer answered the question, this is the processed result. */
 function ShotsTab({ intel, styles, DS }) {
-  const shots = intel?.shots || [];
+  const all = intel?.shots || [];
   const last = intel?.latest;
-  // Every batter in a match, so the wheel is drawn for whoever is at the crease
-  // rather than assuming the striker's hand applies to the whole innings.
+  const innings = intel?.innings || [];
+
+  // ONE innings at a time. Plotting both on a single circle draws two teams'
+  // batting on top of each other, and "scoring areas" computed across both is a
+  // statistic about nobody. Defaults to the innings being played.
+  const [pickedInning, setPickedInning] = useState(null);
+  const active = pickedInning || last?.inningId || innings[innings.length - 1]?.id || null;
+
+  // Filtered locally from what is already in hand — switching innings is a
+  // state change, not a round trip.
+  const shots = active ? all.filter((s) => s.inningId === active) : all;
+  const summary = intel?.byInnings?.find((i) => i.id === active)?.summary || intel?.summary;
   const hand = last?.batterHand || 'right';
 
   return (
     <View style={styles.shotsWrap}>
-      {/* The live shot — the reason a spectator opens this tab mid-over. */}
-      {!!last && (
+      {/* Only worth showing once a second innings actually has shots in it. */}
+      {innings.length > 1 && (
+        <View style={styles.inningsRow}>
+          {innings.map((inn) => {
+            const on = inn.id === active;
+            return (
+              <TouchableOpacity
+                key={inn.id}
+                style={[styles.inningsChip, on && styles.inningsChipOn]}
+                onPress={() => setPickedInning(inn.id)}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[styles.inningsChipText, on && styles.inningsChipTextOn]} numberOfLines={1}>
+                  {inn.battingTeam || `Innings ${inn.number}`}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {/* The live shot — the reason a spectator opens this tab mid-over. Hidden
+          when looking at an innings it did not happen in: "the ball that just
+          happened" is only true of the innings being played. */}
+      {!!last && last.inningId === active && (
         <View style={styles.liveShot}>
           <View style={styles.liveShotHead}>
             <Text style={styles.liveShotOutcome}>{(last.outcome || '').toUpperCase()}</Text>
@@ -461,10 +496,12 @@ function ShotsTab({ intel, styles, DS }) {
 
       <ShotBoard
         shots={shots}
-        summary={intel?.summary}
+        summary={summary}
         hand={hand}
         title="WAGON WHEEL"
-        subtitle={shots.length ? 'Every recorded stroke this match' : null}
+        subtitle={shots.length
+          ? `${innings.find((i) => i.id === active)?.battingTeam || 'This innings'} — every recorded stroke`
+          : null}
         style={{ marginTop: 12 }}
       />
     </View>
@@ -670,6 +707,14 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Shots tab */
   shotsWrap: { paddingHorizontal: 14, paddingTop: 14 },
+  inningsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  inningsChip: {
+    flex: 1, paddingVertical: 9, paddingHorizontal: 10, borderRadius: 999,
+    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.surfaceHighest, alignItems: 'center',
+  },
+  inningsChipOn: { backgroundColor: DS.lime, borderColor: DS.lime },
+  inningsChipText: { color: DS.textPrimary, fontSize: 12, fontWeight: '700' },
+  inningsChipTextOn: { color: DS.bg, fontWeight: '900' },
   liveShot: {
     backgroundColor: DS.surface, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: DS.surfaceHighest, borderLeftWidth: 3, borderLeftColor: DS.lime,
