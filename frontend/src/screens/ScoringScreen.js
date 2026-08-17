@@ -14,7 +14,7 @@ import InningsBreakScreen from '../components/InningsBreakScreen';
 import MatchPhotos from '../components/MatchPhotos';
 import MatchAwardsModal from "../components/MatchAwardsModal";
 import BallIntelligenceSheet from "../components/BallIntelligenceSheet";
-import { enqueueShot, loadShotQueue, flushShotQueue } from '../utils/shotQueue';
+import { enqueueShot, loadShotQueue, flushShotQueue, setShotDropHandler } from '../utils/shotQueue';
 import { handOf } from '../sports/cricket/wagonWheel';
 import PlayerAvatar from "../components/PlayerAvatar";
 import { BRAND_NAME, BRAND_TAGLINE } from "../components/BrandLogo";
@@ -267,6 +267,22 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // Flush anything left over from a previous session — a scorer who lost signal
   // and closed the app still has shots sitting in the queue.
   useEffect(() => { loadShotQueue().then(() => flushShotQueue()); }, []);
+
+  // Say something ONCE if shots are being thrown away for a reason the scorer
+  // could act on. Once, not per ball: if the session has expired, every
+  // remaining delivery will fail the same way, and a toast per ball would bury
+  // the scoring screen under a warning they have already read. The wording says
+  // what is safe — the score itself is never at risk here — because the point
+  // is to stop them capturing into a void, not to make them doubt the match.
+  const shotWarnedRef = useRef(false);
+  useEffect(() => {
+    setShotDropHandler((res) => {
+      if (shotWarnedRef.current) return;
+      shotWarnedRef.current = true;
+      showToast(`Shots aren't being saved — ${res?.error || 'the server refused them'}. Scoring is unaffected.`, 'error', 4000);
+    });
+    return () => setShotDropHandler(null);
+  }, []);
 
   const milestoneRef = useRef({ bat: {}, bowl: {}, streak: { id: null, n: 0 } });   // announced milestones + hat-trick streak
   // A COPY, for snapshots. `streak` is mutated in place as wickets fall, so

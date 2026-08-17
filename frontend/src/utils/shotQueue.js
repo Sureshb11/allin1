@@ -26,6 +26,15 @@ const MAX_QUEUED = 400;
 let mem = [];          // in-memory mirror, so enqueue() never has to await a read
 let loaded = false;
 let flushing = false;
+let onPermanentDrop = null;   // told when a shot is discarded for a fixable reason
+
+/**
+ * Register a handler for shots dropped permanently (bad session, wrong scorer).
+ *
+ * Deliberately NOT called for a delivery the scorer undid — that drop is
+ * expected and warning about it would be noise. Pass null to clear.
+ */
+export const setShotDropHandler = (fn) => { onPermanentDrop = fn; };
 
 const persist = () => AsyncStorage.setItem(KEY, JSON.stringify(mem)).catch(() => {});
 
@@ -103,17 +112,29 @@ export const flushShotQueue = async () => {
         persist();
         continue;
       }
-      // The delivery no longer exists (undone by the scorer) or the payload is
-      // one the server will never accept. Retrying forever would block every
-      // shot behind it, so drop it — the ball it described is gone anyway.
-      //
-      // No identity check here, deliberately, unlike the success case above: a
-      // 404 means the ball is gone, a 403 means this device is not the scorer,
-      // and correcting the shot changes neither. Re-sending an edited version
-      // would just fail again and keep the queue spinning.
-      if (res?.code === 'BALL_GONE' || res?.permanent) {
+      // No identity check on either branch below, deliberately, unlike the
+      // success case above: a 404 means the ball is gone, a 403 means this
+      // device is not the scorer, and correcting the shot changes neither.
+      // Re-sending an edited version would just fail again and spin the queue.
+
+      // The delivery was undone by the scorer. Dropping its shot is correct AND
+      // expected — they took the ball off the board themselves, so there is
+      // nothing to tell them.
+      if (res?.code === 'BALL_GONE') {
         mem.shift();
         persist();
+        continue;
+      }
+
+      // Anything else permanent is the scorer's work being thrown away for a
+      // reason they could act on — an expired session, or a device that is not
+      // the assigned scorer. Silence here meant they tapped the wheel, watched
+      // it highlight, closed the sheet believing it was recorded, and found out
+      // never. Not blocking scoring is right; not telling them is not.
+      if (res?.permanent) {
+        mem.shift();
+        persist();
+        try { onPermanentDrop?.(res); } catch { /* a warning must not break the queue */ }
         continue;
       }
       break;                          // anything else: leave it and back off
@@ -129,4 +150,4 @@ export const flushShotQueue = async () => {
 // answers BALL_GONE and the loop above drops it. An unused export is a promise
 // to keep something working that nothing exercises.
 
-export default { loadShotQueue, enqueueShot, flushShotQueue };
+export default { loadShotQueue, enqueueShot, flushShotQueue, setShotDropHandler };
