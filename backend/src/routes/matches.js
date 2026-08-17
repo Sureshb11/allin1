@@ -695,6 +695,29 @@ router.get('/:id/intelligence', async (req, res) => {
       },
     });
 
+    // ── Payload weight ────────────────────────────────────────────────────────
+    // This endpoint is POLLED every six seconds by every spectator, for the whole
+    // match, and the list only grows. So it ships the minimum a wagon wheel needs
+    // to draw a dot — angle, distance, runs, wicket, which innings — and nothing
+    // else. A fully tracked T20 is 240 deliveries; sending the batter's name, the
+    // bowler's name, the over, the zone and a commentary sentence on every one of
+    // them, 1800 times, is over a hundred megabytes per viewer of data that is
+    // read once or never.
+    //
+    // Everything rich lives on `latest`, which is the one shot actually rendered
+    // in words. `?detail=full` restores the old fat rows for any consumer that
+    // genuinely needs them.
+    const full = String(req.query.detail || '') === 'full';
+
+    const slim = (r) => ({
+      id: r.id,
+      angle: r.shotAngle,
+      distance: r.shotDistance,
+      runs: r.ball?.runs ?? 0,
+      isWicket: !!r.ball?.isWicket,
+      inningId: r.ball?.over?.inningId ?? null,
+    });
+
     // Flattened for drawing: the client should not have to walk three relations
     // to plot one dot on a wheel.
     //
@@ -711,21 +734,17 @@ router.get('/:id/intelligence', async (req, res) => {
       || (a.ball?.over?.overNumber ?? 0) - (b.ball?.over?.overNumber ?? 0)
       || (a.ball?.ballNumber ?? 0) - (b.ball?.ballNumber ?? 0));
 
-    const shots = inPlayOrder.map((r) => ({
-      id: r.id,
+    /** Everything about one shot. Used for `latest`, and for ?detail=full. */
+    const rich = (r) => ({
+      ...slim(r),
       ballId: r.ballId,
-      angle: r.shotAngle,
       zone: zoneFromAngle(r.shotAngle, handOf(r.ball?.batter)),
-      distance: r.shotDistance,
       shotType: r.shotType,
       outcome: r.shotOutcome,
       connection: r.connectionType,
       source: r.source,
-      runs: r.ball?.runs ?? 0,
-      isWicket: !!r.ball?.isWicket,
       over: r.ball?.over?.overNumber ?? null,
       ballNumber: r.ball?.ballNumber ?? null,
-      inningId: r.ball?.over?.inningId ?? null,
       inningNumber: r.ball?.over?.inning?.inningNumber ?? null,
       batterId: r.ball?.batter?.id ?? null,
       batter: r.ball?.batter?.name ?? null,
@@ -744,6 +763,21 @@ router.get('/:id/intelligence', async (req, res) => {
       }),
       // So a UI can mark the difference honestly if it wants to.
       commentarySource: r.aiCommentary ? 'ai' : 'template',
+    });
+
+    const shots = inPlayOrder.map(full ? rich : slim);
+
+    // The summaries need zone and shot type, which the slim rows deliberately do
+    // not carry. Computed here and SENT ONLY AS TOTALS — the client gets the
+    // rolled-up scoring areas, never the per-ball fields they were rolled up
+    // from. That is the whole point: aggregate once on the server rather than
+    // ship the raw material for it to every viewer, every six seconds.
+    const forStats = inPlayOrder.map((r) => ({
+      zone: zoneFromAngle(r.shotAngle, handOf(r.ball?.batter)),
+      shotType: r.shotType,
+      runs: r.ball?.runs ?? 0,
+      isWicket: !!r.ball?.isWicket,
+      inningId: r.ball?.over?.inningId ?? null,
     }));
 
     // The summary rides along rather than living at its own URL: every screen
@@ -772,7 +806,7 @@ router.get('/:id/intelligence', async (req, res) => {
     // whole-match summary stays for callers that genuinely want the aggregate.
     const byInnings = inningsSeen.map((inn) => ({
       ...inn,
-      summary: matchShotSummary(shots.filter((s) => s.inningId === inn.id)),
+      summary: matchShotSummary(forStats.filter((s) => s.inningId === inn.id)),
     }));
 
     res.json({
@@ -781,9 +815,12 @@ router.get('/:id/intelligence', async (req, res) => {
       shots,
       innings: inningsSeen,
       byInnings,
-      summary: matchShotSummary(shots),
+      summary: matchShotSummary(forStats),
       // The last delivery BOWLED — the list is in play order, not capture order.
-      latest: shots.length ? shots[shots.length - 1] : null,
+      // ALWAYS rich, whatever the rest of the list is: this is the one shot that
+      // gets rendered in words, and it is a single object, so its weight is
+      // irrelevant next to the 240 behind it.
+      latest: inPlayOrder.length ? rich(inPlayOrder[inPlayOrder.length - 1]) : null,
     });
   } catch (e) {
     res.status(400).json({ error: e.message });
