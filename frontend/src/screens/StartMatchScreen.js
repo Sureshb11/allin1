@@ -365,15 +365,21 @@ const StartMatchScreen = ({ navigation, route }) => {
       setCreated(true);
       await new Promise((r) => setTimeout(r, 450));
       
-      // Always return to the My Matches screen so the scorer can start the match
-      // (and toss/lineup) from there when ready, rather than forcing an instant start.
-      navigation.reset({
-        index: 1,
-        routes: [
-          { name: sport.id === 'cricket' ? 'CricketFeed' : 'SportFeed' },
-          { name: 'MyMatches' }
-        ],
-      });
+      // Return to My Matches so the scorer can start the match (and toss/lineup)
+      // from there when ready, rather than forcing an instant start.
+      //
+      // LEAVE THE MODAL FIRST, then navigate — do not reset the stack from
+      // inside it. This screen is presented as a `transparentModal` with a
+      // transparent cardStyle, and resetting rebuilds the route state
+      // *underneath* a card that is still presented and still see-through,
+      // which is how creating a match ended on a blank screen. Every other
+      // create drawer in the app leaves with goBack(); this was the only one
+      // reaching for reset, and the only one presented this way.
+      //
+      // The end state is identical — feed underneath, My Matches on top — but
+      // reached by dismissing and pushing rather than by replacing the world.
+      navigation.goBack();
+      navigation.navigate('MyMatches');
     } catch {
       showToast('Something went wrong. Please try again.', 'error');
     } finally {
