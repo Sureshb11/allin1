@@ -558,6 +558,17 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // ballsBowled at 0 but puts a run on the board, hence the runs/wickets checks.
   const inningsHasBalls = ballsBowled > 0 || currentScore.runs > 0 || currentScore.wickets > 0;
   const canUndo = !matchComplete && (history.length > 0 || inningsHasBalls);
+
+  // Is a delivery still being written? handleScore and undoLastBall BOTH ignore
+  // taps while one is, and until now they did it invisibly: on a slow ground
+  // network the scorer pressed FOUR, nothing happened, and the only clue was a
+  // small SAVING pill in a different band of the screen. So they pressed it
+  // again, and wondered whether they had just scored eight.
+  //
+  // This changes no behaviour — those taps were already being dropped. It makes
+  // the drop legible, which is the difference between a moment's wait and
+  // losing confidence in the app mid-over.
+  const saving = syncState.status === 'saving';
   const crr = ballsBowled > 0 ? (currentScore.runs / (ballsBowled / 6)).toFixed(2) : '0.00';
   const rrr = isInnings2 && ballsLeft > 0 ? (need / (ballsLeft / 6)).toFixed(2) : null;
   // Where this innings lands if the current rate holds. 1st innings only: in a
@@ -742,7 +753,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // server-side. Works across over boundaries because the snapshot captures the
   // full state, not a diff.
   const undoLastBall = async () => {
-    if (matchComplete || undoing || !canUndo) return;
+    // NOT while a delivery is still in flight. The server deletes "the most
+    // recent ball of the innings", so if the save lands first, this removes the
+    // ball that just arrived instead of the one the scorer is looking at — and
+    // the local snapshot restores the state of a different delivery on top of
+    // it. handleScore has always had this guard; undo never did, and it is the
+    // more dangerous of the two because it destroys rather than adds.
+    if (matchComplete || undoing || !canUndo || savingRef.current) return;
     setUndoing(true);
     haptic.tick();
     const prev = history[history.length - 1];
@@ -2114,25 +2131,30 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             sixth of a row the scorer hits every over — it lives in MORE OPTIONS
             now, and the four extras get the width instead. ── */}
         {!matchComplete &&
-        <View style={styles.extraRow}>
+        <View style={[styles.extraRow, saving && styles.busyBlock]} pointerEvents={saving ? 'none' : 'auto'}>
             <TouchableOpacity
               style={[styles.extraBtn, styles.undoBtn, (!canUndo || undoing) && { opacity: 0.4 }]}
+              hitSlop={EXTRA_HIT}
               onPress={undoLastBall} disabled={!canUndo || undoing}>
               <Icon name="undo-variant" size={15} color={DS.coral} />
-              <Text style={[styles.extraBtnText, styles.undoBtnText]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              {/* No adjustsFontSizeToFit: it clips the text outright on Android
+                  rather than shrinking it, which is how this label ended up
+                  reading "UND" on some devices. The label is short and the box
+                  is wide (flex 2) — one fixed size fits every case it has. */}
+              <Text style={[styles.extraBtnText, styles.undoBtnText]} numberOfLines={1}>
                 UNDO{lastBall ? ` ${lastBall}` : ''}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} onPress={() => setExtraPrompt('wide')}>
+            <TouchableOpacity style={styles.extraBtn} hitSlop={EXTRA_HIT} onPress={() => setExtraPrompt('wide')}>
               <Text style={[styles.extraBtnText, { color: DS.coral }]}>WD +</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} onPress={() => setExtraPrompt('noball')}>
+            <TouchableOpacity style={styles.extraBtn} hitSlop={EXTRA_HIT} onPress={() => setExtraPrompt('noball')}>
               <Text style={[styles.extraBtnText, { color: DS.coral }]}>NB +</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} onPress={() => setExtraPrompt('bye')}>
+            <TouchableOpacity style={styles.extraBtn} hitSlop={EXTRA_HIT} onPress={() => setExtraPrompt('bye')}>
               <Text style={styles.extraBtnText}>BYE +</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} onPress={() => setExtraPrompt('legbye')}>
+            <TouchableOpacity style={styles.extraBtn} hitSlop={EXTRA_HIT} onPress={() => setExtraPrompt('legbye')}>
               <Text style={styles.extraBtnText}>LB +</Text>
             </TouchableOpacity>
           </View>
@@ -2140,7 +2162,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
 
         {/* ── RUNS GRID (0-6) — flexes to fill ── */}
         {!matchComplete &&
-        <View style={styles.grid}>
+        <View style={[styles.grid, saving && styles.busyBlock]} pointerEvents={saving ? 'none' : 'auto'}>
             <View style={styles.gridRow}>
               <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(0)} onLongPress={openOtherRuns}>
                 <Text style={styles.gridBtnNum}>0</Text><Text style={styles.gridBtnLabel}>DOT</Text>
@@ -2168,7 +2190,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
 
         {/* ── WICKET — full width, always visible; asks the dismissal type ── */}
         {!matchComplete &&
-        <TouchableOpacity style={styles.wicketBtn}
+        <TouchableOpacity style={[styles.wicketBtn, saving && styles.busyBlock]}
+          disabled={saving}
           onPress={() => freeHit ? openRunOut() : setWicketPrompt(true)}>
           <Image source={require('../assets/icons/out.png')} style={[styles.wicketIcon, { tintColor: DS.onBlue }]} />
           <Text style={styles.wicketBtnText}>WICKET{freeHit ? ' (RUN OUT ONLY)' : ''}</Text>
@@ -3243,6 +3266,25 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>More Options</Text>
+
+            {/* Other runs — 5 off an overthrow, 7 off a no-ball, and anything
+                else the six-button grid cannot say.
+                It was reachable ONLY by long-pressing a run button, which is a
+                gesture nothing on the screen advertises: a scorer who needed 5
+                had no way to find out it existed. Listed first because it is the
+                only SCORING action here — everything below is personnel. The
+                long-press still works for anyone who knows it. */}
+            <TouchableOpacity
+              style={styles.settingRow}
+              onPress={() => { setMorePrompt(false); openOtherRuns(); }}>
+              <Icon name="numeric-5-box-multiple-outline" size={20} color={DS.lime} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingTextNoFlex}>Other runs</Text>
+                <Text style={styles.settingHint}>5, 7, 8 or more off the bat</Text>
+              </View>
+              <Icon name="chevron-right" size={18} color={DS.textMuted} />
+            </TouchableOpacity>
+
             {/* Change bowler — only while an over is in progress (the next-over flow
                 picks the bowler once 6 legal balls are done). */}
             <TouchableOpacity
@@ -3526,6 +3568,14 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
 
 const GRID_BTN = (width - 48) / 3;
 
+// The extras row computes to about 37pt tall — under the 44pt a thumb wants —
+// and this screen does not scroll, so the space to grow into does not exist:
+// taller buttons here would come straight out of the runs grid, which is hit far
+// more often. hitSlop buys the missing height in the touch layer instead, where
+// it costs no pixels. Vertical only; horizontally these are already wide, and
+// spreading sideways would overlap the neighbouring button's slop.
+const EXTRA_HIT = { top: 6, bottom: 6, left: 0, right: 0 };
+
 const makeStyles = (DS) => StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.bg },
   // No-scroll: the content column fills the space between the scoreboard header
@@ -3680,6 +3730,11 @@ const makeStyles = (DS) => StyleSheet.create({
   // minHeight kept modest so the WICKET + END buttons below are always on-screen.
   grid: { flex: 1, marginHorizontal: 16, gap: 9, marginBottom: 9, minHeight: 132 },
   gridRow: { flex: 1, flexDirection: 'row', gap: 9 },
+  // Applied to whole blocks while a delivery is in flight. Opacity only — no
+  // size or layout change — so nothing shifts under a finger that is already
+  // moving toward the next button.
+  busyBlock: { opacity: 0.42 },
+
   gridBtn: {
     flex: 1, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center', gap: 2
