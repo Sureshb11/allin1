@@ -2002,7 +2002,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           <View style={styles.sbOverMeta}>
             <View style={styles.overLabelWrap}>
               <View style={styles.overAccentTick} />
-              <Text style={styles.overLabel}>{betweenOvers ? 'LAST OVER' : 'THIS OVER'}</Text>
+              <Text style={styles.overLabel} numberOfLines={1}>{betweenOvers ? 'LAST OVER' : 'THIS OVER'}</Text>
               {freeHit && <View style={styles.freeHitPill}><Text style={styles.freeHitText}>FREE HIT</Text></View>}
               {/* ── PER-BALL SYNC STATE ──────────────────────────────────────
                   SAVING while the write is in flight (which is also why taps are
@@ -2036,16 +2036,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                   does NOT stop scoring and does not discard what was captured. */}
               {biEnabled && (
                 <TouchableOpacity
-                  style={[styles.syncPill, biPaused ? styles.syncPillSaving : styles.syncPillOk]}
+                  style={[styles.pillIcon, biPaused ? styles.syncPillSaving : styles.syncPillOk]}
                   onPress={() => { haptic.tick(); setBiPaused((p) => !p); }}
                   activeOpacity={0.75}
                   accessibilityRole="button"
                   accessibilityLabel={biPaused ? 'Resume Ball Intelligence' : 'Pause Ball Intelligence'}>
-                  <Icon name={biPaused ? 'play-circle-outline' : 'chart-scatter-plot'} size={11}
+                  <Icon name={biPaused ? 'play-circle-outline' : 'chart-scatter-plot'} size={13}
                     color={biPaused ? DS.textVariant : DS.lime} />
-                  <Text style={[styles.syncPillText, { color: biPaused ? DS.textVariant : DS.lime }]}>
-                    {biPaused ? 'BI PAUSED' : 'BI ON'}
-                  </Text>
                 </TouchableOpacity>
               )}
               {/* Reopen the last delivery's shot. The wrong wedge gets tapped, the
@@ -2054,13 +2051,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                   there is actually a delivery to correct. */}
               {biEnabled && !!lastShot && !pendingShot && (
                 <TouchableOpacity
-                  style={[styles.syncPill, styles.syncPillSaving]}
+                  style={[styles.pillIcon, styles.syncPillSaving]}
                   onPress={() => { haptic.tick(); setPendingShot(lastShot); }}
                   activeOpacity={0.75}
                   accessibilityRole="button"
                   accessibilityLabel="Edit the shot for the last delivery">
-                  <Icon name="pencil-outline" size={11} color={DS.textVariant} />
-                  <Text style={[styles.syncPillText, { color: DS.textVariant }]}>SHOT</Text>
+                  <Icon name="pencil-outline" size={13} color={DS.textVariant} />
                 </TouchableOpacity>
               )}
             </View>
@@ -3645,8 +3641,16 @@ const makeStyles = (DS) => StyleSheet.create({
   sbOverMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   overLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   overAccentTick: { width: 3, height: 11, borderRadius: 2, backgroundColor: DS.lime },
-  overLabel: { fontSize: 10, fontWeight: '800', color: DS.textVariant, letterSpacing: 1.1 },
-  overSummary: { flexShrink: 1, textAlign: 'right' },
+  // The one thing in this row that MAY be trimmed. Priority when the width runs
+  // out is: the run total holds (it is the reading), the status pills hold (they
+  // are already icons), and this gives way — a band showing ball chips under a
+  // green tick is obviously the current over even if the words are clipped.
+  overLabel: { fontSize: 10, fontWeight: '800', color: DS.textVariant, letterSpacing: 1.1, flexShrink: 1 },
+  // flexShrink 0: the runs in this over are the reading the whole band exists
+  // for, and it must not be what collapses when something else is added beside
+  // it. Anything new in this row has to earn its width against the pills, not
+  // against the score.
+  overSummary: { flexShrink: 0, textAlign: 'right', paddingLeft: 6 },
   overSummaryRuns: { fontSize: 14, fontWeight: '900', color: DS.lime, letterSpacing: -0.2 },
   overSummaryUnit: { fontSize: 10.5, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.2 },
 
@@ -3774,6 +3778,18 @@ const makeStyles = (DS) => StyleSheet.create({
   syncPillOk: { backgroundColor: DS.lime + '1a', borderColor: DS.lime + '40' },
   syncPillFail: { backgroundColor: 'rgba(255,181,158,0.15)', borderColor: DS.coral },
   syncPillText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  // Icon-only variant of syncPill, for the two BALL INTELLIGENCE controls.
+  //
+  // They are persistent status, not news: SYNCED appears for a second after a
+  // ball and goes, but these sit in the row all match. Spelling out "BI ON" and
+  // "SHOT" beside it cost about 70dp of a ~340dp row, and the thing that gave
+  // way was the over's run total — which is cricket, and outranks both. Colour
+  // carries the state (lime = capturing, muted = paused) and the accessibility
+  // label carries the words.
+  pillIcon: {
+    width: 26, height: 22, alignItems: 'center', justifyContent: 'center',
+    borderRadius: 999, borderWidth: 1,
+  },
   freeHitPill: { backgroundColor: DS.limeBright, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'center' },
   freeHitText: { fontSize: 9, fontWeight: '900', color: DS.bg, letterSpacing: 0.8 },
   overBalls: { flexDirection: 'row', gap: 5 },
