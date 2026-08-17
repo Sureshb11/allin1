@@ -2628,6 +2628,14 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                 { label: 'stumped', icon: 'hand-back-left', wt: 'stumped' },
                 { label: 'hit wicket', icon: 'alert', wt: 'hitwicket' },
                 { label: 'retired', icon: 'bandage', wt: 'retired' },
+                // The last three ways out in the Laws. Rare — a club season may
+                // see none — but when one happens the scorer currently has to
+                // file it as something it wasn't, and the scorecard then says a
+                // batter was run out when he obstructed a fielder. Placed last
+                // because they are rare, not because they are optional.
+                { label: 'obstructing', icon: 'hand-front-right', wt: 'obstructing' },
+                { label: 'timed out', icon: 'timer-sand', wt: 'timedout' },
+                { label: 'hit ball twice', icon: 'repeat', wt: 'hitballtwice' },
               ].map(({ label: type, icon, wt }) => (
                 <TouchableOpacity key={type} style={styles.wktChip}
                   onPress={() => {

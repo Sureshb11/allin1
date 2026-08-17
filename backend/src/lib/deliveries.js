@@ -21,7 +21,15 @@ export const isLegalDelivery = (b) => !NON_BALL_EXTRAS.includes(b?.extraType);
  * other mode — bowled, caught, lbw, stumped, hit wicket — is credited to the
  * bowler.
  */
-const NOT_BOWLERS_WICKET = ['runout', 'retired', 'retiredout', 'retiredhurt'];
+const NOT_BOWLERS_WICKET = [
+  'runout', 'retired', 'retiredout', 'retiredhurt',
+  // The three the Laws credit to NOBODY. Listed here BEFORE the scoring screen
+  // learned to offer them, because the default in isBowlerWicket is "the
+  // bowler's" — so the moment one of these could be recorded, a bowler would
+  // have been handed a wicket for a batter who wandered out of his ground or
+  // failed to turn up. Same shape as the run-out bug this file exists for.
+  'obstructing', 'obstructingthefield', 'timedout', 'hitballtwice', 'hittheballtwice',
+];
 
 /**
  * Is this wicket credited to the bowler?
@@ -53,7 +61,10 @@ export const BOWLER_WICKET_WHERE = {
   isWicket: true,
   OR: [
     { wicketType: null },
-    { wicketType: { notIn: ['runout', 'runOut', 'retired', 'retiredout', 'retiredhurt'] } },
+    { wicketType: { notIn: [
+      'runout', 'runOut', 'retired', 'retiredout', 'retiredhurt',
+      'obstructing', 'obstructingthefield', 'timedout', 'hitballtwice', 'hittheballtwice',
+    ] } },
   ],
 };
 

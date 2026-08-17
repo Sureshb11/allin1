@@ -112,6 +112,14 @@ export const commentaryFor = (ball, shot, names = {}) => {
         `Direct hit! ${bat} is well short.`,
       ], seed);
       if (wt === 'hitwicket') return `Hit wicket! ${bat} treads on the stumps.`;
+      // None of these three are the bowler's, so none of these lines name him.
+      if (wt === 'obstructing' || wt === 'obstructingthefield') {
+        return `Given out — ${bat} obstructed the field.`;
+      }
+      if (wt === 'timedout') return `Timed out. ${bat} did not make it to the crease in time.`;
+      if (wt === 'hitballtwice' || wt === 'hittheballtwice') {
+        return `Out — ${bat} struck the ball a second time.`;
+      }
       return `Out! ${bat} departs.`;
     }
 
