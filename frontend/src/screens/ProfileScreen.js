@@ -203,7 +203,8 @@ export default function ProfileScreen({ navigation }) {
         
         {/* ── Premium Player Card Hero ── */}
         <View style={styles.hero}>
-          <TouchableOpacity activeOpacity={0.9} onPress={() => uploadPhoto('cover')} disabled={!!uploading} style={styles.coverWrap}>
+          <TouchableOpacity activeOpacity={0.9} onPress={() => uploadPhoto('cover')} disabled={!!uploading} style={styles.coverWrap}
+            accessibilityRole="button" accessibilityLabel="Change cover photo">
             {profile.coverUrl ? (
               <Image source={{ uri: profile.coverUrl }} style={styles.coverPhoto} resizeMode="cover" />
             ) : profile.avatarUrl ? (
@@ -233,7 +234,8 @@ export default function ProfileScreen({ navigation }) {
 
           {/* Floating Glass Avatar */}
           <View style={styles.avatarWrap}>
-            <TouchableOpacity activeOpacity={0.9} onPress={() => uploadPhoto('avatar')} disabled={!!uploading} style={styles.largeAvatar}>
+            <TouchableOpacity activeOpacity={0.9} onPress={() => uploadPhoto('avatar')} disabled={!!uploading} style={styles.largeAvatar}
+              accessibilityRole="button" accessibilityLabel="Change profile photo">
               {profile.avatarUrl ? (
                 <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
               ) : (
@@ -383,7 +385,7 @@ export default function ProfileScreen({ navigation }) {
               <TouchableOpacity 
                 style={[
                   styles.statsCard, 
-                  statsStatus?.status === 'rejected' && { borderColor: '#ef4444', borderWidth: 1 }
+                  statsStatus?.status === 'rejected' && { borderColor: DS.danger, borderWidth: 1 }
                 ]} 
                 activeOpacity={statsStatus?.status === 'pending' ? 1 : 0.8} 
                 onPress={() => {
@@ -394,7 +396,7 @@ export default function ProfileScreen({ navigation }) {
               >
                 <View style={[
                   styles.statsCardIcon, 
-                  { backgroundColor: statsStatus?.status === 'pending' ? DS.textMuted : (statsStatus?.status === 'rejected' ? '#ef4444' : DS.lime) }
+                  { backgroundColor: statsStatus?.status === 'pending' ? DS.textMuted : (statsStatus?.status === 'rejected' ? DS.danger : DS.lime) }
                 ]}>
                   <Icon 
                     name={statsStatus?.status === 'pending' ? "clock-outline" : (statsStatus?.status === 'rejected' ? "alert-circle" : "cloud-upload")} 
@@ -405,7 +407,13 @@ export default function ProfileScreen({ navigation }) {
                 <View style={{ flex: 1 }}>
                   <Text style={[
                     styles.statsCardTitle,
-                    statsStatus?.status === 'rejected' && { color: '#ef4444' }
+                    // DS.danger, not a literal. The light theme's red is a
+                    // DARKER one (#c62828) precisely because #ef4444 only makes
+                    // 3.76:1 on white — under the 4.5:1 AA floor — so "Upload
+                    // Rejected" was the hardest text on the screen to read in
+                    // daylight, which is when it is read. The token gives 5.62:1
+                    // in light and is byte-identical in dark.
+                    statsStatus?.status === 'rejected' && { color: DS.danger }
                   ]}>
                     {statsStatus?.status === 'pending' ? 'Pending Verification' : (statsStatus?.status === 'rejected' ? 'Upload Rejected' : 'Upload Past Stats')}
                   </Text>
