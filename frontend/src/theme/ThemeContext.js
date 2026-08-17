@@ -50,6 +50,16 @@ const dark = {
   coral: '#F87171',       // Slightly softer red for better contrast
   wicketBg: 'rgba(248,113,113,0.16)',
   wicketText: '#F87171',
+  // Tints. These exist as tokens rather than `DS.lime + '14'` at each call site
+  // because sunlight mode has to be able to answer "no tint at all" — an alpha
+  // suffix composites to a pale wash no matter what the palette says, so the
+  // one mode whose entire premise is "no washes, use a border" could not opt
+  // out while the colour was being mixed in the stylesheet. See SUNLIGHT below.
+  tintAccent:       'rgba(16,185,129,0.08)',
+  tintAccentStrong: 'rgba(16,185,129,0.20)',
+  tintDanger:       'rgba(248,113,113,0.10)',
+  borderAccent:     'rgba(16,185,129,0.27)',
+  borderDanger:     'rgba(248,113,113,0.33)',
   blue: '#3B82F6',
   blueDeep: '#2563EB',
   blueSoft: '#60A5FA',
@@ -99,6 +109,11 @@ const light = {
   coral: '#c62828',       // semantic red — wicket / danger / live
   wicketBg: 'rgba(198,40,40,0.10)',
   wicketText: '#c62828',
+  tintAccent:       'rgba(10,82,39,0.08)',
+  tintAccentStrong: 'rgba(10,82,39,0.20)',
+  tintDanger:       'rgba(198,40,40,0.08)',
+  borderAccent:     'rgba(10,82,39,0.27)',
+  borderDanger:     'rgba(198,40,40,0.33)',
   blue: '#2563eb',
   blueDeep: '#1d4ed8',
   blueSoft: '#3b82f6',
@@ -128,7 +143,85 @@ const light = {
   inkDim: '#727880',
 };
 
-export const PALETTES = { dark, light };
+// ── SUNLIGHT — for scoring outdoors in direct glare ──────────────────────────
+//
+// A third mode, not a brighter light theme. The light theme is already strong
+// (near-black on white, accent at 9.35:1) and is the right default indoors.
+// This one trades comfort for legibility at arm's length in full sun:
+//
+//   · Pure black on pure white — 21:1, the maximum a screen can produce.
+//   · NO GREYS. Every mid-tone is the first thing to disappear in glare, so
+//     hierarchy comes from borders and inversion instead of tint. Where the
+//     light theme uses a faint fill to separate a chip from the page, this uses
+//     a solid black outline; where it dims a label, this keeps it black and
+//     lets size and weight carry the rank.
+//   · Safety hues only, and only where they mean something: green for a
+//     boundary, red for a wicket, yellow for "you are here".
+//
+// Same KEYS as the other two, so every screen in the app inherits it without a
+// single per-screen change — the tokens are the whole interface.
+const sunlight = {
+  mode: 'sunlight',
+  bg: '#ffffff',
+  surfaceLow: '#ffffff',
+  surface: '#ffffff',
+  // Not a fill. A chip in this mode is white with a black border; anything that
+  // reads as a "slightly different white" is invisible outdoors.
+  surfaceHigh: '#ffffff',
+  surfaceHighest: '#ffffff',
+  white: '#ffffff',
+  // Boundary green, dark enough to hold its own text at 8.6:1 on white while
+  // still reading as green rather than as black.
+  lime: '#006400',
+  limeBright: '#008000',
+  lime2: '#006400',
+  onLime: '#ffffff',
+  coral: '#d00000',
+  wicketBg: '#ffffff',
+  wicketText: '#d00000',
+  // The whole point of the mode: no washes. A selected row is white with a
+  // 2px black border, exactly as the design's "no grays — use a border rather
+  // than a tinted background" rule says. Selection reads as the border, and
+  // for the striker/active states it reads as inversion.
+  tintAccent:       '#ffffff',
+  tintAccentStrong: '#ffffff',
+  tintDanger:       '#ffffff',
+  borderAccent:     '#006400',
+  borderDanger:     '#d00000',
+  blue: '#000000',        // the brand retired blue; here it collapses to black
+  blueDeep: '#000000',
+  blueSoft: '#000000',
+  onBlue: '#ffffff',
+  textPrimary: '#000000',
+  // The "muted" tiers are NOT muted. They stay black and the type scale does
+  // the work — a grey caption is unreadable in the exact conditions this mode
+  // exists for.
+  textVariant: '#000000',
+  textSecondary: '#000000',
+  textMuted: '#000000',
+  faint: '#000000',
+  onDark: '#ffffff',
+  onDarkDim: '#ffffff',
+  limeDark: '#006400',
+  live: '#d00000',
+  danger: '#d00000',
+  dangerTxt: '#d00000',
+  warn: '#8a5200',
+  success: '#006400',
+  // Borders carry every separation this mode has, so they are full black.
+  border: '#000000',
+  line: '#000000',
+  overlay: 'rgba(0,0,0,0.6)',
+  navy0: '#ffffff',
+  navy1: '#ffffff',
+  navy2: '#ffffff',
+  cell: '#ffffff',
+  cellHi: '#ffffff',
+  ink: '#000000',
+  inkDim: '#000000',
+};
+
+export const PALETTES = { dark, light, sunlight };
 
 // ── Sport accent override ─────────────────────────────────────────────────────
 // The whole app reads its accent from these palette tokens (DS.lime, DS.accent,
@@ -239,6 +332,13 @@ export function ThemeProvider({ children }) {
 
   const setMode = useCallback((next) => {
     setPref(next);
+    // 'sunlight' is deliberately NOT persisted here. It is borrowed by the
+    // scoring console for as long as that screen is focused, and ScoringScreen
+    // keeps its own preference under its own key. Writing it to the app theme
+    // would mean a crash or a force-quit mid-innings leaves the entire app —
+    // feed, profile, everything — in a high-contrast scoring skin the user
+    // never asked for and has no obvious way to turn off.
+    if (next === 'sunlight') return;
     AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
   }, []);
 

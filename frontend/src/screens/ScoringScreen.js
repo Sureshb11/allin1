@@ -4,6 +4,7 @@ import {
   Alert, Modal, Share, StatusBar, Dimensions, BackHandler,
   Animated, PanResponder } from
 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { sortSquad } from '../utils/squadOrder';
 import legendsApi from '../services/LegendsApi';
@@ -56,7 +57,10 @@ const isKeeperRole = (role) => {
 
 
 
-export default function ScoringScreen({ route, navigation }) {const { colors: DS, isDark } = useTheme();const styles = useThemedStyles(makeStyles);const setup = useThemedStyles(makeSetup);
+// Remembered per device: a scorer who scores in the sun scores in the sun again.
+const SUN_KEY = 'cricket.sunlightScoring';
+
+export default function ScoringScreen({ route, navigation }) {const { colors: DS, isDark, mode: themeMode, setMode } = useTheme();const styles = useThemedStyles(makeStyles);const setup = useThemedStyles(makeSetup);
   const { match, resume, matchId: resumeId } = route.params || {};
   const [matchData, setMatchData] = useState(match || {});
 
@@ -65,6 +69,71 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // back button + brand replace it, reclaiming the top of the screen.
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
+
+  // ── Sunlight mode ─────────────────────────────────────────────────────────
+  // A scoring-console mode, NOT an app theme. It is turned on because the scorer
+  // is standing in direct sun holding the phone for three hours; the feed and
+  // profile they open afterwards should look the way they always do. So the
+  // preference lives here and the palette is applied only while this screen is
+  // focused — leaving restores whatever theme the app was on, coming back
+  // re-applies it. That is why this is a ref-and-listener dance rather than a
+  // plain `setMode('sunlight')`: the mode has to be borrowed, not adopted.
+  const [sunOn, setSunOn] = useState(false);
+  const sunOnRef = useRef(false);
+  const themeModeRef = useRef(themeMode);
+  const baseModeRef = useRef(null);   // the theme to hand back on the way out
+  themeModeRef.current = themeMode;
+
+  const applySun = useCallback((on) => {
+    if (on) {
+      // Capture the real theme once. Re-capturing on a second call would record
+      // 'sunlight' as the base and strand the user in it.
+      if (baseModeRef.current == null && themeModeRef.current !== 'sunlight') {
+        baseModeRef.current = themeModeRef.current;
+      }
+      setMode('sunlight');
+    } else {
+      if (baseModeRef.current) setMode(baseModeRef.current);
+      baseModeRef.current = null;
+    }
+  }, [setMode]);
+
+  useEffect(() => {
+    let alive = true;
+    AsyncStorage.getItem(SUN_KEY).then((v) => {
+      if (!alive || v !== '1') return;
+      setSunOn(true);
+      sunOnRef.current = true;
+      applySun(true);
+    }).catch(() => {});
+    return () => {
+      alive = false;
+      // Unmount must always hand the theme back, even if the screen is being
+      // torn down by a match ending rather than by a back press.
+      if (baseModeRef.current) setMode(baseModeRef.current);
+    };
+  }, [applySun, setMode]);
+
+  useEffect(() => {
+    // Blur restores but deliberately KEEPS baseModeRef, so a return to the
+    // console re-applies sunlight without asking again.
+    const off = navigation.addListener('blur', () => {
+      if (sunOnRef.current && baseModeRef.current) setMode(baseModeRef.current);
+    });
+    const on = navigation.addListener('focus', () => {
+      if (sunOnRef.current) setMode('sunlight');
+    });
+    return () => { off(); on(); };
+  }, [navigation, setMode]);
+
+  const toggleSunlight = useCallback(() => {
+    haptic.tick();
+    const next = !sunOnRef.current;
+    sunOnRef.current = next;
+    setSunOn(next);
+    AsyncStorage.setItem(SUN_KEY, next ? '1' : '0').catch(() => {});
+    applySun(next);
+  }, [applySun]);
 
   const [currentScore, setCurrentScore] = useState({ runs: 0, wickets: 0, overs: 0, balls: 0 });
   const [firstInningsScore, setFirstInningsScore] = useState({ runs: 0, wickets: 0, overs: 0 });
@@ -1646,6 +1715,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
 
   // Ball display in over tracker
   const renderBallDot = (b, i, isLast = false) => {
+    const CKdot = cricketColors(DS);
     let bg = DS.surfaceHighest;
     let color = DS.textPrimary;
     let label = b;
@@ -1656,10 +1726,14 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // A wicket wins the colour even when it rode in on an extra ('WD+W', '3nb+W') —
     // it's the one thing on the strip you must never miss.
     if (isWicketChip(b)) { bg = DS.wicketBg; color = DS.wicketText; } // Wickets
-    else if (str.includes('wd') || str.includes('nb')) { bg = 'rgba(255,181,158,0.15)'; color = DS.coral; } // Wides, NBs
+    else if (str.includes('wd') || str.includes('nb')) { bg = DS.tintDanger; color = DS.coral; } // Wides, NBs
     else if (str.includes('b')) { bg = DS.surfaceHigh; color = DS.textVariant; } // Byes / Leg Byes
-    else if (str.includes('4')) { bg = DS.blue + '33'; color = DS.blue + 'ff'; } // Fours
-    else if (str.includes('6')) { bg = DS.lime + '26'; color = DS.lime; } // Sixes
+    // Fours and sixes take their colour from the cricket palette, not from brand
+    // tokens picked by hand — a four was DS.blue here, a colour the brand retired
+    // and which sunlight mode renders as black. The tint carries the emphasis,
+    // the text carries the meaning, and both follow the mode.
+    else if (str.includes('4')) { bg = DS.tintAccent; color = CKdot.four; } // Fours
+    else if (str.includes('6')) { bg = DS.tintAccentStrong; color = CKdot.six; } // Sixes
     else if (label === '0') { bg = DS.surfaceHighest; color = DS.textMuted; } // Dots
     else { bg = DS.surfaceHigh; color = DS.textPrimary; } // Normal runs
 
@@ -2317,7 +2391,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                 return (
                 <TouchableOpacity key={i} style={[styles.playerOption, picked && styles.playerOptionPicked]}
                 onPress={() => setPendingBatter(p)}>
-                  <View style={[styles.playerAvatar, (resuming || picked) && { backgroundColor: DS.lime + '33' }]}>
+                  <View style={[styles.playerAvatar, (resuming || picked) && { backgroundColor: DS.tintAccentStrong }]}>
                     <Text style={[styles.playerInitial, (resuming || picked) && { color: DS.lime }]}>{p.name.charAt(0).toUpperCase()}</Text>
                   </View>
                   <Text style={[styles.playerName, { flex: 1 }, picked && styles.playerNamePicked]}>{p.name}</Text>
@@ -2387,7 +2461,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                   return (
                   <TouchableOpacity key={i} style={[styles.playerOption, picked && styles.playerOptionPicked]}
                     onPress={() => setPendingBowler(p)}>
-                    <View style={[styles.playerAvatar, { backgroundColor: DS.lime + '33' }]}>
+                    <View style={[styles.playerAvatar, { backgroundColor: DS.tintAccentStrong }]}>
                       <Text style={[styles.playerInitial, { color: DS.lime }]}>{p.name.charAt(0).toUpperCase()}</Text>
                     </View>
                     <Text style={[styles.playerName, { flex: 1 }, picked && styles.playerNamePicked]}>{p.name}</Text>
@@ -3098,7 +3172,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             {[['striker', striker], ['nonstriker', nonStriker]].map(([slot, player]) => (
               <TouchableOpacity key={slot} style={styles.settingRow}
                 onPress={() => { setRetiredSlot(slot); setRetiredPrompt(false); setRetiredKindPrompt(true); }}>
-                <View style={[styles.playerAvatar, { backgroundColor: DS.lime + '33' }]}>
+                <View style={[styles.playerAvatar, { backgroundColor: DS.tintAccentStrong }]}>
                   <Text style={[styles.playerInitial, { color: DS.lime }]}>{(player?.name || '?').charAt(0).toUpperCase()}</Text>
                 </View>
                 <Text style={[styles.settingText, { flex: 1 }]}>
@@ -3126,7 +3200,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             <TouchableOpacity
               style={[styles.settingRow, pendingRetireKind === 'hurt' && styles.settingRowPicked]}
               onPress={() => setPendingRetireKind('hurt')}>
-              <View style={[styles.playerAvatar, { backgroundColor: DS.lime + '33' }]}>
+              <View style={[styles.playerAvatar, { backgroundColor: DS.tintAccentStrong }]}>
                 <Icon name="bandage" size={16} color={DS.lime} />
               </View>
               <Text style={[styles.settingText, { flex: 1 }]}>Retired hurt <Text style={styles.modalSub}>(not out · can return)</Text></Text>
@@ -3444,6 +3518,38 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>Match Settings</Text>
+
+            {/* Sunlight mode lives HERE rather than in app settings, because it
+                is a scoring decision, not a preference: you turn it on when you
+                walk out into the sun and off when you come in. Putting it three
+                screens away in a profile would mean nobody uses it at the only
+                moment it helps. It is a real third theme, not a brightness
+                slider — pure black on white, no greys, boundaries as filled
+                blocks. */}
+            <TouchableOpacity
+              style={styles.settingRow}
+              onPress={toggleSunlight}
+              accessibilityRole="switch"
+              accessibilityLabel="Sunlight mode, scoring screen only"
+              accessibilityState={{ checked: sunOn }}
+            >
+              <Icon name={sunOn ? 'white-balance-sunny' : 'weather-sunny'}
+                size={20} color={sunOn ? DS.lime : DS.textPrimary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingTextNoFlex}>Sunlight mode</Text>
+                <Text style={styles.settingHint}>
+                  {sunOn
+                    ? 'On — this screen only, rest of the app unchanged'
+                    : 'Max contrast for scoring outdoors'}
+                </Text>
+              </View>
+              <View style={[styles.sunPill, sunOn && styles.sunPillOn]}>
+                <Text style={[styles.sunPillText, sunOn && styles.sunPillTextOn]}>
+                  {sunOn ? 'ON' : 'OFF'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.settingRow} onPress={() => { setShowSettings(false); shareScore(); }}>
               <Icon name="share-variant" size={20} color={DS.textPrimary} />
               <Text style={styles.settingText}>Share score</Text>
@@ -3620,7 +3726,7 @@ const makeStyles = (DS) => {
   topTeamActive: { color: DS.textPrimary, fontWeight: '900' },
   topVs: { color: DS.textMuted, fontSize: 11, fontWeight: '700' },
   topTeamDim: { color: DS.textMuted, fontWeight: '800' },
-  liveTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
+  liveTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: DS.tintDanger, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
   liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: DS.live },
   liveTagText: { fontSize: 9, fontWeight: '900', color: DS.live, letterSpacing: 0.6 },
 
@@ -3637,7 +3743,7 @@ const makeStyles = (DS) => {
   sbRateNum: { color: DS.textVariant, fontWeight: '900' },   // PROJ — quieter than CRR
   sbScorecardLink: { fontSize: 11.5, fontWeight: '800', color: DS.blue },
   // 2nd-innings chase pill: need · balls · RRR, loud.
-  chaseStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginTop: 6, backgroundColor: DS.coral + '1f', borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4 },
+  chaseStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginTop: 6, backgroundColor: DS.tintDanger, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4 },
   chaseNeed: { fontSize: 12.5, fontWeight: '900', color: DS.coral, letterSpacing: 0.5 },
   chaseBig: { fontSize: 16, fontWeight: '900', color: DS.coral },
   chaseNum: { fontWeight: '900', color: DS.coral },
@@ -3673,7 +3779,7 @@ const makeStyles = (DS) => {
   creaseRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
   // On-strike batter is lifted with a faint lime wash + rounded ends so the eye
   // lands on who's facing without reading names.
-  creaseStrikerRow: { backgroundColor: DS.lime + '14', borderRadius: 10, marginHorizontal: -6, paddingHorizontal: 6 },
+  creaseStrikerRow: { backgroundColor: DS.tintAccent, borderRadius: 10, marginHorizontal: -6, paddingHorizontal: 6 },
   creaseAvatar: { marginLeft: -2 },
   creaseRowDivider: { paddingTop: 3 },
   pnrRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 5, marginTop: 2, borderTopWidth: 1, borderTopColor: DS.line },
@@ -3709,7 +3815,7 @@ const makeStyles = (DS) => {
   // UNDO is a correction control, not an extra — coral-tinted so it reads apart
   // from the neutral WD/NB/BYE/LB buttons beside it, and its label carries the
   // last delivery (what it will remove).
-  undoBtn: { flex: 2, flexDirection: 'row', gap: 4, paddingHorizontal: 4, backgroundColor: DS.coral + '14', borderColor: DS.coral + '55' },
+  undoBtn: { flex: 2, flexDirection: 'row', gap: 4, paddingHorizontal: 4, backgroundColor: DS.tintDanger, borderColor: DS.borderDanger },
   undoBtnText: { color: DS.coral },
 
   // Full-width wicket button
@@ -3724,7 +3830,7 @@ const makeStyles = (DS) => {
   changeBowlerBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     marginHorizontal: 16, marginBottom: 6, paddingVertical: 10, borderRadius: 12,
-    backgroundColor: DS.lime + '14', borderWidth: 1, borderColor: DS.lime + '44',
+    backgroundColor: DS.tintAccent, borderWidth: 1, borderColor: DS.borderAccent,
   },
   changeBowlerText: { fontSize: 12, fontWeight: '900', color: DS.lime, letterSpacing: 1.5 },
 
@@ -3763,6 +3869,14 @@ const makeStyles = (DS) => {
   // minHeight kept modest so the WICKET + END buttons below are always on-screen.
   grid: { flex: 1, marginHorizontal: 16, gap: 9, marginBottom: 9, minHeight: 132 },
   gridRow: { flex: 1, flexDirection: 'row', gap: 9 },
+  sunPill: {
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
+    borderWidth: 1, borderColor: DS.line, backgroundColor: DS.surfaceHigh,
+  },
+  sunPillOn: { backgroundColor: DS.lime, borderColor: DS.lime },
+  sunPillText: { fontSize: 11, fontWeight: '900', color: DS.textMuted, letterSpacing: 1 },
+  sunPillTextOn: { color: DS.bg },
+
   // Applied to whole blocks while a delivery is in flight. Opacity only — no
   // size or layout change — so nothing shifts under a finger that is already
   // moving toward the next button.
@@ -3785,7 +3899,7 @@ const makeStyles = (DS) => {
   gridBtnDot: { backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.line },
   gridBtnFour: { backgroundColor: CK.four },
   gridBtnSix: { backgroundColor: CK.six, borderWidth: 1, borderColor: CK.six },
-  gridBtnWide: { backgroundColor: 'rgba(255,181,158,0.1)' },
+  gridBtnWide: { backgroundColor: DS.tintDanger },
   gridBtnWicket: { backgroundColor: DS.wicketBg },
   gridBtnNum: { fontSize: 28, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1 },
   gridBtnLabel: { fontSize: 9.5, fontWeight: '800', color: DS.textMuted, letterSpacing: 1 },
@@ -3799,8 +3913,8 @@ const makeStyles = (DS) => {
   overSectionLabel: { fontSize: 18, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.8 },
   syncPill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1 },
   syncPillSaving: { backgroundColor: DS.surfaceHigh, borderColor: DS.surfaceHighest },
-  syncPillOk: { backgroundColor: DS.lime + '1a', borderColor: DS.lime + '40' },
-  syncPillFail: { backgroundColor: 'rgba(255,181,158,0.15)', borderColor: DS.coral },
+  syncPillOk: { backgroundColor: DS.tintAccent, borderColor: DS.borderAccent },
+  syncPillFail: { backgroundColor: DS.tintDanger, borderColor: DS.coral },
   syncPillText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   // Icon-only variant of syncPill, for the two BALL INTELLIGENCE controls.
   //
@@ -3840,8 +3954,8 @@ const makeStyles = (DS) => {
   settingText: { flex: 1, fontSize: 15, fontWeight: '700', color: DS.textPrimary },
   settingTextNoFlex: { fontSize: 15, fontWeight: '700', color: DS.textPrimary },
   // Armed-but-not-committed row in the end-innings / retire sheets.
-  settingRowPicked: { backgroundColor: DS.lime + '14', borderRadius: 10, paddingHorizontal: 10, marginHorizontal: -6 },
-  settingRowPickedDanger: { backgroundColor: DS.coral + '1a', borderRadius: 10, paddingHorizontal: 10, marginHorizontal: -6 },
+  settingRowPicked: { backgroundColor: DS.tintAccent, borderRadius: 10, paddingHorizontal: 10, marginHorizontal: -6 },
+  settingRowPickedDanger: { backgroundColor: DS.tintDanger, borderRadius: 10, paddingHorizontal: 10, marginHorizontal: -6 },
   settingHint: { fontSize: 12, fontWeight: '800', color: DS.textMuted, marginRight: 2 },
 
   // Short Run confirm dialog
@@ -3943,7 +4057,7 @@ const makeStyles = (DS) => {
     paddingVertical: 11, paddingHorizontal: 12, marginBottom: 10,
     borderRadius: 12, borderWidth: 1, borderColor: DS.border,
   },
-  directHitRowOn: { borderColor: DS.lime, backgroundColor: DS.lime + '14' },
+  directHitRowOn: { borderColor: DS.lime, backgroundColor: DS.tintAccent },
   directHitLabel: { fontSize: 14, fontWeight: '800', color: DS.textPrimary },
   directHitHint: { fontSize: 11, fontWeight: '600', color: DS.textMuted, marginTop: 2 },
 
@@ -3962,7 +4076,7 @@ const makeStyles = (DS) => {
   playerAvatar: { width: 38, height: 38, borderRadius: 12, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   playerInitial: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
   playerOptionPicked: {
-    backgroundColor: DS.lime + '14', borderRadius: 10,
+    backgroundColor: DS.tintAccent, borderRadius: 10,
     paddingHorizontal: 10, marginHorizontal: -10,
   },
   playerName: { flex: 1, fontSize: 15, fontWeight: '500', color: DS.textPrimary },
@@ -4018,7 +4132,7 @@ const makeSetup = (DS) => StyleSheet.create({
 
   inningsBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: DS.lime + '14', borderRadius: 12, padding: 12, marginBottom: 8
+    backgroundColor: DS.tintAccent, borderRadius: 12, padding: 12, marginBottom: 8
   },
   inningsText: { fontSize: 14, fontWeight: '700', color: DS.lime },
 
@@ -4029,7 +4143,7 @@ const makeSetup = (DS) => StyleSheet.create({
     alignItems: 'center', gap: 6, padding: 10,
     backgroundColor: DS.surfaceLow, borderRadius: 14, minWidth: 72
   },
-  playerChipActive: { backgroundColor: DS.lime + '14', borderWidth: 1.5, borderColor: DS.lime },
+  playerChipActive: { backgroundColor: DS.tintAccent, borderWidth: 1.5, borderColor: DS.lime },
   chipAvatar: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   chipInitial: { fontSize: 18, fontWeight: '900' },
   chipName: { fontSize: 11, fontWeight: '600', color: DS.textVariant, textAlign: 'center', lineHeight: 14 },

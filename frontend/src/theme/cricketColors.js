@@ -84,13 +84,50 @@ const LIGHT = {
   bowler:     '#0a5227',
 };
 
+// ── SUNLIGHT ────────────────────────────────────────────────────────────────
+// For scoring outdoors in direct glare. These are FILL colours — in this mode a
+// four and a six are solid blocks with white text, not tinted chips — so what
+// had to be measured is white-on-fill, not fill-on-page.
+//
+// The source design proposed #00FF00 for boundaries. It cannot carry the white
+// text its own mockup puts on it: 1.37:1, against a floor of 4.5. Kept the
+// intent (a filled, unmissable boundary block) at values that hold their text.
+// The six-darker-than-four rule from the other two modes still applies.
+const SUNLIGHT = {
+  dot:        '#000000',   // no greys anywhere: a dot is black type on white
+  runs:       '#000000',
+  four:       '#008000',   // white text 5.14:1
+  six:        '#004d00',   // white text 10.19:1 — and 1.98:1 apart from four
+  wicket:     '#d00000',   // white text 5.70:1
+  wicketBg:   '#ffffff',
+
+  // Extras are black-on-white with a black border, not coloured fills. Adding a
+  // third and fourth hue to a screen designed around two would undo the point.
+  wide:       '#000000',
+  noBall:     '#000000',
+  bye:        '#000000',
+  legBye:     '#000000',
+  penalty:    '#000000',
+
+  live:       '#d00000',
+  upcoming:   '#000000',
+  completed:  '#000000',
+  paused:     '#8a5200',
+  inningsBreak: '#8a5200',
+
+  striker:    '#000000',   // inversion marks the striker, not a tint
+  nonStriker: '#000000',
+  bowler:     '#000000',
+};
+
 /**
  * The cricket palette for the current theme.
  *
  * Takes the app's own colour object so it follows light/dark exactly as every
  * other component does — `cricketColors(useTheme().colors)`.
  */
-export const cricketColors = (DS) => (DS?.mode === 'dark' ? DARK : LIGHT);
+export const cricketColors = (DS) =>
+  (DS?.mode === 'sunlight' ? SUNLIGHT : DS?.mode === 'dark' ? DARK : LIGHT);
 
 /**
  * The colour for a delivery's outcome, from the delivery itself.
