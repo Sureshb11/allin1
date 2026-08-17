@@ -16,6 +16,7 @@ import MatchAwardsModal from "../components/MatchAwardsModal";
 import BallIntelligenceSheet from "../components/BallIntelligenceSheet";
 import { enqueueShot, loadShotQueue, flushShotQueue, setShotDropHandler } from '../utils/shotQueue';
 import { handOf } from '../sports/cricket/wagonWheel';
+import { cricketColors } from '../theme/cricketColors';
 import { isBowlerWicket } from '../utils/cricketRules';
 import PlayerAvatar from "../components/PlayerAvatar";
 import { BRAND_NAME, BRAND_TAGLINE } from "../components/BrandLogo";
@@ -2204,13 +2205,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                 accessibilityRole="button"
                 accessibilityLabel="Four"
                 accessibilityHint="Hold for 5, 7 or more runs">
-                <Text style={[styles.gridBtnNum, { color: DS.white }]}>4</Text><Text style={[styles.gridBtnLabel, { color: 'rgba(255,255,255,0.7)' }]}>FOUR</Text>
+                <Text style={[styles.gridBtnNum, { color: DS.bg }]}>4</Text><Text style={[styles.gridBtnLabel, { color: DS.bg, opacity: 0.75 }]}>FOUR</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.gridBtn, styles.gridBtnSix]} onPress={() => handleScore(6)} onLongPress={openOtherRuns}
                 accessibilityRole="button"
                 accessibilityLabel="Six"
                 accessibilityHint="Hold for 5, 7 or more runs">
-                <Text style={[styles.gridBtnNum, { color: DS.lime }]}>6</Text><Text style={[styles.gridBtnLabel, { color: DS.lime }]}>SIX</Text>
+                <Text style={[styles.gridBtnNum, { color: DS.bg }]}>6</Text><Text style={[styles.gridBtnLabel, { color: DS.bg, opacity: 0.75 }]}>SIX</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -3598,7 +3599,9 @@ const GRID_BTN = (width - 48) / 3;
 // spreading sideways would overlap the neighbouring button's slop.
 const EXTRA_HIT = { top: 6, bottom: 6, left: 0, right: 0 };
 
-const makeStyles = (DS) => StyleSheet.create({
+const makeStyles = (DS) => {
+  const CK = cricketColors(DS);
+  return StyleSheet.create({
   root: { flex: 1, backgroundColor: DS.bg },
   // No-scroll: the content column fills the space between the scoreboard header
   // and tab bar; the scoring grid flexes to take whatever's left.
@@ -3769,9 +3772,19 @@ const makeStyles = (DS) => StyleSheet.create({
     flex: 1, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center', gap: 2
   },
+  // The three run-button treatments, from the shared cricket palette.
+  //
+  // FOUR was DS.blueDeep — a colour the design system explicitly retired ("blue
+  // is gone", ThemeContext) and which nothing else in the app uses for a
+  // boundary. So a four was blue here, green on the wagon wheel and green again
+  // in the scorecard commentary: three answers to one question.
+  //
+  // Six carries MORE weight than four rather than a different hue, which is the
+  // hierarchy a scorer actually needs — the two events are related, and one is
+  // bigger.
   gridBtnDot: { backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.line },
-  gridBtnFour: { backgroundColor: DS.blueDeep },
-  gridBtnSix: { backgroundColor: DS.lime + '24', borderWidth: 1, borderColor: DS.lime + '44' },
+  gridBtnFour: { backgroundColor: CK.four },
+  gridBtnSix: { backgroundColor: CK.six, borderWidth: 1, borderColor: CK.six },
   gridBtnWide: { backgroundColor: 'rgba(255,181,158,0.1)' },
   gridBtnWicket: { backgroundColor: DS.wicketBg },
   gridBtnNum: { fontSize: 28, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1 },
@@ -3957,6 +3970,7 @@ const makeStyles = (DS) => StyleSheet.create({
   modalClose: { backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingVertical: 13, marginTop: 12, alignItems: 'center' },
   modalCloseText: { fontSize: 14, fontWeight: '700', color: DS.textMuted }
 });
+};
 
 const makeSetup = (DS) => StyleSheet.create({
   slotsContainer: { paddingHorizontal: 16, marginTop: 10 },

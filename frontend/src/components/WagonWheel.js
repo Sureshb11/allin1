@@ -16,6 +16,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle, Path, G, Line, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '../theme/ThemeContext';
+import { cricketColors } from '../theme/cricketColors';
 import { zonesForHand, zoneFromAngle, wrapAngle } from '../sports/cricket/wagonWheel';
 
 const RAD = Math.PI / 180;
@@ -65,6 +66,7 @@ function WagonWheel({
   style,
 }) {
   const c = useTheme().colors;
+  const CK = useMemo(() => cricketColors(c), [c]);
   const [live, setLive] = useState(null);      // { angle, distance } under the finger
 
   const C = useMemo(() => ({
@@ -75,14 +77,17 @@ function WagonWheel({
     pitch:   c.surface,
     accent:  c.lime,
     onAccent:c.bg,
-    six:     c.lime,
-    four:    c.limeBright,
-    runs:    c.textMuted,
+    // Cricket meanings come from the shared cricket palette, not from picking
+    // brand tokens by hand. This drew a six in `lime` and a four in
+    // `limeBright`, which are BOTH #0a5227 in the light theme — so the legend
+    // named two colours and the wheel drew one, and a four and a six were
+    // indistinguishable in daylight.
+    six:     CK.six,
+    four:    CK.four,
+    runs:    CK.runs,
     dot:     c.surfaceHighest,
-    // The app's single-accent rule: green carries everything, and red means only
-    // wicket / live / danger. A wicket on the wheel is exactly that case.
-    wicket:  c.wicketText || c.danger,
-  }), [c]);
+    wicket:  CK.wicket,
+  }), [c, CK]);
 
   const R = size / 2 - 2;
   const cx = size / 2;

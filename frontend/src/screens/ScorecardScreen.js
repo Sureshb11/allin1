@@ -23,6 +23,7 @@ import PlayerAvatar from "../components/PlayerAvatar";
 import HexAvatar from "../components/HexAvatar";
 import ShotBoard from "../components/ShotBoard";
 import { isBallFaced, offTheBat, isBoundary, isSix, isBowlerWicket, NON_BALL_EXTRAS } from "../utils/cricketRules";
+import { cricketColors } from "../theme/cricketColors";
 import LiveBall from "../components/CricketBall/LiveBall";
 import EventSound from "../components/CricketBall/EventSound";
 import { useDockLock, useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
@@ -1219,7 +1220,8 @@ function computeOverEndSummaries(innings) {
 }
 
 // ── LIVE tab: current-over box + reverse-chronological ball commentary ───────
-function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
+  const CK = cricketColors(DS);const styles = useThemedStyles(makeStyles);
   if (!innings) return <Text style={styles.emptyTabText}>Play hasn't started yet.</Text>;
 
   const battingXI = (squads || [])
@@ -1315,8 +1317,8 @@ function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
                   Amber (#f59e0b) is the app's "special" colour (aces/bonuses). */}
               <Text style={[styles.commentaryText,
                 line.isWicket && { fontWeight: '800', color: DS.textPrimary },
-                line.isBoundary && !line.isSix && { color: DS.lime, fontWeight: '700' },
-                line.isSix && { color: '#f59e0b', fontWeight: '800' }]}>
+                line.isBoundary && !line.isSix && { color: CK.four, fontWeight: '700' },
+                line.isSix && { color: CK.six, fontWeight: '800' }]}>
                 {line.text || ''}
               </Text>
             </View>

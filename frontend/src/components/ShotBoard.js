@@ -12,15 +12,19 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/ThemeContext';
+import { cricketColors } from '../theme/cricketColors';
 import WagonWheel, { HandBadge } from './WagonWheel';
 
 /** The wheel's colour key. Without it, four line colours are just decoration. */
 function Legend({ c }) {
+  // Same source as the wheel draws from — a legend that picks its own colours
+  // is a legend that eventually describes a different picture.
+  const CK = cricketColors(c);
   const items = [
-    { label: '6', color: c.lime },
-    { label: '4', color: c.limeBright },
-    { label: '1-3', color: c.textMuted },
-    { label: 'W', color: c.wicketText || c.danger },
+    { label: '6', color: CK.six },
+    { label: '4', color: CK.four },
+    { label: '1-3', color: CK.runs },
+    { label: 'W', color: CK.wicket },
   ];
   return (
     <View style={lg.row}>
