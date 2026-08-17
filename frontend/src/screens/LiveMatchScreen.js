@@ -27,9 +27,10 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import legendsApi from '../services/LegendsApi';
 import ShotBoard from '../components/ShotBoard';
-
-const NON_BALL_EXTRAS = ['wide', 'noBall', 'penalty', 'retired', 'deadBall'];
-const isLegal = (b) => !NON_BALL_EXTRAS.includes(b?.extraType);
+// The over rule from utils/cricketRules, not a local copy. The list here was
+// correct, but four bugs today came from lists exactly like it being retyped
+// and one copy drifting, so a fourth is not worth keeping.
+import { isLegalDelivery as isLegal } from '../utils/cricketRules';
 
 /**
  * Is the WebView's native side actually in this binary?

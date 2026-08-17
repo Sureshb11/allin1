@@ -22,7 +22,7 @@ import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
 import HexAvatar from "../components/HexAvatar";
 import ShotBoard from "../components/ShotBoard";
-import { isBallFaced, offTheBat, isBoundary, isSix } from "../utils/cricketRules";
+import { isBallFaced, offTheBat, isBoundary, isSix, NON_BALL_EXTRAS } from "../utils/cricketRules";
 import LiveBall from "../components/CricketBall/LiveBall";
 import EventSound from "../components/CricketBall/EventSound";
 import { useDockLock, useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
@@ -215,7 +215,6 @@ const celebStyles = StyleSheet.create({
 // list (backend/src/routes/matches.js) or the scorecard's overs disagree with the
 // live score. 'deadBall' is a wicket taken without a ball being bowled — the
 // non-striker run out backing up (Law 38.3).
-const NON_BALL_EXTRAS = ['wide', 'noBall', 'penalty', 'retired', 'deadBall'];
 
 // Cricket dismissal notation: "b Bowler", "c Fielder b Bowler", "c & b Bowler",
 // "lbw b Bowler", "st Keeper b Bowler", "run out (Fielder)", "hit wicket b Bowler".
