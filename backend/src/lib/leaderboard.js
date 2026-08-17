@@ -13,7 +13,7 @@
 //     is written.
 
 import { prisma } from './prisma.js';
-import { isBowlerWicket } from './deliveries.js';
+import { isBowlerWicket, isLegalDelivery } from './deliveries.js';
 
 const oversStr = (balls) => `${Math.floor(balls / 6)}.${balls % 6}`;
 
@@ -51,12 +51,20 @@ export async function tournamentLeaderboard(tournamentId) {
             perMatchRuns[k] = (perMatchRuns[k] || 0) + b.runs;
           }
         }
-        let charged = 0, legal = false;
+        // Whether this advances the over comes from deliveries.js, NOT from a
+        // list spelled out here. This file already moved its wicket rule there
+        // and left this one behind — and the two had drifted: 'deadBall' (the
+        // non-striker run out before release) fell through to the else below
+        // and was counted as a legal delivery, inflating the bowler's overs and
+        // flattering their economy on this board while every other screen
+        // disagreed. The same shape as the run-out bug, one rule further on.
+        const legal = isLegalDelivery(b);
+        let charged = 0;
         if (et === 'wide') charged = b.extras;
         else if (et === 'noBall') charged = b.runs + b.extras;
-        else if (et === 'bye' || et === 'legBye') legal = true;
-        else if (et === 'penalty' || et === 'retired') charged = 0;
-        else { charged = b.runs; legal = true; }
+        else if (!et) charged = b.runs;
+        // byes, leg byes, penalties, retirements and dead balls are not the
+        // bowler's to answer for.
         if (bId) {
           bowl[bId].runs += charged;
           if (legal) bowl[bId].balls += 1;
