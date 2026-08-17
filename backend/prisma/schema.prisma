@@ -383,6 +383,14 @@ model BallIntelligence {
   shotOutcome    String?
   connectionType String?
 
+  /// A written line for this delivery, generated ONCE for the handful of moments
+  /// worth spending a model call on. Stored rather than generated on read
+  /// because a read happens every six seconds for every spectator, and calling a
+  /// model on each of those would be the exact thing this feature is designed
+  /// not to do. Null for the overwhelming majority of balls, which get a
+  /// template line composed on read instead (lib/shotCommentary.js).
+  aiCommentary String?
+
   /// How this was captured — SCORER today; AI/VIDEO/IMPORTED/INFERRED later.
   /// Recorded from the first row so a future model's output is separable from a
   /// human's without a backfill that has to guess which was which.
@@ -396,6 +404,97 @@ model BallIntelligence {
 
   @@index([shotZone])
   @@index([shotType])
+}
+
+/// Where an external set of statistics came from, and what we may do with it.
+///
+/// This exists so that comparing a club player against a professional benchmark
+/// is a matter of loading a licensed feed, not of writing a scraper. Nothing in
+/// this app fetches anybody's data: rows arrive from a source somebody has the
+/// right to use, and `licenceNote` is where that right is written down, next to
+/// the data, where the next person will actually read it.
+model PlayerStatSource {
+  id          String   @id @default(cuid())
+  /// Stable machine key — 'manual', or whichever provider is licensed.
+  key         String   @unique
+  name        String
+  /// What this source permits. Deliberately free text and deliberately required
+  /// reading before anyone builds on a source they did not add.
+  licenceNote String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stats     ExternalPlayerStat[]
+  shotStats ExternalPlayerShotStat[]
+}
+
+/// A benchmark player's headline batting figures, at some level of the game.
+///
+/// `playerId` is nullable because a benchmark exists whether or not anyone in
+/// this app has been matched to it — the link is made later, by hand or by a
+/// matcher, and an unmatched row is still useful as a level-wide average.
+model ExternalPlayerStat {
+  id               String  @id @default(cuid())
+  sourceId         String
+  /// The provider's own id, so a re-import updates rather than duplicates.
+  externalPlayerId String?
+  /// Our player, once somebody is confident they are the same person.
+  playerId         String?
+  /// As the provider spells it, which is not always as we do.
+  playerName       String
+  /// 'international' | 'domestic' | 'franchise' — free text so a new tier does
+  /// not need a migration.
+  level            String
+  format           String?
+
+  matches    Int?
+  innings    Int?
+  runs       Int?
+  balls      Int?
+  average    Float?
+  strikeRate Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  source PlayerStatSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, externalPlayerId, level, format])
+  @@index([playerId])
+  @@index([level])
+}
+
+/// The same, split by shot and zone — the shape this app's own dataset takes.
+///
+/// Kept separate from ExternalPlayerStat because shot-level data is far rarer
+/// and far more expensive than headline figures: a source may licence one and
+/// not the other, and a table that demanded both would refuse the common case.
+model ExternalPlayerShotStat {
+  id               String  @id @default(cuid())
+  sourceId         String
+  externalPlayerId String?
+  playerId         String?
+  level            String
+  /// Our own vocabulary — see lib/ballIntelligence.js. An importer's job is to
+  /// map a provider's names onto these, so comparisons are like for like.
+  shotType         String?
+  shotZone         String?
+
+  balls       Int
+  runs        Int
+  strikeRate  Float?
+  dismissals  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  source PlayerStatSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, externalPlayerId, level, shotType, shotZone])
+  @@index([playerId])
+  @@index([shotType])
+  @@index([shotZone])
 }
 
 model News {

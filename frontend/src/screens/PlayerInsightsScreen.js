@@ -192,6 +192,8 @@ export default function PlayerInsightsScreen({ route, navigation }) {
                 topShots: shotData.analytics?.byShot?.slice(0, 5) || [],
               }}
               insights={shotData.insights}
+              dna={shotData.dna}
+              benchmark={shotData.benchmark}
               hand={shotData.player?.hand || 'right'}
               showHand   // one player, so naming the hand is the fact that makes the wheel readable
               title="SHOT PROFILE"

@@ -59,6 +59,12 @@ export default function ShotBoard({
   shots = [],
   summary = null,
   insights = null,
+  // The fuller picture: phase splits, pace vs spin, boundary and dot areas.
+  // Optional — a match board has no business claiming any of it.
+  dna = null,
+  // Comparison against a licensed benchmark, when one has been linked. Null for
+  // almost every player, and rendered only when present.
+  benchmark = null,
   hand = 'right',
   // Whether to name the batting hand under the wheel. True for ONE player's
   // board, where it is the fact that makes the picture readable. False for a
@@ -130,6 +136,89 @@ export default function ShotBoard({
         </View>
       )}
 
+      {/* ── Player DNA ──────────────────────────────────────────────────────
+          Each block carries its OWN coverage, because they do not share one. A
+          player can have three hundred balls of zone data and eleven balls
+          against recorded spin, and printing both in the same typeface would
+          quietly invent the second. Blocks below 50% coverage are not drawn:
+          a split built mostly out of blanks is a fact about missing data. */}
+      {dna?.phases?.rows?.length > 0 && dna.phases.coverage >= 50 && (
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>BY PHASE</Text>
+          <View style={s.splitRow}>
+            {dna.phases.rows.map((p) => (
+              <View key={p.key} style={s.split}>
+                <Text style={s.splitSR}>{p.strikeRate ?? '—'}</Text>
+                <Text style={s.splitLabel}>{p.label.toUpperCase()}</Text>
+                <Text style={s.splitMeta}>{p.balls}b</Text>
+              </View>
+            ))}
+          </View>
+          {dna.phases.coverage < 100 && (
+            <Text style={s.thin}>Based on {dna.phases.coverage}% of tracked deliveries.</Text>
+          )}
+        </View>
+      )}
+
+      {dna?.bowling?.rows?.length > 0 && dna.bowling.coverage >= 50 && (
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>PACE VS SPIN</Text>
+          <View style={s.splitRow}>
+            {dna.bowling.rows.map((p) => (
+              <View key={p.key} style={s.split}>
+                <Text style={s.splitSR}>{p.strikeRate ?? '—'}</Text>
+                <Text style={s.splitLabel}>{p.label.toUpperCase()}</Text>
+                <Text style={s.splitMeta}>{p.balls}b</Text>
+              </View>
+            ))}
+          </View>
+          {/* Named explicitly: most bowlers in this app have never recorded a
+              bowling style, so this split is usually built on a minority. */}
+          <Text style={s.thin}>
+            Based on {dna.bowling.coverage}% of tracked deliveries — only bowlers
+            whose style is on record can be counted.
+          </Text>
+        </View>
+      )}
+
+      {dna?.boundaryAreas?.length > 0 && (
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>BOUNDARY AREAS</Text>
+          {dna.boundaryAreas.map((z) => (
+            <View key={z.key} style={s.row}>
+              <Text style={s.rowLabel} numberOfLines={1}>{z.label}</Text>
+              <View style={s.barTrack}>
+                <View style={[s.barFill, { width: `${Math.max(4, (z.boundaries / dna.boundaryAreas[0].boundaries) * 100)}%` }]} />
+              </View>
+              <Text style={s.rowRuns}>{z.boundaries}</Text>
+              <Text style={s.rowMeta}>{z.balls}b</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* ── Benchmark ───────────────────────────────────────────────────────
+          Only when somebody has linked a licensed source to this player. The
+          app never fetches these; absence is the normal state and is silent. */}
+      {benchmark?.byShot?.length > 0 && (
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>VS {String(benchmark.level || '').toUpperCase()} BENCHMARK</Text>
+          {benchmark.byShot.slice(0, 5).map((b) => {
+            const up = (b.differencePercent || 0) > 0;
+            return (
+              <View key={b.key} style={s.row}>
+                <Text style={s.rowLabel} numberOfLines={1}>{b.label}</Text>
+                <Text style={s.benchMine}>{b.player.strikeRate}</Text>
+                <Text style={s.benchVs}>vs {b.benchmark.strikeRate}</Text>
+                <Text style={[s.benchDiff, { color: up ? c.lime : (c.wicketText || c.danger) }]}>
+                  {up ? '+' : ''}{b.differencePercent}%
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
       {/* Strengths and weaknesses only where a trend is a fair thing to claim —
           a player profile, not one afternoon. */}
       {insights && (
@@ -198,6 +287,17 @@ const makeStyles = (c) => StyleSheet.create({
   insightSR: { fontSize: 12, fontWeight: '900' },
   insightConf: { color: c.textMuted, fontSize: 9, fontWeight: '700', width: 76, textAlign: 'right' },
   thin: { color: c.textMuted, fontSize: 11, lineHeight: 16, marginTop: 2 },
+  splitRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
+  split: {
+    flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12,
+    backgroundColor: c.surfaceHigh, borderWidth: 1, borderColor: c.surfaceHighest,
+  },
+  splitSR: { color: c.lime, fontSize: 18, fontWeight: '900' },
+  splitLabel: { color: c.textPrimary, fontSize: 9, fontWeight: '800', letterSpacing: 0.5, marginTop: 3, textAlign: 'center' },
+  splitMeta: { color: c.textMuted, fontSize: 9, fontWeight: '600', marginTop: 1 },
+  benchMine: { color: c.textPrimary, fontSize: 12, fontWeight: '900', width: 38, textAlign: 'right' },
+  benchVs: { color: c.textMuted, fontSize: 11, fontWeight: '600', width: 52, textAlign: 'right' },
+  benchDiff: { fontSize: 12, fontWeight: '900', width: 54, textAlign: 'right' },
   empty: { alignItems: 'center', gap: 6, paddingVertical: 22 },
   emptyText: { color: c.textPrimary, fontSize: 13, fontWeight: '700' },
   emptyHint: { color: c.textMuted, fontSize: 11, textAlign: 'center', lineHeight: 16, paddingHorizontal: 20 },

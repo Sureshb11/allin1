@@ -75,6 +75,33 @@ export const inningsPhase = (overNumber, limit) => {
   return 'middle';
 };
 
+/**
+ * Pace or spin, from the free text a player typed into their profile.
+ *
+ * `bowlingStyle` has never been a controlled vocabulary — it is whatever someone
+ * wrote, so this reads "Right-arm offbreak", "SLA", "left arm orthodox" and
+ * "medium fast" alike.
+ *
+ * Returns 'pace' | 'spin' | null, and NULL IS THE IMPORTANT ONE. An unrecognised
+ * style is not quietly filed as pace: most players here have no bowling style
+ * recorded at all, and a "you struggle against spin" built mostly out of blanks
+ * is worse than no answer. Callers exclude nulls and report how many they
+ * dropped.
+ *
+ * Spin is checked first because "slow left-arm" contains "slow" but is spin, and
+ * because a wrist spinner who writes "leg break medium" is still a spinner.
+ */
+const SPIN_WORDS = ['spin', 'orthodox', 'break', 'googly', 'chinaman', 'sla', 'slow left', 'legbreak', 'offbreak', 'tweak'];
+const PACE_WORDS = ['fast', 'medium', 'pace', 'seam', 'swing', 'quick'];
+
+export const bowlingKind = (style) => {
+  const s = String(style || '').toLowerCase();
+  if (!s.trim()) return null;
+  if (SPIN_WORDS.some((w) => s.includes(w))) return 'spin';
+  if (PACE_WORDS.some((w) => s.includes(w))) return 'pace';
+  return null;
+};
+
 /** Legal deliveries → cricket's own notation, 51 → "8.3". For display. */
 export const oversNotation = (balls) => `${Math.floor(balls / 6)}.${balls % 6}`;
 

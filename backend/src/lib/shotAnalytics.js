@@ -67,11 +67,21 @@ const finalise = (b) => {
  * `shots` are the flattened rows the intelligence endpoint already returns:
  * { shotType, zone, runs, isWicket }.
  */
+const PHASE_LABEL = { powerplay: 'Powerplay', middle: 'Middle Overs', death: 'Death Overs' };
+const KIND_LABEL = { pace: 'Pace', spin: 'Spin' };
+
 export const aggregateShots = (shots = []) => {
   const byShot = {};
   const byZone = {};
   const byCategory = {};
+  const byPhase = {};
+  const byBowlerKind = {};
   const totals = emptyBucket();
+  // Deliveries we could not classify. Reported rather than swallowed: a pace/spin
+  // split built out of mostly-blank bowling styles is a fact about missing data,
+  // and the reader has to be told which they are looking at.
+  let unknownPhase = 0;
+  let unknownKind = 0;
 
   for (const s of shots) {
     const runs = Number(s.runs) || 0;
@@ -91,6 +101,10 @@ export const aggregateShots = (shots = []) => {
       const cat = shotCategory(s.shotType);
       if (cat) { byCategory[cat] = byCategory[cat] || emptyBucket(); add(byCategory[cat]); }
     }
+    if (s.phase) { byPhase[s.phase] = byPhase[s.phase] || emptyBucket(); add(byPhase[s.phase]); }
+    else unknownPhase += 1;
+    if (s.bowlerKind) { byBowlerKind[s.bowlerKind] = byBowlerKind[s.bowlerKind] || emptyBucket(); add(byBowlerKind[s.bowlerKind]); }
+    else unknownKind += 1;
   }
 
   const shape = (map, labeller) => Object.entries(map)
@@ -102,6 +116,14 @@ export const aggregateShots = (shots = []) => {
     byShot: shape(byShot, shotLabel),
     byZone: shape(byZone, zoneLabel),
     byCategory: shape(byCategory, (k) => k),
+    // Phase keeps innings order rather than sorting by size — powerplay, middle,
+    // death is how a cricketer reads an innings, and re-ordering it by sample
+    // size would make the row meaningless at a glance.
+    byPhase: ['powerplay', 'middle', 'death']
+      .filter((k) => byPhase[k])
+      .map((k) => ({ key: k, label: PHASE_LABEL[k], ...finalise(byPhase[k]) })),
+    byBowlerKind: shape(byBowlerKind, (k) => KIND_LABEL[k]),
+    unclassified: { phase: unknownPhase, bowlerKind: unknownKind },
   };
 };
 
@@ -189,4 +211,60 @@ export const matchShotSummary = (shots = []) => {
   };
 };
 
-export default { aggregateShots, strengthsAndWeaknesses, matchShotSummary, confidenceFor, MIN_BALLS_FOR_CLAIM };
+/**
+ * Player DNA — the whole shape of a batter, in one object.
+ *
+ * An assembler, not a new calculation: every section below is a view of the same
+ * aggregate, so the DNA page and the shot profile can never tell a player two
+ * different things about their own cutting.
+ *
+ * Every section carries its own sample size and confidence, because they do NOT
+ * share one. A player can have three hundred balls of zone data and eleven balls
+ * against spin, and a page that prints both in the same typeface has quietly
+ * invented the second one.
+ */
+export const playerDna = (shots = [], player = {}) => {
+  const agg = aggregateShots(shots);
+  const total = agg.totals.balls;
+
+  // A section is only worth drawing if enough of the deliveries behind it were
+  // classifiable. Half a pace/spin split missing is not a split, it is a hint.
+  const coverage = (unknown) => (total ? Math.round(((total - unknown) / total) * 100) : 0);
+
+  const zonesBy = (pick) => [...agg.byZone]
+    .filter((z) => pick(z) > 0)
+    .sort((a, b) => pick(b) - pick(a))
+    .slice(0, 5);
+
+  return {
+    battingStyle: player.battingStyle || null,
+    hand: /left/i.test(String(player.battingStyle || '')) ? 'left' : 'right',
+    ballsTracked: total,
+    confidence: confidenceFor(total),
+
+    favouriteShots: agg.byShot.slice(0, 5),
+    favouriteZones: agg.byZone.slice(0, 5),
+    scoringAreas: zonesBy((z) => z.runs),
+    boundaryAreas: zonesBy((z) => z.boundaries),
+    // Where the runs DON'T come from. Ranked by dot count rather than dot
+    // percent so one dot in a single-ball zone can't top the list.
+    dotBallAreas: zonesBy((z) => z.dots),
+
+    phases: {
+      rows: agg.byPhase,
+      coverage: coverage(agg.unclassified.phase),
+    },
+    // Pace and spin only mean something when the bowlers' styles were recorded,
+    // which for most of this database they are not — so the coverage travels
+    // with the numbers and the UI can decline to draw it.
+    bowling: {
+      rows: agg.byBowlerKind,
+      coverage: coverage(agg.unclassified.bowlerKind),
+    },
+
+    ...strengthsAndWeaknesses(agg),
+    totals: agg.totals,
+  };
+};
+
+export default { aggregateShots, strengthsAndWeaknesses, matchShotSummary, playerDna, confidenceFor, MIN_BALLS_FOR_CLAIM };

@@ -12,7 +12,8 @@ import { persistMatchAwards, hasMatchAwards } from '../lib/awards.js';
 import { safeNotify, notifyUsers, notifyMatchLive, notifyMatchResult, pingMatchWatchers } from '../lib/notify.js';
 import { liveSummary } from '../lib/liveSummary.js';
 import { canonicalVenue } from '../lib/venue.js';
-import { normaliseShot, shotOutcome, zoneFromAngle } from '../lib/ballIntelligence.js';
+import { normaliseShot, shotOutcome, zoneFromAngle, shotLabel, zoneLabel } from '../lib/ballIntelligence.js';
+import { maybeStoreAiLine } from '../lib/momentCommentary.js';
 import { commentaryFor } from '../lib/shotCommentary.js';
 import { matchShotSummary } from '../lib/shotAnalytics.js';
 
@@ -621,6 +622,26 @@ router.post('/:id/intelligence', authMiddleware, async (req, res) => {
       fielder: ball.wicketAssists,
     });
 
+    // A written line, for the few deliveries that earn one. Asked here — once,
+    // at capture — and stored, because a spectator's screen refetches every six
+    // seconds and generating on read would bill a call per viewer per ball.
+    //
+    // NOT awaited. The scorer's response must not wait on a model, and the
+    // template line above is already a complete answer if this never lands.
+    maybeStoreAiLine(prisma, {
+      ball, shot: intelligence, matchId: req.params.id, fallback: commentary,
+      facts: {
+        batter: ball.batter?.name,
+        bowler: ball.bowler?.name || ball.over?.bowler?.name,
+        runs: ball.runs,
+        isWicket: ball.isWicket,
+        wicketType: ball.wicketType,
+        fielder: ball.wicketAssists,
+        shot: intelligence.shotType ? shotLabel(intelligence.shotType) : null,
+        zone: zoneLabel(intelligence.shotZone),
+      },
+    }).catch(() => {});
+
     // Same nudge the delivery itself sends — spectators refetch and pick up the
     // shot, the wheel and the line together.
     safeNotify(() => pingMatchWatchers(req.params.id));
@@ -693,15 +714,18 @@ router.get('/:id/intelligence', async (req, res) => {
       batterHand: handOf(r.ball?.batter),
       bowlerId: r.ball?.bowler?.id ?? null,
       bowler: r.ball?.bowler?.name ?? null,
-      // Generated on read rather than stored. It costs a string template, it is
-      // always consistent with the delivery as it stands NOW (a shot corrected
-      // or a short run applied since capture changes the line), and it needs no
-      // column and no migration to carry it to a spectator.
-      commentary: commentaryFor(r.ball, r, {
+      // The written line if this delivery earned one, otherwise the template
+      // composed on read. The template costs a string format, is always
+      // consistent with the delivery as it stands NOW (a corrected shot or an
+      // applied short run changes it), and needs no model call — which is why
+      // it, not the model, is what every ordinary ball gets.
+      commentary: r.aiCommentary || commentaryFor(r.ball, r, {
         batter:  r.ball?.batter?.name,
         bowler:  r.ball?.bowler?.name || r.ball?.over?.bowler?.name,
         fielder: r.ball?.wicketAssists,
       }),
+      // So a UI can mark the difference honestly if it wants to.
+      commentarySource: r.aiCommentary ? 'ai' : 'template',
     }));
 
     // The summary rides along rather than living at its own URL: every screen

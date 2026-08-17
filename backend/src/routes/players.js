@@ -6,7 +6,9 @@ import { isTeamAdmin } from '../lib/teamAuth.js';
 import { playerCareer } from '../lib/playerCareer.js';
 import { canonicalRole } from '../lib/squadOrder.js';
 import { resyncShotZones, zoneFromAngle } from '../lib/ballIntelligence.js';
-import { aggregateShots, strengthsAndWeaknesses } from '../lib/shotAnalytics.js';
+import { aggregateShots, strengthsAndWeaknesses, playerDna } from '../lib/shotAnalytics.js';
+import { inningsPhase, bowlingKind } from '../lib/deliveries.js';
+import { benchmarkForPlayer } from '../lib/benchmark.js';
 
 // Store the app's spelling of a role, not whoever's.
 //
@@ -333,7 +335,22 @@ router.get('/:id/shots', async (req, res) => {
       orderBy: { createdAt: 'asc' },
       select: {
         shotAngle: true, shotZone: true, shotDistance: true, shotType: true,
-        ball: { select: { runs: true, isWicket: true } },
+        ball: {
+          select: {
+            runs: true, isWicket: true,
+            // For the pace/spin split. Free text the bowler typed, classified
+            // loosely and left null when it cannot be read.
+            bowler: { select: { bowlingStyle: true } },
+            // For the phase split: which over, and how long the match was —
+            // phases are proportional, so a T10's death overs are not a T20's.
+            over: {
+              select: {
+                overNumber: true,
+                inning: { select: { match: { select: { overs: true } } } },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -348,6 +365,10 @@ router.get('/:id/shots', async (req, res) => {
       shotType: r.shotType,
       runs: r.ball?.runs ?? 0,
       isWicket: !!r.ball?.isWicket,
+      // Both may be null, and both are allowed to be: the aggregate counts them
+      // as unclassified rather than guessing, and reports the coverage.
+      phase: inningsPhase(r.ball?.over?.overNumber, r.ball?.over?.inning?.match?.overs),
+      bowlerKind: bowlingKind(r.ball?.bowler?.bowlingStyle),
     }));
 
     const analytics = aggregateShots(shots);
@@ -356,6 +377,13 @@ router.get('/:id/shots', async (req, res) => {
       shots,
       analytics,
       insights: strengthsAndWeaknesses(analytics),
+      // The whole shape of the batter, assembled from the same aggregate so it
+      // can never disagree with the sections above it.
+      dna: playerDna(shots, player),
+      // Null for almost everybody, and that is the expected case: it means no
+      // licensed benchmark has been linked to this player. Guarded inside, so a
+      // profile renders whether or not those tables have even been migrated.
+      benchmark: await benchmarkForPlayer(prisma, player.id, analytics),
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
