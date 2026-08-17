@@ -845,7 +845,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // reduce the awarded total by 1: team score, the facing batter's runs, and the
   // over chip. The delivery still counts. One per ball.
   const applyShortRun = async () => {
-    if (!shortRunEligible || undoing) return;
+    // Same guard as undo, and for the same reason: the server docks the run from
+    // "the last ball of the innings", so a short run tapped while a delivery is
+    // still in flight lands on whichever ball arrives first. Undo and this are
+    // the only two controls that reach backwards and edit a stored delivery, so
+    // they are the only two that need it — but they BOTH need it, and fixing
+    // one without the other left the same race under a different button.
+    if (!shortRunEligible || undoing || savingRef.current) return;
     const attempt = shortRunAttempt;               // 2 or 3
     const awarded = attempt - 1;                   // 1 or 2
     // Who faced it: an even run left the striker on strike; an odd run crossed
@@ -2135,6 +2141,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             <TouchableOpacity
               style={[styles.extraBtn, styles.undoBtn, (!canUndo || undoing) && { opacity: 0.4 }]}
               hitSlop={EXTRA_HIT}
+              accessibilityRole="button" accessibilityLabel="Undo the last delivery"
               onPress={undoLastBall} disabled={!canUndo || undoing}>
               <Icon name="undo-variant" size={15} color={DS.coral} />
               {/* No adjustsFontSizeToFit: it clips the text outright on Android
@@ -2145,16 +2152,20 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                 UNDO{lastBall ? ` ${lastBall}` : ''}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} hitSlop={EXTRA_HIT} onPress={() => setExtraPrompt('wide')}>
+            <TouchableOpacity style={styles.extraBtn} hitSlop={EXTRA_HIT} onPress={() => setExtraPrompt('wide')}
+              accessibilityRole="button" accessibilityLabel="Wide, add runs">
               <Text style={[styles.extraBtnText, { color: DS.coral }]}>WD +</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} hitSlop={EXTRA_HIT} onPress={() => setExtraPrompt('noball')}>
+            <TouchableOpacity style={styles.extraBtn} hitSlop={EXTRA_HIT} onPress={() => setExtraPrompt('noball')}
+              accessibilityRole="button" accessibilityLabel="No ball, add runs">
               <Text style={[styles.extraBtnText, { color: DS.coral }]}>NB +</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} hitSlop={EXTRA_HIT} onPress={() => setExtraPrompt('bye')}>
+            <TouchableOpacity style={styles.extraBtn} hitSlop={EXTRA_HIT} onPress={() => setExtraPrompt('bye')}
+              accessibilityRole="button" accessibilityLabel="Byes, add runs">
               <Text style={styles.extraBtnText}>BYE +</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.extraBtn} hitSlop={EXTRA_HIT} onPress={() => setExtraPrompt('legbye')}>
+            <TouchableOpacity style={styles.extraBtn} hitSlop={EXTRA_HIT} onPress={() => setExtraPrompt('legbye')}
+              accessibilityRole="button" accessibilityLabel="Leg byes, add runs">
               <Text style={styles.extraBtnText}>LB +</Text>
             </TouchableOpacity>
           </View>
@@ -2164,24 +2175,42 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         {!matchComplete &&
         <View style={[styles.grid, saving && styles.busyBlock]} pointerEvents={saving ? 'none' : 'auto'}>
             <View style={styles.gridRow}>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(0)} onLongPress={openOtherRuns}>
+              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(0)} onLongPress={openOtherRuns}
+                accessibilityRole="button"
+                accessibilityLabel="Dot ball, no run"
+                accessibilityHint="Hold for 5, 7 or more runs">
                 <Text style={styles.gridBtnNum}>0</Text><Text style={styles.gridBtnLabel}>DOT</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(1)} onLongPress={openOtherRuns}>
+              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(1)} onLongPress={openOtherRuns}
+                accessibilityRole="button"
+                accessibilityLabel="One run"
+                accessibilityHint="Hold for 5, 7 or more runs">
                 <Text style={styles.gridBtnNum}>1</Text><Text style={styles.gridBtnLabel}>SINGLE</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(2)} onLongPress={openOtherRuns}>
+              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(2)} onLongPress={openOtherRuns}
+                accessibilityRole="button"
+                accessibilityLabel="Two runs"
+                accessibilityHint="Hold for 5, 7 or more runs">
                 <Text style={styles.gridBtnNum}>2</Text><Text style={styles.gridBtnLabel}>DOUBLE</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.gridRow}>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(3)} onLongPress={openOtherRuns}>
+              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnDot]} onPress={() => handleScore(3)} onLongPress={openOtherRuns}
+                accessibilityRole="button"
+                accessibilityLabel="Three runs"
+                accessibilityHint="Hold for 5, 7 or more runs">
                 <Text style={styles.gridBtnNum}>3</Text><Text style={styles.gridBtnLabel}>TRIPLE</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnFour]} onPress={() => handleScore(4)} onLongPress={openOtherRuns}>
+              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnFour]} onPress={() => handleScore(4)} onLongPress={openOtherRuns}
+                accessibilityRole="button"
+                accessibilityLabel="Four"
+                accessibilityHint="Hold for 5, 7 or more runs">
                 <Text style={[styles.gridBtnNum, { color: DS.white }]}>4</Text><Text style={[styles.gridBtnLabel, { color: 'rgba(255,255,255,0.7)' }]}>FOUR</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnSix]} onPress={() => handleScore(6)} onLongPress={openOtherRuns}>
+              <TouchableOpacity style={[styles.gridBtn, styles.gridBtnSix]} onPress={() => handleScore(6)} onLongPress={openOtherRuns}
+                accessibilityRole="button"
+                accessibilityLabel="Six"
+                accessibilityHint="Hold for 5, 7 or more runs">
                 <Text style={[styles.gridBtnNum, { color: DS.lime }]}>6</Text><Text style={[styles.gridBtnLabel, { color: DS.lime }]}>SIX</Text>
               </TouchableOpacity>
             </View>
@@ -2192,6 +2221,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         {!matchComplete &&
         <TouchableOpacity style={[styles.wicketBtn, saving && styles.busyBlock]}
           disabled={saving}
+          accessibilityRole="button" accessibilityLabel="Record a wicket"
           onPress={() => freeHit ? openRunOut() : setWicketPrompt(true)}>
           <Image source={require('../assets/icons/out.png')} style={[styles.wicketIcon, { tintColor: DS.onBlue }]} />
           <Text style={styles.wicketBtnText}>WICKET{freeHit ? ' (RUN OUT ONLY)' : ''}</Text>
@@ -3327,8 +3357,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             </TouchableOpacity>
             {/* Short run — only lit when the last ball was 2 or 3 runs run. */}
             <TouchableOpacity
-              style={[styles.settingRow, !shortRunEligible && { opacity: 0.4 }]}
-              disabled={!shortRunEligible}
+              // Greyed while a delivery is in flight too, so the guard in
+              // applyShortRun is something the scorer can SEE rather than a tap
+              // that does nothing.
+              style={[styles.settingRow, (!shortRunEligible || saving) && { opacity: 0.4 }]}
+              disabled={!shortRunEligible || saving}
               onPress={() => { setMorePrompt(false); setShortRunPrompt(true); }}>
               <Icon name="call-split" size={20} color={DS.coral} />
               <Text style={styles.settingText}>Short run</Text>
