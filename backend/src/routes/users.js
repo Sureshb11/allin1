@@ -6,6 +6,7 @@ import { authMiddleware } from '../lib/auth.js';
 import { entitlementsFor } from '../lib/entitlements.js';
 import { playerCareer, emptyCareer } from '../lib/playerCareer.js';
 import { canonicalRole } from '../lib/squadOrder.js';
+import { resyncShotZones } from '../lib/ballIntelligence.js';
 
 const router = Router();
 
@@ -163,6 +164,14 @@ router.put('/me/player', authMiddleware, async (req, res) => {
     }
 
     const updated = await prisma.player.update({ where: { id: player.id }, data });
+    // Saying "actually I bat left-handed" renames every shot this player has
+    // already played — a zone is a function of the angle AND the hand, and until
+    // now they were being treated as a right-hander. Guarded so a profile edit
+    // can never fail because of the analytics table, and only run when the hand
+    // actually changed.
+    if (data.battingStyle !== undefined && data.battingStyle !== player.battingStyle) {
+      await resyncShotZones(prisma, player.id).catch((e) => console.error('[resyncShotZones]', e.message));
+    }
     res.json({ player: updated });
   } catch (e) {
     res.status(400).json({ error: e.message });

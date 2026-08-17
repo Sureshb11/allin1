@@ -12,7 +12,7 @@ import { persistMatchAwards, hasMatchAwards } from '../lib/awards.js';
 import { safeNotify, notifyUsers, notifyMatchLive, notifyMatchResult, pingMatchWatchers } from '../lib/notify.js';
 import { liveSummary } from '../lib/liveSummary.js';
 import { canonicalVenue } from '../lib/venue.js';
-import { normaliseShot, shotOutcome } from '../lib/ballIntelligence.js';
+import { normaliseShot, shotOutcome, zoneFromAngle } from '../lib/ballIntelligence.js';
 import { commentaryFor } from '../lib/shotCommentary.js';
 
 const router = Router();
@@ -662,11 +662,19 @@ router.get('/:id/intelligence', async (req, res) => {
 
     // Flattened for drawing: the client should not have to walk three relations
     // to plot one dot on a wheel.
+    //
+    // The zone is RE-DERIVED here rather than read back from the column. A zone
+    // name is a function of (angle, batter's hand), and the hand is a mutable
+    // property of the player — most players in this database have no batting
+    // style recorded at all, so they default to right-handed, and the day
+    // someone fills in "Left Hand Bat" every shot they had already played would
+    // otherwise keep its right-handed name forever. The stored column is a
+    // write-time cache for SQL aggregation; THIS is the answer.
     const shots = rows.map((r) => ({
       id: r.id,
       ballId: r.ballId,
       angle: r.shotAngle,
-      zone: r.shotZone,
+      zone: zoneFromAngle(r.shotAngle, handOf(r.ball?.batter)),
       distance: r.shotDistance,
       shotType: r.shotType,
       outcome: r.shotOutcome,

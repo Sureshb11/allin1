@@ -246,8 +246,47 @@ export const shotOutcome = (ball) => {
   return 'Runs';
 };
 
+/**
+ * Re-derive a player's stored shot zones after their batting hand changes.
+ *
+ * A zone name is a function of (angle, hand), and the hand is editable long after
+ * the shots were played — most players here have no batting style recorded, so
+ * they are treated as right-handers until somebody says otherwise. When that
+ * finally happens, everything they had already hit is sitting in the table under
+ * the mirrored name.
+ *
+ * Reads re-derive and are always right (see the intelligence GET); this exists so
+ * the COLUMN agrees too, because it is what SQL-level analytics will group by.
+ * The angle is never touched — it is the physical direction the ball went, and
+ * that does not change just because we learned which way the batter stands.
+ *
+ * `prisma` is passed in rather than imported so this file stays free of database
+ * coupling and the geometry above can be tested on its own.
+ */
+export const resyncShotZones = async (prisma, playerId) => {
+  if (!playerId) return 0;
+  const player = await prisma.player.findUnique({
+    where: { id: playerId }, select: { battingStyle: true },
+  });
+  const hand = /left/i.test(String(player?.battingStyle || '')) ? 'left' : 'right';
+  const rows = await prisma.ballIntelligence.findMany({
+    where: { ball: { batterId: playerId } },
+    select: { id: true, shotAngle: true, shotZone: true },
+  });
+  const stale = rows
+    .map((r) => ({ id: r.id, zone: zoneFromAngle(r.shotAngle, hand), was: r.shotZone }))
+    .filter((r) => r.zone !== r.was);
+  // Sequential and unbatched on purpose: this runs when someone edits a profile,
+  // not on any hot path, and a player has at most a few hundred shots.
+  for (const r of stale) {
+    await prisma.ballIntelligence.update({ where: { id: r.id }, data: { shotZone: r.zone } });
+  }
+  return stale.length;
+};
+
 export default {
   SHOT_ZONES, SHOT_TYPES, DOT_BALL_TYPES, CONNECTIONS, SOURCES,
+  resyncShotZones,
   zoneFromAngle, angleFromZone, zoneMidAngle, zoneGroups, wrapAngle,
   normaliseShot, shotOutcome, isKnownZone, isKnownShotType,
   shotLabel, zoneLabel, shotCategory, shotVerb,

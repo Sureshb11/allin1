@@ -5,6 +5,7 @@ import { authMiddleware } from '../lib/auth.js';
 import { isTeamAdmin } from '../lib/teamAuth.js';
 import { playerCareer } from '../lib/playerCareer.js';
 import { canonicalRole } from '../lib/squadOrder.js';
+import { resyncShotZones } from '../lib/ballIntelligence.js';
 
 // Store the app's spelling of a role, not whoever's.
 //
@@ -402,6 +403,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
     ops.push(prisma.player.update({ where: { id: player.id }, data }));
     const [updated] = (await prisma.$transaction(ops)).slice(-1);
+    // A team admin correcting someone's batting hand renames every shot that
+    // player has already played: a zone is a function of the angle AND the hand,
+    // and a player with nothing recorded was being treated as a right-hander.
+    // Guarded so a squad edit can never fail because of the analytics table.
+    if (data.battingStyle !== undefined && data.battingStyle !== player.battingStyle) {
+      await resyncShotZones(prisma, player.id).catch((e) => console.error('[resyncShotZones]', e.message));
+    }
     res.json({ player: updated });
   } catch (e) {
     res.status(400).json({ error: e.message });
