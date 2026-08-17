@@ -21,7 +21,7 @@ import { View, Text, Modal, Pressable, TouchableOpacity, ScrollView, StyleSheet 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/ThemeContext';
 import WagonWheel, { HandBadge } from './WagonWheel';
-import ShotGlyph from './ShotGlyph';
+import BatsmanAvatar from './BatsmanAvatar';
 import { SHOT_GROUPS, SHOT_LABELS, DOT_BALL_TYPES, CONNECTIONS, zoneLabel } from '../sports/cricket/wagonWheel';
 import haptic from '../utils/haptics';
 
@@ -53,6 +53,17 @@ export default function BallIntelligenceSheet({
   const [picked, setPicked] = useState(null);   // the zone tap, once made
   const closeTimer = useRef(null);
 
+  // TWO POPUPS, one after the other — not one sheet that grows.
+  //
+  //   'zone'  the wagon wheel. Tapping it CLOSES this and opens the next.
+  //   'shot'  the strokes, as batsmen. Tapping one closes everything.
+  //
+  // Rendered as two separate Modals with mutually exclusive visibility, so each
+  // step genuinely dismisses before the next appears. One sheet that swapped its
+  // contents left the wheel on screen under a growing list, which is a different
+  // thing to look at and a slower one to read.
+  const [step, setStep] = useState('zone');
+
   // A pending auto-close must never fire into a sheet that has moved on — it
   // would shut the NEXT delivery's question before the scorer had answered it.
   useEffect(() => () => clearTimeout(closeTimer.current), []);
@@ -65,7 +76,13 @@ export default function BallIntelligenceSheet({
   // Reopening the SAME delivery to correct it is the opposite case: it restores
   // what was recorded, so the scorer can see what they are changing instead of
   // being handed a blank wheel and asked to remember.
-  useEffect(() => { if (visible) setPicked(initialShot || null); }, [visible, ball?.clientEventId]);
+  useEffect(() => {
+    if (!visible) return;
+    setPicked(initialShot || null);
+    // Reopening a delivery that already has a zone goes straight to the strokes:
+    // the scorer came back to name the shot, not to answer the wheel again.
+    setStep(initialShot?.zone ? 'shot' : 'zone');
+  }, [visible, ball?.clientEventId]);
 
   const isDot = !ball?.isWicket && !ball?.runs;
   // After a dot the full twenty-shot list is noise — a dot is nearly always one
@@ -74,10 +91,15 @@ export default function BallIntelligenceSheet({
     ? [{ title: 'What happened?', keys: DOT_BALL_TYPES }]
     : SHOT_GROUPS;
 
+  // The zone is stored the instant it is tapped, BEFORE the second popup opens.
+  // So a scorer who answers the wheel and then dismisses the shot picker has
+  // still recorded where the ball went — the second question is genuinely
+  // optional, and nothing waits on it.
   const pickZone = (shot) => {
     haptic.tick();
     setPicked(shot);
-    onCapture?.(shot);                    // sent NOW, not on Done
+    onCapture?.(shot);
+    setStep('shot');                      // wheel closes, strokes open
   };
 
   // Picking a shot ENDS the interaction. The scorer asked for two taps and this
@@ -105,53 +127,90 @@ export default function BallIntelligenceSheet({
   };
 
   return (
-    <Modal visible={!!visible} transparent animationType="fade" onRequestClose={onClose}>
-      {/* Backdrop closes. Deliberately: the fastest way out of an optional
-          question should be tapping anywhere that is not the question. */}
-      <Pressable style={s.backdrop} onPress={onClose}>
-        <Pressable style={s.sheet} onPress={(e) => e.stopPropagation()}>
-
-          <View style={s.head}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.outcome}>{outcomeOf(ball)}</Text>
-              <Text style={s.sub} numberOfLines={1}>
-                {picked ? `${zoneLabel(picked.zone)?.toUpperCase() || ''}` : 'WHERE DID IT GO?'}
-                {batterName ? ` · ${batterName}` : ''}
-              </Text>
+    <>
+      {/* ── STEP 1 · WHERE DID IT GO ────────────────────────────────────────
+          Just the wheel. Tapping it stores the zone and dismisses this popup
+          entirely, which is what makes the next one feel like a step forward
+          rather than a list unfolding underneath. */}
+      <Modal
+        visible={!!visible && step === 'zone'}
+        transparent animationType="fade" onRequestClose={onClose}
+      >
+        {/* Backdrop closes. The fastest way out of an optional question should
+            be tapping anywhere that is not the question. */}
+        <Pressable style={s.backdrop} onPress={onClose}>
+          <Pressable style={s.sheet} onPress={(e) => e.stopPropagation()}>
+            <View style={s.head}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.outcome}>{outcomeOf(ball)}</Text>
+                <Text style={s.sub} numberOfLines={1}>
+                  WHERE DID IT GO?{batterName ? ` \u00b7 ${batterName}` : ''}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={s.skip}
+                accessibilityRole="button" accessibilityLabel="Skip shot capture">
+                <Text style={s.skipText}>SKIP</Text>
+              </TouchableOpacity>
             </View>
-            {/* Skip is a first-class control, not hidden — the feature is optional
-                and the UI should keep saying so. */}
-            <TouchableOpacity onPress={onClose} style={s.skip} accessibilityRole="button" accessibilityLabel="Skip shot capture">
-              <Text style={s.skipText}>{picked ? 'DONE' : 'SKIP'}</Text>
-            </TouchableOpacity>
-          </View>
 
-          <View style={s.wheelWrap}>
-            <WagonWheel
-              size={260}
-              hand={hand}
-              mode="capture"
-              selectedZone={picked?.zone || null}
-              picked={picked}
-              onPick={pickZone}
-            />
-          </View>
-          <HandBadge hand={hand} />
+            <View style={s.wheelWrap}>
+              <WagonWheel
+                size={260}
+                hand={hand}
+                mode="capture"
+                selectedZone={picked?.zone || null}
+                picked={picked}
+                onPick={pickZone}
+              />
+            </View>
+            <HandBadge hand={hand} />
 
-          {/* The shot type only appears once the zone is answered. Showing both at
-              once doubles the reading before the first tap, and the zone is the
-              half that a wagon wheel cannot be drawn without. */}
-          {picked ? (
+            <View style={s.hintRow}>
+              <Icon name="gesture-tap" size={14} color={c.textMuted} />
+              <Text style={s.hint}>Tap the wheel — one tap records direction and distance</Text>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── STEP 2 · WHICH SHOT ─────────────────────────────────────────────
+          Batsmen, not words. The zone is ALREADY SAVED by the time this opens,
+          so dismissing it costs nothing — this question is genuinely optional
+          and the header says so. */}
+      <Modal
+        visible={!!visible && step === 'shot'}
+        transparent animationType="fade" onRequestClose={onClose}
+      >
+        <Pressable style={s.backdrop} onPress={onClose}>
+          <Pressable style={s.sheet} onPress={(e) => e.stopPropagation()}>
+            <View style={s.head}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.outcome}>WHICH SHOT?</Text>
+                <Text style={s.sub} numberOfLines={1}>
+                  {zoneLabel(picked?.zone)?.toUpperCase() || ''} SAVED
+                  {batterName ? ` \u00b7 ${batterName}` : ''}
+                </Text>
+              </View>
+              {/* Back, not just Skip: a scorer who realises they hit the wrong
+                  wedge should not have to close and rescore to fix it. */}
+              <TouchableOpacity onPress={() => setStep('zone')} style={s.skip}
+                accessibilityRole="button" accessibilityLabel="Back to the wagon wheel">
+                <Icon name="chevron-left" size={16} color={c.textPrimary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onClose} style={s.skip}
+                accessibilityRole="button" accessibilityLabel="Done without naming the shot">
+                <Text style={s.skipText}>DONE</Text>
+              </TouchableOpacity>
+            </View>
+
             <ScrollView style={s.typeScroll} showsVerticalScrollIndicator={false}>
-              {/* Connection sits ABOVE the shots, not below, because picking a
-                  shot closes the sheet. Anything offered after it would be
-                  unreachable in the normal two-tap flow. It stays optional and
-                  most scorers will skip straight past it. */}
+              {/* Connection first: picking a shot closes the popup, so anything
+                  offered after it would be unreachable. */}
               <View style={s.group}>
-                <Text style={s.groupTitle}>CONNECTION · OPTIONAL</Text>
+                <Text style={s.groupTitle}>CONNECTION - OPTIONAL</Text>
                 <View style={s.chipWrap}>
                   {CONNECTIONS.map((cn) => {
-                    const on = picked.connectionType === cn.key;
+                    const on = picked?.connectionType === cn.key;
                     return (
                       <TouchableOpacity key={cn.key} onPress={() => pickConnection(cn.key)}
                         style={[s.chip, on && s.chipOn]} accessibilityRole="button"
@@ -162,24 +221,26 @@ export default function BallIntelligenceSheet({
                   })}
                 </View>
               </View>
+
               {groups.map((g) => (
                 <View key={g.title} style={s.group}>
                   <Text style={s.groupTitle}>{g.title.toUpperCase()}</Text>
                   <View style={s.tileWrap}>
                     {g.keys.map((k) => {
-                      const on = picked.shotType === k;
+                      const on = picked?.shotType === k;
                       return (
                         <TouchableOpacity key={k} onPress={() => pickType(k)}
                           style={[s.tile, on && s.tileOn]}
                           accessibilityRole="button"
                           accessibilityLabel={SHOT_LABELS[k]}
                           accessibilityState={{ selected: on }}>
-                          <ShotGlyph
+                          <BatsmanAvatar
                             shotKey={k}
                             hand={hand}
-                            size={30}
-                            color={on ? c.bg : c.lime}
-                            dim={on ? c.bg : c.surfaceHighest}
+                            size={46}
+                            color={on ? c.bg : c.textPrimary}
+                            accent={on ? c.bg : c.lime}
+                            ground={on ? c.bg : c.surfaceHighest}
                           />
                           <Text style={[s.tileText, on && s.tileTextOn]} numberOfLines={2}>
                             {SHOT_LABELS[k]}
@@ -191,16 +252,10 @@ export default function BallIntelligenceSheet({
                 </View>
               ))}
             </ScrollView>
-          ) : (
-            <View style={s.hintRow}>
-              <Icon name="gesture-tap" size={14} color={c.textMuted} />
-              <Text style={s.hint}>Tap the wheel — one tap records direction and distance</Text>
-            </View>
-          )}
-
+          </Pressable>
         </Pressable>
-      </Pressable>
-    </Modal>
+      </Modal>
+    </>
   );
 }
 
@@ -237,7 +292,7 @@ const makeStyles = (c) => StyleSheet.create({
   // that a whole group fits without scrolling.
   tileWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   tile: {
-    width: '23.2%', aspectRatio: 0.86, alignItems: 'center', justifyContent: 'center', gap: 3,
+    width: '31.5%', aspectRatio: 0.92, alignItems: 'center', justifyContent: 'center', gap: 3,
     paddingVertical: 6, paddingHorizontal: 2, borderRadius: 12,
     backgroundColor: c.surfaceHigh, borderWidth: 1, borderColor: c.surfaceHighest,
   },
