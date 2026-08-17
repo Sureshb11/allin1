@@ -120,6 +120,46 @@ export const SHOT_LABELS = {
   beaten: 'Beaten', other: 'Other',
 };
 
+/**
+ * Where each stroke typically goes, so the picker can DRAW it.
+ *
+ * `angle` is the same absolute convention as everything else here (0° straight
+ * past the bowler, clockwise, right-hander's frame — mirrored for a left-hander
+ * exactly like the zones are). `aerial` decides whether the glyph shows a
+ * looping arc or a flat line along the ground.
+ *
+ * These are representative, NOT prescriptive: nothing validates a recorded shot
+ * against them, because a batter can cut one to mid-on and the scorer is
+ * describing what happened, not what the coaching manual says. They exist so a
+ * scorer scanning twenty options recognises the one they want by its shape
+ * instead of reading twenty words.
+ */
+export const SHOT_DIRECTION = {
+  straightDrive: { angle: 0,   aerial: false },
+  onDrive:       { angle: 330, aerial: false },
+  drive:         { angle: 20,  aerial: false },
+  coverDrive:    { angle: 67,  aerial: false },
+  squareDrive:   { angle: 88,  aerial: false },
+  cut:           { angle: 100, aerial: false },
+  lateCut:       { angle: 134, aerial: false },
+  pull:          { angle: 298, aerial: false },
+  hook:          { angle: 262, aerial: true  },
+  flick:         { angle: 324, aerial: false },
+  legGlance:     { angle: 196, aerial: false },
+  sweep:         { angle: 250, aerial: false },
+  reverseSweep:  { angle: 110, aerial: false },
+  paddle:        { angle: 200, aerial: false },
+  ramp:          { angle: 165, aerial: true  },
+  scoop:         { angle: 180, aerial: true  },
+  switchHit:     { angle: 70,  aerial: true  },
+  lofted:        { angle: 0,   aerial: true  },
+  // No direction: the ball did not go anywhere off the bat.
+  defensive:     null,
+  leave:         null,
+  beaten:        null,
+  other:         null,
+};
+
 /** What a dot ball usually was. Offered instead of the full list after a dot. */
 export const DOT_BALL_TYPES = ['defensive', 'leave', 'beaten', 'other'];
 

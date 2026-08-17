@@ -16,11 +16,12 @@
 // wheel and immediately turns back to the game has still recorded a shot. Nothing
 // waits for a second confirmation that a busy scorer will never give.
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, Modal, Pressable, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/ThemeContext';
 import WagonWheel, { HandBadge } from './WagonWheel';
+import ShotGlyph from './ShotGlyph';
 import { SHOT_GROUPS, SHOT_LABELS, DOT_BALL_TYPES, CONNECTIONS, zoneLabel } from '../sports/cricket/wagonWheel';
 import haptic from '../utils/haptics';
 
@@ -50,6 +51,12 @@ export default function BallIntelligenceSheet({
   const c = useTheme().colors;
   const s = useMemo(() => makeStyles(c), [c]);
   const [picked, setPicked] = useState(null);   // the zone tap, once made
+  const closeTimer = useRef(null);
+
+  // A pending auto-close must never fire into a sheet that has moved on — it
+  // would shut the NEXT delivery's question before the scorer had answered it.
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+  useEffect(() => { clearTimeout(closeTimer.current); }, [ball?.clientEventId]);
 
   // A fresh delivery is a fresh question, so this resets — otherwise the sheet
   // would reopen still showing the previous ball's answer and a scorer tapping
@@ -73,11 +80,21 @@ export default function BallIntelligenceSheet({
     onCapture?.(shot);                    // sent NOW, not on Done
   };
 
+  // Picking a shot ENDS the interaction. The scorer asked for two taps and this
+  // is the second one, so the sheet gets out of the way by itself rather than
+  // making them find a Done button with the next ball already being walked back
+  // to the mark.
+  //
+  // The short delay is not decoration: closing on the same frame as the tap
+  // gives no confirmation that the right tile was hit, and a scorer who is not
+  // sure will reopen to check. ~260ms is long enough to see the tile light up
+  // and short enough not to feel like waiting.
   const pickType = (shotType) => {
     haptic.tick();
     const next = { ...picked, shotType };
     setPicked(next);
     onCapture?.(next);                    // upserts onto the same delivery
+    closeTimer.current = setTimeout(() => onClose?.(), 260);
   };
 
   const pickConnection = (connectionType) => {
@@ -126,36 +143,53 @@ export default function BallIntelligenceSheet({
               half that a wagon wheel cannot be drawn without. */}
           {picked ? (
             <ScrollView style={s.typeScroll} showsVerticalScrollIndicator={false}>
-              {groups.map((g) => (
-                <View key={g.title} style={s.group}>
-                  <Text style={s.groupTitle}>{g.title.toUpperCase()}</Text>
-                  <View style={s.chipWrap}>
-                    {g.keys.map((k) => {
-                      const on = picked.shotType === k;
-                      return (
-                        <TouchableOpacity key={k} onPress={() => pickType(k)}
-                          style={[s.chip, on && s.chipOn]} accessibilityRole="button">
-                          <Text style={[s.chipText, on && s.chipTextOn]}>{SHOT_LABELS[k]}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              ))}
+              {/* Connection sits ABOVE the shots, not below, because picking a
+                  shot closes the sheet. Anything offered after it would be
+                  unreachable in the normal two-tap flow. It stays optional and
+                  most scorers will skip straight past it. */}
               <View style={s.group}>
-                <Text style={s.groupTitle}>CONNECTION</Text>
+                <Text style={s.groupTitle}>CONNECTION · OPTIONAL</Text>
                 <View style={s.chipWrap}>
                   {CONNECTIONS.map((cn) => {
                     const on = picked.connectionType === cn.key;
                     return (
                       <TouchableOpacity key={cn.key} onPress={() => pickConnection(cn.key)}
-                        style={[s.chip, on && s.chipOn]} accessibilityRole="button">
+                        style={[s.chip, on && s.chipOn]} accessibilityRole="button"
+                        accessibilityState={{ selected: on }}>
                         <Text style={[s.chipText, on && s.chipTextOn]}>{cn.label}</Text>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
               </View>
+              {groups.map((g) => (
+                <View key={g.title} style={s.group}>
+                  <Text style={s.groupTitle}>{g.title.toUpperCase()}</Text>
+                  <View style={s.tileWrap}>
+                    {g.keys.map((k) => {
+                      const on = picked.shotType === k;
+                      return (
+                        <TouchableOpacity key={k} onPress={() => pickType(k)}
+                          style={[s.tile, on && s.tileOn]}
+                          accessibilityRole="button"
+                          accessibilityLabel={SHOT_LABELS[k]}
+                          accessibilityState={{ selected: on }}>
+                          <ShotGlyph
+                            shotKey={k}
+                            hand={hand}
+                            size={30}
+                            color={on ? c.bg : c.lime}
+                            dim={on ? c.bg : c.surfaceHighest}
+                          />
+                          <Text style={[s.tileText, on && s.tileTextOn]} numberOfLines={2}>
+                            {SHOT_LABELS[k]}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
             </ScrollView>
           ) : (
             <View style={s.hintRow}>
@@ -199,4 +233,15 @@ const makeStyles = (c) => StyleSheet.create({
   chipOn: { backgroundColor: c.lime, borderColor: c.lime },
   chipText: { color: c.textPrimary, fontSize: 12, fontWeight: '700' },
   chipTextOn: { color: c.bg, fontWeight: '900' },
+  // Four across: big enough for a glyph to read at arm's length, small enough
+  // that a whole group fits without scrolling.
+  tileWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  tile: {
+    width: '23.2%', aspectRatio: 0.86, alignItems: 'center', justifyContent: 'center', gap: 3,
+    paddingVertical: 6, paddingHorizontal: 2, borderRadius: 12,
+    backgroundColor: c.surfaceHigh, borderWidth: 1, borderColor: c.surfaceHighest,
+  },
+  tileOn: { backgroundColor: c.lime, borderColor: c.lime },
+  tileText: { color: c.textPrimary, fontSize: 9, fontWeight: '700', textAlign: 'center', lineHeight: 11 },
+  tileTextOn: { color: c.bg, fontWeight: '900' },
 });
