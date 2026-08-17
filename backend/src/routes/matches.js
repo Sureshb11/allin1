@@ -333,30 +333,44 @@ router.put('/:id/score', authMiddleware, async (req, res) => {
       include: { balls: { orderBy: { ballNumber: 'asc' }, select: { extraType: true, bowlerId: true } } },
     });
 
+    // ── The spell limit, checked on EVERY delivery ───────────────────────────
+    //
+    // It used to be checked only when a new over was created. But this endpoint
+    // deliberately supports a mid-over bowler change — "simply a ball with a
+    // different bowlerId in the same over" — and that path did no checking at
+    // all, so a bowler who had already bowled their full quota could be brought
+    // on part-way through an over and keep going. The rule was enforced at the
+    // one door and left open at the other.
+    //
+    // Checking every ball is also SIMPLER than checking at the boundary, and it
+    // stays correct mid-over: a bowler three balls into their fourth over has 21
+    // legal deliveries, floor(21/6) = 3, under a cap of 4 — so they finish the
+    // over. They are stopped at 24, which is exactly where the over ends.
+    const matchRow = await prisma.match.findUnique({ where: { id: req.params.id }, select: { overs: true } });
+    const maxOvers = Math.ceil((matchRow?.overs || 20) / 5);   // T20 → 4, ODI → 10
+    const priorOvers = await prisma.over.findMany({
+      where: { inningId: data.inningId },
+      include: { balls: { select: { extraType: true, bowlerId: true } } },
+    });
+    // Counted by ACTUAL deliveries bowled (shared overs split per bowler), not by
+    // whole-over ownership. Per-ball bowlerId falls back to the over's bowler.
+    let legalByBowler = 0;
+    priorOvers.forEach((o) => o.balls.forEach((b) => {
+      if (isLegal(b) && (b.bowlerId || o.bowlerId) === data.bowlerId) legalByBowler += 1;
+    }));
+    if (Math.floor(legalByBowler / 6) >= maxOvers) {
+      return res.status(409).json({ error: `A bowler can bowl at most ${maxOvers} overs in this match.`, code: 'BOWLER_OVER_LIMIT' });
+    }
+
     let over;
     if (latest && legalCount(latest) < 6) {
       over = latest;                       // current over still in progress → append.
                                            // A mid-over bowler change is simply a ball
                                            // with a different bowlerId in the same over.
     } else {
-      // A new over starts → enforce the bowling laws (spell limit + no consecutive).
-      const matchRow = await prisma.match.findUnique({ where: { id: req.params.id }, select: { overs: true } });
-      const maxOvers = Math.ceil((matchRow?.overs || 20) / 5);   // T20 → 4, ODI → 10
-      const priorOvers = await prisma.over.findMany({
-        where: { inningId: data.inningId },
-        include: { balls: { select: { extraType: true, bowlerId: true } } },
-      });
-      // Spell limit counted by ACTUAL deliveries bowled (shared overs split per bowler),
-      // not by whole-over ownership. Per-ball bowlerId falls back to the over's bowler.
-      let legalByBowler = 0;
-      priorOvers.forEach((o) => o.balls.forEach((b) => {
-        if (isLegal(b) && (b.bowlerId || o.bowlerId) === data.bowlerId) legalByBowler += 1;
-      }));
-      if (Math.floor(legalByBowler / 6) >= maxOvers) {
-        return res.status(409).json({ error: `A bowler can bowl at most ${maxOvers} overs in this match.`, code: 'BOWLER_OVER_LIMIT' });
-      }
-      // No consecutive overs: the bowler of the LAST delivery of the previous over
-      // can't open the next one (covers shared overs, not just Over.bowlerId).
+      // No consecutive overs. Stays here, unlike the spell limit: it is a rule
+      // about who STARTS an over, and continuing one you are already bowling is
+      // not bowling two in a row.
       const lastBall = latest?.balls?.length ? latest.balls[latest.balls.length - 1] : null;
       const prevBowler = (lastBall && lastBall.bowlerId) || latest?.bowlerId;
       if (prevBowler && prevBowler === data.bowlerId) {
