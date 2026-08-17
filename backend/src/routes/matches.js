@@ -12,7 +12,7 @@ import { persistMatchAwards, hasMatchAwards } from '../lib/awards.js';
 import { safeNotify, notifyUsers, notifyMatchLive, notifyMatchResult, pingMatchWatchers } from '../lib/notify.js';
 import { liveSummary } from '../lib/liveSummary.js';
 import { canonicalVenue } from '../lib/venue.js';
-import { isBallFaced } from '../lib/deliveries.js';
+import { isBallFaced, isBowlerWicket } from '../lib/deliveries.js';
 import { normaliseShot, shotOutcome, zoneFromAngle, shotLabel, zoneLabel } from '../lib/ballIntelligence.js';
 import { maybeStoreAiLine } from '../lib/momentCommentary.js';
 import { commentaryFor } from '../lib/shotCommentary.js';
@@ -1143,8 +1143,10 @@ router.get('/:id/live-state', async (req, res) => {
           bowlingFigures[bId].runs += charged;
           if (legal) bowlingFigures[bId].balls += 1;
           if (b.isWicket) {
-            const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
-            if (wt !== 'runout' && wt !== 'retired') bowlingFigures[bId].wickets += 1;
+            // Shared rule. This was `!== runout && !== retired`, which credited
+            // the bowler for a retired-out, a retired-hurt, and the three the Laws
+            // give to nobody.
+            if (isBowlerWicket(b)) bowlingFigures[bId].wickets += 1;
           }
         }
         if (b.isWicket && b.dismissedPlayerId) dismissedBatters.add(b.dismissedPlayerId);
@@ -1680,8 +1682,10 @@ router.get('/:id/insights', async (req, res) => {
           bowlerMap[id].runs += charged;
           if (legal) bowlerMap[id].balls++;
           if (ball.isWicket) {
-            const wt = String(ball.wicketType || '').toLowerCase().replace(/\s/g, '');
-            if (wt !== 'runout' && wt !== 'retired') bowlerMap[id].wickets++;
+            // Shared rule. This was `!== runout && !== retired`, which credited
+            // the bowler for a retired-out, a retired-hurt, and the three the Laws
+            // give to nobody.
+            if (isBowlerWicket(ball)) bowlerMap[id].wickets++;
           }
         }
       }

@@ -22,7 +22,7 @@ import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
 import HexAvatar from "../components/HexAvatar";
 import ShotBoard from "../components/ShotBoard";
-import { isBallFaced, offTheBat, isBoundary, isSix, NON_BALL_EXTRAS } from "../utils/cricketRules";
+import { isBallFaced, offTheBat, isBoundary, isSix, isBowlerWicket, NON_BALL_EXTRAS } from "../utils/cricketRules";
 import LiveBall from "../components/CricketBall/LiveBall";
 import EventSound from "../components/CricketBall/EventSound";
 import { useDockLock, useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
@@ -317,8 +317,8 @@ function computeBowling(innings) {
       map[id].runs += charged; overRuns += charged;
       if (legal) { map[id].legalBalls += 1; overLegal += 1; }
       if (b.isWicket) {
-        const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
-        if (wt !== 'runout' && wt !== 'retired') map[id].wickets += 1;
+        // Shared rule — this list was two items where the server's is nine.
+        if (isBowlerWicket(b.wicketType)) map[id].wickets += 1;
       }
     });
     // A maiden requires one bowler to bowl the whole 6-legal over for 0 runs.
@@ -606,8 +606,7 @@ function computeHighlights(match) {
 
         if (ball.isWicket) {
           items.push({ key: `${over.id}-${ball.batterId}-w`, inningsLabel, label, icon: 'alert-octagon', kind: 'wicket', text: `WICKET! ${batterName} ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName, ball.directHit)}` });
-          const wt = String(ball.wicketType || '').toLowerCase().replace(/\s/g, '');
-          const bowlerCredited = wt !== 'runout' && wt !== 'retired' && wt !== 'retiredout' && wt !== 'retiredhurt';
+          const bowlerCredited = isBowlerWicket(ball.wicketType);
           if (bowlerCredited) {
             streakCount = streakBowlerId === bowlerId ? streakCount + 1 : 1;
             streakBowlerId = bowlerId;
@@ -1197,8 +1196,7 @@ function computeOverEndSummaries(innings) {
         bowl[bId].runs += charged;
         if (legal) bowl[bId].balls += 1;
         if (b.isWicket) {
-          const wt = String(b.wicketType || '').toLowerCase().replace(/\s/g, '');
-          if (wt !== 'runout' && wt !== 'retired') bowl[bId].wkts += 1;
+          if (isBowlerWicket(b.wicketType)) bowl[bId].wkts += 1;
         }
       }
       overCharged += charged;
