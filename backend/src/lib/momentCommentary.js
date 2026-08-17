@@ -51,16 +51,19 @@ export const bigMoment = (ball, ctx = {}) => {
 };
 
 /**
- * The off switch: set AI_COMMENTARY=off to stop every model call here.
+ * OFF unless someone deliberately turns it on: set AI_COMMENTARY=on.
  *
- * Separate from GEMINI_API_KEY on purpose. That key is shared with the
- * historical-stats importer, so "turn off AI commentary" must not mean
- * "break stat extraction as well" — turning this feature off should cost
- * nothing else. Default is ON when a key exists, because the whole design is
- * already a few dozen small calls per match, capped.
+ * Opt-IN, not opt-out, because the templates in lib/shotCommentary.js now cover
+ * the big moments with several stable phrasings each — and on a sentence this
+ * short, a varied template is hard to tell from a model. Given that, a paid
+ * third-party call is a preference, not a requirement, and preferences should
+ * not be the default when they cost money and add a dependency that can fail.
+ *
+ * Kept separate from GEMINI_API_KEY because that key is shared with the
+ * historical-stats image importer: this being off must not break that.
  */
 export const aiCommentaryEnabled = () =>
-  !!process.env.GEMINI_API_KEY && String(process.env.AI_COMMENTARY || '').toLowerCase() !== 'off';
+  !!process.env.GEMINI_API_KEY && String(process.env.AI_COMMENTARY || '').toLowerCase() === 'on';
 
 const client = () => (aiCommentaryEnabled()
   ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })

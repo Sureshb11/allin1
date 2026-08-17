@@ -29,6 +29,24 @@ const CONNECTION_PHRASE = {
 };
 
 /**
+ * Pick one of several phrasings, STABLY, from the delivery's own id.
+ *
+ * Variety is what stops six sixes in an over reading like six copies of the same
+ * sentence. But it has to be the same variety every time: a spectator's screen
+ * refetches every few seconds, and a line that reshuffled on each poll would
+ * make the commentary feel broken rather than alive. Hashing the ball id gives a
+ * choice that is arbitrary across balls and fixed forever for any one of them —
+ * no random, no stored column, no model.
+ */
+const pick = (variants, seed) => {
+  if (!variants.length) return null;
+  let h = 0;
+  const s = String(seed || '');
+  for (let i = 0; i < s.length; i += 1) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return variants[Math.abs(h) % variants.length];
+};
+
+/**
  * The line for one delivery.
  *
  * `ball`   — the stored delivery (runs, extras, isWicket, wicketType…)
@@ -56,17 +74,43 @@ export const commentaryFor = (ball, shot, names = {}) => {
     if (ball.extraType === 'penalty') return `Five penalty runs awarded.`;
 
     // ── Wickets ──────────────────────────────────────────────────────────────
+    // The big moments get several phrasings each, chosen stably from the ball's
+    // own id. This is deliberately where the writing effort went: these are the
+    // deliveries anybody rereads, and a template that varies is indistinguishable
+    // from a model on a sentence this short — without a key, a bill, or a
+    // network call that can fail.
     if (ball.isWicket) {
       const wt = String(ball.wicketType || '').toLowerCase().replace(/\s/g, '');
       const fielder = names.fielder ? surname(names.fielder) : null;
-      if (wt === 'bowled')    return `Bowled him! ${bowl} knocks ${bat} over.`;
-      if (wt === 'lbw')       return `Given! ${bat} is trapped in front by ${bowl}.`;
+      const seed = ball.id || `${bat}${bowl}${ball.ballNumber}`;
+      if (wt === 'bowled') return pick([
+        `Bowled him! ${bowl} knocks ${bat} over.`,
+        `Through the gate — ${bat} plays around it and the stumps are back.`,
+        `Timber! ${bowl} finds a way past ${bat}'s defence.`,
+        `${bat} is beaten all ends up, and that is the middle stump.`,
+      ], seed);
+      if (wt === 'lbw') return pick([
+        `Given! ${bat} is trapped in front by ${bowl}.`,
+        `Plumb. ${bat} is caught on the crease and the finger goes up.`,
+        `${bowl} pins ${bat} on the pad — that looked dead straight.`,
+      ], seed);
       if (wt === 'caught' || wt === 'caughtbehind') {
         const where = zone ? ` at ${zone.toLowerCase()}` : '';
-        return `Caught${fielder ? ` by ${fielder}` : ''}${where} — ${bat} goes, ${bowl} gets the wicket.`;
+        return pick([
+          `Caught${fielder ? ` by ${fielder}` : ''}${where} — ${bat} goes, ${bowl} gets the wicket.`,
+          `Up goes the ball, and down it comes safely${fielder ? ` into ${fielder}'s hands` : ''}. ${bat} has to walk.`,
+          `${bat} picks out the fielder${where} and ${bowl} has his man.`,
+        ], seed);
       }
-      if (wt === 'stumped')   return `Stumped! ${bat} is out of the crease and ${fielder || 'the keeper'} does the rest.`;
-      if (wt === 'runout')    return `Run out! ${bat} is short of the crease${fielder ? `, ${fielder} with the throw` : ''}.`;
+      if (wt === 'stumped') return pick([
+        `Stumped! ${bat} is out of the crease and ${fielder || 'the keeper'} does the rest.`,
+        `Quick hands from ${fielder || 'the keeper'} — ${bat} never made it back.`,
+      ], seed);
+      if (wt === 'runout') return pick([
+        `Run out! ${bat} is short of the crease${fielder ? `, ${fielder} with the throw` : ''}.`,
+        `Terrible mix-up, and ${bat} pays for it${fielder ? ` — ${fielder} was on it in a flash` : ''}.`,
+        `Direct hit! ${bat} is well short.`,
+      ], seed);
       if (wt === 'hitwicket') return `Hit wicket! ${bat} treads on the stumps.`;
       return `Out! ${bat} departs.`;
     }
@@ -96,13 +140,21 @@ export const commentaryFor = (ball, shot, names = {}) => {
       return `${bat} ${cp} it${where}${runs ? ` for ${runs}` : ', no run'}.${dropped}`;
     }
 
+    const seed = ball.id || `${bat}${ball.ballNumber}${runs}`;
     if (runs === 6) {
-      return verb ? `${bat} ${verb} it${overWhere} for SIX!${dropped}`
-                  : `Six! ${bat} goes long${overWhere}.${dropped}`;
+      return pick([
+        verb ? `${bat} ${verb} it${overWhere} for SIX!` : `Six! ${bat} goes long${overWhere}.`,
+        `That is enormous — ${bat} clears${overWhere ? overWhere.replace(' over', '') : ' the rope'} with room to spare.`,
+        `Into the crowd! ${bat} gets hold of that one${overWhere}.`,
+        `${bowl} drops it short and ${bat} deposits it${overWhere} for six.`,
+      ], seed) + dropped;
     }
     if (runs === 4) {
-      return verb ? `${bat} ${verb}${where} for FOUR!${dropped}`
-                  : `Four! Beautifully placed${where}.${dropped}`;
+      return pick([
+        verb ? `${bat} ${verb}${where} for FOUR!` : `Four! Beautifully placed${where}.`,
+        `Timed, not forced — that races away${where} for four.`,
+        `Four more. ${bat} finds the gap${where} and the fielders can only watch.`,
+      ], seed) + dropped;
     }
     if (runs === 0) {
       if (cat === 'defence') return shot.shotType === 'leave' ? `Left alone by ${bat}.` : `Solid defence from ${bat}.${dropped}`;
