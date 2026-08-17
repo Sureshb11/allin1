@@ -60,8 +60,11 @@ export default function ProfileScreen({ navigation }) {
   const tabClear = useTabBarClearance();
   const toggleTheme = () => setMode(isDark ? 'light' : 'dark');
 
-  const ActionIcon = ({ icon, color, onPress }) => (
-    <TouchableOpacity style={styles.actionItem} activeOpacity={0.7} onPress={onPress}>
+  // `label` is not optional in spirit: every control in this dock is icon-only,
+  // so without it a screen reader announces four identical unnamed buttons.
+  const ActionIcon = ({ icon, color, onPress, label }) => (
+    <TouchableOpacity style={styles.actionItem} activeOpacity={0.7} onPress={onPress}
+      accessibilityRole="button" accessibilityLabel={label}>
       <View style={styles.actionIconWrap}>
         <Icon name={icon} size={24} color={color || DS.textPrimary} />
       </View>
@@ -429,21 +432,15 @@ export default function ProfileScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          {/* Logout */}
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
-            <Icon name="logout" size={16} color={DS.textMuted} />
-            <Text style={styles.logoutText}>Log Out of Local Legends</Text>
-          </TouchableOpacity>
-
         </View>
       </ScrollView>
 
       {/* ── Floating Action Dock ── */}
       <View style={styles.floatingDockWrap}>
         <View style={styles.floatingDock}>
-          <ActionIcon icon="share-variant" onPress={shareProfile} color={isDark ? DS.textPrimary : DS.textSecondary} />
+          <ActionIcon icon="share-variant" onPress={shareProfile} color={isDark ? DS.textPrimary : DS.textSecondary} label="Share profile" />
           <View style={styles.dockDivider} />
-          <ActionIcon icon="account-edit" onPress={() => navigation.navigate('EditPlayerProfile')} color={isDark ? DS.textPrimary : DS.textSecondary} />
+          <ActionIcon icon="account-edit" onPress={() => navigation.navigate('EditPlayerProfile')} color={isDark ? DS.textPrimary : DS.textSecondary} label="Edit profile" />
           <View style={styles.dockDivider} />
           <SportSwitcher navigation={navigation} variant="iconButton" />
           <View style={styles.dockDivider} />
@@ -451,6 +448,19 @@ export default function ProfileScreen({ navigation }) {
             icon={isDark ? 'white-balance-sunny' : 'weather-night'}
             color={isDark ? '#FDB813' : DS.blue}
             onPress={toggleTheme}
+            label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          />
+          <View style={styles.dockDivider} />
+          {/* Logout, beside the theme toggle rather than a full-width row at the
+              bottom of the scroll. Coral because it is the only action in this
+              dock you would regret hitting — the others share, edit, switch
+              sport and change theme, all of which undo themselves. It is still
+              confirm-gated; the colour is so the finger slows down first. */}
+          <ActionIcon
+            icon="logout"
+            color={DS.coral}
+            onPress={handleLogout}
+            label="Log out of Local Legends"
           />
         </View>
       </View>
@@ -563,9 +573,6 @@ const makeStyles = (DS) => StyleSheet.create({
   statsCardTitle: { fontSize: 16, fontWeight: '800', color: DS.textPrimary, marginBottom: 2 },
   statsCardBlurb: { fontSize: 13, fontWeight: '500', color: DS.textMuted },
 
-  // Logout
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 24, marginTop: 12 },
-  logoutText: { fontSize: 14, fontWeight: '700', color: DS.textMuted },
 
   // Floating Action Dock
   floatingDockWrap: {
@@ -585,5 +592,10 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   actionItem: { padding: 12, alignItems: 'center', justifyContent: 'center' },
   actionIconWrap: { alignItems: 'center', justifyContent: 'center' },
-  dockDivider: { width: 1, height: 24, backgroundColor: DS.border, marginHorizontal: 4 },
+  // marginHorizontal 3, not 4. The dock went from four controls to five when
+  // logout moved in, and at 4 it measured 302dp against the 304dp a 320dp phone
+  // can give it — fits, but by two points, which is not a margin so much as a
+  // coincidence. Three buys ten. The 48dp touch targets are untouched; the
+  // spacing between them absorbs the cost, which is the right thing to trade.
+  dockDivider: { width: 1, height: 24, backgroundColor: DS.border, marginHorizontal: 3 },
 });
