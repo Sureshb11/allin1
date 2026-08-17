@@ -22,6 +22,7 @@ import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
 import HexAvatar from "../components/HexAvatar";
 import ShotBoard from "../components/ShotBoard";
+import { isBallFaced, offTheBat, isBoundary, isSix } from "../utils/cricketRules";
 import LiveBall from "../components/CricketBall/LiveBall";
 import EventSound from "../components/CricketBall/EventSound";
 import { useDockLock, useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
@@ -111,8 +112,8 @@ function latestBall(match) {
         const b = balls[balls.length - 1];
         let kind = null;
         if (b.isWicket) kind = 'wicket';
-        else if (!b.extraType && b.runs === 6) kind = 'six';
-        else if (!b.extraType && b.runs === 4) kind = 'four';
+        else if (isSix(b)) kind = 'six';
+        else if (offTheBat(b) && b.runs === 4) kind = 'four';
         return { id: b.id, kind };
       }
     }
@@ -253,8 +254,8 @@ function computeBatting(innings, battingXI) {
         if (ball.batter?.name) nameFromBall[id] = ball.batter.name;
         if (!fig[id]) fig[id] = { runs: 0, balls: 0, fours: 0, sixes: 0 };
         const et = ball.extraType;
-        if (et !== 'wide' && et !== 'penalty' && et !== 'retired') fig[id].balls += 1;   // faced
-        if (!et || et === 'noBall') {                                        // runs off the bat
+        if (isBallFaced(ball)) fig[id].balls += 1;
+        if (offTheBat(ball)) {
           fig[id].runs += ball.runs;
           if (ball.runs === 4) fig[id].fours += 1;
           if (ball.runs === 6) fig[id].sixes += 1;
@@ -532,8 +533,10 @@ function buildCommentary(innings) {
         label: `${over.overNumber - 1}.${legalInOver}`,
         text: ballCommentary(ball, bowlerName),
         isWicket: !!ball.isWicket,
-        isBoundary: !ball.extraType && (ball.runs === 4 || ball.runs === 6),
-        isSix: !ball.extraType && ball.runs === 6,   // a six gets its own accent — it's the moment
+        // Shared rule, not `!extraType`: a four off a no ball is the batter's
+        // four, and the batting table above this already counted it as one.
+        isBoundary: isBoundary(ball),
+        isSix: isSix(ball),          // a six gets its own accent — it's the moment
       });
     });
     const oe = overEndByNum[over.overNumber];
