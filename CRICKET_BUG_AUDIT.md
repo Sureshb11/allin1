@@ -180,8 +180,41 @@ hitballtwice  bowler           NOT bowler
 | overs holding 7–13 legal balls | 26 |
 | deliveries faced by an already-dismissed batter | 150 |
 | bowlers past their spell limit (up to 7 in a T20) | 7 |
-| completed matches whose headline score ≠ ball total | 3 |
+| completed matches whose headline score ≠ ball total | 3 → **see BUG-13, not legacy** |
 
 - **Verified not ongoing** — nothing after 14 July is affected, including matches from today.
 - **Impact** Those matches' career figures are skewed (a bowler carrying 7 overs in a T20 has a wrong economy).
 - **Status** OPEN — deliberately. Cleaning is a production data migration; it needs an explicit decision and a dry run showing exactly which rows change.
+
+
+## BUG-13 — Undo left the headline score one ball ahead ⚠ LIVE
+
+- **Severity** HIGH · **Module** `DELETE /matches/:id/score/last`
+- **Found** on the emulator, by scoring a ball and undoing it — not by reading code.
+- **Description** Undo removes the ball and corrects the innings totals, but
+  `Match.score1`/`score2` is a **separate denormalised string** that only the
+  scoring screen wrote, and only on the way forward.
+- **Reproduce** Score a four, undo it, compare screens.
+- **Expected** Every surface shows the same score.
+- **Actual**
+
+```
+scorecard / scoring screen   92/1 (4.0)   ← from the ball rows
+match list / team / feed     96/1 (4.1)   ← from Match.score1
+inning.totalRuns             92           ← correct
+sum of ball rows             92           ← correct
+```
+
+  The scorecard was right and the headline was one ball ahead, permanently.
+- **Root cause** Two representations of one number, only one of them maintained
+  on the reverse path. The same shape as every other bug in this audit — a fact
+  stored twice, with one copy left behind.
+- **Fix** The undo endpoint now recomputes the headline **from the ball rows**
+  and writes it back. Recomputed rather than decremented, because a string that
+  has already drifted cannot be corrected by taking one ball off it.
+- **This supersedes part of BUG-12.** The three completed matches whose headline
+  disagreed with their ball total were filed as historical July damage. They are
+  not. Undo reproduces it on demand, and the July dates were coincidence — that
+  is when those matches happened to be undone.
+- **Status** FIXED. The one match this audit's own testing left stale was
+  corrected in place (96/1 → 92/1).

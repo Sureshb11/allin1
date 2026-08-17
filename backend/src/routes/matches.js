@@ -531,6 +531,41 @@ router.delete('/:id/score/last', authMiddleware, async (req, res) => {
     });
 
     if (result.empty) return res.status(404).json({ error: 'No ball to undo' });
+
+    // Rewrite the headline score too.
+    //
+    // Undo removed the ball and corrected the innings totals, but Match.score1 /
+    // score2 are a SEPARATE denormalised string that only the scoring screen was
+    // writing, on the way forward. So after an undo the scorecard read 92/1 (4.0)
+    // off the ball rows while the match list, the team page and the feed read
+    // "96/1 (4.1)" off this field — one ball ahead, permanently.
+    //
+    // This is also the real cause of the three completed matches whose headline
+    // disagreed with their ball total, which the QA audit filed as historical
+    // damage from July. It was not historical. It reproduces on any undo.
+    //
+    // Recomputed from the rows rather than by subtracting from the old string:
+    // the rows are the truth, and a string that has already drifted cannot be
+    // corrected by taking one ball off it.
+    const inn = await prisma.inning.findUnique({
+      where: { id: String(inningId) },
+      select: { battingTeamId: true, totalRuns: true, totalWickets: true,
+                oversData: { select: { balls: { select: { extraType: true } } } } },
+    });
+    if (inn) {
+      const legal = inn.oversData
+        .flatMap((o) => o.balls)
+        .filter((b) => !NON_BALL_EXTRAS.includes(b.extraType)).length;
+      const match = await prisma.match.findUnique({
+        where: { id: req.params.id }, select: { team1Id: true },
+      });
+      const field = inn.battingTeamId === match?.team1Id ? 'score1' : 'score2';
+      await prisma.match.update({
+        where: { id: req.params.id },
+        data: { [field]: `${inn.totalRuns}/${inn.totalWickets} (${Math.floor(legal / 6)}.${legal % 6})` },
+      });
+    }
+
     safeNotify(() => pingMatchWatchers(req.params.id));
     res.json({ success: true, undone: result.ball });
   } catch (e) {
