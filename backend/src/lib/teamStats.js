@@ -11,14 +11,13 @@
 // that did, so it loads the window once and accumulates everything together.
 
 import { prisma } from './prisma.js';
-import { isLegalDelivery, isBowlerWicket, isBallFaced } from './deliveries.js';
+import { isLegalDelivery, isBowlerWicket, isBallFaced, offTheBat, batRuns as sharedBatRuns } from './deliveries.js';
 import { venueKey } from './venue.js';
 
 // One definition, in lib/deliveries.js — this list used to exist here, in
 // mvp.js and in routes/matches.js, identically and separately.
 const isLegal = isLegalDelivery;
-// Runs credited to the batter: not byes, leg byes, or the wide's own penalty.
-const batRuns = (b) => (['bye', 'legBye', 'penalty'].includes(b.extraType) ? 0 : b.runs || 0);
+const batRuns = sharedBatRuns;   // was its own copy; see deliveries.js
 // A ball the batter is judged on. A wide isn't; a no ball is.
 const ballFaced = isBallFaced;   // was its own copy; it was the correct one
 const div = (a, b, dp = 2) => (b > 0 ? +(a / b).toFixed(dp) : 0);
@@ -245,8 +244,10 @@ export async function teamStats(teamId, filters = {}) {
           if (isLegal(b)) { t.ballsFor++; t.ballsFaced++; }
           t.extras += b.extras || 0;
           const r = batRuns(b);
-          if (!b.extraType && r === 4) t.fours++;
-          if (!b.extraType && r === 6) t.sixes++;
+          // offTheBat, not !extraType: a boundary struck off a no ball is the
+          // batter's four, and this screen was the only one not counting it.
+          if (offTheBat(b) && r === 4) t.fours++;
+          if (offTheBat(b) && r === 6) t.sixes++;
           const p = B(b.batterId, b.batter?.name);
           p.matches.add(m.id);
           (perInnings[b.batterId] ||= { runs: 0, balls: 0, ballsTo50: null, ballsTo100: null });

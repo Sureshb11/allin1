@@ -19,7 +19,7 @@
 
 import { prisma } from './prisma.js';
 import { careerAwards } from './awards.js';
-import { isBowlerWicket, inningsPhase , isBallFaced } from './deliveries.js';
+import { isBowlerWicket, inningsPhase, isBallFaced, offTheBat } from './deliveries.js';
 
 const BASE = { matches: 0, runs: 0, wickets: 0, average: 0, strikeRate: 0, centuries: 0, halfCenturies: 0 };
 
@@ -142,8 +142,8 @@ export async function playerCareer(player, alsoIds = []) {
   const appHighestScore = appInnScores.length ? Math.max(0, ...appInnScores) : 0;
   const appCenturies = appInnScores.filter((r) => r >= 100).length;
   const appHalfCenturies = appInnScores.filter((r) => r >= 50 && r < 100).length;
-  const appFours = batBalls.filter((b) => b.runs === 4).length;
-  const appSixes = batBalls.filter((b) => b.runs === 6).length;
+  const appFours = batBalls.filter((b) => offTheBat(b) && b.runs === 4).length;
+  const appSixes = batBalls.filter((b) => offTheBat(b) && b.runs === 6).length;
   const appNotOuts = Math.max(0, appInnScores.length - dismissals);
   const appDucks = appInnScores.filter((r) => r === 0).length;
   const appBattingDotBalls = batBalls.filter((b) => b.runs === 0 && isBallFaced(b)).length;
@@ -197,7 +197,6 @@ export async function playerCareer(player, alsoIds = []) {
     : (b.extraType && b.extraType !== 'bye' && b.extraType !== 'legBye') ? 0
     : (b.extraType ? 0 : b.runs);
   const isLegal = (b) => !['wide', 'noBall', 'penalty', 'retired', 'deadBall'].includes(b.extraType);
-  const offTheBat = (b) => !b.extraType || b.extraType === 'noBall';
 
   const bowled = bowlBalls.filter((b) => b.extraType !== 'penalty');
   const legal = bowled.filter(isLegal).length;

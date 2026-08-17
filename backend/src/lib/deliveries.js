@@ -69,6 +69,21 @@ export const BOWLER_WICKET_WHERE = {
 };
 
 /**
+ * Are these runs the BATTER's?
+ *
+ * Off the bat means no extra, or a no ball — runs hit off a no ball are the
+ * batter's, boundaries included. Byes and leg byes went past the bat; a wide's
+ * runs are the bowler's gift; a penalty belongs to the team.
+ *
+ * Boundaries follow the same rule and that is the point of putting it here.
+ * teamStats.js counted a four only when there was NO extra at all, so a four
+ * struck off a no ball was a four on the career page and not a four on the team
+ * page — two of them exist in production, against two batters.
+ */
+export const offTheBat = (b) => !b?.extraType || b.extraType === 'noBall';
+export const batRuns = (b) => (offTheBat(b) ? (b?.runs || 0) : 0);
+
+/**
  * Is this a ball the BATTER is judged on?
  *
  * Not the same question as isLegalDelivery(), which is about the over. A no ball
