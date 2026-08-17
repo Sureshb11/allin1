@@ -517,6 +517,21 @@ router.put('/:id/score/last/short', authMiddleware, async (req, res) => {
       await tx.ball.update({ where: { id: ball.id }, data: { [field]: { decrement: 1 }, wicketAssists: SHORT_RUN_TAG } });
       await tx.over.update({ where: { id: lastOver.id }, data: { [field]: { decrement: 1 } } });
       await tx.inning.update({ where: { id: String(inningId) }, data: { totalRuns: { decrement: 1 } } });
+
+      // This is the ONE path that changes a delivery's runs after it was stored,
+      // so it is the one place a recorded shot's outcome can go stale: a shot
+      // filed as 'Four' stays 'Four' while the ball becomes a 3, and the wagon
+      // wheel then disagrees with the scorecard about the same delivery. Inside
+      // the same transaction, so the runs and the label can never be half-updated.
+      // updateMany, not update: most deliveries have no shot, and this must not
+      // throw when there is nothing to correct.
+      if (field === 'runs') {
+        const runsAfter = ball.runs - 1;
+        await tx.ballIntelligence.updateMany({
+          where: { ballId: ball.id },
+          data: { shotOutcome: shotOutcome({ ...ball, runs: runsAfter }) },
+        });
+      }
       return { ok: true, awarded: ran - 1 };
     });
 

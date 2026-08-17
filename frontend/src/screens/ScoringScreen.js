@@ -257,6 +257,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // immediately so it can queue behind the new-batter / new-bowler prompts
   // instead of stacking a second modal on top of them.
   const [pendingShot, setPendingShot] = useState(null);
+  // The last delivery that COULD carry a shot, kept after its sheet is dismissed
+  // so it can be reopened. The realistic correction is "I tapped the wrong wedge
+  // and closed it" — without this the only way to fix a shot was to undo a
+  // perfectly good ball and rescore it. Re-recording upserts onto the same
+  // delivery, so correcting is the same write as capturing.
+  const [lastShot, setLastShot] = useState(null);
 
   // Flush anything left over from a previous session — a scorer who lost signal
   // and closed the app still has shots sitting in the queue.
@@ -629,13 +635,17 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // a penalty riding along with a delivery doesn't ask a second time.
     const isStroke = !extraType || extraType === 'noBall';
     if (biEnabled && !biPaused && seq === 0 && isStroke) {
-      setPendingShot({
+      const shotCtx = {
         clientEventId: `${idemRef.current.base}-${seq}`,
         runs, isWicket,
         extraType: extraType || null,
+        // Snapshotted, NOT read live at render: after a wicket the sheet waits for
+        // the new-batter pick, by which time `striker` is somebody else entirely.
         batterName: striker.name,
         hand: handOf(striker),
-      });
+      };
+      setPendingShot(shotCtx);
+      setLastShot(shotCtx);
     }
     // Advance the local ball count only once the delivery is actually stored.
     // Bumping it before the await meant a rejected ball (e.g. the server's 409
@@ -728,6 +738,9 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // it is dropped by the queue itself when the server answers BALL_GONE, and
     // anything already stored went with the ball (the row cascades on delete).
     setPendingShot(null);
+    // The "edit last shot" button must go too, or it would reopen the sheet for a
+    // delivery that no longer exists and file the answer against a dead ball.
+    setLastShot(null);
     // No snapshot for this ball — it was scored before this session (a resume
     // clears the in-memory stack). The server has already deleted the ball, so
     // rebuild every figure from its live-state projection instead. This is what
@@ -1302,6 +1315,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       setCurrentInningId(inn.data.id);
       setCurrentScore({ runs: 0, wickets: 0, overs: 0, balls: 0 });
       setCurrentOver([]); setLastOverBalls([]); setBallCount(0); setHistory([]); setOverComplete(null);
+      // A shot prompt left over from the first innings must not surface against
+      // the second: the last ball of an innings can leave one un-answered (the
+      // innings-break screen covers the sheet), and it would otherwise reappear
+      // over the new innings asking about the other team's batter.
+      setPendingShot(null); setLastShot(null);
       // Fresh innings → reset per-player figures + bowling spell tracking + dismissals.
       setBatStats({}); setBowlStats({}); setBowlerOvers({}); setLastOverBowlerId(null); setBowlerLastOver({}); setOutBatters([]); setRetiredBatters([]); setPendingCreaseSwap(false);
       setPnrStartRuns(0); setPnrBalls(0);   // fresh openers → new partnership
@@ -1975,6 +1993,21 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                   </Text>
                 </TouchableOpacity>
               )}
+              {/* Reopen the last delivery's shot. The wrong wedge gets tapped, the
+                  sheet gets dismissed, and until this existed the only remedy was
+                  undoing a perfectly good ball to rescore it. Shown only when
+                  there is actually a delivery to correct. */}
+              {biEnabled && !!lastShot && !pendingShot && (
+                <TouchableOpacity
+                  style={[styles.syncPill, styles.syncPillSaving]}
+                  onPress={() => { haptic.tick(); setPendingShot(lastShot); }}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit the shot for the last delivery">
+                  <Icon name="pencil-outline" size={11} color={DS.textVariant} />
+                  <Text style={[styles.syncPillText, { color: DS.textVariant }]}>SHOT</Text>
+                </TouchableOpacity>
+              )}
             </View>
             <Text style={styles.overSummary} numberOfLines={1}>
               <Text style={styles.overSummaryRuns}>{overRunsSoFar}</Text>
@@ -2318,7 +2351,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           picker rather than replacing it: the scorer sees what the over cost
           before choosing who bowls next. Suppressed while the New Batsman modal
           is up (a wicket on the last ball opens both). ── */}
-      <Modal visible={!!overComplete && !showPlayerModal} transparent animationType="slide"
+      {/* ...and behind the shot sheet. The over summary is about what comes NEXT;
+          the shot is about the ball that just happened. Asked the other way round,
+          the sixth ball of every over was only asked about after the scorer had
+          already picked the next bowler — and the last ball of an innings was
+          never asked about at all, because the innings break got there first. */}
+      <Modal visible={!!overComplete && !showPlayerModal && !pendingShot} transparent animationType="slide"
         onRequestClose={startNextOver}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, styles.ocSheet]}>
@@ -3427,7 +3465,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       <BallIntelligenceSheet
         visible={
           !!pendingShot && !showPlayerModal && !showBowlerModal
-          && !overComplete && !matchComplete && !showExitModal
+          && !matchComplete && !showExitModal
         }
         ball={pendingShot}
         batterName={pendingShot?.batterName}
