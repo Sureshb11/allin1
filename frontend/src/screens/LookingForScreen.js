@@ -32,6 +32,19 @@ import PlayerAvatar from "../components/PlayerAvatar";
 
 import { useWindowDimensions } from 'react-native';
 
+// Module scope, not inside the skeleton's render body. Declared there it was a
+// new component type every render, so React remounted every bar instead of
+// updating it — which restarts the shimmer, so the one continuous sweep this
+// is meant to be was stuttering back to the start.
+const Bar = ({ w, h, r = 6, mt = 0, shimmer, DS }) => {
+  const translateX = shimmer.interpolate({ inputRange: [0, 1], outputRange: [-100, 400] });
+  return (
+    <View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, marginTop: mt, overflow: 'hidden' }}>
+      <Animated.View style={{ position: 'absolute', top: 0, bottom: 0, width: 100, backgroundColor: 'rgba(255,255,255,0.4)', transform: [{ translateX }] }} />
+    </View>
+  );
+};
+
 function MagneticFAB({ onPress, DS }) {
   const { width: windowWidth } = useWindowDimensions();
   const translateX = useSharedValue(0);
@@ -126,28 +139,20 @@ function ScoutSkeleton({ DS }) {
     Animated.parallel(anims).start();
   }, [shimmers]);
 
-  const Bar = ({ w, h, r = 6, mt = 0, shimmer }) => {
-    const translateX = shimmer.interpolate({ inputRange: [0, 1], outputRange: [-100, 400] });
-    return (
-      <View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, marginTop: mt, overflow: 'hidden' }}>
-        <Animated.View style={{ position: 'absolute', top: 0, bottom: 0, width: 100, backgroundColor: 'rgba(255,255,255,0.4)', transform: [{ translateX }] }} />
-      </View>
-    );
-  };
 
   return (
     <View style={{ padding: 16, gap: 14 }}>
       {[0, 1, 2].map((i) => (
         <View key={i} style={{ backgroundColor: '#ffffff', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', padding: 14, gap: 12, overflow: 'hidden' }}>
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Bar w={34} h={34} r={17} shimmer={shimmers[i]} />
+            <Bar DS={DS} w={34} h={34} r={17} shimmer={shimmers[i]} />
             <View style={{ gap: 6 }}>
-              <Bar w={120} h={14} r={7} shimmer={shimmers[i]} />
-              <Bar w={80} h={10} r={5} shimmer={shimmers[i]} />
+              <Bar DS={DS} w={120} h={14} r={7} shimmer={shimmers[i]} />
+              <Bar DS={DS} w={80} h={10} r={5} shimmer={shimmers[i]} />
             </View>
           </View>
-          <Bar w="100%" h={14} r={7} shimmer={shimmers[i]} />
-          <Bar w="60%" h={14} r={7} shimmer={shimmers[i]} />
+          <Bar DS={DS} w="100%" h={14} r={7} shimmer={shimmers[i]} />
+          <Bar DS={DS} w="60%" h={14} r={7} shimmer={shimmers[i]} />
         </View>
       ))}
     </View>

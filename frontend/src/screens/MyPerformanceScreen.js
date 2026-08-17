@@ -15,6 +15,14 @@ import { useCurrentUser } from '../utils/currentUser';
 
 // Shape-matching placeholder: the career line, then the stat table. The spinner
 // it replaces said "something is coming" but not what, so the screen jumped.
+// Module scope, not inside the skeleton's render body. Declared there it was a
+// new component type every render, so React remounted every bar instead of
+// updating it — which restarts the shimmer, so the one continuous sweep this
+// is meant to be was stuttering back to the start.
+const Bar = ({ w, h, r = 6, mt = 0, DS, pulse }) => (
+  <Animated.View style={{ width: w, height: h, borderRadius: r, marginTop: mt, backgroundColor: DS.surfaceHigh, opacity: pulse }} />
+);
+
 function StatsSkeleton({ DS }) {
   const pulse = useRef(new Animated.Value(0.35)).current;
   useEffect(() => {
@@ -25,15 +33,12 @@ function StatsSkeleton({ DS }) {
     loop.start();
     return () => loop.stop();
   }, [pulse]);
-  const Bar = ({ w, h, r = 6, mt = 0 }) => (
-    <Animated.View style={{ width: w, height: h, borderRadius: r, marginTop: mt, backgroundColor: DS.surfaceHigh, opacity: pulse }} />
-  );
   return (
     <View style={{ gap: 10 }}>
       <View style={{ backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, padding: 13, gap: 12 }}>
-        <Bar w="45%" h={10} />
+        <Bar DS={DS} pulse={pulse} w="45%" h={10} />
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          {[0, 1, 2, 3, 4].map((i) => <Bar key={i} w={28} h={28} r={14} />)}
+          {[0, 1, 2, 3, 4].map((i) => <Bar DS={DS} pulse={pulse} key={i} w={28} h={28} r={14} />)}
         </View>
       </View>
       <View style={{ backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, padding: 13 }}>
@@ -41,8 +46,8 @@ function StatsSkeleton({ DS }) {
           <View key={r} style={{ flexDirection: 'row', paddingVertical: 9 }}>
             {[0, 1, 2].map((c) => (
               <View key={c} style={{ flex: 1, gap: 6 }}>
-                <Bar w="55%" h={16} />
-                <Bar w="72%" h={8} />
+                <Bar DS={DS} pulse={pulse} w="55%" h={16} />
+                <Bar DS={DS} pulse={pulse} w="72%" h={8} />
               </View>
             ))}
           </View>

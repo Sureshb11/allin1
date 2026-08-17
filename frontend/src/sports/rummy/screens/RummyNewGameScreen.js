@@ -9,30 +9,35 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../../../services/LegendsApi';
 import { useTheme } from '../../../theme/ThemeContext';
 
+// Module scope. Declared inside the screen these were a new component type on
+// every keystroke, so React remounted the TextInput instead of updating it —
+// the class of bug that makes a field drop focus mid-typing.
+const NumField = ({ label, value, onChange, s }) => (
+  <View style={s.numField}>
+    <Text style={s.numLabel}>{label}</Text>
+    <TextInput
+      style={s.numInput}
+      value={value}
+      onChangeText={(t) => onChange(t.replace(/[^0-9]/g, ''))}
+      keyboardType="number-pad"
+      maxLength={4}
+    />
+  </View>
+);
+
+const Check = ({ on, s, A }) => (
+  <View style={[s.check, on && { backgroundColor: A.lime, borderColor: A.lime }]}>
+    {on && <Icon name="check" size={14} color={A.navy0} />}
+  </View>
+);
+
 export default function RummyNewGameScreen({ navigation }) {
   const C = useTheme().colors;
   // Rummy/Arena screens use the brighter lime accent (per the design system).
   const A = useMemo(() => ({ ...C, lime: C.limeBright }), [C]);
   const s = useMemo(() => makeStyles(A), [A]);
 
-  const NumField = ({ label, value, onChange }) => (
-    <View style={s.numField}>
-      <Text style={s.numLabel}>{label}</Text>
-      <TextInput
-        style={s.numInput}
-        value={value}
-        onChangeText={(t) => onChange(t.replace(/[^0-9]/g, ''))}
-        keyboardType="number-pad"
-        maxLength={4}
-      />
-    </View>
-  );
 
-  const Check = ({ on }) => (
-    <View style={[s.check, on && { backgroundColor: A.lime, borderColor: A.lime }]}>
-      {on && <Icon name="check" size={14} color={A.navy0} />}
-    </View>
-  );
 
   const [autoName, setAutoName] = useState(true);
   const [name, setName] = useState('');
@@ -115,7 +120,7 @@ export default function RummyNewGameScreen({ navigation }) {
             editable={!autoName}
           />
           <TouchableOpacity style={s.checkRow} onPress={() => setAutoName((v) => !v)}>
-            <Check on={autoName} />
+            <Check s={s} A={A} on={autoName} />
             <Text style={s.checkLabel}>Use auto generated name</Text>
           </TouchableOpacity>
         </View>
@@ -124,15 +129,15 @@ export default function RummyNewGameScreen({ navigation }) {
         <View style={s.card}>
           <Text style={s.cardTitle}>Game Scores</Text>
           <View style={s.numRow}>
-            <NumField label="Total score" value={totalScore} onChange={setTotalScore} />
-            <NumField label="Open drop" value={openDrop} onChange={setOpenDrop} />
+            <NumField s={s} label="Total score" value={totalScore} onChange={setTotalScore} />
+            <NumField s={s} label="Open drop" value={openDrop} onChange={setOpenDrop} />
           </View>
           <View style={s.numRow}>
-            <NumField label="Middle drop" value={middleDrop} onChange={setMiddleDrop} />
-            <NumField label="Full count" value={fullCount} onChange={setFullCount} />
+            <NumField s={s} label="Middle drop" value={middleDrop} onChange={setMiddleDrop} />
+            <NumField s={s} label="Full count" value={fullCount} onChange={setFullCount} />
           </View>
           <TouchableOpacity style={s.checkRow} onPress={() => setAdjustReentry((v) => !v)}>
-            <Check on={adjustReentry} />
+            <Check s={s} A={A} on={adjustReentry} />
             <Text style={s.checkLabel}>Adjust re-entry score to highest player score +1</Text>
           </TouchableOpacity>
         </View>

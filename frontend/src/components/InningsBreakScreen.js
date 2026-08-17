@@ -78,7 +78,13 @@ export default function InningsBreakScreen({ data, matchId, venue, onContinue, o
   const opponents = candidates.filter((c) => c.isOpponent);
   const others = candidates.filter((c) => !c.isOpponent);
 
-  const Row = ({ c }) => (
+  // A render FUNCTION, not a component. Declared as a component inside this
+  // render body it was a new type on every render, so React remounted its
+  // whole subtree instead of updating it. Hoisting would mean threading the
+  // half-dozen values it closes over through props; calling it inlines the
+  // markup into this render instead, where there is no component identity to
+  // churn and nothing to thread.
+  const row = (c) => (
     <TouchableOpacity
       style={s.candidate}
       activeOpacity={0.8}
@@ -222,13 +228,13 @@ export default function InningsBreakScreen({ data, matchId, venue, onContinue, o
                 {opponents.length > 0 && (
                   <>
                     <Text style={s.group}>{opponents[0].teamName || 'OPPONENT'}</Text>
-                    {opponents.map((c) => <Row key={c.userId} c={c} />)}
+                    {opponents.map((c) => <React.Fragment key={c.userId}>{row(c)}</React.Fragment>)}
                   </>
                 )}
                 {others.length > 0 && (
                   <>
                     <Text style={s.group}>{others[0].teamName || 'THIS SIDE'}</Text>
-                    {others.map((c) => <Row key={c.userId} c={c} />)}
+                    {others.map((c) => <React.Fragment key={c.userId}>{row(c)}</React.Fragment>)}
                   </>
                 )}
                 {!loading && !error && opponents.length === 0 && others.length === 0 && (

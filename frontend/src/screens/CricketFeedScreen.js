@@ -30,6 +30,14 @@ import { getSport } from '../sports';
 import { sportColor } from '../sports/colors';
 import { teamNamePairStyle } from '../utils/teamNameSize';
 
+// Module scope, not inside the skeleton's render body. Declared there it was a
+// new component type every render, so React remounted every bar instead of
+// updating it — which restarts the shimmer, so the one continuous sweep this
+// is meant to be was stuttering back to the start.
+const Bar = ({ w, h, r = 6, mt = 0, DS, opacity }) => (
+  <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity, marginTop: mt }} />
+);
+
 const SW = Dimensions.get('window').width;
 const CARD_GAP = 12;
 // Carousel card width — leave ~44px of the screen on each side so the previous
@@ -112,9 +120,6 @@ function FeedSkeleton({ DS }) {
     ).start();
   }, [shimmer]);
   const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
-  const Bar = ({ w, h, r = 6, mt = 0 }) => (
-    <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity, marginTop: mt }} />
-  );
   return (
     <View style={{ paddingHorizontal: 14, paddingTop: 16, gap: 20 }}>
       {[0, 1, 2].map((i) => (
@@ -125,18 +130,18 @@ function FeedSkeleton({ DS }) {
               <HexAvatar round size={42} color={DS.surfaceHigh} />
             </Animated.View>
             <View style={{ flex: 1, gap: 6 }}>
-              <Bar w={120} h={12} />
-              <Bar w={80} h={10} />
+              <Bar DS={DS} opacity={opacity} w={120} h={12} />
+              <Bar DS={DS} opacity={opacity} w={80} h={10} />
             </View>
           </View>
-          <Bar w="100%" h={200} r={12} mt={4} />
+          <Bar DS={DS} opacity={opacity} w="100%" h={200} r={12} mt={4} />
           <View style={{ flexDirection: 'row', gap: 16, marginTop: 4 }}>
-            <Bar w={26} h={26} r={13} />
-            <Bar w={26} h={26} r={13} />
-            <Bar w={26} h={26} r={13} />
+            <Bar DS={DS} opacity={opacity} w={26} h={26} r={13} />
+            <Bar DS={DS} opacity={opacity} w={26} h={26} r={13} />
+            <Bar DS={DS} opacity={opacity} w={26} h={26} r={13} />
           </View>
-          <Bar w={140} h={12} mt={2} />
-          <Bar w="90%" h={12} />
+          <Bar DS={DS} opacity={opacity} w={140} h={12} mt={2} />
+          <Bar DS={DS} opacity={opacity} w="90%" h={12} />
         </View>
       ))}
     </View>
@@ -193,7 +198,13 @@ function CircleMatchCard({ match, onPress }) {
   // shows one team's name visibly smaller than its opponent's.
   const nameFit = teamNamePairStyle(match.a.name, match.b.name);
 
-  const Team = ({ t, muted }) => {
+  // A render FUNCTION, not a component. Declared as a component inside this
+  // render body it was a new type on every render, so React remounted its
+  // whole subtree instead of updating it. Hoisting would mean threading the
+  // half-dozen values it closes over through props; calling it inlines the
+  // markup into this render instead, where there is no component identity to
+  // churn and nothing to thread.
+  const team = ({ t, muted }) => {
     const { main, ov } = splitScore(t.score, match.overs);
     return (
       <View style={c.team}>
@@ -229,9 +240,9 @@ function CircleMatchCard({ match, onPress }) {
 
         {/* teams */}
         <View style={c.teamsRow}>
-          <Team t={match.a} muted={!pa.runs && !live} />
+          {team({ t: match.a, muted: !pa.runs && !live })}
           {live ? <View style={c.teamDivider} /> : <Text style={c.vs}>VS</Text>}
-          <Team t={match.b} muted={!pb.runs} />
+          {team({ t: match.b, muted: !pb.runs })}
         </View>
 
         {/* Always render this row (empty when there's no chase) so a 2nd-innings

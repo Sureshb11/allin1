@@ -42,6 +42,14 @@ const makeStatusMeta = (DS) => ({
   scheduled: { color: DS.blue,      bg: DS.blue + '1A', label: 'UPCOMING', glow: DS.blue },
 });
 
+// Module scope, not inside the skeleton's render body. Declared there it was a
+// new component type every render, so React remounted every bar instead of
+// updating it — which restarts the shimmer, so the one continuous sweep this
+// is meant to be was stuttering back to the start.
+const Bar = ({ w, h, r = 6, mt = 0, DS, opacity }) => (
+  <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surface, opacity, marginTop: mt }} />
+);
+
 function TopGlow({ color }) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -85,31 +93,28 @@ export function MatchSkeleton({ DS }) {
     ).start();
   }, [shimmer]);
   const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
-  const Bar = ({ w, h, r = 6, mt = 0 }) => (
-    <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surface, opacity, marginTop: mt }} />
-  );
   return (
     <View style={{ padding: 16, paddingTop: 4, gap: 14 }}>
       {[0, 1, 2].map((i) => (
         <View key={i} style={{ backgroundColor: DS.surface, borderRadius: 16, padding: 14 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-            <Bar w={50} h={18} r={4} />
-            <Bar w={30} h={18} r={4} />
+            <Bar DS={DS} opacity={opacity} w={50} h={18} r={4} />
+            <Bar DS={DS} opacity={opacity} w={30} h={18} r={4} />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Bar w={36} h={36} r={18} />
-              <View style={{ gap: 6 }}><Bar w={60} h={12} /><Bar w={40} h={16} /></View>
+              <Bar DS={DS} opacity={opacity} w={36} h={36} r={18} />
+              <View style={{ gap: 6 }}><Bar DS={DS} opacity={opacity} w={60} h={12} /><Bar DS={DS} opacity={opacity} w={40} h={16} /></View>
             </View>
-            <Bar w={20} h={12} />
+            <Bar DS={DS} opacity={opacity} w={20} h={12} />
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, justifyContent: 'flex-end' }}>
-              <View style={{ gap: 6, alignItems: 'flex-end' }}><Bar w={60} h={12} /><Bar w={40} h={16} /></View>
-              <Bar w={36} h={36} r={18} />
+              <View style={{ gap: 6, alignItems: 'flex-end' }}><Bar DS={DS} opacity={opacity} w={60} h={12} /><Bar DS={DS} opacity={opacity} w={40} h={16} /></View>
+              <Bar DS={DS} opacity={opacity} w={36} h={36} r={18} />
             </View>
           </View>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
-             <Bar w={80} h={20} r={8} />
-             <Bar w={80} h={20} r={8} />
+             <Bar DS={DS} opacity={opacity} w={80} h={20} r={8} />
+             <Bar DS={DS} opacity={opacity} w={80} h={20} r={8} />
           </View>
         </View>
       ))}

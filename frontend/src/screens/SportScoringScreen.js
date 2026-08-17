@@ -327,7 +327,13 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
     return (rosters[slot] || []).find(p => p.id === activeId[teamId])?.name;
   };
 
-  const PlayerStrip = ({ teamId, slot }) => (
+  // A render FUNCTION, not a component. Declared as a component inside this
+  // render body it was a new type on every render, so React remounted its
+  // whole subtree instead of updating it. Hoisting would mean threading the
+  // half-dozen values it closes over through props; calling it inlines the
+  // markup into this render instead, where there is no component identity to
+  // churn and nothing to thread.
+  const playerStrip = ({ teamId, slot }) => (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.genPlayerStrip}>
       {(rosters[slot] || []).map(p => {
         const on = activeId[teamId] === p.id;
@@ -348,7 +354,7 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
     </ScrollView>
   );
 
-  const ActionButton = ({ action, teamId }) => (
+  const actionButton = ({ action, teamId }) => (
     <TouchableOpacity
       style={s.genActionBtn}
       onPress={() => onAdd(teamId, action, activeId[teamId])}
@@ -367,7 +373,7 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
     </TouchableOpacity>
   );
 
-  const TeamSection = ({ teamId, slot, name }) => {
+  const teamSection = ({ teamId, slot, name }) => {
     const who = nameFor(teamId);
     return (
       <View style={s.genTeamSection}>
@@ -375,10 +381,10 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
           <Text style={s.genSectionTitle}>{name}</Text>
           <Text style={s.genScorerHint}>{who ? `scoring: ${who}` : 'tap a player to attribute'}</Text>
         </View>
-        <PlayerStrip teamId={teamId} slot={slot} />
+        {playerStrip({ teamId, slot })}
         <View style={s.genActionGrid}>
           {cfg.actions.map(action => (
-            <ActionButton key={action.type} action={action} teamId={teamId} />
+            <React.Fragment key={action.type}>{actionButton({ action, teamId })}</React.Fragment>
           ))}
         </View>
       </View>
@@ -424,8 +430,8 @@ function GenericScorer({ match, cfg, events, period, onAdd, onUndo, saving, matc
         </View>
       </View>
 
-      <TeamSection teamId={match?.team1Id} slot="team1" name={match?.team1 || 'Team 1'} />
-      <TeamSection teamId={match?.team2Id} slot="team2" name={match?.team2 || 'Team 2'} />
+      {teamSection({ teamId: match?.team1Id, slot: 'team1', name: match?.team1 || 'Team 1' })}
+      {teamSection({ teamId: match?.team2Id, slot: 'team2', name: match?.team2 || 'Team 2' })}
 
       {/* add-player modal */}
       <Modal visible={!!addFor} transparent animationType="fade" onRequestClose={() => setAddFor(null)}>

@@ -19,6 +19,17 @@ import { haptic } from '../utils/haptics';
 
 
 // ── Shimmer Skeleton ────────────────────────────────────────────────────────
+// Module scope, not inside the skeleton's render body. Declared there it was a
+// new component type every render, so React remounted every bar instead of
+// updating it — which restarts the shimmer, so the one continuous sweep this
+// is meant to be was stuttering back to the start.
+const Bar = ({ w, h, r = 6, mt = 0, shimmer, DS }) => {
+  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
+  return (
+    <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity, marginTop: mt }} />
+  );
+};
+
 function StatSkeleton({ DS }) {
   // Cascading wave of shimmers for the podium + 5 rows (6 total).
   const shimmers = useRef(Array(6).fill(0).map(() => new Animated.Value(0))).current;
@@ -38,12 +49,6 @@ function StatSkeleton({ DS }) {
     Animated.parallel(anims).start();
   }, [shimmers]);
 
-  const Bar = ({ w, h, r = 6, mt = 0, shimmer }) => {
-    const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
-    return (
-      <Animated.View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, opacity, marginTop: mt }} />
-    );
-  };
   // Mirrors what actually resolves: a podium, then compact rows. It used to draw
   // four tall bordered cards with a stat block — the pre-rebuild layout — so the
   // screen visibly jumped shape the moment the data landed. A skeleton is a
@@ -54,23 +59,23 @@ function StatSkeleton({ DS }) {
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingBottom: 14 }}>
         {[{ av: 44, h: 46 }, { av: 54, h: 68 }, { av: 44, h: 34 }].map((p, i) => (
           <View key={i} style={{ flex: i === 1 ? 1.15 : 1, alignItems: 'center', gap: 5 }}>
-            <Bar w={p.av} h={p.av} r={p.av / 2} shimmer={shimmers[0]} />
-            <Bar w="70%" h={10} mt={2} shimmer={shimmers[0]} />
-            <Bar w="45%" h={13} mt={2} shimmer={shimmers[0]} />
-            <Bar w="100%" h={p.h} r={8} mt={3} shimmer={shimmers[0]} />
+            <Bar DS={DS} w={p.av} h={p.av} r={p.av / 2} shimmer={shimmers[0]} />
+            <Bar DS={DS} w="70%" h={10} mt={2} shimmer={shimmers[0]} />
+            <Bar DS={DS} w="45%" h={13} mt={2} shimmer={shimmers[0]} />
+            <Bar DS={DS} w="100%" h={p.h} r={8} mt={3} shimmer={shimmers[0]} />
           </View>
         ))}
       </View>
       {/* Rows below, at the height a real one occupies. */}
       {[0, 1, 2, 3, 4].map((i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 }}>
-          <Bar w={26} h={26} r={13} shimmer={shimmers[i + 1]} />
-          <Bar w={34} h={34} r={17} shimmer={shimmers[i + 1]} />
+          <Bar DS={DS} w={26} h={26} r={13} shimmer={shimmers[i + 1]} />
+          <Bar DS={DS} w={34} h={34} r={17} shimmer={shimmers[i + 1]} />
           <View style={{ flex: 1, gap: 6 }}>
-            <Bar w="52%" h={13} shimmer={shimmers[i + 1]} />
-            <Bar w="34%" h={10} shimmer={shimmers[i + 1]} />
+            <Bar DS={DS} w="52%" h={13} shimmer={shimmers[i + 1]} />
+            <Bar DS={DS} w="34%" h={10} shimmer={shimmers[i + 1]} />
           </View>
-          <Bar w={44} h={18} r={5} shimmer={shimmers[i + 1]} />
+          <Bar DS={DS} w={44} h={18} r={5} shimmer={shimmers[i + 1]} />
         </View>
       ))}
     </View>

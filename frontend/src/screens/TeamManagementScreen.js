@@ -302,7 +302,13 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
   //
   // Nothing sets a team captain today, so C/VC tags will be rare until someone
   // does; the pile falls back to filling with whoever is in the squad.
-  const HoneycombPreview = ({ facepile = [], squadSize = 0 }) => {
+  // A render FUNCTION, not a component. Declared as a component inside this
+  // render body it was a new type on every render, so React remounted its
+  // whole subtree instead of updating it. Hoisting would mean threading the
+  // half-dozen values it closes over through props; calling it inlines the
+  // markup into this render instead, where there is no component identity to
+  // churn and nothing to thread.
+  const honeycombPreview = ({ facepile = [], squadSize = 0 }) => {
     const size = 28;
     if (!facepile.length) return null;
     const rest = Math.max(0, squadSize - facepile.length);
@@ -369,7 +375,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
             {mineTab && <Text style={styles.roleTag}>CAPTAIN</Text>}
           </View>
           <View style={{ flex: 1, alignItems: 'flex-end', justifyContent: 'center' }}>
-             <HoneycombPreview facepile={item.facepile} squadSize={item.squadSize} />
+             {honeycombPreview({ facepile: item.facepile, squadSize: item.squadSize })}
           </View>
         </View>
         <View style={[styles.statsRow, { justifyContent: 'space-between' }]}>

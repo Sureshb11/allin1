@@ -34,6 +34,30 @@ import { listSports, sportMeta } from '../sports';
 import { getGroundConfig, AMENITY_OPTIONS } from '../sports/grounds';
 import { getSelectedSport } from '../utils/selectedSport';
 
+// Module scope, not inside the skeleton's render body. Declared there it was a
+// new component type every render, so React remounted every bar instead of
+// updating it — which restarts the shimmer, so the one continuous sweep this
+// is meant to be was stuttering back to the start.
+const SkeletonCard = ({ shimmer, DS }) => (
+  <View style={{ flex: 1, backgroundColor: DS.surface, borderRadius: 16, overflow: 'hidden', marginBottom: 10, borderWidth: 1, borderColor: DS.faint }}>
+    <Bar DS={DS} w="100%" h={120} r={0} shimmer={shimmer} />
+    <View style={{ padding: 12 }}>
+      <Bar DS={DS} w="80%" h={14} mt={4} shimmer={shimmer} />
+      <Bar DS={DS} w="50%" h={10} mt={10} shimmer={shimmer} />
+      <Bar DS={DS} w="30%" h={10} mt={10} shimmer={shimmer} />
+    </View>
+  </View>
+);
+
+const Bar = ({ w, h, r = 6, mt = 0, shimmer, DS }) => {
+  const translateX = shimmer.interpolate({ inputRange: [0, 1], outputRange: [-100, 400] });
+  return (
+    <View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, marginTop: mt, overflow: 'hidden' }}>
+      <Animated.View style={{ position: 'absolute', top: 0, bottom: 0, width: 100, backgroundColor: 'rgba(255,255,255,0.4)', transform: [{ translateX }] }} />
+    </View>
+  );
+};
+
 function GroundSkeleton({ DS }) {
   const shimmers = useRef([new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)]).current;
   
@@ -47,32 +71,14 @@ function GroundSkeleton({ DS }) {
     Animated.parallel(anims).start();
   }, [shimmers]);
 
-  const Bar = ({ w, h, r = 6, mt = 0, shimmer }) => {
-    const translateX = shimmer.interpolate({ inputRange: [0, 1], outputRange: [-100, 400] });
-    return (
-      <View style={{ width: w, height: h, borderRadius: r, backgroundColor: DS.surfaceHigh, marginTop: mt, overflow: 'hidden' }}>
-        <Animated.View style={{ position: 'absolute', top: 0, bottom: 0, width: 100, backgroundColor: 'rgba(255,255,255,0.4)', transform: [{ translateX }] }} />
-      </View>
-    );
-  };
 
-  const SkeletonCard = ({ shimmer }) => (
-    <View style={{ flex: 1, backgroundColor: DS.surface, borderRadius: 16, overflow: 'hidden', marginBottom: 10, borderWidth: 1, borderColor: DS.faint }}>
-      <Bar w="100%" h={120} r={0} shimmer={shimmer} />
-      <View style={{ padding: 12 }}>
-        <Bar w="80%" h={14} mt={4} shimmer={shimmer} />
-        <Bar w="50%" h={10} mt={10} shimmer={shimmer} />
-        <Bar w="30%" h={10} mt={10} shimmer={shimmer} />
-      </View>
-    </View>
-  );
 
   return (
     <View style={{ paddingHorizontal: 16 }}>
       {[0, 1, 2].map((i) => (
         <View key={i} style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-          <SkeletonCard shimmer={shimmers[i]} />
-          <SkeletonCard shimmer={shimmers[i]} />
+          <SkeletonCard DS={DS} shimmer={shimmers[i]} />
+          <SkeletonCard DS={DS} shimmer={shimmers[i]} />
         </View>
       ))}
     </View>
