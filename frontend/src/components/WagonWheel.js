@@ -152,8 +152,15 @@ function WagonWheel({
         <Circle cx={cx} cy={cy} r={R} fill="none" stroke={C.line} strokeOpacity={0.45} strokeWidth={1.5} />
 
         {/* Zone names, on the ring where the fielders would be. */}
-        {showLabels && zones.map((z) => {
-          const [lx, ly] = pt(cx, cy, R * 0.78, z.mid);
+        {showLabels && zones.map((z, i) => {
+          // Labels alternate between two radii. Seen on a device, the top of the
+          // wheel was unreadable: LONG ON, STRAIGHT and LONG OFF sit in wedges of
+          // 14°, 20° and 17°, and at one fixed radius their text simply overlaps.
+          // Point and Cover Point are worse at 14° and 11°. Staggering neighbours
+          // in and out guarantees two adjacent labels can never share a line,
+          // whatever the arc widths are — which no amount of shortening the words
+          // would have achieved for sixteen of them.
+          const [lx, ly] = pt(cx, cy, R * (i % 2 ? 0.63 : 0.82), z.mid);
           const fs = Math.max(7, size * 0.032);
           return (
             <SvgText
