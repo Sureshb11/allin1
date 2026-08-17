@@ -16,7 +16,7 @@ import { unregisterFromPush } from '../services/push';
 import SportSwitcher from '../components/SportSwitcher';
 
 import { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
-import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
+import { useHideTabBarOnScroll, useTabBarClearance, useDockTranslate } from '../components/AutoHideTabBar';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
 import { canonicalRole } from '../utils/squadOrder';
@@ -58,6 +58,7 @@ export default function ProfileScreen({ navigation }) {
   const styles = useThemedStyles(makeStyles);
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
+  const dockY = useDockTranslate();
   const toggleTheme = () => setMode(isDark ? 'light' : 'dark');
 
   // `label` is not optional in spirit: every control in this dock is icon-only,
@@ -436,7 +437,10 @@ export default function ProfileScreen({ navigation }) {
       </ScrollView>
 
       {/* ── Floating Action Dock ── */}
-      <View style={styles.floatingDockWrap}>
+      <Animated.View
+        pointerEvents="box-none"
+        style={[styles.floatingDockWrap, { bottom: tabClear + 12 },
+                dockY ? { transform: [{ translateY: dockY }] } : null]}>
         <View style={styles.floatingDock}>
           <ActionIcon icon="share-variant" onPress={shareProfile} color={isDark ? DS.textPrimary : DS.textSecondary} label="Share profile" />
           <View style={styles.dockDivider} />
@@ -463,16 +467,25 @@ export default function ProfileScreen({ navigation }) {
             label="Log out of Local Legends"
           />
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
+
+// What the floating dock actually occupies: its own padding (8 top + 8 bottom)
+// around a 48dp control (24dp icon + 12dp padding each side), plus the 12dp it
+// is lifted above the tab bar. Content has to end above THAT, not above a
+// number somebody guessed once — the old paddingBottom was a bare 100 with
+// nothing tying it to the thing it was clearing, so any change to the dock
+// silently either overlapped it or left a gap.
+const DOCK_H = 8 + 48 + 8;
+const DOCK_CLEARANCE = DOCK_H + 12 + 16;   // dock + lift + breathing room
 
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
 
   // Hero / Player Card
-  hero: { backgroundColor: DS.bg, paddingBottom: 24 },
+  hero: { backgroundColor: DS.bg, paddingBottom: 14 },
   coverWrap: { width: '100%', height: 200, position: 'relative' },
   coverPhoto: { width: '100%', height: '100%' },
   coverUploadOverlay: {
@@ -504,12 +517,12 @@ const makeStyles = (DS) => StyleSheet.create({
     borderWidth: 3, borderColor: DS.bg,
   },
   
-  heroInfo: { alignItems: 'center', marginTop: 12, paddingHorizontal: 20 },
+  heroInfo: { alignItems: 'center', marginTop: 10, paddingHorizontal: 20 },
   heroName: { fontSize: 32, fontWeight: '900', color: DS.textPrimary, letterSpacing: -1, textAlign: 'center' },
   heroRole: { fontSize: 13, fontWeight: '800', letterSpacing: 1.5, marginTop: 4, textAlign: 'center' },
   heroPhone: { fontSize: 13, color: DS.textMuted, marginTop: 4, fontWeight: '500', textAlign: 'center' },
   
-  heroPills: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 16 },
+  heroPills: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: DS.surfaceHigh, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
@@ -517,11 +530,11 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   pillText: { fontSize: 12, color: DS.textVariant, fontWeight: '700' },
 
-  body: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 100 },
+  body: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: DOCK_CLEARANCE },
 
   // Bento Sections
-  bentoSection: { marginBottom: 24 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingHorizontal: 4 },
+  bentoSection: { marginBottom: 16 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9, paddingHorizontal: 4 },
   sectionTitle: { fontSize: 13, fontWeight: '800', color: DS.textMuted, letterSpacing: 1, textTransform: 'uppercase' },
   sectionAction: { fontSize: 13, fontWeight: '800' },
   
@@ -575,8 +588,13 @@ const makeStyles = (DS) => StyleSheet.create({
 
 
   // Floating Action Dock
+  // No `bottom` here on purpose — it is applied inline from useTabBarClearance().
+  // A hardcoded 24/32 sat this dock directly ON TOP of the app's tab bar, which
+  // is the overlap. The bar's height is not a constant: it changes with the
+  // device's home indicator and safe-area inset, so the only correct value is
+  // the one the navigator reports at runtime.
   floatingDockWrap: {
-    position: 'absolute', bottom: Platform.OS === 'ios' ? 32 : 24, left: 0, right: 0,
+    position: 'absolute', left: 0, right: 0,
     alignItems: 'center', justifyContent: 'center',
   },
   floatingDock: {
