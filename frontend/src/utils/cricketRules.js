@@ -46,4 +46,22 @@ export const batRuns = (b) => (offTheBat(b) ? (b?.runs || 0) : 0);
 export const isBoundary = (b) => offTheBat(b) && (b?.runs === 4 || b?.runs === 6);
 export const isSix = (b) => offTheBat(b) && b?.runs === 6;
 
-export default { NON_BALL_EXTRAS, isLegalDelivery, isBallFaced, offTheBat, batRuns, isBoundary, isSix };
+/**
+ * Is this wicket credited to the bowler?
+ *
+ * The list is the backend's, and it has to be: the scoring screen shows a
+ * bowler's figures ticking up live, and the scorecard recomputes them from the
+ * server afterwards. Two spellings of this rule meant the live number and the
+ * final number were different — a retired-out credited the bowler while the
+ * match was on and quietly stopped counting once it was over.
+ *
+ * A wicket with no type recorded still counts, matching the backend.
+ */
+const NOT_BOWLERS_WICKET = [
+  'runout', 'retired', 'retiredout', 'retiredhurt',
+  'obstructing', 'obstructingthefield', 'timedout', 'hitballtwice', 'hittheballtwice',
+];
+export const isBowlerWicket = (wicketType) =>
+  !NOT_BOWLERS_WICKET.includes(String(wicketType || '').toLowerCase().replace(/\s/g, ''));
+
+export default { NON_BALL_EXTRAS, isLegalDelivery, isBallFaced, offTheBat, batRuns, isBoundary, isSix, isBowlerWicket };

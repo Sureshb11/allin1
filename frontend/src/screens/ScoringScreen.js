@@ -16,6 +16,7 @@ import MatchAwardsModal from "../components/MatchAwardsModal";
 import BallIntelligenceSheet from "../components/BallIntelligenceSheet";
 import { enqueueShot, loadShotQueue, flushShotQueue, setShotDropHandler } from '../utils/shotQueue';
 import { handOf } from '../sports/cricket/wagonWheel';
+import { isBowlerWicket } from '../utils/cricketRules';
 import PlayerAvatar from "../components/PlayerAvatar";
 import { BRAND_NAME, BRAND_TAGLINE } from "../components/BrandLogo";
 import {
@@ -736,8 +737,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
           if (!ball.extraType || ball.extraType === 'noBall') pts[bat].runs += ball.runs;
         }
         if (ball.isWicket) {
-          const wt = String(ball.wicketType || '').toLowerCase().replace(/\s/g, '');
-          if (wt !== 'runout' && wt !== 'retired' && wt !== 'retiredhurt' && over.bowlerId) {
+          if (isBowlerWicket(ball.wicketType) && over.bowlerId) {
             pts[over.bowlerId] = pts[over.bowlerId] || { name: over.bowler?.name || 'Player', runs: 0, wickets: 0 };
             pts[over.bowlerId].wickets += 1;
           }
@@ -1112,8 +1112,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         batFaced = ro ? ro.ballFaced : (wideOut ? 0 : 1);
         batRuns = ro ? ro.batRuns : 0;
         charged = ro ? ro.chargedToBowler : (wideOut ? 1 : 0);
-        const wt = String(wicketType).toLowerCase().replace(/\s/g, '');
-        tookWkt = (wt === 'runout' || wt === 'retired') ? 0 : 1;   // run-outs aren't credited to the bowler
+        // Shared rule. This was its own two-item list, so the figures a scorer
+        // watched tick up during the match disagreed with the scorecard after
+        // it: retired-out, retired-hurt, obstructing, timed out and hit-ball-
+        // twice all credited the bowler here and none of them do on the server.
+        tookWkt = isBowlerWicket(wicketType) ? 1 : 0;
       }
       // 'penalty' → no batsman/bowler effect
       // Partnership balls = legal deliveries faced by the pair (same rule as the over).
