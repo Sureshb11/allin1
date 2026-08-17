@@ -521,6 +521,18 @@ class LegendsApi {
     }
   }
 
+  // MY shot profile. Separate from getPlayerShots(id) because a user holds a
+  // Player row per team and this spans all of them — the same set /me/stats
+  // uses, so the two halves of My Stats describe the same player.
+  async getMyShots(sport) {
+    try {
+      const json = await this.request('/users/me/shots' + this._sportQs(sport));
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // A batter's whole recorded shot history + the strengths/weaknesses read off
   // it. Separate from getPlayerCareer because this covers only the deliveries
   // somebody chose to capture, which is a much thinner slice than a career.

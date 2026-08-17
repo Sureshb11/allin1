@@ -7,6 +7,7 @@ import { entitlementsFor } from '../lib/entitlements.js';
 import { playerCareer, emptyCareer } from '../lib/playerCareer.js';
 import { canonicalRole } from '../lib/squadOrder.js';
 import { resyncShotZones } from '../lib/ballIntelligence.js';
+import { playerShots } from '../lib/playerShots.js';
 
 const router = Router();
 
@@ -103,6 +104,37 @@ router.get('/me/stats', authMiddleware, async (req, res) => {
   // The computation lives in lib/playerCareer.js so that tapping a player in
   // Rankings shows the same board of numbers, worked out the same way.
   res.json(await playerCareer(player, mine.map((p) => p.id)));
+});
+
+// ── My shots ─────────────────────────────────────────────────────────────────
+// The logged-in user's own wagon wheel and shot profile, for "My Stats".
+//
+// Its own route rather than the client looking up its player id and calling
+// /players/:id/shots, because those are not the same question. A user holds a
+// Player row PER TEAM, and My Stats is the career across all of them — asking
+// by a single id would quietly show one club's shots and call it your profile.
+// This resolves the same set of rows /users/me/stats does, so the two halves of
+// that screen describe the same player.
+router.get('/me/shots', authMiddleware, async (req, res) => {
+  try {
+    const sport = req.query.sport || 'cricket';
+    const user = await prisma.user.findUnique({ where: { id: req.user.sub } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const mine = await prisma.player.findMany({
+      where: { sport, userId: user.id },
+      select: { id: true, battingStyle: true },
+    });
+    // No player in this sport yet is not an error — it is a new account, and the
+    // screen renders its empty state from this.
+    if (!mine.length) return res.json({ shots: [], analytics: null, insights: null, dna: null });
+
+    // Any row will do for the hand: they are the same human.
+    const data = await playerShots(prisma, mine.map((p) => p.id), mine[0]);
+    res.json({ ...data, benchmark: null });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── How I play ───────────────────────────────────────────────────────────────

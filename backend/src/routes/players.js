@@ -5,9 +5,8 @@ import { authMiddleware } from '../lib/auth.js';
 import { isTeamAdmin } from '../lib/teamAuth.js';
 import { playerCareer } from '../lib/playerCareer.js';
 import { canonicalRole } from '../lib/squadOrder.js';
-import { resyncShotZones, zoneFromAngle } from '../lib/ballIntelligence.js';
-import { aggregateShots, strengthsAndWeaknesses, playerDna } from '../lib/shotAnalytics.js';
-import { inningsPhase, bowlingKind } from '../lib/deliveries.js';
+import { resyncShotZones } from '../lib/ballIntelligence.js';
+import { playerShots } from '../lib/playerShots.js';
 import { benchmarkForPlayer } from '../lib/benchmark.js';
 
 // Store the app's spelling of a role, not whoever's.
@@ -330,60 +329,14 @@ router.get('/:id/shots', async (req, res) => {
     });
     if (!player) return res.status(404).json({ error: 'Player not found' });
 
-    const rows = await prisma.ballIntelligence.findMany({
-      where: { ball: { batterId: player.id } },
-      orderBy: { createdAt: 'asc' },
-      select: {
-        shotAngle: true, shotZone: true, shotDistance: true, shotType: true,
-        ball: {
-          select: {
-            runs: true, isWicket: true,
-            // For the pace/spin split. Free text the bowler typed, classified
-            // loosely and left null when it cannot be read.
-            bowler: { select: { bowlingStyle: true } },
-            // For the phase split: which over, and how long the match was —
-            // phases are proportional, so a T10's death overs are not a T20's.
-            over: {
-              select: {
-                overNumber: true,
-                inning: { select: { match: { select: { overs: true } } } },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    // Zone re-derived from the angle and the CURRENT hand, for the same reason
-    // the match endpoint does it: the stored name was fixed at capture time and
-    // this player's batting style may have been corrected since.
-    const hand = /left/i.test(String(player.battingStyle || '')) ? 'left' : 'right';
-    const shots = rows.map((r) => ({
-      angle: r.shotAngle,
-      zone: zoneFromAngle(r.shotAngle, hand),
-      distance: r.shotDistance,
-      shotType: r.shotType,
-      runs: r.ball?.runs ?? 0,
-      isWicket: !!r.ball?.isWicket,
-      // Both may be null, and both are allowed to be: the aggregate counts them
-      // as unclassified rather than guessing, and reports the coverage.
-      phase: inningsPhase(r.ball?.over?.overNumber, r.ball?.over?.inning?.match?.overs),
-      bowlerKind: bowlingKind(r.ball?.bowler?.bowlingStyle),
-    }));
-
-    const analytics = aggregateShots(shots);
+    const data = await playerShots(prisma, [player.id], player);
     res.json({
-      player: { id: player.id, name: player.name, hand },
-      shots,
-      analytics,
-      insights: strengthsAndWeaknesses(analytics),
-      // The whole shape of the batter, assembled from the same aggregate so it
-      // can never disagree with the sections above it.
-      dna: playerDna(shots, player),
+      player: { id: player.id, name: player.name, hand: data.hand },
+      ...data,
       // Null for almost everybody, and that is the expected case: it means no
-      // licensed benchmark has been linked to this player. Guarded inside, so a
-      // profile renders whether or not those tables have even been migrated.
-      benchmark: await benchmarkForPlayer(prisma, player.id, analytics),
+      // licensed benchmark has been linked. Guarded inside, so a profile
+      // renders whether or not those tables have even been migrated.
+      benchmark: await benchmarkForPlayer(prisma, player.id, data.analytics),
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

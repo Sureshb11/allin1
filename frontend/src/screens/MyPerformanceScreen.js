@@ -11,6 +11,7 @@ import { getSport } from '../sports';
 import { getCareerPanels, readStat } from '../sports/careerStats';
 import { pav } from '../theme/pavilion';
 import CareerBoard, { hasCareer } from '../components/CareerBoard';
+import ShotBoard from '../components/ShotBoard';
 import { useCurrentUser } from '../utils/currentUser';
 
 // Shape-matching placeholder: the career line, then the stat table. The spinner
@@ -60,6 +61,7 @@ function StatsSkeleton({ DS }) {
 export default function MyPerformanceScreen({ navigation, inline, onRegisterFab, ballTypeOverride }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
   const meUser = useCurrentUser();
   const [stats, setStats] = useState(null);
+  const [shotData, setShotData] = useState(null);
   const sportId = getSelectedSport().sport?.id || 'cricket';
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -76,10 +78,17 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab,
     }
   }, [navigation, inline]);
 
-  const fetchStats = useCallback(() =>
-    legendsApi.getUserStats(getSelectedSport().sport?.id).then((res) => {
-      if (res.success) setStats(res.data);
-    }), []);
+  const fetchStats = useCallback(() => Promise.all([
+    legendsApi.getUserStats(getSelectedSport().sport?.id),
+    // Kept a SEPARATE fetch from the career, exactly as the tapped-player
+    // profile does: shot data covers only the deliveries somebody chose to
+    // capture, so folding it into career figures would make those change
+    // meaning depending on whether a scorer switched the feature on that day.
+    legendsApi.getMyShots(getSelectedSport().sport?.id),
+  ]).then(([res, sh]) => {
+    if (res.success) setStats(res.data);
+    if (sh.success) setShotData(sh.data);
+  }), []);
 
   useEffect(() => { fetchStats().finally(() => setLoading(false)); }, [fetchStats]);
 
@@ -150,6 +159,28 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab,
               <Text style={styles.emptyCtaText}>Score a live match</Text>
             </TouchableOpacity>
           </View>
+        )}
+
+        {/* Your shot profile — the wagon wheel, scoring areas, phase and
+            pace/spin splits, and what they suggest. Outside the career
+            conditional on purpose: a player can have shots recorded before the
+            career board has anything to show, and this was already on a tapped
+            player's profile while being missing from your own. */}
+        {!loading && !!shotData?.shots?.length && (
+          <ShotBoard
+            shots={shotData.shots}
+            summary={{
+              topZones: shotData.analytics?.byZone?.slice(0, 5) || [],
+              topShots: shotData.analytics?.byShot?.slice(0, 5) || [],
+            }}
+            insights={shotData.insights}
+            dna={shotData.dna}
+            hand={shotData.hand || 'right'}
+            showHand
+            title="SHOT PROFILE"
+            subtitle="Across every tracked innings"
+            style={{ marginTop: 16 }}
+          />
         )}
       </View>
     </ScrollView>);
