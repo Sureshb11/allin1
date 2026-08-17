@@ -634,18 +634,27 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // would put junk in the dataset and taps in the scorer's way. seq 0 only, so
     // a penalty riding along with a delivery doesn't ask a second time.
     const isStroke = !extraType || extraType === 'noBall';
-    if (biEnabled && !biPaused && seq === 0 && isStroke) {
-      const shotCtx = {
-        clientEventId: `${idemRef.current.base}-${seq}`,
-        runs, isWicket,
-        extraType: extraType || null,
-        // Snapshotted, NOT read live at render: after a wicket the sheet waits for
-        // the new-batter pick, by which time `striker` is somebody else entirely.
-        batterName: striker.name,
-        hand: handOf(striker),
-      };
-      setPendingShot(shotCtx);
-      setLastShot(shotCtx);
+    if (biEnabled && seq === 0) {
+      if (!biPaused && isStroke) {
+        const shotCtx = {
+          clientEventId: `${idemRef.current.base}-${seq}`,
+          runs, isWicket,
+          extraType: extraType || null,
+          // Snapshotted, NOT read live at render: after a wicket the sheet waits
+          // for the new-batter pick, by which time `striker` is somebody else.
+          batterName: striker.name,
+          hand: handOf(striker),
+        };
+        setPendingShot(shotCtx);
+        setLastShot(shotCtx);
+      } else {
+        // A wide, a bye, or a ball scored while paused. Clearing here is what
+        // makes `lastShot` mean exactly "the delivery that just happened, if it
+        // could carry a shot" — never an older one. SHOT then can't quietly edit
+        // a ball two deliveries back, and the short-run adjustment below can
+        // trust that lastShot is the ball being shortened.
+        setLastShot(null);
+      }
     }
     // Advance the local ball count only once the delivery is actually stored.
     // Bumping it before the await meant a rejected ball (e.g. the server's 409
@@ -819,6 +828,13 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
       return { ...prev, [facer.id]: { ...c, runs: Math.max(0, c.runs - 1) } };
     });
     setCurrentOver((o) => { const n = [...o]; n[n.length - 1] = String(awarded); return n; });
+    // Keep the shot sheet's headline honest. Reopening SHOT after a short run was
+    // still announcing the original figure — "FOUR" over a delivery the scorer
+    // had just cut to 3. The server already recomputes the stored outcome; this
+    // is the same correction on the copy the sheet reads. Safe because a short
+    // run only applies to a bare '2' or '3' chip, which is always a plain stroke,
+    // and lastShot is now either that exact delivery or null.
+    setLastShot((s) => (s ? { ...s, runs: Math.max(0, s.runs - 1) } : s));
     setLastBallShort(true);
     syncMatchSummary(`${nextRuns}/${currentScore.wickets} (${currentScore.overs}.${currentScore.balls})`);
     showToast(`Short run · ${attempt} → ${awarded}`, 'success');
@@ -3470,6 +3486,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         ball={pendingShot}
         batterName={pendingShot?.batterName}
         hand={pendingShot?.hand || 'right'}
+        initialShot={pendingShot?.captured || null}
         onCapture={(shot) => {
           if (!pendingShot || !matchData?.id) return;
           enqueueShot(matchData.id, {
@@ -3479,6 +3496,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             shotType: shot.shotType,
             connectionType: shot.connectionType,
           });
+          // Remember what was recorded so reopening this delivery via SHOT shows
+          // the existing pick instead of a blank wheel. Matched on clientEventId
+          // so a capture can never write itself onto a different delivery.
+          setLastShot((s) => (s && s.clientEventId === pendingShot.clientEventId
+            ? { ...s, captured: shot } : s));
         }}
         onClose={() => setPendingShot(null)}
       />

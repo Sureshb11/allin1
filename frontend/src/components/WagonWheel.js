@@ -56,6 +56,10 @@ export default function WagonWheel({
   mode = 'display',
   shots = [],
   selectedZone = null,
+  // The pick already committed for this delivery, as { angle, distance }. Drawn
+  // in capture mode so reopening a shot to correct it shows what is currently
+  // recorded — otherwise the scorer is asked to fix something they cannot see.
+  picked = null,
   onPick,
   showLabels = true,
   style,
@@ -115,6 +119,9 @@ export default function WagonWheel({
   } : {};
 
   const activeZone = live?.zone || selectedZone;
+  // The finger wins over the committed pick — while dragging, the scorer is
+  // being shown where they are now, not where they were.
+  const committed = !live && picked?.angle != null ? picked : null;
 
   return (
     <View style={[{ width: size, height: size }, style]} {...touch}>
@@ -182,6 +189,24 @@ export default function WagonWheel({
             </G>
           );
         })}
+
+        {/* What is already recorded for this delivery, in capture mode. Hollow
+            rather than solid so it reads as "this is what you have" and not as a
+            live touch — the finger's marker is filled. */}
+        {committed && (
+          <G>
+            {(() => {
+              const [x, y] = pt(cx, cy, R * ((committed.distance ?? 85) / 100), committed.angle);
+              return (
+                <>
+                  <Line x1={cx} y1={cy} x2={x} y2={y} stroke={C.accent} strokeWidth={2}
+                        strokeOpacity={0.6} strokeDasharray="4 3" strokeLinecap="round" />
+                  <Circle cx={x} cy={y} r={5.5} fill="none" stroke={C.accent} strokeWidth={2} />
+                </>
+              );
+            })()}
+          </G>
+        )}
 
         {/* Where the finger is now, in capture mode. */}
         {live && (

@@ -41,6 +41,9 @@ export default function BallIntelligenceSheet({
   ball,            // { runs, isWicket, extraType } — the delivery just scored
   batterName,
   hand = 'right',
+  // What is already recorded for THIS delivery, when reopened to be corrected.
+  // Absent for a delivery being asked about for the first time.
+  initialShot = null,
   onCapture,       // ({ angle, distance, zone, shotType, connectionType }) => void
   onClose,
 }) {
@@ -48,10 +51,14 @@ export default function BallIntelligenceSheet({
   const s = useMemo(() => makeStyles(c), [c]);
   const [picked, setPicked] = useState(null);   // the zone tap, once made
 
-  // A fresh delivery is a fresh question. Without this the sheet would reopen
-  // still showing the previous ball's answer, and a scorer tapping "Done" out of
-  // habit would file the last ball's shot against this one.
-  useEffect(() => { if (visible) setPicked(null); }, [visible, ball?.clientEventId]);
+  // A fresh delivery is a fresh question, so this resets — otherwise the sheet
+  // would reopen still showing the previous ball's answer and a scorer tapping
+  // "Done" out of habit would file the last ball's shot against this one.
+  //
+  // Reopening the SAME delivery to correct it is the opposite case: it restores
+  // what was recorded, so the scorer can see what they are changing instead of
+  // being handed a blank wheel and asked to remember.
+  useEffect(() => { if (visible) setPicked(initialShot || null); }, [visible, ball?.clientEventId]);
 
   const isDot = !ball?.isWicket && !ball?.runs;
   // After a dot the full twenty-shot list is noise — a dot is nearly always one
@@ -108,6 +115,7 @@ export default function BallIntelligenceSheet({
               hand={hand}
               mode="capture"
               selectedZone={picked?.zone || null}
+              picked={picked}
               onPick={pickZone}
             />
           </View>
