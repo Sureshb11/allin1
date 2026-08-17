@@ -284,6 +284,35 @@ router.post('/', authMiddleware, async (req, res) => {
 
 // ── Cricket ball-by-ball scoring ────────────────────────────
 
+
+/**
+ * Does this inning actually belong to this match?
+ *
+ * assertScorer proves the caller may score MATCH :id. It says nothing about the
+ * inningId they then send in the body, and every scoring endpoint used that id
+ * directly: to append a ball, to delete the last one, to dock a short run. So
+ * the scorer of one match could write into — or delete from — another match's
+ * innings, and the authorisation check would have passed, because it was asked
+ * a different question.
+ *
+ * Not reachable from the app, which always sends the right id. That is not a
+ * reason to leave it: the app is not the only thing that can call this, and a
+ * stale client holding an id from a previous match is an accident rather than
+ * an attack.
+ */
+async function assertInningInMatch(res, inningId, matchId) {
+  if (!inningId) { res.status(400).json({ error: 'inningId required' }); return false; }
+  const inning = await prisma.inning.findUnique({
+    where: { id: String(inningId) }, select: { matchId: true },
+  });
+  if (!inning) { res.status(404).json({ error: 'Innings not found' }); return false; }
+  if (inning.matchId !== matchId) {
+    res.status(403).json({ error: 'That innings belongs to another match', code: 'INNING_MISMATCH' });
+    return false;
+  }
+  return true;
+}
+
 const ScoreUpdateSchema = z.object({
   inningId: z.string(),
   overNumber: z.number().int(),
@@ -291,11 +320,24 @@ const ScoreUpdateSchema = z.object({
   bowlerId: z.string(),
   batterId: z.string(),
   nonStrikerId: z.string(),
-  runs: z.number().int().default(0),
-  extras: z.number().int().default(0),
-  extraType: z.string().optional().nullable(),
+  // BOUNDED. These were bare ints, and the route applies them as
+  // `increment: data.runs + data.extras` — so a negative value SUBTRACTED from
+  // the innings total, and nothing stopped a 9999. The client's own maximum is
+  // 7 off a ball (the "other runs" prompt); 12 leaves room for a boundary plus
+  // overthrows without leaving room for nonsense.
+  runs: z.number().int().min(0).max(12).default(0),
+  extras: z.number().int().min(0).max(12).default(0),
+  // An enum, not a free string. 'banana' used to be accepted, stored, and then
+  // read back as a LEGAL delivery (it is not in NON_BALL_EXTRAS) whose runs
+  // belong to nobody (it is not offTheBat) — a ball that silently counted
+  // against the over and paid no one. These seven are exactly what the scoring
+  // screen and the run-out engine send.
+  extraType: z.enum(['wide', 'noBall', 'bye', 'legBye', 'penalty', 'retired', 'deadBall']).optional().nullable(),
   isWicket: z.boolean().default(false),
-  wicketType: z.string().optional().nullable(),
+  // Left as free text on purpose — wicketType has historical spellings in the
+  // database and isBowlerWicket is deliberately tolerant of them. Bounded in
+  // length only, so it cannot be used to write an essay into the row.
+  wicketType: z.string().max(30).optional().nullable(),
   dismissedPlayerId: z.string().optional().nullable(),
   wicketAssists: z.string().optional().nullable(),   // catcher / keeper / run-out fielder name
   // Run outs only. Absent means "not recorded", which is what every ball before
@@ -312,6 +354,7 @@ router.put('/:id/score', authMiddleware, async (req, res) => {
   try {
     if (!(await assertScorer(req, res, req.params.id))) return;
     const data = ScoreUpdateSchema.parse(req.body);
+    if (!(await assertInningInMatch(res, data.inningId, req.params.id))) return;
 
     // Idempotency: if this exact delivery was already recorded (e.g. a retry
     // after a flaky offline flush), return it without re-incrementing tallies.
@@ -439,7 +482,7 @@ router.delete('/:id/score/last', authMiddleware, async (req, res) => {
   try {
     if (!(await assertScorer(req, res, req.params.id))) return;
     const { inningId } = req.query;
-    if (!inningId) return res.status(400).json({ error: 'inningId required' });
+    if (!(await assertInningInMatch(res, inningId, req.params.id))) return;
 
     const result = await prisma.$transaction(async (tx) => {
       // Most recent over in the inning, then its highest-numbered ball.
@@ -506,7 +549,7 @@ router.put('/:id/score/last/short', authMiddleware, async (req, res) => {
   try {
     if (!(await assertScorer(req, res, req.params.id))) return;
     const { inningId } = req.body || {};
-    if (!inningId) return res.status(400).json({ error: 'inningId required' });
+    if (!(await assertInningInMatch(res, inningId, req.params.id))) return;
 
     const result = await prisma.$transaction(async (tx) => {
       const lastOver = await tx.over.findFirst({

@@ -738,12 +738,14 @@ const makeStyles = (DS) => StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: DS.blueDeep,
     backgroundColor: DS.lime,
+    // alignItems was missing. justifyContent alone centres the icon vertically
+    // and leaves it stretched to the left of a 56pt circle — the dead
+    // `backgroundColor: DS.blueDeep` line above it was hiding the gap in review.
+    alignItems: 'center',
     justifyContent: 'center',
     elevation: 8,
     zIndex: 999,
-    shadowColor: DS.blueDeep,
     shadowColor: DS.lime,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -753,7 +755,6 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   createBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: DS.blueDeep, borderRadius: 10,
     backgroundColor: DS.lime, borderRadius: 10,
   },
   createBtnText: { fontSize: 12, fontWeight: '900', color: DS.white, letterSpacing: 0.5 },
