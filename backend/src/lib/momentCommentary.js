@@ -50,7 +50,19 @@ export const bigMoment = (ball, ctx = {}) => {
   return null;
 };
 
-const client = () => (process.env.GEMINI_API_KEY
+/**
+ * The off switch: set AI_COMMENTARY=off to stop every model call here.
+ *
+ * Separate from GEMINI_API_KEY on purpose. That key is shared with the
+ * historical-stats importer, so "turn off AI commentary" must not mean
+ * "break stat extraction as well" — turning this feature off should cost
+ * nothing else. Default is ON when a key exists, because the whole design is
+ * already a few dozen small calls per match, capped.
+ */
+export const aiCommentaryEnabled = () =>
+  !!process.env.GEMINI_API_KEY && String(process.env.AI_COMMENTARY || '').toLowerCase() !== 'off';
+
+const client = () => (aiCommentaryEnabled()
   ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
   : null);
 
@@ -120,24 +132,42 @@ ${brief}`,
  */
 export const maybeStoreAiLine = async (prisma, { ball, shot, matchId, facts, fallback }) => {
   try {
-    if (!process.env.GEMINI_API_KEY) return null;
+    // Checked before ANY database work, so a switched-off feature costs not one
+    // query either.
+    if (!aiCommentaryEnabled()) return null;
     const reason = bigMoment(ball, facts);
     if (!reason) return null;
 
-    // Already answered — a corrected shot must not buy a second call for the
-    // same delivery.
-    if (shot?.aiCommentary) return null;
+    // Already attempted — note `!= null`, not truthiness. An empty string is the
+    // marker for "asked, got nothing usable", and it has to block a retry just
+    // as firmly as a successful line does. A scorer correcting the shot on a
+    // wicket must not buy a fresh call each time they change their mind.
+    if (shot?.aiCommentary != null) return null;
 
+    // Counts ATTEMPTS, not successes, because failures cost too.
+    //
+    // This originally counted only stored lines, which meant the cap did nothing
+    // in the one situation it exists for: if the key is wrong or the quota is
+    // gone, every call fails, nothing is stored, the count stays at zero, and
+    // every qualifying ball for the rest of the match tries again. The cap was
+    // real for the happy path and absent for the failing one — precisely
+    // backwards.
     const used = await prisma.ballIntelligence.count({
       where: { aiCommentary: { not: null }, ball: { over: { inning: { matchId } } } },
     });
     if (used >= MAX_AI_LINES_PER_MATCH) return null;
 
     const line = await aiMomentLine(reason, facts, fallback);
-    if (!line) return null;
 
-    await prisma.ballIntelligence.update({ where: { ballId: ball.id }, data: { aiCommentary: line } });
-    return line;
+    // Empty string on failure: it marks the delivery as asked-and-answered so it
+    // is never retried, and it counts toward the cap. Reads use `||`, so an
+    // empty string falls through to the template exactly like a null would —
+    // the spectator sees no difference.
+    await prisma.ballIntelligence.update({
+      where: { ballId: ball.id },
+      data: { aiCommentary: line || '' },
+    });
+    return line || null;
   } catch {
     // Commentary is decoration on a delivery that is already saved and counted.
     return null;
