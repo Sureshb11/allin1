@@ -26,6 +26,7 @@ import { WebView } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import legendsApi from '../services/LegendsApi';
+import ShotBoard from '../components/ShotBoard';
 
 const NON_BALL_EXTRAS = ['wide', 'noBall', 'penalty', 'retired', 'deadBall'];
 const isLegal = (b) => !NON_BALL_EXTRAS.includes(b?.extraType);
@@ -54,6 +55,11 @@ const TABS = [
   { key: 'players',    label: 'Players',    icon: 'account-group-outline' },
   { key: 'info',       label: 'Info',       icon: 'information-outline' },
 ];
+
+// Shots is conditional — it only exists for matches where somebody actually
+// captured them. A permanently empty tab on every other match would teach
+// spectators to ignore the row.
+const SHOTS_TAB = { key: 'shots', label: 'Shots', icon: 'chart-scatter-plot' };
 
 /* ── Derivations ─────────────────────────────────────────────────────────────
    The headline score is NOT computed here. It comes from /live-summary, which
@@ -154,6 +160,7 @@ export default function LiveMatchScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState('scorecard');
+  const [intel, setIntel] = useState(null);   // { enabled, shots, summary, latest }
   const width = Dimensions.get('window').width;
   const pollRef = useRef(null);
 
@@ -179,6 +186,24 @@ export default function LiveMatchScreen({ route, navigation }) {
   }, [matchId]);
 
   useEffect(() => { loadLive(); }, [loadLive]);
+
+  /** Shot data. Fetched once to learn whether this match has any, then polled
+      only if it does — most matches never will, and a spectator should not pay
+      a request every six seconds for a feature nobody switched on. */
+  const loadIntel = useCallback(async () => {
+    if (!matchId) return;
+    const r = await legendsApi.getMatchIntelligence(matchId);
+    if (r.success) setIntel(r);
+  }, [matchId]);
+
+  useEffect(() => { loadIntel(); }, [loadIntel]);
+
+  useEffect(() => {
+    const live = summary?.status === 'live' || summary?.status === 'break';
+    if (!live || !intel?.enabled) return undefined;
+    const t = setInterval(loadIntel, 6000);
+    return () => clearInterval(t);
+  }, [summary?.status, intel?.enabled, loadIntel]);
 
   // Fetch the scorecard the first time a tab actually needs it, then keep it —
   // the tabs are cheap to switch between once it is in hand.
@@ -372,7 +397,7 @@ export default function LiveMatchScreen({ route, navigation }) {
 
         {/* ── Tabs ─────────────────────────────────────────────────────── */}
         <View style={styles.tabBar}>
-          {TABS.map((t) => {
+          {(intel?.enabled ? [...TABS, SHOTS_TAB] : TABS).map((t) => {
             const on = tab === t.key;
             return (
               <TouchableOpacity
@@ -391,14 +416,57 @@ export default function LiveMatchScreen({ route, navigation }) {
         {/* The tabs run off the full scorecard, which is fetched on demand —
             so they get a spinner on first open rather than blocking the video
             and the score behind a payload they don't need. */}
-        {tab !== 'info' && !detail && (
+        {/* 'shots' is excluded alongside 'info': it runs off its own small
+            payload, not the full scorecard, so waiting on that one would spin
+            for a tab whose data is already in hand. */}
+        {tab !== 'info' && tab !== 'shots' && !detail && (
           <ActivityIndicator style={styles.tabLoading} color={DS.lime} />
         )}
         {tab === 'scorecard'  && !!detail && <ScorecardTab  detail={detail} live={L} match={match} styles={styles} navigation={navigation} />}
         {tab === 'commentary' && !!detail && <CommentaryTab detail={detail} styles={styles} />}
         {tab === 'players'    && !!detail && <PlayersTab    match={match} styles={styles} />}
         {tab === 'info'       && <InfoTab summary={summary} match={match} broadcast={broadcast} styles={styles} />}
+        {tab === 'shots'      && <ShotsTab intel={intel} styles={styles} DS={DS} />}
       </ScrollView>
+    </View>
+  );
+}
+
+/* ── Shots ───────────────────────────────────────────────────────────────────
+   What the spectator gets that the scorer had to type: the last stroke, in
+   words, and the wheel it landed on. They interact with none of it — the
+   scorer answered the question, this is the processed result. */
+function ShotsTab({ intel, styles, DS }) {
+  const shots = intel?.shots || [];
+  const last = intel?.latest;
+  // Every batter in a match, so the wheel is drawn for whoever is at the crease
+  // rather than assuming the striker's hand applies to the whole innings.
+  const hand = last?.batterHand || 'right';
+
+  return (
+    <View style={styles.shotsWrap}>
+      {/* The live shot — the reason a spectator opens this tab mid-over. */}
+      {!!last && (
+        <View style={styles.liveShot}>
+          <View style={styles.liveShotHead}>
+            <Text style={styles.liveShotOutcome}>{(last.outcome || '').toUpperCase()}</Text>
+            {!!last.shotType && <Text style={styles.liveShotType}>{last.shotType.replace(/([A-Z])/g, ' $1').trim()}</Text>}
+          </View>
+          <Text style={styles.liveShotBatter}>{last.batter}</Text>
+          {/* The commentary line is generated server-side from the same delivery,
+              so it can never describe a ball differently from the scorecard. */}
+          {!!last.commentary && <Text style={styles.liveShotLine}>{last.commentary}</Text>}
+        </View>
+      )}
+
+      <ShotBoard
+        shots={shots}
+        summary={intel?.summary}
+        hand={hand}
+        title="WAGON WHEEL"
+        subtitle={shots.length ? 'Every recorded stroke this match' : null}
+        style={{ marginTop: 12 }}
+      />
     </View>
   );
 }
@@ -599,6 +667,18 @@ const makeStyles = (DS) => StyleSheet.create({
   paneTitle: { fontSize: 14, fontWeight: '800', color: DS.textPrimary, marginBottom: 8 },
   paneEmpty: { fontSize: 13, color: DS.textMuted, paddingHorizontal: 16, paddingTop: 24, textAlign: 'center' },
   tabLoading: { marginTop: 28 },
+
+  /* Shots tab */
+  shotsWrap: { paddingHorizontal: 14, paddingTop: 14 },
+  liveShot: {
+    backgroundColor: DS.surface, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: DS.surfaceHighest, borderLeftWidth: 3, borderLeftColor: DS.lime,
+  },
+  liveShotHead: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  liveShotOutcome: { color: DS.lime, fontSize: 22, fontWeight: '900', letterSpacing: 1 },
+  liveShotType: { color: DS.textPrimary, fontSize: 13, fontWeight: '700', textTransform: 'capitalize' },
+  liveShotBatter: { color: DS.textMuted, fontSize: 12, fontWeight: '700', marginTop: 3, letterSpacing: 0.4 },
+  liveShotLine: { color: DS.textPrimary, fontSize: 13, lineHeight: 19, marginTop: 9 },
 
   tableHead: { flexDirection: 'row', paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: DS.faint },
   th: { width: 40, fontSize: 10, fontWeight: '800', color: DS.textMuted, textAlign: 'right', letterSpacing: 0.5 },

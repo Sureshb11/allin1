@@ -5,7 +5,8 @@ import { authMiddleware } from '../lib/auth.js';
 import { isTeamAdmin } from '../lib/teamAuth.js';
 import { playerCareer } from '../lib/playerCareer.js';
 import { canonicalRole } from '../lib/squadOrder.js';
-import { resyncShotZones } from '../lib/ballIntelligence.js';
+import { resyncShotZones, zoneFromAngle } from '../lib/ballIntelligence.js';
+import { aggregateShots, strengthsAndWeaknesses } from '../lib/shotAnalytics.js';
 
 // Store the app's spelling of a role, not whoever's.
 //
@@ -306,6 +307,55 @@ router.get('/:id/career', async (req, res) => {
       // The header this feeds draws a face and a name, which the career itself
       // knows nothing about.
       player: { id: player.id, name: player.name, role: player.role, avatarUrl: player.user?.avatarUrl || null },
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Shot analytics: everything this batter has been recorded playing ─────────
+//
+// Separate from /career on purpose. Career figures exist for every player from
+// the first ball ever scored; this exists only for the deliveries somebody chose
+// to capture, which will be a small and uneven slice for a long time. Folding
+// them together would make a career page silently change meaning depending on
+// whether a scorer happened to switch the feature on.
+router.get('/:id/shots', async (req, res) => {
+  try {
+    const player = await prisma.player.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, name: true, battingStyle: true },
+    });
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+
+    const rows = await prisma.ballIntelligence.findMany({
+      where: { ball: { batterId: player.id } },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        shotAngle: true, shotZone: true, shotDistance: true, shotType: true,
+        ball: { select: { runs: true, isWicket: true } },
+      },
+    });
+
+    // Zone re-derived from the angle and the CURRENT hand, for the same reason
+    // the match endpoint does it: the stored name was fixed at capture time and
+    // this player's batting style may have been corrected since.
+    const hand = /left/i.test(String(player.battingStyle || '')) ? 'left' : 'right';
+    const shots = rows.map((r) => ({
+      angle: r.shotAngle,
+      zone: zoneFromAngle(r.shotAngle, hand),
+      distance: r.shotDistance,
+      shotType: r.shotType,
+      runs: r.ball?.runs ?? 0,
+      isWicket: !!r.ball?.isWicket,
+    }));
+
+    const analytics = aggregateShots(shots);
+    res.json({
+      player: { id: player.id, name: player.name, hand },
+      shots,
+      analytics,
+      insights: strengthsAndWeaknesses(analytics),
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

@@ -512,9 +512,24 @@ class LegendsApi {
       if (inningId) q.set('inningId', inningId);
       const qs = q.toString();
       const json = await this.request(`/matches/${matchId}/intelligence${qs ? `?${qs}` : ''}`);
-      return { success: true, enabled: json.enabled, shots: json.shots || [] };
+      return {
+        success: true, enabled: json.enabled, shots: json.shots || [],
+        summary: json.summary || null, latest: json.latest || null,
+      };
     } catch (error) {
       return { success: false, error: error.message, shots: [] };
+    }
+  }
+
+  // A batter's whole recorded shot history + the strengths/weaknesses read off
+  // it. Separate from getPlayerCareer because this covers only the deliveries
+  // somebody chose to capture, which is a much thinner slice than a career.
+  async getPlayerShots(playerId) {
+    try {
+      const json = await this.request(`/players/${playerId}/shots`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
   }
 

@@ -5,6 +5,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import CareerBoard, { hasCareer } from '../components/CareerBoard';
+import ShotBoard from '../components/ShotBoard';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 // A player's career, opened from Rankings.
@@ -86,6 +87,7 @@ export default function PlayerInsightsScreen({ route, navigation }) {
 
   const [career, setCareer] = useState(null);
   const [insights, setInsights] = useState({});
+  const [shotData, setShotData] = useState(null);   // { shots, analytics, insights, player }
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -99,9 +101,16 @@ export default function PlayerInsightsScreen({ route, navigation }) {
   const load = useCallback(() => Promise.all([
     legendsApi.getPlayerCareer(playerId),
     legendsApi.getPlayerInsights(playerId),
-  ]).then(([c, ins]) => {
+    // Kept a SEPARATE fetch from the career on purpose: shot data covers only
+    // the deliveries somebody chose to capture, which for a long time will be a
+    // thin and uneven slice. Folding it into the career board would make those
+    // numbers quietly mean something different depending on whether a scorer
+    // happened to switch the feature on that day.
+    legendsApi.getPlayerShots(playerId),
+  ]).then(([c, ins, sh]) => {
     if (c.success) setCareer(c.data);
     if (ins.success) setInsights(ins.data);
+    if (sh.success) setShotData(sh.data);
   }), [playerId]);
 
   useEffect(() => { load().finally(() => setLoading(false)); }, [load]);
@@ -169,6 +178,26 @@ export default function PlayerInsightsScreen({ route, navigation }) {
               <Text style={styles.emptyTitle}>No career numbers yet</Text>
               <Text style={styles.emptySub}>{name} hasn't played a scored match on Local Legends.</Text>
             </View>
+          )}
+
+          {/* Where this batter actually scores. Rendered only when there is shot
+              data at all — the feature is optional, so an empty wagon wheel on
+              every player who has never been tracked would be noise, not a gap
+              they need telling about. */}
+          {!loading && !!shotData?.shots?.length && (
+            <ShotBoard
+              shots={shotData.shots}
+              summary={{
+                topZones: shotData.analytics?.byZone?.slice(0, 5) || [],
+                topShots: shotData.analytics?.byShot?.slice(0, 5) || [],
+              }}
+              insights={shotData.insights}
+              hand={shotData.player?.hand || 'right'}
+              showHand   // one player, so naming the hand is the fact that makes the wheel readable
+              title="SHOT PROFILE"
+              subtitle="Across every tracked innings"
+              style={{ marginTop: 16 }}
+            />
           )}
 
           {/* The scouting read — what the board above adds up to. Its thresholds

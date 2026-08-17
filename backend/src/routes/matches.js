@@ -14,6 +14,7 @@ import { liveSummary } from '../lib/liveSummary.js';
 import { canonicalVenue } from '../lib/venue.js';
 import { normaliseShot, shotOutcome, zoneFromAngle } from '../lib/ballIntelligence.js';
 import { commentaryFor } from '../lib/shotCommentary.js';
+import { matchShotSummary } from '../lib/shotAnalytics.js';
 
 const router = Router();
 
@@ -652,9 +653,11 @@ router.get('/:id/intelligence', async (req, res) => {
         ball: {
           select: {
             id: true, runs: true, extras: true, extraType: true, isWicket: true, ballNumber: true,
+            // The rest are for the commentary line below, not for the wheel.
+            wicketType: true, wicketAssists: true, droppedBy: true, dropDifficulty: true,
             batter: { select: { id: true, name: true, battingStyle: true } },
             bowler: { select: { id: true, name: true } },
-            over:   { select: { overNumber: true, inningId: true } },
+            over:   { select: { overNumber: true, inningId: true, bowler: { select: { name: true } } } },
           },
         },
       },
@@ -690,9 +693,29 @@ router.get('/:id/intelligence', async (req, res) => {
       batterHand: handOf(r.ball?.batter),
       bowlerId: r.ball?.bowler?.id ?? null,
       bowler: r.ball?.bowler?.name ?? null,
+      // Generated on read rather than stored. It costs a string template, it is
+      // always consistent with the delivery as it stands NOW (a shot corrected
+      // or a short run applied since capture changes the line), and it needs no
+      // column and no migration to carry it to a spectator.
+      commentary: commentaryFor(r.ball, r, {
+        batter:  r.ball?.batter?.name,
+        bowler:  r.ball?.bowler?.name || r.ball?.over?.bowler?.name,
+        fielder: r.ball?.wicketAssists,
+      }),
     }));
 
-    res.json({ enabled: match.ballIntelligenceEnabled, count: shots.length, shots });
+    // The summary rides along rather than living at its own URL: every screen
+    // that draws the wheel also wants the totals under it, and splitting them
+    // would mean two round trips on a spectator's phone to render one card.
+    res.json({
+      enabled: match.ballIntelligenceEnabled,
+      count: shots.length,
+      shots,
+      summary: matchShotSummary(shots),
+      // The most recent capture, for the spectator's "live shot" card. Last in
+      // the list because the query is ordered oldest-first for the wheel.
+      latest: shots.length ? shots[shots.length - 1] : null,
+    });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

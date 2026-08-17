@@ -21,6 +21,7 @@ import { haptic } from '../utils/haptics';
 import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
 import HexAvatar from "../components/HexAvatar";
+import ShotBoard from "../components/ShotBoard";
 import LiveBall from "../components/CricketBall/LiveBall";
 import EventSound from "../components/CricketBall/EventSound";
 import { useDockLock, useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
@@ -932,12 +933,20 @@ function summaryStatLine(p) {
 function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [loading, setLoading] = useState(true);
   const [awards, setAwards] = useState(null);
+  const [intel, setIntel] = useState(null);
 
   useEffect(() => {
     let alive = true;
     legendsApi.getMatchAwards(matchId).then((res) => {
       if (alive && res.success) setAwards(res.data?.awards || null);
     }).finally(() => { if (alive) setLoading(false); });
+    // Where the runs went, for matches that recorded it. Its own request rather
+    // than part of the awards call, and its own failure: a match with no shots
+    // must still show its awards, and a shot fetch that fails must not take the
+    // overview down with it.
+    legendsApi.getMatchIntelligence(matchId).then((res) => {
+      if (alive && res.success && res.shots?.length) setIntel(res);
+    }).catch(() => {});
     return () => { alive = false; };
   }, [matchId]);
 
@@ -950,7 +959,29 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
   }, [match]);
 
   if (loading) return <ActivityIndicator color={DS.lime} style={{ marginTop: 40 }} />;
-  if (!awards) return <Text style={styles.emptyTabText}>Awards not available for this match.</Text>;
+
+  // Built once and threaded through EVERY return below, including the two
+  // "no awards" ones. A match can be fully tracked and still have no award data
+  // — awards need a completed match the MVP algorithm could read — and dropping
+  // the wagon wheel out of those branches would hide the whole feature behind
+  // an unrelated failure.
+  const shotSection = intel ? (
+    <ShotBoard
+      shots={intel.shots}
+      summary={intel.summary}
+      title="BALL INTELLIGENCE"
+      subtitle="Where the runs went"
+    />
+  ) : null;
+
+  if (!awards) {
+    return (
+      <View style={{ gap: 12 }}>
+        {shotSection}
+        <Text style={styles.emptyTabText}>Awards not available for this match.</Text>
+      </View>
+    );
+  }
 
   const motm = awards.manOfMatch;
   const fighter = awards.fighter;
@@ -965,7 +996,12 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
   const t2 = match?.team2?.name || 'Team 2';
 
   if (!motm && awardRows.length === 0) {
-    return <Text style={styles.emptyTabText}>No award data for this match.</Text>;
+    return (
+      <View style={{ gap: 12 }}>
+        {shotSection}
+        <Text style={styles.emptyTabText}>No award data for this match.</Text>
+      </View>
+    );
   }
 
   return (
