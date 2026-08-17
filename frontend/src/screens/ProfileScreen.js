@@ -32,22 +32,19 @@ function ProfileSkeleton({ DS }) {
     loop.start();
     return () => loop.stop();
   }, [pulse]);
-  const Bar = (p) => (
-    <Animated.View style={{ backgroundColor: DS.surfaceHigh, opacity: pulse, borderRadius: p.r ?? 6, ...p }} />
-  );
   return (
     <View style={{ flex: 1, backgroundColor: DS.bg }}>
-      <Bar width="100%" height={220} r={0} />
+      <Bar pulse={pulse} DS={DS} width="100%" height={220} r={0} />
       <View style={{ alignItems: 'center', marginTop: -60 }}>
-        <Bar width={120} height={120} r={60} />
+        <Bar pulse={pulse} DS={DS} width={120} height={120} r={60} />
         <View style={{ height: 16 }} />
-        <Bar width={180} height={24} />
+        <Bar pulse={pulse} DS={DS} width={180} height={24} />
         <View style={{ height: 10 }} />
-        <Bar width={100} height={14} />
+        <Bar pulse={pulse} DS={DS} width={100} height={14} />
       </View>
       <View style={{ padding: 20, gap: 16, marginTop: 24 }}>
-        <Bar width="100%" height={160} r={20} />
-        <Bar width="100%" height={80} r={20} />
+        <Bar pulse={pulse} DS={DS} width="100%" height={160} r={20} />
+        <Bar pulse={pulse} DS={DS} width="100%" height={80} r={20} />
       </View>
     </View>
   );
@@ -60,17 +57,6 @@ export default function ProfileScreen({ navigation }) {
   const tabClear = useTabBarClearance();
   const dockY = useDockTranslate();
   const toggleTheme = () => setMode(isDark ? 'light' : 'dark');
-
-  // `label` is not optional in spirit: every control in this dock is icon-only,
-  // so without it a screen reader announces four identical unnamed buttons.
-  const ActionIcon = ({ icon, color, onPress, label }) => (
-    <TouchableOpacity style={styles.actionItem} activeOpacity={0.7} onPress={onPress}
-      accessibilityRole="button" accessibilityLabel={label}>
-      <View style={styles.actionIconWrap}>
-        <Icon name={icon} size={24} color={color || DS.textPrimary} />
-      </View>
-    </TouchableOpacity>
-  );
 
   const [profile, setProfile] = useState({});
   const [player, setPlayer] = useState(null);
@@ -450,13 +436,14 @@ export default function ProfileScreen({ navigation }) {
         style={[styles.floatingDockWrap, { bottom: tabClear + 12 },
                 dockY ? { transform: [{ translateY: dockY }] } : null]}>
         <View style={styles.floatingDock}>
-          <ActionIcon icon="share-variant" onPress={shareProfile} color={isDark ? DS.textPrimary : DS.textSecondary} label="Share profile" />
+          <ActionIcon styles={styles} icon="share-variant" onPress={shareProfile} color={isDark ? DS.textPrimary : DS.textSecondary} label="Share profile" />
           <View style={styles.dockDivider} />
-          <ActionIcon icon="account-edit" onPress={() => navigation.navigate('EditPlayerProfile')} color={isDark ? DS.textPrimary : DS.textSecondary} label="Edit profile" />
+          <ActionIcon styles={styles} icon="account-edit" onPress={() => navigation.navigate('EditPlayerProfile')} color={isDark ? DS.textPrimary : DS.textSecondary} label="Edit profile" />
           <View style={styles.dockDivider} />
           <SportSwitcher navigation={navigation} variant="iconButton" />
           <View style={styles.dockDivider} />
           <ActionIcon
+            styles={styles}
             icon={isDark ? 'white-balance-sunny' : 'weather-night'}
             color={isDark ? '#FDB813' : DS.blue}
             onPress={toggleTheme}
@@ -469,6 +456,7 @@ export default function ProfileScreen({ navigation }) {
               sport and change theme, all of which undo themselves. It is still
               confirm-gated; the colour is so the finger slows down first. */}
           <ActionIcon
+            styles={styles}
             icon="logout"
             color={DS.coral}
             onPress={handleLogout}
@@ -488,6 +476,33 @@ export default function ProfileScreen({ navigation }) {
 // silently either overlapped it or left a gap.
 const DOCK_H = 8 + 48 + 8;
 const DOCK_CLEARANCE = DOCK_H + 12 + 16;   // dock + lift + breathing room
+
+// Defined at module scope, NOT inside the screen.
+//
+// A component declared in a render body is a NEW component type on every
+// render, so React tears the old one down and mounts a fresh one instead of
+// updating it — four times over for this dock, on every profile/teams/upload
+// state change. The cost is small today because these are stateless icons; the
+// reason to fix it anyway is that the moment one gains a press animation or
+// any state, that state starts vanishing at random and the cause is nowhere
+// near the symptom.
+//
+// `label` is not optional in spirit: every control here is icon-only, so
+// without it a screen reader announces identical unnamed buttons.
+// Same reasoning as ActionIcon below — this one animates, so remounting it
+// restarts what is meant to be one continuous shimmer across six bars.
+const Bar = ({ pulse, DS, r, ...p }) => (
+  <Animated.View style={{ backgroundColor: DS.surfaceHigh, opacity: pulse, borderRadius: r ?? 6, ...p }} />
+);
+
+const ActionIcon = ({ icon, color, onPress, label, styles }) => (
+  <TouchableOpacity style={styles.actionItem} activeOpacity={0.7} onPress={onPress}
+    accessibilityRole="button" accessibilityLabel={label}>
+    <View style={styles.actionIconWrap}>
+      <Icon name={icon} size={24} color={color} />
+    </View>
+  </TouchableOpacity>
+);
 
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
