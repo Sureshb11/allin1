@@ -3297,24 +3297,6 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>More Options</Text>
 
-            {/* Other runs — 5 off an overthrow, 7 off a no-ball, and anything
-                else the six-button grid cannot say.
-                It was reachable ONLY by long-pressing a run button, which is a
-                gesture nothing on the screen advertises: a scorer who needed 5
-                had no way to find out it existed. Listed first because it is the
-                only SCORING action here — everything below is personnel. The
-                long-press still works for anyone who knows it. */}
-            <TouchableOpacity
-              style={styles.settingRow}
-              onPress={() => { setMorePrompt(false); openOtherRuns(); }}>
-              <Icon name="numeric-5-box-multiple-outline" size={20} color={DS.lime} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingTextNoFlex}>Other runs</Text>
-                <Text style={styles.settingHint}>5, 7, 8 or more off the bat</Text>
-              </View>
-              <Icon name="chevron-right" size={18} color={DS.textMuted} />
-            </TouchableOpacity>
-
             {/* Change bowler — only while an over is in progress (the next-over flow
                 picks the bowler once 6 legal balls are done). */}
             <TouchableOpacity
