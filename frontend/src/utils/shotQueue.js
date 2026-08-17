@@ -86,13 +86,31 @@ export const flushShotQueue = async () => {
         break;                        // network — keep the row, try again later
       }
       if (res?.success) {
-        mem.shift();
+        // Only drop the row we ACTUALLY sent.
+        //
+        // enqueueShot replaces mem[at] with a NEW object when the same delivery
+        // is recorded again, and that happens constantly: the sheet's whole flow
+        // is "tap the wheel, then tap a shot type", a second or so apart, which
+        // lands squarely inside this await. A blind shift() removed the UPDATED
+        // row after sending the OLD one — so the shot type was silently thrown
+        // away on every capture where the scorer answered both halves, which is
+        // to say on the ones where they did the most work.
+        //
+        // Identity comparison is what makes this work: an untouched row is the
+        // same object, a corrected one is not. If it changed, leave it in place
+        // and let the loop send the newer version on the next turn.
+        if (mem[0] === row) mem.shift();
         persist();
         continue;
       }
       // The delivery no longer exists (undone by the scorer) or the payload is
       // one the server will never accept. Retrying forever would block every
       // shot behind it, so drop it — the ball it described is gone anyway.
+      //
+      // No identity check here, deliberately, unlike the success case above: a
+      // 404 means the ball is gone, a 403 means this device is not the scorer,
+      // and correcting the shot changes neither. Re-sending an edited version
+      // would just fail again and keep the queue spinning.
       if (res?.code === 'BALL_GONE' || res?.permanent) {
         mem.shift();
         persist();
