@@ -219,6 +219,11 @@ model Match {
   ballType       String?
   scorerId       String?
   createdBy      String?
+  // Is the scorer capturing where each ball went? Chosen at the toss, per match,
+  // and false unless someone opted in — scoring a game must never get slower
+  // because a feature exists. Deliberately NOT a global setting: the same scorer
+  // will want it for a club final and not for a Sunday friendly.
+  ballIntelligenceEnabled Boolean @default(false)
   innings        Inning[]
   team1          Team          @relation("team1", fields: [team1Id], references: [id])
   team2          Team          @relation("team2", fields: [team2Id], references: [id])
@@ -340,11 +345,57 @@ model Ball {
   bowler            Player?  @relation("ballBowler", fields: [bowlerId], references: [id])
   nonStriker        Player   @relation("nonStriker", fields: [nonStrikerId], references: [id])
   over              Over     @relation(fields: [overId], references: [id])
+  intelligence      BallIntelligence?
 
   @@index([overId])
   @@index([batterId])
   @@index([bowlerId])
   @@index([dismissedPlayerId])
+}
+
+/// Where the ball went, and how it was hit.
+///
+/// A SEPARATE table on purpose, not columns on Ball. Ball is the hot path — every
+/// live-state rebuild, scorecard and career aggregation reads it, several with
+/// explicit `select`s — and this is optional analytics that most matches will
+/// never record. Keeping it out of the row means an untracked match pays nothing
+/// for the feature existing, and a shot can be corrected or deleted without ever
+/// touching the delivery that scored the runs.
+///
+/// One row per delivery (`ballId` unique). Cascade on delete so undoing a ball
+/// takes its shot with it and cannot leave an orphan pointing at nothing.
+model BallIntelligence {
+  id     String @id @default(cuid())
+  ballId String @unique
+
+  /// Absolute direction the ball travelled: 0° straight down the ground past the
+  /// bowler, increasing clockwise from above. NOT relative to the batter's off
+  /// side — see backend/src/lib/ballIntelligence.js for why, and for the arcs.
+  shotAngle    Float
+  /// Derived from shotAngle by the server, never trusted from the client, so the
+  /// angle and the name can never disagree with each other in the dataset.
+  shotZone     String
+  /// Percent of the way to the boundary. Null = the scorer gave a direction only.
+  shotDistance Int?
+
+  shotType       String?
+  /// Derived from the delivery's own runs/wicket, so it cannot contradict the score.
+  shotOutcome    String?
+  connectionType String?
+
+  /// How this was captured — SCORER today; AI/VIDEO/IMPORTED/INFERRED later.
+  /// Recorded from the first row so a future model's output is separable from a
+  /// human's without a backfill that has to guess which was which.
+  source     String   @default("SCORER")
+  confidence Float    @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ball Ball @relation(fields: [ballId], references: [id], onDelete: Cascade)
+
+  @@index([shotZone])
+  @@index([shotType])
 }
 
 model News {

@@ -64,7 +64,16 @@ class LegendsApi {
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
           const err = json?.error || `HTTP ${res.status}`;
-          throw new Error(err);
+          const e = new Error(err);
+          // The message alone can't tell a caller whether retrying is worth it.
+          // The status and the server's own error `code` ride along so a caller
+          // that cares can distinguish "no signal, try later" from "this will
+          // never succeed" — the shot queue needs exactly that to avoid retrying
+          // a shot for a delivery the scorer has already undone, forever.
+          // Additive: every existing caller reads .message and is unaffected.
+          e.status = res.status;
+          if (json?.code) e.code = json.code;
+          throw e;
         }
         return json;
       } catch (err) {
@@ -466,6 +475,46 @@ class LegendsApi {
       return { success: true, data: json.ball || scoreData };
     } catch (error) {
       return { success: false, error: error.message };
+    }
+  }
+
+  // ── Ball Intelligence ──────────────────────────────────────────────────────
+  // Where a delivery went. Sent AFTER the ball is stored and deliberately not
+  // part of updateScore: shot capture is analytics over the scoring engine and
+  // must never be able to fail a delivery. Callers go through utils/shotQueue,
+  // which retries — this method just reports what happened and never throws.
+  //
+  // `code` is passed back out because the queue needs to tell "no signal, keep
+  // it" apart from "that ball was undone, drop it" (BALL_GONE).
+  async recordShot(matchId, shot) {
+    try {
+      const json = await this.request(`/matches/${matchId}/intelligence`, { method: 'POST', body: shot });
+      return { success: true, data: json.intelligence, commentary: json.commentary };
+    } catch (error) {
+      // 400/403/404 will never become a 200 on a later try: a malformed shot, a
+      // scorer who no longer holds the match, or a delivery that is gone. Anything
+      // else (timeout, 5xx, no signal) is worth keeping in the queue.
+      return {
+        success: false,
+        error: error.message,
+        code: error.code,
+        permanent: [400, 403, 404].includes(error.status),
+      };
+    }
+  }
+
+  // Every shot stored for a match — the wagon wheel, the spectator's live shot
+  // and the match summary all read this. Public: a spectator is not a scorer.
+  async getMatchIntelligence(matchId, { playerId, inningId } = {}) {
+    try {
+      const q = new URLSearchParams();
+      if (playerId) q.set('playerId', playerId);
+      if (inningId) q.set('inningId', inningId);
+      const qs = q.toString();
+      const json = await this.request(`/matches/${matchId}/intelligence${qs ? `?${qs}` : ''}`);
+      return { success: true, enabled: json.enabled, shots: json.shots || [] };
+    } catch (error) {
+      return { success: false, error: error.message, shots: [] };
     }
   }
 

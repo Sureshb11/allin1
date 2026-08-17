@@ -13,6 +13,9 @@ import { showToast } from '../components/Toast';
 import InningsBreakScreen from '../components/InningsBreakScreen';
 import MatchPhotos from '../components/MatchPhotos';
 import MatchAwardsModal from "../components/MatchAwardsModal";
+import BallIntelligenceSheet from "../components/BallIntelligenceSheet";
+import { enqueueShot, loadShotQueue, flushShotQueue } from '../utils/shotQueue';
+import { handOf } from '../sports/cricket/wagonWheel';
 import PlayerAvatar from "../components/PlayerAvatar";
 import { BRAND_NAME, BRAND_TAGLINE } from "../components/BrandLogo";
 import {
@@ -242,6 +245,23 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
   // follows a PARTIAL failure (delivery stored, its penalty rejected) re-sends
   // only the missing one instead of leaning on server-side dedupe.
   const idemRef = useRef({ base: null, n: 0, done: {} });
+
+  // ── Ball Intelligence ──────────────────────────────────────────────────────
+  // Chosen at the toss and stored on the match, so it comes back on resume via
+  // /live-state rather than living only in this navigation param.
+  const [biEnabled, setBiEnabled] = useState(!!matchData?.ballIntelligenceEnabled);
+  // "Pause" is deliberately local and NOT persisted: it means "not for the next
+  // few balls, I'm busy", which is a state of the scorer, not of the match.
+  const [biPaused, setBiPaused] = useState(false);
+  // The delivery waiting to be asked about. Held as data rather than shown
+  // immediately so it can queue behind the new-batter / new-bowler prompts
+  // instead of stacking a second modal on top of them.
+  const [pendingShot, setPendingShot] = useState(null);
+
+  // Flush anything left over from a previous session — a scorer who lost signal
+  // and closed the app still has shots sitting in the queue.
+  useEffect(() => { loadShotQueue().then(() => flushShotQueue()); }, []);
+
   const milestoneRef = useRef({ bat: {}, bowl: {}, streak: { id: null, n: 0 } });   // announced milestones + hat-trick streak
   // A COPY, for snapshots. `streak` is mutated in place as wickets fall, so
   // storing the ref itself hands a snapshot something that keeps changing under
@@ -357,7 +377,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         // summary field (score1 = team1, score2 = team2) on resume too.
         team1Id: d.team1, team2Id: d.team2,
         firstInningId: d.inningId,
+        ballIntelligenceEnabled: d.ballIntelligenceEnabled,
       });
+      // The flag lives on the match, so reopening the app mid-innings restores
+      // the shot prompt instead of silently dropping the rest of the wheel.
+      setBiEnabled(!!d.ballIntelligenceEnabled);
       setIsInnings2(!!d.isInnings2);
       if (d.isInnings2 && d.target) setFirstInningsScore({ runs: d.target - 1, wickets: 0, overs: 0 });
       setCurrentScore({ runs: d.totalRuns, wickets: d.wickets, overs: d.completedOvers, balls: d.ballInOver });
@@ -592,6 +616,27 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     });
     if (!res.success) throw new Error(res.error || 'Could not save this ball');
     idemRef.current.done[seq] = true;
+
+    // ── Ball Intelligence ────────────────────────────────────────────────────
+    // Hooked HERE, after the delivery is confirmed stored, because this one
+    // function is the single door every one of the eleven scoring paths goes
+    // through — and because a shot must never be offered for a ball that did not
+    // actually save.
+    //
+    // Only strokes are asked about. A wide, a bye or a leg bye is not a shot, and
+    // a penalty or a retirement is not a delivery at all — prompting for those
+    // would put junk in the dataset and taps in the scorer's way. seq 0 only, so
+    // a penalty riding along with a delivery doesn't ask a second time.
+    const isStroke = !extraType || extraType === 'noBall';
+    if (biEnabled && !biPaused && seq === 0 && isStroke) {
+      setPendingShot({
+        clientEventId: `${idemRef.current.base}-${seq}`,
+        runs, isWicket,
+        extraType: extraType || null,
+        batterName: striker.name,
+        hand: handOf(striker),
+      });
+    }
     // Advance the local ball count only once the delivery is actually stored.
     // Bumping it before the await meant a rejected ball (e.g. the server's 409
     // bowling-rule guards) still moved the count on, so the on-screen over
@@ -677,6 +722,12 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // wicket puts the dismissed batter back (no new batsman needed).
     setMustPickBowler(false);
     setOverComplete(null);   // back inside the over — the break no longer applies
+    // ...and its shot prompt with it. Leaving this set would ask "where did it
+    // go?" about a delivery that no longer exists, and file the answer against a
+    // ball the scorer has just taken off the board. Anything already queued for
+    // it is dropped by the queue itself when the server answers BALL_GONE, and
+    // anything already stored went with the ball (the row cascades on delete).
+    setPendingShot(null);
     // No snapshot for this ball — it was scored before this session (a resume
     // clears the in-memory stack). The server has already deleted the ball, so
     // rebuild every figure from its live-state projection instead. This is what
@@ -1903,6 +1954,26 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                     {syncState.status === 'saving' ? 'SAVING' : 'SYNCED'}
                   </Text>
                 </View>
+              )}
+              {/* ── BALL INTELLIGENCE STATE ──────────────────────────────────
+                  Only ever shown when the scorer opted in, and tappable to pause
+                  it — the over rate does not care that you wanted analytics, and
+                  a scorer falling behind needs to shed the optional work without
+                  hunting through a settings screen. Pausing stops the prompt; it
+                  does NOT stop scoring and does not discard what was captured. */}
+              {biEnabled && (
+                <TouchableOpacity
+                  style={[styles.syncPill, biPaused ? styles.syncPillSaving : styles.syncPillOk]}
+                  onPress={() => { haptic.tick(); setBiPaused((p) => !p); }}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel={biPaused ? 'Resume Ball Intelligence' : 'Pause Ball Intelligence'}>
+                  <Icon name={biPaused ? 'play-circle-outline' : 'chart-scatter-plot'} size={11}
+                    color={biPaused ? DS.textVariant : DS.lime} />
+                  <Text style={[styles.syncPillText, { color: biPaused ? DS.textVariant : DS.lime }]}>
+                    {biPaused ? 'BI PAUSED' : 'BI ON'}
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
             <Text style={styles.overSummary} numberOfLines={1}>
@@ -3345,6 +3416,33 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         awards={awards}
         result={matchResult}
         onClose={closeAwards}
+      />
+
+      {/* ── Ball Intelligence: "where did it go?" ────────────────────────────
+          Waits its turn rather than stacking. After a wicket the scorer must
+          pick the new batter, and after the sixth ball a new bowler — those
+          block play and this does not, so it holds until they are answered and
+          the delivery is fully dealt with. The captured shot is queued, not
+          awaited: nothing on this screen blocks on it landing. */}
+      <BallIntelligenceSheet
+        visible={
+          !!pendingShot && !showPlayerModal && !showBowlerModal
+          && !overComplete && !matchComplete && !showExitModal
+        }
+        ball={pendingShot}
+        batterName={pendingShot?.batterName}
+        hand={pendingShot?.hand || 'right'}
+        onCapture={(shot) => {
+          if (!pendingShot || !matchData?.id) return;
+          enqueueShot(matchData.id, {
+            clientEventId: pendingShot.clientEventId,
+            shotAngle: shot.angle,
+            shotDistance: shot.distance,
+            shotType: shot.shotType,
+            connectionType: shot.connectionType,
+          });
+        }}
+        onClose={() => setPendingShot(null)}
       />
     </View>);
 

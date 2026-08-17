@@ -96,7 +96,10 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
         return prev.filter(p => p.id !== player.id);
       }
       if (prev.length >= MAX_XI) { Alert.alert('Squad Full', `You can pick up to ${MAX_XI} players. Deselect one first.`); return prev; }
-      return [...prev, { id: player.id, name: player.name, role: player.role, jerseyNumber: player.jerseyNumber }];
+      // battingStyle rides along for the wagon wheel: it is the only thing that
+      // tells a left-hander's cover drive from a right-hander's pull, and without
+      // it every batter is drawn as a right-hander.
+      return [...prev, { id: player.id, name: player.name, role: player.role, jerseyNumber: player.jerseyNumber, battingStyle: player.battingStyle }];
     });
   };
 
@@ -406,6 +409,10 @@ export default function TossLineupScreen({ route, navigation }) {
   const [team1Avail, setTeam1Avail]     = useState({});
   const [team2Avail, setTeam2Avail]     = useState({});
   const [loading, setLoading]           = useState(false);
+  // Ball Intelligence — off unless someone asks for it. Scoring a match is the
+  // job; capturing where every ball went is an extra the scorer opts into, per
+  // match, and the default must never quietly make the primary job slower.
+  const [ballIntel, setBallIntel]       = useState(false);
 
   const canProceed = team1XI.length >= 1 && team2XI.length >= 1;
 
@@ -415,7 +422,7 @@ export default function TossLineupScreen({ route, navigation }) {
       const avail = list.filter(p => allAvail[p.id]);
       // `role` carried through: the manual path has always kept it and this one
       // dropped it, so an auto-picked XI showed PLAYER against every name.
-      setXI(avail.slice(0, MAX_XI).map(p => ({ id: p.id, name: p.name, role: p.role, jerseyNumber: p.jerseyNumber })));
+      setXI(avail.slice(0, MAX_XI).map(p => ({ id: p.id, name: p.name, role: p.role, jerseyNumber: p.jerseyNumber, battingStyle: p.battingStyle })));
     });
   };
 
@@ -453,6 +460,7 @@ export default function TossLineupScreen({ route, navigation }) {
           { teamId: team1Id, playerIds: team1XI.map((p) => p.id), ...team1Lead },
           { teamId: team2Id, playerIds: team2XI.map((p) => p.id), ...team2Lead },
         ],
+        ballIntelligenceEnabled: ballIntel,
       });
 
       const battingXI = battingTeamId === team1Id ? team1XI : team2XI;
@@ -476,6 +484,10 @@ export default function TossLineupScreen({ route, navigation }) {
           bowlingTeamName: bowlingTeamId === team1Id ? team1 : team2,
           battingXI, bowlingXI,
           firstInningId, status: 'live',
+          // Carried through so the scoring screen knows without a round trip.
+          // It is also on the match record, so a resumed session gets it back
+          // from /live-state rather than from this navigation param.
+          ballIntelligenceEnabled: ballIntel,
         },
       });
     } catch {
@@ -587,6 +599,51 @@ export default function TossLineupScreen({ route, navigation }) {
                 </Text>
               </View>
             )}
+          </View>
+
+          {/* ── Ball Intelligence (optional) ───────────── */}
+          {/* Offered here because this is the last screen before the first ball,
+              and the decision has to be made once, for this match, by the person
+              who will actually be doing the tapping. */}
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Icon name="chart-scatter-plot" size={16} color={K.lime} />
+              <Text style={s.sectionTitle}>BALL INTELLIGENCE</Text>
+            </View>
+            <Text style={s.biBlurb}>
+              Track shot selection, wagon wheel and advanced player insights during live scoring.
+            </Text>
+            <View style={s.chipRow}>
+              {[
+                { on: true,  label: 'ENABLE',  icon: 'check-circle-outline' },
+                { on: false, label: 'SKIP',    icon: 'close-circle-outline' },
+              ].map((opt) => {
+                const active = ballIntel === opt.on;
+                return (
+                  <TouchableOpacity
+                    key={opt.label}
+                    style={[s.chip, active && s.chipActive]}
+                    onPress={() => setBallIntel(opt.on)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Icon name={opt.icon} size={16} color={active ? K.bg : K.textMuted} />
+                    <Text style={[s.chipText, active && s.chipTextActive]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {/* Says what it will actually cost them, either way. A scorer deciding
+                this thirty seconds before the first ball deserves the honest
+                version, not marketing. */}
+            <View style={s.summaryPill}>
+              <Icon name={ballIntel ? 'information-outline' : 'flash-outline'} size={14} color={K.lime} />
+              <Text style={s.summaryText}>
+                {ballIntel
+                  ? 'After each ball you\'ll get a quick wagon wheel — one tap, and it\'s skippable on any delivery.'
+                  : 'Scoring stays exactly as it is — no extra taps. You can turn this on later from the scoring screen.'}
+              </Text>
+            </View>
           </View>
 
           {/* ── Playing XI ────────────────────────────── */}
@@ -779,6 +836,8 @@ const makeS = (K) => StyleSheet.create({
   chipTextActive: {
     color: K.bg,
   },
+
+  biBlurb: { fontSize: 12, color: K.textMuted, lineHeight: 17, marginBottom: 10 },
 
   /* Summary */
   summaryPill: {

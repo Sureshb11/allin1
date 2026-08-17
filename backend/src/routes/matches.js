@@ -12,6 +12,8 @@ import { persistMatchAwards, hasMatchAwards } from '../lib/awards.js';
 import { safeNotify, notifyUsers, notifyMatchLive, notifyMatchResult, pingMatchWatchers } from '../lib/notify.js';
 import { liveSummary } from '../lib/liveSummary.js';
 import { canonicalVenue } from '../lib/venue.js';
+import { normaliseShot, shotOutcome } from '../lib/ballIntelligence.js';
+import { commentaryFor } from '../lib/shotCommentary.js';
 
 const router = Router();
 
@@ -528,6 +530,151 @@ router.put('/:id/score/last/short', authMiddleware, async (req, res) => {
   }
 });
 
+// ── Ball Intelligence: where the ball went ───────────────────────────────────
+//
+// A SEPARATE call from the delivery on purpose. Shot capture is analytics layered
+// over the scoring engine, and the scorer must never lose a ball because this
+// half failed — so it is not part of PUT /score, cannot roll back a delivery, and
+// cannot return an error that the scoring screen has to handle. The client sends
+// it after the ball is safely stored and forgets about it.
+//
+// Addressed by `clientEventId` rather than the ball's own id: that is the key the
+// client already minted for the delivery, so a shot queued on a dead network can
+// be flushed later without the phone ever having learned the server-side ballId.
+const ShotSchema = z.object({
+  // One of these identifies the delivery. clientEventId is preferred (see above).
+  clientEventId: z.string().optional(),
+  ballId:        z.string().optional(),
+  // Either a precise angle (dragged on the wheel) or a zone (one tap on a wedge).
+  shotAngle:    z.number().optional(),
+  shotZone:     z.string().optional(),
+  shotDistance: z.number().optional(),
+  shotType:       z.string().optional().nullable(),
+  connectionType: z.string().optional().nullable(),
+  source:     z.string().optional(),
+  confidence: z.number().optional(),
+});
+
+/** Left-hander? `battingStyle` is free text the player typed, so read it loosely. */
+const handOf = (player) =>
+  /left/i.test(String(player?.battingStyle || '')) ? 'left' : 'right';
+
+router.post('/:id/intelligence', authMiddleware, async (req, res) => {
+  try {
+    if (!(await assertScorer(req, res, req.params.id))) return;
+    const data = ShotSchema.parse(req.body);
+    if (!data.clientEventId && !data.ballId) {
+      return res.status(400).json({ error: 'clientEventId or ballId required' });
+    }
+
+    // Load the delivery WITH its match, so a shot can never be written onto a
+    // ball belonging to a different match than the one the caller is scoring.
+    const ball = await prisma.ball.findFirst({
+      where: data.clientEventId ? { clientEventId: data.clientEventId } : { id: data.ballId },
+      include: {
+        batter: { select: { id: true, name: true, battingStyle: true } },
+        bowler: { select: { id: true, name: true } },
+        over:   { select: { inningId: true, bowler: { select: { name: true } }, inning: { select: { matchId: true } } } },
+      },
+    });
+    // Not an error the client should retry: an undone ball is simply gone, and the
+    // queued shot for it should be dropped rather than resent forever.
+    if (!ball) return res.status(404).json({ error: 'Delivery not found', code: 'BALL_GONE' });
+    if (ball.over?.inning?.matchId !== req.params.id) {
+      return res.status(403).json({ error: 'That delivery belongs to another match' });
+    }
+
+    const shot = normaliseShot(data, { hand: handOf(ball.batter) });
+    if (!shot.ok) return res.status(400).json({ error: `Could not read the shot: ${shot.reason}` });
+
+    // Outcome is derived from the delivery itself, never sent by the client, so
+    // "Four" on the wagon wheel can't disagree with the 4 on the scorecard.
+    const value = { ...shot.value, shotOutcome: shotOutcome(ball) };
+
+    // Upsert: correcting a shot (section 21 — "4 Cover Drive" becomes "4 Cut
+    // Point") overwrites the delivery's one record rather than adding a second.
+    const intelligence = await prisma.ballIntelligence.upsert({
+      where:  { ballId: ball.id },
+      create: { ballId: ball.id, ...value },
+      update: value,
+    });
+
+    const commentary = commentaryFor(ball, intelligence, {
+      batter:  ball.batter?.name,
+      bowler:  ball.bowler?.name || ball.over?.bowler?.name,
+      fielder: ball.wicketAssists,
+    });
+
+    // Same nudge the delivery itself sends — spectators refetch and pick up the
+    // shot, the wheel and the line together.
+    safeNotify(() => pingMatchWatchers(req.params.id));
+    res.json({ success: true, intelligence, commentary });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Everything captured in this match: the wagon wheel, the match summary, and the
+// spectator's live shot all read from here. Public — a spectator is not a scorer.
+router.get('/:id/intelligence', async (req, res) => {
+  try {
+    const match = await prisma.match.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, ballIntelligenceEnabled: true },
+    });
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+
+    const { playerId, inningId } = req.query;
+    const rows = await prisma.ballIntelligence.findMany({
+      where: {
+        ball: {
+          over: { inning: { matchId: req.params.id, ...(inningId ? { id: String(inningId) } : {}) } },
+          ...(playerId ? { batterId: String(playerId) } : {}),
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        ball: {
+          select: {
+            id: true, runs: true, extras: true, extraType: true, isWicket: true, ballNumber: true,
+            batter: { select: { id: true, name: true, battingStyle: true } },
+            bowler: { select: { id: true, name: true } },
+            over:   { select: { overNumber: true, inningId: true } },
+          },
+        },
+      },
+    });
+
+    // Flattened for drawing: the client should not have to walk three relations
+    // to plot one dot on a wheel.
+    const shots = rows.map((r) => ({
+      id: r.id,
+      ballId: r.ballId,
+      angle: r.shotAngle,
+      zone: r.shotZone,
+      distance: r.shotDistance,
+      shotType: r.shotType,
+      outcome: r.shotOutcome,
+      connection: r.connectionType,
+      source: r.source,
+      runs: r.ball?.runs ?? 0,
+      isWicket: !!r.ball?.isWicket,
+      over: r.ball?.over?.overNumber ?? null,
+      ballNumber: r.ball?.ballNumber ?? null,
+      inningId: r.ball?.over?.inningId ?? null,
+      batterId: r.ball?.batter?.id ?? null,
+      batter: r.ball?.batter?.name ?? null,
+      batterHand: handOf(r.ball?.batter),
+      bowlerId: r.ball?.bowler?.id ?? null,
+      bowler: r.ball?.bowler?.name ?? null,
+    }));
+
+    res.json({ enabled: match.ballIntelligenceEnabled, count: shots.length, shots });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // ── Scorer info + transfer ───────────────────────────────────────────────────
 // Who can score, and the registered users in the match squad you can hand it to.
 router.get('/:id/scorer', authMiddleware, async (req, res) => {
@@ -722,7 +869,10 @@ router.get('/:id/live-state', async (req, res) => {
     // so the resumed scorer keeps the same player pickers.
     const squad = await prisma.matchPlayer.findMany({ where: { matchId: match.id }, include: { player: { include: { user: { select: { avatarUrl: true } } } } } });
     // role rides along so a resumed scorer can still spot the keeper (caught behind).
-    const xiFor = (teamId) => squad.filter((s) => s.teamId === teamId).map((s) => ({ id: s.player.id, name: s.player.name, role: s.player.role, avatarUrl: s.player.user?.avatarUrl || null }));
+    // battingStyle rides along so a RESUMED scorer still gets a left-hander's
+    // wagon wheel drawn the right way round — it is the only field that decides
+    // which way the wheel's labels mirror.
+    const xiFor = (teamId) => squad.filter((s) => s.teamId === teamId).map((s) => ({ id: s.player.id, name: s.player.name, role: s.player.role, battingStyle: s.player.battingStyle, avatarUrl: s.player.user?.avatarUrl || null }));
 
     // Notation for the balls already in the current over (to rebuild the log).
     // Must mirror the client's own over-strip strings EXACTLY (ScoringScreen's
@@ -750,12 +900,12 @@ router.get('/:id/live-state', async (req, res) => {
     // in the squad) so it works even if the playing XI wasn't fully recorded.
     const creaseIds = [inning.strikerId, inning.nonStrikerId, inning.currentBowlerId].filter(Boolean);
     const creasePlayers = creaseIds.length
-      ? await prisma.player.findMany({ where: { id: { in: creaseIds } }, select: { id: true, name: true, user: { select: { avatarUrl: true } } } })
+      ? await prisma.player.findMany({ where: { id: { in: creaseIds } }, select: { id: true, name: true, battingStyle: true, user: { select: { avatarUrl: true } } } })
       : [];
     const nameFor = (pid) => {
       if (!pid) return null;
       const p = creasePlayers.find((x) => x.id === pid) || squad.find((s) => s.player.id === pid)?.player;
-      return p ? { id: pid, name: p.name, avatarUrl: p.user?.avatarUrl || null } : null;
+      return p ? { id: pid, name: p.name, battingStyle: p.battingStyle || null, avatarUrl: p.user?.avatarUrl || null } : null;
     };
     // Everyone dismissed this innings — computed up front so a batter who is OUT
     // is never seated at the crease, even if a persisted strikerId/nonStrikerId
@@ -768,8 +918,8 @@ router.get('/:id/live-state', async (req, res) => {
     }
     const notOut = (c) => (c && !outThisInnings.has(c.id)) ? c : null;
 
-    const fbStriker = lastBall && !lastBall.isWicket ? { id: lastBall.batter.id, name: lastBall.batter.name, avatarUrl: lastBall.batter.user?.avatarUrl || null } : null;
-    const fbNon = lastBall ? { id: lastBall.nonStriker.id, name: lastBall.nonStriker.name, avatarUrl: lastBall.nonStriker.user?.avatarUrl || null } : null;
+    const fbStriker = lastBall && !lastBall.isWicket ? { id: lastBall.batter.id, name: lastBall.batter.name, battingStyle: lastBall.batter.battingStyle || null, avatarUrl: lastBall.batter.user?.avatarUrl || null } : null;
+    const fbNon = lastBall ? { id: lastBall.nonStriker.id, name: lastBall.nonStriker.name, battingStyle: lastBall.nonStriker.battingStyle || null, avatarUrl: lastBall.nonStriker.user?.avatarUrl || null } : null;
     const fbBowler = overComplete ? null : (curOver?.bowler ? { id: curOver.bowler.id, name: curOver.bowler.name, avatarUrl: curOver.bowler.user?.avatarUrl || null } : null);
     // Resolve each slot from its persisted id first; only fall back to the last
     // ball's pair if that id is missing or points at a dismissed batter.
@@ -845,6 +995,9 @@ router.get('/:id/live-state', async (req, res) => {
       matchId: match.id,
       team1: match.team1Id, team2: match.team2Id,
       totalOvers: match.overs || 20,
+      // Rides along on resume so a scorer who reopens the app mid-match gets the
+      // shot prompt back — the flag lives on the match, not in the phone.
+      ballIntelligenceEnabled: match.ballIntelligenceEnabled,
       inningId: inning.id,
       inningNumber: inning.inningNumber,
       isInnings2: inning.inningNumber === 2,
@@ -947,7 +1100,7 @@ router.get('/:id/scorecard', async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     if (!(await assertScorer(req, res, req.params.id))) return;
-    const { status, score1, score2, result, currentInnings } = req.body;
+    const { status, score1, score2, result, currentInnings, ballIntelligenceEnabled } = req.body;
     const match = await prisma.match.update({
       where: { id: req.params.id },
       data: {
@@ -956,6 +1109,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
         ...(score2 !== undefined && { score2 }),
         ...(result && { result }),
         ...(currentInnings && { currentInnings }),
+        // Turning shot capture on or off part-way through is allowed and keeps
+        // whatever was already recorded — a scorer who gives up on it at the
+        // innings break should not lose the first innings' wagon wheel.
+        ...(typeof ballIntelligenceEnabled === 'boolean' && { ballIntelligenceEnabled }),
       },
     });
     // On completion: post a match-result card + detect career milestones (which
@@ -1045,6 +1202,10 @@ const TossSchema = z.object({
   battingTeamId: z.string(),
   bowlingTeamId: z.string(),
   squads: z.array(SquadSchema).optional(),
+  // Opt in to shot capture for THIS match. Optional so an older app build — which
+  // knows nothing about it — submits a toss exactly as it always has and gets a
+  // match with the feature off, rather than a 400.
+  ballIntelligenceEnabled: z.boolean().optional(),
 });
 
 router.post('/:id/toss', authMiddleware, async (req, res) => {
@@ -1067,6 +1228,9 @@ router.post('/:id/toss', authMiddleware, async (req, res) => {
           // actually batted yet under the current toss.
           score1: null, score2: null, result: null,
           currentInnings: 1,
+          ...(data.ballIntelligenceEnabled !== undefined
+            ? { ballIntelligenceEnabled: data.ballIntelligenceEnabled }
+            : {}),
         },
       });
       // A toss (re)submission means ball-by-ball play starts fresh from here too —
