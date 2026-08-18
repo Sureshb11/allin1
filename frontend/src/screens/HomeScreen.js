@@ -334,7 +334,7 @@ export default function HomeScreen({ navigation }) {
                 m={item}
                 isScorer={!!item.isScorer}
                 onPress={() => currentSport.id === 'cricket' 
-                  ? navigation.navigate('Scorecard', { matchId: item.id }) 
+                  ? navigation.navigate('LiveMatch', { matchId: item.id }) 
                   : navigation.navigate('MatchStats', { matchId: item.id, sportName: currentSport.name })}
                 onStart={startMatch}
                 onResume={(m) => navigation.navigate('Scoring', { resume: true, matchId: m.id })}

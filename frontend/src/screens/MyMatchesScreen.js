@@ -511,7 +511,7 @@ export default function MyMatchesScreen({ navigation }) {
           <MatchCard
             m={item}
             isScorer={!!item.isScorer}
-            onPress={() => navigation.navigate('Scorecard', { matchId: item.id })}
+            onPress={() => navigation.navigate('LiveMatch', { matchId: item.id })}
             onStart={startMatch}
             onResume={(m) => navigation.navigate('Scoring', { resume: true, matchId: m.id })}
           />

@@ -2039,7 +2039,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
         </View>
 
         <TouchableOpacity activeOpacity={0.85} style={styles.sbScoreRow}
-          onPress={() => matchData?.id && navigation.navigate('Scorecard', { matchId: matchData.id })}>
+          onPress={() => matchData?.id && navigation.navigate('LiveMatch', { matchId: matchData.id })}>
           <View style={{ flex: 1 }}>
             <Text style={styles.sbTeam} numberOfLines={1}>{battingTeamName || 'Batting'}</Text>
             <View style={styles.scoreRow}>
@@ -2331,7 +2331,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             </View>
             <TouchableOpacity
             style={[styles.completeBtn, { backgroundColor: DS.blueDeep }]}
-            onPress={() => navigation.navigate('Scorecard', { matchId: matchData.id })}>
+            onPress={() => navigation.navigate('LiveMatch', { matchId: matchData.id })}>
 
               <Icon name="clipboard-list-outline" size={18} color={DS.onBlue} />
               <Text style={[styles.completeBtnText, { color: DS.onBlue }]}>VIEW SCORECARD</Text>

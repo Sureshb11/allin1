@@ -828,17 +828,17 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     }
 
     if (mt.status === 'live') {
-      // A spectator tapping a live match lands on the watch screen: the telecast
-      // if someone is broadcasting, and the headline score with the scorecard a
-      // tab away if nobody is. The scorer still goes straight to scoring.
+      // Everyone but the scorer lands on the Live match screen — now the single
+      // match destination for every state, not just live ones (see below). The
+      // scorer still goes straight to scoring, because they came to score.
       navigation.navigate(mt.isScorer ? 'Scoring' : 'LiveMatch', mt.isScorer ? { resume: true, matchId: mt.id } : { matchId: mt.id });
       return;
     }
-    if (mt.status !== 'scheduled') { navigation.navigate('Scorecard', { matchId: mt.id }); return; }
+    if (mt.status !== 'scheduled') { navigation.navigate('LiveMatch', { matchId: mt.id }); return; }
     // Only the assigned scorer (creator by default) can start a scheduled match;
     // everyone else just views its info. The backend's toss/score endpoints reject
     // non-scorers too, so this keeps the UI honest instead of dead-ending on a 403.
-    if (!mt.isScorer) { navigation.navigate('Scorecard', { matchId: mt.id }); return; }
+    if (!mt.isScorer) { navigation.navigate('LiveMatch', { matchId: mt.id }); return; }
     let firstInningId;
     const innRes = await legendsApi.getMatchInnings(mt.id);
     if (innRes.success && innRes.data?.length) firstInningId = innRes.data[0].id;
