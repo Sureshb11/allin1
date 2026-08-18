@@ -137,9 +137,23 @@ export default function BallIntelligenceSheet({
         transparent animationType="fade" onRequestClose={onClose}
       >
         {/* Backdrop closes. The fastest way out of an optional question should
-            be tapping anywhere that is not the question. */}
-        <Pressable style={s.backdrop} onPress={onClose}>
-          <Pressable style={s.sheet} onPress={(e) => e.stopPropagation()}>
+            be tapping anywhere that is not the question.
+
+            The dismiss target is a SIBLING behind the sheet, not a Pressable
+            wrapped around it. Wrapping was the intuitive way to write this and
+            it quietly broke scrolling: a Pressable claims the touch responder
+            on START, so a drag beginning anywhere that is not itself a control
+            — the gaps between tiles, the blank half-row under a group — was
+            captured by the wrapper and never reached the ScrollView. Dragging
+            from a tile still worked, because TouchableOpacity releases the
+            responder to a scrolling ancestor on move, which is exactly why the
+            bug read as "only the pictures scroll".
+
+            As siblings, a touch on the sheet is negotiated within the sheet's
+            own subtree and the backdrop is never consulted. */}
+        <View style={s.backdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+          <View style={[s.sheet]}>
             <View style={s.head}>
               <View style={{ flex: 1 }}>
                 <Text style={s.outcome}>{outcomeOf(ball)}</Text>
@@ -169,8 +183,8 @@ export default function BallIntelligenceSheet({
               <Icon name="gesture-tap" size={14} color={c.textMuted} />
               <Text style={s.hint}>Tap the wheel — one tap records direction and distance</Text>
             </View>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       {/* ── STEP 2 · WHICH SHOT ─────────────────────────────────────────────
@@ -181,8 +195,9 @@ export default function BallIntelligenceSheet({
         visible={!!visible && step === 'shot'}
         transparent animationType="fade" onRequestClose={onClose}
       >
-        <Pressable style={s.backdrop} onPress={onClose}>
-          <Pressable style={[s.sheet, s.sheetTall]} onPress={(e) => e.stopPropagation()}>
+        <View style={s.backdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+          <View style={[s.sheet, s.sheetTall]}>
             <View style={s.head}>
               <View style={{ flex: 1 }}>
                 <Text style={s.outcome}>WHICH SHOT?</Text>
@@ -256,8 +271,8 @@ export default function BallIntelligenceSheet({
                 </View>
               ))}
             </ScrollView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </>
   );
