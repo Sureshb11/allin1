@@ -269,25 +269,3 @@ export function resolveRunOut({
   };
 }
 
-/**
- * Ball-by-ball commentary for a resolved run out. Kept next to the engine so the
- * words can't describe something other than what was scored.
- */
-export function runOutCommentary(outcome, { strikerName, nonStrikerName, bowlerName, fielderName } = {}) {
-  const outName = outcome.outSlot === END.STRIKER ? strikerName : nonStrikerName;
-  const r = outcome.runsCompleted;
-  const runs = r === 0 ? 'no run' : `${r} run${r === 1 ? '' : 's'}`;
-  const lead =
-    outcome.extraType === 'wide' ? 'Wide'
-    : outcome.extraType === 'noBall' ? 'No ball'
-    : outcome.extraType === 'deadBall' ? 'No delivery'
-    : outcome.creditedAs === 'bye' ? 'Byes'
-    : outcome.creditedAs === 'legbye' ? 'Leg byes'
-    : null;
-  const by = fielderName ? ` (${fielderName})` : '';
-  if (outcome.extraType === 'deadBall') {
-    return `${bowlerName || 'The bowler'} runs out ${outName || 'the non-striker'} backing up — OUT, run out${by}`;
-  }
-  const head = lead ? `${lead}, ` : '';
-  return `${head}${runs} then OUT — ${outName || 'batter'} run out${by}`;
-}

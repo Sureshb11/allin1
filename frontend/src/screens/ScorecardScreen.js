@@ -562,10 +562,14 @@ function computeHighlights(match) {
         const batterName = ball.batter?.name || 'Batter';
         const offBat = !et || et === 'noBall';   // runs credited to the bat
 
-        // Boundaries — a four or six off the bat.
+        // Boundaries — a four or six off the bat. The sentence is the same
+        // ball.commentary every other tab reads; only the list entry (icon,
+        // key, "this is a highlight") is this tab's own. Used to build its own
+        // "SIX! <batter> clears the rope" here — shot-blind, and a second
+        // wording of exactly what commentaryFor() already says for this ball.
         if (ball.batterId && offBat && !ball.isWicket) {
-          if (ball.runs === 6) items.push({ key: `${ball.id}-6`, inningsLabel, label, icon: 'fire', kind: 'six', text: `SIX! ${batterName} clears the rope` });
-          else if (ball.runs === 4) items.push({ key: `${ball.id}-4`, inningsLabel, label, icon: 'cricket', kind: 'four', text: `FOUR! ${batterName} finds the boundary` });
+          if (ball.runs === 6) items.push({ key: `${ball.id}-6`, inningsLabel, label, icon: 'fire', kind: 'six', text: ball.commentary || `${batterName} hits six.` });
+          else if (ball.runs === 4) items.push({ key: `${ball.id}-4`, inningsLabel, label, icon: 'cricket', kind: 'four', text: ball.commentary || `${batterName} hits four.` });
         }
 
         // A chance put down. It reaches the ball-by-ball commentary already, but
@@ -573,12 +577,15 @@ function computeHighlights(match) {
         // highlight in the truest sense: it is the moment a match turned, told
         // by what did NOT happen. Rare enough not to crowd the list (four in
         // this database's 1,892 balls).
+        //
+        // commentaryFor() already appends the drop as a clause on the ball's
+        // own sentence ("... for four. Put down by X — a tough chance."), so
+        // reusing it here means this list stops maintaining its own separate
+        // "DROPPED! X puts down..." wording for the same fact.
         if (ball.droppedBy) {
           items.push({
             key: `${ball.id}-drop`, inningsLabel, label, icon: 'hand-back-right-off-outline', kind: 'drop',
-            text: `DROPPED! ${ball.droppedBy} puts down ${
-              ball.dropDifficulty === 'easy' ? 'a straightforward chance'
-              : ball.dropDifficulty === 'difficult' ? 'a tough chance' : 'the chance'}`,
+            text: ball.commentary || `Dropped by ${ball.droppedBy}.`,
           });
         }
 
@@ -595,7 +602,13 @@ function computeHighlights(match) {
         }
 
         if (ball.isWicket) {
-          items.push({ key: `${over.id}-${ball.batterId}-w`, inningsLabel, label, icon: 'alert-octagon', kind: 'wicket', text: `WICKET! ${batterName} ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName, ball.directHit)}` });
+          // Was its own formatDismissal() call, independently wording the same
+          // dismissal commentaryFor() already describes (with the same fielder
+          // detail) for the ball-by-ball feed. The WICKET! shout is redundant
+          // on top of it too — every commentaryFor() wicket line already
+          // announces itself ("Bowled him!", "Given!", "Run out!"...), and the
+          // icon carries the at-a-glance signal a text prefix doesn't need to.
+          items.push({ key: `${over.id}-${ball.batterId}-w`, inningsLabel, label, icon: 'alert-octagon', kind: 'wicket', text: ball.commentary || `${batterName} is out.` });
           const bowlerCredited = isBowlerWicket(ball.wicketType);
           if (bowlerCredited) {
             streakCount = streakBowlerId === bowlerId ? streakCount + 1 : 1;
