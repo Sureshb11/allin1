@@ -340,43 +340,39 @@ export default function LiveMatchScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       {/* ── Video ─────────────────────────────────────────────────────────
-          Black regardless of theme: it is a picture area, and a light frame
-          around a dark video reads as a bug. */}
-      <View style={[styles.videoWrap, { height: width * 9 / 16 }]}>
-        {onAir && HAS_WEBVIEW ? (
-          <YouTubePlayer videoId={broadcast.youtubeVideoId} width={width} />
-        ) : onAir ? (
-          // On air, but this binary can't play it in-app. Hand them the stream
-          // rather than pretending there isn't one.
-          <TouchableOpacity
-            style={styles.videoPlaceholder}
-            activeOpacity={0.85}
-            onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${broadcast.youtubeVideoId}`).catch(() => {})}
-          >
-            <Icon name="youtube" size={38} color={DS.coral} />
-            <Text style={styles.placeholderTitle}>Watch on YouTube</Text>
-            <Text style={styles.placeholderSub}>In-app playback needs an app update.</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.videoPlaceholder}>
-            <Icon name={isLive ? 'video-off-outline' : 'clock-outline'} size={34} color={DS.textMuted} />
-            <Text style={styles.placeholderTitle}>
-              {isLive ? 'No telecast for this match' : 'Not started yet'}
-            </Text>
-            <Text style={styles.placeholderSub}>
-              {isLive
-                ? 'The score is live — nobody is broadcasting video.'
-                : 'Video appears here when the broadcast begins.'}
-            </Text>
-          </View>
-        )}
-        {onAir && (
+          Rendered ONLY when there is something to play. Most matches are
+          scored and never telecast, and this used to reserve a 16:9 black
+          rectangle on every one of them to say "no telecast" — a third of the
+          screen, above the fold, spent on the absence of a feature, pushing
+          the score and commentary (the reason the screen was opened) down.
+          The score header below already says whether the match is live, so
+          nothing is lost by staying silent about video nobody is sending.
+
+          Black regardless of theme when it IS present: it is a picture area,
+          and a light frame around a dark video reads as a bug. */}
+      {onAir && (
+        <View style={[styles.videoWrap, { height: width * 9 / 16 }]}>
+          {HAS_WEBVIEW ? (
+            <YouTubePlayer videoId={broadcast.youtubeVideoId} width={width} />
+          ) : (
+            // On air, but this binary can't play it in-app. Hand them the
+            // stream rather than pretending there isn't one.
+            <TouchableOpacity
+              style={styles.videoPlaceholder}
+              activeOpacity={0.85}
+              onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${broadcast.youtubeVideoId}`).catch(() => {})}
+            >
+              <Icon name="youtube" size={38} color={DS.coral} />
+              <Text style={styles.placeholderTitle}>Watch on YouTube</Text>
+              <Text style={styles.placeholderSub}>In-app playback needs an app update.</Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.liveTag}>
             <View style={styles.liveDot} />
             <Text style={styles.liveTagText}>LIVE</Text>
           </View>
-        )}
-      </View>
+        </View>
+      )}
 
       <ScrollView
         style={styles.scroll}
