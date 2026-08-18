@@ -1355,20 +1355,27 @@ router.get('/:id/scorecard', async (req, res) => {
 
     if (!match) return res.status(404).json({ error: 'Match not found' });
 
-    // One authoritative commentary line per ball, generated HERE and sent
+    // One authoritative LIVE COMMENTARY line per ball, generated HERE and sent
     // ready to render.
+    //
+    // "Live Commentary" — not "Spectator Commentary". It is a feed off Ball +
+    // BallIntelligence, and the spectator screen is one reader of it, the same
+    // way the shots feed and the match summary are others. Naming it after a
+    // single consumer is what made it easy for that consumer's screen to grow
+    // its own private copy of the logic in the first place — which is exactly
+    // what had happened here:
     //
     // Before this, the spectator screen's Commentary tab computed its own
     // "FOUR! <batter> finds the fence" locally from raw runs — a second,
     // parallel commentary engine that never saw BallIntelligence at all,
     // because the ball rows it worked from never carried the relation. A
-    // scorer could capture "Cover Drive, Cover" and the spectator would still
+    // scorer could capture "Cover Drive, Cover" and that screen would still
     // read the generic line, forever, because nothing downstream of this
     // endpoint had the data to do otherwise.
     //
     // Fixed at the source rather than in the UI: the client should not
-    // contain cricket knowledge, or scorer-side and spectator-side commentary
-    // drift apart exactly the way the shot vocabulary once did. Same
+    // contain cricket knowledge, or one reader's commentary can drift from
+    // another's exactly the way the shot vocabulary once did. Same
     // aiCommentary-or-template precedent already used by the shots feed
     // (search `commentarySource` above) — a written line if the delivery
     // earned one, otherwise the template composed fresh on every read, which

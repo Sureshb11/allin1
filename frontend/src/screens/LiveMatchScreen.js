@@ -91,20 +91,23 @@ function batterCard(balls, playerId, nameOf) {
 /**
  * Ball-by-ball lines, newest first — the Commentary tab.
  *
- * Purely presentation. The line itself comes from the server's `/scorecard`
- * response (`b.commentary`) — the same shot-aware engine the scorer's own
- * capture screen uses, run once on read rather than reimplemented here. This
- * function used to compose "FOUR! <batter> finds the fence" from raw runs on
- * every ball, which is a second commentary engine: it could not know a shot
- * had been recorded because the ball rows it received never carried
- * BallIntelligence, so a cover drive to Cover read exactly like a genuinely
- * untracked delivery, forever. Keeping cricket knowledge out of this screen
- * is what keeps the scorer's and the spectator's wording from being able to
- * drift apart the way the shot vocabulary itself once did.
+ * Purely presentation. The line itself is LIVE COMMENTARY, not "spectator
+ * commentary" — this screen is a consumer of that feed, not its owner, the
+ * same way a player's own match-history view or a future notification would
+ * be. It comes from the server's `/scorecard` response (`b.commentary`), the
+ * same engine the scorer's own capture screen triggers, run once on read
+ * rather than reimplemented here. This function used to compose
+ * "FOUR! <batter> finds the fence" from raw runs on every ball, which was a
+ * second, private commentary engine: it could not know a shot had been
+ * recorded because the ball rows it received never carried BallIntelligence,
+ * so a cover drive to Cover read exactly like a genuinely untracked delivery,
+ * forever. Keeping cricket knowledge out of this screen is what keeps every
+ * reader of Live Commentary — this tab included — from being able to drift
+ * from the others the way the shot vocabulary itself once did.
  *
  * The one-line fallback below is a network/shape guard, not commentary logic:
- * if a row somehow arrives without the field, a spectator sees the runs
- * rather than a blank line — it does not attempt to describe the shot.
+ * if a row somehow arrives without the field, a viewer sees the runs rather
+ * than a blank line — it does not attempt to describe the shot.
  */
 function commentaryLines(inn, nameOf) {
   const out = [];

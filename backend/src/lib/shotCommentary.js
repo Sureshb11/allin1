@@ -1,4 +1,13 @@
-// One line of commentary from one delivery.
+// The Live Commentary engine — one line of commentary from one delivery.
+//
+// "Live Commentary" is the name of this feature, not "Spectator Commentary".
+// The line generated here is a feed, consumed today by the spectator screen
+// but not owned by it — a scorer reviewing the ball-by-ball, a future
+// notification, or match history all read the identical string. Naming it
+// after one consumer would have been the same mistake the shot vocabulary
+// almost made twice already: something written down once, then drifting
+// per place it got copied to describe. See routes/matches.js's /scorecard
+// handler for where this feed is attached to a response.
 //
 // Templates, not a model. A model call per ball would cost money on every dot in
 // every match, add latency to the thing that must stay fastest, and produce a
