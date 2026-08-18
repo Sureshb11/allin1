@@ -661,6 +661,13 @@ const ShotSchema = z.object({
   shotDistance: z.number().optional(),
   shotType:       z.string().optional().nullable(),
   connectionType: z.string().optional().nullable(),
+  // Loft as an attribute of the stroke, and the ranking feedback. Bounds live
+  // in normaliseShot; these only have to survive zod, which strips anything it
+  // was not told about — which is exactly how these three would have gone
+  // missing between the picker and the table without a word.
+  lofted:               z.boolean().optional().nullable(),
+  selectedShotRank:     z.number().optional().nullable(),
+  rankingEngineVersion: z.number().optional().nullable(),
   source:     z.string().optional(),
   confidence: z.number().optional(),
 });

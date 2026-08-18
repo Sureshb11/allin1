@@ -104,18 +104,19 @@ export const angleFromZone = (key, hand) => zonesForHand(hand).find((z) => z.key
  * they have to read.
  */
 export const SHOT_GROUPS = [
-  { title: 'Drives',   keys: ['straightDrive', 'coverDrive', 'offDrive', 'onDrive', 'squareDrive', 'backFootPunch', 'drive'] },
-  { title: 'Cut & Pull', keys: ['cut', 'lateCut', 'upperCut', 'pull', 'hook'] },
+  { title: 'Drives',   keys: ['straightDrive', 'coverDrive', 'offDrive', 'onDrive', 'squareDrive', 'insideOut', 'backFootPunch', 'drive'] },
+  { title: 'Cut & Pull', keys: ['cut', 'squareCut', 'lateCut', 'upperCut', 'pull', 'hook', 'pickUp'] },
   { title: 'Leg side', keys: ['flick', 'legGlance'] },
   { title: 'Sweeps',   keys: ['sweep', 'slogSweep', 'reverseSweep', 'paddle'] },
-  { title: 'Aerial',   keys: ['lofted', 'helicopter', 'scoop', 'ramp', 'reverseScoop', 'switchHit'] },
+  { title: 'Aerial',   keys: ['slog', 'helicopter', 'scoop', 'ramp', 'reverseScoop', 'switchHit'] },
   { title: 'No shot',  keys: ['defensive', 'backFootDefence', 'leave', 'beaten', 'other'] },
 ];
 
 export const SHOT_LABELS = {
   defensive: 'Defensive', leave: 'Leave', drive: 'Drive', coverDrive: 'Cover Drive',
   straightDrive: 'Straight Drive', onDrive: 'On Drive', squareDrive: 'Square Drive',
-  offDrive: 'Off Drive', backFootPunch: 'Back Foot Punch', backFootDefence: 'Back Foot Defence',
+  offDrive: 'Off Drive', insideOut: 'Inside-Out', squareCut: 'Square Cut',
+  slog: 'Slog', pickUp: 'Pick-Up', backFootPunch: 'Back Foot Punch', backFootDefence: 'Back Foot Defence',
   upperCut: 'Upper Cut', slogSweep: 'Slog Sweep', reverseScoop: 'Reverse Scoop',
   helicopter: 'Helicopter',
   cut: 'Cut', lateCut: 'Late Cut', pull: 'Pull', hook: 'Hook', flick: 'Flick',
@@ -133,9 +134,25 @@ export const CONNECTIONS = [
   { key: 'mistimed', label: 'Mistimed' }, { key: 'missed', label: 'Missed' },
 ];
 
+/**
+ * What to CALL a stroke once loft is known.
+ *
+ * Display only. The stored value stays `coverDrive` + `lofted:true` — the
+ * scorer reads "Lofted Cover Drive", the dataset keeps one cover-drive bucket,
+ * and nobody has to choose between natural cricket language and a taxonomy
+ * that can actually be counted.
+ */
+const NO_LOFT_PREFIX = ['lofted', 'slog', 'slogSweep', 'helicopter', 'scoop', 'ramp',
+  'reverseScoop', 'switchHit', 'upperCut', 'pickUp', 'leave', 'beaten', 'other'];
+export const loftedLabel = (key, lofted) => {
+  const base = SHOT_LABELS[key] || key;
+  if (lofted !== true || NO_LOFT_PREFIX.includes(key)) return base;
+  return `Lofted ${base}`;
+};
+
 export const zoneLabel = (key) => SHOT_ZONES.find((z) => z.key === key)?.label || null;
 
 /** Is this batter a left-hander? `battingStyle` is free text the player typed. */
 export const handOf = (player) => (/left/i.test(String(player?.battingStyle || '')) ? 'left' : 'right');
 
-export default { SHOT_ZONES, zonesForHand, zoneFromAngle, angleFromZone, SHOT_GROUPS, SHOT_LABELS, DOT_BALL_TYPES, CONNECTIONS, zoneLabel, handOf, wrapAngle };
+export default { loftedLabel, SHOT_ZONES, zonesForHand, zoneFromAngle, angleFromZone, SHOT_GROUPS, SHOT_LABELS, DOT_BALL_TYPES, CONNECTIONS, zoneLabel, handOf, wrapAngle };

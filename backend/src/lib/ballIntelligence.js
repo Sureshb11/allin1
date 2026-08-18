@@ -154,12 +154,14 @@ export const SHOT_TYPES = [
   // zone, and only one of them tells you the batter manufactured the angle.
   { key: 'insideOut',    label: 'Inside-Out',    category: 'drive',   verb: 'goes inside-out' },
   { key: 'offDrive',     label: 'Off Drive',     category: 'drive',   verb: 'drives' },
+  { key: 'insideOut',    label: 'Inside-Out',    category: 'drive',   verb: 'drives inside-out' },
   // Back foot, but still a drive: the weight goes back and the bat stays
   // vertical, which is exactly what separates a punch from a cut.
   { key: 'backFootPunch',label: 'Back Foot Punch',category: 'drive',  verb: 'punches' },
   { key: 'cut',          label: 'Cut',           category: 'cut',     verb: 'cuts' },
   { key: 'lateCut',      label: 'Late Cut',      category: 'cut',     verb: 'cuts' },
   { key: 'upperCut',     label: 'Upper Cut',     category: 'cut',     verb: 'upper-cuts' },
+  { key: 'squareCut',    label: 'Square Cut',    category: 'cut',     verb: 'cuts' },
   { key: 'squareCut',    label: 'Square Cut',    category: 'cut',     verb: 'cuts' },
   { key: 'dab',          label: 'Dab',           category: 'cut',     verb: 'dabs' },
   { key: 'pull',         label: 'Pull',          category: 'pull',    verb: 'pulls' },
@@ -183,6 +185,8 @@ export const SHOT_TYPES = [
   { key: 'lofted',       label: 'Lofted',        category: 'loft',    verb: 'lofts', deprecated: true },
   { key: 'reverseScoop', label: 'Reverse Scoop', category: 'ramp',    verb: 'reverse-scoops' },
   { key: 'helicopter',   label: 'Helicopter',    category: 'loft',    verb: 'whips' },
+  { key: 'slog',         label: 'Slog',          category: 'loft',    verb: 'slogs' },
+  { key: 'pickUp',       label: 'Pick-Up',       category: 'pull',    verb: 'picks up' },
   { key: 'slog',         label: 'Slog',          category: 'loft',    verb: 'slogs' },
   { key: 'pickUp',       label: 'Pick-Up',       category: 'pull',    verb: 'picks up' },
   { key: 'beaten',       label: 'Beaten',        category: 'nothing', verb: 'is beaten by' },

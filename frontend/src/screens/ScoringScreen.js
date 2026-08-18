@@ -3682,6 +3682,9 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
             shotDistance: shot.distance,
             shotType: shot.shotType,
             connectionType: shot.connectionType,
+            lofted: shot.lofted,
+            selectedShotRank: shot.selectedShotRank,
+            rankingEngineVersion: shot.rankingEngineVersion,
           });
           // Remember what was recorded so reopening this delivery via SHOT shows
           // the existing pick instead of a blank wheel. Matched on clientEventId

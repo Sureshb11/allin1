@@ -12,12 +12,157 @@
 // already saved and already counted; if this file cannot produce a sentence it
 // returns null and the ball is exactly as correct as it was before.
 
-import { shotVerb, shotLabel, zoneLabel, shotCategory } from './ballIntelligence.js';
+import { shotVerb, shotLabel, zoneLabel, shotCategory, sideOfZone } from './ballIntelligence.js';
+
+/**
+ * Template groups: `<shotType|category|generic>.<six|four|runs|dot>`.
+ *
+ * Reusable groups rather than one growing conditional, so adding a stroke means
+ * adding a key here and nothing else. Lookup falls back shot -> category ->
+ * generic, which is why a brand-new shot type still reads well on the day it is
+ * added, before anybody has written it a voice of its own.
+ *
+ * Every template takes the location from ctx (`where` / `overWhere` / `at`) and
+ * never names a region itself. That is what makes it structurally impossible to
+ * say "pull through the covers".
+ */
+const TEMPLATES = {
+  // ── Drives ──
+  'coverDrive.four': [
+    (x) => `Beautiful cover drive, finding the gap${x.where} for four.`,
+    (x) => `Excellent timing from ${x.bat}, and that races away${x.where} for four.`,
+    (x) => `Lovely cover drive${x.where}, all the way to the boundary.`,
+    (x) => `${x.bat} finds the gap${x.where} and picks up four.`,
+    (x) => `Classy stroke${x.where}, four runs.`,
+  ],
+  'straightDrive.four': [
+    (x) => `Classic straight drive, racing back past ${x.bowl} for four.`,
+    (x) => `Right out of the middle — straight down the ground for four.`,
+    (x) => `${x.bat} drives straight and it beats everyone${x.where} for four.`,
+  ],
+  'insideOut.four': [
+    (x) => `${x.bat} opens the face and goes inside-out${x.where} for four.`,
+    (x) => `Beautiful inside-out shot${x.where}, and that is four.`,
+  ],
+  'insideOut.six': [
+    (x) => `He has gone inside-out and cleared${x.overWhere.replace(' over', '')} for six!`,
+    (x) => `Inside-out and enormous — that is six${x.overWhere}.`,
+  ],
+  // ── Pulls ──
+  'pull.four': [
+    (x) => `Powerful pull${x.where} for four.`,
+    (x) => `Cracked away${x.where}, and that is four.`,
+    (x) => `Excellent pull shot, finding the gap${x.where}.`,
+    (x) => `Pulled away beautifully for four.`,
+  ],
+  'pull.six': [
+    (x) => `What a pull! ${x.bat} has launched that${x.overWhere} for six.`,
+    (x) => `Picked up early and pulled${x.overWhere} — six more.`,
+    (x) => `That is huge. Pulled with real power${x.overWhere}.`,
+  ],
+  'hook.four': [(x) => `Hooked away${x.where} for four.`,
+                (x) => `${x.bat} takes it on and hooks it${x.where} to the fence.`],
+  // ── Wrists ──
+  'flick.four': [
+    (x) => `Lovely flick off the pads, racing away${x.where} for four.`,
+    (x) => `Clipped beautifully${x.where} for four.`,
+    (x) => `A well-timed flick beats the field${x.where} for four.`,
+  ],
+  'legGlance.four': [
+    (x) => `Glanced fine${x.where} and away for four.`,
+    (x) => `Delicate work off the hip, four runs${x.where}.`,
+  ],
+  // ── Cuts ──
+  'lateCut.four': [
+    (x) => `Delicate late cut, beating the field${x.where} for four.`,
+    (x) => `Guided beautifully behind square, and it runs away for four.`,
+    (x) => `Excellent late cut, finding the boundary${x.where}.`,
+  ],
+  'cut.four': [
+    (x) => `Cracked away square${x.where}, and that is four.`,
+    (x) => `Cut hard${x.where}, four runs.`,
+    (x) => `Short and wide, and ${x.bat} puts it away${x.where}.`,
+  ],
+  'upperCut.four': [(x) => `Upper cut, over the slips and away${x.where} for four.`],
+  'upperCut.six': [(x) => `Upper cut for six! Over the cordon and out${x.overWhere}.`],
+  // ── Sweeps ──
+  'sweep.four': [
+    (x) => `Swept firmly${x.where} for four.`,
+    (x) => `Down on one knee and swept away${x.where}, four runs.`,
+  ],
+  'slogSweep.six': [
+    (x) => `Slog-swept into the crowd${x.overWhere}! Six.`,
+    (x) => `${x.bat} gets underneath it and clears${x.overWhere} with ease.`,
+  ],
+  'reverseSweep.four': [(x) => `Reverse swept, and beautifully placed${x.where} for four.`],
+  // ── Big hitting ──
+  'slog.six': [
+    (x) => `Huge slog${x.overWhere}! That has gone all the way for six.`,
+    (x) => `No elegance and no need for any — six${x.overWhere}.`,
+  ],
+  'scoop.four': [(x) => `Scooped fine${x.where}, and the fielders had no chance. Four.`],
+  'ramp.four': [
+    (x) => `Brilliant ramp shot, guiding it fine${x.where} for four.`,
+    (x) => `Ramped over the keeper${x.where} — four.`,
+  ],
+  // ── Category fallbacks ──
+  'drive.four': [
+    (x) => `Driven handsomely${x.where} for four.`,
+    (x) => `${x.bat} drives, and that is four${x.where}.`,
+  ],
+  'drive.six': [
+    (x) => `Magnificent lofted drive${x.overWhere} for six.`,
+    (x) => `Beautifully struck${x.overWhere}, and that has cleared the rope.`,
+    // No direction words of its own: this group serves every drive, and saying
+    // "straight" here put the word in front of a long-off zone.
+    (x) => `Lofted with the full face${x.overWhere} — six.`,
+  ],
+  'loft.six': [
+    (x) => `Clean strike${x.overWhere}, and it sails over the boundary for six.`,
+    (x) => `Middled, and that is long gone${x.overWhere}.`,
+  ],
+  'defence.dot': [
+    (x) => (x.at ? `Solidly defended${x.where}.` : `Solidly defended back to ${x.bowl}.`),
+    (x) => `Firmly defended${x.where}.`,
+    (x) => `${x.bat} plays it back to ${x.bowl}. No run.`,
+  ],
+  'leave.dot': [
+    (x) => (x.sideWord === 'the off side' ? `Good leave outside off.` : `Left alone by ${x.bat}.`),
+    (x) => `${x.bat} shoulders arms. No run.`,
+  ],
+  'nothing.dot': [
+    (x) => `Beaten${x.sideWord === 'the off side' ? ' outside off' : ''} — excellent delivery from ${x.bowl}.`,
+    (x) => `${x.bowl} beats the bat. Nothing on it.`,
+  ],
+  // ── Generic ──
+  'generic.six': [
+    (x) => `Six! ${x.bat} clears the rope${x.overWhere}.`,
+    (x) => `Into the crowd${x.overWhere} — six more.`,
+  ],
+  'generic.four': [
+    (x) => `Four! Beautifully placed${x.where}.`,
+    (x) => `That races away${x.where} for four.`,
+  ],
+  'generic.runs': [
+    (x) => `Worked away${x.where} for ${x.n}.`,
+    (x) => `${x.bat} picks up ${x.n}${x.where}.`,
+    (x) => (x.runs === 3 ? `Driven${x.where}, and they race back for three.` : `Pushed${x.where} for ${x.n}.`),
+  ],
+  'generic.dot': [
+    (x) => (x.verb ? `${x.bat} ${x.verb} it${x.where}, but straight to the fielder.` : `No run.`),
+    (x) => `No run.`,
+  ],
+};
 
 /** "Virat Kohli" → "Kohli". Commentary uses surnames; scorecards use full names. */
 const surname = (name) => {
-  const parts = String(name || '').trim().split(/\s+/);
-  return parts.length > 1 ? parts[parts.length - 1] : (parts[0] || 'The batter');
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  // Take the last part that is an actual NAME, not an initial. Plenty of players
+  // are entered as "Kannan K", and blindly taking the last token turned every
+  // line of their commentary into "K picks up a single".
+  const named = parts.filter((w) => w.replace(/\./g, '').length > 1);
+  const use = named.length ? named : parts;
+  return use.length > 1 ? use[use.length - 1] : (use[0] || 'The batter');
 };
 
 // How the ball left the bat, when the scorer said. Reads as commentary, not as
@@ -138,8 +283,20 @@ export const commentaryFor = (ball, shot, names = {}) => {
       return `${runs} run${runs !== 1 ? 's' : ''} to ${bat}.${dropped}`;
     }
 
-    const where = zone ? ` through ${zone.toLowerCase()}` : '';
-    const overWhere = zone ? ` over ${zone.toLowerCase()}` : '';
+    // ── Structured shot commentary ───────────────────────────────────────
+    // The one rule that shapes this whole section: a template supplies the
+    // STROKE language and never the location. Where the ball went always comes
+    // from the delivery's own zone, so "cover drive" plus a long-off zone reads
+    // "driven... down to long off" and can never produce "through the covers".
+    // Rule enforced by construction rather than by remembering.
+    const side = shot.shotZone ? sideOfZone(shot.shotZone) : null;
+    const sideWord = side === 'off' ? 'the off side'
+      : side === 'leg' ? 'the leg side'
+      : side === 'straight' ? 'down the ground' : null;
+    const at = zone ? zone.toLowerCase() : null;
+    const where = at ? ` through ${at}` : (sideWord ? ` through ${sideWord}` : '');
+    const overWhere = at ? ` over ${at}` : (sideWord ? ` over ${sideWord}` : '');
+    const lofted = shot.lofted === true;
 
     // The scorer said the bat did not middle it — say so, whatever the runs.
     if (shot.connectionType && CONNECTION_PHRASE[shot.connectionType] && runs < 4) {
@@ -149,27 +306,19 @@ export const commentaryFor = (ball, shot, names = {}) => {
     }
 
     const seed = ball.id || `${bat}${ball.ballNumber}${runs}`;
-    if (runs === 6) {
-      return pick([
-        verb ? `${bat} ${verb} it${overWhere} for SIX!` : `Six! ${bat} goes long${overWhere}.`,
-        `That is enormous — ${bat} clears${overWhere ? overWhere.replace(' over', '') : ' the rope'} with room to spare.`,
-        `Into the crowd! ${bat} gets hold of that one${overWhere}.`,
-        `${bowl} drops it short and ${bat} deposits it${overWhere} for six.`,
-      ], seed) + dropped;
-    }
-    if (runs === 4) {
-      return pick([
-        verb ? `${bat} ${verb}${where} for FOUR!` : `Four! Beautifully placed${where}.`,
-        `Timed, not forced — that races away${where} for four.`,
-        `Four more. ${bat} finds the gap${where} and the fielders can only watch.`,
-      ], seed) + dropped;
-    }
-    if (runs === 0) {
-      if (cat === 'defence') return shot.shotType === 'leave' ? `Left alone by ${bat}.` : `Solid defence from ${bat}.${dropped}`;
-      if (cat === 'nothing') return `Beaten! ${bowl} finds the edge of nothing.${dropped}`;
-      return verb ? `${bat} ${verb} it${where}, but straight to the fielder.${dropped}`
-                  : `No run.${dropped}`;
-    }
+    const band = runs === 6 ? 'six' : runs === 4 ? 'four' : runs === 0 ? 'dot' : 'runs';
+    const name = (shot.shotType ? shotLabel(shot.shotType) : '') || '';
+    const stroke = lofted && !/loft|slog|scoop|ramp|helicopter|upper|pick/i.test(name)
+      ? `lofted ${name.toLowerCase()}` : name.toLowerCase();
+    const n = runs === 1 ? 'a single' : runs === 2 ? 'two' : runs === 3 ? 'three' : `${runs}`;
+    const ctx = { bat, bowl, at, where, overWhere, sideWord, stroke, n, runs, verb };
+
+    const group = TEMPLATES[`${shot.shotType}.${band}`]
+      || TEMPLATES[`${cat}.${band}`]
+      || TEMPLATES[`generic.${band}`];
+    const line = group ? pick(group, seed) : null;
+    if (line) return line(ctx) + dropped;
+
     return verb ? `${bat} ${verb}${where} for ${runs}.${dropped}`
                 : `${runs} run${runs !== 1 ? 's' : ''} to ${bat}${where}.${dropped}`;
   } catch {

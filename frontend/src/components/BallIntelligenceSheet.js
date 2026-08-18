@@ -22,7 +22,8 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/ThemeContext';
 import WagonWheel, { HandBadge } from './WagonWheel';
 import BatsmanAvatar from './BatsmanAvatar';
-import { SHOT_GROUPS, SHOT_LABELS, DOT_BALL_TYPES, CONNECTIONS, zoneLabel } from '../sports/cricket/wagonWheel';
+import { SHOT_GROUPS, SHOT_LABELS, DOT_BALL_TYPES, CONNECTIONS, zoneLabel, loftedLabel } from '../sports/cricket/wagonWheel';
+import { rankShots, ENGINE_VERSION } from '../sports/cricket/shotRelevance';
 import haptic from '../utils/haptics';
 
 /** The headline: what the delivery actually produced. */
@@ -84,12 +85,47 @@ export default function BallIntelligenceSheet({
     setStep(initialShot?.zone ? 'shot' : 'zone');
   }, [visible, ball?.clientEventId]);
 
+  // ── Loft ──────────────────────────────────────────────────────────────
+  // Inferred, not asked. A six was hit in the air whether or not anybody ticked
+  // a box, so the common case costs no tap; everything else starts as "not
+  // recorded" rather than as a guess, because null and false are different
+  // facts and only one of them is honest here. The scorer can always override.
+  const inferredLoft = ball?.runs === 6 ? true : null;
+  const [lofted, setLofted] = useState(inferredLoft);
+  useEffect(() => {
+    if (visible) setLofted(initialShot?.lofted ?? inferredLoft);
+  }, [visible, ball?.clientEventId]);
+
   const isDot = !ball?.isWicket && !ball?.runs;
   // After a dot the full twenty-shot list is noise — a dot is nearly always one
   // of four things, and offering four keeps the scorer's eyes on the game.
   const groups = isDot
     ? [{ title: 'What happened?', keys: DOT_BALL_TYPES }]
     : SHOT_GROUPS;
+
+  // ── Ranking ───────────────────────────────────────────────────────────────
+  // Recomputed whenever the wheel answer or the loft changes, over EVERY key in
+  // the picker — the ranking decides order, never membership, so nothing here
+  // can drop a stroke out of the list below.
+  const allKeys = useMemo(() => groups.flatMap((g) => g.keys), [isDot]);
+  const ranked = useMemo(() => rankShots({
+    keys: allKeys,
+    zone: picked?.zone,
+    angle: picked?.angle,
+    distance: picked?.distance,
+    runs: ball?.runs || 0,
+    isSix: ball?.runs === 6,
+    lofted,
+    hand,
+  }), [allKeys, picked?.zone, picked?.angle, picked?.distance, ball?.runs, lofted, hand]);
+
+  const rankOf = useMemo(() => Object.fromEntries(ranked.map((r) => [r.key, r.rank])), [ranked]);
+  // Six, i.e. two rows of three. This row exists to be hit without reading; a
+  // dozen suggestions would just be the full list again with extra steps.
+  const likely = useMemo(
+    () => (picked?.zone ? ranked.slice(0, 6).map((r) => r.key) : []),
+    [ranked, picked?.zone],
+  );
 
   // The zone is stored the instant it is tapped, BEFORE the second popup opens.
   // So a scorer who answers the wheel and then dismisses the shot picker has
@@ -113,10 +149,48 @@ export default function BallIntelligenceSheet({
   // and short enough not to feel like waiting.
   const pickType = (shotType) => {
     haptic.tick();
-    const next = { ...picked, shotType };
+    // The rank the scorer actually chose is the one part of the ranking that
+    // cannot be recomputed later: the ordering is derivable from the delivery
+    // and the rules, but what a human did when faced with it is not. This is
+    // the feedback that lets the weights improve on evidence.
+    const next = {
+      ...picked,
+      shotType,
+      lofted: lofted === null ? undefined : lofted,
+      selectedShotRank: rankOf[shotType],
+      rankingEngineVersion: ENGINE_VERSION,
+    };
     setPicked(next);
     onCapture?.(next);                    // upserts onto the same delivery
     closeTimer.current = setTimeout(() => onClose?.(), 260);
+  };
+
+  // Toggling loft re-ranks, because it is evidence: a lofted stroke to long-off
+  // is a different shortlist from a grounded one to the same wedge.
+  const toggleLoft = (v) => {
+    haptic.tick();
+    const next = lofted === v ? null : v;   // tapping the active one un-answers
+    setLofted(next);
+    if (picked?.shotType) onCapture?.({ ...picked, lofted: next === null ? undefined : next });
+  };
+
+  const renderTile = (k) => {
+    const on = picked?.shotType === k;
+    return (
+      <TouchableOpacity key={k} onPress={() => pickType(k)}
+        style={[s.tile, on && s.tileOn]}
+        accessibilityRole="button"
+        accessibilityLabel={SHOT_LABELS[k]}
+        accessibilityState={{ selected: on }}>
+        <BatsmanAvatar shotKey={k} hand={hand} size={58}
+          color={on ? c.bg : c.textPrimary}
+          accent={on ? c.bg : c.lime}
+          ground={on ? c.bg : c.surfaceHighest} />
+        <Text style={[s.tileText, on && s.tileTextOn]} numberOfLines={2}>
+          {loftedLabel(k, lofted)}
+        </Text>
+      </TouchableOpacity>
+    );
   };
 
   const pickConnection = (connectionType) => {
@@ -241,32 +315,45 @@ export default function BallIntelligenceSheet({
                 </View>
               </View>
 
+              {/* Loft. Two taps' worth of meaning for one tap, and only when it
+                  is not already known: a six preselects itself. Tapping the
+                  active side clears it back to "not recorded", because a
+                  scorer who is not sure should be able to say so. */}
+              {!isDot && (
+                <View style={s.group}>
+                  <Text style={s.groupTitle}>IN THE AIR?</Text>
+                  <View style={s.chipWrap}>
+                    {[[false, 'Along the ground'], [true, 'Lofted']].map(([v, label]) => {
+                      const on = lofted === v;
+                      return (
+                        <TouchableOpacity key={label} onPress={() => toggleLoft(v)}
+                          style={[s.chip, on && s.chipOn]} accessibilityRole="button"
+                          accessibilityState={{ selected: on }}>
+                          <Text style={[s.chipText, on && s.chipTextOn]}>{label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* The whole point of the wheel answer: the six strokes most
+                  likely to be the one, under the thumb, before any scrolling.
+                  Only shown once a location is known — with no wheel answer the
+                  ranking has nothing to rank on and would just be six arbitrary
+                  strokes wearing a confident heading. */}
+              {likely.length > 0 && (
+                <View style={s.group}>
+                  <Text style={s.groupTitle}>LIKELY SHOTS</Text>
+                  <View style={s.tileWrap}>{likely.map(renderTile)}</View>
+                </View>
+              )}
+
               {groups.map((g) => (
                 <View key={g.title} style={s.group}>
                   <Text style={s.groupTitle}>{g.title.toUpperCase()}</Text>
                   <View style={s.tileWrap}>
-                    {g.keys.map((k) => {
-                      const on = picked?.shotType === k;
-                      return (
-                        <TouchableOpacity key={k} onPress={() => pickType(k)}
-                          style={[s.tile, on && s.tileOn]}
-                          accessibilityRole="button"
-                          accessibilityLabel={SHOT_LABELS[k]}
-                          accessibilityState={{ selected: on }}>
-                          <BatsmanAvatar
-                            shotKey={k}
-                            hand={hand}
-                            size={58}
-                            color={on ? c.bg : c.textPrimary}
-                            accent={on ? c.bg : c.lime}
-                            ground={on ? c.bg : c.surfaceHighest}
-                          />
-                          <Text style={[s.tileText, on && s.tileTextOn]} numberOfLines={2}>
-                            {SHOT_LABELS[k]}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                    {g.keys.map(renderTile)}
                   </View>
                 </View>
               ))}
