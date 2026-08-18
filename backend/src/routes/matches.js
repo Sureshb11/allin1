@@ -1332,7 +1332,16 @@ router.get('/:id/scorecard', async (req, res) => {
               include: {
                 bowler: true,
                 balls: {
-                  include: { batter: true, nonStriker: true, bowler: { select: { id: true, name: true } } },
+                  include: {
+                    batter: true, nonStriker: true, bowler: { select: { id: true, name: true } },
+                    // Needed for commentary: without this, every read of the
+                    // scorecard sees a ball with no BallIntelligence attached,
+                    // so the shot-aware line has nothing to work from and
+                    // silently falls back to the generic one. That fallback
+                    // is CORRECT for a ball with no captured shot — it is the
+                    // bug when the shot exists and simply wasn't fetched.
+                    intelligence: true,
+                  },
                   orderBy: { ballNumber: 'asc' }
                 }
               },
@@ -1345,6 +1354,38 @@ router.get('/:id/scorecard', async (req, res) => {
     });
 
     if (!match) return res.status(404).json({ error: 'Match not found' });
+
+    // One authoritative commentary line per ball, generated HERE and sent
+    // ready to render.
+    //
+    // Before this, the spectator screen's Commentary tab computed its own
+    // "FOUR! <batter> finds the fence" locally from raw runs — a second,
+    // parallel commentary engine that never saw BallIntelligence at all,
+    // because the ball rows it worked from never carried the relation. A
+    // scorer could capture "Cover Drive, Cover" and the spectator would still
+    // read the generic line, forever, because nothing downstream of this
+    // endpoint had the data to do otherwise.
+    //
+    // Fixed at the source rather than in the UI: the client should not
+    // contain cricket knowledge, or scorer-side and spectator-side commentary
+    // drift apart exactly the way the shot vocabulary once did. Same
+    // aiCommentary-or-template precedent already used by the shots feed
+    // (search `commentarySource` above) — a written line if the delivery
+    // earned one, otherwise the template composed fresh on every read, which
+    // is why editing a delivery's shot changes its commentary on the very
+    // next fetch with nothing to invalidate.
+    for (const inn of match.innings || []) {
+      for (const over of inn.oversData || []) {
+        for (const b of over.balls || []) {
+          b.commentary = b.intelligence?.aiCommentary || commentaryFor(b, b.intelligence || null, {
+            batter:  b.batter?.name,
+            bowler:  b.bowler?.name || over.bowler?.name,
+            fielder: b.wicketAssists,
+          });
+        }
+      }
+    }
+
     res.json({ match });
   } catch (e) {
     res.status(500).json({ error: e.message });

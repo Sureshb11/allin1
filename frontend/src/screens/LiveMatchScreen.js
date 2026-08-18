@@ -88,7 +88,24 @@ function batterCard(balls, playerId, nameOf) {
   };
 }
 
-/** Ball-by-ball lines, newest first — the Commentary tab. */
+/**
+ * Ball-by-ball lines, newest first — the Commentary tab.
+ *
+ * Purely presentation. The line itself comes from the server's `/scorecard`
+ * response (`b.commentary`) — the same shot-aware engine the scorer's own
+ * capture screen uses, run once on read rather than reimplemented here. This
+ * function used to compose "FOUR! <batter> finds the fence" from raw runs on
+ * every ball, which is a second commentary engine: it could not know a shot
+ * had been recorded because the ball rows it received never carried
+ * BallIntelligence, so a cover drive to Cover read exactly like a genuinely
+ * untracked delivery, forever. Keeping cricket knowledge out of this screen
+ * is what keeps the scorer's and the spectator's wording from being able to
+ * drift apart the way the shot vocabulary itself once did.
+ *
+ * The one-line fallback below is a network/shape guard, not commentary logic:
+ * if a row somehow arrives without the field, a spectator sees the runs
+ * rather than a blank line — it does not attempt to describe the shot.
+ */
 function commentaryLines(inn, nameOf) {
   const out = [];
   for (const over of inn?.oversData || []) {
@@ -97,15 +114,7 @@ function commentaryLines(inn, nameOf) {
       if (isLegal(b)) n += 1;
       const label = `${over.overNumber - 1}.${n || 1}`;
       const bowler = nameOf(b.bowlerId || over.bowlerId) || 'Bowler';
-      const batter = nameOf(b.batterId) || 'Batter';
-      let text;
-      if (b.isWicket) text = `OUT! ${batter} departs${b.wicketType ? ` — ${b.wicketType}` : ''}.`;
-      else if (b.extraType === 'wide') text = `Wide. ${b.extras} to the total.`;
-      else if (b.extraType === 'noBall') text = `No ball! ${b.runs + b.extras} from it.`;
-      else if (b.runs === 6) text = `SIX! ${batter} goes downtown.`;
-      else if (b.runs === 4) text = `FOUR! ${batter} finds the fence.`;
-      else if (b.runs === 0) text = `No run. ${batter} defends.`;
-      else text = `${b.runs} run${b.runs > 1 ? 's' : ''} to ${batter}.`;
+      const text = b.commentary || `${b.runs} run${b.runs === 1 ? '' : 's'}.`;
       out.push({ key: `${over.id}-${b.id}`, label, text, bowler, isWicket: b.isWicket, runs: b.runs, extraType: b.extraType });
     }
   }
@@ -183,7 +192,22 @@ export default function LiveMatchScreen({ route, navigation }) {
   const loadScorecard = useCallback(async () => {
     if (!matchId) return;
     const sc = await legendsApi.getScorecard(matchId);
-    if (sc.success && sc.data) setMatch(sc.data);
+    if (!sc.success || !sc.data) return;
+    // Same "only take it if something changed" guard as loadIntel, and for the
+    // same reason: this now polls every 6s while live, and the payload carries
+    // both full squads — comparing the whole thing on every tick would cost
+    // more than the re-render it exists to skip. A cheap signature is enough:
+    // the last ball's id changes the moment a new delivery lands, and nothing
+    // else in this payload changes without a new ball causing it to.
+    setMatch((prev) => {
+      const sig = (m) => {
+        const inn = m?.innings?.[m.innings.length - 1];
+        const overs = inn?.oversData || [];
+        const last = overs[overs.length - 1]?.balls || [];
+        return `${overs.length}:${last[last.length - 1]?.id || ''}`;
+      };
+      return prev && sig(prev) === sig(sc.data) ? prev : sc.data;
+    });
   }, [matchId]);
 
   useEffect(() => { loadLive(); }, [loadLive]);
@@ -226,6 +250,19 @@ export default function LiveMatchScreen({ route, navigation }) {
   useEffect(() => {
     if (!match && tab !== 'info') loadScorecard();
   }, [tab, match, loadScorecard]);
+
+  // Keep it live once fetched, same 6s cadence as the headline. Before this,
+  // the Commentary tab was fetched exactly once per visit — a spectator who
+  // opened it and left it open never saw a later ball at all, shot-aware or
+  // not, without a manual pull-to-refresh. This is what makes a delivery
+  // scored on the ground actually arrive here on its own.
+  useEffect(() => {
+    if (!match) return undefined;
+    const live = summary?.status === 'live' || summary?.status === 'break';
+    if (!live) return undefined;
+    const t = setInterval(loadScorecard, 6000);
+    return () => clearInterval(t);
+  }, [match, summary?.status, loadScorecard]);
 
   // Poll while the match is live, at the 6s the rest of the app uses. Stops the
   // moment the match is over, so a finished match costs nothing to sit on.
