@@ -481,35 +481,26 @@ function ballLabel(b) {
   return b.runs === 0 ? '•' : `${b.runs}`;
 }
 
-// One text commentary line for a single ball — plain, factual, Cricbuzz-style
-// ("Bowler to Batter, N runs"), built entirely from data we already have.
-function ballCommentary(ball, bowlerName) {
-  const batter = ball.batter?.name || 'Batter';
-  const et = ball.extraType;
-  // A chance put down. Told as its own sentence at the front, because it is the
-  // story of the delivery — the runs are the footnote. "Dropped!" alone would
-  // undersell a diving miss and oversell a shelled dolly, so it says which.
-  const drop = ball.droppedBy
-    ? `Dropped! ${ball.droppedBy} puts down ${ball.dropDifficulty === 'easy' ? 'a straightforward chance'
-        : ball.dropDifficulty === 'difficult' ? 'a tough chance' : 'the chance'}. `
-    : '';
-  // A run out can fall on an extra, so every extra line carries the dismissal when
-  // there is one — otherwise the wicket would go unmentioned in the commentary.
-  const outTail = ball.isWicket
-    ? `, OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName, ball.directHit)}`
-    : '';
-  if (et === 'deadBall') return drop + `${bowlerName} runs out ${batter} backing up — OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName, ball.directHit)}`;
-  if (et === 'wide') return drop + `${bowlerName} to ${batter}, wide${ball.extras > 1 ? `, ${ball.extras - 1} run${ball.extras > 2 ? 's' : ''}` : ''}${outTail}`;
-  if (et === 'noBall') return drop + `${bowlerName} to ${batter}, no ball${ball.runs ? `, ${ball.runs} run${ball.runs > 1 ? 's' : ''}` : ''}${outTail}`;
-  if (et === 'bye') return drop + `${bowlerName} to ${batter}, ${ball.extras} bye${ball.extras > 1 ? 's' : ''}${outTail}`;
-  if (et === 'legBye') return drop + `${bowlerName} to ${batter}, ${ball.extras} leg bye${ball.extras > 1 ? 's' : ''}${outTail}`;
-  if (et === 'penalty') return drop + 'Penalty awarded, 5 runs';
-  if (et === 'retired') return drop + `${batter} retires ${String(ball.wicketType).toLowerCase() === 'retiredhurt' ? 'hurt' : 'out'}`;
-  if (ball.isWicket) return drop + `${bowlerName} to ${batter}, OUT! ${formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName, ball.directHit)}`;
-  if (ball.runs === 0) return drop + `${bowlerName} to ${batter}, no run`;
-  if (ball.runs === 4) return drop + `${bowlerName} to ${batter}, FOUR!`;
-  if (ball.runs === 6) return drop + `${bowlerName} to ${batter}, SIX!`;
-  return drop + `${bowlerName} to ${batter}, ${ball.runs} run${ball.runs > 1 ? 's' : ''}`;
+// One text commentary line for a single ball — this IS Live Commentary, not a
+// second, private version of it. Until this fix, ScorecardScreen's own LIVE
+// tab computed its own generic line locally ("Bowler to Batter, FOUR!") from
+// raw runs and extraType, with no idea a shot had ever been recorded — the
+// exact bug LiveMatchScreen had, just never migrated here when that one was
+// fixed. The two screens read the SAME /scorecard response; one used the
+// server's shot-aware `b.commentary`, the other quietly kept generating its
+// own next to it. A cover drive to Cover read "Beautiful cover drive through
+// the covers for four." on one screen and "Bowler to Kannan K, FOUR!" on the
+// other, for the identical delivery.
+//
+// `ball.commentary` already covers dismissal detail (with the fielder's name)
+// and dropped catches — see shotCommentary.js's wicket and `dropped` handling
+// — so nothing here needs to rebuild that. The one line of local wording lost
+// is the specific "runs out ... backing up" phrasing for a dead-ball run-out;
+// that ball still carries isWicket+wicketType and reads as a normal run-out,
+// which is a real dismissal correctly described, just without that one extra
+// clause — an acceptable trade for not maintaining a second engine.
+function ballCommentary(ball) {
+  return ball.commentary || `${ball.runs} run${ball.runs === 1 ? '' : 's'}.`;
 }
 
 // Ball-by-ball commentary for a whole innings, newest ball first.
@@ -523,15 +514,13 @@ function buildCommentary(innings) {
   (innings.oversData || []).forEach((over) => {
     let legalInOver = 0;
     (over.balls || []).forEach((ball, idx) => {
-      // The bowler for THIS delivery (shared overs), falling back to the over's.
-      const bowlerName = ball.bowler?.name || over.bowler?.name || 'Bowler';
       const isLegal = !NON_BALL_EXTRAS.includes(ball.extraType);
       if (isLegal) legalInOver += 1;
       lines.push({
         type: 'ball',
         key: `${over.id}-${idx}`,
         label: `${over.overNumber - 1}.${legalInOver}`,
-        text: ballCommentary(ball, bowlerName),
+        text: ballCommentary(ball),
         isWicket: !!ball.isWicket,
         // Shared rule, not `!extraType`: a four off a no ball is the batter's
         // four, and the batting table above this already counted it as one.
