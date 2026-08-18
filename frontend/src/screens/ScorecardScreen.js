@@ -1,6 +1,9 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { makeControls } from '../theme/controls';
 import { sortSquad, canonicalRole, roleRank, ROLE_RANK } from '../utils/squadOrder';
+// Moved out of this file so the Live match screen can show the same cards —
+// see utils/overSummary.js for why it is not simply copied there.
+import { computeOverEndSummaries } from '../utils/overSummary';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Share, Image, RefreshControl, Dimensions, Animated } from
@@ -31,8 +34,7 @@ import Skeleton from "../components/Skeleton";
 
 // Latest COMPLETED over of the current (last) innings — used to pop an
 // auto-dismissing banner the moment a live watcher's poll picks up a newly
-// finished over. Forward-declared call to computeOverEndSummaries below is
-// safe: function declarations are hoisted.
+// finished over.
 function latestOverEnd(match) {
   const inns = match?.innings || [];
   const innings = inns[inns.length - 1];
@@ -1161,66 +1163,6 @@ function HighlightsTab({ match }) {const DS = useTheme().colors;const styles = u
 // End-of-over summary for every COMPLETED over: the team total at that point +
 // the two batsmen at the crease (runs/balls) + the over's bowler figures.
 // Newest over first. The in-progress current over is skipped (it isn't "ended").
-function computeOverEndSummaries(innings) {
-  const overs = [...(innings?.oversData || [])].sort((a, b) => a.overNumber - b.overNumber);
-  const legalIn = (over) => (over.balls || []).filter((b) => !NON_BALL_EXTRAS.includes(b.extraType)).length;
-  const batRuns = {}, batBalls = {}, batName = {};
-  const bowl = {};   // bowlerId -> cumulative { name, balls, runs, wkts, maidens }
-  let runningRuns = 0, runningWkts = 0;
-  const out = [];
-  for (const over of overs) {
-    // Team total from the stored per-over aggregates (authoritative).
-    runningRuns += (over.runs || 0) + (over.extras || 0);
-    runningWkts += (over.wickets || 0);
-    let lastStriker = null, lastNon = null, overCharged = 0, overLegal = 0;
-    let lastBowlerId = over.bowlerId;
-    const overBowlers = new Set();
-    for (const b of (over.balls || [])) {
-      const bId = b.bowlerId || over.bowlerId;   // per-delivery bowler (shared overs)
-      if (bId) {
-        if (!bowl[bId]) bowl[bId] = { name: b.bowler?.name || over.bowler?.name || 'Bowler', balls: 0, runs: 0, wkts: 0, maidens: 0 };
-        overBowlers.add(bId); lastBowlerId = bId;
-      }
-      const et = b.extraType;
-      if (b.batterId) {
-        batName[b.batterId] = b.batter?.name || 'Batter';
-        if (et !== 'wide' && et !== 'penalty' && et !== 'retired') batBalls[b.batterId] = (batBalls[b.batterId] || 0) + 1;
-        if (!et || et === 'noBall') batRuns[b.batterId] = (batRuns[b.batterId] || 0) + b.runs;
-      }
-      if (b.nonStrikerId) batName[b.nonStrikerId] = b.nonStriker?.name || batName[b.nonStrikerId] || 'Batter';
-      // Bowler figures — charged runs (byes/leg-byes excluded), legal balls, wickets.
-      let charged = 0, legal = false;
-      if (et === 'wide') charged = b.extras;
-      else if (et === 'noBall') charged = b.runs + b.extras;
-      else if (et === 'bye' || et === 'legBye') legal = true;
-      else if (et === 'penalty' || et === 'retired') charged = 0;
-      else { charged = b.runs; legal = true; }
-      if (bId) {
-        bowl[bId].runs += charged;
-        if (legal) bowl[bId].balls += 1;
-        if (b.isWicket) {
-          if (isBowlerWicket(b.wicketType)) bowl[bId].wkts += 1;
-        }
-      }
-      overCharged += charged;
-      if (legal) overLegal += 1;
-      lastStriker = b.batterId; lastNon = b.nonStrikerId;
-    }
-    if (overLegal >= 6 && overCharged === 0 && overBowlers.size === 1) bowl[[...overBowlers][0]].maidens += 1;
-    if (legalIn(over) >= 6) {   // completed over only
-      const bw = bowl[lastBowlerId] || { name: 'Bowler', balls: 0, maidens: 0, runs: 0, wkts: 0 };
-      out.push({
-        over: over.overNumber,
-        total: `${runningRuns}/${runningWkts}`,
-        bat: [lastStriker, lastNon].filter(Boolean).map((id) => ({ name: batName[id] || 'Batter', runs: batRuns[id] || 0, balls: batBalls[id] || 0 })),
-        // Standard O-M-R-W bowling figures, matching the format used across the app.
-        bowler: { name: bw.name, fig: `${Math.floor(bw.balls / 6)}.${bw.balls % 6}-${bw.maidens}-${bw.runs}-${bw.wkts}` },
-      });
-    }
-  }
-  return out.reverse();
-}
-
 // ── LIVE tab: current-over box + reverse-chronological ball commentary ───────
 function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
   const CK = cricketColors(DS);const styles = useThemedStyles(makeStyles);

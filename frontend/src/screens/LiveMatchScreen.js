@@ -31,6 +31,7 @@ import ShotBoard from '../components/ShotBoard';
 // correct, but four bugs today came from lists exactly like it being retyped
 // and one copy drifting, so a fourth is not worth keeping.
 import { isLegalDelivery as isLegal } from '../utils/cricketRules';
+import { computeOverEndSummaries } from '../utils/overSummary';
 
 /**
  * Is the WebView's native side actually in this binary?
@@ -115,6 +116,13 @@ function batterCard(balls, playerId, nameOf) {
  * than a blank line — it does not attempt to describe the shot.
  */
 function commentaryLines(inn, nameOf) {
+  // "End of over N" cards, threaded in after each completed over's last ball —
+  // the same summaries the full scorecard shows, from the same shared function
+  // (utils/overSummary), so the two feeds cannot disagree about a bowler's
+  // figures. Keyed by over number for an O(1) lookup inside the loop.
+  const overEndByNum = {};
+  computeOverEndSummaries(inn).forEach((o) => { overEndByNum[o.over] = o; });
+
   const out = [];
   for (const over of inn?.oversData || []) {
     let n = 0;
@@ -123,9 +131,14 @@ function commentaryLines(inn, nameOf) {
       const label = `${over.overNumber - 1}.${n || 1}`;
       const bowler = nameOf(b.bowlerId || over.bowlerId) || 'Bowler';
       const text = b.commentary || `${b.runs} run${b.runs === 1 ? '' : 's'}.`;
-      out.push({ key: `${over.id}-${b.id}`, label, text, bowler, isWicket: b.isWicket, runs: b.runs, extraType: b.extraType });
+      out.push({ type: 'ball', key: `${over.id}-${b.id}`, label, text, bowler, isWicket: b.isWicket, runs: b.runs, extraType: b.extraType });
     }
+    const oe = overEndByNum[over.overNumber];
+    if (oe) out.push({ type: 'overend', key: `oe-${over.overNumber}`, data: oe });
   }
+  // Reversed last, so an over's summary sits directly ABOVE that over's final
+  // ball in the newest-first feed — which is the order a reader scanning down
+  // from the top expects to meet them in.
   return out.reverse();
 }
 
@@ -480,7 +493,7 @@ export default function LiveMatchScreen({ route, navigation }) {
           <ActivityIndicator style={styles.tabLoading} color={DS.lime} />
         )}
         {tab === 'scorecard'  && !!detail && <ScorecardTab  detail={detail} live={L} match={match} styles={styles} navigation={navigation} />}
-        {tab === 'commentary' && !!detail && <CommentaryTab detail={detail} styles={styles} />}
+        {tab === 'commentary' && !!detail && <CommentaryTab detail={detail} styles={styles} DS={DS} />}
         {tab === 'players'    && !!detail && <PlayersTab    match={match} styles={styles} />}
         {tab === 'info'       && <InfoTab summary={summary} match={match} broadcast={broadcast} styles={styles} />}
         {tab === 'shots'      && <ShotsTab intel={intel} styles={styles} DS={DS} />}
@@ -618,12 +631,34 @@ function ScorecardTab({ detail, live, match, styles, navigation }) {
   );
 }
 
-function CommentaryTab({ detail, styles }) {
+function CommentaryTab({ detail, styles, DS }) {
   const lines = detail?.commentary || [];
   if (lines.length === 0) return <Empty styles={styles} text="No commentary yet." />;
   return (
     <View style={styles.pane}>
       {lines.slice(0, 60).map((l) => (
+        l.type === 'overend' ? (
+          // The between-overs card: where the match stood, who was in, and what
+          // the bowler finished with. Same three facts the full scorecard shows.
+          <View key={l.key} style={styles.commOverEnd}>
+            <View style={styles.commOverEndHead}>
+              <Text style={styles.commOverEndTitle}>End of over {l.data.over}</Text>
+              <Text style={styles.commOverEndTotal}>{l.data.total}</Text>
+            </View>
+            <View style={styles.commOverEndLine}>
+              <Icon name="cricket" size={12} color={DS.lime} />
+              <Text style={styles.commOverEndSub} numberOfLines={1}>
+                {(l.data.bat || []).map((b) => `${b.name} ${b.runs}(${b.balls})`).join('   ')}
+              </Text>
+            </View>
+            <View style={styles.commOverEndLine}>
+              <Icon name="bowling" size={12} color={DS.coral} />
+              <Text style={styles.commOverEndSub} numberOfLines={1}>
+                {l.data.bowler?.name || ''} {l.data.bowler?.fig || ''}
+              </Text>
+            </View>
+          </View>
+        ) : (
         <View key={l.key} style={styles.commRow}>
           {/* A coloured chip carries white text — DS.textPrimary is near-black
               in the light theme and would vanish on coral. */}
@@ -645,6 +680,7 @@ function CommentaryTab({ detail, styles }) {
             <Text style={styles.commText}>{l.text}</Text>
           </View>
         </View>
+        )
       ))}
     </View>
   );
@@ -812,6 +848,14 @@ const makeStyles = (DS) => StyleSheet.create({
   commBody: { flex: 1, gap: 2 },
   commLabel: { fontSize: 10, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.4 },
   commText: { fontSize: 13, color: DS.textPrimary, lineHeight: 18 },
+  // "End of over N" card — a recessed band that breaks the ball list into
+  // overs, same treatment the full scorecard gives it.
+  commOverEnd: { backgroundColor: DS.surfaceHigh, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginVertical: 8, gap: 4 },
+  commOverEndHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  commOverEndTitle: { fontSize: 12, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.3 },
+  commOverEndTotal: { fontSize: 13, fontWeight: '900', color: DS.lime, fontVariant: ['tabular-nums'] },
+  commOverEndLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  commOverEndSub: { flex: 1, fontSize: 11.5, color: DS.textVariant },
 
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: DS.faint },
   infoKey: { fontSize: 12, fontWeight: '700', color: DS.textMuted },
