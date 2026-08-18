@@ -52,7 +52,12 @@ const HAS_WEBVIEW = (() => {
 
 const TABS = [
   { key: 'scorecard',  label: 'Scorecard',  icon: 'clipboard-text-outline' },
-  { key: 'commentary', label: 'Commentary', icon: 'message-text-outline' },
+  // The tab's user-facing label is "Live" — the spectator screen's name for
+  // this feed. `key` stays 'commentary' on purpose: it is internal state
+  // (`tab === 'commentary'`) that nothing renders, and the underlying feature
+  // is still Live Commentary everywhere else in the codebase. Only the label
+  // a viewer reads changed.
+  { key: 'commentary', label: 'Live', icon: 'message-text-outline' },
   { key: 'players',    label: 'Players',    icon: 'account-group-outline' },
   { key: 'info',       label: 'Info',       icon: 'information-outline' },
 ];
