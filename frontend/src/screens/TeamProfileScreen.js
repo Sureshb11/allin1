@@ -974,7 +974,12 @@ const MatchesTab = ({ matches, teamId, navigation, styles, DS }) => {
             
             return (
               <TouchableOpacity key={m.id} style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: DS.border }}
-                onPress={() => !m.isTournamentMatchOnly && navigation.navigate('MatchInsights', { matchId: m.id })}>
+                // 'Scorecard', not 'MatchInsights' — the same destination every other
+                // match tap in the app resolves to (HomeScreen, MyMatchesScreen,
+                // NotificationScreen, TournamentDetailScreen), live or completed alike.
+                // MatchInsights had no other caller anywhere in the app; this was its
+                // only route in, so nothing else is affected by retiring it here.
+                onPress={() => !m.isTournamentMatchOnly && navigation.navigate('Scorecard', { matchId: m.id })}>
                 
                 <Text style={{ color: DS.textMuted, fontSize: 12, marginBottom: 12 }}>{matchLabel}</Text>
                 
