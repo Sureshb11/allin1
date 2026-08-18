@@ -104,16 +104,20 @@ export const angleFromZone = (key, hand) => zonesForHand(hand).find((z) => z.key
  * they have to read.
  */
 export const SHOT_GROUPS = [
-  { title: 'Drives',   keys: ['coverDrive', 'straightDrive', 'onDrive', 'squareDrive', 'drive'] },
-  { title: 'Square',   keys: ['cut', 'lateCut', 'pull', 'hook', 'flick', 'legGlance'] },
-  { title: 'Sweeps',   keys: ['sweep', 'reverseSweep', 'paddle'] },
-  { title: 'Aerial',   keys: ['lofted', 'ramp', 'scoop', 'switchHit'] },
-  { title: 'No shot',  keys: ['defensive', 'leave', 'beaten', 'other'] },
+  { title: 'Drives',   keys: ['straightDrive', 'coverDrive', 'offDrive', 'onDrive', 'squareDrive', 'backFootPunch', 'drive'] },
+  { title: 'Cut & Pull', keys: ['cut', 'lateCut', 'upperCut', 'pull', 'hook'] },
+  { title: 'Leg side', keys: ['flick', 'legGlance'] },
+  { title: 'Sweeps',   keys: ['sweep', 'slogSweep', 'reverseSweep', 'paddle'] },
+  { title: 'Aerial',   keys: ['lofted', 'helicopter', 'scoop', 'ramp', 'reverseScoop', 'switchHit'] },
+  { title: 'No shot',  keys: ['defensive', 'backFootDefence', 'leave', 'beaten', 'other'] },
 ];
 
 export const SHOT_LABELS = {
   defensive: 'Defensive', leave: 'Leave', drive: 'Drive', coverDrive: 'Cover Drive',
   straightDrive: 'Straight Drive', onDrive: 'On Drive', squareDrive: 'Square Drive',
+  offDrive: 'Off Drive', backFootPunch: 'Back Foot Punch', backFootDefence: 'Back Foot Defence',
+  upperCut: 'Upper Cut', slogSweep: 'Slog Sweep', reverseScoop: 'Reverse Scoop',
+  helicopter: 'Helicopter',
   cut: 'Cut', lateCut: 'Late Cut', pull: 'Pull', hook: 'Hook', flick: 'Flick',
   legGlance: 'Leg Glance', sweep: 'Sweep', reverseSweep: 'Reverse Sweep', ramp: 'Ramp',
   scoop: 'Scoop', paddle: 'Paddle', switchHit: 'Switch Hit', lofted: 'Lofted',
