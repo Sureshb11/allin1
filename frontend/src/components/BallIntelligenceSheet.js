@@ -182,7 +182,7 @@ export default function BallIntelligenceSheet({
         transparent animationType="fade" onRequestClose={onClose}
       >
         <Pressable style={s.backdrop} onPress={onClose}>
-          <Pressable style={s.sheet} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={[s.sheet, s.sheetTall]} onPress={(e) => e.stopPropagation()}>
             <View style={s.head}>
               <View style={{ flex: 1 }}>
                 <Text style={s.outcome}>WHICH SHOT?</Text>
@@ -281,10 +281,19 @@ const makeStyles = (c) => StyleSheet.create({
   wheelWrap: { alignItems: 'center', marginVertical: 6 },
   hintRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12 },
   hint: { color: c.textMuted, fontSize: 11, fontWeight: '600' },
-  // flex:1 is load-bearing, not cosmetic. Without it the ScrollView sizes itself
-  // to its own content, so its frame and its content are the same height —
-  // nothing to scroll — and the sheet's maxHeight simply clips the overflow.
-  // With 29 strokes that hid six of them behind an edge that would not move.
+  // The shot list is the one step that must fill the sheet, because it is the
+  // only one taller than the screen. `height` and not `maxHeight`: the two go
+  // together with the `flex: 1` below and neither works alone.
+  //
+  //   maxHeight alone -> the sheet is content-sized, so the ScrollView's frame
+  //     equals its own content, nothing overflows *within* it, and it does not
+  //     scroll — the sheet just clips whatever ran past the bottom.
+  //   flex alone      -> a flex child contributes no intrinsic height, so a
+  //     content-sized parent collapses to its header and the list gets 0px.
+  //
+  // A definite parent height plus a flexed child is what makes the overflow
+  // land inside the ScrollView, which is the only place it can be scrolled.
+  sheetTall: { height: '92%' },
   typeScroll: { flex: 1, marginTop: 12 },
   typeScrollBody: { paddingBottom: 10 },
   group: { marginBottom: 12 },
