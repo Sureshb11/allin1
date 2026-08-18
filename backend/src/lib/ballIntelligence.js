@@ -147,6 +147,12 @@ export const SHOT_TYPES = [
   { key: 'straightDrive',label: 'Straight Drive',category: 'drive',   verb: 'drives' },
   { key: 'onDrive',      label: 'On Drive',      category: 'drive',   verb: 'drives' },
   { key: 'squareDrive',  label: 'Square Drive',  category: 'drive',   verb: 'drives' },
+  // Opening the face to hit a ball from the stumps AGAINST its line, into the
+  // off side. Kept as its own stroke and not as a modifier because it is the
+  // one entry here that describes intent a location cannot recover: an
+  // inside-out six over extra cover and a cover drive for four can share a
+  // zone, and only one of them tells you the batter manufactured the angle.
+  { key: 'insideOut',    label: 'Inside-Out',    category: 'drive',   verb: 'goes inside-out' },
   { key: 'offDrive',     label: 'Off Drive',     category: 'drive',   verb: 'drives' },
   // Back foot, but still a drive: the weight goes back and the bat stays
   // vertical, which is exactly what separates a punch from a cut.
@@ -154,6 +160,8 @@ export const SHOT_TYPES = [
   { key: 'cut',          label: 'Cut',           category: 'cut',     verb: 'cuts' },
   { key: 'lateCut',      label: 'Late Cut',      category: 'cut',     verb: 'cuts' },
   { key: 'upperCut',     label: 'Upper Cut',     category: 'cut',     verb: 'upper-cuts' },
+  { key: 'squareCut',    label: 'Square Cut',    category: 'cut',     verb: 'cuts' },
+  { key: 'dab',          label: 'Dab',           category: 'cut',     verb: 'dabs' },
   { key: 'pull',         label: 'Pull',          category: 'pull',    verb: 'pulls' },
   { key: 'hook',         label: 'Hook',          category: 'pull',    verb: 'hooks' },
   { key: 'flick',        label: 'Flick',         category: 'glance',  verb: 'flicks' },
@@ -161,18 +169,46 @@ export const SHOT_TYPES = [
   { key: 'sweep',        label: 'Sweep',         category: 'sweep',   verb: 'sweeps' },
   { key: 'reverseSweep', label: 'Reverse Sweep', category: 'sweep',   verb: 'reverse-sweeps' },
   { key: 'slogSweep',    label: 'Slog Sweep',    category: 'sweep',   verb: 'slog-sweeps' },
+  { key: 'fineSweep',    label: 'Fine Sweep',    category: 'sweep',   verb: 'sweeps' },
   { key: 'ramp',         label: 'Ramp',          category: 'ramp',    verb: 'ramps' },
   { key: 'scoop',        label: 'Scoop',         category: 'ramp',    verb: 'scoops' },
   { key: 'paddle',       label: 'Paddle',        category: 'sweep',   verb: 'paddles' },
   { key: 'switchHit',    label: 'Switch Hit',    category: 'ramp',    verb: 'switch-hits' },
-  { key: 'lofted',       label: 'Lofted',        category: 'loft',    verb: 'lofts' },
+  // Retired as a TYPE — loft is now the `lofted` attribute on the delivery, so
+  // "lofted cover drive" is coverDrive+lofted and cannot split that batter's
+  // cover-drive sample in two. Kept in the vocabulary, and only there, so the
+  // rows already recorded against it still resolve to a name; `deprecated`
+  // keeps it out of the picker without a backfill that would have to guess
+  // which stroke each old row actually was.
+  { key: 'lofted',       label: 'Lofted',        category: 'loft',    verb: 'lofts', deprecated: true },
   { key: 'reverseScoop', label: 'Reverse Scoop', category: 'ramp',    verb: 'reverse-scoops' },
   { key: 'helicopter',   label: 'Helicopter',    category: 'loft',    verb: 'whips' },
+  { key: 'slog',         label: 'Slog',          category: 'loft',    verb: 'slogs' },
+  { key: 'pickUp',       label: 'Pick-Up',       category: 'pull',    verb: 'picks up' },
   { key: 'beaten',       label: 'Beaten',        category: 'nothing', verb: 'is beaten by' },
   { key: 'other',        label: 'Other',         category: 'other',   verb: 'plays' },
 ];
 
 const TYPE_BY_KEY = Object.fromEntries(SHOT_TYPES.map((t) => [t.key, t]));
+
+/** Every stroke still offered to a scorer — i.e. everything but the retired ones. */
+export const liveShotTypes = () => SHOT_TYPES.filter((t) => !t.deprecated);
+
+/**
+ * Off side, leg side or straight — derived from the zone, never stored.
+ *
+ * The zones already carry this as their `group`, and the zone is itself derived
+ * from the angle. Deriving it a third time rather than adding a column keeps the
+ * chain angle -> zone -> side single-valued: there is no way for a delivery to
+ * claim it went to cover and also that it went to the leg side. Commentary in
+ * particular must not be able to contradict the wagon wheel.
+ *
+ * Batter-relative, so a left-hander's off side is their off side.
+ */
+export const sideOfZone = (zone) => ZONE_BY_KEY[zone]?.group || null;
+
+/** The same, straight from an angle, for callers that have not resolved a zone. */
+export const sideOfAngle = (angle, hand) => sideOfZone(zoneFromAngle(angle, hand));
 
 /** The short list offered after a dot ball — a dot is rarely a stroke. */
 export const DOT_BALL_TYPES = ['defensive', 'leave', 'beaten', 'other'];
@@ -228,6 +264,19 @@ export const normaliseShot = (input = {}, { hand } = {}) => {
   if (input.connectionType && CONNECTIONS.includes(input.connectionType)) {
     out.connectionType = input.connectionType;
   }
+
+  // Loft is an attribute of the stroke. Only stored when the client actually
+  // said something: null is "not recorded", which is a different fact from
+  // "along the ground" and must stay distinguishable in the dataset.
+  if (typeof input.lofted === 'boolean') out.lofted = input.lofted;
+
+  // Where the chosen shot sat in the ranking the scorer was shown. Bounded
+  // because it is the one field a client could otherwise use to write
+  // arbitrary integers into the analytics table.
+  const rank = Number(input.selectedShotRank);
+  if (Number.isFinite(rank) && rank >= 1 && rank <= 99) out.selectedShotRank = Math.round(rank);
+  const ver = Number(input.rankingEngineVersion);
+  if (Number.isFinite(ver) && ver >= 0 && ver <= 9999) out.rankingEngineVersion = Math.round(ver);
 
   out.source = SOURCES.includes(input.source) ? input.source : 'SCORER';
   // A human scorer watching the ball is the ground truth this dataset is built
@@ -294,7 +343,7 @@ export const resyncShotZones = async (prisma, playerId) => {
 };
 
 export default {
-  SHOT_ZONES, SHOT_TYPES, DOT_BALL_TYPES, CONNECTIONS, SOURCES,
+  SHOT_ZONES, SHOT_TYPES, DOT_BALL_TYPES, CONNECTIONS, SOURCES, sideOfZone, sideOfAngle, liveShotTypes,
   resyncShotZones,
   zoneFromAngle, angleFromZone, zoneMidAngle, zoneGroups, wrapAngle,
   normaliseShot, shotOutcome, isKnownZone, isKnownShotType,

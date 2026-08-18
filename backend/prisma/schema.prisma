@@ -383,6 +383,24 @@ model BallIntelligence {
   shotOutcome    String?
   connectionType String?
 
+  /// Was it hit in the air? An ATTRIBUTE of the stroke, not a stroke of its own:
+  /// a lofted cover drive is `shotType=coverDrive, lofted=true`, never a separate
+  /// `loftedCoverDrive` type. Duplicating the taxonomy by trajectory would split
+  /// every batter's cover-drive sample in two and leave neither big enough to say
+  /// anything. Null means not recorded, which is not the same as false.
+  lofted Boolean?
+
+  /// Where the shot the scorer actually chose sat in the ranked list they were
+  /// shown. Rank 1 means the engine led with the right answer; rank 19 means it
+  /// did not. Stored because it is the only part of the ranking that cannot be
+  /// recomputed later — the ordering itself is derivable from the delivery, the
+  /// location and the rules, but what the scorer did when faced with it is not.
+  /// This is the feedback that lets the weights improve without guesswork.
+  selectedShotRank     Int?
+  /// Which rules produced that rank, so a rank recorded under v1 is never read
+  /// as evidence about v2.
+  rankingEngineVersion Int?
+
   /// A written line for this delivery, generated ONCE for the handful of moments
   /// worth spending a model call on. Stored rather than generated on read
   /// because a read happens every six seconds for every spectator, and calling a
