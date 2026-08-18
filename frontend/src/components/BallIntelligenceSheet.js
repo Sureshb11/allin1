@@ -65,6 +65,18 @@ export default function BallIntelligenceSheet({
   // thing to look at and a slower one to read.
   const [step, setStep] = useState('zone');
 
+  // The list keeps its scroll offset between deliveries, because the sheet is
+  // hidden rather than unmounted. Left alone it reopens wherever the last
+  // scorer's thumb left it — on device it came up at NO SHOT, four screens
+  // below the suggestions, which quietly costs the two-tap workflow its whole
+  // point. Reset on every open, not just the first.
+  const typeScrollRef = useRef(null);
+  useEffect(() => {
+    if (visible && step === 'shot') {
+      typeScrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [visible, step, ball?.clientEventId]);
+
   // A pending auto-close must never fire into a sheet that has moved on — it
   // would shut the NEXT delivery's question before the scorer had answered it.
   useEffect(() => () => clearTimeout(closeTimer.current), []);
@@ -293,6 +305,7 @@ export default function BallIntelligenceSheet({
             </View>
 
             <ScrollView
+              ref={typeScrollRef}
               style={s.typeScroll}
               contentContainerStyle={s.typeScrollBody}
               showsVerticalScrollIndicator
