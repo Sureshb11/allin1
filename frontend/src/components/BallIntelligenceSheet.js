@@ -203,7 +203,11 @@ export default function BallIntelligenceSheet({
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={s.typeScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={s.typeScroll}
+              contentContainerStyle={s.typeScrollBody}
+              showsVerticalScrollIndicator
+            >
               {/* Connection first: picking a shot closes the popup, so anything
                   offered after it would be unreachable. */}
               <View style={s.group}>
@@ -237,7 +241,7 @@ export default function BallIntelligenceSheet({
                           <BatsmanAvatar
                             shotKey={k}
                             hand={hand}
-                            size={46}
+                            size={58}
                             color={on ? c.bg : c.textPrimary}
                             accent={on ? c.bg : c.lime}
                             ground={on ? c.bg : c.surfaceHighest}
@@ -277,7 +281,12 @@ const makeStyles = (c) => StyleSheet.create({
   wheelWrap: { alignItems: 'center', marginVertical: 6 },
   hintRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12 },
   hint: { color: c.textMuted, fontSize: 11, fontWeight: '600' },
-  typeScroll: { marginTop: 12 },
+  // flex:1 is load-bearing, not cosmetic. Without it the ScrollView sizes itself
+  // to its own content, so its frame and its content are the same height —
+  // nothing to scroll — and the sheet's maxHeight simply clips the overflow.
+  // With 29 strokes that hid six of them behind an edge that would not move.
+  typeScroll: { flex: 1, marginTop: 12 },
+  typeScrollBody: { paddingBottom: 10 },
   group: { marginBottom: 12 },
   groupTitle: { color: c.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 7 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
@@ -292,11 +301,14 @@ const makeStyles = (c) => StyleSheet.create({
   // that a whole group fits without scrolling.
   tileWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   tile: {
-    width: '31.5%', aspectRatio: 0.92, alignItems: 'center', justifyContent: 'center', gap: 3,
+    // Sized to the figure. The old 0.92 made a ~130dp box around a 46dp
+    // silhouette, so most of every tile was empty and the list ran twice as
+    // long as it needed to — which is also what pushed it past the fold.
+    width: '31.5%', aspectRatio: 1.16, alignItems: 'center', justifyContent: 'center', gap: 2,
     paddingVertical: 6, paddingHorizontal: 2, borderRadius: 12,
     backgroundColor: c.surfaceHigh, borderWidth: 1, borderColor: c.surfaceHighest,
   },
   tileOn: { backgroundColor: c.lime, borderColor: c.lime },
-  tileText: { color: c.textPrimary, fontSize: 9, fontWeight: '700', textAlign: 'center', lineHeight: 11 },
+  tileText: { color: c.textPrimary, fontSize: 10, fontWeight: '700', textAlign: 'center', lineHeight: 12 },
   tileTextOn: { color: c.bg, fontWeight: '900' },
 });
