@@ -1,4 +1,6 @@
 import { StyleSheet } from 'react-native';
+import { getSelectedSport } from '../utils/selectedSport';
+import { sportColor } from '../sports/colors';
 
 // The Pavilion control language, in one place.
 //
@@ -30,14 +32,24 @@ const LIGHT = {
   hairline:  '#e2e8f0',   // rule under a filter bar
 };
 
-export const controlColors = (DS) => (DS.mode === 'dark' ? {
-  green:     DS.lime,
-  greenSoft: DS.lime + '26',
-  onGreen:   DS.onLime,
-  grey:      DS.surfaceHigh,
-  slate:     DS.textVariant,
-  hairline:  DS.border,
-} : LIGHT);
+export const controlColors = (DS) => {
+  const sportId = getSelectedSport().sport?.id || 'cricket';
+  const isDark = DS.mode === 'dark';
+  const accent = sportColor(sportId, isDark);
+
+  return isDark ? {
+    green:     accent,
+    greenSoft: accent + '26',
+    onGreen:   DS.onLime,
+    grey:      DS.surfaceHigh,
+    slate:     DS.textVariant,
+    hairline:  DS.border,
+  } : {
+    ...LIGHT,
+    green:     accent,
+    greenSoft: accent + '1a', // slight tint for light mode segment
+  };
+};
 
 export const makeControls = (DS) => {
   const CONTROL = controlColors(DS);

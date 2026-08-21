@@ -215,11 +215,11 @@ export default function PavilionScreen({ navigation, route }) {
                   return (
                     <TouchableOpacity
                       key={p.l2}
-                      style={{ paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: isActive ? DS.lime : 'transparent' }}
+                      style={{ paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: isActive ? CONTROL.green : 'transparent' }}
                       onPress={() => goToL2(p.l2)}
                       activeOpacity={0.85}
                     >
-                      <Text style={{ fontSize: 12, letterSpacing: 0.5, color: isActive ? DS.lime : DS.textMuted, fontWeight: isActive ? '800' : '600' }}>
+                      <Text style={{ fontSize: 12, letterSpacing: 0.5, color: isActive ? CONTROL.green : DS.textMuted, fontWeight: isActive ? '800' : '600' }}>
                         {p.l2Label}
                       </Text>
                     </TouchableOpacity>
@@ -238,7 +238,7 @@ export default function PavilionScreen({ navigation, route }) {
           style={[styles.fabWrap, { bottom: tabClear + 16 },
                   dockY ? { transform: [{ translateY: dockY }] } : null]}>
           <TouchableOpacity
-            style={[styles.fab, { backgroundColor: DS.lime }]}
+            style={[styles.fab, { backgroundColor: CONTROL.green }]}
             accessibilityRole="button"
             accessibilityLabel={fab.label}
             onPress={() => {
@@ -248,7 +248,7 @@ export default function PavilionScreen({ navigation, route }) {
             activeOpacity={0.85}
           >
             <Animated.View style={[styles.fabContent, fabContentStyle]}>
-              <Icon name={fab.icon} size={26} color={DS.onLime} />
+              <Icon name={fab.icon} size={26} color={CONTROL.onGreen} />
             </Animated.View>
           </TouchableOpacity>
         </RNAnimated.View>

@@ -21,7 +21,7 @@ import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import AppHeader from '../components/AppHeader';
 import PostCard from '../components/PostCard';
 import FeedSkeleton from '../components/FeedSkeleton';
-import { pickAndUploadImage } from '../utils/media';
+import { pickAndUploadImage } from '../utils/imageUpload';
 import CommentsSheet from '../components/CommentsSheet';
 import HexAvatar from '../components/HexAvatar';
 import { sportColor as sportColorFor } from '../sports/colors';

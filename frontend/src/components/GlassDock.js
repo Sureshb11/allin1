@@ -42,7 +42,7 @@ const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab', 'Chat', 'MatchSetup', 
   'TeamStatLeaderboard', 'TournamentDetail'];
 
 export default function GlassDock({
-  state, navigation, sportIcon = 'cricket', sportName = 'My Cricket', homeRoute = 'CricketFeed',
+  state, navigation, sportIcon = 'cricket', sportName = 'My Cricket', homeRoute = 'Home',
   pavilionLabel = 'Pavilion', sportId = 'cricket',
 }) {
   const { colors: DS, isDark } = useTheme();
