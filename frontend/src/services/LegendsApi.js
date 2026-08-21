@@ -321,9 +321,12 @@ class LegendsApi {
     }
   }
 
-  async createPost({ sport = 'cricket', text, team, mediaUrl }) {
+  async createPost({ sport = 'cricket', text, team, mediaUrl, mediaType, postType, matchId, tournamentId, playerId }) {
     try {
-      const json = await this.request('/posts', { method: 'POST', body: { sport, text, team, mediaUrl } });
+      const json = await this.request('/posts', { 
+        method: 'POST', 
+        body: { sport, text, team, mediaUrl, mediaType, postType, matchId, tournamentId, playerId } 
+      });
       return { success: true, data: json.post };
     } catch (error) {
       return { success: false, error: error.message };
@@ -876,6 +879,30 @@ class LegendsApi {
     }
   }
 
+  async requestGroundChanges(id, reason) {
+    try {
+      const json = await this.request(`/grounds/${id}/request-changes`, {
+        method: 'POST',
+        body: { reason },
+      });
+      return { success: true, data: json.ground };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  async suspendGround(id, reason) {
+    try {
+      const json = await this.request(`/grounds/${id}/suspend`, {
+        method: 'POST',
+        body: { reason },
+      });
+      return { success: true, data: json.ground };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
   // Legacy Ground Booking
   async getAvailableGrounds() {
     try {
@@ -1365,7 +1392,7 @@ class LegendsApi {
       // belong to the player, not the account.
       // `teams` is every club this person turns out for — a Player row is a
       // team membership, so someone in three clubs has three of them.
-      return { success: true, data: json.user, player: json.player || null, teams: json.teams || [] };
+      return { success: true, data: json.user, player: json.player || null, teams: json.teams || [], sports: json.sports || [] };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -1671,10 +1698,22 @@ class LegendsApi {
     }
   }
 
-  // Tournament — register a team
-  async registerTeamInTournament(tournamentId, teamId, group = 'A') {
+  // Tournament — register a team or player
+  async registerTeamInTournament(tournamentId, arg2, group = 'A') {
+    let body;
+    if (typeof arg2 === 'object' && arg2 !== null) {
+      body = { ...arg2, group };
+    } else {
+      body = { participantType: 'TEAM', teamId: arg2, group };
+    }
+
     try {
-      const json = await this.request(`/tournaments/${tournamentId}/teams`, { method: 'POST', body: { teamId, group } });
+      // Preserve backward compatibility for team records by using the legacy endpoint
+      const endpoint = (body.participantType === 'PLAYER') 
+        ? `/tournaments/${tournamentId}/participants` 
+        : `/tournaments/${tournamentId}/teams`;
+        
+      const json = await this.request(endpoint, { method: 'POST', body });
       return { success: true, data: json.entry };
     } catch (error) {
       return { success: false, error: error.message };
@@ -1691,10 +1730,23 @@ class LegendsApi {
     }
   }
 
-  // Tournament — a team owner requests to join (creates a pending request)
-  async requestToJoinTournament(tournamentId, teamId, group = 'A', note = null) {
+  // Tournament — a participant requests to join (creates a pending request)
+  async requestToJoinTournament(tournamentId, arg2, group = 'A', note = null) {
+    let body;
+    if (typeof arg2 === 'object' && arg2 !== null) {
+      // If the caller uses the new API, they might pass note as the 3rd argument (group) 
+      // by mistake if they skip group, so handle it carefully if they omit group
+      if (group !== 'A' && note === null) {
+        body = { ...arg2, note: group }; // fallback for caller passing (id, payload, note)
+      } else {
+        body = { ...arg2, group, note };
+      }
+    } else {
+      body = { participantType: 'TEAM', teamId: arg2, group, note };
+    }
+
     try {
-      const json = await this.request(`/tournaments/${tournamentId}/join-requests`, { method: 'POST', body: { teamId, group, note } });
+      const json = await this.request(`/tournaments/${tournamentId}/join-requests`, { method: 'POST', body });
       return { success: true, data: json.entry };
     } catch (error) {
       return { success: false, error: error.message };

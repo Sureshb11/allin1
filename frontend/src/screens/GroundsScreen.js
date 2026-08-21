@@ -413,22 +413,104 @@ const GroundsMap = ({ grounds, onAddRequest, onGroundPress, DS, P }) => {
   );
 };
 
-const AdminRequestCard = ({ ground, submitter, onApprove, onReject, onToggleBooking, styles, DS }) => (
+const AdminReviewModal = ({ ground, submitter, visible, onClose, onApprove, onReject, onRequestChanges, onSuspend, DS, styles }) => {
+  if (!ground) return null;
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: DS.bg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: DS.border }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: DS.textPrimary }}>Review Ground</Text>
+          <TouchableOpacity onPress={onClose}><Icon name="close" size={24} color={DS.textPrimary} /></TouchableOpacity>
+        </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+          <Text style={{ fontSize: 24, fontWeight: '800', color: DS.textPrimary }}>{ground.name}</Text>
+          <Text style={{ fontSize: 14, color: DS.textMuted, marginTop: 4 }}>{ground.location || ground.address || ground.area || ground.city}</Text>
+          <View style={{ marginTop: 16, backgroundColor: DS.surface, padding: 12, borderRadius: 12 }}>
+            <Text style={{ fontSize: 12, color: DS.textMuted, textTransform: 'uppercase', fontWeight: '700' }}>Submitter</Text>
+            {submitter ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                <Icon name="account-circle" size={24} color={DS.textVariant} />
+                <Text style={{ fontSize: 16, color: DS.textPrimary, marginLeft: 8 }}>{submitter.firstName} {submitter.lastName}</Text>
+                <Text style={{ fontSize: 14, color: DS.textMuted, marginLeft: 8 }}>({submitter.phone || submitter.email})</Text>
+              </View>
+            ) : <Text style={{ color: DS.textMuted, marginTop: 4 }}>Unknown</Text>}
+          </View>
+
+          <View style={{ marginTop: 16, backgroundColor: DS.surface, padding: 12, borderRadius: 12 }}>
+            <Text style={{ fontSize: 12, color: DS.textMuted, textTransform: 'uppercase', fontWeight: '700' }}>Sports Configuration</Text>
+            {ground.sports && ground.sports.length > 0 ? ground.sports.map(gs => (
+              <View key={gs.sport} style={{ marginTop: 8, padding: 8, backgroundColor: DS.bg, borderRadius: 8 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: DS.textPrimary, textTransform: 'capitalize' }}>{gs.sport}</Text>
+                {gs.pricePerHour > 0 && <Text style={{ fontSize: 14, color: DS.textMuted }}>Price: ₹{gs.pricePerHour}/hr</Text>}
+                {gs.courtCount > 0 && <Text style={{ fontSize: 14, color: DS.textMuted }}>Courts: {gs.courtCount}</Text>}
+              </View>
+            )) : <Text style={{ color: DS.textMuted, marginTop: 4 }}>Legacy config (no GroundSport setup)</Text>}
+          </View>
+          
+          <View style={{ marginTop: 16, backgroundColor: DS.surface, padding: 12, borderRadius: 12 }}>
+            <Text style={{ fontSize: 12, color: DS.textMuted, textTransform: 'uppercase', fontWeight: '700' }}>Current Status</Text>
+            <Text style={{ fontSize: 16, color: DS.textPrimary, marginTop: 4 }}>{ground.status}</Text>
+            {ground.rejectionReason && <Text style={{ fontSize: 14, color: DS.red, marginTop: 4 }}>Reason: {ground.rejectionReason}</Text>}
+          </View>
+          
+          <TouchableOpacity
+            style={[styles.bookingToggle, ground.bookingEnabled && styles.bookingToggleOn, { marginTop: 16 }]}
+            onPress={() => onToggleBooking(ground.id, !ground.bookingEnabled)}
+            activeOpacity={0.8}
+          >
+            <Icon
+              name={ground.bookingEnabled ? 'calendar-check' : 'calendar-remove-outline'}
+              size={16}
+              color={ground.bookingEnabled ? DS.lime : DS.textMuted}
+            />
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={[styles.bookingToggleLabel, ground.bookingEnabled && { color: DS.lime }]}>
+                {ground.bookingEnabled ? 'Bookings on' : 'Listing only'}
+              </Text>
+              <Text style={styles.bookingToggleHint} numberOfLines={2}>
+                {ground.bookingEnabled
+                  ? 'Players can request slots. Tap to stop bookings.'
+                  : 'Tap to allow bookings — check the ground is real and the lister may let it out.'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
+        <View style={{ padding: 16, borderTopWidth: 1, borderColor: DS.border, backgroundColor: DS.surface }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+             <TouchableOpacity style={[styles.adminBtn, { backgroundColor: DS.red + '20', flex: 1, marginRight: 8 }]} onPress={() => onReject(ground.id)}>
+              <Text style={{ color: DS.red, fontWeight: '700', textAlign: 'center' }}>Reject</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.adminBtn, { backgroundColor: DS.amber + '20', flex: 1, marginLeft: 8 }]} onPress={() => onRequestChanges(ground.id)}>
+              <Text style={{ color: DS.amber, fontWeight: '700', textAlign: 'center' }}>Request Changes</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <TouchableOpacity style={[styles.adminBtn, { backgroundColor: DS.textMuted + '20', flex: 1, marginRight: 8 }]} onPress={() => onSuspend(ground.id)}>
+              <Text style={{ color: DS.textPrimary, fontWeight: '700', textAlign: 'center' }}>Suspend</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.adminBtn, { backgroundColor: DS.lime, flex: 1, marginLeft: 8 }]} onPress={() => onApprove(ground.id)}>
+              <Text style={{ color: '#000', fontWeight: '700', textAlign: 'center' }}>Approve</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const AdminRequestCard = ({ ground, submitter, onReview, styles, DS }) => (
   <View style={styles.adminCard}>
     <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
       <View style={{flex: 1}}>
         <Text style={styles.adminCardTitle}>{ground.name}</Text>
         <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 4}}>
           <Icon name="map-marker" size={14} color={DS.textMuted} />
-          <Text style={styles.adminText}>{ground.location}</Text>
+          <Text style={styles.adminText}>{ground.location || ground.address || ground.city}</Text>
         </View>
       </View>
-      {/* It said PENDING on every card, which is no longer what any of them
-          are: a submitted ground is already on the map. The badge says what is
-          actually missing — nobody has vouched for it yet. */}
       <View style={{backgroundColor: DS.amber + '20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: DS.amber + '50'}}>
         <Text style={{color: DS.amber, fontSize: 11, fontWeight: '800'}}>
-          {ground.status === 'pending' ? 'PENDING' : 'UNVERIFIED'}
+          {ground.status === 'PENDING_VERIFICATION' ? 'PENDING' : ground.status}
         </Text>
       </View>
     </View>
@@ -436,42 +518,13 @@ const AdminRequestCard = ({ ground, submitter, onApprove, onReject, onToggleBook
     {submitter && (
       <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 12, backgroundColor: DS.bg, padding: 10, borderRadius: 10}}>
         <Icon name="account-circle" size={18} color={DS.textVariant} />
-        <Text style={{color: DS.textPrimary, fontSize: 13, fontWeight: '600', marginLeft: 8}}>{submitter.firstName} <Text style={{color: DS.textMuted, fontWeight: '400'}}>({submitter.phone})</Text></Text>
+        <Text style={{color: DS.textPrimary, fontSize: 13, fontWeight: '600', marginLeft: 8}}>{submitter.firstName} <Text style={{color: DS.textMuted, fontWeight: '400'}}>({submitter.phone || submitter.email})</Text></Text>
       </View>
     )}
     
-    {/* Bookings are the separate, riskier decision: verifying says the ground
-        is real, this says whoever listed it may take money for it. Kept apart
-        from Approve so it is never granted by reflex, and reversible — turning
-        it off leaves the listing up. */}
-    <TouchableOpacity
-      style={[styles.bookingToggle, ground.bookingEnabled && styles.bookingToggleOn]}
-      onPress={() => onToggleBooking(ground.id, !ground.bookingEnabled)}
-      activeOpacity={0.8}
-    >
-      <Icon
-        name={ground.bookingEnabled ? 'calendar-check' : 'calendar-remove-outline'}
-        size={16}
-        color={ground.bookingEnabled ? DS.lime : DS.textMuted}
-      />
-      <View style={{ flex: 1, marginLeft: 8 }}>
-        <Text style={[styles.bookingToggleLabel, ground.bookingEnabled && { color: DS.lime }]}>
-          {ground.bookingEnabled ? 'Bookings on' : 'Listing only'}
-        </Text>
-        <Text style={styles.bookingToggleHint} numberOfLines={2}>
-          {ground.bookingEnabled
-            ? 'Players can request slots. Tap to stop bookings.'
-            : 'Tap to allow bookings — check the ground is real and the lister may let it out.'}
-        </Text>
-      </View>
-    </TouchableOpacity>
-
     <View style={styles.adminActions}>
-      <TouchableOpacity style={[styles.adminBtn, styles.adminBtnReject]} onPress={() => onReject(ground.id)}>
-        <Text style={styles.adminBtnTextReject}>Reject</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={[styles.adminBtn, styles.adminBtnApprove]} onPress={() => onApprove(ground.id)}>
-        <Text style={styles.adminBtnTextApprove}>{ground.verified ? 'Verified' : 'Verify'}</Text>
+      <TouchableOpacity style={[styles.adminBtn, { backgroundColor: DS.blue, flex: 1 }]} onPress={() => onReview(ground)}>
+        <Text style={{ color: '#fff', fontWeight: '700', textAlign: 'center' }}>Review Details</Text>
       </TouchableOpacity>
     </View>
   </View>
@@ -855,6 +908,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   const [favs, setFavs] = useState(new Set());
   const [isAdmin, setIsAdmin] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
+  const [reviewGround, setReviewGround] = useState(null);
 
   
   const addGroundSheetRef = useRef(null);
@@ -965,39 +1019,62 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   const handleApprove = async (id) => {
     const res = await LegendsApi.approveGround(id);
     if (res.success) {
-      // In the review list a verified ground has left the queue, so it goes. In
-      // the all-grounds list it has not gone anywhere — dropping it there would
-      // make "all" mean "all except the one you just touched", and hide the
-      // bookings switch the admin may have opened this view to reach.
-      setAdminRequests(prev => (adminScope === 'all'
-        ? prev.map(g => (g.id === id ? { ...g, verified: true, status: 'published' } : g))
-        : prev.filter(g => g.id !== id)));
+      setAdminRequests(prev => prev.filter(g => g.id !== id));
       setPendingRequests(prev => Math.max(0, prev - 1));
-      // It said "approved and published" — but it was already published when
-      // the player added it. Verifying is a badge, not a door.
-      Alert.alert('Verified', 'Ground badged as verified. It now sorts above unverified grounds.');
-    }
-  };
-
-  // Kept off the approve path deliberately: this is the decision that lets
-  // someone take money, so it stays its own deliberate tap. The card stays in
-  // the queue afterwards — turning bookings on is not the same as vouching for
-  // the ground, and the admin may well want to do both.
-  const handleToggleBooking = async (id, enabled) => {
-    const res = await LegendsApi.setGroundBooking(id, enabled);
-    if (res.success) {
-      setAdminRequests(prev => prev.map(g => (g.id === id ? { ...g, bookingEnabled: enabled } : g)));
+      setReviewGround(null);
+      Alert.alert('Approved', 'Ground has been approved and is now live.');
     } else {
-      Alert.alert('Could not change bookings', res.error || 'Please try again.');
+      Alert.alert('Error', res.error || 'Failed to approve ground.');
     }
   };
 
   const handleReject = async (id) => {
     Alert.prompt('Reject Ground', 'Reason for rejection:', async (reason) => {
+      if (!reason) return Alert.alert('Error', 'Reason is required');
       const res = await LegendsApi.rejectGround(id, reason);
       if (res.success) {
         setAdminRequests(prev => prev.filter(g => g.id !== id));
-        setPendingRequests(prev => prev - 1);
+        setPendingRequests(prev => Math.max(0, prev - 1));
+        setReviewGround(null);
+        Alert.alert('Rejected', 'Ground has been rejected.');
+      }
+    });
+  };
+
+  const handleToggleBooking = async (id, enabled) => {
+    const res = await LegendsApi.setGroundBooking(id, enabled);
+    if (res.success) {
+      setAdminRequests(prev => prev.map(g => (g.id === id ? { ...g, bookingEnabled: enabled } : g)));
+      if (reviewGround && reviewGround.id === id) {
+        setReviewGround(prev => ({ ...prev, bookingEnabled: enabled }));
+      }
+    } else {
+      Alert.alert('Could not change bookings', res.error || 'Please try again.');
+    }
+  };
+
+  const handleRequestChanges = async (id) => {
+    Alert.prompt('Request Changes', 'Reason for changes:', async (reason) => {
+      if (!reason) return Alert.alert('Error', 'Reason is required');
+      const res = await LegendsApi.requestGroundChanges(id, reason);
+      if (res.success) {
+        setAdminRequests(prev => prev.filter(g => g.id !== id));
+        setPendingRequests(prev => Math.max(0, prev - 1));
+        setReviewGround(null);
+        Alert.alert('Changes Requested', 'The owner has been notified.');
+      }
+    });
+  };
+
+  const handleSuspend = async (id) => {
+    Alert.prompt('Suspend Ground', 'Reason for suspension:', async (reason) => {
+      if (!reason) return Alert.alert('Error', 'Reason is required');
+      const res = await LegendsApi.suspendGround(id, reason);
+      if (res.success) {
+        setAdminRequests(prev => prev.filter(g => g.id !== id));
+        setPendingRequests(prev => Math.max(0, prev - 1));
+        setReviewGround(null);
+        Alert.alert('Suspended', 'Ground has been suspended and removed from public view.');
       }
     });
   };
@@ -1069,11 +1146,9 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
             <AdminRequestCard 
               ground={item} 
               submitter={submitters[item.submittedById]}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              onToggleBooking={handleToggleBooking}
-              styles={styles}
-              DS={DS}
+              onReview={(g) => setReviewGround(g)}
+              styles={styles} 
+              DS={DS} 
             />
           )}
           contentContainerStyle={{padding: 16}}
@@ -1088,6 +1163,19 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
               </Text>
             </View>
           }
+        />
+        <AdminReviewModal
+          visible={!!reviewGround}
+          ground={reviewGround}
+          submitter={reviewGround ? submitters[reviewGround.submittedById] : null}
+          onClose={() => setReviewGround(null)}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onRequestChanges={handleRequestChanges}
+          onSuspend={handleSuspend}
+          onToggleBooking={handleToggleBooking}
+          DS={DS}
+          styles={styles}
         />
       </View>
     );

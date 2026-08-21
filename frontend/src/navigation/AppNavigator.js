@@ -11,10 +11,8 @@ import GlassDock from '../components/GlassDock';
 import { getSport } from '../sports';
 
 import HomeScreen from '../screens/HomeScreen';
-import CricketFeedScreen from '../screens/CricketFeedScreen';
-import SportFeedScreen from '../screens/SportFeedScreen';
 import MatchStatsScreen from '../screens/MatchStatsScreen';
-import FindCricketersScreen from '../screens/FindCricketersScreen';
+import FindPlayersScreen from '../screens/FindPlayersScreen';
 import MySportsScreen from '../screens/MySportsScreen';
 import ScoringScreen from '../screens/ScoringScreen';
 import TeamManagementScreen from '../screens/TeamManagementScreen';
@@ -32,6 +30,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import MarketPlaceScreen from '../screens/MarketPlaceScreen';
 import BadgeDetailScreen from '../screens/BadgeDetailScreen';
 import PlayerInsightsScreen from '../screens/PlayerInsightsScreen';
+import PlayerProfileScreen from '../screens/PlayerProfileScreen';
 import NotificationScreen from '../screens/NotificationScreen';
 import StartMatchScreen from '../screens/StartMatchScreen';
 import MyCricketScreen from '../screens/MyCricketScreen';
@@ -69,26 +68,11 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
   // Cricket gets its signature feed; other sports land on the (sport-aware)
   // dashboard, since the feed is cricket-specific.
   const sportId = stackRoute?.params?.initialSport?.id || 'cricket';
-  // Every match sport now shares cricket's Instagram-style landing feed
-  // (CricketFeedScreen), themed per the selected sport from the registry. (Rummy
-  // never reaches here — it diverts to its own game flow at the picker.) The old
-  // SportFeed template is retained as a registered route but no longer the home.
-  const feedForSport = 'CricketFeed';
+  // Every sport shares the single, unified HomeScreen.
+  const feedForSport = 'Home';
   const initial = initialRouteName || feedForSport;
   return (
   <Stack.Navigator initialRouteName={initial}>
-    {/* Instagram-style landing feed (cricket) */}
-    <Stack.Screen
-      name="CricketFeed"
-      component={CricketFeedScreen}
-      options={{ headerShown: false }}
-    />
-    {/* Shared themed landing feed for every non-cricket match sport */}
-    <Stack.Screen
-      name="SportFeed"
-      component={SportFeedScreen}
-      options={{ headerShown: false }}
-    />
     {/* Match stats (score / period breakdown / cards / corners) for event sports */}
     <Stack.Screen
       name="MatchStats"
@@ -414,8 +398,8 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
       }}
     />
     <Stack.Screen
-      name="FindCricketers"
-      component={FindCricketersScreen}
+      name="FindPlayers"
+      component={FindPlayersScreen}
       options={{ headerShown: false }}
     />
     <Stack.Screen
@@ -431,7 +415,7 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
     <Stack.Screen name="GroundDetail" component={GroundDetailScreen} options={{ headerShown: false }} />
     <Stack.Screen name="MatchInsights" component={MatchInsightsScreen} options={{ headerShown: false }} />
     <Stack.Screen name="MatchDetail" component={PlaceholderScreen} initialParams={{title: 'Match Details'}} />
-    <Stack.Screen name="PlayerProfile" component={PlaceholderScreen} initialParams={{title: 'Player Profile'}} />
+    <Stack.Screen name="PlayerProfile" component={PlayerProfileScreen} initialParams={{title: 'Player Profile'}} />
     <Stack.Screen name="TeamDetail" component={PlaceholderScreen} initialParams={{title: 'Team Details'}} />
     <Stack.Screen name="HelpFAQs" component={PlaceholderScreen} initialParams={{title: 'Help & FAQs'}} />
     <Stack.Screen name="ContactUs" component={PlaceholderScreen} initialParams={{title: 'Contact Us'}} />

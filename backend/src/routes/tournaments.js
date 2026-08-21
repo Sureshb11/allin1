@@ -262,6 +262,12 @@ router.post('/:id/teams', authMiddleware, requireOrganizer, async (req, res) => 
       prisma.team.findUnique({ where: { id: teamId }, select: { sport: true, name: true } }),
     ]);
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+
+    const { getSportParticipantType } = require('../lib/sports');
+    if (getSportParticipantType(tournament.sport) !== 'TEAM') {
+      return res.status(400).json({ error: `${tournament.name} is an individual sport tournament and cannot accept team registrations.` });
+    }
+
     if (!team) return res.status(404).json({ error: 'Team not found' });
     if (team.sport !== tournament.sport) {
       return res.status(400).json({ error: `Sport mismatch: ${team.name} is a ${team.sport} team but ${tournament.name} is a ${tournament.sport} tournament.` });
@@ -302,26 +308,117 @@ router.post('/:id/teams', authMiddleware, requireOrganizer, async (req, res) => 
   }
 });
 
+router.post('/:id/participants', authMiddleware, requireOrganizer, async (req, res) => {
+  try {
+    const { getSportParticipantType } = require('../lib/sports');
+    const { participantType, teamId, playerId } = req.body;
+    
+    const tournament = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { sport: true, name: true, maxTeams: true } });
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+
+    const expectedParticipantType = getSportParticipantType(tournament.sport);
+    if (!expectedParticipantType) return res.status(400).json({ error: 'INVALID_SPORT' });
+
+    const actualType = participantType || expectedParticipantType;
+    if (actualType !== expectedParticipantType) {
+      return res.status(400).json({ error: 'INVALID_PARTICIPANT_TYPE' });
+    }
+
+    if (actualType === 'TEAM') {
+      if (!teamId) return res.status(400).json({ error: 'teamId required for TEAM participant' });
+      const team = await prisma.team.findUnique({ where: { id: teamId }, select: { sport: true, name: true } });
+      if (!team) return res.status(404).json({ error: 'Team not found' });
+      if (team.sport !== tournament.sport) return res.status(400).json({ error: 'Sport mismatch' });
+
+      const existing = await prisma.tournamentParticipant.findFirst({ where: { tournamentId: req.params.id, teamId, participantType: 'TEAM' } });
+      if (existing) return res.status(409).json({ error: 'Team already participating' });
+
+      const entry = await prisma.tournamentParticipant.create({
+        data: { tournamentId: req.params.id, teamId, participantType: 'TEAM', status: 'approved' },
+        include: { team: true }
+      });
+      return res.status(201).json({ entry });
+    } else if (actualType === 'PLAYER') {
+      if (!playerId) return res.status(400).json({ error: 'playerId required for PLAYER participant' });
+      const player = await prisma.player.findUnique({ where: { id: playerId }, select: { sport: true, name: true } });
+      if (!player) return res.status(404).json({ error: 'Player not found' });
+      if (player.sport !== tournament.sport) return res.status(400).json({ error: 'Sport mismatch' });
+
+      const existing = await prisma.tournamentParticipant.findFirst({ where: { tournamentId: req.params.id, playerId, participantType: 'PLAYER' } });
+      if (existing) return res.status(409).json({ error: 'Player already participating' });
+
+      const entry = await prisma.tournamentParticipant.create({
+        data: { tournamentId: req.params.id, playerId, participantType: 'PLAYER', status: 'approved' },
+        include: { player: true }
+      });
+      return res.status(201).json({ entry });
+    } else {
+      return res.status(400).json({ error: 'Invalid participantType' });
+    }
+  } catch (e) {
+    if (e.code === 'P2002') return res.status(409).json({ error: 'Participant already added' });
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // ── Join requests ────────────────────────────────────────────────────────────
 // A team OWNER asks to enter their team → creates a PENDING entry the organiser
 // must approve. Any logged-in user may request, but only with a team they own.
 router.post('/:id/join-requests', authMiddleware, async (req, res) => {
   try {
-    const { teamId, group = 'A', note } = req.body;
-    if (!teamId) return res.status(400).json({ error: 'teamId required' });
-    const [tournament, team] = await Promise.all([
-      prisma.tournament.findUnique({
-        where: { id: req.params.id },
-        select: {
-          sport: true, name: true, organizerId: true, status: true, maxTeams: true,
-          flags: true, registration: true, regWindow: true,
+    const { getSportParticipantType } = require('../lib/sports');
+    let { participantType, teamId, playerId, group = 'A', note } = req.body;
+    
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: req.params.id },
+      select: {
+        sport: true, name: true, organizerId: true, status: true, maxTeams: true,
+        flags: true, registration: true, regWindow: true,
+      },
+    });
+    if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+
+    const expectedParticipantType = getSportParticipantType(tournament.sport);
+    if (!expectedParticipantType) return res.status(400).json({ error: 'INVALID_SPORT' });
+
+    participantType = participantType || expectedParticipantType;
+    if (participantType !== expectedParticipantType) {
+      return res.status(400).json({ error: 'INVALID_PARTICIPANT_TYPE' });
+    }
+
+    if (participantType === 'PLAYER') {
+      if (!playerId) return res.status(400).json({ error: 'playerId required' });
+      const player = await prisma.player.findUnique({
+        where: { id: playerId },
+        select: { sport: true, name: true, userId: true },
+      });
+      if (!player) return res.status(404).json({ error: 'Player not found' });
+      if (player.sport !== tournament.sport) return res.status(400).json({ error: 'Sport mismatch' });
+      if (player.userId !== req.user.sub) return res.status(403).json({ error: 'Not your player profile' });
+
+      if (['completed', 'cancelled'].includes(tournament.status)) return res.status(409).json({ error: `${tournament.name} has finished.` });
+      if (tournament.flags && tournament.flags.teamRegistration === false) return res.status(409).json({ error: `${tournament.name} is not taking registrations.` });
+      if (tournament.registration?.type === 'invite') return res.status(409).json({ error: `${tournament.name} is invite only.` });
+      const closesAt = tournament.regWindow?.closesAt ? new Date(tournament.regWindow.closesAt) : null;
+      if (closesAt && closesAt < new Date()) return res.status(409).json({ error: `Registration closed.` });
+
+      const entry = await prisma.tournamentParticipant.create({
+        data: {
+          tournamentId: req.params.id, playerId, participantType: 'PLAYER', status: 'pending', groupName: group,
+          requestNote: typeof note === 'string' && note.trim() ? note.trim().slice(0, 280) : null,
+          requesterId: req.user.sub,
         },
-      }),
-      prisma.team.findUnique({
-        where: { id: teamId },
-        select: { sport: true, name: true, ownerId: true, players: { select: { userId: true } } },
-      }),
-    ]);
+      });
+      return res.status(201).json({ entry });
+    }
+
+    // --- Original TEAM logic follows ---
+    if (!teamId) return res.status(400).json({ error: 'teamId required' });
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: { sport: true, name: true, ownerId: true, players: { select: { userId: true } } },
+    });
+
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
     if (!team) return res.status(404).json({ error: 'Team not found' });
     // Anyone in the team may ask — owner or player. This used to be owner-only,

@@ -14,6 +14,7 @@ const NAME_KEY = '@ll_name';
 // mine?" got a confident no in the meantime — your own Scout listing offered
 // you a Connect button. If that request failed, it never corrected.
 const ID_KEY = '@ll_uid';
+const SPORTS_KEY = '@ll_sports';
 
 let cache = null;                 // { id, name, avatarUrl }
 const listeners = new Set();
@@ -28,7 +29,7 @@ export function getCurrentUser() {
 // visible to the next login (this made spectators look like the scorer).
 export function clearCurrentUser() {
   cache = null;
-  AsyncStorage.multiRemove([AVATAR_KEY, NAME_KEY, ID_KEY]).catch(() => {});
+  AsyncStorage.multiRemove([AVATAR_KEY, NAME_KEY, ID_KEY, SPORTS_KEY]).catch(() => {});
   emit();
 }
 
@@ -48,10 +49,12 @@ export async function loadCurrentUser(force = false) {
       id: u.id,
       name: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim(),
       avatarUrl: u.avatarUrl || null,
+      sports: res.sports || [],
     };
     AsyncStorage.setItem(AVATAR_KEY, cache.avatarUrl || '');
     AsyncStorage.setItem(NAME_KEY, cache.name || '');
     AsyncStorage.setItem(ID_KEY, cache.id || '');
+    AsyncStorage.setItem(SPORTS_KEY, JSON.stringify(cache.sports));
     emit();
   }
   return cache;
@@ -69,9 +72,12 @@ export function useCurrentUser() {
         AsyncStorage.getItem(AVATAR_KEY),
         AsyncStorage.getItem(NAME_KEY),
         AsyncStorage.getItem(ID_KEY),
-      ]).then(([av, nm, id]) => {
-        if (!cache && (av || nm || id)) {
-          setUser((prev) => prev || { id: id || undefined, avatarUrl: av || null, name: nm || '' });
+        AsyncStorage.getItem(SPORTS_KEY),
+      ]).then(([av, nm, id, sp]) => {
+        if (!cache && (av || nm || id || sp)) {
+          let sports = [];
+          try { if (sp) sports = JSON.parse(sp) || []; } catch {}
+          setUser((prev) => prev || { id: id || undefined, avatarUrl: av || null, name: nm || '', sports });
         }
       });
       loadCurrentUser();

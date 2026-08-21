@@ -179,14 +179,35 @@ function mergeStats(baseline = {}, computed = {}) {
 }
 
 async function enrichPlayers(players) {
-  const overRows = await prisma.over.findMany({ select: { id: true, inningId: true, bowlerId: true } });
+  const sports = [...new Set(players.map((p) => p.sport || 'cricket'))];
+  const statBuilders = {};
   
-  const getOverall = await aggregateStats(null, overRows);
-  const getLeather = await aggregateStats({ ballType: 'leather' }, overRows);
-  const getTennis = await aggregateStats({ ballType: 'tennis' }, overRows);
-  const getIndoor = await aggregateStats({ ballType: 'indoor' }, overRows);
+  let overRows = null;
+  if (sports.includes('cricket')) {
+    overRows = await prisma.over.findMany({ select: { id: true, inningId: true, bowlerId: true } });
+  }
+  
+  for (const sport of sports) {
+    if (sport === 'cricket') {
+      const getOverall = await aggregateStats(null, overRows);
+      const getLeather = await aggregateStats({ ballType: 'leather' }, overRows);
+      const getTennis = await aggregateStats({ ballType: 'tennis' }, overRows);
+      const getIndoor = await aggregateStats({ ballType: 'indoor' }, overRows);
+      statBuilders[sport] = { getOverall, getLeather, getTennis, getIndoor };
+    } else {
+      statBuilders[sport] = {
+        getOverall: () => ({}),
+        getLeather: () => ({}),
+        getTennis:  () => ({}),
+        getIndoor:  () => ({}),
+      };
+    }
+  }
 
   const enriched = players.map((p) => {
+    const sport = p.sport || 'cricket';
+    const { getOverall, getLeather, getTennis, getIndoor } = statBuilders[sport];
+
     const baseline = p.stats || {};
     const overallComputed = getOverall(p.id, p.name);
     const leatherComputed = getLeather(p.id, p.name);

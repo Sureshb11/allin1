@@ -10,6 +10,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect, Pattern, Path } from 'react-nati
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
+import { getSport } from '../sports';
 
 /* ── Design System ── */
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -212,6 +213,8 @@ const TodayTabCard = ({ children, style, onPress }) => {
 function TournamentCard({ item, onJoin, onPress, onOpen }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
+  const sportDef = getSport(getSelectedSport().sport?.id);
+  const indiv = !!sportDef?.individual;
   const STATUS_COLORS = makeStatusColors(DS);
   // The EFFECTIVE state, not the stored one: a tournament whose start date has
   // passed is under way even if nobody moved it off "upcoming", and it should
@@ -300,9 +303,9 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
           <View style={styles.cardStatsRow}>
             <View style={styles.cardStatItemContainer}>
               <View style={styles.cardStatItem}>
-                <Icon name="account-group-outline" size={14} color={DS.textMuted} />
+                <Icon name={indiv ? "account-outline" : "account-group-outline"} size={14} color={DS.textMuted} />
                 <Text style={styles.cardStatText}>
-                  {item.maxTeams ? `${item.teams}/${item.maxTeams} teams` : `${item.teams} teams`}
+                  {item.maxTeams ? `${item.teams}/${item.maxTeams} ${indiv ? 'players' : 'teams'}` : `${item.teams} ${indiv ? 'players' : 'teams'}`}
                 </Text>
               </View>
               {!!item.maxTeams && (
@@ -348,10 +351,10 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
           <Text style={styles.slotsLeft}>
             {canJoin.open ? (teamsLeft > 0 ? `${teamsLeft} slots left` : 'Full') : canJoin.reason}
           </Text>
-          {canJoin.open && (
-            <PressableScale style={styles.joinBtn} onPress={() => { ReactNativeHapticFeedback.trigger('impactLight'); onJoin(item); }}>
-              <Text style={styles.joinBtnText}>JOIN</Text>
-            </PressableScale>
+          {canJoin.open && teamsLeft > 0 && (
+            <TouchableOpacity style={styles.joinBtn} onPress={() => { ReactNativeHapticFeedback.trigger('impactLight'); onJoin(item); }}>
+              <Text style={styles.joinBtnText}>{indiv ? 'JOIN AS PLAYER' : 'JOIN AS TEAM'}</Text>
+            </TouchableOpacity>
           )}
         </View>
       )}

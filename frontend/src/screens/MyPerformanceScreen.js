@@ -61,6 +61,7 @@ function StatsSkeleton({ DS }) {
 export default function MyPerformanceScreen({ navigation, inline, onRegisterFab, ballTypeOverride }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
   const meUser = useCurrentUser();
   const [stats, setStats] = useState(null);
+  const [careerStatus, setCareerStatus] = useState('AVAILABLE');
   const [shotData, setShotData] = useState(null);
   const sportId = getSelectedSport().sport?.id || 'cricket';
   const [loading, setLoading] = useState(true);
@@ -111,7 +112,7 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab,
   }, [sportId, meUser]);
 
   const statsToPass = activeBallType === 'overall' ? stats : (stats?.[activeBallType] || {});
-  const mine = hasCareer(statsToPass, sportId);
+  const mine = (careerStatus !== 'NOT_AVAILABLE' && careerStatus !== 'INSUFFICIENT_DATA') && hasCareer(statsToPass, sportId);
 
   useEffect(() => {
     // Only offer the share action once there is a card to share — with no

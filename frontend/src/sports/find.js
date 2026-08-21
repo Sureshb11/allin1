@@ -1,4 +1,4 @@
-// Per-sport "Find players" config (screen title + role chips) for FindCricketersScreen.
+// Per-sport "Find players" config (screen title + role chips) for FindPlayersScreen.
 // Add a sport here for custom roles; unknown sports fall back to cricket.
 export const FIND_CONFIG = {
   cricket:   { title: 'Find Cricketers',  roles: ['Batter', 'Bowler', 'All-rounder', 'Wicketkeeper'] },

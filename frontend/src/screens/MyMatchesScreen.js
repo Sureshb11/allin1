@@ -12,6 +12,7 @@ import HexAvatar from '../components/HexAvatar';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
+import { getSport } from '../sports';
 import BrandLogo from '../components/BrandLogo';
 import { teamNamePairStyle } from '../utils/teamNameSize';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
@@ -128,11 +129,18 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
   const styles = useThemedStyles(makeStyles);
   const STATUS_META = makeStatusMeta(DS);
   const meta = STATUS_META[m.status] || STATUS_META.scheduled;
-  const nameFit = teamNamePairStyle(m.team1, m.team2);
-  const t1Init = (m.team1 || 'T')[0].toUpperCase();
-  const t2Init = (m.team2 || 'T')[0].toUpperCase();
-  const t1Color = getTeamColor(m.team1, 0);
-  const t2Color = getTeamColor(m.team2, 1);
+  const t1Name = m.participantType === 'PLAYER' 
+    ? (m.player1?.name || m.player1?.username || 'TBD') 
+    : (m.team1?.name || (typeof m.team1 === 'string' ? m.team1 : 'TBD'));
+  const t2Name = m.participantType === 'PLAYER' 
+    ? (m.player2?.name || m.player2?.username || 'TBD') 
+    : (m.team2?.name || (typeof m.team2 === 'string' ? m.team2 : 'TBD'));
+    
+  const nameFit = teamNamePairStyle(t1Name, t2Name);
+  const t1Init = (t1Name || 'T')[0]?.toUpperCase();
+  const t2Init = (t2Name || 'T')[0]?.toUpperCase();
+  const t1Color = getTeamColor();
+  const t2Color = getTeamColor();
 
   
   const pulse = useRef(new Animated.Value(1)).current;
@@ -195,7 +203,7 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
           <View style={[styles.broadcastLayout, { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8, paddingHorizontal: 10 }]}>
             <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
               <HexAvatar size={28} color={t1Color}><Text style={[styles.teamAvatarText, { fontSize: 10 }]}>{t1Init}</Text></HexAvatar>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: DS.textPrimary, textAlign: 'center' }} numberOfLines={2}>{m.team1 || 'TBD'}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: DS.textPrimary, textAlign: 'center' }} numberOfLines={2}>{t1Name}</Text>
               <View style={{ alignItems: 'center' }}>
                 <Text style={{ fontSize: 14, fontWeight: '900', color: DS.textPrimary }}>{splitScore(m.score1, m.overs).main || '-'}</Text>
                 {splitScore(m.score1, m.overs).ov ? <Text style={{ fontSize: 10, fontWeight: '700', color: DS.textMuted }}>{splitScore(m.score1, m.overs).ov}</Text> : null}
@@ -210,7 +218,7 @@ export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
 
             <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
               <HexAvatar size={28} color={t2Color}><Text style={[styles.teamAvatarText, { fontSize: 10 }]}>{t2Init}</Text></HexAvatar>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: DS.textPrimary, textAlign: 'center' }} numberOfLines={2}>{m.team2 || 'TBD'}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: DS.textPrimary, textAlign: 'center' }} numberOfLines={2}>{t2Name}</Text>
               <View style={{ alignItems: 'center' }}>
                 <Text style={{ fontSize: 14, fontWeight: '900', color: DS.textPrimary }}>{splitScore(m.score2, m.overs).main || '-'}</Text>
                 {splitScore(m.score2, m.overs).ov ? <Text style={{ fontSize: 10, fontWeight: '700', color: DS.textMuted }}>{splitScore(m.score2, m.overs).ov}</Text> : null}
@@ -448,8 +456,8 @@ export default function MyMatchesScreen({ navigation }) {
         <Icon name="magnify" size={18} color={DS.textMuted} />
         <TextInput
           style={C.searchFieldInput}
-          placeholder="Search teams, venue, type..."
-          placeholderTextColor={DS.textMuted}
+          placeholder={`Search ${getSport(getSelectedSport().sport?.id)?.individual ? 'players' : 'teams'}, venue, type...`}
+          placeholderTextColor={DS.faint}
           value={query}
           onChangeText={setQuery}
         />

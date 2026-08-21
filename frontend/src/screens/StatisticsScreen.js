@@ -14,6 +14,7 @@ import FilterTabBar from '../components/FilterTabBar';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getRankingBoards, rankValue } from '../sports/careerStats';
+import { getSport } from '../sports';
 import { useCurrentUser } from '../utils/currentUser';
 import { haptic } from '../utils/haptics';
 
@@ -517,17 +518,55 @@ function RankRow({ item, rank, board, cols, isMe, isTeam, onPress, onDoubleTapSt
 export default function StatisticsScreen({ navigation, inline, pagerGesture, mode }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
   const [internalTab, setInternalTab] = useState('Players');
   const tab = mode || internalTab;
+
+  // ── Sport selection: LOCAL to this tab ────────────────────────────────────
+  // The user switches sport *inside* Rankings without resetting the global app
+  // context — so football rankings and cricket rankings are one swipe apart
+  // without navigating away. Falls back to the global Arena selection.
+  const meUser = useCurrentUser();
+  const myId = meUser?.id;
+
+  // Build the ordered list of sports this user has configured.
+  // meUser.sports comes from /users/me → UserSport rows, ordered primary-first.
+  const userSports = useMemo(() => {
+    const raw = meUser?.sports || [];
+    return raw
+      .map((us) => getSport(us.sport || us.sportId || us.id))
+      .filter(Boolean);
+  }, [meUser]);
+
+  const [activeSportId, setActiveSportId] = useState(
+    () => getSelectedSport().sport?.id || 'cricket'
+  );
+
   // Cricket keeps its Runs/Wickets/Economy boards; other sports rank on their
   // own event tallies (goals, cards …) so the tab labels match the sport.
-  const sportId = getSelectedSport().sport?.id || 'cricket';
+  // Non-cricket sports with NO dedicated ranking boards return [] from
+  // getRankingBoards — those sports show "Rankings not available yet" rather
+  // than falling back to cricket's ball-by-ball metrics.
+  const sportId = activeSportId;
+  const isCricketView = sportId === 'cricket';
   const sportBoards = getRankingBoards(sportId);
-  const activeBoards = sportBoards.length ? sportBoards : PLAYER_BOARDS;
-  const [boardId, setBoardId] = useState(activeBoards[0].id);
+  const activeBoards = isCricketView ? PLAYER_BOARDS : sportBoards;
+  const [boardId, setBoardId] = useState(activeBoards[0]?.id ?? 'runs');
+
+  // When the active sport changes, reset to the first board of the new sport.
+  const handleSportChange = useCallback((newSportId) => {
+    if (newSportId === activeSportId) return;
+    haptic.tick();
+    setActiveSportId(newSportId);
+    const isCricket = newSportId === 'cricket';
+    const newBoards = getRankingBoards(newSportId);
+    const effectiveBoards = isCricket ? PLAYER_BOARDS : newBoards;
+    setBoardId(effectiveBoards[0]?.id ?? 'runs');
+    scrollBoardTo(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSportId]);
 
   useEffect(() => {
     if (mode) {
-      setBoardId(mode === 'Players' ? activeBoards[0].id : TEAM_BOARDS[0].id);
-      scrollBoardTo(0);
+      const firstBoard = (mode === 'Players' ? activeBoards : TEAM_BOARDS)[0];
+      if (firstBoard) { setBoardId(firstBoard.id); scrollBoardTo(0); }
     }
   }, [mode, activeBoards]);
 
@@ -573,8 +612,6 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
     scrollBoardTo(Math.max(0, x - 40));
   };
   // "Find me" plumbing: scroll to the logged-in player's row on the board.
-  const meUser = useCurrentUser();
-  const myId = meUser?.id;
   const scrollRef = useRef(null);
   const myRowY = useRef(0);
 
@@ -588,7 +625,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
   }, [navigation, inline]);
 
   const fetchData = useCallback(async () => {
-    const _sport = getSelectedSport().sport?.id;   // rankings are per-sport
+    const _sport = activeSportId;   // rankings are per-sport (local, not global)
     // Cricket ranks on its ball-by-ball derived stats; every other sport ranks
     // on SportEvent tallies, which getPlayers() doesn't carry.
     const isCricket = (_sport || 'cricket') === 'cricket';
@@ -624,7 +661,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
       matches: 0, wins: 0, losses: 0, totalRuns: 0, totalWickets: 0, winRate: 0,
       ...(t.stats || {}),
     })));
-  }, []);
+  }, [activeSportId]);
 
   // Reload when Pavilion regains focus, but only if what's on screen has gone
   // stale. Mount-only meant scoring a match and coming back showed the old
@@ -648,6 +685,16 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
     return () => { alive = false; };
   }, [fetchData]));
 
+  // Reload whenever the active sport changes (user taps a different sport chip).
+  const prevSportRef = useRef(activeSportId);
+  useEffect(() => {
+    if (prevSportRef.current === activeSportId) return;
+    prevSportRef.current = activeSportId;
+    lastLoadedAt.current = 0;   // force a reload
+    setLoading(true);
+    fetchData().finally(() => { lastLoadedAt.current = Date.now(); setLoading(false); });
+  }, [activeSportId, fetchData]);
+
   const onRefresh = useCallback(() => {
     haptic.impact();
     setRefreshing(true);
@@ -657,15 +704,20 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
   // Qualify → rank → stamp the standing → then filter by search. The standing is
   // fixed before searching, so looking up a name shows that player's real rank
   // rather than renumbering them to #1.
+  //
+  // noBoards: sport is recognised but has no dedicated ranking boards yet.
+  // The UI short-circuits to the empty state; none of the board-dependent
+  // derived values below are safe to compute when board === undefined.
   const boards = tab === 'Players' ? activeBoards : TEAM_BOARDS;
   const board = boards.find((b) => b.id === boardId) || boards[0];
+  const noBoards = tab === 'Players' && activeBoards.length === 0;
   const rawData = tab === 'Players' ? players : teams;
   
-  const processedData = tab === 'Players' && sportId === 'cricket' && ballTypeFilter !== 'overall'
+  const processedData = tab === 'Players' && isCricketView && ballTypeFilter !== 'overall'
     ? rawData.map(p => ({ ...p, stats: { ...(p.stats || {}), ...(p.stats?.[ballTypeFilter] || {}) } }))
     : rawData;
 
-  const ranked = processedData
+  const ranked = noBoards || !board ? [] : processedData
     .filter(board.qualify)
     .sort(sortFor(board))
     .map((item, i) => ({ ...item, standing: i }));
@@ -677,12 +729,12 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
   const listRows = showPodium ? data.slice(3) : data;
   // Where the logged-in player sits on the current board (pre-search, so it's the
   // real standing). Powers the "You're #N — find me" banner and row highlight.
-  const myStanding = tab === 'Players' && myId ? ranked.find((r) => r.id === myId) : null;
+  const myStanding = tab === 'Players' && myId && !noBoards ? ranked.find((r) => r.id === myId) : null;
   // Both destinations already exist and take exactly what a row holds, so this
   // hands off rather than duplicating a stats screen inside a sheet. The player
   // object rides along so Insights can paint before its fetch returns.
   const openDetail = (item) => {
-    if (tab === 'Players') navigation?.navigate('PlayerInsights', {
+    if (tab === 'Players') navigation?.navigate('PlayerProfile', {
       playerId: item.id,
       player: item,
       // Where they sit on the board you tapped from, so the profile can say so
@@ -719,7 +771,8 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
     const newIdx = ['Players', 'Teams'].indexOf(newTab);
     swipeDir.current = newIdx > oldIdx ? 1 : -1;
     setInternalTab(newTab);
-    setBoardId((newTab === 'Players' ? activeBoards : TEAM_BOARDS)[0].id);
+    const firstBoard = (newTab === 'Players' ? activeBoards : TEAM_BOARDS)[0];
+    if (firstBoard) setBoardId(firstBoard.id);
     scrollBoardTo(0);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
@@ -819,6 +872,31 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
                 already the first thing on screen, and myRowY is set by the list
                 row's onLayout, which never fires for someone in the top three.
                 Without this the button pointed at y=0 and did nothing. */}
+            {/* Sport switcher — only shown when the user has >1 sport configured.
+                Lives INSIDE Rankings to avoid touching the global app context:
+                switching sport here reloads Rankings data without resetting the
+                entire app's Arena selection. */}
+            {userSports.length > 1 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.sportBar}
+                style={{ marginBottom: 10 }}>
+                {userSports.map((sp) => {
+                  const on = sp.id === activeSportId;
+                  return (
+                    <TouchableOpacity
+                      key={sp.id}
+                      style={[styles.sportChip, on && styles.sportChipActive]}
+                      onPress={() => handleSportChange(sp.id)}
+                      activeOpacity={0.75}>
+                      <Icon name={sp.icon || 'medal'} size={14} color={on ? DS.onLime : DS.textVariant} />
+                      <Text style={[styles.sportChipText, on && styles.sportChipTextActive]}>{sp.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
             {myStanding && (() => {
               const onPodium = showPodium && myStanding.standing < 3;
               const Wrap = onPodium ? View : TouchableOpacity;
@@ -885,38 +963,43 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
 
               {/* Removed ball type filters from Rankings as per request */}
 
-              {/* Board selector — what this leaderboard is actually ranking. Drag
-                  to scroll (self-driven, blocks the pager); tap scrolls into view. */}
-              <GestureDetector gesture={boardPanBlocking}>
-                <Reanimated.ScrollView horizontal scrollEnabled={false}
-                  ref={boardScroll} showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.boardBar}
-                  onLayout={(e) => { boardViewW.current = e.nativeEvent.layout.width; recomputeBoardMax(); }}
-                  onContentSizeChange={(w) => { boardContentW.current = w; recomputeBoardMax(); }}>
-                  {boards.map((b, i) => {
-                    const on = b.id === board.id;
-                    return (
-                      <TouchableOpacity key={b.id} activeOpacity={0.85}
-                        style={[styles.boardChip, on && styles.boardChipActive]}
-                        // Measured, not a fixed 92px guess: "Runs" and "Strike rate"
-                        // are nowhere near the same width, so the selected chip
-                        // landed off-centre or clipped.
-                        onLayout={(e) => { chipX.current[i] = e.nativeEvent.layout.x; }}
-                        onPress={() => { handleBoardChange(b.id); scrollChipIntoView(i); }}>
-                        <Icon name={b.icon} size={13} color={on ? '#0f4c3a' : '#475569'} />
-                        <Text style={[styles.boardChipText, on && styles.boardChipTextActive]}>{b.label}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </Reanimated.ScrollView>
-              </GestureDetector>
+              {/* Board selector — only rendered when the sport has dedicated ranking boards.
+                  When noBoards is true the entire chip row is suppressed so nothing
+                  referencing board.id or board.label can crash. */}
+              {!noBoards && board && (
+                <GestureDetector gesture={boardPanBlocking}>
+                  <Reanimated.ScrollView horizontal scrollEnabled={false}
+                    ref={boardScroll} showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.boardBar}
+                    onLayout={(e) => { boardViewW.current = e.nativeEvent.layout.width; recomputeBoardMax(); }}
+                    onContentSizeChange={(w) => { boardContentW.current = w; recomputeBoardMax(); }}>
+                    {boards.map((b, i) => {
+                      const on = b.id === board.id;
+                      return (
+                        <TouchableOpacity key={b.id} activeOpacity={0.85}
+                          style={[styles.boardChip, on && styles.boardChipActive]}
+                          // Measured, not a fixed 92px guess: "Runs" and "Strike rate"
+                          // are nowhere near the same width, so the selected chip
+                          // landed off-centre or clipped.
+                          onLayout={(e) => { chipX.current[i] = e.nativeEvent.layout.x; }}
+                          onPress={() => { handleBoardChange(b.id); scrollChipIntoView(i); }}>
+                          <Icon name={b.icon} size={13} color={on ? '#0f4c3a' : '#475569'} />
+                          <Text style={[styles.boardChipText, on && styles.boardChipTextActive]}>{b.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </Reanimated.ScrollView>
+                </GestureDetector>
+              )}
               {/* State the qualification instead of quietly dropping people */}
               {/* The threshold is the part worth stating; a tally isn't, on a
                   board that could hold six figures. */}
-              <Text style={styles.boardMeta}>
-                Ranked by {board.label.toLowerCase()}
-                {board.note ? ` · ${board.note}` : ''}
-              </Text>
+              {!noBoards && board && (
+                <Text style={styles.boardMeta}>
+                  Ranked by {board.label.toLowerCase()}
+                  {board.note ? ` · ${board.note}` : ''}
+                </Text>
+              )}
             </View>
             {/* Only the RESULTS animate on a tab or board change. This whole
                 ScrollView used to sit inside one opacity value, so tapping
@@ -925,7 +1008,24 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
                 the dark, 150ms back. The controls hold still now; keying on
                 tab+board remounts just the results, so they fade in while the
                 chips stay put and the tap reads as instant. */}
-            <Reanimated.View key={`${tab}:${board.id}`} entering={swipeDir.current === 1 ? SlideInRight.duration(200).withInitialValues({ transform: [{ translateX: 50 }] }) : SlideInLeft.duration(200).withInitialValues({ transform: [{ translateX: -50 }] })}>
+            {/* noBoards short-circuit: sport is recognised but has no ranking
+                config yet. Skip all board-dependent rendering and show the
+                "Rankings not available yet" empty state directly. */}
+            {noBoards ? (
+              <View style={styles.empty}>
+                <View style={styles.emptyBox}>
+                  <View style={styles.emptyIconWrap}>
+                    <Icon name="podium-remove" size={32} color={'#0f4c3a'} />
+                  </View>
+                  <Text style={styles.emptyTitle}>Rankings not available yet</Text>
+                  <Text style={styles.emptySub}>
+                    We don't have enough match data to rank players for this sport yet.
+                    Play some matches and the leaderboard will fill in.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+            <Reanimated.View key={`${tab}:${board?.id ?? 'empty'}`} entering={swipeDir.current === 1 ? SlideInRight.duration(200).withInitialValues({ transform: [{ translateX: 50 }] }) : SlideInLeft.duration(200).withInitialValues({ transform: [{ translateX: -50 }] })}>
               {/* Podium only when the board is unsearched and deep enough for one —
                   a filtered result of two isn't a podium, and mid-search the top
                   three of your matches aren't the top three of anything. */}
@@ -947,9 +1047,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
                       <Icon name={board.icon || 'chart-bar'} size={32} color={'#0f4c3a'} />
                     </View>
                     <Text style={styles.emptyTitle}>
-                      {searchQuery.trim()
-                        ? 'No one matches that search'
-                        : `No ${tab.toLowerCase()} ranked by ${board.label.toLowerCase()} yet`}
+                      {searchQuery.trim() ? 'No one matches that search' : 'Rankings not available yet'}
                     </Text>
                     <Text style={styles.emptySub}>
                       {searchQuery.trim()
@@ -983,6 +1081,7 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
                 })
               )}
             </Reanimated.View>
+            )}
           </Animated.ScrollView>
         </View>
         </GestureDetector>
@@ -1109,6 +1208,19 @@ const makeStyles = (DS) => StyleSheet.create({
   boardChipText: { fontSize: 12, fontWeight: '600', color: '#475569' },
   boardChipTextActive: { color: '#0f4c3a', fontWeight: 'bold' },
   boardMeta: { fontSize: 14, color: '#475569', marginHorizontal: 16, marginBottom: 16 },
+
+  // Sport switcher: pill chips inside the Rankings tab header area.
+  sportBar: { paddingHorizontal: 16, gap: 8 },
+  sportChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint,
+  },
+  sportChipActive: {
+    backgroundColor: DS.lime, borderColor: DS.lime,
+  },
+  sportChipText: { fontSize: 13, fontWeight: '600', color: DS.textVariant },
+  sportChipTextActive: { fontSize: 13, fontWeight: '700', color: DS.onLime },
 
   /* Search */
   // Sits in the control row now (was a standalone full-width band with its own

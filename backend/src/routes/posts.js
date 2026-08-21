@@ -74,12 +74,38 @@ const PostSchema = z.object({
   authorName: z.string().optional(),
   team: z.string().optional(),
   mediaUrl: z.string().url().optional().nullable(),
+  mediaType: z.string().optional().nullable(),
+  postType: z.string().default('general'),
+  matchId: z.string().optional().nullable(),
+  tournamentId: z.string().optional().nullable(),
+  playerId: z.string().optional().nullable(),
 });
 
 // POST /posts — create a post (auth optional; falls back to a guest name)
 router.post('/', async (req, res) => {
   try {
     const data = PostSchema.parse(req.body);
+    const { getSportParticipantType } = require('../lib/sports');
+    if (!getSportParticipantType(data.sport)) {
+      return res.status(400).json({ error: 'INVALID_SPORT' });
+    }
+
+    if (data.matchId) {
+      const match = await prisma.match.findUnique({ where: { id: data.matchId }, select: { sport: true } });
+      if (!match) return res.status(404).json({ error: 'Match not found' });
+      if (match.sport !== data.sport) return res.status(400).json({ error: 'Cross-sport match reference rejected' });
+    }
+    if (data.tournamentId) {
+      const tournament = await prisma.tournament.findUnique({ where: { id: data.tournamentId }, select: { sport: true } });
+      if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
+      if (tournament.sport !== data.sport) return res.status(400).json({ error: 'Cross-sport tournament reference rejected' });
+    }
+    if (data.playerId) {
+      const player = await prisma.player.findUnique({ where: { id: data.playerId }, select: { sport: true } });
+      if (!player) return res.status(404).json({ error: 'Player not found' });
+      if (player.sport !== data.sport) return res.status(400).json({ error: 'Cross-sport player reference rejected' });
+    }
+
     let authorId = null, authorName = data.authorName || 'You', authorAvatar = null;
     const hdr = req.headers.authorization || '';
     if (hdr.startsWith('Bearer ')) {
@@ -92,7 +118,20 @@ router.post('/', async (req, res) => {
       } catch { /* unauthenticated post */ }
     }
     const post = await prisma.post.create({
-      data: { sport: data.sport, text: data.text, team: data.team, mediaUrl: data.mediaUrl || null, authorId, authorName, authorAvatar },
+      data: { 
+        sport: data.sport, 
+        text: data.text, 
+        team: data.team, 
+        mediaUrl: data.mediaUrl || null, 
+        mediaType: data.mediaType || null,
+        postType: data.postType || 'general',
+        matchId: data.matchId || null,
+        tournamentId: data.tournamentId || null,
+        playerId: data.playerId || null,
+        authorId, 
+        authorName, 
+        authorAvatar 
+      },
     });
     res.status(201).json({ post });
   } catch (e) {

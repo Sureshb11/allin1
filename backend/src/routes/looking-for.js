@@ -274,7 +274,11 @@ router.get('/:id', async (req, res) => {
 });
 
 const LookingForSchema = z.object({
-  sport:       z.string().optional(),
+  sport:       z.enum([
+    'badminton', 'basketball', 'boxing', 'cricket', 'football', 'handball', 
+    'hockey', 'judo', 'kabaddi', 'karate', 'khokho', 'pickleball', 
+    'skateboard', 'squash', 'tabletennis', 'tennis', 'volleyball', 'wrestling'
+  ]),
   // Must stay in step with TYPES in LookingForScreen — ground, teamtourn and
   // tournament were offered by the form and rejected here with a 400, so three
   // of the ten categories could never be posted at all.

@@ -84,14 +84,14 @@ function BoardSkeleton({ DS }) {
   );
 }
 
-export default function PlayerInsightsScreen({ route, navigation }) {
+export default function PlayerProfileScreen({ route, navigation }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const TREND_CONFIG = makeTrendConfig(DS);
   const { playerId, player: passed, standing, boardLabel } = route.params || {};
 
   const [career, setCareer] = useState(null);
-  const [insights, setInsights] = useState({});
+  
   const [shotData, setShotData] = useState(null);   // { shots, analytics, insights, player }
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -105,16 +105,16 @@ export default function PlayerInsightsScreen({ route, navigation }) {
 
   const load = useCallback(() => Promise.all([
     legendsApi.getPlayerCareer(playerId),
-    legendsApi.getPlayerInsights(playerId),
+    
     // Kept a SEPARATE fetch from the career on purpose: shot data covers only
     // the deliveries somebody chose to capture, which for a long time will be a
     // thin and uneven slice. Folding it into the career board would make those
     // numbers quietly mean something different depending on whether a scorer
     // happened to switch the feature on that day.
     legendsApi.getPlayerShots(playerId),
-  ]).then(([c, ins, sh]) => {
+  ]).then(([c, sh]) => {
     if (c.success) setCareer(c.data);
-    if (ins.success) setInsights(ins.data);
+    
     if (sh.success) setShotData(sh.data);
   }), [playerId]);
 
@@ -173,42 +173,21 @@ export default function PlayerInsightsScreen({ route, navigation }) {
       <ScrollView showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}>
         <View style={styles.body}>
-          
-          {!loading && (career?.status === 'NOT_AVAILABLE' || career?.status === 'INSUFFICIENT_DATA') ? (
+          {loading ? (
+            <BoardSkeleton DS={DS} />
+          ) : (career?.status === 'NOT_AVAILABLE' || career?.status === 'INSUFFICIENT_DATA') || !hasCareer(stats, sportId) ? (
             <View style={styles.empty}>
-              <Icon name="chart-donut" size={44} color={DS.textMuted} />
+              <Icon name="chart-line" size={44} color={DS.textMuted} />
               <Text style={styles.emptyTitle}>
-                {career.status === 'NOT_AVAILABLE' ? 'Statistics not available yet' : 'Not enough match data'}
+                {career?.status === 'NOT_AVAILABLE' ? 'Statistics not available yet' 
+                 : career?.status === 'INSUFFICIENT_DATA' ? 'Not enough match data' 
+                 : 'No career numbers yet'}
               </Text>
               <Text style={styles.emptySub}>{name} hasn't played a scored match on Local Legends.</Text>
             </View>
-          ) : !loading && (
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryRow}>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryValue}>{stats?.matches || 0}</Text>
-                  <Text style={styles.summaryLabel}>Matches</Text>
-                </View>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryValue}>{stats?.wins || 0}</Text>
-                  <Text style={styles.summaryLabel}>Wins</Text>
-                </View>
-                <View style={styles.summaryStat}>
-                  <Text style={styles.summaryValue}>{stats?.winPercent != null ? `${stats.winPercent}%` : '-'}</Text>
-                  <Text style={styles.summaryLabel}>Win Rate</Text>
-                </View>
-              </View>
-              <TouchableOpacity 
-                style={styles.fullStatsBtn} 
-                activeOpacity={0.8}
-                onPress={() => navigation.navigate('PlayerProfile', { playerId, player: passed, standing, boardLabel })}
-              >
-                <Text style={styles.fullStatsBtnText}>View Full Stats</Text>
-                <Icon name="arrow-right" size={16} color={DS.lime} />
-              </TouchableOpacity>
-            </View>
+          ) : (
+            <CareerBoard stats={stats} sportId={sportId} navigation={navigation} />
           )}
-
 
           {/* Where this batter actually scores. Rendered only when there is shot
               data at all — the feature is optional, so an empty wagon wheel on
@@ -232,50 +211,7 @@ export default function PlayerInsightsScreen({ route, navigation }) {
             />
           )}
 
-          {/* The scouting read — what the board above adds up to. Its thresholds
-              run on those same numbers now, so it can't tell you an economy is
-              fine while the table over it says otherwise. */}
-          {!loading && sportId === 'cricket' && (strong.length > 0 || improve.length > 0) && (
-            <Section title="Analysis" icon="chart-donut">
-              <View style={styles.trendRow}>
-                <Icon name={trend.icon} size={18} color={trend.color} />
-                <Text style={[styles.trendLabel, { color: trend.color }]}>{trend.label}</Text>
-                {!!perf.recentForm && perf.recentForm !== 'N/A' && (
-                  <Text style={styles.trendForm}>· form {perf.recentForm.toLowerCase()}</Text>
-                )}
-              </View>
-              <View style={styles.analysisRow}>
-                <View style={styles.analysisBox}>
-                  <View style={styles.analysisHeader}>
-                    <Icon name="star-circle" size={14} color={DS.lime} />
-                    <Text style={[styles.analysisTitle, { color: DS.lime }]}>Strong Points</Text>
-                  </View>
-                  {strong.length > 0
-                    ? strong.map((p, i) => (
-                      <View key={i} style={styles.bulletRow}>
-                        <View style={[styles.bullet, { backgroundColor: DS.lime }]} />
-                        <Text style={styles.bulletText}>{p}</Text>
-                      </View>
-                    ))
-                    : <Text style={styles.noData}>No data yet</Text>}
-                </View>
-                <View style={styles.analysisBox}>
-                  <View style={styles.analysisHeader}>
-                    <Icon name="arrow-up-circle" size={14} color={DS.coral} />
-                    <Text style={[styles.analysisTitle, { color: DS.coral }]}>To Improve</Text>
-                  </View>
-                  {improve.length > 0
-                    ? improve.map((a, i) => (
-                      <View key={i} style={styles.bulletRow}>
-                        <View style={[styles.bullet, { backgroundColor: DS.coral }]} />
-                        <Text style={styles.bulletText}>{a}</Text>
-                      </View>
-                    ))
-                    : <Text style={styles.noData}>No data yet</Text>}
-                </View>
-              </View>
-            </Section>
-          )}
+          
           
           {!loading && sportId && sportId !== 'cricket' && (
             <View style={[styles.empty, { marginTop: 16 }]}>
@@ -285,16 +221,7 @@ export default function PlayerInsightsScreen({ route, navigation }) {
             </View>
           )}
 
-          {!loading && recs.length > 0 && (
-            <Section title="Recommendations" icon="lightbulb-outline">
-              {recs.map((rec, i) => (
-                <View key={i} style={styles.recRow}>
-                  <View style={styles.recNum}><Text style={styles.recNumText}>{i + 1}</Text></View>
-                  <Text style={styles.recText}>{rec}</Text>
-                </View>
-              ))}
-            </Section>
-          )}
+          
         </View>
       </ScrollView>
     </View>
@@ -323,15 +250,6 @@ const makeStyles = (DS) => StyleSheet.create({
   rankPillLbl: { fontSize: 8.5, fontWeight: '800', color: DS.lime, letterSpacing: 0.4, textTransform: 'uppercase' },
 
   body: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 32, gap: 10 },
-
-  summaryCard: { backgroundColor: DS.surface, borderRadius: 16, borderWidth: 1, borderColor: DS.border, padding: 16, gap: 16 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12 },
-  summaryStat: { alignItems: 'center', gap: 4 },
-  summaryValue: { fontSize: 24, fontWeight: '900', color: DS.textPrimary },
-  summaryLabel: { fontSize: 11, fontWeight: '700', color: DS.textMuted, textTransform: 'uppercase' },
-  fullStatsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: DS.surfaceHigh, paddingVertical: 12, borderRadius: 12 },
-  fullStatsBtnText: { fontSize: 13, fontWeight: '800', color: DS.lime },
-
 
   empty: { alignItems: 'center', paddingVertical: 48, gap: 8 },
   emptyTitle: { fontSize: 15, fontWeight: '700', color: DS.textVariant, marginTop: 6 },

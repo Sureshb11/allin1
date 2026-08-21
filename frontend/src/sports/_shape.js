@@ -10,7 +10,8 @@
 //   scoring:   { periods, maxPeriods, actions, extras, scoreLabel, oversLabel }
 //                                        → SportScoringScreen
 //   dashboard: { ctaSubtitle, navTabs, quickAccess, features } → HomeScreen
-//   find:      { title, roles }         → FindCricketersScreen
+//   find:      { title, roles }         → FindPlayersScreen
+//   scout:     { formats, subtypes }    → LookingForScreen
 //   start:     start-match config       → StartMatchScreen
 //   custom:    { homeRoute }            → sports with dedicated screens (e.g. Rummy)
 

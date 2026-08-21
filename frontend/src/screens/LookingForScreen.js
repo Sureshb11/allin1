@@ -29,6 +29,7 @@ import { pav } from '../theme/pavilion';
 import { useHideTabBarOnScroll, useTabBarClearance } from '../components/AutoHideTabBar';
 import BrandLogo from "../components/BrandLogo";
 import PlayerAvatar from "../components/PlayerAvatar";
+import { getScout } from '../sports/scout';
 
 import { useWindowDimensions } from 'react-native';
 
@@ -162,26 +163,10 @@ function ScoutSkeleton({ DS }) {
 // Real post types used by the create-post form — every "looking for" category.
 const TYPES = ['player', 'team', 'opponent', 'umpire', 'scorer', 'coach', 'tournament', 'teamtourn', 'ground', 'commentator'];
 
-// Tap-to-select options so posting needs almost no typing (only the notes field).
-const FORMAT_OPTS = ['Any', 'T20', 'T10', 'ODI', 'Test', 'The Hundred', 'Box/Turf'];
 const AGE_OPTS = ['Any', 'Open', 'U-13', 'U-16', 'U-19', 'U-23', 'Veterans'];
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const WEEKEND = ['Sat', 'Sun'];
 const TIME_OPTS = ['6:00 AM', '10:00 AM', '2:00 PM', 'Custom'];
-
-// Second-level sub-category shown once a type is picked (e.g. Player → Batter…).
-const SUBTYPES = {
-  player:      ['Batter', 'Bowler', 'Wicket-keeper', 'All-rounder'],
-  team:        ['For a match', 'For a tournament', 'Net practice', 'Regular squad'],
-  opponent:    ['Friendly', 'Practice match', 'League', 'Tournament'],
-  umpire:      ['Club level', 'District level', 'Certified'],
-  scorer:      ['Manual', 'Digital / App', 'Live stream'],
-  coach:       ['Batting', 'Bowling', 'Fielding', 'Fitness', 'All-round'],
-  tournament:  ['To join', 'Corporate', 'Community', 'Youth'],
-  teamtourn:   ['League', 'Knockout', 'Corporate', 'Community'],
-  ground:      ['Turf', 'Matting', 'Grass', 'Nets'],
-  commentator: ['English', 'Regional', 'Live stream'],
-};
 const SUBTYPE_LABEL = {
   player: 'Role', team: 'Purpose', opponent: 'Match type', umpire: 'Level', scorer: 'Method',
   coach: 'Speciality', tournament: 'Kind', teamtourn: 'Kind', ground: 'Surface', commentator: 'Language',
@@ -428,7 +413,8 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     const timing = TIME_OPTS.includes(timePart) ? timePart : (timePart ? 'Custom' : '');
     // The role sits between the type word and the format in the generated title.
     const titleParts = (item.title || '').replace(/^looking for (?:an?|the)\s+/i, '').split('·').map((x) => x.trim());
-    const role = (SUBTYPES[item.type] || []).find((r) => titleParts.includes(r)) || '';
+    const scoutConfig = getScout(sportFilter || 'cricket');
+    const role = (scoutConfig.subtypes[item.type] || []).find((r) => titleParts.includes(r)) || '';
 
     setEditingId(item.id);
     setForm({
@@ -489,6 +475,18 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
   // Scope Explore to the active sport (deep-linked sport, else current selection).
   const sportFilter = route?.params?.sport || getSelectedSport().sport?.id || null;
+
+  if (!sportFilter) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Icon name="account-search-outline" size={48} color={DS.textMuted} style={{ marginBottom: 16 }} />
+        <Text style={{ color: DS.text, fontSize: 16, textAlign: 'center', marginBottom: 20 }}>
+          Your sport preference is required to use Scout.
+        </Text>
+        <PrimaryButton label="Update Profile" onPress={() => navigation.navigate('MySports')} />
+      </View>
+    );
+  }
 
   useLayoutEffect(() => {
     if (!inline) {
@@ -1162,17 +1160,17 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
                   required
                   options={TYPES.map((t) => ({ value: t, label: TYPE_LABELS[t] || t, icon: TYPE_ICONS[t] }))}
                   value={form.type}
-                  onChange={(v) => v && setForm((f) => ({ ...f, type: v, role: '' }))}
+                  onChange={(v) => v && setForm((f) => ({ ...f, type: v, role: '', format: '' }))}
                 />
-                {SUBTYPES[form.type] && (
+                {getScout(sportFilter).subtypes[form.type] && (
                   <ChipGroup
                     label={SUBTYPE_LABEL[form.type] || 'Type'}
-                    options={SUBTYPES[form.type]}
+                    options={getScout(sportFilter).subtypes[form.type]}
                     value={form.role}
                     onChange={(v) => setForm((f) => ({ ...f, role: v || '' }))}
                   />
                 )}
-                <ChipGroup label="Format" options={FORMAT_OPTS} value={form.format}
+                <ChipGroup label="Format" options={getScout(sportFilter).formats} value={form.format}
                   onChange={(v) => v && setForm((f) => ({ ...f, format: v }))} />
                 <ChipGroup label="Age group" options={AGE_OPTS} value={form.ageGroup} last
                   onChange={(v) => v && setForm((f) => ({ ...f, ageGroup: v }))} />

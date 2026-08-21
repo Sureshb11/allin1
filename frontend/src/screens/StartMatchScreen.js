@@ -76,7 +76,7 @@ const buildSlots = () => {
 const SCHEDULE_SLOTS = buildSlots();
 
 /* ─── TeamPicker bottom-sheet ────────────────────────────── */
-const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cricket' }) => {
+const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cricket', indiv = false }) => {
   const c = useTheme().colors;
   const K = useMemo(() => makeK(c), [c]);
   const s = useMemo(() => makeS(K), [K]);
@@ -93,11 +93,19 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cri
     setCreating(false);
     setNewName('');
     setLoading(true);
-    legendsApi.getTeams(sport).then(res => {
-      setTeams(res.success ? (res.data || []) : []);
-      setLoading(false);
-    });
-  }, [visible, sport]);
+    
+    if (indiv) {
+      legendsApi.getPlayers({ sport }).then(res => {
+        setTeams(res.success ? (res.data || []) : []);
+        setLoading(false);
+      });
+    } else {
+      legendsApi.getTeams(sport).then(res => {
+        setTeams(res.success ? (res.data || []) : []);
+        setLoading(false);
+      });
+    }
+  }, [visible, sport, indiv]);
 
   const filtered = teams.filter(t =>
     t.id !== excludeId &&
@@ -108,6 +116,8 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cri
     const name = newName.trim();
     if (!name) return;
     setSaving(true);
+    // Note: Creating a player directly from this picker is currently disabled for individual sports (hidden in UI)
+    // but we keep the API call for teams.
     const res = await legendsApi.createTeam({ name, sport });
     setSaving(false);
     if (res.success && res.data) {
@@ -117,7 +127,7 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cri
       // rejected by the server. res.data wins if it already carries players.
       onSelect({ players: [], ...res.data });
     } else {
-      showToast('Could not create team. Try again.', 'error');
+      showToast('Could not create. Try again.', 'error');
     }
   };
 
@@ -167,29 +177,31 @@ const TeamPicker = ({ visible, onClose, onSelect, excludeId, title, sport = 'cri
               </View>
 
               {/* Create new team button */}
-              <TouchableOpacity
-                style={s.createTeamBtn}
-                onPress={() => setCreating(true)}
-                activeOpacity={0.8}
-              >
-                <View style={s.createTeamIcon}>
-                  <Icon name="plus" size={18} color={K.lime} />
-                </View>
-                <Text style={s.createTeamLabel}>Create New Team</Text>
-                <Icon name="chevron-right" size={16} color={K.lime} />
-              </TouchableOpacity>
+              {!indiv && (
+                <TouchableOpacity
+                  style={s.createTeamBtn}
+                  onPress={() => setCreating(true)}
+                  activeOpacity={0.8}
+                >
+                  <View style={s.createTeamIcon}>
+                    <Icon name="plus" size={18} color={K.lime} />
+                  </View>
+                  <Text style={s.createTeamLabel}>Create New {indiv ? 'Player' : 'Team'}</Text>
+                  <Icon name="chevron-right" size={16} color={K.lime} />
+                </TouchableOpacity>
+              )}
 
               {/* Team list */}
               {loading ? (
                 <View style={s.pickerLoader}>
                   <ActivityIndicator color={K.lime} />
-                  <Text style={s.pickerLoaderText}>Loading teams...</Text>
+                  <Text style={s.pickerLoaderText}>Loading {indiv ? 'players' : 'teams'}...</Text>
                 </View>
               ) : filtered.length === 0 ? (
                 <View style={s.pickerEmpty}>
-                  <Icon name="account-group-outline" size={44} color={K.surfaceTop} />
+                  <Icon name={indiv ? 'account-outline' : 'account-group-outline'} size={44} color={K.surfaceTop} />
                   <Text style={s.pickerEmptyText}>
-                    {query ? 'No teams match your search' : 'No teams yet. Create one above.'}
+                    {query ? `No ${indiv ? 'players' : 'teams'} match your search` : `No ${indiv ? 'players' : 'teams'} yet.`}
                   </Text>
                 </View>
               ) : (
@@ -332,22 +344,22 @@ const StartMatchScreen = ({ navigation, route }) => {
     if (!team1) return showToast(`Select ${COMP} 1`, 'error');
     if (!team2) return showToast(`Select ${COMP} 2`, 'error');
     if (team1.id === team2.id) return showToast(`${COMP}s must be different`, 'error');
-    // A match needs a squad — the inline "Squad needed" card + disabled button
-    // already communicate this, so just guard here (no raw alert).
+    
+    // A match needs a squad for team sports — individual sports don't have squads
     const pc = (t) => Array.isArray(t.players) ? t.players.length : (typeof t.players === 'number' ? t.players : null);
-    if (pc(team1) === 0 || pc(team2) === 0) return;
+    if (!indiv && (pc(team1) === 0 || pc(team2) === 0)) return;
+    
     const parsedOvers = parseInt(overs, 10);
-    if (!parsedOvers || parsedOvers < 1) return showToast(`Enter valid ${sportFmt.unit.toLowerCase()}`, 'error');
+    if (isCricket && (!parsedOvers || parsedOvers < 1)) return showToast(`Enter valid ${sportFmt.unit.toLowerCase()}`, 'error');
 
     setLoading(true);
     try {
       const matchRes = await legendsApi.createMatch({
-        team1Id: team1.id,
-        team2Id: team2.id,
-        overs: parsedOvers,
+        participantType: indiv ? 'PLAYER' : 'TEAM',
+        ...(indiv ? { player1Id: team1.id, player2Id: team2.id } : { team1Id: team1.id, team2Id: team2.id }),
+        ...(isCricket ? { overs: parsedOvers, ballType } : {}),
         venue: venue.trim(),
         matchType: format.label,
-        ...(isCricket ? { ballType } : {}),
         status: 'scheduled',
         ...(scheduleAt ? { startTime: scheduleAt.toISOString() } : {}),
         sport: sport.id,
@@ -665,6 +677,7 @@ const StartMatchScreen = ({ navigation, route }) => {
         excludeId={picker === 'team2' ? team1?.id : team2?.id}
         title={`Select ${COMP} ${picker === 'team1' ? '1' : '2'}`}
         sport={sport.id}
+        indiv={indiv}
       />
 
       {/* Date & Time Pickers */}

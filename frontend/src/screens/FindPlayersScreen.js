@@ -19,11 +19,7 @@ import { getFind, FIND_CONFIG } from '../sports/find';
 
 
 
-// Sport tabs shown at the top.
-const SPORTS = [
-{ id: 'cricket', label: 'Cricket' },
-{ id: 'football', label: 'Football' },
-{ id: 'badminton', label: 'Badminton' }];
+
 
 
 // Per-sport title + role buckets (used for the filter chips).
@@ -87,7 +83,7 @@ function Avatar({ name, color }) {const s = useThemedStyles(makeS);
 
 }
 
-export default function FindCricketersScreen({ navigation, route }) {const DS = useTheme().colors;const s = useThemedStyles(makeS);
+export default function FindPlayersScreen({ navigation, route }) {const DS = useTheme().colors;const s = useThemedStyles(makeS);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -96,14 +92,15 @@ export default function FindCricketersScreen({ navigation, route }) {const DS = 
       headerTitle: 'Find Cricketers',
     });
   }, [navigation]);
-  const [sport, setSport] = useState(route?.params?.sport || 'cricket');
+  const [sport, setSport] = useState(route?.params?.sport || getSelectedSport().sport?.id);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('All');
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const cfg = getFind(sport);
-  const FILTERS = ['All', ...cfg.roles];
+  const scoutConfig = getScout(sport);
+  const FILTERS = ['All', ...(scoutConfig.subtypes?.player || [])];
 
   useEffect(() => {
     let alive = true;
@@ -156,6 +153,31 @@ export default function FindCricketersScreen({ navigation, route }) {const DS = 
 
   };
 
+  if (!sport) {
+    return (
+      <View style={[s.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
+        <View style={s.header}>
+          <TouchableOpacity hitSlop={8} onPress={() => navigation.goBack()} style={s.backBtn}>
+            <Icon name="arrow-left" size={24} color={DS.textPrimary} />
+          </TouchableOpacity>
+          <Text style={s.title}>Find Players</Text>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Icon name="account-search-outline" size={48} color={DS.textMuted} style={{ marginBottom: 16 }} />
+          <Text style={{ color: DS.text, fontSize: 16, textAlign: 'center', marginBottom: 20 }}>
+            Your sport preference is required to use Scout.
+          </Text>
+          <TouchableOpacity 
+            style={{ backgroundColor: DS.lime, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }} 
+            onPress={() => navigation.navigate('MySports')}>
+            <Text style={{ color: DS.surface, fontWeight: '700' }}>Update Profile</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={s.container}>
       <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
@@ -168,20 +190,7 @@ export default function FindCricketersScreen({ navigation, route }) {const DS = 
         <Text style={s.title}>{cfg.title}</Text>
       </View>
 
-      {/* sport tabs */}
-      <View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.sportTabs}>
-          {SPORTS.map((sp) => {
-            const active = sp.id === sport;
-            return (
-              <TouchableOpacity key={sp.id} onPress={() => setSport(sp.id)} activeOpacity={0.85}
-              style={[s.sportTab, active && s.sportTabActive]}>
-                <Text style={[s.sportTabTxt, active && s.sportTabTxtActive]}>{sp.label}</Text>
-              </TouchableOpacity>);
-
-          })}
-        </ScrollView>
-      </View>
+      
 
       {/* search */}
       <View style={s.searchWrap}>

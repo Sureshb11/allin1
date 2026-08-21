@@ -24,6 +24,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
+import { getSport } from '../sports';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetFooter } from '@gorhom/bottom-sheet';
 import { pickAndUploadImage } from '../utils/imageUpload';
@@ -38,16 +39,8 @@ import BrandLogo from "../components/BrandLogo";
 import { useHideTabBarOnScroll, useTabBarClearance, useDockLock } from '../components/AutoHideTabBar';
 import Svg, { Polygon, Line, Circle } from 'react-native-svg';
 
-// The category tabs, in the order they're drawn — module scope so the swipe
-// gesture isn't rebuilt on every render.
 const TEAM_TABS = ['mine', 'opponents', 'followed'];
-// One place for the label and icon of each, so the filter bar and the swipe
-// order can't drift apart.
-const TEAM_FILTERS = [
-  { key: 'mine',      label: 'My Teams',  icon: 'shield-account-outline' },
-  { key: 'opponents', label: 'Opponents', icon: 'sword-cross' },
-  { key: 'followed',  label: 'Followed',  icon: 'heart-outline' },
-];
+// Note: TEAM_FILTERS is now moved inside the component to depend on sport.individual
 
 const MiniRadarChart = ({ w, l, d, DS }) => {
   const total = (w + l + d) || 1;
@@ -133,6 +126,16 @@ const Pressable3D = ({ children, style, onPress }) => {
 };
 
 const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const C = useThemedStyles(makeControls);
+  const sportDef = getSport(getSelectedSport().sport?.id);
+  const indiv = !!sportDef?.individual;
+  const COMP = sportDef?.competitorLabel || 'Team';
+
+  const TEAM_FILTERS = useMemo(() => [
+    { key: 'mine',      label: indiv ? 'My Profiles' : 'My Teams',  icon: indiv ? 'account-outline' : 'shield-account-outline' },
+    { key: 'opponents', label: 'Opponents', icon: 'sword-cross' },
+    { key: 'followed',  label: 'Followed',  icon: 'heart-outline' },
+  ], [indiv]);
+
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
   const [tab, setTab] = useState('mine');   // mine | opponents | followed
@@ -218,7 +221,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
       navigation.setOptions({
         headerShown: true,
         headerBackVisible: true,
-        headerTitle: 'Teams',
+        headerTitle: indiv ? 'Players' : 'Teams',
       });
     }
   }, [navigation, inline]);
@@ -243,19 +246,42 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
 
   const loadData = async () => {
     try {
-      // Scope to the active sport — otherwise cricket teams show up in football.
-      const catRes = await legendsApi.getTeamsCategorized(getSelectedSport().sport?.id);
-      if (catRes.success) {
-        const c = catRes.data;
-        setCategorized({
-          mine: (c.mine || []).map(mapTeam),
-          opponents: (c.opponents || []).map(mapTeam),
-          followed: (c.followed || []).map(mapTeam),
-        });
-        setFollowedIds(new Set((c.followed || []).map((t) => t.id)));
+      const sport = getSelectedSport().sport?.id;
+      if (indiv) {
+        // Individual sports: Just fetch this user's player profile
+        const res = await legendsApi.getPlayers({ sport, userId: getCurrentUser()?.id });
+        if (res.success) {
+          const players = (res.data || []).map(p => ({
+            id: p.id,
+            name: p.name || p.username || 'Unknown Player',
+            city: p.city || '',
+            captain: 'N/A',
+            players: 1,
+            playersList: [p],
+            facepile: [],
+            squadSize: 1,
+            ownerId: p.userId,
+            matches: p.matches || 0,
+            wins: 0,
+          }));
+          setCategorized({ mine: players, opponents: [], followed: [] });
+          setFollowedIds(new Set());
+        }
+      } else {
+        // Scope to the active sport — otherwise cricket teams show up in football.
+        const catRes = await legendsApi.getTeamsCategorized(sport);
+        if (catRes.success) {
+          const c = catRes.data;
+          setCategorized({
+            mine: (c.mine || []).map(mapTeam),
+            opponents: (c.opponents || []).map(mapTeam),
+            followed: (c.followed || []).map(mapTeam),
+          });
+          setFollowedIds(new Set((c.followed || []).map((t) => t.id)));
+        }
       }
     } catch (error) {
-      console.log('Error loading team data:', error);
+      console.log('Error loading data:', error);
     }
   };
 
@@ -405,20 +431,20 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
           </View>
         )}
         <View style={styles.actionRow}>
-          {mineTab ? (
+          {mineTab && !indiv ? (
             <TouchableOpacity style={styles.actionChip}
               onPress={() => navigation.navigate('TeamProfile', { teamId: item.id, initialTab: 'squad' })}>
               <Icon name="account-group" size={14} color={DS.white} />
               <Text style={styles.actionChipText}>SQUAD</Text>
             </TouchableOpacity>
-          ) : (
+          ) : !mineTab ? (
             <TouchableOpacity
               style={[styles.actionChip, isFollowed && styles.actionChipActive]}
               onPress={() => toggleFollow(item)}>
               <Icon name={isFollowed ? 'heart' : 'heart-outline'} size={14} color={isFollowed ? '#000' : DS.white} />
               <Text style={[styles.actionChipText, isFollowed && { color: '#000' }]}>{isFollowed ? 'FOLLOWING' : 'FOLLOW'}</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
           <TouchableOpacity
             style={styles.statsChip}
             onPress={() => navigation.navigate('TeamProfile', { teamId: item.id, initialTab: 'form' })}>
@@ -554,27 +580,25 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
                 </TouchableOpacity>
               )}
             </View>
-            {/* The same filter bar Matches and Tournaments use. This was the
-                pale-green segment, which in the control language means a local
-                view-mode toggle — but mine / opponents / followed subdivides one
-                list, which is what the underline filter is for. Counts stay:
-                they're your own teams, not a board over every player in the app. */}
-            <View style={[C.filterBar, { flexDirection: 'row' }]}>
-              {TEAM_FILTERS.map(({ key, label, icon }) => {
-                const on = tab === key;
-                return (
-                  <TouchableOpacity key={key} style={[C.filterChip, on && C.filterChipActive]}
-                                    onPress={() => handleSetTab(key)} activeOpacity={0.8}>
-                    <Icon name={icon} size={13} color={on ? DS.lime : DS.textMuted} />
-                    <Text style={[C.filterText, on && C.filterTextActive]}>{label}</Text>
-                    <View style={[C.filterCount, on && C.filterCountOn]}>
-                      <Text style={[C.filterCountText, on && C.filterCountTextOn]}>{teamCounts[key]}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            {tab !== 'mine' && (
+            {/* The same filter bar Matches and Tournaments use. */}
+            {!indiv && (
+              <View style={[C.filterBar, { flexDirection: 'row' }]}>
+                {TEAM_FILTERS.map(({ key, label, icon }) => {
+                  const on = tab === key;
+                  return (
+                    <TouchableOpacity key={key} style={[C.filterChip, on && C.filterChipActive]}
+                                      onPress={() => handleSetTab(key)} activeOpacity={0.8}>
+                      <Icon name={icon} size={13} color={on ? DS.lime : DS.textMuted} />
+                      <Text style={[C.filterText, on && C.filterTextActive]}>{label}</Text>
+                      <View style={[C.filterCount, on && C.filterCountOn]}>
+                        <Text style={[C.filterCountText, on && C.filterCountTextOn]}>{teamCounts[key]}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+            {!indiv && tab !== 'mine' && (
               <Text style={styles.tabHint}>
                 {tab === 'opponents'
                   ? 'Teams you’ve faced in matches. Follow them to keep track.'
@@ -585,13 +609,13 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
         }
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Icon name="account-group-outline" size={44} color={DS.surfaceHighest} />
+            <Icon name={indiv ? "account-outline" : "account-group-outline"} size={44} color={DS.surfaceHighest} />
             <Text style={styles.emptyText}>
               {tab === 'mine'
-                ? 'No teams yet. Create one above.'
+                ? (indiv ? 'No profile found. Play a match to get ranked!' : 'No teams yet. Create one above.')
                 : tab === 'opponents'
-                ? 'No opponents yet — play a match to see teams here.'
-                : 'You’re not following any teams yet.'}
+                ? `No opponents yet — play a match to see ${indiv ? 'players' : 'teams'} here.`
+                : `You’re not following any ${indiv ? 'players' : 'teams'} yet.`}
             </Text>
           </View>
         } />
@@ -696,7 +720,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
       </BottomSheetModal>
 
       {/* Clear the floating dock — it covered the + entirely. */}
-      {tab === 'mine' && (
+      {!indiv && tab === 'mine' && (
         <AnimatedPulse style={[styles.fabWrap, { bottom: 24 + tabClear }]}>
           <TouchableOpacity style={styles.fab} onPress={openCreateTeam}>
             <Icon name="plus" size={28} color={DS.white} />

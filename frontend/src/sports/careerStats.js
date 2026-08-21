@@ -219,7 +219,7 @@ const board = (id, label, event, icon = 'chart-bar') => ({
   value: (row) => row?.eventTotals?.[event] ?? 0,
   // Everyone who has played is listed — a striker on 0 goals is a real answer,
   // and hiding them would make an empty board look broken.
-  qualify: () => true,
+  qualify: (row) => (row.matches || row.stats?.matches || 0) > 0,
   better: 'high',
 });
 
@@ -232,15 +232,29 @@ const RANKING_BOARDS = {
   kabaddi:    [board('raid', 'Raid Points', 'raid', 'run-fast')],
 };
 
-const GENERIC_BOARDS = [{
+// The "Most Active Players" fallback: ranks on matches played rather than a
+// sport-specific performance metric. Intentionally NOT used as the automatic
+// fallback for unknown sports — showing "#1 Player A, Matches: 5" to a tennis
+// user implies Player A is the best tennis player, which the data doesn't
+// support. Exported so it can be surfaced explicitly with a clearly-labelled
+// "Most Active Players" board when a future UI calls for it.
+export const MOST_ACTIVE_BOARD = [{
   id: 'matches', label: 'Matches', icon: 'calendar-check', key: 'matches',
-  value: (row) => row?.matches ?? 0, qualify: () => true, better: 'high',
+  value: (row) => row?.matches ?? 0, qualify: (row) => (row.matches || row.stats?.matches || 0) > 0, better: 'high',
 }];
 
-/** Ranking boards for a sport (empty for cricket — it has its own). */
+/** Ranking boards for a sport.
+ *  - Cricket  → [] (it uses its own ball-by-ball boards in StatisticsScreen)
+ *  - Football / Hockey / Basketball / Kabaddi → dedicated sport boards
+ *  - All other sports → [] (UI shows "Rankings not available yet")
+ *
+ * Returning [] for unknown sports is intentional: a generic "Matches played"
+ * leaderboard would look like a performance ranking to users who don't know
+ * the data is just an activity count. */
 export const getRankingBoards = (sportId) =>
-  sportId === 'cricket' ? [] : (RANKING_BOARDS[sportId] || GENERIC_BOARDS);
+  sportId === 'cricket' ? [] : (RANKING_BOARDS[sportId] || []);
 
 /** Value a leaderboard row scores on, for a given board. */
 export const rankValue = (row, board) =>
   board.event ? (row.eventTotals?.[board.event] ?? 0) : (row[board.key] ?? 0);
+

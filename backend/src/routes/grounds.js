@@ -18,7 +18,7 @@ router.get('/', optionalAuth, async (req, res) => {
 
     const where = {};
     // Default to published for non-admins
-    where.status = status && isAdmin(req.user?.sub) ? status : 'published';
+    where.status = status && isAdmin(req.user?.sub) ? status : { in: ['APPROVED', 'published'] };
     where.permanentlyClosed = false;
 
     if (sport) where.sport = sport;
@@ -168,6 +168,16 @@ router.get('/:id', optionalAuth, async (req, res) => {
       },
     });
     if (!ground) return res.status(404).json({ error: 'Ground not found' });
+
+    // PUBLIC ACCESS CONTROL:
+    // Only approved/published grounds are visible to the public.
+    // The owner and admins can see it regardless of status.
+    const isOwner = req.user?.sub === ground.ownerId || req.user?.sub === ground.submittedById;
+    const isUserAdmin = req.user?.sub && isAdmin(req.user.sub);
+    const isPubliclyVisible = ground.status === 'APPROVED' || ground.status === 'published';
+    if (!isPubliclyVisible && !isOwner && !isUserAdmin) {
+      return res.status(404).json({ error: 'Ground not found' });
+    }
 
     // Check if current user has favourited
     let isFavourited = false;
@@ -347,8 +357,9 @@ router.post('/', authMiddleware, async (req, res) => {
         // ground is usable immediately, an approved one is badged and sorts
         // first. Junk is now a takedown rather than a blockage, which is the
         // right trade while the map is empty.
-        status: 'published',
+        status: 'PENDING_VERIFICATION',
         verified: false,
+        verifications: { create: [{ action: 'SUBMITTED' }] },
         // BOOKING IS NOT SELF-SERVE, and this line is the whole reason the two
         // flags are separate.
         //
@@ -439,6 +450,18 @@ router.put('/:id', authMiddleware, async (req, res) => {
     delete data.amenities;
     delete data.openTime;
     delete data.closeTime;
+
+    // Security: Remove fields that only admins should change
+    if (!isUserAdmin) {
+      delete data.status;
+      delete data.verified;
+      delete data.verifiedBy;
+      delete data.verifiedAt;
+      delete data.bookingEnabled;
+      delete data.adminNotes;
+      delete data.rejectionReason;
+    }
+
     // (Note: in a full implementation we'd also handle images/amenities updates properly, 
     // but preserving existing PUT behavior for those unless requested to change)
 
@@ -604,7 +627,7 @@ router.get('/admin/requests', authMiddleware, requireAdmin, async (req, res) => 
     // without this the only way to stop bookings on a ground was to have never
     // verified it. An admin has to be able to reach a ground again after
     // approving it.
-    const scope = req.query.scope === 'all' ? { permanentlyClosed: false } : NEEDS_REVIEW;
+    const scope = req.query.scope === 'all' ? { permanentlyClosed: false } : refinedNeedsReview;
 
     const grounds = await prisma.ground.findMany({
       where: scope,
@@ -632,15 +655,151 @@ router.get('/admin/requests', authMiddleware, requireAdmin, async (req, res) => 
   }
 });
 
-// ── ADMIN: APPROVE GROUND ──────────────────────────────────────────────────
-// Approving now means VERIFIED, not visible — a ground is already visible the
-// moment it is submitted. This is the badge and the sort priority.
+// ── ADMIN: VERIFICATION WORKFLOW ──────────────────────────────────────────
 router.post('/:id/approve', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    const groundId = req.params.id;
+    const adminId = req.user.sub;
+    
     const ground = await prisma.ground.update({
-      where: { id: req.params.id },
-      data: { status: 'published', verified: true, rejectionReason: null },
+      where: { id: groundId },
+      data: {
+        status: 'APPROVED',
+        verified: true,
+        verifiedBy: adminId,
+        verifiedAt: new Date(),
+        rejectionReason: null,
+        verifications: {
+          create: [{ action: 'APPROVED', adminId }]
+        }
+      }
     });
+
+    // Send notification
+    if (ground.submittedById) {
+      await prisma.notification.create({
+        data: {
+          userId: ground.submittedById,
+          title: 'Ground Approved',
+          message: `Your ground "${ground.name}" has been approved and is now live.`,
+          type: 'ground_approved',
+          data: { groundId }
+        }
+      });
+    }
+
+    res.json({ success: true, ground });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.post('/:id/reject', authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const { reason } = req.body || {};
+    if (!reason) return res.status(400).json({ error: 'Rejection reason is required' });
+
+    const groundId = req.params.id;
+    const adminId = req.user.sub;
+
+    const ground = await prisma.ground.update({
+      where: { id: groundId },
+      data: { 
+        status: 'REJECTED', 
+        rejectionReason: reason,
+        verifications: {
+          create: [{ action: 'REJECTED', adminId, reason }]
+        }
+      },
+    });
+
+    if (ground.submittedById) {
+      await prisma.notification.create({
+        data: {
+          userId: ground.submittedById,
+          title: 'Ground Rejected',
+          message: `Your ground "${ground.name}" was rejected. Reason: ${reason}`,
+          type: 'ground_rejected',
+          data: { groundId }
+        }
+      });
+    }
+
+    res.json({ success: true, ground });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.post('/:id/request-changes', authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const { reason } = req.body || {};
+    if (!reason) return res.status(400).json({ error: 'Reason for changes is required' });
+
+    const groundId = req.params.id;
+    const adminId = req.user.sub;
+
+    const ground = await prisma.ground.update({
+      where: { id: groundId },
+      data: { 
+        status: 'NEEDS_CHANGES', 
+        rejectionReason: reason,
+        verifications: {
+          create: [{ action: 'CHANGES_REQUESTED', adminId, reason }]
+        }
+      },
+    });
+
+    if (ground.submittedById) {
+      await prisma.notification.create({
+        data: {
+          userId: ground.submittedById,
+          title: 'Changes Required for Ground',
+          message: `Changes are required for your ground "${ground.name}" before it can be published. Reason: ${reason}`,
+          type: 'ground_needs_changes',
+          data: { groundId }
+        }
+      });
+    }
+
+    res.json({ success: true, ground });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.post('/:id/suspend', authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const { reason } = req.body || {};
+    if (!reason) return res.status(400).json({ error: 'Suspension reason is required' });
+
+    const groundId = req.params.id;
+    const adminId = req.user.sub;
+
+    const ground = await prisma.ground.update({
+      where: { id: groundId },
+      data: { 
+        status: 'SUSPENDED',
+        bookingEnabled: false,
+        rejectionReason: reason,
+        verifications: {
+          create: [{ action: 'SUSPENDED', adminId, reason }]
+        }
+      },
+    });
+
+    if (ground.submittedById) {
+      await prisma.notification.create({
+        data: {
+          userId: ground.submittedById,
+          title: 'Ground Suspended',
+          message: `Your ground "${ground.name}" has been suspended. Reason: ${reason}`,
+          type: 'ground_suspended',
+          data: { groundId }
+        }
+      });
+    }
+
     res.json({ success: true, ground });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -661,20 +820,6 @@ router.post('/:id/booking', authMiddleware, requireAdmin, async (req, res) => {
       where: { id: req.params.id },
       data: { bookingEnabled: enabled },
       select: { id: true, name: true, bookingEnabled: true, verified: true },
-    });
-    res.json({ success: true, ground });
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
-});
-
-// ── ADMIN: REJECT GROUND ───────────────────────────────────────────────────
-router.post('/:id/reject', authMiddleware, requireAdmin, async (req, res) => {
-  try {
-    const { reason } = req.body || {};
-    const ground = await prisma.ground.update({
-      where: { id: req.params.id },
-      data: { status: 'rejected', rejectionReason: reason || 'Rejected by admin' },
     });
     res.json({ success: true, ground });
   } catch (e) {
@@ -704,7 +849,7 @@ router.post('/book', authMiddleware, async (req, res) => {
       select: { id: true, name: true, status: true, bookingEnabled: true, permanentlyClosed: true },
     });
     if (!ground) return res.status(404).json({ error: 'Ground not found' });
-    if (ground.status !== 'published' || ground.permanentlyClosed) {
+    if ((ground.status !== 'APPROVED' && ground.status !== 'published') || ground.permanentlyClosed) {
       return res.status(409).json({ error: 'This ground is not open for bookings' });
     }
     if (!ground.bookingEnabled) {

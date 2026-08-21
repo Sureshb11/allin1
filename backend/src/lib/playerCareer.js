@@ -24,7 +24,7 @@ import { isBowlerWicket, inningsPhase, isBallFaced, offTheBat } from './deliveri
 const BASE = { matches: 0, runs: 0, wickets: 0, average: 0, strikeRate: 0, centuries: 0, halfCenturies: 0 };
 
 /** The shape returned when there's no player to report on. */
-export const emptyCareer = (sport = null) => ({ stats: { ...BASE }, sport, linked: false });
+export const emptyCareer = (sport = null) => ({ stats: { ...BASE }, sport, linked: false, status: 'NOT_AVAILABLE' });
 
 /**
  * Everything the career screens draw, for one Player row (include its `team`).
@@ -526,6 +526,7 @@ export async function playerCareer(player, alsoIds = []) {
   // tallied by type (goals, cards, …) across their matches. Returning the raw
   // tally keeps this generic — the app decides which types to show and what to
   // call them, so a new sport needs no change here.
+  
   if (player.sport && player.sport !== 'cricket') {
     const evs = await prisma.sportEvent.findMany({
       where: { playerId: { in: ids } },
@@ -535,8 +536,13 @@ export async function playerCareer(player, alsoIds = []) {
     for (const e of evs) byType[e.eventType] = (byType[e.eventType] || 0) + 1;
     const played = new Set(evs.map((e) => e.matchId)).size;
 
+    let status = 'AVAILABLE';
+    if (played === 0) status = 'NOT_AVAILABLE';
+    else if (Object.keys(byType).length === 0) status = 'INSUFFICIENT_DATA';
+
     return {
       ...envelope,
+      status,
       stats: {
         ...BASE,
         matches: played || seasonMatches,
@@ -548,6 +554,7 @@ export async function playerCareer(player, alsoIds = []) {
       },
     };
   }
+
 
   // ── Per-innings trend series ─────────────────────────────────────────────
   // The balls above already carry their inningId; this folds them up and puts

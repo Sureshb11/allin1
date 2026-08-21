@@ -139,10 +139,10 @@ export default function TournamentDetailScreen({ route, navigation }) {
   const forward = tabIndex >= prevTabIndex.current;
   useEffect(() => { prevTabIndex.current = tabIndex; }, [tabIndex]);
   const [loading, setLoading] = useState(true);
-  const [showTeamPicker, setShowTeamPicker] = useState(false);
+  const [showParticipantPicker, setShowParticipantPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState('add'); // 'add' (organiser) | 'join' (participant request)
-  const [selectedTeamIds, setSelectedTeamIds] = useState(new Set());
-  const [myTeams, setMyTeams] = useState([]);
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState(new Set());
+  const [myParticipants, setMyParticipants] = useState([]);
   const [myUserId, setMyUserId] = useState(null);      // to decide organiser vs participant
   const [joinRequests, setJoinRequests] = useState([]); // pending requests (organiser view)
   const [myRequests, setMyRequests] = useState([]);     // the caller's own requests (requester view)
@@ -192,9 +192,13 @@ export default function TournamentDetailScreen({ route, navigation }) {
       const myId = meRes.success ? meRes.data?.user?.id : null;
       setMyUserId(myId);
 
-      // Sport isolation: only offer same-sport teams for this tournament.
-      const myTeamsRes = await legendsApi.getTeams(tRes.success ? tRes.data.sport : undefined);
-      if (myTeamsRes.success) setMyTeams(myTeamsRes.data);
+      // Sport isolation: only offer same-sport participants for this tournament.
+      const sportId = tRes.success ? tRes.data.sport : undefined;
+      const isIndividual = sportId ? getSport(sportId)?.individual : false;
+      const myParticipantsRes = isIndividual 
+        ? await legendsApi.getPlayers(sportId) 
+        : await legendsApi.getTeams(sportId);
+      if (myParticipantsRes.success) setMyParticipants(myParticipantsRes.data);
 
       // Organiser (creator, or any legacy tournament with no recorded organiser)
       // sees the pending join requests to approve/reject.
@@ -218,7 +222,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
       const isOrg = t && (!t.organizerId || t.organizerId === myId);
       if (route.params?.join && !isOrg && joinPolicy(t, (t?.teams || []).length).open) {
         setPickerMode('join');
-        setShowTeamPicker(true);
+        setShowParticipantPicker(true);
       }
     };
     load();
@@ -265,36 +269,42 @@ export default function TournamentDetailScreen({ route, navigation }) {
     }
   }, [activeTab, leaderboard, tournamentId]);
 
-  const toggleTeamSelection = (id) => {
-    const next = new Set(selectedTeamIds);
+  const toggleParticipantSelection = (id) => {
+    const next = new Set(selectedParticipantIds);
     if (next.has(id)) {
       next.delete(id);
     } else {
       const currentCount = (tournament?.teams || []).length;
       if (tournament?.maxTeams && currentCount + next.size >= tournament.maxTeams) {
-        alert(`Tournament is limited to ${tournament.maxTeams} teams.`);
+        alert(`Tournament is limited to ${tournament.maxTeams} participants.`);
         return;
       }
       next.add(id);
     }
-    setSelectedTeamIds(next);
+    setSelectedParticipantIds(next);
   };
 
-  const handleRegisterSelectedTeams = async () => {
-    if (selectedTeamIds.size === 0) return;
+  const handleRegisterSelectedParticipants = async () => {
+    if (selectedParticipantIds.size === 0) return;
     setProcessing(true);
 
-    // Filter out teams already in the tournament
+    const isIndividual = getSport(tournament?.sport)?.individual;
+    
+    // Filter out participants already in the tournament
     const existingIds = new Set((tournament?.teams || []).map(t => t.team.id));
-    const toSubmit = [...selectedTeamIds].filter(id => !existingIds.has(id));
+    const toSubmit = [...selectedParticipantIds].filter(id => !existingIds.has(id));
 
     let successCount = 0;
     let lastError = '';
-    for (const teamId of toSubmit) {
-      // Organiser adds directly (approved); a participant sends a join request (pending).
+    for (const id of toSubmit) {
+      const payload = isIndividual 
+        ? { participantType: 'PLAYER', playerId: id }
+        : { participantType: 'TEAM', teamId: id };
+        
       const res = pickerMode === 'join'
-        ? await legendsApi.requestToJoinTournament(tournamentId, teamId, 'A', requestNote)
-        : await legendsApi.registerTeamInTournament(tournamentId, teamId);
+        ? await legendsApi.requestToJoinTournament(tournamentId, payload, requestNote)
+        : await legendsApi.registerTeamInTournament(tournamentId, payload);
+        
       if (res.success) successCount++; else lastError = res.error || lastError;
     }
 
@@ -304,11 +314,11 @@ export default function TournamentDetailScreen({ route, navigation }) {
       if (tRes.success) setTournament(tRes.data);
     }
 
-    setShowTeamPicker(false);
-    setSelectedTeamIds(new Set());
+    setShowParticipantPicker(false);
+    setSelectedParticipantIds(new Set());
     setProcessing(false);
     if (pickerMode === 'join' && successCount > 0) {
-      alert(`Request sent to the organiser for ${successCount} team${successCount !== 1 ? 's' : ''}. You'll be notified when it's approved.`);
+      alert(`Request sent to the organiser for ${successCount} participant${successCount !== 1 ? 's' : ''}. You'll be notified when it's approved.`);
     } else if (successCount === 0 && lastError) {
       alert(lastError);
     }
@@ -554,9 +564,8 @@ export default function TournamentDetailScreen({ route, navigation }) {
   // to be owner-only, which contradicted the app's own "My Teams" (owned OR
   // played for) — a player saw their team listed as theirs on one screen and was
   // told they owned none on this one. The organiser approves either way.
-  const myEntryTeams = myTeams.filter(t =>
-    (t.ownerId && t.ownerId === myUserId) ||
-    (t.players || []).some(p => p.userId && p.userId === myUserId)
+  const myEntryParticipants = myParticipants.filter(p =>
+    p.ownerId === myUserId || (p.players && p.players.some(m => m.userId === myUserId)) || (p.userId === myUserId)
   );
 
   // The config blocks, each defaulted so a tournament created before these
@@ -593,7 +602,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   // One flag, because the tab bodies reserve bottom padding for this button and
   // it is the only thing floating over them now the dock is gone from the route.
   const canAddTeams = isOrganizer && ['upcoming', 'ongoing'].includes(tournament.status);
-  const canRequestJoin = !isOrganizer && acceptsTeams && policy.open && myEntryTeams.length > 0;
+  const canRequestJoin = !isOrganizer && acceptsTeams && policy.open && myEntryParticipants.length > 0;
   const showFab = canAddTeams || canRequestJoin;
   // Anything drawn over the cover photo needs the light treatment; without a
   // cover the header is an ordinary surface and keeps the theme's colours.
@@ -903,11 +912,11 @@ export default function TournamentDetailScreen({ route, navigation }) {
               </View>
             ) : ['upcoming', 'ongoing'].includes(liveStatus) && (
               isOrganizer ? (
-                <TouchableOpacity style={styles.addBtn} onPress={() => { setPickerMode('add'); setShowTeamPicker(true); }}>
+                <TouchableOpacity style={styles.addBtn} onPress={() => { setPickerMode('add'); setShowParticipantPicker(true); }}>
                   <Text style={styles.addBtnText}>+ Add Team</Text>
                 </TouchableOpacity>
               ) : policy.open ? (
-                <TouchableOpacity style={styles.addBtn} onPress={() => { setPickerMode('join'); setShowTeamPicker(true); }}>
+                <TouchableOpacity style={styles.addBtn} onPress={() => { setPickerMode('join'); setShowParticipantPicker(true); }}>
                   <Text style={styles.addBtnText}>Request to Join</Text>
                 </TouchableOpacity>
               ) : (
@@ -955,7 +964,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
             </TouchableOpacity>
           )}
           {(tournament.teams || []).length > 0 && acceptsTeams && (isOrganizer || policy.open) && (
-            <TouchableOpacity onPress={() => { setPickerMode(isOrganizer ? 'add' : 'join'); setShowTeamPicker(true); }} style={{ paddingTop: 14, alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => { setPickerMode(isOrganizer ? 'add' : 'join'); setShowParticipantPicker(true); }} style={{ paddingTop: 14, alignItems: 'center' }}>
               <Text style={styles.viewAllText}>{isOrganizer ? 'Add More Teams' : 'Request to Join'}</Text>
             </TouchableOpacity>
           )}
@@ -1646,54 +1655,60 @@ export default function TournamentDetailScreen({ route, navigation }) {
 
       {showFab && (
         <TouchableOpacity style={styles.fab} activeOpacity={0.85}
-          onPress={() => { setPickerMode(isOrganizer ? 'add' : 'join'); setShowTeamPicker(true); }}
+          onPress={() => { setPickerMode(isOrganizer ? 'add' : 'join'); setShowParticipantPicker(true); }}
           accessibilityRole="button"
           accessibilityLabel={isOrganizer ? 'Add teams to this tournament' : 'Request to join this tournament'}>
           <Icon name={isOrganizer ? 'plus' : 'account-plus-outline'} size={28} color={DS.white} />
         </TouchableOpacity>
       )}
 
-      {showTeamPicker && (
+      {showParticipantPicker && (
         <Modal transparent animationType="slide">
           <View style={styles.modalBg}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
-                  {pickerMode === 'join' ? 'Request to Join' : 'Select Teams'} {pickerMode === 'add' && tournament?.maxTeams ? `(${(tournament?.teams || []).length + selectedTeamIds.size}/${tournament.maxTeams})` : ''}
+                  {pickerMode === 'join' ? 'Request to Join' : (getSport(tournament?.sport)?.individual ? 'Select Players' : 'Select Teams')} {pickerMode === 'add' && tournament?.maxTeams ? `(${(tournament?.teams || []).length + selectedParticipantIds.size}/${tournament.maxTeams})` : ''}
                 </Text>
-                <TouchableOpacity onPress={() => setShowTeamPicker(false)}>
+                <TouchableOpacity onPress={() => setShowParticipantPicker(false)}>
                   <Icon name="close" size={24} color={DS.textPrimary} />
                 </TouchableOpacity>
               </View>
               {pickerMode === 'join' && (
                 <Text style={[styles.emptyText, { textAlign: 'left', marginBottom: 8 }]}>
-                  Pick one of your teams to request entry. The organiser approves it before you're in.
+                  {getSport(tournament?.sport)?.individual 
+                    ? "Pick one of your player profiles to request entry. The organiser approves it before you're in."
+                    : "Pick one of your teams to request entry. The organiser approves it before you're in."}
                 </Text>
               )}
               {(() => {
                 // Organiser adds any same-sport team directly (approved on the
                 // spot); a participant requests with a team they own or play for,
                 // and the organiser approves each request individually.
-                const pickable = pickerMode === 'join' ? myEntryTeams : myTeams;
+                const pickable = pickerMode === 'join' ? myEntryParticipants : myParticipants;
                 if (pickable.length === 0) {
+                  const s = getSport(tournament?.sport);
+                  if (s?.individual) {
+                    return <Text style={styles.emptyText}>{pickerMode === 'join' ? `No player profile found for ${s.name || 'this sport'}.` : 'No players available.'}</Text>;
+                  }
                   return <Text style={styles.emptyText}>{pickerMode === 'join' ? "You're not in any teams for this sport yet." : 'No teams available.'}</Text>;
                 }
                 // Teams the caller has already asked about. The tournament
                 // payload only carries APPROVED teams, so a pending request was
                 // invisible here: you could tap Request again and get an error
                 // toast instead of seeing the row disabled.
-                const pendingIds = new Set(myRequests.filter(r => r.status === 'pending').map(r => r.team?.id));
+                const pendingIds = new Set(myRequests.filter(r => r.status === 'pending').map(r => r.team?.id || r.player?.id));
                 return (
                 <>
                   <ScrollView>
                     {pickable.map(t => {
-                      const isRegistered = (tournament?.teams || []).some(rt => rt.team.id === t.id);
+                      const isRegistered = (tournament?.teams || []).some(rt => (rt.team?.id === t.id) || (rt.player?.id === t.id));
                       const isPending = pickerMode === 'join' && pendingIds.has(t.id);
                       const blocked = isRegistered || isPending;
-                      const isSelected = selectedTeamIds.has(t.id);
+                      const isSelected = selectedParticipantIds.has(t.id);
                       return (
                         <TouchableOpacity key={t.id} style={[styles.teamSelectRow, blocked && { opacity: 0.5 }]}
-                                          onPress={() => !blocked && toggleTeamSelection(t.id)}
+                                          onPress={() => !blocked && toggleParticipantSelection(t.id)}
                                           disabled={processing || blocked}>
                           <View style={styles.teamAvatar}><Text style={styles.teamAvatarText}>{t.name?.charAt(0).toUpperCase()}</Text></View>
                           <Text style={styles.teamSelectName}>
@@ -1720,15 +1735,15 @@ export default function TournamentDetailScreen({ route, navigation }) {
                     />
                   )}
                   <TouchableOpacity
-                    style={[styles.primaryBtn, { marginTop: 16 }, selectedTeamIds.size === 0 && { opacity: 0.5 }]}
-                    onPress={handleRegisterSelectedTeams}
-                    disabled={processing || selectedTeamIds.size === 0}>
+                    style={[styles.primaryBtn, { marginTop: 16 }, selectedParticipantIds.size === 0 && { opacity: 0.5 }]}
+                    onPress={handleRegisterSelectedParticipants}
+                    disabled={processing || selectedParticipantIds.size === 0}>
                     <Text style={styles.primaryBtnText}>
                       {processing
                         ? (pickerMode === 'join' ? 'Sending…' : 'Registering...')
                         : pickerMode === 'join'
-                          ? `Request to Join (${selectedTeamIds.size})`
-                          : `Register ${selectedTeamIds.size} Team${selectedTeamIds.size !== 1 ? 's' : ''}`}
+                          ? `Request to Join (${selectedParticipantIds.size})`
+                          : `Register ${selectedParticipantIds.size} ${getSport(tournament?.sport)?.individual ? 'Player' : 'Team'}${selectedParticipantIds.size !== 1 ? 's' : ''}`}
                     </Text>
                   </TouchableOpacity>
                 </>

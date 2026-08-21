@@ -159,7 +159,7 @@ router.get('/', async (req, res) => {
   if (status) where.status = String(status);
   const matches = await prisma.match.findMany({
     where,
-    include: { team1: true, team2: true },
+    include: { team1: true, team2: true, player1: true, player2: true },
     orderBy: { createdAt: 'desc' },
     take: 50,
   });
@@ -174,23 +174,26 @@ router.get('/circle', authMiddleware, async (req, res) => {
     const uid = req.user.sub;
     const { sport } = req.query;
 
-    const [ownedOrPlaying, follows] = await Promise.all([
+    const [ownedOrPlaying, follows, userPlayers] = await Promise.all([
       prisma.team.findMany({
         where: { OR: [{ ownerId: uid }, { players: { some: { userId: uid } } }] },
         select: { id: true },
       }),
       prisma.teamFollow.findMany({ where: { userId: uid }, select: { teamId: true } }),
+      prisma.player.findMany({ where: { userId: uid }, select: { id: true } }),
     ]);
 
     const teamIds = [...new Set([
       ...ownedOrPlaying.map((t) => t.id),
       ...follows.map((f) => f.teamId),
     ])];
+    const pIds = userPlayers.map((p) => p.id);
 
     // Include matches this user is the scorer of (e.g. transferred to them) even if
     // they don't own/play/follow either team — so they can resume from My Matches.
     const or = [{ scorerId: uid }];
     if (teamIds.length) or.push({ team1Id: { in: teamIds } }, { team2Id: { in: teamIds } });
+    if (pIds.length) or.push({ player1Id: { in: pIds } }, { player2Id: { in: pIds } });
 
     const where = { OR: or };
     if (sport) where.sport = String(sport);
@@ -198,7 +201,7 @@ router.get('/circle', authMiddleware, async (req, res) => {
     const matches = await prisma.match.findMany({
       where,
       include: {
-        team1: true, team2: true,
+        team1: true, team2: true, player1: true, player2: true,
         // Just enough to compute a chase line ("NEED 45 off 30 balls") client-side
         // for the current (2nd) innings — not the full ball-by-ball log.
         innings: {
@@ -222,8 +225,11 @@ router.get('/circle', authMiddleware, async (req, res) => {
 });
 
 const MatchSchema = z.object({
-  team1Id: z.string(),
-  team2Id: z.string(),
+  team1Id: z.string().optional().nullable(),
+  team2Id: z.string().optional().nullable(),
+  player1Id: z.string().optional().nullable(),
+  player2Id: z.string().optional().nullable(),
+  participantType: z.string().default('TEAM'),
   status: z.string().default('scheduled'),
   // Tidied here rather than in the handler so it cannot be written raw by a
   // future code path that forgets: "porur" and "Porur" are one ground, and a
@@ -241,22 +247,49 @@ const MatchSchema = z.object({
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const data = MatchSchema.parse(req.body);
+    const { getSportParticipantType } = require('../lib/sports');
+    
+    const expectedParticipantType = getSportParticipantType(data.sport);
+    if (!expectedParticipantType) {
+      return res.status(400).json({ error: 'INVALID_SPORT', message: 'The provided sport is not recognized.' });
+    }
+    
+    if (data.participantType !== expectedParticipantType) {
+      return res.status(400).json({
+        error: 'INVALID_PARTICIPANT_TYPE',
+        message: `${data.sport} is an ${expectedParticipantType === 'PLAYER' ? 'individual' : 'team'} sport and requires ${expectedParticipantType} participants.`
+      });
+    }
 
-    // A match needs a squad: both teams must have at least one player.
-    const [c1, c2, t1, t2] = await Promise.all([
-      prisma.player.count({ where: { teamId: data.team1Id } }),
-      prisma.player.count({ where: { teamId: data.team2Id } }),
-      prisma.team.findUnique({ where: { id: data.team1Id }, select: { sport: true, name: true } }),
-      prisma.team.findUnique({ where: { id: data.team2Id }, select: { sport: true, name: true } }),
-    ]);
-    if (c1 < 1 || c2 < 1) {
-      return res.status(400).json({ error: 'Both teams need at least one player before a match can be created.' });
+    if (data.participantType === 'TEAM') {
+      if (!data.team1Id || !data.team2Id) return res.status(400).json({ error: 'INVALID_PARTICIPANT', message: 'Team IDs are required for team matches.' });
+      const [c1, c2, t1, t2] = await Promise.all([
+        prisma.player.count({ where: { teamId: data.team1Id } }),
+        prisma.player.count({ where: { teamId: data.team2Id } }),
+        prisma.team.findUnique({ where: { id: data.team1Id }, select: { sport: true, name: true } }),
+        prisma.team.findUnique({ where: { id: data.team2Id }, select: { sport: true, name: true } }),
+      ]);
+      if (c1 < 1 || c2 < 1) {
+        return res.status(400).json({ error: 'Both teams need at least one player before a match can be created.' });
+      }
+      if (!t1 || !t2) return res.status(400).json({ error: 'INVALID_PARTICIPANT', message: 'Both teams must exist.' });
+      if (t1.sport !== data.sport || t2.sport !== data.sport) {
+        return res.status(400).json({ error: 'PARTICIPANT_SPORT_MISMATCH', message: `Sport mismatch: a ${data.sport} match needs two ${data.sport} teams (got ${t1.name}: ${t1.sport}, ${t2.name}: ${t2.sport}).` });
+      }
+    } else if (data.participantType === 'PLAYER') {
+      if (!data.player1Id || !data.player2Id) return res.status(400).json({ error: 'INVALID_PARTICIPANT', message: 'Player IDs are required for individual matches.' });
+      const [p1, p2] = await Promise.all([
+        prisma.player.findUnique({ where: { id: data.player1Id }, select: { sport: true, name: true } }),
+        prisma.player.findUnique({ where: { id: data.player2Id }, select: { sport: true, name: true } }),
+      ]);
+      if (!p1 || !p2) return res.status(400).json({ error: 'INVALID_PARTICIPANT', message: 'Both players must exist.' });
+      if (p1.sport !== data.sport || p2.sport !== data.sport) {
+        return res.status(400).json({ error: 'PARTICIPANT_SPORT_MISMATCH', message: `Sport mismatch: a ${data.sport} match needs two ${data.sport} players.` });
+      }
+    } else {
+      return res.status(400).json({ error: 'INVALID_PARTICIPANT_TYPE', message: 'Invalid participantType.' });
     }
-    // Sport isolation: a match and both its teams must be the same sport.
-    if (!t1 || !t2) return res.status(400).json({ error: 'Both teams must exist.' });
-    if (t1.sport !== data.sport || t2.sport !== data.sport) {
-      return res.status(400).json({ error: `Sport mismatch: a ${data.sport} match needs two ${data.sport} teams (got ${t1.name}: ${t1.sport}, ${t2.name}: ${t2.sport}).` });
-    }
+
 
     // The creating user is recorded twice on purpose: createdBy is the permanent
     // record of who made the match, scorerId is the live scoring right and can be
