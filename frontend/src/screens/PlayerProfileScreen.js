@@ -87,7 +87,6 @@ function BoardSkeleton({ DS }) {
 export default function PlayerProfileScreen({ route, navigation }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
-  const TREND_CONFIG = makeTrendConfig(DS);
   const { playerId, player: passed, standing, boardLabel } = route.params || {};
 
   const [career, setCareer] = useState(null);
@@ -125,8 +124,6 @@ export default function PlayerProfileScreen({ route, navigation }) {
     load().finally(() => setRefreshing(false));
   }, [load]);
 
-  const perf  = insights.performance || {};
-  const trend = TREND_CONFIG[perf.trend] || TREND_CONFIG.stable;
   const stats = career?.stats || null;
 
   // Who this is. The tapped row already carries most of it, so the hero paints
@@ -139,9 +136,6 @@ export default function PlayerProfileScreen({ route, navigation }) {
   // Rankings passes the row through, which carries the linked account's photo.
   const avatarUrl = passed?.avatarUrl || passed?.user?.avatarUrl || career?.player?.avatarUrl || null;
 
-  const strong = perf.strongPoints || [];
-  const improve = perf.improvementAreas || [];
-  const recs = insights.recommendations || [];
 
   return (
     <View style={styles.container}>

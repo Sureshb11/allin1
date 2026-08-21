@@ -413,7 +413,7 @@ const GroundsMap = ({ grounds, onAddRequest, onGroundPress, DS, P }) => {
   );
 };
 
-const AdminReviewModal = ({ ground, submitter, visible, onClose, onApprove, onReject, onRequestChanges, onSuspend, DS, styles }) => {
+const AdminReviewModal = ({ ground, submitter, visible, onClose, onApprove, onReject, onRequestChanges, onSuspend, onToggleBooking, DS, styles }) => {
   if (!ground) return null;
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>

@@ -11,6 +11,8 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { getFind, FIND_CONFIG } from '../sports/find';
+import { getScout } from '../sports/scout';
+import { getSelectedSport } from '../utils/selectedSport';
 
 
 

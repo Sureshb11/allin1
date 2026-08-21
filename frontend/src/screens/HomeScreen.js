@@ -3,7 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   RefreshControl, Modal, Share, Dimensions, StatusBar, Animated, Alert,
-  FlatList, TextInput, Image, KeyboardAvoidingView, ActivityIndicator
+  FlatList, TextInput, Image, KeyboardAvoidingView, ActivityIndicator, Platform
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { GestureDetector } from 'react-native-gesture-handler';

@@ -476,18 +476,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   // Scope Explore to the active sport (deep-linked sport, else current selection).
   const sportFilter = route?.params?.sport || getSelectedSport().sport?.id || null;
 
-  if (!sportFilter) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-        <Icon name="account-search-outline" size={48} color={DS.textMuted} style={{ marginBottom: 16 }} />
-        <Text style={{ color: DS.text, fontSize: 16, textAlign: 'center', marginBottom: 20 }}>
-          Your sport preference is required to use Scout.
-        </Text>
-        <PrimaryButton label="Update Profile" onPress={() => navigation.navigate('MySports')} />
-      </View>
-    );
-  }
-
   useLayoutEffect(() => {
     if (!inline) {
       navigation.setOptions({
@@ -952,6 +940,20 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
       </View>
     );
   };
+
+  // Hooks must all have run before this guard: the sport can arrive after
+  // the first render, and an early return above them changes the hook count.
+  if (!sportFilter) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Icon name="account-search-outline" size={48} color={DS.textMuted} style={{ marginBottom: 16 }} />
+        <Text style={{ color: DS.text, fontSize: 16, textAlign: 'center', marginBottom: 20 }}>
+          Your sport preference is required to use Scout.
+        </Text>
+        <PrimaryButton label="Update Profile" onPress={() => navigation.navigate('MySports')} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
