@@ -722,6 +722,7 @@ model Ground {
   price      Int?
   available  Boolean @default(true)
   facilities Json?
+  sports GroundSport[]
 
   // Relations
   images       GroundImage[]
@@ -1392,4 +1393,21 @@ model BroadcastAuditLog {
 
   @@index([matchId, createdAt])
   @@index([broadcastSessionId, createdAt])
+}
+
+model GroundSport {
+  id            String   @id @default(cuid())
+  groundId      String
+  sport         String
+  configuration Json?
+  pricing       Json?
+  availability  Json?
+  facilities    Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  ground Ground @relation(fields: [groundId], references: [id], onDelete: Cascade)
+
+  @@unique([groundId, sport])
+  @@index([sport])
 }

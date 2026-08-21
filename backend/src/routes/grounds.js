@@ -224,6 +224,13 @@ const GroundRequestSchema = z.object({
   imageUrl: z.string().optional(),           // legacy single image
   images: z.array(z.string()).optional(),    // multiple image URLs
   sport: z.string().default('cricket'),
+  sports: z.array(z.object({
+    sport: z.string(),
+    configuration: z.any().optional(),
+    pricing: z.any().optional(),
+    availability: z.any().optional(),
+    facilities: z.any().optional(),
+  })).optional(),
   price: z.number().int().min(0).optional(),
   amenities: z.array(z.string()).optional(), // ["Flood Lights", "Parking", ...]
   openTime: z.string().optional(),           // "06:00"
@@ -234,19 +241,74 @@ router.post('/', authMiddleware, async (req, res) => {
   try {
     const data = GroundRequestSchema.parse(req.body);
 
+    const SUPPORTED_SPORTS = [
+      'badminton', 'basketball', 'boxing', 'cricket', 'football',
+      'handball', 'hockey', 'judo', 'kabaddi', 'karate', 'khokho',
+      'pickleball', 'skateboard', 'squash', 'tabletennis', 'tennis',
+      'volleyball', 'wrestling'
+    ];
+
+    let sportsData = data.sports || [];
+
+    // Legacy fallback: If no sports array is provided, but sport is provided, infer it.
+    if (sportsData.length === 0 && data.sport) {
+      sportsData = [{
+        sport: data.sport,
+        configuration: {
+          groundType: data.groundType,
+          playingSurface: data.playingSurface,
+          ballTypes: data.ballTypes
+        },
+        pricing: data.price ? { pricePerHour: data.price } : undefined,
+        availability: (data.openTime && data.closeTime) ? { openTime: data.openTime, closeTime: data.closeTime } : undefined,
+        facilities: data.amenities || []
+      }];
+    }
+
+    // Validate against supported sports
+    const submittedSports = sportsData.map(s => s.sport.toLowerCase());
+    const invalidSports = submittedSports.filter(s => !SUPPORTED_SPORTS.includes(s));
+    if (invalidSports.length > 0) {
+      return res.status(400).json({ error: `Unsupported sports: ${invalidSports.join(', ')}` });
+    }
+
+    // Validate against user's allowed sports
+    if (req.user?.sub) {
+      const userSportsRows = await prisma.userSport.findMany({
+        where: { userId: req.user.sub },
+        select: { sport: true }
+      });
+      const userAllowedSports = userSportsRows.map(row => row.sport.toLowerCase());
+      const unauthorizedSports = submittedSports.filter(s => !userAllowedSports.includes(s));
+      if (unauthorizedSports.length > 0 && !isAdmin(req.user.sub)) {
+        return res.status(403).json({ error: `You are not authorized to configure grounds for: ${unauthorizedSports.join(', ')}` });
+      }
+    }
+
+
     // Extract relational data before creating the ground
     const coverImage = data.imageUrl;
     const imageUrls = data.images || [];
     const amenityNames = data.amenities || [];
     const openTime = data.openTime;
     const closeTime = data.closeTime;
-
-    // Remove non-Ground fields so prisma.ground.create doesn't choke
+    
+    // Backfill legacy fields on root Ground object if missing, for legacy consumers
+    if (sportsData.length > 0) {
+      const primary = sportsData[0];
+      if (!data.sport) data.sport = primary.sport;
+      if (!data.groundType && primary.configuration?.groundType) data.groundType = primary.configuration.groundType;
+      if (!data.playingSurface && primary.configuration?.playingSurface) data.playingSurface = primary.configuration.playingSurface;
+      if (!data.ballTypes && primary.configuration?.ballTypes) data.ballTypes = primary.configuration.ballTypes;
+      if (!data.price && primary.pricing?.amount) data.price = primary.pricing.amount;
+    }
+// Remove non-Ground fields so prisma.ground.create doesn't choke
     delete data.imageUrl;
     delete data.images;
     delete data.amenities;
     delete data.openTime;
     delete data.closeTime;
+    delete data.sports;
 
     // Build GroundImage create array
     const imageCreates = [];
@@ -303,8 +365,9 @@ router.post('/', authMiddleware, async (req, res) => {
         ...(imageCreates.length > 0 ? { images: { create: imageCreates } } : {}),
         ...(amenityCreates.length > 0 ? { amenities: { create: amenityCreates } } : {}),
         ...(hoursCreates.length > 0 ? { openingHours: { create: hoursCreates } } : {}),
+        ...(sportsData.length > 0 ? { sports: { create: sportsData } } : {}),
       },
-      include: { images: true, amenities: true, openingHours: true },
+      include: { images: true, amenities: true, openingHours: true, sports: true },
     });
 
     res.status(201).json({ success: true, ground });
@@ -314,14 +377,108 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-// ── UPDATE GROUND (admin) ──────────────────────────────────────────────────
-router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
+// ── UPDATE GROUND ──────────────────────────────────────────────────────────
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
-    const ground = await prisma.ground.update({
-      where: { id: req.params.id },
-      data: req.body,
+    const groundId = req.params.id;
+    const existingGround = await prisma.ground.findUnique({ where: { id: groundId } });
+    if (!existingGround) return res.status(404).json({ error: 'Ground not found' });
+
+    // Authorization: User must be admin, or the owner/submitter of the ground
+    const isUserAdmin = isAdmin(req.user.sub);
+    const isOwner = existingGround.ownerId === req.user.sub || existingGround.submittedById === req.user.sub;
+    if (!isUserAdmin && !isOwner) {
+      return res.status(403).json({ error: 'You are not authorized to edit this ground' });
+    }
+
+    const SUPPORTED_SPORTS = [
+      'badminton', 'basketball', 'boxing', 'cricket', 'football',
+      'handball', 'hockey', 'judo', 'kabaddi', 'karate', 'khokho',
+      'pickleball', 'skateboard', 'squash', 'tabletennis', 'tennis',
+      'volleyball', 'wrestling'
+    ];
+
+    let data = { ...req.body };
+    let sportsData = data.sports;
+
+    // Validate against supported sports and user's allowed sports (if sports are provided)
+    if (sportsData && Array.isArray(sportsData) && sportsData.length > 0) {
+      const submittedSports = sportsData.map(s => s.sport.toLowerCase());
+      const invalidSports = submittedSports.filter(s => !SUPPORTED_SPORTS.includes(s));
+      if (invalidSports.length > 0) {
+        return res.status(400).json({ error: `Unsupported sports: ${invalidSports.join(', ')}` });
+      }
+
+      if (!isUserAdmin) {
+        const userSportsRows = await prisma.userSport.findMany({
+          where: { userId: req.user.sub },
+          select: { sport: true }
+        });
+        const userAllowedSports = userSportsRows.map(row => row.sport.toLowerCase());
+        const unauthorizedSports = submittedSports.filter(s => !userAllowedSports.includes(s));
+        if (unauthorizedSports.length > 0) {
+          return res.status(403).json({ error: `You are not authorized to configure grounds for: ${unauthorizedSports.join(', ')}` });
+        }
+      }
+    }
+
+    // Legacy fallback/backfill on root ground object if needed
+    if (sportsData && Array.isArray(sportsData) && sportsData.length > 0) {
+      const primary = sportsData[0];
+      if (!data.sport && !existingGround.sport) data.sport = primary.sport;
+      if (!data.groundType && primary.configuration?.groundType) data.groundType = primary.configuration.groundType;
+      if (!data.playingSurface && primary.configuration?.playingSurface) data.playingSurface = primary.configuration.playingSurface;
+      if (!data.ballTypes && primary.configuration?.ballTypes) data.ballTypes = primary.configuration.ballTypes;
+      if (data.price === undefined && primary.pricing?.pricePerHour) data.price = primary.pricing.pricePerHour;
+    }
+
+    // Remove relational/complex fields before standard Ground update
+    delete data.sports;
+    delete data.imageUrl;
+    delete data.images;
+    delete data.amenities;
+    delete data.openTime;
+    delete data.closeTime;
+    // (Note: in a full implementation we'd also handle images/amenities updates properly, 
+    // but preserving existing PUT behavior for those unless requested to change)
+
+    // Run in transaction
+    const updatedGround = await prisma.$transaction(async (tx) => {
+      // 1. Update legacy fields
+      const updated = await tx.ground.update({
+        where: { id: groundId },
+        data: data,
+      });
+
+      // 2. Upsert GroundSport records if provided
+      if (sportsData && Array.isArray(sportsData)) {
+        for (const sport of sportsData) {
+          await tx.groundSport.upsert({
+            where: {
+              groundId_sport: { groundId: groundId, sport: sport.sport }
+            },
+            update: {
+              configuration: sport.configuration || {},
+              pricing: sport.pricing || {},
+              availability: sport.availability || {},
+              facilities: sport.facilities || []
+            },
+            create: {
+              groundId: groundId,
+              sport: sport.sport,
+              configuration: sport.configuration || {},
+              pricing: sport.pricing || {},
+              availability: sport.availability || {},
+              facilities: sport.facilities || []
+            }
+          });
+        }
+      }
+
+      return updated;
     });
-    res.json({ ground });
+
+    res.json({ ground: updatedGround });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

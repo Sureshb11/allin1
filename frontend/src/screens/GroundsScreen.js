@@ -519,48 +519,122 @@ const GroundField = ({ label, value, onChangeText, placeholder, multiline, keybo
 // fired as an Alert when you tried to leave a step. Three cards say the same
 // thing without hiding two thirds of the form behind a button, and the fields
 // are the ones the design brief lists rather than the twenty the wizard grew.
+const SportConfigSection = ({ sport, configDef, state, updateState }) => {
+  const meta = sportMeta(sport);
+  const fields = configDef.fields || [];
+  
+  return (
+    <SectionCard key={sport} title={`${meta.name} Configuration`} icon={meta.icon}>
+      {fields.map(field => {
+        if (field.type === 'select') {
+          return (
+            <ChipGroup key={field.key} label={field.label} options={field.options.map(o => ({ value: o, label: o }))}
+              value={state[field.key]} onChange={(v) => updateState(sport, field.key, v || '')} />
+          );
+        }
+        if (field.type === 'multi-select') {
+          return (
+            <ChipGroup key={field.key} label={field.label} multi options={field.options.map(o => ({ value: o, label: o }))}
+              value={state[field.key] || []} onChange={(v) => updateState(sport, field.key, v)} />
+          );
+        }
+        if (field.type === 'number') {
+          return (
+            <TextField key={field.key} label={field.label} value={state[field.key]} onChangeText={(v) => updateState(sport, field.key, v)} keyboardType="numeric" />
+          );
+        }
+        if (field.type === 'text') {
+          return (
+            <TextField key={field.key} label={field.label} value={state[field.key]} onChangeText={(v) => updateState(sport, field.key, v)} />
+          );
+        }
+        if (field.type === 'toggle') {
+          return (
+            <ChipGroup key={field.key} label={field.label} options={[{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]}
+              value={state[field.key] ? 'yes' : 'no'} onChange={(v) => updateState(sport, field.key, v === 'yes')} />
+          );
+        }
+        return null;
+      })}
+      
+      {configDef.facilities && configDef.facilities.length > 0 && (
+        <ChipGroup label="Facilities" multi options={configDef.facilities.map(f => ({ value: f, label: f }))} 
+          value={state.facilities || []} onChange={(v) => updateState(sport, 'facilities', v)} />
+      )}
+      
+      {configDef.pricingUnits && configDef.pricingUnits.length > 0 && (
+        <View style={{ marginTop: 16 }}>
+          <Text style={{ fontWeight: '600', marginBottom: 8, color: '#333' }}>Pricing</Text>
+          <View style={{ flexDirection: 'row', gap: 16 }}>
+            <View style={{ flex: 1 }}>
+              <TextField label="Amount" value={state.priceAmount} onChangeText={(v) => updateState(sport, 'priceAmount', v)} keyboardType="numeric" placeholder="e.g. 500" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <ChipGroup label="Unit" options={configDef.pricingUnits} value={state.priceUnit} onChange={(v) => updateState(sport, 'priceUnit', v || '')} />
+            </View>
+          </View>
+        </View>
+      )}
+
+      <View style={{ marginTop: 16, flexDirection: 'row', gap: 16 }}>
+        <View style={{ flex: 1 }}>
+          <TimeField label="Opens" value={state.openTime} onPress={() => {}} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <TimeField label="Closes" value={state.closeTime} onPress={() => {}} />
+        </View>
+      </View>
+    </SectionCard>
+  );
+};
+
 const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
   const cs = useCreateStyles();
+  const [userSports, setUserSports] = useState([]);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  
+  useEffect(() => {
+    const fetchSports = async () => {
+      try {
+        const res = await (new (require('../services/LegendsApi').default)()).getUserProfile();
+        if (res.data && res.data.sports && res.data.sports.length > 0) {
+          setUserSports(res.data.sports.map(s => s.sport));
+        } else {
+          setUserSports([]);
+        }
+      } catch (e) {
+        setUserSports([]);
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+    fetchSports();
+  }, []);
 
   const [name, setName] = useState('');
   const [localName, setLocalName] = useState('');
-  // Grounds are not all cricket grounds. The column has existed since the
-  // beginning with a 'cricket' default and nothing ever set it, so every ground
-  // a football or badminton club added filed itself under cricket.
-  const [sport, setSport] = useState(() => getSelectedSport().sport?.id || 'cricket');
-  const groundCfg = getGroundConfig(sport);
-
-  // Switching sport re-asks the questions, so the answers to the old ones have
-  // to go: a ground typed "Box Cricket" on a mat, with a leather ball, does not
-  // silently stay that way when the sport becomes badminton. The chips would
-  // show nothing selected while the payload still carried cricket's values.
-  const onSportChange = (next) => {
-    if (!next || next === sport) return;
-    const cfg = getGroundConfig(next);
-    setSport(next);
-    setGroundType(cfg.types[0]?.key || 'outdoor');
-    setPlayingSurface('');
-    setBallTypes([]);
-    setCategory('');
-  };
-  const [category, setCategory] = useState('');
   const [area, setArea] = useState('');
   const [city, setCity] = useState('');
   const [stateName, setStateName] = useState('');
   const [address, setAddress] = useState('');
   const [lat] = useState(initialLocation?.latitude || null);
   const [lng] = useState(initialLocation?.longitude || null);
-  const [groundType, setGroundType] = useState('outdoor');
-  const [playingSurface, setPlayingSurface] = useState('');
-  const [ballTypes, setBallTypes] = useState([]);
-  const [price, setPrice] = useState('');
-  const [amenities, setAmenities] = useState([]);
-  const [openTime, setOpenTime] = useState('06:00');
-  const [closeTime, setCloseTime] = useState('22:00');
   const [phone, setPhone] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [imageUris, setImageUris] = useState([]);
   const [description, setDescription] = useState('');
+  
+  const [sportConfigsState, setSportConfigsState] = useState({});
+
+  const updateSportConfig = (sport, field, value) => {
+    setSportConfigsState(prev => ({
+      ...prev,
+      [sport]: {
+        ...(prev[sport] || { openTime: '06:00', closeTime: '22:00', facilities: [] }),
+        [field]: value
+      }
+    }));
+  };
 
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -578,16 +652,10 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
   };
   const removePhoto = (idx) => setImageUris((prev) => prev.filter((_, i) => i !== idx));
 
-  // Anything filled in, and closing asks first — the same guard the other
-  // drawers use. It dismissed straight to nothing before.
-  const dirty = !!(name || localName || category || area || city || stateName || address
-    || playingSurface || ballTypes.length || price || amenities.length || phone || whatsapp
-    || imageUris.length || description);
+  const dirty = !!(name || localName || area || city || stateName || address || phone || whatsapp || imageUris.length || description);
   const close = useDiscardGuard(dirty, onCancel, { title: 'Discard this ground?' });
 
   const handleSubmit = async () => {
-    // Per field, under the field. The wizard raised an Alert naming the
-    // problem and then dismissed itself, leaving you to find which box it meant.
     const problems = {};
     if (!name.trim()) problems.name = 'A ground needs a name';
     if (!city.trim()) problems.city = 'Which town or city is it in?';
@@ -596,22 +664,33 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
 
     setFormError('');
     setLoading(true);
+    
+    const sportsData = userSports.map(sport => {
+      const config = sportConfigsState[sport] || {};
+      const { priceAmount, priceUnit, openTime, closeTime, facilities, ...restConfig } = config;
+      return {
+        sport,
+        configuration: restConfig,
+        pricing: priceAmount && priceUnit ? { amount: parseInt(priceAmount, 10), unit: priceUnit } : undefined,
+        availability: openTime && closeTime ? { openTime, closeTime } : undefined,
+        facilities: facilities?.length ? facilities : undefined,
+      };
+    });
+    
+    const primarySport = userSports[0] || 'cricket';
+    
     try {
       await onSubmit({
-        name: name.trim(), localName: localName.trim() || undefined, category: category || undefined,
+        name: name.trim(), localName: localName.trim() || undefined,
         location: area.trim() || undefined, area: area.trim() || undefined,
         city: city.trim(), state: stateName.trim() || undefined, address: address.trim() || undefined,
-        sport,
-        latitude: lat || undefined, longitude: lng || undefined, groundType,
-        playingSurface: playingSurface || undefined,
-        ballTypes: ballTypes.length > 0 ? ballTypes : undefined,
-        price: price ? parseInt(price, 10) : undefined,
-        amenities: amenities.length > 0 ? amenities : undefined,
-        openTime: openTime || undefined, closeTime: closeTime || undefined,
+        sport: primarySport, 
+        latitude: lat || undefined, longitude: lng || undefined, 
         phone: phone.trim() || undefined, whatsapp: whatsapp.trim() || undefined,
         images: imageUris.length > 0 ? imageUris : undefined,
         imageUrl: imageUris[0] || undefined,
         description: description.trim() || undefined,
+        sports: sportsData,
       });
       setDone(true);
     } catch (e) {
@@ -621,12 +700,34 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
     }
   };
 
+  if (loadingProfile) {
+    return (
+      <View style={{ flex: 1, backgroundColor: DS.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: DS.text, fontSize: 16 }}>Loading your sports configuration...</Text>
+      </View>
+    );
+  }
+
+  if (userSports.length === 0) {
+    return (
+      <View style={{ flex: 1, backgroundColor: DS.bg }}>
+        <DrawerHeader icon="stadium" title="Sport not configured" onClose={close} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ color: DS.text, fontSize: 16, textAlign: 'center', marginBottom: 20 }}>
+            Your sport preference is required to configure a ground.
+          </Text>
+          <PrimaryButton label="Update Profile" onPress={onCancel} />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: DS.bg }}>
       <DrawerHeader
         icon="stadium"
-        title="Add a Ground"
-        subtitle="Put a pitch on the map for everyone"
+        title={userSports.length > 1 ? "Add Sports Ground" : `Add ${listSports().find(s => s.id === userSports[0])?.name || 'Cricket'} Ground`}
+        subtitle={`Sports from your profile: ${userSports.map(s => listSports().find(meta => meta.id === s)?.name || s).join(' • ')}`}
         onClose={close}
       />
 
@@ -645,10 +746,6 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
             error={errors.name} placeholder="e.g. M.A. Chidambaram Stadium" />
           <TextField label="Local name" value={localName} onChangeText={setLocalName}
             placeholder="e.g. Chepauk" helper="What people round there call it" />
-          <ChipGroup label="Sport" options={listSports().map((sp) => ({ value: sp.id, label: sp.name, icon: sp.icon }))}
-            value={sport} onChange={onSportChange} />
-          <ChipGroup label="Category" options={groundCfg.categories} value={category}
-            onChange={(v) => setCategory(v || '')} last />
         </SectionCard>
 
         <SectionCard title="Where it is" icon="map-marker-outline">
@@ -663,36 +760,22 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
               helper="Taken from where you tapped the map" onPress={() => {}} last />
           )}
         </SectionCard>
+        
+        {userSports.map((sport) => {
+          const cfg = getGroundConfig(sport) || {};
+          const state = sportConfigsState[sport] || { openTime: '06:00', closeTime: '22:00', facilities: [] };
+          return (
+            <SportConfigSection 
+              key={sport} 
+              sport={sport} 
+              configDef={cfg} 
+              state={state} 
+              updateState={updateSportConfig} 
+            />
+          );
+        })}
 
-        {/* Icon follows the sport too — this card was headed with a cricket bat
-            whatever you were adding. */}
-        <SectionCard title="Playing there" icon={sportMeta(sport).icon}>
-          <ChipGroup label="Ground type" options={groundCfg.types.map((t) => ({ value: t.key, label: t.label, icon: t.icon }))}
-            value={groundType} onChange={(v) => v && setGroundType(v)} />
-          {groundCfg.surfaces.length > 0 && (
-            <ChipGroup label="Surface" options={groundCfg.surfaces.map((x) => ({ value: x.key, label: x.label }))}
-              value={playingSurface} onChange={(v) => setPlayingSurface(v || '')} />
-          )}
-          {/* Only cricket asks this. Every other sport was being offered
-              leather / tennis / soft / tape for a hall or a court. */}
-          {groundCfg.ballTypes.length > 0 && (
-            <ChipGroup label="Ball types" multi options={groundCfg.ballTypes.map((b) => ({ value: b.key, label: b.label }))}
-              value={ballTypes} onChange={setBallTypes} />
-          )}
-          <ChipGroup label="Amenities" multi options={AMENITY_OPTIONS} value={amenities} onChange={setAmenities} last />
-        </SectionCard>
-
-        <SectionCard title="Booking & contact" icon="phone-outline">
-          <TextField label="Price per hour" value={price} onChangeText={setPrice}
-            placeholder="e.g. 500" keyboardType="numeric" helper="Leave empty if it is free" />
-          <View style={{ flexDirection: 'row', gap: SPACE.md }}>
-            <View style={{ flex: 1 }}>
-              <TimeField label="Opens" value={openTime} onPress={() => {}} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <TimeField label="Closes" value={closeTime} onPress={() => {}} />
-            </View>
-          </View>
+        <SectionCard title="Contact" icon="phone-outline">
           <TextField label="Contact number" value={phone} onChangeText={setPhone}
             placeholder="Mobile number" keyboardType="phone-pad" />
           <TextField label="WhatsApp" value={whatsapp} onChangeText={setWhatsapp}
