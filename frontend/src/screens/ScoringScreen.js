@@ -412,7 +412,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // would drop the user onto the create/schedule screen. Reset wipes that trail.
     navigation.reset({
       index: 0,
-      routes: [{ name: 'CricketFeed' }],
+      routes: [{ name: 'Home' }],
     });
   };
 

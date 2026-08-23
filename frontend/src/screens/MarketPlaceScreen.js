@@ -104,7 +104,7 @@ const MarketPlaceScreen = ({ navigation }) => {const DS = useTheme().colors;cons
       <View style={styles.hero}>
         <Icon name="shopping" size={20} color={DS.lime} />
         <Text style={styles.heroTitle}>Marketplace</Text>
-        <TouchableOpacity style={styles.sellPill} onPress={() => navigation.navigate('CreatePost')}>
+        <TouchableOpacity style={styles.sellPill} onPress={() => navigation.navigate('CreateProduct')}>
           <Icon name="plus" size={14} color={DS.bg} />
           <Text style={styles.sellPillText}>Sell</Text>
         </TouchableOpacity>
