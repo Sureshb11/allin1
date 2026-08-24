@@ -69,6 +69,34 @@ const timeAgo = (iso) => {
   return 'just now';
 };
 
+// The shape <PostCard> renders. The API returns a post flat (authorName,
+// authorAvatar, text, mediaUrl); PostCard wants a nested `author` and a few
+// derived fields. Module-level and exported so every feed that mounts a
+// PostCard maps through the SAME function — HomeScreen rendered the raw API
+// object straight into PostCard and blanked the screen on post.author.initial.
+export const mapPost = (po) => ({
+  id: po.id,
+  author: {
+    name: po.authorName || 'Player',
+    handle: '@' + (po.authorName || 'player').toLowerCase().replace(/\s+/g, '_'),
+    team: po.team || '',
+    color: colorFor(po.authorName),
+    initial: (po.authorName || 'P').charAt(0).toUpperCase(),
+    avatar: po.authorAvatar || null,
+    verified: false,
+  },
+  time: timeAgo(po.createdAt),
+  kind: po.mediaUrl ? 'photo' : 'text',
+  media: po.mediaUrl || null,
+  caption: po.text || '',
+  likedBy: null,
+  likes: po.likes || 0,
+  liked: !!po.liked,   // authoritative per-user state from the server (persists across app restarts)
+  comments: [],
+  commentCount: po.commentCount || 0,
+});
+
+
 // "X need 45 off 30 balls" for a live 2nd-innings chase. Derived purely from
 // fields the /circle API already returns (score strings + toss + currentInnings):
 //   • who batted first = toss winner if they chose bat, else the other team
@@ -648,27 +676,6 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
   // match rail + posts constantly and locking up low-end devices.
   const feedSig = useRef({ matches: '', activity: '', posts: '' });
 
-  const mapPost = useCallback((po) => ({
-    id: po.id,
-    author: {
-      name: po.authorName || 'Player',
-      handle: '@' + (po.authorName || 'player').toLowerCase().replace(/\s+/g, '_'),
-      team: po.team || '',
-      color: colorFor(po.authorName),
-      initial: (po.authorName || 'P').charAt(0).toUpperCase(),
-      avatar: po.authorAvatar || null,
-      verified: false,
-    },
-    time: timeAgo(po.createdAt),
-    kind: po.mediaUrl ? 'photo' : 'text',
-    media: po.mediaUrl || null,
-    caption: po.text || '',
-    likedBy: null,
-    likes: po.likes || 0,
-    liked: !!po.liked,   // authoritative per-user state from the server (persists across app restarts)
-    comments: [],
-    commentCount: po.commentCount || 0,
-  }), []);
 
   const mapMatch = useCallback((m) => ({
     id: m.id,

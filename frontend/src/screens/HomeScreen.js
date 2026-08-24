@@ -20,6 +20,7 @@ import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import AppHeader from '../components/AppHeader';
 import PostCard from '../components/PostCard';
+import { mapPost } from '../components/FeedShared';
 import FeedSkeleton from '../components/FeedSkeleton';
 import { pickAndUploadImage } from '../utils/imageUpload';
 import CommentsSheet from '../components/CommentsSheet';
@@ -182,8 +183,8 @@ export default function HomeScreen({ navigation }) {
         setPosts((prev) => {
           const byId = Object.fromEntries(prev.map((p) => [p.id, p]));
           return (pr?.data || []).map((sp) => {
-            const ex = byId[sp.id];
-            return ex ? { ...sp, comments: ex.comments?.length ? ex.comments : sp.comments } : sp;
+            const m = mapPost(sp), ex = byId[sp.id];
+            return ex ? { ...m, comments: ex.comments?.length ? ex.comments : m.comments } : m;
           });
         });
       }
@@ -288,7 +289,7 @@ export default function HomeScreen({ navigation }) {
     try {
       const res = await legendsApi.createPost({ sport: currentSport.id, text: text || '📷', mediaUrl: composeImage, postType: 'general' });
       if (res.success) {
-        setPosts((prev) => [res.data, ...prev]);
+        setPosts((prev) => [mapPost(res.data), ...prev]);
         setComposeText('');
         setComposeImage(null);
         setComposeOpen(false);
