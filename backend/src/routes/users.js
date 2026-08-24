@@ -240,61 +240,14 @@ router.put('/me/sports', authMiddleware, async (req, res) => {
   }
 });
 
-// Remove one sport from the profile. PUT /me/sports only ever upserts, so
-// without this the list is append-only — which is how a profile ends up holding
-// every sport the user ever glanced at.
-//
-// Removing the primary promotes the oldest remaining sport, so the list is never
-// left with no primary. Removing the last one is allowed: the screen has an
-// empty state, and the next Arena pick bootstraps a fresh primary.
-router.delete('/me/sports/:sport', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.sub;
-    const sport = String(req.params.sport);
-    const row = await prisma.userSport.findUnique({ where: { userId_sport: { userId, sport } } });
-    if (!row) return res.status(404).json({ error: 'NOT_ENROLLED' });
-
-    await prisma.userSport.delete({ where: { userId_sport: { userId, sport } } });
-
-    if (row.isPrimary) {
-      const next = await prisma.userSport.findFirst({ where: { userId }, orderBy: { createdAt: 'asc' } });
-      if (next) {
-        await prisma.userSport.update({ where: { userId_sport: { userId, sport: next.sport } }, data: { isPrimary: true } });
-      }
-    }
-    const sports = await prisma.userSport.findMany({ where: { userId }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] });
-    res.json({ sports });
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
-});
-
 // Choose the user's active/primary sport (e.g. from the Arena picker).
-//
-// Marks an ALREADY-ENROLLED sport primary. It deliberately does NOT enrol you in
-// a sport just because you opened it: the Arena picker calls this on every
-// START, so "have a look at hockey" used to add hockey to your profile forever,
-// with no way to remove it. Testing all 19 sports left 19 rows, and Rankings
-// then drew a chip for each. The active sport is client-side state; this
-// endpoint only records a PROFILE choice.
-//
-// One exception: a user with no sports at all gets bootstrapped, so a genuine
-// first-run pick still lands. Adding more is explicit, via PUT /me/sports.
+// Adds the sport if new, marks it primary, and unsets primary on the others.
 const PrimarySportSchema = z.object({ sport: z.string().min(1) });
 
 router.post('/me/primary-sport', authMiddleware, async (req, res) => {
   try {
     const { sport } = PrimarySportSchema.parse(req.body);
     const userId = req.user.sub;
-    const [enrolled, total] = await Promise.all([
-      prisma.userSport.findUnique({ where: { userId_sport: { userId, sport } } }),
-      prisma.userSport.count({ where: { userId } }),
-    ]);
-    // Not one of my sports, and I already have some → record nothing.
-    if (!enrolled && total > 0) {
-      const sports = await prisma.userSport.findMany({ where: { userId }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] });
-      return res.json({ sports });
-    }
     await prisma.$transaction([
       prisma.userSport.updateMany({ where: { userId }, data: { isPrimary: false } }),
       prisma.userSport.upsert({

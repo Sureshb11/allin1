@@ -1436,30 +1436,6 @@ class LegendsApi {
     }
   }
 
-  // Enrol in a sport WITHOUT stealing primary — isPrimary must be sent
-  // explicitly, because the server treats a missing flag on a single-item list
-  // as "make this the primary".
-  async addSport(sport) {
-    if (!this.token) return { success: false, error: 'Not logged in' };
-    try {
-      const json = await this.request('/users/me/sports', { method: 'PUT', body: { sports: [{ sport, isPrimary: false }] } });
-      return { success: true, data: json.sports || [] };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-
-  // Drop a sport from the profile. Server promotes a new primary if needed.
-  async removeSport(sport) {
-    if (!this.token) return { success: false, error: 'Not logged in' };
-    try {
-      const json = await this.request(`/users/me/sports/${encodeURIComponent(sport)}`, { method: 'DELETE' });
-      return { success: true, data: json.sports || [] };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-
   // Record the user's active/primary sport (e.g. from the Arena picker).
   async selectPrimarySport(sport) {
     if (!this.token) return { success: false, error: 'Not logged in' };
