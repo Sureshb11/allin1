@@ -19,11 +19,6 @@ import TournamentsScreen from './TournamentsScreen';
 import { useCurrentUser } from '../utils/currentUser';
 import BrandLogo, { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import AppHeader from '../components/AppHeader';
-import PostCard from '../components/PostCard';
-import { mapPost } from '../components/FeedShared';
-import FeedSkeleton from '../components/FeedSkeleton';
-import { pickAndUploadImage } from '../utils/imageUpload';
-import CommentsSheet from '../components/CommentsSheet';
 import HexAvatar from '../components/HexAvatar';
 import { sportColor as sportColorFor } from '../sports/colors';
 import { makeControls, controlColors } from '../theme/controls';
@@ -122,13 +117,6 @@ export default function HomeScreen({ navigation }) {
   const tabClear = useTabBarClearance();
   const meUser = useCurrentUser();
   const [liveMatches, setLiveMatches] = useState([]);
-  const [posts, setPosts] = useState([]);
-  const [posting, setPosting] = useState(false);
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [composeText, setComposeText] = useState('');
-  const [composeImage, setComposeImage] = useState(null);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [activePost, setActivePost] = useState(null);
   const [players, setPlayers]         = useState([]);
   const [me, setMe]                   = useState(null);   // { user, player } when logged in
   const [refreshing, setRefreshing]   = useState(false);
@@ -162,10 +150,9 @@ export default function HomeScreen({ navigation }) {
     try {
       const { sport: selSport } = getSelectedSport();
       const sportId = selSport?.id || 'cricket';
-      const [lm, pl, pr] = await Promise.all([
+      const [lm, pl] = await Promise.all([
         legendsApi.getCircleMatches({ sport: sportId }),
         legendsApi.getPlayers({ sport: sportId }),
-        legendsApi.getPosts({ sport: sportId }),
       ]);
       if (lm?.success) {
         setLiveMatches((lm.data || []).map(m => ({
@@ -178,21 +165,11 @@ export default function HomeScreen({ navigation }) {
         })));
       }
       if (pl?.success) setPlayers(pl.data || []);
-      
-      if (pr?.success) {
-        setPosts((prev) => {
-          const byId = Object.fromEntries(prev.map((p) => [p.id, p]));
-          return (pr?.data || []).map((sp) => {
-            const m = mapPost(sp), ex = byId[sp.id];
-            return ex ? { ...m, comments: ex.comments?.length ? ex.comments : m.comments } : m;
-          });
-        });
-      }
 
       // Logged-in user + linked player (no-op under dev auth bypass).
       const meRes = await legendsApi.getMe();
       setMe(meRes?.success ? meRes.data : null);
-    } catch { setLiveMatches([]); setPlayers([]); setPosts([]); }
+    } catch { setLiveMatches([]); setPlayers([]); }
     finally { setLoading(false); }
   };
 
@@ -257,55 +234,6 @@ export default function HomeScreen({ navigation }) {
     });
     return counts;
   }, [liveMatches, query]);
-
-  const toggleLike = useCallback(async (id) => {
-    legendsApi.likePost(id).then(res => {
-      if (res.success) {
-        setPosts(prev => prev.map(p => p.id === id ? { ...p, liked: res.liked, likes: res.likes } : p));
-      }
-    });
-  }, []);
-
-  const sharePost = async (post) => {
-    Share.share({ message: `${post.authorName} on AllIn1: ${post.text}` });
-  };
-
-  const openComments = (post) => {
-    setActivePost(post);
-  };
-
-  const addComment = async (text) => {
-    if (!activePost) return;
-    const res = await legendsApi.request(`/posts/${activePost.id}/comments`, { method: 'POST', body: { text } });
-    if (res.comment) {
-      setPosts(prev => prev.map(p => p.id === activePost.id ? { ...p, comments: [...(p.comments || []), res.comment], commentCount: (p.commentCount || 0) + 1 } : p));
-    }
-  };
-
-  const submitPost = async () => {
-    const text = composeText.trim();
-    if (!text && !composeImage) return;
-    setPosting(true);
-    try {
-      const res = await legendsApi.createPost({ sport: currentSport.id, text: text || '📷', mediaUrl: composeImage, postType: 'general' });
-      if (res.success) {
-        setPosts((prev) => [mapPost(res.data), ...prev]);
-        setComposeText('');
-        setComposeImage(null);
-        setComposeOpen(false);
-      }
-    } finally {
-      setPosting(false);
-    }
-  };
-
-  const addComposePhoto = async () => {
-    setUploadingPhoto(true);
-    const r = await pickAndUploadImage('feed');
-    setUploadingPhoto(false);
-    if (r.url) setComposeImage(r.url);
-    else if (r.error) Alert.alert('Upload failed', r.error);
-  };
 
   const shareScore = async (match) => {
     const msg = `${match.team1} ${match.score1} vs ${match.team2} ${match.score2} — Live on ${BRAND_NAME}\n${BRAND_TAGLINE}`;
@@ -381,7 +309,7 @@ export default function HomeScreen({ navigation }) {
       {/* ── TOP GLASS BAR ────────────────────────── */}
       <View style={styles.topGlassBar}>
         {/* Unified App Header */}
-        <AppHeader showCompose onComposePress={() => setComposeOpen(true)} />
+        <AppHeader />
 
         {/* ── NAV TABS ────────────────────────
             The Pavilion's L1 pills (theme/controls.js), not the icon-over-label
@@ -417,114 +345,75 @@ export default function HomeScreen({ navigation }) {
       {/* ── CONTENT ──────────────────────────── */}
       <Animated.View style={[{ flex: 1 }, { opacity: contentAnim }]}>
         {activeNavTab === 0 && (
+          <GestureDetector gesture={filterSwipe}>
           <FlatList
             style={styles.feed}
             contentContainerStyle={[styles.feedContent, { paddingBottom: 16 + tabClear }]}
-            data={posts}
-            keyExtractor={(item) => item.id}
+            data={filteredMatches}
+            keyExtractor={(item, i) => item.id || String(i)}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
             showsVerticalScrollIndicator={false}
             {...hideTabBar}
             ListHeaderComponent={
               <View>
-                {renderMatchHub()}
-                <View style={[styles.sectionHeader, { marginTop: 8 }]}>
-                  <Text style={styles.sectionLabel}>SOCIAL FEED</Text>
+                {/* Filter tabs + count on one line (reclaims a full row) */}
+                <View style={[C.filterBar, { flexDirection: 'row', marginBottom: 12 }]}>
+                  {FILTERS.map(f => {
+                    const active = status === f;
+                    return (
+                      <TouchableOpacity
+                        key={f}
+                        style={[C.filterChip, active && C.filterChipActive]}
+                        onPress={() => setStatus(f)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[C.filterText, active && C.filterTextActive]}>
+                          {f.toUpperCase()}
+                        </Text>
+                        {active && filterCounts[f] > 0 && (
+                          <View style={[C.segCount, C.segCountOn]}>
+                            <Text style={[C.segCountText, C.segCountTextOn]}>{filterCounts[f]}</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
             }
             renderItem={({ item }) => (
-              <PostCard post={item} onLike={toggleLike} onShare={sharePost} onComment={openComments} />
+              <MatchCard
+                m={item}
+                isScorer={!!item.isScorer}
+                onPress={() => currentSport.id === 'cricket'
+                  ? navigation.navigate('LiveMatch', { matchId: item.id })
+                  : navigation.navigate('MatchStats', { matchId: item.id, sportName: currentSport.name })}
+                onStart={startMatch}
+                onResume={(m) => navigation.navigate('Scoring', { resume: true, matchId: m.id })}
+              />
             )}
-            ListEmptyComponent={!loading ?
+            ListEmptyComponent={
               <View style={styles.emptyCard}>
                 <View style={styles.emptyIconBox}>
                   <Icon name={currentSport.icon} size={40} color={DS.textMuted} />
                 </View>
-                <Text style={styles.emptyTitle}>No posts yet</Text>
-                <Text style={styles.emptySub}>Be the first to share a {currentSport.name.toLowerCase()} moment.</Text>
-                <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: DS.lime }]} onPress={() => setComposeOpen(true)} activeOpacity={0.9}>
-                  <Icon name="pencil" size={18} color={DS.bg} />
-                  <Text style={[styles.emptyBtnText, { color: DS.bg }]}>Share Achievement</Text>
+                <Text style={styles.emptyTitle}>No matches yet</Text>
+                <Text style={styles.emptySub}>Start scoring your first match</Text>
+                <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: sportTint }]} onPress={() => navigation.navigate('StartMatch', { sport: currentSport })} activeOpacity={0.9}>
+                  <Icon name="play-circle" size={18} color={DS.white} />
+                  <Text style={styles.emptyBtnText}>Start a Match</Text>
                 </TouchableOpacity>
               </View>
-              : <FeedSkeleton DS={DS} />
             }
             ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
           />
+          </GestureDetector>
         )}
         {activeNavTab === 1 && <View style={{ flex: 1 }}><TeamManagementScreen navigation={navigation} inline={true} /></View>}
         {activeNavTab === 2 && <View style={{ flex: 1 }}><TournamentsScreen navigation={navigation} inline={true} /></View>}
       </Animated.View>
 
-      {/* ── COMPOSE SHEET ────────────────────── */}
-      <CommentsSheet post={activePost} onClose={() => setActivePost(null)} onAdd={addComment} />
       
-      <Modal visible={composeOpen} animationType="slide" transparent onRequestClose={() => setComposeOpen(false)}>
-        <View style={{ flex: 1, backgroundColor: DS.overlay, justifyContent: 'flex-end' }}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <View style={{ backgroundColor: DS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16 }}>
-              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: DS.line, alignSelf: 'center', marginBottom: 16 }} />
-              
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <TouchableOpacity onPress={() => setComposeOpen(false)} hitSlop={8}>
-                  <Text style={{ fontSize: 16, color: DS.textMuted }}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[{ backgroundColor: DS.lime, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16 }, (!composeText.trim() && !composeImage) && { opacity: 0.5 }]}
-                  onPress={submitPost}
-                  disabled={posting || (!composeText.trim() && !composeImage)}
-                  hitSlop={8}>
-                  {posting
-                    ? <ActivityIndicator color={DS.bg} size="small" />
-                    : <Text style={{ fontSize: 15, fontWeight: '700', color: DS.bg }}>Post</Text>}
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <HexAvatar size={40} color={DS.surfaceHighest}>
-                  <Text style={{ fontSize: 18, color: DS.textPrimary }}>{(me?.user?.firstName || 'U')[0]}</Text>
-                </HexAvatar>
-                <View style={{ flex: 1 }}>
-                  <TextInput
-                    style={{ fontSize: 17, color: DS.textPrimary, minHeight: 80, textAlignVertical: 'top' }}
-                    placeholder="Share an achievement or match result..."
-                    placeholderTextColor={DS.textMuted}
-                    multiline
-                    autoFocus
-                    maxLength={500}
-                    value={composeText}
-                    onChangeText={setComposeText}
-                  />
-                  {composeImage && (
-                    <View style={{ marginTop: 12, borderRadius: 12, overflow: 'hidden' }}>
-                      <Image source={{ uri: composeImage }} style={{ width: '100%', height: 200, resizeMode: 'cover' }} />
-                      <TouchableOpacity
-                        style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 16, padding: 4 }}
-                        onPress={() => setComposeImage(null)}>
-                        <Icon name="close" size={18} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                  {uploadingPhoto && (
-                    <View style={{ marginTop: 12, height: 120, borderRadius: 12, backgroundColor: DS.surfaceHighest, alignItems: 'center', justifyContent: 'center' }}>
-                      <ActivityIndicator color={DS.lime} />
-                    </View>
-                  )}
-                </View>
-              </View>
-              
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, borderTopWidth: 1, borderTopColor: DS.border, paddingTop: 16, paddingBottom: 8 }}>
-                <TouchableOpacity onPress={addComposePhoto} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: DS.surfaceHigh, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 }}>
-                  <Icon name="image-outline" size={20} color={DS.lime} />
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: DS.textPrimary }}>Photo</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-
       {/* ── MORE SHEET ─────────────────────── */}
       <Modal visible={moreVisible} transparent animationType="slide" onRequestClose={() => setMoreVisible(false)}>
         <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={() => setMoreVisible(false)} />

@@ -11,6 +11,7 @@ import GlassDock from '../components/GlassDock';
 import { getSport } from '../sports';
 
 import HomeScreen from '../screens/HomeScreen';
+import FeedScreen from '../components/FeedShared';
 import MatchStatsScreen from '../screens/MatchStatsScreen';
 import FindPlayersScreen from '../screens/FindPlayersScreen';
 import MySportsScreen from '../screens/MySportsScreen';
@@ -68,8 +69,12 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
   // Cricket gets its signature feed; other sports land on the (sport-aware)
   // dashboard, since the feed is cricket-specific.
   const sportId = stackRoute?.params?.initialSport?.id || 'cricket';
-  // Every sport shares the single, unified HomeScreen.
-  const feedForSport = 'Home';
+  // The Home tab is the FEED (cover-flow match rail + social posts); the
+  // dashboard (Matches / Teams / Tournaments) is the My-Sport tab and lives on
+  // "Home". Phase 5 briefly merged the two into HomeScreen, which made the two
+  // tabs render the same screen. FeedScreen is sport-aware, so every sport
+  // shares it.
+  const feedForSport = 'Feed';
   const initial = initialRouteName || feedForSport;
   return (
   <Stack.Navigator initialRouteName={initial}>
@@ -77,6 +82,11 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
     <Stack.Screen
       name="MatchStats"
       component={MatchStatsScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="Feed"
+      component={FeedScreen}
       options={{ headerShown: false }}
     />
     <Stack.Screen
@@ -428,11 +438,9 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
   );
 };
 
-// "My Cricket" tab — same stack, but opens on the matches dashboard (MyMatches):
-// your circle's matches, i.e. the ones your own/played/followed teams are in.
-// It pointed at "Home" because Home USED to be the cricket dashboard; once the
-// feed folded into HomeScreen this tab became a second copy of the Home tab.
-const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="MyMatches" />;
+// "My Cricket" tab — same stack, opens on the dashboard: Matches / Teams /
+// Tournaments. That IS "Home" (HomeScreen); the Home tab shows the feed.
+const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="Home" />;
 
 // "Pavilion" tab - same stack, opens on Pavilion screen
 const PavilionStack = (props) => <HomeStack {...props} initialRouteName="Pavilion" />;
@@ -470,7 +478,7 @@ const AppNavigator = ({ route: appRoute }) => {
         <AutoHideTabBar {...props} render={(p) => (
           <GlassDock {...p} sportIcon={sportIcon} sportName={sportName} pavilionLabel={pavilionLabel}
             sportId={initialSport?.id || 'cricket'}
-            homeRoute="Home" />
+            homeRoute="Feed" />
         )} />
       )}
       screenOptions={{ headerShown: false }}
