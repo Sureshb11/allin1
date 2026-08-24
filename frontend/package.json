@@ -10,7 +10,8 @@
     "build:ios": "open ios/allin1.xcworkspace",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "test:nav": "jest __tests__/navigation.test.js"
   },
   "dependencies": {
     "@gorhom/bottom-sheet": "^4.6.4",
