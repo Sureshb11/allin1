@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware, optionalAuth } from '../lib/auth.js';
+import { getSportParticipantType } from '../lib/sports.js';
 
 const router = Router();
 
@@ -85,7 +86,6 @@ const PostSchema = z.object({
 router.post('/', async (req, res) => {
   try {
     const data = PostSchema.parse(req.body);
-    const { getSportParticipantType } = require('../lib/sports');
     if (!getSportParticipantType(data.sport)) {
       return res.status(400).json({ error: 'INVALID_SPORT' });
     }

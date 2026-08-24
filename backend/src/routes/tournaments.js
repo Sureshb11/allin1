@@ -10,6 +10,7 @@ import { tournamentStats } from '../lib/teamStats.js';
 import { seriesAwards } from '../lib/awards.js';
 import { zonedTime } from '../lib/zonedTime.js';
 import { canonicalVenue } from '../lib/venue.js';
+import { getSportParticipantType } from '../lib/sports.js';
 
 const router = Router();
 
@@ -263,7 +264,6 @@ router.post('/:id/teams', authMiddleware, requireOrganizer, async (req, res) => 
     ]);
     if (!tournament) return res.status(404).json({ error: 'Tournament not found' });
 
-    const { getSportParticipantType } = require('../lib/sports');
     if (getSportParticipantType(tournament.sport) !== 'TEAM') {
       return res.status(400).json({ error: `${tournament.name} is an individual sport tournament and cannot accept team registrations.` });
     }
@@ -310,7 +310,6 @@ router.post('/:id/teams', authMiddleware, requireOrganizer, async (req, res) => 
 
 router.post('/:id/participants', authMiddleware, requireOrganizer, async (req, res) => {
   try {
-    const { getSportParticipantType } = require('../lib/sports');
     const { participantType, teamId, playerId } = req.body;
     
     const tournament = await prisma.tournament.findUnique({ where: { id: req.params.id }, select: { sport: true, name: true, maxTeams: true } });
@@ -366,7 +365,6 @@ router.post('/:id/participants', authMiddleware, requireOrganizer, async (req, r
 // must approve. Any logged-in user may request, but only with a team they own.
 router.post('/:id/join-requests', authMiddleware, async (req, res) => {
   try {
-    const { getSportParticipantType } = require('../lib/sports');
     let { participantType, teamId, playerId, group = 'A', note } = req.body;
     
     const tournament = await prisma.tournament.findUnique({

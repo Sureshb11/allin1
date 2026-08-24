@@ -39,8 +39,7 @@ function getSportParticipantType(sportId) {
   return null;
 }
 
-module.exports = {
-  INDIVIDUAL_SPORTS,
-  TEAM_SPORTS,
-  getSportParticipantType
-};
+// ESM: the backend is "type": "module", so `module.exports` here was never
+// defined at runtime — importing this file threw, and every caller that reached
+// it 500'd or fell into a generic 400.
+export { INDIVIDUAL_SPORTS, TEAM_SPORTS, getSportParticipantType };

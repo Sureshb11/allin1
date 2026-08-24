@@ -17,6 +17,7 @@ import { normaliseShot, shotOutcome, zoneFromAngle, shotLabel, zoneLabel } from 
 import { maybeStoreAiLine } from '../lib/momentCommentary.js';
 import { commentaryFor } from '../lib/shotCommentary.js';
 import { matchShotSummary } from '../lib/shotAnalytics.js';
+import { getSportParticipantType } from '../lib/sports.js';
 
 const router = Router();
 
@@ -247,7 +248,6 @@ const MatchSchema = z.object({
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const data = MatchSchema.parse(req.body);
-    const { getSportParticipantType } = require('../lib/sports');
     
     const expectedParticipantType = getSportParticipantType(data.sport);
     if (!expectedParticipantType) {
