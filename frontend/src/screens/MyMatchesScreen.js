@@ -124,17 +124,24 @@ export function MatchSkeleton({ DS }) {
 }
 
 
+// One way to read a side's display name off a match. The API returns team1/team2
+// sometimes as a Team OBJECT and sometimes as a plain string, and individual
+// sports carry player1/player2 instead. Rendering the object straight into a
+// <Text> throws "Objects are not valid as a React child" and blanks the screen,
+// so every place that shows a side name goes through this.
+export const sideName = (m, n) => (
+  m?.participantType === 'PLAYER'
+    ? (m[`player${n}`]?.name || m[`player${n}`]?.username || 'TBD')
+    : (m?.[`team${n}`]?.name || (typeof m?.[`team${n}`] === 'string' ? m[`team${n}`] : 'TBD'))
+);
+
 export function MatchCard({ m, onPress, onStart, onResume, isScorer }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const STATUS_META = makeStatusMeta(DS);
   const meta = STATUS_META[m.status] || STATUS_META.scheduled;
-  const t1Name = m.participantType === 'PLAYER' 
-    ? (m.player1?.name || m.player1?.username || 'TBD') 
-    : (m.team1?.name || (typeof m.team1 === 'string' ? m.team1 : 'TBD'));
-  const t2Name = m.participantType === 'PLAYER' 
-    ? (m.player2?.name || m.player2?.username || 'TBD') 
-    : (m.team2?.name || (typeof m.team2 === 'string' ? m.team2 : 'TBD'));
+  const t1Name = sideName(m, 1);
+  const t2Name = sideName(m, 2);
     
   const nameFit = teamNamePairStyle(t1Name, t2Name);
   const t1Init = (t1Name || 'T')[0]?.toUpperCase();
@@ -286,9 +293,9 @@ function LiveScoreTicker({ matches }) {
               <Text style={{ fontSize: 10, fontWeight: '900', color: '#fff', letterSpacing: 0.5 }}>LIVE</Text>
             </View>
             <Text style={{ fontSize: 13, fontWeight: '800', color: '#fff', fontVariant: ['tabular-nums'] }}>
-              {m.team1 || 'TBA'} <Text style={{ color: DS.live }}>{splitScore(m.score1, m.overs).main || '-'}</Text>
+              {sideName(m, 1)} <Text style={{ color: DS.live }}>{splitScore(m.score1, m.overs).main || '-'}</Text>
               <Text style={{ color: '#666', fontWeight: '500' }}>   VS   </Text>
-              {m.team2 || 'TBA'} <Text style={{ color: DS.live }}>{splitScore(m.score2, m.overs).main || '-'}</Text>
+              {sideName(m, 2)} <Text style={{ color: DS.live }}>{splitScore(m.score2, m.overs).main || '-'}</Text>
             </Text>
           </View>
         )}

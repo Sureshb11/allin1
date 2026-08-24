@@ -428,8 +428,11 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
   );
 };
 
-// "My Cricket" tab — same stack, but opens on the cricket dashboard (Home).
-const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="Home" />;
+// "My Cricket" tab — same stack, but opens on the matches dashboard (MyMatches):
+// your circle's matches, i.e. the ones your own/played/followed teams are in.
+// It pointed at "Home" because Home USED to be the cricket dashboard; once the
+// feed folded into HomeScreen this tab became a second copy of the Home tab.
+const MyCricketStack = (props) => <HomeStack {...props} initialRouteName="MyMatches" />;
 
 // "Pavilion" tab - same stack, opens on Pavilion screen
 const PavilionStack = (props) => <HomeStack {...props} initialRouteName="Pavilion" />;

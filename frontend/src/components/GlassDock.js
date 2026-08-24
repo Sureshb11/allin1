@@ -141,7 +141,7 @@ export default function GlassDock({
       <View style={s.capsule}>
         
         <Item id="home"      activeIcon="home" inactiveIcon="home-outline" onPress={goTab('HomeTab', homeRoute)}      label="Home" />
-        <Item id="mycricket" activeIcon={sportIcon} inactiveIcon={sportIcon} onPress={goTab('MyCricketTab', 'Home')}    label={sportName} />
+        <Item id="mycricket" activeIcon={sportIcon} inactiveIcon={sportIcon} onPress={goTab('MyCricketTab', 'MyMatches')}    label={sportName} />
         <View style={s.ballSlot}>
           {/* The signature animated ball is cricket's own hero art, so it stays on
               cricket only — and keeps its lift above the capsule. Every other
