@@ -89,7 +89,7 @@ function GroundSkeleton({ DS }) {
 // badminton player filtered grounds by "Box Cricket" and "Nets".
 const groundTypesFor = (sportId) => ['All', ...getGroundConfig(sportId).types.map((t) => t.key)];
 
-const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, place, onSetPlace, onToggleMap, mapOpen, groundTypes }) => {
+const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, place, onSetPlace, groundTypes }) => {
   const filterScroll = useAnimatedRef();
   const filterOffset = useSharedValue(0);
   const filterStart = useSharedValue(0);
@@ -121,7 +121,7 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
           Not GPS: there is no geolocation library in this app, and adding one
           is a native dependency plus a runtime permission. This is a real
           answer available today, and it is tappable when it is missing. */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 }}>
         <TouchableOpacity onPress={onSetPlace} activeOpacity={0.7} style={{ flex: 1 }}>
           <Text style={{ color: DS.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
             Your location
@@ -133,16 +133,6 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
             </Text>
             <Icon name="pencil-outline" size={14} color={DS.textMuted} style={{ marginLeft: 6 }} />
           </View>
-        </TouchableOpacity>
-        {/* Map, where the filter icon used to be. That icon set a
-            `isFilterModalVisible` nothing ever read — there is no filter modal
-            in this file — so it was a button that did nothing at all. The type
-            chips below are the filter. */}
-        <TouchableOpacity onPress={onToggleMap} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityRole="button" accessibilityState={{ selected: !!mapOpen }}
-          accessibilityLabel={mapOpen ? 'Show the list' : 'Show the map'}>
-          <Icon name={mapOpen ? 'format-list-bulleted' : 'map-outline'} size={26}
-            color={mapOpen ? DS.lime : DS.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -1211,8 +1201,6 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
           DS={DS} P={P} styles={styles} C={C}
           place={place}
           onSetPlace={() => { setPlaceDraft(place); setPlaceEditor(true); }}
-          mapOpen={viewState === 'map'}
-          onToggleMap={() => setViewState((v) => (v === 'map' ? 'list' : 'map'))}
         />
       </Animated.View>
 
