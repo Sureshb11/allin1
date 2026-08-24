@@ -18,22 +18,33 @@ import { haptic } from './haptics';
 // Clamped, not wrapping. Swiping past the last filter landing back on the first
 // makes it easy to lose track of where you are in a four-item row.
 //
+// A swipe off either END is handed to `onOverflow(dir)` when the caller supplies
+// it, instead of being swallowed. That's what chains the filter row to the
+// SECTION row above it: Matches' All→Live→Upcoming→Completed, one more swipe,
+// and you're on Teams. Callers that don't pass it keep the old dead-end.
+//
 //   const swipe = useFilterSwipe(FILTERS, status, setStatus);
 //   <GestureDetector gesture={swipe}><View style={{flex:1}}>…</View></GestureDetector>
 //
-// @param values  the filter list, in the order it's drawn
-// @param current the selected value
-// @param onChange called with the next value
-export function useFilterSwipe(values, current, onChange) {
+// @param values     the filter list, in the order it's drawn
+// @param current    the selected value
+// @param onChange   called with the next value
+// @param onOverflow optional; called with +1/-1 when a swipe runs off the end
+export function useFilterSwipe(values, current, onChange, onOverflow) {
   const step = useCallback((dir) => {
     if (!Array.isArray(values) || values.length < 2) return;
     const i = values.indexOf(current);
     const from = i < 0 ? 0 : i;
     const next = Math.max(0, Math.min(values.length - 1, from + dir));
-    if (next === from) return;          // already at the end — no tick, no change
+    if (next === from) {
+      // Off the end of this row: let the caller carry the swipe outward to the
+      // next section. Still ticks, because something DID happen.
+      if (onOverflow) { haptic.tick(); onOverflow(dir); }
+      return;
+    }
     haptic.tick();
     onChange(values[next]);
-  }, [values, current, onChange]);
+  }, [values, current, onChange, onOverflow]);
 
   return useMemo(() => Gesture.Pan()
     // Claim a horizontal drag, but only a deliberate one: a filter step is a

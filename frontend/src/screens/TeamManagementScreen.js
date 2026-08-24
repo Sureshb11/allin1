@@ -125,7 +125,7 @@ const Pressable3D = ({ children, style, onPress }) => {
   );
 };
 
-const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const C = useThemedStyles(makeControls);
+const TeamManagementScreen = ({ navigation, inline, onFilterOverflow, entryEdge }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const C = useThemedStyles(makeControls);
   const sportDef = getSport(getSelectedSport().sport?.id);
   const indiv = !!sportDef?.individual;
   const COMP = sportDef?.competitorLabel || 'Team';
@@ -138,7 +138,10 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
 
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
-  const [tab, setTab] = useState('mine');   // mine | opponents | followed
+  // Placed from the edge the section was entered from, so the filter row reads
+  // as a continuation of the one you just swiped off. Read once: the pane is
+  // conditionally rendered, so it remounts on every section change.
+  const [tab, setTab] = useState(entryEdge === 'last' ? TEAM_TABS[TEAM_TABS.length - 1] : TEAM_TABS[0]);
   // Swipe steps My Teams → Opponents → Followed, same as the Matches feed.
   const swipeDir = useRef(1);
   const handleSetTab = (t) => {
@@ -147,7 +150,7 @@ const TeamManagementScreen = ({ navigation, inline }) => {const DS = useTheme().
     swipeDir.current = idx > currIdx ? 1 : -1;
     setTab(t);
   };
-  const teamSwipe = useFilterSwipe(TEAM_TABS, tab, handleSetTab);
+  const teamSwipe = useFilterSwipe(TEAM_TABS, tab, handleSetTab, onFilterOverflow);
   const [categorized, setCategorized] = useState({ mine: [], opponents: [], followed: [] });
   const [followedIds, setFollowedIds] = useState(new Set());
   // ── Create Team ──

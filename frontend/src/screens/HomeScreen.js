@@ -143,8 +143,6 @@ export default function HomeScreen({ navigation }) {
   const contentAnim                           = useRef(new Animated.Value(1)).current;
 
   const cfg = getDashboard(currentSport.id);
-  // Swipe left/right across the feed steps the match filter.
-  const filterSwipe = useFilterSwipe(FILTERS, status, setStatus);
 
   const load = async () => {
     try {
@@ -179,12 +177,43 @@ export default function HomeScreen({ navigation }) {
 
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
+  // Entry edge for the section being shown: 'first' when you arrived going
+  // forward, 'last' when you came back. The panes are conditionally rendered, so
+  // each remount reads this once to place its own filter row — which is what
+  // makes the two rows read as ONE continuous strip.
+  const [entryEdge, setEntryEdge] = useState('first');
+
+  // Cross-fade out, swap, fade back in. contentAnim already existed but was
+  // never animated, so section changes used to pop.
+  const swapSection = useCallback((next, edge) => {
+    setEntryEdge(edge);
+    Animated.timing(contentAnim, { toValue: 0, duration: 110, useNativeDriver: true }).start(() => {
+      setActiveNavTab(next);
+      Animated.timing(contentAnim, { toValue: 1, duration: 170, useNativeDriver: true }).start();
+    });
+  }, [contentAnim]);
+
   const handleNavTab = (i) => {
     const tab = cfg.navTabs[i];
     if (tab.screen === 'more') { setMoreVisible(true); return; }
     if (tab.screen) { navigation.navigate(tab.screen); return; }
-    setActiveNavTab(i);
+    if (i === activeNavTab) return;
+    swapSection(i, i > activeNavTab ? 'first' : 'last');
   };
+
+  // A swipe off either end of a pane's filter row steps the SECTION instead of
+  // dying there. Clamped at both outer edges, same reasoning as the filter row.
+  const stepSection = useCallback((dir) => {
+    const next = Math.max(0, Math.min(cfg.navTabs.length - 1, activeNavTab + dir));
+    if (next === activeNavTab) return;
+    // The matches pane owns its filter (it lives in this screen's state, so it
+    // survives the swap); the child panes place their own on mount.
+    if (next === 0) setStatus(dir > 0 ? FILTERS[0] : FILTERS[FILTERS.length - 1]);
+    swapSection(next, dir > 0 ? 'first' : 'last');
+  }, [activeNavTab, cfg.navTabs.length, swapSection]);
+
+  // Swipe left/right across the feed steps the match filter.
+  const filterSwipe = useFilterSwipe(FILTERS, status, setStatus, stepSection);
 
   const startMatch = async (m) => {
     const t1 = typeof m.team1 === 'object' && m.team1 ? m.team1 : { id: m.team1Id, name: m.team1 };
@@ -409,8 +438,8 @@ export default function HomeScreen({ navigation }) {
           />
           </GestureDetector>
         )}
-        {activeNavTab === 1 && <View style={{ flex: 1 }}><TeamManagementScreen navigation={navigation} inline={true} /></View>}
-        {activeNavTab === 2 && <View style={{ flex: 1 }}><TournamentsScreen navigation={navigation} inline={true} /></View>}
+        {activeNavTab === 1 && <View style={{ flex: 1 }}><TeamManagementScreen navigation={navigation} inline={true} onFilterOverflow={stepSection} entryEdge={entryEdge} /></View>}
+        {activeNavTab === 2 && <View style={{ flex: 1 }}><TournamentsScreen navigation={navigation} inline={true} onFilterOverflow={stepSection} entryEdge={entryEdge} /></View>}
       </Animated.View>
 
       

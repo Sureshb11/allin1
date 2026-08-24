@@ -363,7 +363,7 @@ function TournamentCard({ item, onJoin, onPress, onOpen }) {
 }
 
 /* ── Main Screen ── */
-const TournamentsScreen = ({ navigation, inline }) => {
+const TournamentsScreen = ({ navigation, inline, onFilterOverflow, entryEdge }) => {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const C = useThemedStyles(makeControls);
@@ -373,7 +373,8 @@ const TournamentsScreen = ({ navigation, inline }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState('All');
+  // See TeamManagementScreen: placed from the edge the section was entered from.
+  const [filter, setFilter] = useState(entryEdge === 'last' ? FILTERS[FILTERS.length - 1] : FILTERS[0]);
   const swipeDir = useRef(1);
   const handleSetFilter = (f) => {
     const idx = FILTERS.indexOf(f);
@@ -381,7 +382,7 @@ const TournamentsScreen = ({ navigation, inline }) => {
     swipeDir.current = idx > currIdx ? 1 : -1;
     setFilter(f);
   };
-  const filterSwipe = useFilterSwipe(FILTERS, filter, handleSetFilter);
+  const filterSwipe = useFilterSwipe(FILTERS, filter, handleSetFilter, onFilterOverflow);
   // The featured carousel was removed.
   const scrollY = useRef(new Animated.Value(0)).current;
 

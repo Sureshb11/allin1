@@ -61,6 +61,9 @@ const colorFor = () => '#0a5227';
 // One size for every icon in a post's action row. They were 26 / 24 / 25.
 const ACTION_ICON = 24;
 
+// Age cut-off for the "From Your Circle" rail, in days.
+const RECENT_MATCH_WINDOW_DAYS = 30;
+
 const timeAgo = (iso) => {
   if (!iso) return '';
   const sec = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
@@ -706,11 +709,15 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     legendsApi.getPosts({ sport: sportId }),
     legendsApi.getFeed({ sport: sportId, limit: 12 }),
   ]).then(([mr, pr, fr]) => {
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    // How far back the rail looks. Only a LOWER bound, so scheduled matches in
+    // the future always qualify — the rail is "current, recent and upcoming".
+    // Was 7 days, which emptied the rail after a quiet week even when there was
+    // a live match to show.
+    const since = new Date();
+    since.setDate(since.getDate() - RECENT_MATCH_WINDOW_DAYS);
     const recentMatches = (mr?.data || []).filter(m => {
       if (!m.date && !m.createdAt) return true;
-      return new Date(m.date || m.createdAt) >= oneWeekAgo;
+      return new Date(m.date || m.createdAt) >= since;
     });
     // Only update each slice of state when its server payload actually changed,
     // so a no-op poll (the common case between balls/likes) doesn't re-render
