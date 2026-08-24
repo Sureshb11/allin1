@@ -846,7 +846,7 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
   );
 };
 
-export default function GroundsScreen({ navigation, pagerGesture, inline, onRegisterFab }) {
+export default function GroundsScreen({ navigation, pagerGesture, inline, onRegisterFab, onFilterOverflow }) {
   const user = useCurrentUser();
   const DS = useTheme().colors;
   const P = pav(DS);
@@ -895,6 +895,16 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   const [filterBall, setFilterBall] = useState('');
   const [filterVerified, setFilterVerified] = useState(false);
   
+  // Declared ABOVE handleSetType/filterSwipe, which read it during render. It
+  // used to sit ~25 lines further down: Babel compiles const to var for Hermes,
+  // so instead of a TDZ error `groundTypes` simply arrived as undefined, and
+  // useFilterSwipe bailed on !Array.isArray(values). The filter swipe on this
+  // screen therefore never did anything — invisible while the Pavilion's pager
+  // swallowed the gesture anyway.
+  // The sport being browsed drives the filter chips as well as the query.
+  const browsingSport = getSelectedSport().sport?.id || 'cricket';
+  const groundTypes = groundTypesFor(browsingSport);
+
   const swipeDir = useRef(1);
   const handleSetType = (t) => {
     const idx = groundTypes.indexOf(t);
@@ -902,7 +912,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
     swipeDir.current = idx > currIdx ? 1 : -1;
     setType(t);
   };
-  const filterSwipe = useFilterSwipe(groundTypes, type, handleSetType);
+  const filterSwipe = useFilterSwipe(groundTypes, type, handleSetType, onFilterOverflow);
 
   const [meta, setMeta] = useState({});
   const [favs, setFavs] = useState(new Set());
@@ -925,9 +935,6 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   const [viewState, setViewState] = useState('list'); // 'list' | 'map' | 'form' | 'admin'
   const [adminRequests, setAdminRequests] = useState([]);
   const [adminScope, setAdminScope] = useState('review'); // 'review' | 'all'
-  // The sport being browsed drives the filter chips as well as the query.
-  const browsingSport = getSelectedSport().sport?.id || 'cricket';
-  const groundTypes = groundTypesFor(browsingSport);
   const [submitters, setSubmitters] = useState({});
   const [mapLocation, setMapLocation] = useState(null);
 

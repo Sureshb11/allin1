@@ -118,6 +118,22 @@ export default function PavilionScreen({ navigation, route }) {
     }
   };
 
+  // One horizontal chain runs through the whole Pavilion: a pane's own filter row
+  // first, then the page. Panes WITH a filter row (Rankings, Scout, Grounds) call
+  // stepPage from their useFilterSwipe onOverflow; My Stats has no filter row of
+  // its own — its four ball-types ARE pages — so it gets pageSwipe directly.
+  //
+  // The ScrollView's own scrolling is off: a native pager eats the horizontal
+  // gesture before any child filter row can see it, which is why the inner rows
+  // used to be skipped entirely.
+  const goToIndex = useCallback((idx) => {
+    if (idx < 0 || idx >= PAGES.length || idx === activeIdx) return;
+    handleIndexChange(idx);
+    scrollViewRef.current?.scrollTo({ x: idx * SCREEN_W, animated: true });
+  }, [activeIdx, PAGES.length, handleIndexChange, SCREEN_W]);
+
+  const stepPage = useCallback((dir) => goToIndex(activeIdx + dir), [activeIdx, goToIndex]);
+
   const goToL1 = (label) => {
     const idx = PAGES.findIndex(t => t.label === label);
     if (idx >= 0) {
@@ -138,7 +154,13 @@ export default function PavilionScreen({ navigation, route }) {
     AsyncStorage.getItem(PAVILION_TAB_KEY).then((v) => {
       const n = Number(v);
       if (Number.isInteger(n) && n >= 0 && n < PAGES.length) {
-        // Hydrate position
+        // Restore BOTH halves of the position. This used to move the pager only,
+        // leaving activeIdx at 0: the header then said "My Stats / Overall" while
+        // the pager sat on page n, and page n's slot was outside the lazy-render
+        // window (|idx - activeIdx| <= 1) so it rendered null. That is the blank
+        // Pavilion on first open — and why it fixed itself the moment you changed
+        // tab, since that syncs state and scroll again.
+        setActiveIdx(n);
         setTimeout(() => {
           scrollViewRef.current?.scrollTo({ x: n * SCREEN_W, animated: false });
         }, 100);
@@ -157,6 +179,12 @@ export default function PavilionScreen({ navigation, route }) {
           ref={scrollViewRef}
           horizontal
           pagingEnabled
+          // Native paging stays ON for My Stats, whose four ball-types ARE the
+          // pages — there is no filter row there to feed first. It goes OFF for
+          // Rankings/Scout/Grounds so their own filter rows see the swipe; those
+          // call stepPage from onOverflow once their row is exhausted. scrollTo
+          // still works programmatically either way.
+          scrollEnabled={!!activePage.l2}
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleMomentumScrollEnd}
           scrollEventThrottle={16}
@@ -169,7 +197,7 @@ export default function PavilionScreen({ navigation, route }) {
             return (
               <View key={page.key} style={{ width: SCREEN_W, flex: 1, paddingTop: (page.l2 ? 175 : 130) + insets.top }}>
                 {isVisible ? (
-                  <Comp navigation={navigation} route={route} inline={true} onRegisterFab={registerFab(page.id)} ballTypeOverride={page.l2} />
+                  <Comp navigation={navigation} route={route} inline={true} onRegisterFab={registerFab(page.id)} ballTypeOverride={page.l2} onFilterOverflow={stepPage} />
                 ) : null}
               </View>
             );
