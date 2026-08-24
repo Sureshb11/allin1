@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMe
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, ScrollView, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, RefreshControl, Image } from 'react-native';
 import Reanimated, { useAnimatedRef, useSharedValue, scrollTo, FadeIn, FadeInDown, SlideInRight, SlideInLeft, SlideOutRight, SlideInDown, LinearTransition, useAnimatedStyle, runOnJS, withRepeat, withSequence, withTiming, withDelay, withSpring, interpolateColor } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
@@ -14,7 +14,6 @@ import FilterTabBar from '../components/FilterTabBar';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getRankingBoards, rankValue } from '../sports/careerStats';
-import { getSport } from '../sports';
 import { useCurrentUser } from '../utils/currentUser';
 import { haptic } from '../utils/haptics';
 
@@ -526,18 +525,14 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
   const meUser = useCurrentUser();
   const myId = meUser?.id;
 
-  // Build the ordered list of sports this user has configured.
-  // meUser.sports comes from /users/me → UserSport rows, ordered primary-first.
-  const userSports = useMemo(() => {
-    const raw = meUser?.sports || [];
-    return raw
-      .map((us) => getSport(us.sport || us.sportId || us.id))
-      .filter(Boolean);
-  }, [meUser]);
-
-  const [activeSportId, setActiveSportId] = useState(
-    () => getSelectedSport().sport?.id || 'cricket'
-  );
+  // Rankings follows the app-wide Arena selection, like every other Pavilion
+  // tab. It used to carry its own row of sport chips, which meant two different
+  // controls for one idea — and because opening a sport enrols you in it, that
+  // row filled up with every sport the user had ever looked at. Sport switching
+  // belongs to the Arena picker / the Profile dock's SportSwitcher.
+  //
+  // Read once: switching sport resets the navigator, so this screen remounts.
+  const activeSportId = getSelectedSport().sport?.id || 'cricket';
 
   // Cricket keeps its Runs/Wickets/Economy boards; other sports rank on their
   // own event tallies (goals, cards …) so the tab labels match the sport.
@@ -551,17 +546,6 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
   const [boardId, setBoardId] = useState(activeBoards[0]?.id ?? 'runs');
 
   // When the active sport changes, reset to the first board of the new sport.
-  const handleSportChange = useCallback((newSportId) => {
-    if (newSportId === activeSportId) return;
-    haptic.tick();
-    setActiveSportId(newSportId);
-    const isCricket = newSportId === 'cricket';
-    const newBoards = getRankingBoards(newSportId);
-    const effectiveBoards = isCricket ? PLAYER_BOARDS : newBoards;
-    setBoardId(effectiveBoards[0]?.id ?? 'runs');
-    scrollBoardTo(0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSportId]);
 
   useEffect(() => {
     if (mode) {
@@ -684,16 +668,6 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
     });
     return () => { alive = false; };
   }, [fetchData]));
-
-  // Reload whenever the active sport changes (user taps a different sport chip).
-  const prevSportRef = useRef(activeSportId);
-  useEffect(() => {
-    if (prevSportRef.current === activeSportId) return;
-    prevSportRef.current = activeSportId;
-    lastLoadedAt.current = 0;   // force a reload
-    setLoading(true);
-    fetchData().finally(() => { lastLoadedAt.current = Date.now(); setLoading(false); });
-  }, [activeSportId, fetchData]);
 
   const onRefresh = useCallback(() => {
     haptic.impact();
@@ -872,31 +846,6 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
                 already the first thing on screen, and myRowY is set by the list
                 row's onLayout, which never fires for someone in the top three.
                 Without this the button pointed at y=0 and did nothing. */}
-            {/* Sport switcher — only shown when the user has >1 sport configured.
-                Lives INSIDE Rankings to avoid touching the global app context:
-                switching sport here reloads Rankings data without resetting the
-                entire app's Arena selection. */}
-            {userSports.length > 1 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.sportBar}
-                style={{ marginBottom: 10 }}>
-                {userSports.map((sp) => {
-                  const on = sp.id === activeSportId;
-                  return (
-                    <TouchableOpacity
-                      key={sp.id}
-                      style={[styles.sportChip, on && styles.sportChipActive]}
-                      onPress={() => handleSportChange(sp.id)}
-                      activeOpacity={0.75}>
-                      <Icon name={sp.icon || 'medal'} size={14} color={on ? DS.onLime : DS.textVariant} />
-                      <Text style={[styles.sportChipText, on && styles.sportChipTextActive]}>{sp.name}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
             {myStanding && (() => {
               const onPodium = showPodium && myStanding.standing < 3;
               const Wrap = onPodium ? View : TouchableOpacity;
@@ -1210,17 +1159,6 @@ const makeStyles = (DS) => StyleSheet.create({
   boardMeta: { fontSize: 14, color: '#475569', marginHorizontal: 16, marginBottom: 16 },
 
   // Sport switcher: pill chips inside the Rankings tab header area.
-  sportBar: { paddingHorizontal: 16, gap: 8 },
-  sportChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
-    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint,
-  },
-  sportChipActive: {
-    backgroundColor: DS.lime, borderColor: DS.lime,
-  },
-  sportChipText: { fontSize: 13, fontWeight: '600', color: DS.textVariant },
-  sportChipTextActive: { fontSize: 13, fontWeight: '700', color: DS.onLime },
 
   /* Search */
   // Sits in the control row now (was a standalone full-width band with its own
