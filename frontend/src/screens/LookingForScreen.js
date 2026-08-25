@@ -247,7 +247,7 @@ const buildWhen = (form) => {
   return parts.join(' · ');
 };
 
-export default function LookingForScreen({ navigation, route, inline, onRegisterFab, pagerGesture, role, onFilterOverflow }) {
+export default function LookingForScreen({ navigation, route, inline, onRegisterFab, pagerGesture, role }) {
   const DS = useTheme().colors;
   const P = pav(DS);
   const styles = useThemedStyles(makeStyles);
@@ -357,7 +357,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   // distance and ticks the same way as one on Matches, Teams or Rankings.
   const swipe = useFilterSwipe(FILTER_TYPES, activeType, (t) => {
     stepFilter(FILTER_TYPES.indexOf(t) > FILTER_TYPES.indexOf(activeType) ? 1 : -1);
-  }, onFilterOverflow);
+  }, undefined, !role);
   // Dragging the chip row scrolls the chips and nothing else — otherwise the
   // same drag scrolls the row AND steps the filter under it.
   const filterPanBlocking = useMemo(() => filterPan.blocksExternalGesture(swipe), [filterPan, swipe]);

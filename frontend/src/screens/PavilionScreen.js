@@ -10,7 +10,7 @@ import { makeControls, controlColors } from '../theme/controls';
 import MyPerformanceScreen from './MyPerformanceScreen';
 import StatisticsScreen from './StatisticsScreen';
 import LookingForScreen from './LookingForScreen';
-import GroundsScreen from './GroundsScreen';
+import GroundsScreen, { groundTypesFor } from './GroundsScreen';
 import { useCurrentUser } from '../utils/currentUser';
 import { useTabBarClearance, useDockTranslate } from '../components/AutoHideTabBar';
 import { haptic } from '../utils/haptics';
@@ -19,12 +19,28 @@ import AppHeader from '../components/AppHeader';
 import { getSelectedSport } from '../utils/selectedSport';
 const PAVILION_TAB_KEY = '@ll_pavilion_tab';
 
+// `filterProp` is how a pane receives the filter for its page. Every filter row
+// in the Pavilion is a row of PAGES in the one horizontal pager, so a drag
+// tracks the finger and carries straight on into the next tab — instead of the
+// old discrete "swipe, then the list swaps" step. A pane hides its own filter
+// row (and stands its own gesture down) when it is driven from here.
 const L1_TABS = [
-  { label: 'My Stats', icon: 'chart-line', component: MyPerformanceScreen, id: 'mystats' },
-  { label: 'Rankings', icon: 'podium', component: StatisticsScreen, id: 'rankings' },
-  { label: 'Scout',    icon: 'telescope', component: LookingForScreen, id: 'scout' },
-  { label: 'Grounds',  icon: 'earth', component: GroundsScreen, id: 'grounds' },
+  { label: 'My Stats', icon: 'chart-line', component: MyPerformanceScreen, id: 'mystats', filterProp: 'ballTypeOverride' },
+  { label: 'Rankings', icon: 'podium', component: StatisticsScreen, id: 'rankings', filterProp: 'mode' },
+  { label: 'Scout',    icon: 'telescope', component: LookingForScreen, id: 'scout', filterProp: 'role' },
+  { label: 'Grounds',  icon: 'earth', component: GroundsScreen, id: 'grounds', filterProp: 'typeOverride' },
 ];
+
+// Scout's board categories, in the order its own row drew them.
+const SCOUT_FILTERS = [
+  ['all', 'All'], ['player', 'Player'], ['team', 'Team'], ['opponent', 'Opponent'],
+  ['ground', 'Ground'], ['teamtourn', 'Team for tournament'], ['tournament', 'Tournament'],
+  ['umpire', 'Umpire'], ['scorer', 'Scorer'], ['coach', 'Coach'], ['commentator', 'Commentator'],
+];
+
+const RANKING_FILTERS = [['Players', 'Players'], ['Teams', 'Teams']];
+
+const titleCase = (t) => t.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
 // `label` is no longer drawn — the button is a circular icon now — but it is
 // still the button's ACCESSIBLE NAME. An icon-only control with no label is
@@ -51,12 +67,20 @@ export default function PavilionScreen({ navigation, route }) {
 
   const PAGES = React.useMemo(() => {
     const pages = [];
+    const add = (tab, pairs) => pairs.forEach(([v, label]) =>
+      pages.push({ ...tab, l2: v, l2Label: label, key: `${tab.id}-${v}` }));
     L1_TABS.forEach(tab => {
       if (tab.id === 'mystats' && sportId === 'cricket') {
         pages.push({ ...tab, l2: 'overall', l2Label: 'Overall', key: 'mystats-overall' });
         pages.push({ ...tab, l2: 'leather', l2Label: 'Leather', key: 'mystats-leather' });
         pages.push({ ...tab, l2: 'tennis', l2Label: 'Tennis', key: 'mystats-tennis' });
         pages.push({ ...tab, l2: 'indoor', l2Label: 'Box Cricket', key: 'mystats-indoor' });
+      } else if (tab.id === 'rankings') {
+        add(tab, RANKING_FILTERS);
+      } else if (tab.id === 'scout') {
+        add(tab, SCOUT_FILTERS);
+      } else if (tab.id === 'grounds') {
+        add(tab, groundTypesFor(sportId).map((t) => [t, t === 'All' ? 'Distance' : titleCase(t)]));
       } else {
         pages.push({ ...tab, l2: null, l2Label: null, key: tab.id });
       }
@@ -118,21 +142,14 @@ export default function PavilionScreen({ navigation, route }) {
     }
   };
 
-  // One horizontal chain runs through the whole Pavilion: a pane's own filter row
-  // first, then the page. Panes WITH a filter row (Rankings, Scout, Grounds) call
-  // stepPage from their useFilterSwipe onOverflow; My Stats has no filter row of
-  // its own — its four ball-types ARE pages — so it gets pageSwipe directly.
-  //
-  // The ScrollView's own scrolling is off: a native pager eats the horizontal
-  // gesture before any child filter row can see it, which is why the inner rows
-  // used to be skipped entirely.
+  // Every page — tab AND filter — lives in the one native pager, so one drag
+  // tracks the finger across the whole Pavilion and snaps with real momentum.
   const goToIndex = useCallback((idx) => {
     if (idx < 0 || idx >= PAGES.length || idx === activeIdx) return;
     handleIndexChange(idx);
     scrollViewRef.current?.scrollTo({ x: idx * SCREEN_W, animated: true });
   }, [activeIdx, PAGES.length, handleIndexChange, SCREEN_W]);
 
-  const stepPage = useCallback((dir) => goToIndex(activeIdx + dir), [activeIdx, goToIndex]);
 
   const goToL1 = (label) => {
     const idx = PAGES.findIndex(t => t.label === label);
@@ -179,12 +196,6 @@ export default function PavilionScreen({ navigation, route }) {
           ref={scrollViewRef}
           horizontal
           pagingEnabled
-          // Native paging stays ON for My Stats, whose four ball-types ARE the
-          // pages — there is no filter row there to feed first. It goes OFF for
-          // Rankings/Scout/Grounds so their own filter rows see the swipe; those
-          // call stepPage from onOverflow once their row is exhausted. scrollTo
-          // still works programmatically either way.
-          scrollEnabled={!!activePage.l2}
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleMomentumScrollEnd}
           scrollEventThrottle={16}
@@ -197,7 +208,8 @@ export default function PavilionScreen({ navigation, route }) {
             return (
               <View key={page.key} style={{ width: SCREEN_W, flex: 1, paddingTop: (page.l2 ? 175 : 130) + insets.top }}>
                 {isVisible ? (
-                  <Comp navigation={navigation} route={route} inline={true} onRegisterFab={registerFab(page.id)} ballTypeOverride={page.l2} onFilterOverflow={stepPage} />
+                  <Comp navigation={navigation} route={route} inline={true} onRegisterFab={registerFab(page.id)}
+                        {...(page.filterProp && page.l2 ? { [page.filterProp]: page.l2 } : {})} />
                 ) : null}
               </View>
             );

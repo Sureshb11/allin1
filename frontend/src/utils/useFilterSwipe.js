@@ -30,7 +30,11 @@ import { haptic } from './haptics';
 // @param current    the selected value
 // @param onChange   called with the next value
 // @param onOverflow optional; called with +1/-1 when a swipe runs off the end
-export function useFilterSwipe(values, current, onChange, onOverflow) {
+// @param enabled  false hands the gesture to whatever is above this view. Panes
+//                  inside the Pavilion pager pass false: there each filter is a
+//                  PAGE, so the pager owns the drag and a competing Pan here
+//                  would swallow it.
+export function useFilterSwipe(values, current, onChange, onOverflow, enabled = true) {
   const step = useCallback((dir) => {
     if (!Array.isArray(values) || values.length < 2) return;
     const i = values.indexOf(current);
@@ -47,6 +51,7 @@ export function useFilterSwipe(values, current, onChange, onOverflow) {
   }, [values, current, onChange, onOverflow]);
 
   return useMemo(() => Gesture.Pan()
+    .enabled(enabled !== false)
     // Claim a horizontal drag, but only a deliberate one: a filter step is a
     // bigger commitment than a page flick, and these screens are vertical lists
     // whose scrolling must stay untouched.
@@ -59,7 +64,7 @@ export function useFilterSwipe(values, current, onChange, onOverflow) {
       if (!far && !fast) return;        // a stray drag shouldn't move the filter
       // Swipe left = forward through the row, the direction the content moves.
       runOnJS(step)(e.translationX < 0 ? 1 : -1);
-    }), [step]);
+    }), [step, enabled]);
 }
 
 export default useFilterSwipe;

@@ -87,9 +87,9 @@ function GroundSkeleton({ DS }) {
 
 // 'All' plus the types the CURRENT sport has. Was a fixed cricket list, so a
 // badminton player filtered grounds by "Box Cricket" and "Nets".
-const groundTypesFor = (sportId) => ['All', ...getGroundConfig(sportId).types.map((t) => t.key)];
+export const groundTypesFor = (sportId) => ['All', ...getGroundConfig(sportId).types.map((t) => t.key)];
 
-const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, place, onSetPlace, groundTypes }) => {
+const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGesture, DS, P, styles, C, place, onSetPlace, groundTypes, showTypeRow = true }) => {
   const filterScroll = useAnimatedRef();
   const filterOffset = useSharedValue(0);
   const filterStart = useSharedValue(0);
@@ -154,6 +154,7 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
       </View>
 
       {/* Filter Tabs */}
+      {showTypeRow && (
       <GestureDetector gesture={filterPan}>
         <Reanimated.ScrollView
           ref={filterScroll}
@@ -193,6 +194,7 @@ const FilterBar = ({ query, setQuery, activeType, setActiveType, counts, pagerGe
           })}
         </Reanimated.ScrollView>
       </GestureDetector>
+      )}
     </View>
   );
 };
@@ -836,7 +838,7 @@ const AddGroundForm = ({ onSubmit, onCancel, initialLocation, DS }) => {
   );
 };
 
-export default function GroundsScreen({ navigation, pagerGesture, inline, onRegisterFab, onFilterOverflow }) {
+export default function GroundsScreen({ navigation, pagerGesture, inline, onRegisterFab, typeOverride }) {
   const user = useCurrentUser();
   const DS = useTheme().colors;
   const P = pav(DS);
@@ -847,7 +849,11 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
-  const [type, setType] = useState('All');
+  // When the Pavilion drives this pane, each ground type is a PAGE in its pager:
+  // the prop is the source of truth, the local chip row is hidden, and the local
+  // swipe stands down so the pager owns the drag.
+  const [ownType, setOwnType] = useState('All');
+  const type = typeOverride || ownType;
   // Where the viewer says they are — city first, then district or state, which
   // is what Edit Profile collects. Read once; it changes about never.
   const [place, setPlace] = useState('');
@@ -900,9 +906,9 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
     const idx = groundTypes.indexOf(t);
     const currIdx = groundTypes.indexOf(type);
     swipeDir.current = idx > currIdx ? 1 : -1;
-    setType(t);
+    setOwnType(t);
   };
-  const filterSwipe = useFilterSwipe(groundTypes, type, handleSetType, onFilterOverflow);
+  const filterSwipe = useFilterSwipe(groundTypes, type, handleSetType, undefined, !typeOverride);
 
   const [meta, setMeta] = useState({});
   const [favs, setFavs] = useState(new Set());
@@ -1194,7 +1200,7 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
 
         <FilterBar 
           query={query} setQuery={setQuery} 
-          activeType={type} setActiveType={handleSetType} 
+          activeType={type} setActiveType={handleSetType} showTypeRow={!typeOverride} 
           counts={meta.typeCounts} 
           groundTypes={groundTypes}
           pagerGesture={pagerGesture}

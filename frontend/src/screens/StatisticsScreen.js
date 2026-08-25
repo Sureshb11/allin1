@@ -514,7 +514,7 @@ function RankRow({ item, rank, board, cols, isMe, isTeam, onPress, onDoubleTapSt
   );
 }
 
-export default function StatisticsScreen({ navigation, inline, pagerGesture, mode, onFilterOverflow }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
+export default function StatisticsScreen({ navigation, inline, pagerGesture, mode }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const hideTabBar = useHideTabBarOnScroll();const tabClear = useTabBarClearance();
   const [internalTab, setInternalTab] = useState('Players');
   const tab = mode || internalTab;
 
@@ -778,18 +778,11 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
   // path — its own thresholds, unlike the four screens that step a filter with
   // useFilterSwipe. Same hook now, so a swipe feels the same wherever you are.
   const boardIds = useMemo(() => boards.map((b) => b.id), [boards]);
-  // Three levels, innermost first: boards → Players/Teams → Pavilion page.
-  // Running off the last board flips the mode (and lands on that mode's first
-  // board); running off the end of the LAST mode leaves the screen entirely.
-  const MODES = ['Players', 'Teams'];
+  // Driven by the Pavilion pager (`mode` prop): Players and Teams are PAGES
+  // there, so the boards row stays a tap control and hands the drag upward.
   const swipe = useFilterSwipe(boardIds, boardId, (id) => {
     stepBoard(boardIds.indexOf(id) > boardIds.indexOf(boardId) ? 1 : -1);
-  }, (dir) => {
-    // `mode` as a prop means the parent owns the segment — don't fight it.
-    const next = MODES.indexOf(tab) + dir;
-    if (!mode && next >= 0 && next < MODES.length) handleTabChange(MODES[next]);
-    else onFilterOverflow?.(dir);
-  });
+  }, undefined, !mode);
   // Dragging the chip row scrolls the chips and nothing else. Without this the
   // same drag also steps the board underneath it — the row would scroll AND the
   // leaderboard would change.
