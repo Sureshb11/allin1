@@ -24,6 +24,7 @@ import {
   useDrawerSheet, DRAWER_BACKDROP, FOOTER_CLEARANCE,
 } from '../components/create';
 import CoverFocusPicker from '../components/CoverFocusPicker';
+import { getTournamentConfig, CATEGORIES } from '../sports/tournament';
 
 // Create Tournament.
 //
@@ -42,52 +43,12 @@ import CoverFocusPicker from '../components/CoverFocusPicker';
 
 const DRAFT_KEY = 'draft:createTournament';
 
-const CATEGORIES = [
-  { value: 'League', label: 'League', icon: 'format-list-numbered' },
-  { value: 'Knockout', label: 'Knockout', icon: 'tournament' },
-  { value: 'League + Knockout', label: 'League + KO', icon: 'sitemap-outline' },
-  { value: 'Round Robin', label: 'Round Robin', icon: 'rotate-360' },
-  { value: 'Double Elimination', label: 'Double Elim.', icon: 'call-split' },
-  { value: 'Custom', label: 'Custom', icon: 'tune-variant' },
-];
-
-const BALL_TYPES = [
-  { value: 'Leather', label: 'Leather Ball', icon: 'cricket' },
-  { value: 'Tennis', label: 'Tennis Ball', icon: 'tennis-ball' },
-  { value: 'Box', label: 'Box Cricket', icon: 'home-variant-outline' },
-  { value: 'Soft', label: 'Soft Ball', icon: 'circle-outline' },
-];
-
-// Overs follow the format, so picking T10 doesn't leave 20 sitting in the box.
-// Custom is the only one that hands the field back to you.
-const FORMAT_OVERS = { T5: 5, T6: 6, T8: 8, T10: 10, T15: 15, T20: 20, ODI: 50, Test: 90 };
-const FORMATS = ['T5', 'T6', 'T8', 'T10', 'T15', 'T20', 'ODI', 'Test', 'Custom'];
-
 const REG_TYPES = [
   { value: 'open', label: 'Open', icon: 'door-open' },
   { value: 'invite', label: 'Invite Only', icon: 'email-lock' },
   { value: 'approval', label: 'Approval', icon: 'shield-check-outline' },
 ];
 
-const MATCH_RULES = [
-  { key: 'wide', label: 'Wide ball', desc: 'A wide costs a run and is re-bowled' },
-  { key: 'noBall', label: 'No ball', desc: 'A no ball costs a run and is re-bowled' },
-  { key: 'freeHit', label: 'Free hit', desc: 'Next delivery after a no ball — bowled/caught can’t get you out' },
-  { key: 'legBye', label: 'Leg byes', desc: 'Runs off the body count to the team' },
-  { key: 'bye', label: 'Byes', desc: 'Runs past the keeper count to the team' },
-  { key: 'dls', label: 'DLS', desc: 'Rain-revised targets' },
-  { key: 'superOver', label: 'Super over', desc: 'A tie is decided, not shared' },
-  { key: 'powerplay', label: 'Powerplay', desc: 'Fielding restrictions for the opening overs' },
-  { key: 'penaltyRuns', label: 'Penalty runs', desc: 'Umpires can award 5 for an infraction' },
-];
-
-const TIE_BREAKS = [
-  { value: 'points', label: 'Points' },
-  { value: 'nrr', label: 'Net Run Rate' },
-  { value: 'h2h', label: 'Head-to-Head' },
-  { value: 'wins', label: 'Wins' },
-  { value: 'boundaries', label: 'Boundary Count' },
-];
 
 const STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh', 'Chhattisgarh', 'Delhi', 'Goa',
@@ -126,10 +87,27 @@ const deviceZone = () => {
 // too — this is the version that stops you typing 8 in a T20 in the first place.
 const bowlerQuota = (overs) => (overs > 0 ? Math.ceil(Number(overs) / 5) : null);
 
-const blank = () => ({
+// Defaults come from the sport's own config: its first format, that format's
+// duration, its governing body's points, and every one of its rules on. The
+// cricket literals that used to sit here (T20 / 20 overs / leather ball / a
+// 4-over bowler quota) were shown when creating a football or judo tournament.
+const defaultRules = (cfg) => {
+  const on = {};
+  for (const r of cfg.rules) on[r.key] = true;
+  // Cricket's two numeric rules aren't toggles, and only cricket has them.
+  return { ...on, powerplayOvers: 6, maxOversPerBowler: 4 };
+};
+
+const blank = (cfg = getTournamentConfig('cricket')) => ({
   name: '', shortName: '', description: '', logoUrl: '', banner: '',
   organizer: '', contact: { phone: '', email: '', website: '', whatsapp: '' },
-  category: 'League', ballType: 'Leather', format: 'T20', overs: 20,
+  category: 'League',
+  ballType: cfg.variant ? cfg.variant.options[0].value : null,
+  format: cfg.formats[0],
+  // The Int column is called `overs`; for every other sport it holds that
+  // format's own unit — minutes, sets, games, rounds — and cfg.duration.label
+  // is what names it on screen.
+  overs: cfg.formatDuration[cfg.formats[0]] ?? 20,
   venue: '', city: '', location: { ground: '', address: '', state: '', country: 'India' },
   startDate: null, endDate: null,
   regWindow: { opensAt: null, closesAt: null, startTime: null, timeZone: deviceZone() },
@@ -138,12 +116,12 @@ const blank = () => ({
     minTeams: 4, minPlayers: 11, maxPlayers: 16, playingXi: 11, substitutes: 4,
     entryFee: '', currency: 'INR', type: 'approval',
   },
-  rules: {
-    wide: true, noBall: true, freeHit: true, legBye: true, bye: true,
-    dls: false, superOver: true, powerplay: true, penaltyRuns: true,
-    powerplayOvers: 6, maxOversPerBowler: 4,
+  rules: defaultRules(cfg),
+  pointsRules: {
+    ...cfg.points,
+    bonus: !!cfg.points.bonus,
+    tieBreak: cfg.tieBreaks.map((t) => t.value),
   },
-  pointsRules: { win: 2, tie: 1, noResult: 1, loss: 0, bonus: false, tieBreak: TIE_BREAKS.map((t) => t.value) },
   prizes: { winner: '', runnerUp: '', semiFinal: '' },
   flags: { visibility: 'public', liveScore: true, teamRegistration: true, spectators: true },
   // Centre is what plain `cover` already does, so an untouched cover looks
@@ -161,8 +139,8 @@ const timeToIso = (hhmm) => {
   const d = new Date(); d.setHours(h, m || 0, 0, 0);
   return d.toISOString();
 };
-const fromTournament = (t) => {
-  const b = blank();
+const fromTournament = (t, cfg) => {
+  const b = blank(cfg);
   return {
     ...b,
     name: t.name || '', shortName: t.shortName || '', description: t.description || '',
@@ -233,7 +211,13 @@ export default function TournamentScreen({ navigation, route }) {
   const wide = width >= 640;               // tablet / landscape: two columns
 
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState(blank);
+  // The tournament is for the sport the Arena is on, and every list, label and
+  // default below comes from that sport's entry.
+  const sportId = getSelectedSport().sport?.id || 'cricket';
+  const cfg = getTournamentConfig(sportId);
+  const isCricket = sportId === 'cricket';
+
+  const [form, setForm] = useState(() => blank(cfg));
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [busy, setBusy] = useState(null);
@@ -269,7 +253,7 @@ export default function TournamentScreen({ navigation, route }) {
         const res = await legendsApi.getTournament(editingId);
         setLoading(false);
         if (!res.success) return showToast(res.error || 'Could not load that tournament', 'error');
-        setForm(fromTournament(res.data));
+        setForm(fromTournament(res.data, cfg));
         return;
       }
       const [me, saved] = await Promise.all([
@@ -284,7 +268,7 @@ export default function TournamentScreen({ navigation, route }) {
             `“${draft.form?.name || 'Untitled'}” was saved as a draft. Pick up where you left off?`,
             [
               { text: 'Start fresh', style: 'destructive', onPress: () => AsyncStorage.removeItem(DRAFT_KEY) },
-              { text: 'Continue', onPress: () => { setForm({ ...blank(), ...draft.form }); setStep(draft.step || 0); } },
+              { text: 'Continue', onPress: () => { setForm({ ...blank(cfg), ...draft.form }); setStep(draft.step || 0); } },
             ],
           );
         } catch (e) { /* a corrupt draft is not worth a dialog */ }
@@ -310,7 +294,7 @@ export default function TournamentScreen({ navigation, route }) {
   const mark = (k) => setTouched((t) => ({ ...t, [k]: true }));
 
   const pickFormat = (f) => {
-    const overs = FORMAT_OVERS[f];
+    const overs = cfg.formatDuration[f];
     dirty.current = true;
     setForm((prev) => ({
       ...prev,
@@ -318,7 +302,7 @@ export default function TournamentScreen({ navigation, route }) {
       overs: overs ?? prev.overs,
       // The bowler quota only follows the format while it still matches ICC —
       // an organiser who has deliberately set 3 in a T20 keeps their 3.
-      rules: { ...prev.rules, maxOversPerBowler: overs ? bowlerQuota(overs) : prev.rules.maxOversPerBowler },
+      rules: { ...prev.rules, maxOversPerBowler: (isCricket && overs) ? bowlerQuota(overs) : prev.rules.maxOversPerBowler },
     }));
   };
 
@@ -336,7 +320,7 @@ export default function TournamentScreen({ navigation, route }) {
   const validate = useMemo(() => (which) => {
     const e = {};
     const r = form.registration;
-    const q = bowlerQuota(form.overs);
+    const q = isCricket ? bowlerQuota(form.overs) : null;
 
     if (which === 0 || which == null) {
       if (!form.name.trim()) e.name = 'A tournament needs a name';
@@ -350,10 +334,10 @@ export default function TournamentScreen({ navigation, route }) {
     }
     if (which === 1 || which == null) {
       if (!form.category) e.category = 'Pick a structure';
-      if (!form.ballType) e.ballType = 'Pick a ball';
+      if (cfg.variant && !form.ballType) e.ballType = `Pick a ${cfg.variant.label.toLowerCase()}`;
       if (!form.format) e.format = 'Pick a format';
-      if (!form.overs || Number(form.overs) < 1) e.overs = 'Overs per innings is required';
-      else if (Number(form.overs) > 200) e.overs = 'That is not a cricket match';
+      if (!form.overs || Number(form.overs) < 1) e.overs = `${cfg.duration.label} is required`;
+      else if (Number(form.overs) > cfg.duration.max) e.overs = cfg.duration.invalid;
       if (!form.venue.trim()) e.venue = 'Where is it being played?';
       if (!form.location.ground.trim()) e.ground = 'Which ground?';
       if (!form.city.trim()) e.city = 'City is required';
@@ -384,10 +368,12 @@ export default function TournamentScreen({ navigation, route }) {
       if (r.entryFee !== '' && Number(r.entryFee) < 0) e.entryFee = 'An entry fee cannot be negative';
     }
     if (which === 3 || which == null) {
-      if (q && form.rules.maxOversPerBowler > q)
-        e.maxOversPerBowler = `ICC allows a fifth of the innings — ${q} over${q === 1 ? '' : 's'} at ${form.overs}`;
-      if (form.rules.powerplay && form.rules.powerplayOvers > Number(form.overs))
-        e.powerplayOvers = 'Longer than the innings';
+      if (isCricket) {
+        if (q && form.rules.maxOversPerBowler > q)
+          e.maxOversPerBowler = `ICC allows a fifth of the innings — ${q} over${q === 1 ? '' : 's'} at ${form.overs}`;
+        if (form.rules.powerplay && form.rules.powerplayOvers > Number(form.overs))
+          e.powerplayOvers = 'Longer than the innings';
+      }
     }
     return e;
   }, [form]);
@@ -532,7 +518,7 @@ export default function TournamentScreen({ navigation, route }) {
   };
 
   /* ── steps ──────────────────────────────────────────────────────────────── */
-  const quota = bowlerQuota(form.overs);
+  const quota = isCricket ? bowlerQuota(form.overs) : null;
   const sign = CURRENCY_SIGN[form.registration.currency] || '';
 
   const stepAbout = (
@@ -620,14 +606,16 @@ export default function TournamentScreen({ navigation, route }) {
           {err('category') && <Text style={{ color: '#ff4444', fontSize: 12, marginTop: 6, marginLeft: 4 }}>{err('category')}</Text>}
         </View>
 
-        <ChoiceField label="Cricket type" required options={BALL_TYPES} value={form.ballType}
-                     onChange={(v) => { set({ ballType: v }); clearErr('ballType'); }} error={err('ballType')} />
-        <ChoiceField label="Match format" required options={FORMATS} value={form.format}
+        {!!cfg.variant && (
+          <ChoiceField label={cfg.variant.label} required options={cfg.variant.options} value={form.ballType}
+                       onChange={(v) => { set({ ballType: v }); clearErr('ballType'); }} error={err('ballType')} />
+        )}
+        <ChoiceField label="Match format" required options={cfg.formats} value={form.format}
                      onChange={pickFormat} error={err('format')} />
-        <Stepper label="Overs per innings" required value={form.overs} min={1} max={200}
+        <Stepper label={cfg.duration.label} required value={form.overs} min={1} max={cfg.duration.max}
                  onChange={(v) => {
                    dirty.current = true;
-                   setForm((f) => ({ ...f, overs: v, format: FORMAT_OVERS[f.format] === v ? f.format : 'Custom' }));
+                   setForm((f) => ({ ...f, overs: v, format: cfg.formatDuration[f.format] === v ? f.format : 'Custom' }));
                    clearErr('overs');
                  }}
                  error={err('overs')}
@@ -727,21 +715,27 @@ export default function TournamentScreen({ navigation, route }) {
   const stepRules = (
     <>
       <SectionCard title="Match rules" subtitle="What the scorer can record" icon="gavel">
-        {MATCH_RULES.map((r, i) => (
+        {cfg.rules.map((r, i) => (
           <ToggleRow key={r.key} label={r.label} description={r.desc} value={form.rules[r.key]}
-                     last={i === MATCH_RULES.length - 1}
+                     last={i === cfg.rules.length - 1}
                      onChange={(v) => setIn('rules', { [r.key]: v })} />
         ))}
-        <View style={{ height: 14 }} />
-        <Row wide={wide}>
-          <Stepper label="Powerplay overs" value={form.rules.powerplayOvers} min={0} max={Number(form.overs) || 50}
-                   onChange={(v) => { setIn('rules', { powerplayOvers: v }); clearErr('powerplayOvers'); }}
-                   error={err('powerplayOvers')} />
-          <Stepper label="Max overs per bowler" value={form.rules.maxOversPerBowler} min={1} max={Number(form.overs) || 50}
-                   onChange={(v) => { setIn('rules', { maxOversPerBowler: v }); clearErr('maxOversPerBowler'); }}
-                   error={err('maxOversPerBowler')}
-                   hint={quota ? `ICC limit at ${form.overs} overs: ${quota}` : undefined} />
-        </Row>
+        {/* Powerplay and the bowler quota are cricket's, and only cricket's —
+            they were on screen for football and judo too. */}
+        {isCricket && (
+          <>
+            <View style={{ height: 14 }} />
+            <Row wide={wide}>
+              <Stepper label="Powerplay overs" value={form.rules.powerplayOvers} min={0} max={Number(form.overs) || 50}
+                       onChange={(v) => { setIn('rules', { powerplayOvers: v }); clearErr('powerplayOvers'); }}
+                       error={err('powerplayOvers')} />
+              <Stepper label="Max overs per bowler" value={form.rules.maxOversPerBowler} min={1} max={Number(form.overs) || 50}
+                       onChange={(v) => { setIn('rules', { maxOversPerBowler: v }); clearErr('maxOversPerBowler'); }}
+                       error={err('maxOversPerBowler')}
+                       hint={quota ? `ICC limit at ${form.overs} overs: ${quota}` : undefined} />
+            </Row>
+          </>
+        )}
       </SectionCard>
 
       <SectionCard title="Points system" subtitle="How the table is built" icon="format-list-numbered">
@@ -759,7 +753,7 @@ export default function TournamentScreen({ navigation, route }) {
         <View style={{ height: 14 }} />
         <ReorderList
           label="Tie-break priority"
-          items={TIE_BREAKS.filter((t) => form.pointsRules.tieBreak.includes(t.value))
+          items={cfg.tieBreaks.filter((t) => form.pointsRules.tieBreak.includes(t.value))
             .sort((a, b) => form.pointsRules.tieBreak.indexOf(a.value) - form.pointsRules.tieBreak.indexOf(b.value))}
           onChange={(items) => setIn('pointsRules', { tieBreak: items.map((i) => i.value) })}
           hint="Applied in order until the tie is broken" />
@@ -776,7 +770,7 @@ export default function TournamentScreen({ navigation, route }) {
     ] },
     { step: 1, title: 'Format & venue', rows: [
       ['Category', form.category],
-      ['Ball', (BALL_TYPES.find((b) => b.value === form.ballType) || {}).label || form.ballType],
+      ...(cfg.variant ? [[cfg.variant.label, (cfg.variant.options.find((b) => b.value === form.ballType) || {}).label || form.ballType]] : []),
       ['Format', `${form.format} · ${form.overs} overs`],
       ['Venue', [form.location.ground, form.venue].filter(Boolean).join(', ') || '—'],
       ['City', [form.city, form.location.state].filter(Boolean).join(', ') || '—'],
@@ -790,11 +784,11 @@ export default function TournamentScreen({ navigation, route }) {
       ['Joining', (REG_TYPES.find((t) => t.value === form.registration.type) || {}).label],
     ] },
     { step: 3, title: 'Rules & points', rows: [
-      ['Enabled', MATCH_RULES.filter((r) => form.rules[r.key]).length + ' of ' + MATCH_RULES.length + ' rules'],
+      ['Enabled', cfg.rules.filter((r) => form.rules[r.key]).length + ' of ' + cfg.rules.length + ' rules'],
       ['Powerplay', form.rules.powerplay ? `${form.rules.powerplayOvers} overs` : 'off'],
       ['Bowler quota', `${form.rules.maxOversPerBowler} overs`],
       ['Points', `${form.pointsRules.win} / ${form.pointsRules.tie} / ${form.pointsRules.noResult} / ${form.pointsRules.loss}`],
-      ['First tie-break', (TIE_BREAKS.find((t) => t.value === form.pointsRules.tieBreak[1]) || {}).label || '—'],
+      ['First tie-break', (cfg.tieBreaks.find((t) => t.value === form.pointsRules.tieBreak[1]) || {}).label || '—'],
     ] },
   ];
 
