@@ -95,6 +95,7 @@ export const mapPost = (po) => ({
   likedBy: null,
   likes: po.likes || 0,
   liked: !!po.liked,   // authoritative per-user state from the server (persists across app restarts)
+  saved: !!po.saved,   // same: annotated per-caller by GET /posts
   comments: [],
   commentCount: po.commentCount || 0,
 });
@@ -427,10 +428,9 @@ function PostMedia({ kind, media }) {const DS = useTheme().colors;const c = useT
     </View>);
 }
 
-export function PostCard({ post, onLike, onShare, onComment }) {const DS = useTheme().colors;const p = useThemedStyles(makeP);
+export function PostCard({ post, onLike, onShare, onComment, onSave }) {const DS = useTheme().colors;const p = useThemedStyles(makeP);
   const popRef = useRef(new Animated.Value(1)).current;
   const heartOverlay = useRef(new Animated.Value(0)).current;
-  const [saved, setSaved] = useState(false);
   const lastTap = useRef(0);
 
   const handleLike = () => {
@@ -457,10 +457,13 @@ export function PostCard({ post, onLike, onShare, onComment }) {const DS = useTh
     lastTap.current = now;
   };
 
+  // The bookmark used to be a useState(false) with a toast: it flipped the icon,
+  // said "Saved", persisted nothing and reset on the next remount. It is now the
+  // server's answer, carried on the post and toggled by the owner of the list.
+  const saved = !!post.saved;
   const toggleSave = () => {
     haptic.tick();
-    setSaved((v) => !v);
-    showToast(saved ? 'Removed from saved' : 'Saved', 'success', 1400);
+    onSave?.(post);
   };
 
   const openMenu = () => {
@@ -770,6 +773,18 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     }
   }, []);
 
+  // Bookmark from the feed. Optimistic like the heart, then reconciled — the
+  // server is the source of truth for whether the row exists.
+  const toggleSave = useCallback(async (post) => {
+    haptic.tick();
+    setPosts((prev) => prev.map((po) => (po.id === post.id ? { ...po, saved: !po.saved } : po)));
+    const res = await legendsApi.toggleSavePost(post.id);
+    if (res.success) {
+      setPosts((prev) => prev.map((po) => (po.id === post.id ? { ...po, saved: res.saved } : po)));
+      showToast(res.saved ? 'Saved to your profile' : 'Removed from saved', 'success');
+    }
+  }, []);
+
   const loadComments = useCallback(async (postId) => {
     const res = await legendsApi.getComments(postId);
     if (res.success) {
@@ -1022,7 +1037,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
         keyExtractor={(it) => it.id}
         ListHeaderComponent={renderHeader}
         renderItem={({ item }) =>
-        <PostCard post={item} onLike={toggleLike} onShare={sharePost} onComment={openComments} />
+        <PostCard post={item} onLike={toggleLike} onShare={sharePost} onComment={openComments} onSave={toggleSave} />
         }
         ListEmptyComponent={!loading ?
           <View style={s.feedEmpty}>

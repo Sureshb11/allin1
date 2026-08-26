@@ -321,6 +321,28 @@ class LegendsApi {
     }
   }
 
+  // Bookmark toggle → { saved }. Idempotent: the server flips whichever way the
+  // row currently is, so a double-tap can't desync the icon from the data.
+  async toggleSavePost(id) {
+    try {
+      const json = await this.request(`/posts/${id}/save`, { method: 'POST' });
+      return { success: true, saved: !!json.saved };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Saved posts for one sport, newest save first. Same FLAT shape as getPosts,
+  // so callers must run it through mapPost before handing it to <PostCard>.
+  async getSavedPosts(sport) {
+    try {
+      const json = await this.request('/posts/saved' + this._sportQs(sport));
+      return { success: true, data: json.posts || [] };
+    } catch (error) {
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
   async createPost({ sport = 'cricket', text, team, mediaUrl, mediaType, postType, matchId, tournamentId, playerId }) {
     try {
       const json = await this.request('/posts', { 

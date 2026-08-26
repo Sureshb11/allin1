@@ -59,6 +59,7 @@ import TournamentDetailScreen from '../screens/TournamentDetailScreen';
 import MatchInsightsScreen from '../screens/MatchInsightsScreen';
 import PlaceholderScreen from '../screens/PlaceholderScreen';
 import PavilionScreen from '../screens/PavilionScreen';
+import SavedPostsScreen from '../screens/SavedPostsScreen';
 import GroundDetailScreen from '../screens/GroundDetailScreen';
 
 const Tab = createBottomTabNavigator();
@@ -434,6 +435,8 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
     <Stack.Screen name="VideoStreaming" component={PlaceholderScreen} initialParams={{title: 'Video Streaming'}} />
     <Stack.Screen name="BadgeLeaderboardFilter" component={PlaceholderScreen} initialParams={{title: 'Badge Leaderboard'}} />
     <Stack.Screen name="Pavilion" component={PavilionScreen} options={{ headerShown: false }} />
+    {/* Opened from Profile. Draws its own header, like the rest of this stack. */}
+    <Stack.Screen name="SavedPosts" component={SavedPostsScreen} options={{ headerShown: false }} />
   </Stack.Navigator>
   );
 };

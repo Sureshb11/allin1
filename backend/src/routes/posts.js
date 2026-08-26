@@ -6,6 +6,10 @@ import { getSportParticipantType } from '../lib/sports.js';
 
 const router = Router();
 
+// Saves live in the polymorphic `Like` table under their own targetType — see
+// the note on POST /:id/save.
+const SAVE_TYPE = 'post_save';
+
 // GET /posts?sport=cricket — community feed posts for a sport (+ comment counts)
 router.get('/', optionalAuth, async (req, res) => {
   const { sport } = req.query;
@@ -24,7 +28,56 @@ router.get('/', optionalAuth, async (req, res) => {
     });
     likedSet = new Set(likes.map((l) => l.targetId));
   }
-  const posts = rows.map(({ _count, ...p }) => ({ ...p, commentCount: _count.comments, liked: likedSet.has(p.id) }));
+  // Same one-query trick for "have I saved this", so the bookmark shows
+  // correctly on reopen rather than only for the session that tapped it.
+  let savedSet = new Set();
+  if (req.user && rows.length) {
+    const saves = await prisma.like.findMany({
+      where: { userId: req.user.sub, targetType: SAVE_TYPE, targetId: { in: rows.map((p) => p.id) } },
+      select: { targetId: true },
+    });
+    savedSet = new Set(saves.map((l) => l.targetId));
+  }
+  const posts = rows.map(({ _count, ...p }) => ({
+    ...p, commentCount: _count.comments, liked: likedSet.has(p.id), saved: savedSet.has(p.id),
+  }));
+  res.json({ posts });
+});
+
+// GET /posts/saved?sport=cricket — the caller's saved posts, newest save first.
+// Declared before any '/:id' route so "saved" is never read as an id.
+//
+// Sport-scoped like every other post query: a save is filtered by the post's
+// own sport, so switching Arena shows that sport's saved posts rather than one
+// undivided pile. Omitting ?sport returns every sport.
+router.get('/saved', authMiddleware, async (req, res) => {
+  const { sport } = req.query;
+  const saves = await prisma.like.findMany({
+    where: { userId: req.user.sub, targetType: SAVE_TYPE },
+    orderBy: { createdAt: 'desc' },
+    select: { targetId: true },
+  });
+  const ids = saves.map((s) => s.targetId);
+  if (!ids.length) return res.json({ posts: [] });
+
+  const rows = await prisma.post.findMany({
+    where: { id: { in: ids }, ...(sport ? { sport: String(sport) } : {}) },
+    include: { _count: { select: { comments: true } } },
+  });
+  // findMany can't preserve the id order, so restore "newest save first" here.
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const liked = await prisma.like.findMany({
+    where: { userId: req.user.sub, targetType: 'post', targetId: { in: ids } },
+    select: { targetId: true },
+  });
+  const likedSet2 = new Set(liked.map((l) => l.targetId));
+
+  const posts = ids
+    .map((id) => byId.get(id))
+    .filter(Boolean)
+    .map(({ _count, ...p }) => ({
+      ...p, commentCount: _count.comments, liked: likedSet2.has(p.id), saved: true,
+    }));
   res.json({ posts });
 });
 
@@ -141,6 +194,33 @@ router.post('/', async (req, res) => {
 
 // POST /posts/:id/like — idempotent toggle (like/unlike), persisted per user so the
 // heart is still correct after the app is closed and reopened.
+// POST /posts/:id/save — idempotent bookmark toggle → { saved }.
+//
+// Stored in `Like`, which is polymorphic (userId + targetType + targetId, unique
+// together) and already carries 'feed' and 'post'. A save is the same shape as a
+// like, so this needs no new table and therefore no migration against the live
+// database. Every query that counts likes filters on targetType, so these rows
+// can never inflate a like count. If saves ever need their own fields, they can
+// move to a dedicated table by copying the rows out.
+router.post('/:id/save', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.sub, targetId = req.params.id;
+    const post = await prisma.post.findUnique({ where: { id: targetId }, select: { id: true } });
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    const key = { userId_targetType_targetId: { userId, targetType: SAVE_TYPE, targetId } };
+    const existing = await prisma.like.findUnique({ where: key });
+
+    let saved;
+    if (existing) { await prisma.like.delete({ where: key }); saved = false; }
+    else { await prisma.like.create({ data: { userId, targetType: SAVE_TYPE, targetId } }); saved = true; }
+
+    res.json({ saved });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.post('/:id/like', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.sub, targetId = req.params.id;

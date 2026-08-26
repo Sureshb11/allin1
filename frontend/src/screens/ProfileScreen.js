@@ -425,6 +425,17 @@ export default function ProfileScreen({ navigation }) {
               </View>
               <Icon name="chevron-right" size={22} color={DS.textMuted} />
             </TouchableOpacity>
+
+            <TouchableOpacity style={styles.statsCard} activeOpacity={0.8} onPress={() => navigation.navigate('SavedPosts')}>
+              <View style={[styles.statsCardIcon, { backgroundColor: DS.lime + '1a' }]}>
+                <Icon name="bookmark" size={22} color={DS.lime} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.statsCardTitle}>Saved posts</Text>
+                <Text style={styles.statsCardBlurb}>Posts you bookmarked from the feed</Text>
+              </View>
+              <Icon name="chevron-right" size={22} color={DS.textMuted} />
+            </TouchableOpacity>
           </View>
 
         </View>
