@@ -10,7 +10,6 @@ import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomShe
 import Reanimated, { FadeIn, SlideInRight, SlideInLeft, FadeInDown, useAnimatedRef, useSharedValue, scrollTo, LinearTransition, useAnimatedStyle, runOnJS, withSpring, withTiming, withRepeat, Easing } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AnimatedPressable from '../components/AnimatedPressable';
-import AmbientBackground from '../components/AmbientBackground';
 import { showToast } from '../components/Toast';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import legendsApi from '../services/LegendsApi';
@@ -957,7 +956,6 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
 
   return (
     <View style={styles.container}>
-      <AmbientBackground />
       {/* Brand bar */}
       {!inline && (
         <View style={styles.brandBar}>

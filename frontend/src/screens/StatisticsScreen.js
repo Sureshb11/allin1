@@ -9,7 +9,6 @@ import { useFilterSwipe } from '../utils/useFilterSwipe';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HexAvatar from '../components/HexAvatar';
 import AnimatedPressable from '../components/AnimatedPressable';
-import AmbientBackground from '../components/AmbientBackground';
 import FilterTabBar from '../components/FilterTabBar';
 import legendsApi from '../services/LegendsApi';
 import { getSelectedSport } from '../utils/selectedSport';
@@ -790,7 +789,6 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
 
   return (
     <View style={styles.container}>
-      <AmbientBackground />
       {/* Hero */}
       {!inline && (
         <View style={styles.hero}>
