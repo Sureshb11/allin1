@@ -1300,7 +1300,16 @@ export default function GroundsScreen({ navigation, pagerGesture, inline, onRegi
         <View style={styles.placeSheet}>
           <Text style={styles.placeTitle}>Your location</Text>
           <Text style={styles.placeHint}>Grounds are filtered to this town or city. Leave it empty to see them all.</Text>
-          <BottomSheetTextInput
+          {/* A PLAIN TextInput, not BottomSheetTextInput. This sheet is a normal
+              RN <Modal>, and BottomSheetTextInput calls useBottomSheetInternal()
+              on every render, which THROWS when there is no BottomSheet above
+              it: "'useBottomSheetInternal' cannot be used out of the
+              BottomSheet!". In a release build that took the whole JS context
+              down, so opening "Set your city" restarted the app and dropped the
+              user back at login — it read as being logged out.
+              The Add Ground form keeps BottomSheetTextInput: that one really is
+              inside a BottomSheetModal. */}
+          <TextInput
             style={styles.placeInput}
             value={placeDraft}
             onChangeText={setPlaceDraft}
