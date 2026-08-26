@@ -26,7 +26,11 @@ const PAVILION_TAB_KEY = '@ll_pavilion_tab';
 // row (and stands its own gesture down) when it is driven from here.
 const L1_TABS = [
   { label: 'My Stats', icon: 'chart-line', component: MyPerformanceScreen, id: 'mystats', filterProp: 'ballTypeOverride' },
-  { label: 'Rankings', icon: 'podium', component: StatisticsScreen, id: 'rankings', filterProp: 'mode' },
+  // Players/Teams is the L2 view-mode toggle, which theme/controls.js draws as
+  // a `segment` — chips, not an underline. Rankings is the one pane with an L3
+  // row of its own (the boards), and two stacked underlines read as two tab
+  // rows rather than a control and its subdivision.
+  { label: 'Rankings', icon: 'podium', component: StatisticsScreen, id: 'rankings', filterProp: 'mode', l2Style: 'segment' },
   { label: 'Scout',    icon: 'telescope', component: LookingForScreen, id: 'scout', filterProp: 'role' },
   { label: 'Grounds',  icon: 'earth', component: GroundsScreen, id: 'grounds', filterProp: 'typeOverride' },
 ];
@@ -249,6 +253,23 @@ export default function PavilionScreen({ navigation, route }) {
             
             {/* Level 2 Tabs */}
             {PAGES.filter(p => p.label === activeL1 && p.l2).length > 0 && (
+              activePage.l2Style === 'segment' ? (
+              <View style={[C.segment, { paddingHorizontal: 16, paddingBottom: 10 }]}>
+                {PAGES.filter(p => p.label === activeL1 && p.l2).map((p) => {
+                  const isActive = activePage.l2 === p.l2;
+                  return (
+                    <TouchableOpacity
+                      key={p.l2}
+                      style={[C.segBtn, isActive && C.segBtnOn]}
+                      onPress={() => goToL2(p.l2)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[C.segText, isActive && C.segTextOn]}>{p.l2Label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 24, paddingHorizontal: 16, paddingBottom: 0 }}>
                 {PAGES.filter(p => p.label === activeL1 && p.l2).map((p) => {
                   const isActive = activePage.l2 === p.l2;
@@ -266,6 +287,7 @@ export default function PavilionScreen({ navigation, route }) {
                   );
                 })}
               </ScrollView>
+              )
             )}
           </View>
         </View>
