@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware, optionalAuth } from '../lib/auth.js';
 import { getSportParticipantType } from '../lib/sports.js';
+import { notifyUsers, safeNotify } from '../lib/notify.js';
 
 const router = Router();
 
@@ -110,11 +111,17 @@ router.post('/:id/comments', async (req, res) => {
     const author = await resolveAuthor(req, authorName || 'You');
     const comment = await prisma.comment.create({ data: { postId: req.params.id, text, ...author } });
     const post = await prisma.post.findUnique({ where: { id: req.params.id } });
-    if (post?.authorId) {
-      await prisma.notification.create({
-        data: { userId: post.authorId, type: 'comment', title: 'New comment',
-                message: `${author.authorName} commented: "${text.slice(0, 60)}"` },
-      });
+    // Through notifyUsers, not prisma.notification.create: the helper writes the
+    // row AND mirrors it to the device as a real push. Written directly, a
+    // comment only ever appeared the next time the bell screen was fetched —
+    // the phone never buzzed. Skipped when you comment on your own post.
+    if (post?.authorId && post.authorId !== author.authorId) {
+      await safeNotify(() => notifyUsers([post.authorId], {
+        type: 'comment',
+        title: 'New comment',
+        message: `${author.authorName} commented: "${text.slice(0, 60)}"`,
+        data: { postId: post.id },
+      }));
     }
     res.status(201).json({ comment });
   } catch (e) {
@@ -235,12 +242,15 @@ router.post('/:id/like', authMiddleware, async (req, res) => {
     const likes = await prisma.like.count({ where: { targetType: 'post', targetId } });
     const post = await prisma.post.update({ where: { id: targetId }, data: { likes } });
 
+    // Only on the way ON — unliking is not an event anyone wants pushed.
     if (liked && post.authorId && post.authorId !== userId) {
       const actor = await resolveAuthor(req, 'Someone');
-      await prisma.notification.create({
-        data: { userId: post.authorId, type: 'like', title: 'New like',
-                message: `${actor.authorName} liked your post` },
-      });
+      await safeNotify(() => notifyUsers([post.authorId], {
+        type: 'like',
+        title: 'New like',
+        message: `${actor.authorName} liked your post`,
+        data: { postId: post.id },
+      }));
     }
     res.json({ post, liked, likes });
   } catch (e) {

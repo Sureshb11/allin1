@@ -17,7 +17,7 @@ RNTextInput.defaultProps.maxFontSizeMultiplier = MAX_FONT_SCALE;
 import {NavigationContainer, DefaultTheme, DarkTheme} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import AuthNavigator from './src/navigation/AuthNavigator';
-import { registerForPush, onNotificationTap } from './src/services/push';
+import { registerForPush, onNotificationTap, onForegroundMessage } from './src/services/push';
 import { navigationRef, openFromNotification } from './src/utils/notificationRoute';
 import { loadSelectedSport } from './src/utils/selectedSport';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -31,7 +31,7 @@ import RummyHomeScreen from './src/sports/rummy/screens/RummyHomeScreen';
 import RummyNewGameScreen from './src/sports/rummy/screens/RummyNewGameScreen';
 import RummyGameScreen from './src/sports/rummy/screens/RummyGameScreen';
 import SplashScreen from './src/components/SplashScreen';
-import { ToastHost } from './src/components/Toast';
+import { ToastHost, showNotification } from './src/components/Toast';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import legendsApi from './src/services/LegendsApi';
 import { applyServerConfigs } from './src/sports/scoring';
@@ -43,6 +43,16 @@ const Stack = createStackNavigator();
 // Flip the right-hand side to `true` for local work; the `__DEV__` guard means
 // it can NEVER reach a release build (this shipped enabled once — hence the guard).
 const DEV_BYPASS_LOGIN = __DEV__ && false;
+
+// Banner icon per notification type, so a like doesn't look like a join request.
+const NOTIFICATION_ICON = {
+  like: 'heart',
+  comment: 'comment-text',
+  match: 'cricket',
+  achievement: 'trophy',
+  tournament: 'trophy-outline',
+  chat: 'message-text',
+};
 
 const Root = () => {
   const { colors, isDark } = useTheme();
@@ -83,6 +93,27 @@ const Root = () => {
     return onNotificationTap((data) => {
       // The navigator can still be a frame behind on a cold start.
       if (!openFromNotification(data)) setTimeout(() => openFromNotification(data), 400);
+    });
+  }, [ready]);
+
+  // A push that arrives while the app is OPEN. Android only draws a tray
+  // notification when the app is backgrounded, so a like or comment landing
+  // while you're using the app was completely silent — the row went into the
+  // bell screen and nothing told you. Instagram shows a banner; so do we.
+  //
+  // Score pings are data-only and deliberately silent: they refresh a live
+  // scorecard, and buzzing the screen every few balls would be unusable.
+  useEffect(() => {
+    if (!ready) return undefined;
+    return onForegroundMessage(({ title, body, data }) => {
+      if (!title && !body) return;
+      if (data?.type === 'score') return;
+      showNotification({
+        title: title || 'Local Legends',
+        message: body || '',
+        icon: NOTIFICATION_ICON[data?.type] || 'bell',
+        onPress: () => openFromNotification(data || {}),
+      });
     });
   }, [ready]);
 

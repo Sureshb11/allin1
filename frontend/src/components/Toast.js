@@ -19,8 +19,19 @@ const KIND = {
 // Tiny module-level pub/sub so any module can fire a toast without a provider tree.
 let listener = null;
 let seq = 0;
-export function showToast(message, type = 'info', duration = 2600) {
-  listener?.({ id: ++seq, message, type, duration });
+export function showToast(message, type = 'info', duration = 2600, options = {}) {
+  listener?.({ id: ++seq, message, type, duration, ...options });
+}
+
+// An incoming push, shown while the app is open. Android only draws a tray
+// notification when the app is BACKGROUNDED, so without this a like or comment
+// arriving while you're looking at the app is completely silent.
+//
+// Same banner as a toast — it already slides down from the top, dismisses on
+// swipe and is tappable — plus a title line and a tap action, so it behaves the
+// way a notification should rather than being a second widget to maintain.
+export function showNotification({ title, message, icon, onPress }) {
+  listener?.({ id: ++seq, message, title, icon, onPress, type: 'info', duration: 4200 });
 }
 
 export function ToastHost() {const s = useThemedStyles(makeS);
@@ -76,10 +87,17 @@ export function ToastHost() {const s = useThemedStyles(makeS);
 
   return (
     <Animated.View pointerEvents="box-none" style={[s.wrap, style]} {...panResponder.panHandlers}>
-      <TouchableOpacity activeOpacity={0.9} onPress={hide} style={[s.card, { borderColor: k.color + '33' }]}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => { toast.onPress?.(); hide(); }}
+        style={[s.card, { borderColor: k.color + '33' }]}>
         <View style={[StyleSheet.absoluteFill, { backgroundColor: k.color + '1A', borderRadius: 20 }]} />
-        <Icon name={k.icon} size={20} color={k.color} />
-        <Text style={s.msg} numberOfLines={2}>{toast.message}</Text>
+        <Icon name={toast.icon || k.icon} size={20} color={k.color} />
+        <View style={{ flex: 1 }}>
+          {!!toast.title && <Text style={s.title} numberOfLines={1}>{toast.title}</Text>}
+          <Text style={s.msg} numberOfLines={2}>{toast.message}</Text>
+        </View>
+        {!!toast.onPress && <Icon name="chevron-right" size={18} color={k.color} />}
       </TouchableOpacity>
     </Animated.View>);
 
@@ -93,5 +111,6 @@ const makeS = (C) => StyleSheet.create({
     borderWidth: 1, maxWidth: 520, width: '100%',
     shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 14, elevation: 12
   },
+  title: { color: C.ink, fontSize: 14, fontWeight: '800', marginBottom: 1 },
   msg: { flex: 1, color: C.ink, fontSize: 14, fontWeight: '600', lineHeight: 19 }
 });
