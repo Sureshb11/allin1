@@ -214,7 +214,13 @@ export function Field({ label, required, error, helper, last, children }) {
 // So the field works it out. `useBottomSheetInternal(true)` is the unsafe read:
 // it returns null outside a sheet instead of throwing, which is what makes this
 // safe to use on an ordinary screen too.
-const useSheetAwareInput = () => (useBottomSheetInternal(true) ? BottomSheetTextInput : TextInput);
+// Exported: FormKit needs the same decision. A plain TextInput inside a
+// BottomSheetModal never sets gorhom's `shouldHandleKeyboardEvents`, so the
+// sheet doesn't know the keyboard opened — it doesn't move, the field ends up
+// behind the keyboard, and BottomSheetFooter (which positions off keyboard
+// state) lands in the wrong place. `unsafe: true` returns null instead of
+// throwing when there is no sheet, so the same field works on a plain screen.
+export const useSheetAwareInput = () => (useBottomSheetInternal(true) ? BottomSheetTextInput : TextInput);
 
 export function TextField({
   label, required, error, helper, last, value, onChangeText, placeholder,

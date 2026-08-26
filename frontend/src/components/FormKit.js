@@ -7,6 +7,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { SPACE, RADIUS, TYPE, TAP, shadow } from './create/tokens';
+import { useSheetAwareInput } from './create';
 
 // Form primitives.
 //
@@ -53,6 +54,7 @@ export function Field({
   label, value, onChangeText, required, error, hint, keyboardType, maxLength,
   multiline, autoCapitalize, prefix, suffix, onBlur, editable = true, style,
 }) {
+  const SheetAwareInput = useSheetAwareInput();
   const s = useThemedStyles(makeStyles);
   const DS = useTheme().colors;
   const [focused, setFocused] = useState(false);
@@ -82,7 +84,7 @@ export function Field({
             ]}>
             {label}{required ? ' *' : ''}
           </Animated.Text>
-          <TextInput
+          <SheetAwareInput
             style={[s.input, up && { paddingTop: 12 }, multiline && { height: 74, textAlignVertical: 'top' }]}
             value={value == null ? '' : String(value)}
             onChangeText={onChangeText}
@@ -156,6 +158,7 @@ export function ChoiceField({ label, required, options, value, onChange, error, 
 // A squad size is picked, not typed. Steppers keep the keyboard shut for the
 // dozen count fields this form has.
 export function Stepper({ label, required, value, onChange, min = 0, max = 999, step = 1, error, hint, suffix }) {
+  const SheetAwareInput = useSheetAwareInput();
   const s = useThemedStyles(makeStyles);
   const DS = useTheme().colors;
   const n = value === '' || value == null ? null : Number(value);
@@ -167,7 +170,7 @@ export function Stepper({ label, required, value, onChange, min = 0, max = 999, 
         <TouchableOpacity style={s.stepBtn} onPress={() => set((n ?? min) - step)} hitSlop={8}>
           <Icon name="minus" size={18} color={n == null || n <= min ? DS.textMuted : DS.textPrimary} />
         </TouchableOpacity>
-        <TextInput
+        <SheetAwareInput
           style={s.stepValue}
           value={n == null ? '' : String(n)}
           onChangeText={(t) => {
@@ -246,6 +249,11 @@ export function SelectField({ label, required, value, options, onChange, error, 
           {searchable && (
             <View style={s.searchWrap}>
               <Icon name="magnify" size={17} color={DS.textMuted} />
+              {/* A plain TextInput on purpose: this search box lives in this
+                  component's OWN <Modal>, a separate window above any sheet.
+                  A BottomSheetTextInput here would set shouldHandleKeyboardEvents
+                  on the sheet BEHIND the modal, shifting it while you type in an
+                  overlay that has nothing to do with it. */}
               <TextInput
                 style={s.searchInput}
                 value={q}
