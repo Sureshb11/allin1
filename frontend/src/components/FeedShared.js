@@ -756,9 +756,18 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     return () => clearInterval(poll);
   }, [fetchFeed]));
 
+  // Minimum time the shimmer stays up. A warm refresh answers in well under
+  // 100ms, and a skeleton that appears and disappears inside three frames reads
+  // as a glitch rather than as "your feed is reloading".
+  const REFRESH_SHIMMER_MS = 450;
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchFeed().finally(() => setRefreshing(false));
+    const startedAt = Date.now();
+    fetchFeed().finally(() => {
+      const held = Math.max(0, REFRESH_SHIMMER_MS - (Date.now() - startedAt));
+      setTimeout(() => setRefreshing(false), held);
+    });
   }, [fetchFeed]);
 
   const toggleLike = useCallback(async (id) => {
@@ -1033,19 +1042,23 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
 
       <FlatList
         {...hideTabBar}
-        data={posts}
+        // Pull-to-refresh swaps the posts for the shimmer, the way Instagram does
+        // it: the spinner alone gives no sense that the feed is being rebuilt,
+        // and stale cards sitting still under a spinner read as "nothing
+        // happened". The rail above stays put — only the feed below reloads.
+        data={refreshing ? [] : posts}
         keyExtractor={(it) => it.id}
         ListHeaderComponent={renderHeader}
         renderItem={({ item }) =>
         <PostCard post={item} onLike={toggleLike} onShare={sharePost} onComment={openComments} onSave={toggleSave} />
         }
-        ListEmptyComponent={!loading ?
-          <View style={s.feedEmpty}>
+        ListEmptyComponent={(loading || refreshing) ?
+          <FeedSkeleton DS={DS} />
+          : <View style={s.feedEmpty}>
             <Icon name={sportIcon} size={40} color={DS.surfaceHighest} />
             <Text style={s.feedEmptyTxt}>No posts yet</Text>
             <Text style={s.feedEmptySub}>Be the first to share a {sportName.toLowerCase()} moment.</Text>
           </View>
-          : <FeedSkeleton DS={DS} />
         }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} />}
         showsVerticalScrollIndicator={false}
