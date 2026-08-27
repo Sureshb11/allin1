@@ -866,7 +866,13 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
                   point is now density. Search collapses to its icon until it's
                   wanted, and takes the row when it is. */}
               <Reanimated.View style={styles.controlRow} layout={LinearTransition.springify()}>
-                {!searchOpen && !mode && (
+                {/* `inline` as well as `mode`: when the Pavilion hosts this pane it
+                    draws Players/Teams itself as the L2 segment, so drawing it
+                    again here stacks two identical rows. Gating on `inline`
+                    makes that impossible even if the mode prop is ever dropped.
+                    The standalone Statistics route passes neither, so it keeps
+                    its own toggle. */}
+                {!searchOpen && !mode && !inline && (
                   <Reanimated.View style={styles.segment} exiting={SlideOutRight.duration(150)}>
                     {TABS.map((t) => {
                       const on = tab === t.id;
@@ -1143,6 +1149,10 @@ const makeStyles = (DS) => StyleSheet.create({
   searchBtn: {
     width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
     backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint,
+    // Sits at the END of the row. The segment next to it is flex:1 and used to
+    // push it there; with the segment now drawn by the Pavilion this button is
+    // the row's only child, and without this it stranded on the far left.
+    marginLeft: 'auto',
   },
 
   // Board selector
