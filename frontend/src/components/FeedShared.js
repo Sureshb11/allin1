@@ -560,8 +560,6 @@ export function PostCard({ post, onLike, onShare, onComment, onSave }) {const DS
           <Text style={p.viewComments}>View all {post.commentCount || post.comments.length} comments</Text>
         </TouchableOpacity>
       }
-
-      <Text style={p.time}>{post.time}</Text>
     </View>);
 
 }
