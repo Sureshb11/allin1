@@ -47,10 +47,16 @@ export default function PlayerSetupScreen({ navigation, route }) {
 
   useEffect(() => {
     let live = true;
-    legendsApi.getUserProfile().then((res) => {
+    legendsApi.getUserProfile().then(async (res) => {
       if (!live) return;
-      // Removed backend auto-skip so the onboarding flow shows up on every login
-      // (when the local AsyncStorage cache is cleared).
+      const p = res?.player || null;
+      if (p?.role && p.role !== 'Player') {
+        // They already onboarded on the backend. 
+        // Mark locally so we don't ask again next time.
+        await markPlayerSetup(sportId, 'player');
+        navigation.reset({ index: 0, routes: [{ name: 'MainApp', params: { sport: sportId } }] });
+        return;
+      }
       setChecking(false);
     }).catch(() => live && setChecking(false));
     return () => { live = false; };
