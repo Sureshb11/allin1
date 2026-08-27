@@ -568,23 +568,23 @@ const makeStyles = (DS) => StyleSheet.create({
   body: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: DOCK_CLEARANCE },
 
   // Bento Sections
-  bentoSection: { marginBottom: 16 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9, paddingHorizontal: 4 },
+  bentoSection: { marginBottom: 12 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, paddingHorizontal: 4 },
   sectionTitle: { fontSize: 13, fontWeight: '800', color: DS.textMuted, letterSpacing: 1, textTransform: 'uppercase' },
   sectionAction: { fontSize: 13, fontWeight: '800' },
   
-  bentoGrid: { gap: 12 },
-  bentoRow: { flexDirection: 'row', gap: 12 },
+  bentoGrid: { gap: 8 },
+  bentoRow: { flexDirection: 'row', gap: 8 },
   bentoCard: {
-    backgroundColor: DS.surfaceHigh, borderRadius: 20, padding: 18,
+    backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 14,
     borderWidth: 1, borderColor: DS.surfaceHighest,
   },
-  bentoFullWidth: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  bentoFullWidth: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   bentoCardHalf: {
-    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 20, padding: 18,
+    flex: 1, backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 14,
     borderWidth: 1, borderColor: DS.surfaceHighest,
   },
-  bentoIconBadge: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  bentoIconBadge: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   bentoLabel: { fontSize: 12, fontWeight: '600', color: DS.textMuted, marginBottom: 4 },
   bentoValue: { fontSize: 16, fontWeight: '800', color: DS.textPrimary },
 
@@ -594,10 +594,10 @@ const makeStyles = (DS) => StyleSheet.create({
 
   // Teams Banner
   teamBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16,
-    backgroundColor: DS.surfaceHigh, borderRadius: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 14, padding: 12,
+    backgroundColor: DS.surfaceHigh, borderRadius: 16,
     borderWidth: 1, borderColor: DS.surfaceHighest,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   teamLogoLarge: { width: 56, height: 56, borderRadius: 16, backgroundColor: DS.surfaceLow },
   teamLogoFallback: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: DS.border },
@@ -606,15 +606,15 @@ const makeStyles = (DS) => StyleSheet.create({
   teamBannerMeta: { fontSize: 13, fontWeight: '600', color: DS.textMuted },
 
   // Bio
-  bioCard: { backgroundColor: DS.surfaceHigh, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: DS.surfaceHighest },
-  bioText: { fontSize: 15, fontWeight: '500', color: DS.textPrimary, lineHeight: 24 },
+  bioCard: { backgroundColor: DS.surfaceHigh, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: DS.surfaceHighest },
+  bioText: { fontSize: 15, fontWeight: '500', color: DS.textPrimary, lineHeight: 22 },
 
   // Tactile Stats Cards
   statsCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16,
-    backgroundColor: DS.surface, borderRadius: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14,
+    backgroundColor: DS.surface, borderRadius: 16,
     borderWidth: 1, borderColor: DS.border,
-    marginBottom: 12,
+    marginBottom: 8,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: DS.mode === 'dark' ? 0.2 : 0.05, shadowRadius: 8, elevation: 3,
   },
   statsCardIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
