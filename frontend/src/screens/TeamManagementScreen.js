@@ -584,28 +584,26 @@ const TeamManagementScreen = ({ navigation, inline, onFilterOverflow, entryEdge 
               )}
             </View>
             {/* The same filter bar Matches and Tournaments use. */}
-            {!indiv && (
-              <View style={[C.filterBar, { flexDirection: 'row' }]}>
-                {TEAM_FILTERS.map(({ key, label, icon }) => {
-                  const on = tab === key;
-                  return (
-                    <TouchableOpacity key={key} style={[C.filterChip, on && C.filterChipActive]}
-                                      onPress={() => handleSetTab(key)} activeOpacity={0.8}>
-                      <Icon name={icon} size={13} color={on ? DS.lime : DS.textMuted} />
-                      <Text style={[C.filterText, on && C.filterTextActive]}>{label}</Text>
-                      <View style={[C.filterCount, on && C.filterCountOn]}>
-                        <Text style={[C.filterCountText, on && C.filterCountTextOn]}>{teamCounts[key]}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-            {!indiv && tab !== 'mine' && (
+            <View style={[C.filterBar, { flexDirection: 'row' }]}>
+              {TEAM_FILTERS.map(({ key, label, icon }) => {
+                const on = tab === key;
+                return (
+                  <TouchableOpacity key={key} style={[C.filterChip, on && C.filterChipActive]}
+                                    onPress={() => handleSetTab(key)} activeOpacity={0.8}>
+                    <Icon name={icon} size={13} color={on ? DS.lime : DS.textMuted} />
+                    <Text style={[C.filterText, on && C.filterTextActive]}>{label}</Text>
+                    <View style={[C.filterCount, on && C.filterCountOn]}>
+                      <Text style={[C.filterCountText, on && C.filterCountTextOn]}>{teamCounts[key] || 0}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {tab !== 'mine' && (
               <Text style={styles.tabHint}>
                 {tab === 'opponents'
-                  ? 'Teams you’ve faced in matches. Follow them to keep track.'
-                  : 'Teams you follow.'}
+                  ? `${indiv ? 'Players' : 'Teams'} you’ve faced in matches. Follow them to keep track.`
+                  : `${indiv ? 'Players' : 'Teams'} you follow.`}
               </Text>
             )}
           </View>
@@ -644,9 +642,9 @@ const TeamManagementScreen = ({ navigation, inline, onFilterOverflow, entryEdge 
         backdropComponent={renderTeamBackdrop}
         footerComponent={renderTeamFooter}>
         <DrawerHeader
-          icon="shield-plus-outline"
-          title="Create Team"
-          subtitle="Give your side a name, a badge and a home"
+          icon={indiv ? "account-plus-outline" : "shield-plus-outline"}
+          title={indiv ? "Create Profile" : "Create Team"}
+          subtitle={indiv ? "Set up your player profile" : "Give your side a name, a badge and a home"}
           onClose={closeCreateTeam}
         />
         <DrawerScroll>
@@ -723,7 +721,7 @@ const TeamManagementScreen = ({ navigation, inline, onFilterOverflow, entryEdge 
       </BottomSheetModal>
 
       {/* Clear the floating dock — it covered the + entirely. */}
-      {!indiv && tab === 'mine' && (
+      {tab === 'mine' && (
         <AnimatedPulse style={[styles.fabWrap, { bottom: 24 + tabClear }]}>
           <TouchableOpacity style={styles.fab} onPress={openCreateTeam}>
             <Icon name="plus" size={28} color={DS.white} />

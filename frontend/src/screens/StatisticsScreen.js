@@ -3,7 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import { useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Animated, RefreshControl, Image } from 'react-native';
-import Reanimated, { useAnimatedRef, useSharedValue, scrollTo, FadeIn, FadeInDown, SlideInRight, SlideInLeft, SlideOutRight, SlideInDown, LinearTransition, useAnimatedStyle, runOnJS, withRepeat, withSequence, withTiming, withDelay, withSpring, interpolateColor } from 'react-native-reanimated';
+import Reanimated, { useAnimatedRef, useSharedValue, scrollTo, FadeIn, FadeInDown, SlideInRight, SlideInLeft, SlideOutRight, SlideInDown, LinearTransition, useAnimatedStyle, runOnJS, runOnUI, withRepeat, withSequence, withTiming, withDelay, withSpring, interpolateColor } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -556,7 +556,6 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
   const [ballTypeFilter, setBallTypeFilter] = useState('overall');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -585,7 +584,13 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
       });
     return pagerGesture ? g.blocksExternalGesture(pagerGesture) : g;
   }, [pagerGesture, boardScroll, boardOffset, boardStart, boardMax]);
-  const scrollBoardTo = (x) => { boardOffset.value = x; boardScroll.current?.scrollTo?.({ x, animated: true }); };
+  const scrollBoardTo = (x) => {
+    boardOffset.value = x;
+    runOnUI((ref, target) => {
+      'worklet';
+      scrollTo(ref, target, 0, true);
+    })(boardScroll, x);
+  };
   // Each chip reports its own x, so scrolling one into view doesn't depend on
   // every chip being the same width (they aren't — "Runs" vs "Strike rate").
   const chipX = useRef({});
@@ -807,21 +812,37 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
       {loading ? (
         <View style={styles.list}>
           {/* Same toggle while loading, so the header doesn't jump when rows land. */}
-          <View style={[styles.controlRow, { marginBottom: 12 }]}>
-            <View style={styles.segment}>
-              {TABS.map((t) => {
-                const on = tab === t.id;
-                return (
-                  <TouchableOpacity key={t.id} style={styles.segBtn}
-                    onPress={() => handleTabChange(t.id)} activeOpacity={0.85}>
-                    {on && <Reanimated.View layout={LinearTransition.springify().damping(18).stiffness(150)} style={[StyleSheet.absoluteFillObject, styles.segBtnOn, { zIndex: 0 }]} />}
-                    <Icon name={t.icon} size={14} color={on ? '#0f4c3a' : '#475569'} style={{ zIndex: 1 }} />
-                    <Text style={[styles.segText, on && styles.segTextOn, { zIndex: 1 }]}>{t.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
+          {!mode && !inline && (
+            <View style={styles.segmentWrap}>
+              <View style={styles.segment}>
+                {TABS.map((t) => {
+                  const on = tab === t.id;
+                  return (
+                    <TouchableOpacity key={t.id} style={styles.segBtn}
+                      onPress={() => handleTabChange(t.id)} activeOpacity={0.85}>
+                      {on && <Reanimated.View layout={LinearTransition.springify().damping(18).stiffness(150)} style={[StyleSheet.absoluteFillObject, styles.segBtnOn, { zIndex: 0 }]} />}
+                      <Icon name={t.icon} size={14} color={on ? '#0f4c3a' : '#475569'} style={{ zIndex: 1 }} />
+                      <Text style={[styles.segText, on && styles.segTextOn, { zIndex: 1 }]}>{t.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* Search bar skeleton — keeps layout stable during loading */}
+          <View style={styles.searchWrap}>
+            <View style={styles.searchBar}>
+              <Icon name="magnify" size={20} color={DS.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={`Search ${tab.toLowerCase()}...`}
+                placeholderTextColor={DS.textMuted}
+                editable={false}
+              />
             </View>
           </View>
+
           <StatSkeleton DS={DS} />
         </View>
       ) : (
@@ -860,20 +881,15 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
               );
             })()}
             <View>
-              {/* One row for both "what am I ranking" and "find someone in it".
-                  These were two stacked full-width controls above a third row of
-                  board chips — three bands of chrome over a list whose whole
-                  point is now density. Search collapses to its icon until it's
-                  wanted, and takes the row when it is. */}
-              <Reanimated.View style={styles.controlRow} layout={LinearTransition.springify()}>
-                {/* `inline` as well as `mode`: when the Pavilion hosts this pane it
-                    draws Players/Teams itself as the L2 segment, so drawing it
-                    again here stacks two identical rows. Gating on `inline`
-                    makes that impossible even if the mode prop is ever dropped.
-                    The standalone Statistics route passes neither, so it keeps
-                    its own toggle. */}
-                {!searchOpen && !mode && !inline && (
-                  <Reanimated.View style={styles.segment} exiting={SlideOutRight.duration(150)}>
+              {/* `inline` as well as `mode`: when the Pavilion hosts this pane it
+                  draws Players/Teams itself as the L2 segment, so drawing it
+                  again here stacks two identical rows. Gating on `inline`
+                  makes that impossible even if the mode prop is ever dropped.
+                  The standalone Statistics route passes neither, so it keeps
+                  its own toggle. */}
+              {!mode && !inline && (
+                <View style={styles.segmentWrap}>
+                  <View style={styles.segment}>
                     {TABS.map((t) => {
                       const on = tab === t.id;
                       return (
@@ -888,33 +904,29 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
                         </TouchableOpacity>
                       );
                     })}
-                  </Reanimated.View>
-                )}
+                  </View>
+                </View>
+              )}
 
-                {searchOpen ? (
-                  <Reanimated.View style={styles.searchWrap} entering={SlideInRight.springify()} exiting={SlideOutRight.duration(150)}>
-                    <Icon name="magnify" size={18} color={DS.lime} />
-                    <TextInput
-                      style={styles.searchInput}
-                      placeholder={`Search ${tab.toLowerCase()}`}
-                      placeholderTextColor={DS.textMuted}
-                      value={searchQuery}
-                      onChangeText={setSearchQuery}
-                      autoFocus
-                      returnKeyType="search"
-                    />
-                    <TouchableOpacity
-                      onPress={() => { setSearchQuery(''); setSearchOpen(false); }}
-                      hitSlop={10}>
-                      <Icon name="close" size={18} color={DS.textMuted} />
+              {/* Search bar — full width, like Scout screen */}
+              <View style={styles.searchWrap}>
+                <View style={styles.searchBar}>
+                  <Icon name="magnify" size={20} color={DS.textMuted} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder={`Search ${tab.toLowerCase()}...`}
+                    placeholderTextColor={DS.textMuted}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    returnKeyType="search"
+                  />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={10}>
+                      <Icon name="close-circle" size={16} color={DS.textMuted} />
                     </TouchableOpacity>
-                  </Reanimated.View>
-                ) : (
-                  <TouchableOpacity style={styles.searchBtn} onPress={() => setSearchOpen(true)} activeOpacity={0.85}>
-                    <Icon name="magnify" size={19} color={DS.textVariant} />
-                  </TouchableOpacity>
-                )}
-              </Reanimated.View>
+                  )}
+                </View>
+              </View>
 
               {/* Removed ball type filters from Rankings as per request */}
 
@@ -938,7 +950,6 @@ export default function StatisticsScreen({ navigation, inline, pagerGesture, mod
                           // landed off-centre or clipped.
                           onLayout={(e) => { chipX.current[i] = e.nativeEvent.layout.x; }}
                           onPress={() => { handleBoardChange(b.id); scrollChipIntoView(i); }}>
-                          <Icon name={b.icon} size={13} color={on ? '#0f4c3a' : '#475569'} />
                           <Text style={[styles.boardChipText, on && styles.boardChipTextActive]}>{b.label}</Text>
                         </TouchableOpacity>
                       );
@@ -1134,10 +1145,9 @@ const makeStyles = (DS) => StyleSheet.create({
   },
   heroTitle: { fontSize: 24, fontWeight: '900', color: DS.textPrimary, letterSpacing: 0.5 },
 
-  /* One control row: Players/Teams on the left, search on the right. */
-  controlRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  segmentWrap: { paddingVertical: 8 },
   segment: {
-    flex: 1, flexDirection: 'row', gap: 8,
+    flexDirection: 'row', gap: 8,
   },
   segBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -1146,14 +1156,6 @@ const makeStyles = (DS) => StyleSheet.create({
   segBtnOn: { backgroundColor: DS.lime + '20', borderRadius: 999 },
   segText: { fontSize: 14, fontWeight: '600', color: DS.textMuted },
   segTextOn: { color: DS.lime, fontWeight: 'bold' },
-  searchBtn: {
-    width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: DS.surfaceHigh, borderWidth: 1, borderColor: DS.faint,
-    // Sits at the END of the row. The segment next to it is flex:1 and used to
-    // push it there; with the segment now drawn by the Pavilion this button is
-    // the row's only child, and without this it stranded on the far left.
-    marginLeft: 'auto',
-  },
 
   // Board selector
   boardBar: { paddingHorizontal: 16, gap: 24, paddingBottom: 0, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 16 },
@@ -1171,14 +1173,9 @@ const makeStyles = (DS) => StyleSheet.create({
   // Sport switcher: pill chips inside the Rankings tab header area.
 
   /* Search */
-  // Sits in the control row now (was a standalone full-width band with its own
-  // margins), so it has to fill the row rather than impose its own spacing.
-  searchWrap: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, height: 40,
-    backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 14,
-    borderWidth: 1, borderColor: DS.lime,
-  },
-  searchInput: { flex: 1, fontSize: 14, fontWeight: '600', color: DS.textPrimary, padding: 0 },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, gap: 8, borderWidth: 0 },
+  searchInput: { flex: 1, fontSize: 15, color: DS.textPrimary, padding: 0 },
 
   list: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, gap: 10 },
 

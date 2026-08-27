@@ -7,7 +7,7 @@ import {
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useFilterSwipe } from '../utils/useFilterSwipe';
 import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop, BottomSheetTextInput, BottomSheetFooter } from '@gorhom/bottom-sheet';
-import Reanimated, { FadeIn, SlideInRight, SlideInLeft, FadeInDown, useAnimatedRef, useSharedValue, scrollTo, LinearTransition, useAnimatedStyle, runOnJS, withSpring, withTiming, withRepeat, Easing } from 'react-native-reanimated';
+import Reanimated, { FadeIn, SlideInRight, SlideInLeft, FadeInDown, useAnimatedRef, useSharedValue, scrollTo, LinearTransition, useAnimatedStyle, runOnJS, runOnUI, withSpring, withTiming, withRepeat, Easing } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AnimatedPressable from '../components/AnimatedPressable';
 import { showToast } from '../components/Toast';
@@ -337,7 +337,10 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
     if (x == null) return;
     const target = Math.max(0, x - 48);
     filterOffset.value = target;
-    filterScroll.current?.scrollTo?.({ x: target, animated: true });
+    runOnUI((ref, t) => {
+      'worklet';
+      scrollTo(ref, t, 0, true);
+    })(filterScroll, target);
   }, [filterOffset, filterScroll]);
 
   const selectTypeRef = useRef(null);
@@ -346,6 +349,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   const stepFilter = useCallback((dir) => {
     const idx = FILTER_TYPES.indexOf(activeTypeRef.current);
     const next = idx + dir;
+    console.log('stepFilter called:', { dir, idx, next });
     if (next < 0 || next >= FILTER_TYPES.length) return;
     swipeDir.current = dir;
     selectTypeRef.current?.(FILTER_TYPES[next]);
@@ -355,6 +359,7 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   // no velocity path. The shared hook now, so a swipe here commits at the same
   // distance and ticks the same way as one on Matches, Teams or Rankings.
   const swipe = useFilterSwipe(FILTER_TYPES, activeType, (t) => {
+    console.log('useFilterSwipe onChange called with:', t);
     stepFilter(FILTER_TYPES.indexOf(t) > FILTER_TYPES.indexOf(activeType) ? 1 : -1);
   }, undefined, !role);
   // Dragging the chip row scrolls the chips and nothing else — otherwise the

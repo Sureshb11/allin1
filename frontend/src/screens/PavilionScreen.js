@@ -191,6 +191,16 @@ export default function PavilionScreen({ navigation, route }) {
 
 
 
+  const l2ScrollRef = useRef(null);
+  const l2TabX = useRef({});
+
+  useEffect(() => {
+    if (activePage.l2 && l2ScrollRef.current && l2TabX.current[activePage.l2] != null) {
+      const target = Math.max(0, l2TabX.current[activePage.l2] - 48);
+      l2ScrollRef.current.scrollTo({ x: target, animated: true });
+    }
+  }, [activePage.l2]);
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
@@ -270,12 +280,19 @@ export default function PavilionScreen({ navigation, route }) {
                 })}
               </View>
               ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 24, paddingHorizontal: 16, paddingBottom: 0 }}>
+              <ScrollView ref={l2ScrollRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 24, paddingHorizontal: 16, paddingBottom: 0 }}>
                 {PAGES.filter(p => p.label === activeL1 && p.l2).map((p) => {
                   const isActive = activePage.l2 === p.l2;
                   return (
                     <TouchableOpacity
                       key={p.l2}
+                      onLayout={(e) => {
+                        const x = e.nativeEvent.layout.x;
+                        l2TabX.current[p.l2] = x;
+                        if (isActive) {
+                          l2ScrollRef.current?.scrollTo({ x: Math.max(0, x - 48), animated: true });
+                        }
+                      }}
                       style={{ paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: isActive ? CONTROL.green : 'transparent' }}
                       onPress={() => goToL2(p.l2)}
                       activeOpacity={0.85}
