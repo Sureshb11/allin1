@@ -445,7 +445,11 @@ export default function ProfileScreen({ navigation }) {
       <Animated.View
         pointerEvents="box-none"
         style={[styles.floatingDockWrap, { bottom: tabClear + 12 },
-                dockY ? { transform: [{ translateY: dockY }] } : null]}>
+                dockY ? { transform: [{ translateY: dockY.interpolate({
+                  inputRange: [0, Math.max(1, tabClear), Math.max(2, tabClear + 44)],
+                  outputRange: [0, Math.max(1, tabClear), Math.max(1, tabClear)],
+                  extrapolate: 'clamp',
+                }) }] } : null]}>
         <View style={styles.floatingDock}>
           <ActionIcon styles={styles} icon="share-variant" onPress={shareProfile} color={isDark ? DS.textPrimary : DS.textSecondary} label="Share profile" />
           <View style={styles.dockDivider} />
