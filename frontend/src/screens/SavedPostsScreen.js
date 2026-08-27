@@ -121,7 +121,7 @@ export default function SavedPostsScreen({ navigation }) {
             </View>
             <Text style={styles.emptyTitle}>Nothing saved yet</Text>
             <Text style={styles.emptySub}>
-              Tap ••• on any {(sport?.name || 'cricket').toLowerCase()} post and choose “Save post” to keep it here.
+              Tap the bookmark icon under any {(sport?.name || 'cricket').toLowerCase()} post to save it here.
             </Text>
           </View>
         ) : <FeedSkeleton DS={DS} />}

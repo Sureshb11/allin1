@@ -88,6 +88,8 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
       case 'tournament':return { icon: 'trophy-variant', bg: DS.lime };
       case 'social':return { icon: 'account-group', bg: DS.success };
       case 'system':return { icon: 'cog-outline', bg: DS.textMuted };
+      case 'like':return { icon: 'heart', bg: DS.live };
+      case 'comment':return { icon: 'comment-text-outline', bg: DS.blue };
       default:return { icon: 'bell-outline', bg: DS.blue };
     }
   };
