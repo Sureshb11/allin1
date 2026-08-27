@@ -1,4 +1,5 @@
-import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { useTheme, useThemedStyles } from "../theme/ThemeContext";
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import PlayerRoleFields from '../components/PlayerRoleFields';
@@ -7,21 +8,15 @@ import legendsApi from '../services/LegendsApi';
 import { pickAndUploadImage } from '../utils/imageUpload';
 import { setCurrentAvatar } from '../utils/currentUser';
 import { getSelectedSport } from '../utils/selectedSport';
+import { getFind } from '../sports/find';
 
+const EditPlayerProfileScreen = ({ navigation }) => {
+  const DS = useTheme().colors;
+  const styles = useThemedStyles(makeStyles);
+  
+  const sportId = getSelectedSport().sport?.id || 'cricket';
+  const sportRoles = getFind(sportId).roles || [];
 
-
-
-
-
-
-
-
-
-
-
-
-
-const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [profile, setProfile] = useState({
     name: '', email: '', phone: '', city: '', district: '', state: '', country: '', pincode: '',
     primaryRole: null, battingStyle: null, bowlingStyle: null, dateOfBirth: '', height: '', weight: '', bio: '',
@@ -29,10 +24,9 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [citySuggest, setCitySuggest] = useState([]);   // pincode autocomplete results
+  const [citySuggest, setCitySuggest] = useState([]);
   const cityTimer = React.useRef(null);
 
-  // Debounced city/town search → suggestions from the Indian pincode directory.
   const onCityChange = (text) => {
     setProfile((prev) => ({ ...prev, city: text }));
     if (cityTimer.current) clearTimeout(cityTimer.current);
@@ -43,7 +37,6 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
     }, 250);
   };
 
-  // Pick a suggestion → auto-fill city/town, district, state, country, pincode.
   const pickCity = (s) => {
     setProfile((prev) => ({ ...prev, city: s.city, district: s.district, state: s.state, country: s.country || 'India', pincode: s.pincode }));
     setCitySuggest([]);
@@ -55,8 +48,8 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
     setUploadingAvatar(false);
     if (r.url) {
       setAvatarUrl(r.url);
-      setCurrentAvatar(r.url);   // update every avatar across the app instantly
-      const saved = await legendsApi.updateUserProfile({ avatarUrl: r.url });   // persist
+      setCurrentAvatar(r.url);
+      const saved = await legendsApi.updateUserProfile({ avatarUrl: r.url });
       if (!saved.success) Alert.alert('Could not save photo', saved.error || 'Please try again');
     } else if (r.error) {
       Alert.alert('Upload failed', r.error);
@@ -71,7 +64,6 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
     });
   }, [navigation]);
 
-  // Load the real profile (no mock defaults).
   useEffect(() => {
     legendsApi.getUserProfile().then((res) => {
       const u = res?.success ? (res.data || {}) : {};
@@ -80,7 +72,6 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
       setProfile((prev) => ({
         ...prev, name, phone: u.phone || '', bio: u.bio || '',
         city: u.city || '', district: u.district || '', state: u.state || '', country: u.country || '', pincode: u.pincode || '',
-        // How they play comes off the player record, not the account.
         primaryRole: p?.role && p.role !== 'Player' ? p.role : null,
         battingStyle: p?.battingStyle || null,
         bowlingStyle: p?.bowlingStyle || null,
@@ -92,12 +83,15 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
   const [errors, setErrors] = useState({});
 
   const handleSave = async () => {
-    // Name, primary role and batting hand are required; bowling style is not.
-    const problems = validatePlayerProfile(profile);
-    setErrors(problems);
-    if (Object.keys(problems).length) {
-      return Alert.alert('Almost there', Object.values(problems)[0]);
+    // Only validate cricket-specific fields if sport is cricket
+    if (sportId === 'cricket') {
+      const problems = validatePlayerProfile(profile);
+      setErrors(problems);
+      if (Object.keys(problems).length) {
+        return Alert.alert('Almost there', Object.values(problems)[0]);
+      }
     }
+    
     setSaving(true);
     const parts = (profile.name || '').trim().split(/\s+/);
     const firstName = parts.shift() || 'Player';
@@ -107,22 +101,14 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
       city: profile.city || null, district: profile.district || null,
       state: profile.state || null, country: profile.country || null, pincode: profile.pincode || null,
     });
-    // The cricketing part belongs to the PLAYER, not the user account — the
-    // same person can appear in several squads, and this describes how they
-    // play wherever they turn out.
-    //
-    // Via /users/me/player rather than updatePlayer(), which needed two things
-    // this screen can't assume: an existing player id (somebody who has only
-    // ever watched has no row, so their answers went nowhere) and team-admin
-    // rights on their own squad (so an ordinary member editing their own
-    // batting hand got a 403).
+    
     let playerSaved = true;
     if (res.success) {
       const saved = await legendsApi.saveMyPlayer({
-        sport: getSelectedSport().sport?.id || 'cricket',
+        sport: sportId,
         role: profile.primaryRole,
-        battingStyle: profile.battingStyle,
-        bowlingStyle: profile.bowlingStyle,
+        battingStyle: sportId === 'cricket' ? profile.battingStyle : null,
+        bowlingStyle: sportId === 'cricket' ? profile.bowlingStyle : null,
       });
       playerSaved = saved.success;
       if (!saved.success) Alert.alert('Saved, mostly', saved.error || 'Could not save how you play.');
@@ -146,7 +132,6 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
       </View>
 
       <View style={styles.form}>
-        {/* Avatar */}
         <View style={styles.avatarWrap}>
           <TouchableOpacity style={styles.avatarCircle} onPress={changeAvatar} activeOpacity={0.85}>
             {avatarUrl
@@ -161,45 +146,23 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Full Name</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.name}
-            onChangeText={(text) => setProfile({ ...profile, name: text })}
-            placeholderTextColor={DS.textMuted} />
-          
+          <TextInput style={styles.input} value={profile.name} onChangeText={(text) => setProfile({ ...profile, name: text })} placeholderTextColor={DS.textMuted} />
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.email}
-            onChangeText={(text) => setProfile({ ...profile, email: text })}
-            keyboardType="email-address"
-            placeholderTextColor={DS.textMuted} />
-          
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Phone</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.phone}
-            onChangeText={(text) => setProfile({ ...profile, phone: text })}
-            keyboardType="phone-pad"
-            placeholderTextColor={DS.textMuted} />
-          
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1 }]}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput style={styles.input} value={profile.email} onChangeText={(text) => setProfile({ ...profile, email: text })} keyboardType="email-address" placeholderTextColor={DS.textMuted} />
+          </View>
+          <View style={[styles.inputGroup, { flex: 1 }]}>
+            <Text style={styles.label}>Phone</Text>
+            <TextInput style={styles.input} value={profile.phone} onChangeText={(text) => setProfile({ ...profile, phone: text })} keyboardType="phone-pad" placeholderTextColor={DS.textMuted} />
+          </View>
         </View>
 
         <View style={[styles.inputGroup, { zIndex: 10 }]}>
           <Text style={styles.label}>City/Town</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.city}
-            onChangeText={onCityChange}
-            placeholder="Start typing your city or town…"
-            placeholderTextColor={DS.textMuted}
-            autoCorrect={false} />
+          <TextInput style={styles.input} value={profile.city} onChangeText={onCityChange} placeholder="Start typing your city or town…" placeholderTextColor={DS.textMuted} autoCorrect={false} />
           {citySuggest.length > 0 &&
             <View style={styles.suggestBox}>
               {citySuggest.map((s, i) => (
@@ -215,181 +178,106 @@ const EditPlayerProfileScreen = ({ navigation }) => {const DS = useTheme().color
           }
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>District</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.district}
-            onChangeText={(text) => setProfile({ ...profile, district: text })}
-            placeholderTextColor={DS.textMuted} />
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1 }]}>
+            <Text style={styles.label}>District</Text>
+            <TextInput style={styles.input} value={profile.district} onChangeText={(text) => setProfile({ ...profile, district: text })} placeholderTextColor={DS.textMuted} />
+          </View>
+          <View style={[styles.inputGroup, { flex: 1 }]}>
+            <Text style={styles.label}>State</Text>
+            <TextInput style={styles.input} value={profile.state} onChangeText={(text) => setProfile({ ...profile, state: text })} placeholderTextColor={DS.textMuted} />
+          </View>
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>State</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.state}
-            onChangeText={(text) => setProfile({ ...profile, state: text })}
-            placeholderTextColor={DS.textMuted} />
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1 }]}>
+            <Text style={styles.label}>Country</Text>
+            <TextInput style={styles.input} value={profile.country} onChangeText={(text) => setProfile({ ...profile, country: text })} placeholderTextColor={DS.textMuted} />
+          </View>
+          <View style={[styles.inputGroup, { flex: 1 }]}>
+            <Text style={styles.label}>Pincode</Text>
+            <TextInput style={styles.input} value={profile.pincode} onChangeText={(text) => setProfile({ ...profile, pincode: text })} keyboardType="number-pad" maxLength={6} placeholderTextColor={DS.textMuted} />
+          </View>
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Country</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.country}
-            onChangeText={(text) => setProfile({ ...profile, country: text })}
-            placeholderTextColor={DS.textMuted} />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Pincode</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.pincode}
-            onChangeText={(text) => setProfile({ ...profile, pincode: text })}
-            keyboardType="number-pad"
-            maxLength={6}
-            placeholderTextColor={DS.textMuted} />
-        </View>
-
-        {/* Was two free-text boxes that handleSave never sent — so "Batting
-            Style" was a field you could type into and nothing kept. Now the
-            real control, and the answers are saved against the player. */}
-        <View style={styles.inputGroup}>
-          <PlayerRoleFields
-            value={profile}
-            onChange={(v) => setProfile({ ...profile, ...v })}
-            errors={errors} />
-        </View>
+        {sportId === 'cricket' ? (
+          <View style={styles.inputGroup}>
+            <PlayerRoleFields value={profile} onChange={(v) => setProfile({ ...profile, ...v })} errors={errors} />
+          </View>
+        ) : (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Primary Role</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {sportRoles.map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.segBtn, profile.primaryRole === r && styles.segBtnOn]}
+                  onPress={() => setProfile({ ...profile, primaryRole: r })}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.segText, profile.primaryRole === r && styles.segTextOn]}>{r}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Date of Birth</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.dateOfBirth}
-            onChangeText={(text) => setProfile({ ...profile, dateOfBirth: text })}
-            placeholderTextColor={DS.textMuted} />
-          
+          <TextInput style={styles.input} value={profile.dateOfBirth} onChangeText={(text) => setProfile({ ...profile, dateOfBirth: text })} placeholderTextColor={DS.textMuted} />
         </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Height</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.height}
-            onChangeText={(text) => setProfile({ ...profile, height: text })}
-            placeholderTextColor={DS.textMuted} />
-          
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Weight</Text>
-          <TextInput
-            style={styles.input}
-            value={profile.weight}
-            onChangeText={(text) => setProfile({ ...profile, weight: text })}
-            placeholderTextColor={DS.textMuted} />
-          
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1 }]}>
+            <Text style={styles.label}>Height</Text>
+            <TextInput style={styles.input} value={profile.height} onChangeText={(text) => setProfile({ ...profile, height: text })} placeholderTextColor={DS.textMuted} />
+          </View>
+          <View style={[styles.inputGroup, { flex: 1 }]}>
+            <Text style={styles.label}>Weight</Text>
+            <TextInput style={styles.input} value={profile.weight} onChangeText={(text) => setProfile({ ...profile, weight: text })} placeholderTextColor={DS.textMuted} />
+          </View>
         </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Bio</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={profile.bio}
-            onChangeText={(text) => setProfile({ ...profile, bio: text })}
-            multiline
-            numberOfLines={4}
-            placeholderTextColor={DS.textMuted} />
-          
+          <TextInput style={[styles.input, styles.textArea]} value={profile.bio} onChangeText={(text) => setProfile({ ...profile, bio: text })} multiline numberOfLines={4} placeholderTextColor={DS.textMuted} />
         </View>
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
           <Text style={styles.saveButtonText}>Save Profile</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>);
-
+    </ScrollView>
+  );
 };
 
 const makeStyles = (DS) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: DS.bg
-  },
+  container: { flex: 1, backgroundColor: DS.bg },
   avatarWrap: { alignItems: 'center', marginBottom: 20 },
-  avatarCircle: {
-    width: 96, height: 96, borderRadius: 48, backgroundColor: DS.surfaceHigh,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DS.lime,
-  },
+  avatarCircle: { width: 96, height: 96, borderRadius: 48, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DS.lime },
   avatarImg: { width: 96, height: 96, borderRadius: 48 },
   avatarInitial: { fontSize: 36, fontWeight: '900', color: DS.lime },
-  avatarBadge: {
-    position: 'absolute', right: -2, bottom: -2, width: 30, height: 30, borderRadius: 15,
-    backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DS.bg,
-  },
+  avatarBadge: { position: 'absolute', right: -2, bottom: -2, width: 30, height: 30, borderRadius: 15, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DS.bg },
   avatarHint: { fontSize: 12, color: DS.textMuted, marginTop: 8, fontWeight: '600' },
-  suggestBox: {
-    marginTop: 6, backgroundColor: DS.surfaceHigh, borderRadius: 12, borderWidth: 1, borderColor: DS.line, overflow: 'hidden',
-  },
-  suggestRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12,
-    borderBottomWidth: 1, borderBottomColor: DS.line,
-  },
+  suggestBox: { marginTop: 6, backgroundColor: DS.surfaceHigh, borderRadius: 12, borderWidth: 1, borderColor: DS.line, overflow: 'hidden' },
+  suggestRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: DS.line },
   suggestCity: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
   suggestMeta: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: DS.surfaceLow
-  },
-  backButton: {
-    fontSize: 16,
-    color: DS.lime,
-    marginRight: 16
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: DS.textPrimary
-  },
-  form: {
-    padding: 16
-  },
-  inputGroup: {
-    marginBottom: 16
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: DS.textMuted,
-    marginBottom: 8
-  },
-  input: {
-    backgroundColor: DS.surfaceLow,
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    color: DS.textPrimary
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top'
-  },
-  saveButton: {
-    backgroundColor: DS.lime,
-    paddingVertical: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 20
-  },
-  saveButtonText: {
-    color: DS.bg,
-    fontSize: 16,
-    fontWeight: '600'
-  }
+  header: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: DS.surfaceLow },
+  backButton: { fontSize: 16, color: DS.lime, marginRight: 16 },
+  title: { fontSize: 18, fontWeight: 'bold', color: DS.textPrimary },
+  form: { padding: 16 },
+  row: { flexDirection: 'row', gap: 12 },
+  inputGroup: { marginBottom: 16 },
+  label: { fontSize: 13, fontWeight: '600', color: DS.textMuted, marginBottom: 6 },
+  input: { backgroundColor: DS.surfaceLow, borderRadius: 10, padding: 12, fontSize: 15, color: DS.textPrimary },
+  textArea: { height: 100, textAlignVertical: 'top' },
+  segBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, backgroundColor: DS.surfaceHigh, borderWidth: 1.5, borderColor: DS.border },
+  segBtnOn: { borderColor: DS.lime, backgroundColor: DS.lime + '12' },
+  segText: { fontSize: 13.5, fontWeight: '800', color: DS.textVariant },
+  segTextOn: { color: DS.lime },
+  saveButton: { backgroundColor: DS.lime, paddingVertical: 15, borderRadius: 10, alignItems: 'center', marginTop: 10, marginBottom: 40 },
+  saveButtonText: { color: DS.bg, fontSize: 16, fontWeight: '600' },
 });
 
 export default EditPlayerProfileScreen;
