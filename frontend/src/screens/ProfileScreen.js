@@ -271,9 +271,6 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.bentoSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Sports Identity</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('EditPlayerProfile')} hitSlop={10}>
-                <Text style={[styles.sectionAction, { color: DS.lime }]}>Edit</Text>
-              </TouchableOpacity>
             </View>
             
             {hasPlayInfo ? (
