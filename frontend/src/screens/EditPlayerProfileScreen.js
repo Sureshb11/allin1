@@ -132,21 +132,21 @@ const EditPlayerProfileScreen = ({ navigation }) => {
       </View>
 
       <View style={styles.form}>
-        <View style={styles.avatarWrap}>
-          <TouchableOpacity style={styles.avatarCircle} onPress={changeAvatar} activeOpacity={0.85}>
-            {avatarUrl
-              ? <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
-              : <Text style={styles.avatarInitial}>{(profile.name || '?').charAt(0).toUpperCase()}</Text>}
-            <View style={styles.avatarBadge}>
-              {uploadingAvatar ? <ActivityIndicator size="small" color={DS.bg} /> : <Icon name="camera" size={16} color={DS.bg} />}
-            </View>
-          </TouchableOpacity>
-          <Text style={styles.avatarHint}>Tap to change photo</Text>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Full Name</Text>
-          <TextInput style={styles.input} value={profile.name} onChangeText={(text) => setProfile({ ...profile, name: text })} placeholderTextColor={DS.textMuted} />
+        <View style={[styles.row, { alignItems: 'flex-end', marginBottom: 16 }]}>
+          <View style={styles.avatarWrapRow}>
+            <TouchableOpacity style={styles.avatarCircleRow} onPress={changeAvatar} activeOpacity={0.85}>
+              {avatarUrl
+                ? <Image source={{ uri: avatarUrl }} style={styles.avatarImgRow} />
+                : <Text style={styles.avatarInitialRow}>{(profile.name || '?').charAt(0).toUpperCase()}</Text>}
+              <View style={styles.avatarBadgeRow}>
+                {uploadingAvatar ? <ActivityIndicator size="small" color={DS.bg} /> : <Icon name="camera" size={14} color={DS.bg} />}
+              </View>
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}>
+            <Text style={styles.label}>Full Name</Text>
+            <TextInput style={styles.input} value={profile.name} onChangeText={(text) => setProfile({ ...profile, name: text })} placeholderTextColor={DS.textMuted} />
+          </View>
         </View>
 
         <View style={styles.row}>
@@ -159,6 +159,43 @@ const EditPlayerProfileScreen = ({ navigation }) => {
             <TextInput style={styles.input} value={profile.phone} onChangeText={(text) => setProfile({ ...profile, phone: text })} keyboardType="phone-pad" placeholderTextColor={DS.textMuted} />
           </View>
         </View>
+
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1.1 }]}>
+            <Text style={styles.label}>Date of Birth</Text>
+            <TextInput style={styles.input} value={profile.dateOfBirth} onChangeText={(text) => setProfile({ ...profile, dateOfBirth: text })} placeholderTextColor={DS.textMuted} />
+          </View>
+          <View style={[styles.inputGroup, { flex: 0.8 }]}>
+            <Text style={styles.label}>Height</Text>
+            <TextInput style={styles.input} value={profile.height} onChangeText={(text) => setProfile({ ...profile, height: text })} placeholderTextColor={DS.textMuted} />
+          </View>
+          <View style={[styles.inputGroup, { flex: 0.8 }]}>
+            <Text style={styles.label}>Weight</Text>
+            <TextInput style={styles.input} value={profile.weight} onChangeText={(text) => setProfile({ ...profile, weight: text })} placeholderTextColor={DS.textMuted} />
+          </View>
+        </View>
+
+        {sportId === 'cricket' ? (
+          <View style={styles.inputGroup}>
+            <PlayerRoleFields value={profile} onChange={(v) => setProfile({ ...profile, ...v })} errors={errors} />
+          </View>
+        ) : (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Primary Role</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {sportRoles.map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.segBtn, profile.primaryRole === r && styles.segBtnOn]}
+                  onPress={() => setProfile({ ...profile, primaryRole: r })}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.segText, profile.primaryRole === r && styles.segTextOn]}>{r}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
         <View style={[styles.inputGroup, { zIndex: 10 }]}>
           <Text style={styles.label}>City/Town</Text>
@@ -200,47 +237,9 @@ const EditPlayerProfileScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {sportId === 'cricket' ? (
-          <View style={styles.inputGroup}>
-            <PlayerRoleFields value={profile} onChange={(v) => setProfile({ ...profile, ...v })} errors={errors} />
-          </View>
-        ) : (
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Primary Role</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {sportRoles.map((r) => (
-                <TouchableOpacity
-                  key={r}
-                  style={[styles.segBtn, profile.primaryRole === r && styles.segBtnOn]}
-                  onPress={() => setProfile({ ...profile, primaryRole: r })}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.segText, profile.primaryRole === r && styles.segTextOn]}>{r}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Date of Birth</Text>
-          <TextInput style={styles.input} value={profile.dateOfBirth} onChangeText={(text) => setProfile({ ...profile, dateOfBirth: text })} placeholderTextColor={DS.textMuted} />
-        </View>
-
-        <View style={styles.row}>
-          <View style={[styles.inputGroup, { flex: 1 }]}>
-            <Text style={styles.label}>Height</Text>
-            <TextInput style={styles.input} value={profile.height} onChangeText={(text) => setProfile({ ...profile, height: text })} placeholderTextColor={DS.textMuted} />
-          </View>
-          <View style={[styles.inputGroup, { flex: 1 }]}>
-            <Text style={styles.label}>Weight</Text>
-            <TextInput style={styles.input} value={profile.weight} onChangeText={(text) => setProfile({ ...profile, weight: text })} placeholderTextColor={DS.textMuted} />
-          </View>
-        </View>
-
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Bio</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={profile.bio} onChangeText={(text) => setProfile({ ...profile, bio: text })} multiline numberOfLines={4} placeholderTextColor={DS.textMuted} />
+          <TextInput style={[styles.input, styles.textArea]} value={profile.bio} onChangeText={(text) => setProfile({ ...profile, bio: text })} multiline numberOfLines={3} placeholderTextColor={DS.textMuted} />
         </View>
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
@@ -253,12 +252,11 @@ const EditPlayerProfileScreen = ({ navigation }) => {
 
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
-  avatarWrap: { alignItems: 'center', marginBottom: 20 },
-  avatarCircle: { width: 96, height: 96, borderRadius: 48, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DS.lime },
-  avatarImg: { width: 96, height: 96, borderRadius: 48 },
-  avatarInitial: { fontSize: 36, fontWeight: '900', color: DS.lime },
-  avatarBadge: { position: 'absolute', right: -2, bottom: -2, width: 30, height: 30, borderRadius: 15, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DS.bg },
-  avatarHint: { fontSize: 12, color: DS.textMuted, marginTop: 8, fontWeight: '600' },
+  avatarWrapRow: { marginRight: 16 },
+  avatarCircleRow: { width: 72, height: 72, borderRadius: 36, backgroundColor: DS.surfaceHigh, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DS.lime },
+  avatarImgRow: { width: 72, height: 72, borderRadius: 36 },
+  avatarInitialRow: { fontSize: 26, fontWeight: '900', color: DS.lime },
+  avatarBadgeRow: { position: 'absolute', right: -4, bottom: -4, width: 26, height: 26, borderRadius: 13, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DS.bg },
   suggestBox: { marginTop: 6, backgroundColor: DS.surfaceHigh, borderRadius: 12, borderWidth: 1, borderColor: DS.line, overflow: 'hidden' },
   suggestRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: DS.line },
   suggestCity: { fontSize: 14, fontWeight: '700', color: DS.textPrimary },
