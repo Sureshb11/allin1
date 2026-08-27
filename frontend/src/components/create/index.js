@@ -88,11 +88,11 @@ export function useDrawerSheet() {
     // `interactive` offsets the whole sheet by the keyboard's height. These
     // sheets already sit at 94%, and on Android the window is ALSO resizing
     // (adjustResize, set here and in the manifest) — so two mechanisms move the
-    // content on every keystroke and the scroll fights them both. `extend`
-    // extends the sheet to its maximum snap point, which at 94% is where it
-    // already is, leaving the window resize to do the work on its own.
-    // iOS has no adjustResize, so there the interactive offset is still right.
-    keyboardBehavior: Platform.OS === 'android' ? 'extend' : 'interactive',
+    // content on every keystroke and the scroll fights them both. `fillParent`
+    // fills the entire remaining parent container (which has been resized by
+    // adjustResize), perfectly occupying the space above the keyboard without
+    // shrinking to 94% of the already-shrunken space (which is what `extend` did).
+    keyboardBehavior: Platform.OS === 'android' ? 'fillParent' : 'interactive',
     keyboardBlurBehavior: 'restore',
     android_keyboardInputMode: 'adjustResize',
     backgroundStyle: { backgroundColor: DS.bg },
