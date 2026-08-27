@@ -124,12 +124,6 @@ const EditPlayerProfileScreen = ({ navigation }) => {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Edit Player Profile</Text>
-      </View>
 
       <View style={styles.form}>
         <View style={[styles.row, { alignItems: 'flex-end', marginBottom: 16 }]}>
