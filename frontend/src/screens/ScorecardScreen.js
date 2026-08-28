@@ -694,7 +694,7 @@ function TableHeader({ cols }) {const styles = useThemedStyles(makeStyles);
 }
 
 // ── SCORECARD tab: batting + bowling tables, extras, fall of wickets ──────────
-function InningsScorecard({ innings, index, squads, totalOvers, expanded = true, collapsible = false, onToggle }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+function InningsScorecard({ innings, index, squads, totalOvers, expanded = true, collapsible = false, onToggle, onPlayer }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const battingXI = (squads || [])
     .filter((s) => s.teamId === innings.battingTeamId)
     .map((s) => ({ id: s.playerId, name: s.player?.name || 'Unknown' }));
@@ -737,7 +737,15 @@ function InningsScorecard({ innings, index, squads, totalOvers, expanded = true,
         <>
           <TableHeader cols={['BATTER', 'R', 'B', '4s', '6s', 'SR']} />
           {batted.map((b, i) =>
-          <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
+          // Tapping a name opens that player's profile — the same board Rankings
+          // opens. A scorecard is mostly a list of people, and every one of them
+          // was previously a dead end.
+          <TouchableOpacity
+            key={i}
+            style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}
+            onPress={() => b.id && onPlayer?.({ id: b.id, name: b.name })}
+            disabled={!b.id || !onPlayer}
+            activeOpacity={0.7}>
               <View style={[styles.cell, styles.nameCol, styles.nameCell]}>
                 <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={20} style={styles.rowAvatar} />
                 <View style={{ flex: 1 }}>
@@ -756,7 +764,7 @@ function InningsScorecard({ innings, index, squads, totalOvers, expanded = true,
               <Text style={[styles.cell, styles.numCol]}>
                 {b.balls > 0 ? (b.runs / b.balls * 100).toFixed(0) : '0'}
               </Text>
-            </View>
+            </TouchableOpacity>
           )}
           {/* Extras + Total */}
           <View style={styles.extrasRow}>
@@ -800,7 +808,12 @@ function InningsScorecard({ innings, index, squads, totalOvers, expanded = true,
 
           <TableHeader cols={['BOWLER', 'O', 'M', 'R', 'W', 'ECON']} />
           {bowlers.map((b, i) =>
-          <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}>
+          <TouchableOpacity
+            key={i}
+            style={[styles.tableRow, i % 2 === 0 && styles.tableRowAlt]}
+            onPress={() => b.id && onPlayer?.({ id: b.id, name: b.name })}
+            disabled={!b.id || !onPlayer}
+            activeOpacity={0.7}>
               <View style={[styles.cell, styles.nameCol, styles.nameCell]}>
                 <PlayerAvatar name={b.name} avatarUrl={avatarById[b.id]} size={20} style={styles.rowAvatar} />
                 <Text style={[styles.bowlerName, { flex: 1 }]} numberOfLines={2}>{b.name}</Text>
@@ -810,7 +823,7 @@ function InningsScorecard({ innings, index, squads, totalOvers, expanded = true,
               <Text style={[styles.cell, styles.numCol]}>{b.runs}</Text>
               <Text style={[styles.cell, styles.numCol, b.wickets >= 3 && styles.highlight]}>{b.wickets}</Text>
               <Text style={[styles.cell, styles.numCol]}>{b.economy}</Text>
-            </View>
+            </TouchableOpacity>
           )}
 
           {/* Powerplay */}
@@ -1666,6 +1679,14 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   // Default tab: LIVE while live, SUMMARY right when a match completes (so the
   // awards are the first thing a viewer sees), SCORECARD otherwise — but once
   // the viewer taps a tab themselves, `tab` takes over and stays put across polls.
+  // Any player named on this screen opens their profile. `player` is passed
+  // through so the profile can paint the name before its fetch returns, the same
+  // contract Rankings uses.
+  const openPlayer = useCallback((p) => {
+    if (!p?.id) return;
+    navigation?.navigate('PlayerProfile', { playerId: p.id, player: p });
+  }, [navigation]);
+
   const activeTab = tab || (isLive ? 'live' : isCompleted ? 'summary' : 'scorecard');
   // `icon` is the selected (filled) glyph, `iconIdle` the unselected outline —
   // every one verified present in the MaterialCommunityIcons glyphmap. LIVE and
@@ -1673,7 +1694,15 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const TABS = [
     { key: 'info', label: 'INFO', icon: 'information', iconIdle: 'information-outline' },
     ...(isLive ? [{ key: 'live', label: 'LIVE', icon: 'access-point' }] : []),
-    ...(isCompleted ? [{ key: 'summary', label: 'OVERVIEW', icon: 'view-dashboard', iconIdle: 'view-dashboard-outline' }] : []),
+    // A finished match keeps its ball-by-ball. The 'live' tab is where the
+    // commentary feed lives (LiveTab), and gating it on isLive meant a completed
+    // match had no way to read the deliveries at all — the old Live screen always
+    // offered them, so consolidating onto this screen would have lost them.
+    // Labelled for what it is once the match is over.
+    ...(isCompleted ? [
+      { key: 'summary', label: 'OVERVIEW', icon: 'view-dashboard', iconIdle: 'view-dashboard-outline' },
+      { key: 'live', label: 'COMMENTARY', icon: 'message-text', iconIdle: 'message-text-outline' },
+    ] : []),
     { key: 'scorecard', label: 'SCORECARD', icon: 'clipboard-text', iconIdle: 'clipboard-text-outline' },
     { key: 'squads', label: 'SQUADS', icon: 'account-group', iconIdle: 'account-group-outline' },
     { key: 'overs', label: 'OVERS', icon: 'cricket' },
@@ -1965,6 +1994,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
                           expanded={inningsList.length === 1 || effectiveExpanded === i}
                           collapsible={inningsList.length > 1}
                           onToggle={() => setExpandedInnings(effectiveExpanded === i ? -1 : i)}
+                          onPlayer={openPlayer}
                         />
                       ))}
                       <WormChart innings1={inningsList[0]} innings2={inningsList[1]} totalOvers={match.overs} />

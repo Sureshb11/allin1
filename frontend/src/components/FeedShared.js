@@ -96,6 +96,7 @@ export const mapPost = (po) => ({
   likes: po.likes || 0,
   liked: !!po.liked,   // authoritative per-user state from the server (persists across app restarts)
   saved: !!po.saved,   // same: annotated per-caller by GET /posts
+  authorPlayerId: po.authorPlayerId || null,   // resolved server-side; null when the author has no player
   comments: [],
   commentCount: po.commentCount || 0,
 });
@@ -428,7 +429,7 @@ function PostMedia({ kind, media }) {const DS = useTheme().colors;const c = useT
     </View>);
 }
 
-export function PostCard({ post, onLike, onShare, onComment, onSave }) {const DS = useTheme().colors;const p = useThemedStyles(makeP);
+export function PostCard({ post, onLike, onShare, onComment, onSave, onAuthor }) {const DS = useTheme().colors;const p = useThemedStyles(makeP);
   const popRef = useRef(new Animated.Value(1)).current;
   const heartOverlay = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
@@ -478,6 +479,14 @@ export function PostCard({ post, onLike, onShare, onComment, onSave }) {const DS
     <View style={p.card}>
       {/* header */}
       <View style={p.header}>
+        {/* Avatar and name open the author's profile — where you can follow them.
+            Only when the author actually has a player: a guest post has nobody
+            to open, and a dead tap is worse than none. */}
+        <TouchableOpacity
+          onPress={() => post.authorPlayerId && onAuthor?.(post)}
+          disabled={!post.authorPlayerId || !onAuthor}
+          activeOpacity={0.7}
+          style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
         <Avatar initial={post.author.initial} color={post.author.color} size={42} ring uri={post.author.avatar} />
         <View style={{ flex: 1, marginLeft: 10 }}>
           <View style={p.nameRow}>
@@ -486,6 +495,7 @@ export function PostCard({ post, onLike, onShare, onComment, onSave }) {const DS
           </View>
           <Text style={p.sub}>{post.author.team} · {post.time}</Text>
         </View>
+        </TouchableOpacity>
         <TouchableOpacity hitSlop={8} onPress={openMenu}>
           <Icon name="dots-horizontal" size={22} color={DS.textMuted} />
         </TouchableOpacity>
@@ -870,11 +880,11 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
       navigation.navigate(mt.isScorer ? 'Scoring' : 'LiveMatch', mt.isScorer ? { resume: true, matchId: mt.id } : { matchId: mt.id });
       return;
     }
-    if (mt.status !== 'scheduled') { navigation.navigate('LiveMatch', { matchId: mt.id }); return; }
+    if (mt.status !== 'scheduled') { navigation.navigate('Scorecard', { matchId: mt.id }); return; }
     // Only the assigned scorer (creator by default) can start a scheduled match;
     // everyone else just views its info. The backend's toss/score endpoints reject
     // non-scorers too, so this keeps the UI honest instead of dead-ending on a 403.
-    if (!mt.isScorer) { navigation.navigate('LiveMatch', { matchId: mt.id }); return; }
+    if (!mt.isScorer) { navigation.navigate('Scorecard', { matchId: mt.id }); return; }
     let firstInningId;
     const innRes = await legendsApi.getMatchInnings(mt.id);
     if (innRes.success && innRes.data?.length) firstInningId = innRes.data[0].id;
@@ -1048,7 +1058,8 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
         keyExtractor={(it) => it.id}
         ListHeaderComponent={renderHeader}
         renderItem={({ item }) =>
-        <PostCard post={item} onLike={toggleLike} onShare={sharePost} onComment={openComments} onSave={toggleSave} />
+        <PostCard post={item} onLike={toggleLike} onShare={sharePost} onComment={openComments} onSave={toggleSave}
+                  onAuthor={(po) => navigation.navigate('PlayerProfile', { playerId: po.authorPlayerId, player: { id: po.authorPlayerId, name: po.author?.name } })} />
         }
         ListEmptyComponent={(loading || refreshing) ?
           <FeedSkeleton DS={DS} />

@@ -111,6 +111,9 @@ export default function SavedPostsScreen({ navigation }) {
             onShare={sharePost}
             onComment={setActivePost}
             onSave={toggleSave}
+            onAuthor={(po) => navigation.navigate('PlayerProfile', {
+              playerId: po.authorPlayerId, player: { id: po.authorPlayerId, name: po.author?.name },
+            })}
           />
         )}
         ItemSeparatorComponent={() => <View style={{ height: 14 }} />}

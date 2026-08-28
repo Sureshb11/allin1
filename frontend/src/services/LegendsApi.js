@@ -334,6 +334,17 @@ class LegendsApi {
 
   // Saved posts for one sport, newest save first. Same FLAT shape as getPosts,
   // so callers must run it through mapPost before handing it to <PostCard>.
+  // Follow toggle for a player → { following }. Idempotent: the server flips
+  // whichever way the row currently is, so a double-tap can't desync the button.
+  async toggleFollowPlayer(playerId) {
+    try {
+      const json = await this.request(`/players/${playerId}/follow`, { method: 'POST' });
+      return { success: true, following: !!json.following };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   async getSavedPosts(sport) {
     try {
       const json = await this.request('/posts/saved' + this._sportQs(sport));

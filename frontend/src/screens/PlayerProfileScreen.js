@@ -7,6 +7,8 @@ import legendsApi from '../services/LegendsApi';
 import CareerBoard, { hasCareer } from '../components/CareerBoard';
 import ShotBoard from '../components/ShotBoard';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
+import { showToast } from '../components/Toast';
+import { useCurrentUser } from '../utils/currentUser';
 
 // A player's career, opened from Rankings.
 //
@@ -88,8 +90,14 @@ export default function PlayerProfileScreen({ route, navigation }) {
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
   const { playerId, player: passed, standing, boardLabel } = route.params || {};
+  const meUser = useCurrentUser();
 
   const [career, setCareer] = useState(null);
+  // Follow state is the server's answer, seeded from the career response so the
+  // button paints correctly on open instead of flashing "Follow" for someone you
+  // already follow. Toggling is optimistic, then reconciled.
+  const [following, setFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
   
   const [shotData, setShotData] = useState(null);   // { shots, analytics, insights, player }
   const [loading, setLoading] = useState(true);
@@ -112,10 +120,27 @@ export default function PlayerProfileScreen({ route, navigation }) {
     // happened to switch the feature on that day.
     legendsApi.getPlayerShots(playerId),
   ]).then(([c, sh]) => {
-    if (c.success) setCareer(c.data);
+    if (c.success) { setCareer(c.data); setFollowing(!!c.data?.following); }
     
     if (sh.success) setShotData(sh.data);
   }), [playerId]);
+
+  const toggleFollow = useCallback(async () => {
+    if (!playerId || followBusy) return;
+    setFollowBusy(true);
+    const next = !following;
+    setFollowing(next);                       // optimistic
+    const res = await legendsApi.toggleFollowPlayer(playerId);
+    if (res.success) {
+      setFollowing(res.following);
+      showToast(res.following ? `Following ${name}` : `Unfollowed ${name}`, 'success');
+    } else {
+      setFollowing(!next);                    // put it back
+      showToast('Could not update follow', 'error');
+    }
+    setFollowBusy(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerId, following, followBusy]);
 
   useEffect(() => { load().finally(() => setLoading(false)); }, [load]);
 
@@ -128,6 +153,8 @@ export default function PlayerProfileScreen({ route, navigation }) {
 
   // Who this is. The tapped row already carries most of it, so the hero paints
   // before the fetch returns.
+  // Your own profile: the career response carries the player's linked userId.
+  const isMe = !!meUser?.id && career?.player?.userId === meUser.id;
   const name = passed?.name || career?.player?.name || 'Player';
   const role = passed?.role || career?.role || career?.player?.role || 'Cricketer';
   const teamName = passed?.team || career?.team || '';
@@ -161,6 +188,26 @@ export default function PlayerProfileScreen({ route, navigation }) {
             <Text style={styles.rankPillNum}>#{standing}</Text>
             <Text style={styles.rankPillLbl} numberOfLines={1}>{(boardLabel || '').toLowerCase()}</Text>
           </View>
+        )}
+        {/* Following a player puts their matches in your circle feed — the same
+            place the teams you follow appear. Hidden on your own profile: you
+            cannot follow yourself, and the button would be nonsense there. */}
+        {!!playerId && !isMe && (
+          <TouchableOpacity
+            style={[styles.followBtn, following && styles.followBtnOn]}
+            onPress={toggleFollow}
+            disabled={followBusy}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityState={{ selected: following }}
+            accessibilityLabel={following ? `Unfollow ${name}` : `Follow ${name}`}
+          >
+            <Icon name={following ? 'account-check' : 'account-plus-outline'}
+                  size={14} color={following ? DS.bg : DS.lime} />
+            <Text style={[styles.followTxt, following && styles.followTxtOn]}>
+              {following ? 'Following' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -241,6 +288,14 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.lime + '1f', borderRadius: 12, borderWidth: 1, borderColor: DS.lime,
   },
   rankPillNum: { fontSize: 16, fontWeight: '900', color: DS.lime, letterSpacing: -0.4 },
+  followBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
+    borderWidth: 1, borderColor: DS.lime, backgroundColor: 'transparent',
+  },
+  followBtnOn: { backgroundColor: DS.lime },
+  followTxt: { fontSize: 12.5, fontWeight: '800', color: DS.lime },
+  followTxtOn: { color: DS.bg },
   rankPillLbl: { fontSize: 8.5, fontWeight: '800', color: DS.lime, letterSpacing: 0.4, textTransform: 'uppercase' },
 
   body: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 32, gap: 10 },

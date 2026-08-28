@@ -39,8 +39,26 @@ router.get('/', optionalAuth, async (req, res) => {
     });
     savedSet = new Set(saves.map((l) => l.targetId));
   }
+  // The author's PLAYER id, so tapping a name in the feed can open their
+  // profile. A post carries authorId (a User), but a profile is keyed by Player,
+  // and a user can have one per sport — so resolve within the post's own sport.
+  // One query for the whole page rather than one per post.
+  const authorIds = [...new Set(rows.map((p) => p.authorId).filter(Boolean))];
+  const playerByUser = {};
+  if (authorIds.length) {
+    const linked = await prisma.player.findMany({
+      where: { userId: { in: authorIds }, ...(sport ? { sport: String(sport) } : {}) },
+      select: { id: true, userId: true },
+    });
+    for (const pl of linked) if (!playerByUser[pl.userId]) playerByUser[pl.userId] = pl.id;
+  }
+
   const posts = rows.map(({ _count, ...p }) => ({
-    ...p, commentCount: _count.comments, liked: likedSet.has(p.id), saved: savedSet.has(p.id),
+    ...p,
+    commentCount: _count.comments,
+    liked: likedSet.has(p.id),
+    saved: savedSet.has(p.id),
+    authorPlayerId: p.playerId || playerByUser[p.authorId] || null,
   }));
   res.json({ posts });
 });

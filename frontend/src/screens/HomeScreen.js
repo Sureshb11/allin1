@@ -291,7 +291,7 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>LIVE NOW</Text>
           </View>
-          <MatchCard m={liveMatch} isScorer={liveMatch.isScorer} onPress={() => currentSport.id === 'cricket' ? navigation.navigate('LiveMatch', { matchId: liveMatch.id }) : navigation.navigate('MatchStats', { matchId: liveMatch.id, sportName: currentSport.name })} onStart={startMatch} onResume={(m) => navigation.navigate('Scoring', { resume: true, matchId: m.id })} />
+          <MatchCard m={liveMatch} isScorer={liveMatch.isScorer} onPress={() => currentSport.id === 'cricket' ? navigation.navigate('Scorecard', { matchId: liveMatch.id }) : navigation.navigate('MatchStats', { matchId: liveMatch.id, sportName: currentSport.name })} onStart={startMatch} onResume={(m) => navigation.navigate('Scoring', { resume: true, matchId: m.id })} />
         </View>
       );
     } else if (upcomingMatch) {
@@ -300,7 +300,7 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>UP NEXT</Text>
           </View>
-          <MatchCard m={upcomingMatch} isScorer={upcomingMatch.isScorer} onPress={() => currentSport.id === 'cricket' ? navigation.navigate('LiveMatch', { matchId: upcomingMatch.id }) : navigation.navigate('MatchStats', { matchId: upcomingMatch.id, sportName: currentSport.name })} onStart={startMatch} />
+          <MatchCard m={upcomingMatch} isScorer={upcomingMatch.isScorer} onPress={() => currentSport.id === 'cricket' ? navigation.navigate('Scorecard', { matchId: upcomingMatch.id }) : navigation.navigate('MatchStats', { matchId: upcomingMatch.id, sportName: currentSport.name })} onStart={startMatch} />
         </View>
       );
     } else if (completedMatches.length > 0) {
@@ -310,7 +310,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.sectionLabel}>RECENT MATCHES</Text>
           </View>
           {completedMatches.map(m => (
-            <MatchCard key={m.id} m={m} isScorer={m.isScorer} onPress={() => currentSport.id === 'cricket' ? navigation.navigate('LiveMatch', { matchId: m.id }) : navigation.navigate('MatchStats', { matchId: m.id, sportName: currentSport.name })} onStart={startMatch} />
+            <MatchCard key={m.id} m={m} isScorer={m.isScorer} onPress={() => currentSport.id === 'cricket' ? navigation.navigate('Scorecard', { matchId: m.id }) : navigation.navigate('MatchStats', { matchId: m.id, sportName: currentSport.name })} onStart={startMatch} />
           ))}
         </View>
       );
@@ -415,7 +415,7 @@ export default function HomeScreen({ navigation }) {
                 m={item}
                 isScorer={!!item.isScorer}
                 onPress={() => currentSport.id === 'cricket'
-                  ? navigation.navigate('LiveMatch', { matchId: item.id })
+                  ? navigation.navigate('Scorecard', { matchId: item.id })
                   : navigation.navigate('MatchStats', { matchId: item.id, sportName: currentSport.name })}
                 onStart={startMatch}
                 onResume={(m) => navigation.navigate('Scoring', { resume: true, matchId: m.id })}

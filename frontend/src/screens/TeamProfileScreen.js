@@ -979,7 +979,7 @@ const MatchesTab = ({ matches, teamId, navigation, styles, DS }) => {
                 // NotificationScreen, TournamentDetailScreen), live or completed alike.
                 // MatchInsights had no other caller anywhere in the app; this was its
                 // only route in, so nothing else is affected by retiring it here.
-                onPress={() => !m.isTournamentMatchOnly && navigation.navigate('LiveMatch', { matchId: m.id })}>
+                onPress={() => !m.isTournamentMatchOnly && navigation.navigate('Scorecard', { matchId: m.id })}>
                 
                 <Text style={{ color: DS.textMuted, fontSize: 12, marginBottom: 12 }}>{matchLabel}</Text>
                 

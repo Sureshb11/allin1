@@ -183,7 +183,10 @@ export default function LiveMatchScreen({ route, navigation }) {
   const [broadcast, setBroadcast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab] = useState('scorecard');
+  // 'commentary' (labelled "Live"), not 'scorecard'. Scorecard is now a routing
+  // tab with no pane of its own, so defaulting to it opened this screen on empty
+  // space. Live is the right landing tab anyway — it is what a spectator came for.
+  const [tab, setTab] = useState('commentary');
   const [intel, setIntel] = useState(null);   // { enabled, shots, summary, latest }
   const width = Dimensions.get('window').width;
   const pollRef = useRef(null);

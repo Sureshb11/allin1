@@ -460,7 +460,7 @@ export default function CareerBoard({ stats, sportId, ballType, navigation, capt
     }), [honScroll, honOffset, honStart, honMax]);
   const openMatch = (m) => {
     if (!navigation || !m.matchId) return;
-    if (sportId === 'cricket') navigation.navigate('LiveMatch', { matchId: m.matchId });
+    if (sportId === 'cricket') navigation.navigate('Scorecard', { matchId: m.matchId });
     else navigation.navigate('MatchStats', { matchId: m.matchId, sportName });
   };
 

@@ -530,7 +530,7 @@ export default function TournamentDetailScreen({ route, navigation }) {
   // not an organiser's privilege.
   const openFixtureScorecard = (fixture) => {
     if (!fixture?.matchId) return;
-    navigation.navigate('LiveMatch', { matchId: fixture.matchId });
+    navigation.navigate('Scorecard', { matchId: fixture.matchId });
   };
 
   const resumeFixtureMatch = (fixture) => {

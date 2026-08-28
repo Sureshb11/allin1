@@ -175,13 +175,21 @@ router.get('/circle', authMiddleware, async (req, res) => {
     const uid = req.user.sub;
     const { sport } = req.query;
 
-    const [ownedOrPlaying, follows, userPlayers] = await Promise.all([
+    const [ownedOrPlaying, follows, userPlayers, playerFollows] = await Promise.all([
       prisma.team.findMany({
         where: { OR: [{ ownerId: uid }, { players: { some: { userId: uid } } }] },
         select: { id: true },
       }),
       prisma.teamFollow.findMany({ where: { userId: uid }, select: { teamId: true } }),
       prisma.player.findMany({ where: { userId: uid }, select: { id: true } }),
+      // Players this user follows. Stored in the polymorphic `Like` table — see
+      // POST /players/:id/follow. Following a player is a statement that you want
+      // their cricket in your feed, so their matches belong in the circle
+      // alongside your own teams' and the teams you follow.
+      prisma.like.findMany({
+        where: { userId: uid, targetType: 'player_follow' },
+        select: { targetId: true },
+      }),
     ]);
 
     const teamIds = [...new Set([
@@ -195,6 +203,19 @@ router.get('/circle', authMiddleware, async (req, res) => {
     const or = [{ scorerId: uid }];
     if (teamIds.length) or.push({ team1Id: { in: teamIds } }, { team2Id: { in: teamIds } });
     if (pIds.length) or.push({ player1Id: { in: pIds } }, { player2Id: { in: pIds } });
+
+    // A followed player's matches: the ones they were actually named in
+    // (MatchPlayer, i.e. Match.squads), plus the 1v1 sports where the player IS
+    // a side. Squad membership rather than "their team's matches", so following
+    // someone doesn't quietly subscribe you to a whole club's fixture list.
+    const followedPlayerIds = playerFollows.map((f) => f.targetId);
+    if (followedPlayerIds.length) {
+      or.push(
+        { squads: { some: { playerId: { in: followedPlayerIds } } } },
+        { player1Id: { in: followedPlayerIds } },
+        { player2Id: { in: followedPlayerIds } },
+      );
+    }
 
     const where = { OR: or };
     if (sport) where.sport = String(sport);

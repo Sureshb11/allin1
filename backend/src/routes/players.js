@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { authMiddleware } from '../lib/auth.js';
+import { authMiddleware, optionalAuth } from '../lib/auth.js';
 import { isTeamAdmin } from '../lib/teamAuth.js';
 import { playerCareer } from '../lib/playerCareer.js';
 import { canonicalRole } from '../lib/squadOrder.js';
@@ -26,6 +26,10 @@ import { benchmarkForPlayer } from '../lib/benchmark.js';
 const foldRole = (role, sport) => canonicalRole(role, sport || 'cricket') || role;
 
 const router = Router();
+
+// Player follows live in the polymorphic `Like` table under their own
+// targetType — see the note on POST /:id/follow.
+export const FOLLOW_TYPE = 'player_follow';
 
 // Player.stats is a free-form Json column and POST /players accepts whatever a
 // client sends (stats: z.any()), so personal details ended up living in it —
@@ -321,7 +325,7 @@ router.get('/:id', async (req, res) => {
 // Tapping a player in Rankings opens the same board of numbers as My Stats, so
 // it has to be the same computation — see lib/playerCareer.js for the three
 // disagreeing implementations this replaced.
-router.get('/:id/career', async (req, res) => {
+router.get('/:id/career', optionalAuth, async (req, res) => {
   try {
     const player = await prisma.player.findUnique({
       where: { id: req.params.id },
@@ -329,12 +333,46 @@ router.get('/:id/career', async (req, res) => {
     });
     if (!player) return res.status(404).json({ error: 'Player not found' });
     const career = await playerCareer(player);
+    // Whether the caller already follows them, so the button paints correctly on
+    // open rather than only after they tap it. Anonymous callers get false.
+    const following = req.user ? !!(await prisma.like.findUnique({
+      where: { userId_targetType_targetId: { userId: req.user.sub, targetType: FOLLOW_TYPE, targetId: player.id } },
+    })) : false;
     res.json({
       ...career,
+      following,
       // The header this feeds draws a face and a name, which the career itself
       // knows nothing about.
-      player: { id: player.id, name: player.name, role: player.role, avatarUrl: player.user?.avatarUrl || null },
+      // userId so the profile can tell whether it is showing YOU — a Follow
+      // button on your own profile would be nonsense.
+      player: { id: player.id, name: player.name, role: player.role, avatarUrl: player.user?.avatarUrl || null, userId: player.userId || null },
     });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /players/:id/follow — idempotent follow toggle -> { following }.
+//
+// Stored in the polymorphic `Like` table (userId + targetType + targetId, unique
+// together), the same way saved posts are, so following a player needs NO new
+// table and therefore no migration against the live database. Teams have their
+// own TeamFollow table because that relation predates this pattern; if player
+// follows ever need fields of their own the rows copy out to one.
+router.post('/:id/follow', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.sub, targetId = req.params.id;
+    const player = await prisma.player.findUnique({ where: { id: targetId }, select: { id: true } });
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+
+    const key = { userId_targetType_targetId: { userId, targetType: FOLLOW_TYPE, targetId } };
+    const existing = await prisma.like.findUnique({ where: key });
+
+    let following;
+    if (existing) { await prisma.like.delete({ where: key }); following = false; }
+    else { await prisma.like.create({ data: { userId, targetType: FOLLOW_TYPE, targetId } }); following = true; }
+
+    res.json({ following });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
