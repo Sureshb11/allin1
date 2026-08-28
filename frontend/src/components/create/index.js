@@ -19,7 +19,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, forwardRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, Animated, Easing, Alert,
-  ScrollView, Platform,
+  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { BottomSheetTextInput, BottomSheetScrollView, useBottomSheetInternal } from '@gorhom/bottom-sheet';
@@ -85,14 +85,23 @@ export function useDrawerSheet() {
   return useMemo(() => ({
     snapPoints: ['94%'],
     enablePanDownToClose: true,
-    // `interactive` offsets the whole sheet by the keyboard's height. These
-    // sheets already sit at 94%, and on Android the window is ALSO resizing
-    // (adjustResize, set here and in the manifest) — so two mechanisms move the
-    // content on every keystroke and the scroll fights them both. `extend`
-    // extends the sheet to its maximum snap point, which at 94% is where it
-    // already is, leaving the window resize to do the work on its own.
-    // iOS has no adjustResize, so there the interactive offset is still right.
-    keyboardBehavior: Platform.OS === 'android' ? 'extend' : 'interactive',
+    // `interactive` + `adjustResize` is the ONE pairing gorhom special-cases on
+    // Android. BottomSheet.tsx bails out of its keyboard handler and zeroes the
+    // keyboard height for exactly this combination:
+    //
+    //   Platform.OS === 'android' &&
+    //   keyboardBehavior === 'interactive' &&
+    //   android_keyboardInputMode === 'adjustResize'
+    //       -> animatedKeyboardHeightInContainer.value = 0
+    //
+    // i.e. "the window already resized, so I must not adjust again". Any other
+    // behaviour misses that guard and subtracts the keyboard height a SECOND
+    // time in animatedContentHeightMax — `extend` does it directly, and
+    // `fillParent` does it in its own branch. The content then collapses to
+    // nothing and BottomSheetFooter, positioned off that height, jumps up under
+    // the header. That was the "Continue button moves to the top" bug, and it is
+    // why both `extend` and the earlier `fillParent` attempt failed.
+    keyboardBehavior: 'interactive',
     keyboardBlurBehavior: 'restore',
     android_keyboardInputMode: 'adjustResize',
     backgroundStyle: { backgroundColor: DS.bg },
@@ -255,7 +264,7 @@ export const TextField = forwardRef(({
       />
     </Field>
   );
-}
+});
 
 export const TextArea = (props) => <TextField multiline {...props} />;
 

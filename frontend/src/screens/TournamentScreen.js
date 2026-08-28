@@ -223,6 +223,11 @@ export default function TournamentScreen({ navigation, route }) {
   const [touched, setTouched] = useState({});
   const [busy, setBusy] = useState(null);
   const [publishing, setPublishing] = useState(false);
+  // Held true for a beat after a successful publish, so the button shows its
+  // "done" tick before the screen goes back — the same pattern the other four
+  // drawers use. Referenced below but never declared, which made every build
+  // of this screen a parse-time ReferenceError.
+  const [published, setPublished] = useState(false);
   const getFieldProps = useFocusOrder([
     'name', 'shortName', 'description', 'organizer', 'phone', 'whatsapp', 'email', 'website',
     'venue', 'ground', 'address', 'city', 'entryFee', 'winner', 'runnerUp', 'semiFinal'
