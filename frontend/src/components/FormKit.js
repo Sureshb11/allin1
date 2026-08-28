@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect, forwardRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Animated,
   Modal, FlatList, Switch, Image, Pressable,
@@ -50,10 +50,11 @@ export function SectionCard({ title, subtitle, icon, right, children, style }) {
 }
 
 /* ── Text field with a floating label ─────────────────────────────────────── */
-export function Field({
+export const Field = forwardRef(({
   label, value, onChangeText, required, error, hint, keyboardType, maxLength,
   multiline, autoCapitalize, prefix, suffix, onBlur, editable = true, style,
-}) {
+  ...rest
+}, ref) => {
   const SheetAwareInput = useSheetAwareInput();
   const s = useThemedStyles(makeStyles);
   const DS = useTheme().colors;
@@ -97,6 +98,8 @@ export function Field({
             editable={editable}
             selectionColor={DS.lime}
             placeholderTextColor="transparent"
+            ref={ref}
+            {...rest}
           />
         </View>
         {!!suffix && <Text style={s.affix}>{suffix}</Text>}
@@ -107,7 +110,7 @@ export function Field({
       <FieldNote error={error} hint={hint} />
     </View>
   );
-}
+});
 
 export function FieldNote({ error, hint }) {
   const s = useThemedStyles(makeStyles);

@@ -16,7 +16,7 @@
 //   · a press scales to 0.97 and back on the house spring
 //   · labels, helpers and errors have one size each, from TYPE
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo, forwardRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, Animated, Easing, Alert,
   ScrollView, Platform,
@@ -222,10 +222,10 @@ export function Field({ label, required, error, helper, last, children }) {
 // throwing when there is no sheet, so the same field works on a plain screen.
 export const useSheetAwareInput = () => (useBottomSheetInternal(true) ? BottomSheetTextInput : TextInput);
 
-export function TextField({
+export const TextField = forwardRef(({
   label, required, error, helper, last, value, onChangeText, placeholder,
   multiline, Input, ...rest
-}) {
+}, ref) => {
   const DS = useTheme().colors;
   const s = useCreateStyles();
   const [focused, setFocused] = useState(false);
@@ -249,6 +249,7 @@ export function TextField({
         multiline={multiline}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
+        ref={ref}
         accessibilityLabel={label}
         {...rest}
       />

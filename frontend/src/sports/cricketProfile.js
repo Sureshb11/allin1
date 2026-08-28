@@ -9,9 +9,9 @@
 // here reads identically in Find Players and in a team's squad list.
 
 export const PRIMARY_ROLES = [
-  { value: 'Batter',       icon: 'cricket',                 blurb: 'Specialises in batting' },
+  { value: 'Batter',       icon: 'baseball-bat',            blurb: 'Specialises in batting' },
   { value: 'All-rounder',  icon: 'flash',                   blurb: 'Contributes with bat and ball' },
-  { value: 'Bowler',       icon: 'bowling',                 blurb: 'Specialises in bowling' },
+  { value: 'Bowler',       icon: 'baseball',                blurb: 'Specialises in bowling' },
   { value: 'Wicketkeeper', icon: 'hand-back-right-outline', blurb: 'Keeps wicket' },
 ];
 

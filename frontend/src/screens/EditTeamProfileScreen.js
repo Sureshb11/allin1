@@ -1,3 +1,4 @@
+import { useFocusOrder } from "../utils/keyboard";
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import legendsApi from '../services/LegendsApi';
@@ -9,16 +10,22 @@ import legendsApi from '../services/LegendsApi';
 
 
 
-
-
-
-
-
+const FIELDS = [
+  { key: 'teamName', label: 'Team Name' },
+  { key: 'shortName', label: 'Short Name' },
+  { key: 'city', label: 'City' }, { key: 'state', label: 'State' },
+  { key: 'website', label: 'Website' },
+  { key: 'country', label: 'Country' }, { key: 'homeGround', label: 'Home Ground' },
+  { key: 'foundedYear', label: 'Founded Year', keyboard: 'numeric' }, { key: 'teamColors', label: 'Team Colors' },
+  { key: 'bio', label: 'Bio', multiline: true }, { key: 'achievements', label: 'Achievements', multiline: true }
+];
+const FIELD_KEYS = FIELDS.map(f => f.key);
 
 const EditTeamProfileScreen = ({ navigation, route }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const { teamId } = route.params || {};
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const getFieldProps = useFocusOrder(FIELD_KEYS);
   const [teamProfile, setTeamProfile] = useState({
     teamName: '', shortName: '', website: '', city: '', state: '', country: '', homeGround: '',
     teamColors: '', bio: '', achievements: '', foundedYear: ''
@@ -79,26 +86,20 @@ const EditTeamProfileScreen = ({ navigation, route }) => {const DS = useTheme().
 
   if (loading) return <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}><ActivityIndicator size="large" color={DS.lime} /></View>;
 
-  const fields = [
-  { key: 'teamName', label: 'Team Name' },
-  { key: 'shortName', label: 'Short Name' },
-  { key: 'city', label: 'City' }, { key: 'state', label: 'State' },
-  { key: 'website', label: 'Website' },
-  { key: 'country', label: 'Country' }, { key: 'homeGround', label: 'Home Ground' },
-  { key: 'foundedYear', label: 'Founded Year', keyboard: 'numeric' }, { key: 'teamColors', label: 'Team Colors' },
-  { key: 'bio', label: 'Bio', multiline: true }, { key: 'achievements', label: 'Achievements', multiline: true }];
+
 
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.form}>
-        {fields.map((f) =>
+        {FIELDS.map((f) =>
         <View key={f.key} style={styles.inputGroup}>
             <Text style={styles.label}>{f.label}</Text>
             <TextInput style={[styles.input, f.multiline && styles.textArea]} value={teamProfile[f.key]}
           onChangeText={(text) => setTeamProfile({ ...teamProfile, [f.key]: text })}
           placeholderTextColor={DS.textMuted}
-          keyboardType={f.keyboard || 'default'} multiline={f.multiline} numberOfLines={f.multiline ? 3 : 1} />
+          keyboardType={f.keyboard || 'default'} multiline={f.multiline} numberOfLines={f.multiline ? 3 : 1}
+          {...getFieldProps(f.key, handleSave)} />
           </View>
         )}
         <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>

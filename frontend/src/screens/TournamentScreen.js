@@ -1,3 +1,4 @@
+import { useFocusOrder } from "../utils/keyboard";
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback} from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert,
@@ -221,7 +222,11 @@ export default function TournamentScreen({ navigation, route }) {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [busy, setBusy] = useState(null);
-  const [published, setPublished] = useState(false);  // 'publish' | 'draft' | 'logoUrl' | 'banner'
+  const [publishing, setPublishing] = useState(false);
+  const getFieldProps = useFocusOrder([
+    'name', 'shortName', 'description', 'organizer', 'phone', 'whatsapp', 'email', 'website',
+    'venue', 'ground', 'address', 'city', 'entryFee', 'winner', 'runnerUp', 'semiFinal'
+  ]);
   const [loading, setLoading] = useState(!!editingId);
   const scrollRef = useRef(null);
   const dirty = useRef(false);
@@ -526,13 +531,16 @@ export default function TournamentScreen({ navigation, route }) {
       <SectionCard title="Basic information" subtitle="What it's called, and how it looks" icon="trophy-outline">
         <Field label="Tournament name" required value={form.name}
                onChangeText={(t) => { set({ name: t }); clearErr('name'); }}
-               onBlur={() => mark('name')} error={err('name')} maxLength={80} />
+               onBlur={() => mark('name')} error={err('name')} maxLength={80}
+               {...getFieldProps('name')} />
         <Field label="Short name" value={form.shortName} maxLength={10}
                onChangeText={(t) => { set({ shortName: t }); clearErr('shortName'); }}
                onBlur={() => mark('shortName')} error={err('shortName')}
-               hint="Used where there's no room for the full name — scoreboards, fixture lists" />
+               hint="Used where there's no room for the full name — scoreboards, fixture lists"
+               {...getFieldProps('shortName')} />
         <Field label="Description" value={form.description} multiline
-               onChangeText={(t) => set({ description: t })} maxLength={500} />
+               onChangeText={(t) => set({ description: t })} maxLength={500}
+               {...getFieldProps('description')} />
         <View style={{ flexDirection: 'row', gap: 12, marginTop: 2, marginBottom: 14 }}>
           <ImageField label="Logo" uri={form.logoUrl} busy={busy === 'logoUrl'}
                       onPick={() => pickImage('logoUrl')} onClear={() => set({ logoUrl: '' })} />
@@ -549,19 +557,24 @@ export default function TournamentScreen({ navigation, route }) {
       <SectionCard title="Organizer" subtitle="Shown to teams asking about entry" icon="account-tie-outline">
         <Field label="Organizer name" required value={form.organizer}
                onChangeText={(t) => { set({ organizer: t }); clearErr('organizer'); }}
-               onBlur={() => mark('organizer')} error={err('organizer')} />
+               onBlur={() => mark('organizer')} error={err('organizer')}
+               {...getFieldProps('organizer')} />
         <Row wide={wide}>
           <Field label="Mobile number" required keyboardType="phone-pad" value={form.contact.phone}
                  onChangeText={(t) => { setIn('contact', { phone: t }); clearErr('phone'); }}
-                 onBlur={() => mark('phone')} error={err('phone')} />
+                 onBlur={() => mark('phone')} error={err('phone')}
+                 {...getFieldProps('phone')} />
           <Field label="WhatsApp number" keyboardType="phone-pad" value={form.contact.whatsapp}
-                 onChangeText={(t) => setIn('contact', { whatsapp: t })} />
+                 onChangeText={(t) => setIn('contact', { whatsapp: t })}
+                 {...getFieldProps('whatsapp')} />
         </Row>
         <Field label="Email address" keyboardType="email-address" autoCapitalize="none" value={form.contact.email}
                onChangeText={(t) => { setIn('contact', { email: t }); clearErr('email'); }}
-               onBlur={() => mark('email')} error={err('email')} />
+               onBlur={() => mark('email')} error={err('email')}
+               {...getFieldProps('email')} />
         <Field label="Website" autoCapitalize="none" value={form.contact.website}
-               onChangeText={(t) => setIn('contact', { website: t })} />
+               onChangeText={(t) => setIn('contact', { website: t })}
+               {...getFieldProps('website')} />
         <View style={styles.privacyNote}>
           <Icon name="lock-outline" size={13} color={DS.textMuted} />
           <Text style={styles.privacyText}>Contact details are shown to signed-in players only.</Text>
@@ -626,17 +639,21 @@ export default function TournamentScreen({ navigation, route }) {
         <Row wide={wide}>
           <Field label="Venue name" required value={form.venue}
                  onChangeText={(t) => { set({ venue: t }); clearErr('venue'); }}
-                 onBlur={() => mark('venue')} error={err('venue')} />
+                 onBlur={() => mark('venue')} error={err('venue')}
+                 {...getFieldProps('venue')} />
           <Field label="Ground name" required value={form.location.ground}
                  onChangeText={(t) => { setIn('location', { ground: t }); clearErr('ground'); }}
-                 onBlur={() => mark('ground')} error={err('ground')} />
+                 onBlur={() => mark('ground')} error={err('ground')}
+                 {...getFieldProps('ground')} />
         </Row>
         <Field label="Address" value={form.location.address} multiline
-               onChangeText={(t) => setIn('location', { address: t })} />
+               onChangeText={(t) => setIn('location', { address: t })}
+               {...getFieldProps('address')} />
         <Row wide={wide}>
           <Field label="City" required value={form.city}
                  onChangeText={(t) => { set({ city: t }); clearErr('city'); }}
-                 onBlur={() => mark('city')} error={err('city')} />
+                 onBlur={() => mark('city')} error={err('city')}
+                 {...getFieldProps('city')} />
           <SelectField label="State" required value={form.location.state} options={STATES}
                        onChange={(v) => { setIn('location', { state: v }); mark('state'); clearErr('state'); }}
                        error={err('state')} />
@@ -699,7 +716,8 @@ export default function TournamentScreen({ navigation, route }) {
         <Row wide={wide}>
           <Field label="Entry fee" keyboardType="number-pad" prefix={sign} value={form.registration.entryFee}
                  onChangeText={(t) => { setIn('registration', { entryFee: t.replace(/[^\d]/g, '') }); clearErr('entryFee'); }}
-                 error={err('entryFee')} hint="Leave empty for a free tournament" />
+                 error={err('entryFee')} hint="Leave empty for a free tournament"
+                 {...getFieldProps('entryFee')} />
           <SelectField label="Currency" value={form.registration.currency} options={CURRENCIES}
                        onChange={(v) => setIn('registration', { currency: v })} />
         </Row>
@@ -796,12 +814,15 @@ export default function TournamentScreen({ navigation, route }) {
     <>
       <SectionCard title="Prize details" subtitle="Optional — shown on the tournament card" icon="medal-outline">
         <Field label="Winner" prefix={sign} keyboardType="number-pad" value={form.prizes.winner}
-               onChangeText={(t) => setIn('prizes', { winner: t })} />
+               onChangeText={(t) => setIn('prizes', { winner: t })}
+               {...getFieldProps('winner')} />
         <Row wide={wide}>
           <Field label="Runner-up" prefix={sign} keyboardType="number-pad" value={form.prizes.runnerUp}
-                 onChangeText={(t) => setIn('prizes', { runnerUp: t })} />
+                 onChangeText={(t) => setIn('prizes', { runnerUp: t })}
+                 {...getFieldProps('runnerUp')} />
           <Field label="Semi-finalist" prefix={sign} keyboardType="number-pad" value={form.prizes.semiFinal}
-                 onChangeText={(t) => setIn('prizes', { semiFinal: t })} />
+                 onChangeText={(t) => setIn('prizes', { semiFinal: t })}
+                 {...getFieldProps('semiFinal')} />
         </Row>
       </SectionCard>
 

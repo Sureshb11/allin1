@@ -1,3 +1,4 @@
+import { useFocusOrder } from "../utils/keyboard";
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";
 import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
@@ -16,6 +17,12 @@ const EditPlayerProfileScreen = ({ navigation }) => {
   
   const sportId = getSelectedSport().sport?.id || 'cricket';
   const sportRoles = getFind(sportId).roles || [];
+
+  const fieldOrder = [
+    'name', 'email', 'phone', 'dateOfBirth', 'height', 'weight',
+    'city', 'district', 'state', 'country', 'pincode', 'bio'
+  ];
+  const getFieldProps = useFocusOrder(fieldOrder);
 
   const [profile, setProfile] = useState({
     name: '', email: '', phone: '', city: '', district: '', state: '', country: '', pincode: '',
@@ -70,8 +77,9 @@ const EditPlayerProfileScreen = ({ navigation }) => {
       const p = res?.player || null;
       const name = u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim();
       setProfile((prev) => ({
-        ...prev, name, phone: u.phone || '', bio: u.bio || '',
+        ...prev, name, phone: u.phone || '', email: u.email || '', bio: u.bio || '',
         city: u.city || '', district: u.district || '', state: u.state || '', country: u.country || '', pincode: u.pincode || '',
+        dateOfBirth: u.dateOfBirth || '', height: u.height || '', weight: u.weight || '',
         primaryRole: p?.role && p.role !== 'Player' ? p.role : null,
         battingStyle: p?.battingStyle || null,
         bowlingStyle: p?.bowlingStyle || null,
@@ -100,6 +108,8 @@ const EditPlayerProfileScreen = ({ navigation }) => {
       firstName, lastName, bio: profile.bio || null,
       city: profile.city || null, district: profile.district || null,
       state: profile.state || null, country: profile.country || null, pincode: profile.pincode || null,
+      dateOfBirth: profile.dateOfBirth || null, height: profile.height || null, weight: profile.weight || null,
+      phone: profile.phone || null, email: profile.email || null,
     });
     
     let playerSaved = true;
@@ -139,33 +149,33 @@ const EditPlayerProfileScreen = ({ navigation }) => {
           </View>
           <View style={[styles.inputGroup, { flex: 1, marginBottom: 0 }]}>
             <Text style={styles.label}>Full Name</Text>
-            <TextInput style={styles.input} value={profile.name} onChangeText={(text) => setProfile({ ...profile, name: text })} placeholderTextColor={DS.textMuted} />
+            <TextInput style={styles.input} value={profile.name} onChangeText={(text) => setProfile({ ...profile, name: text })} placeholderTextColor={DS.textMuted} {...getFieldProps('name')} />
           </View>
         </View>
 
         <View style={styles.row}>
           <View style={[styles.inputGroup, { flex: 1 }]}>
             <Text style={styles.label}>Email</Text>
-            <TextInput style={styles.input} value={profile.email} onChangeText={(text) => setProfile({ ...profile, email: text })} keyboardType="email-address" placeholderTextColor={DS.textMuted} />
+            <TextInput style={styles.input} value={profile.email} onChangeText={(text) => setProfile({ ...profile, email: text })} keyboardType="email-address" placeholderTextColor={DS.textMuted} {...getFieldProps('email')} />
           </View>
           <View style={[styles.inputGroup, { flex: 1 }]}>
             <Text style={styles.label}>Phone</Text>
-            <TextInput style={styles.input} value={profile.phone} onChangeText={(text) => setProfile({ ...profile, phone: text })} keyboardType="phone-pad" placeholderTextColor={DS.textMuted} />
+            <TextInput style={styles.input} value={profile.phone} onChangeText={(text) => setProfile({ ...profile, phone: text })} keyboardType="phone-pad" placeholderTextColor={DS.textMuted} {...getFieldProps('phone')} />
           </View>
         </View>
 
         <View style={styles.row}>
           <View style={[styles.inputGroup, { flex: 1.1 }]}>
             <Text style={styles.label}>Date of Birth</Text>
-            <TextInput style={styles.input} value={profile.dateOfBirth} onChangeText={(text) => setProfile({ ...profile, dateOfBirth: text })} placeholderTextColor={DS.textMuted} />
+            <TextInput style={styles.input} value={profile.dateOfBirth} onChangeText={(text) => setProfile({ ...profile, dateOfBirth: text })} placeholderTextColor={DS.textMuted} {...getFieldProps('dateOfBirth')} />
           </View>
           <View style={[styles.inputGroup, { flex: 0.8 }]}>
             <Text style={styles.label}>Height</Text>
-            <TextInput style={styles.input} value={profile.height} onChangeText={(text) => setProfile({ ...profile, height: text })} placeholderTextColor={DS.textMuted} />
+            <TextInput style={styles.input} value={profile.height} onChangeText={(text) => setProfile({ ...profile, height: text })} placeholderTextColor={DS.textMuted} {...getFieldProps('height')} />
           </View>
           <View style={[styles.inputGroup, { flex: 0.8 }]}>
             <Text style={styles.label}>Weight</Text>
-            <TextInput style={styles.input} value={profile.weight} onChangeText={(text) => setProfile({ ...profile, weight: text })} placeholderTextColor={DS.textMuted} />
+            <TextInput style={styles.input} value={profile.weight} onChangeText={(text) => setProfile({ ...profile, weight: text })} placeholderTextColor={DS.textMuted} {...getFieldProps('weight')} />
           </View>
         </View>
 
@@ -193,7 +203,7 @@ const EditPlayerProfileScreen = ({ navigation }) => {
 
         <View style={[styles.inputGroup, { zIndex: 10 }]}>
           <Text style={styles.label}>City/Town</Text>
-          <TextInput style={styles.input} value={profile.city} onChangeText={onCityChange} placeholder="Start typing your city or town…" placeholderTextColor={DS.textMuted} autoCorrect={false} />
+          <TextInput style={styles.input} value={profile.city} onChangeText={onCityChange} placeholder="Start typing your city or town…" placeholderTextColor={DS.textMuted} autoCorrect={false} {...getFieldProps('city')} />
           {citySuggest.length > 0 &&
             <View style={styles.suggestBox}>
               {citySuggest.map((s, i) => (
@@ -212,28 +222,28 @@ const EditPlayerProfileScreen = ({ navigation }) => {
         <View style={styles.row}>
           <View style={[styles.inputGroup, { flex: 1 }]}>
             <Text style={styles.label}>District</Text>
-            <TextInput style={styles.input} value={profile.district} onChangeText={(text) => setProfile({ ...profile, district: text })} placeholderTextColor={DS.textMuted} />
+            <TextInput style={styles.input} value={profile.district} onChangeText={(text) => setProfile({ ...profile, district: text })} placeholderTextColor={DS.textMuted} {...getFieldProps('district')} />
           </View>
           <View style={[styles.inputGroup, { flex: 1 }]}>
             <Text style={styles.label}>State</Text>
-            <TextInput style={styles.input} value={profile.state} onChangeText={(text) => setProfile({ ...profile, state: text })} placeholderTextColor={DS.textMuted} />
+            <TextInput style={styles.input} value={profile.state} onChangeText={(text) => setProfile({ ...profile, state: text })} placeholderTextColor={DS.textMuted} {...getFieldProps('state')} />
           </View>
         </View>
 
         <View style={styles.row}>
           <View style={[styles.inputGroup, { flex: 1 }]}>
             <Text style={styles.label}>Country</Text>
-            <TextInput style={styles.input} value={profile.country} onChangeText={(text) => setProfile({ ...profile, country: text })} placeholderTextColor={DS.textMuted} />
+            <TextInput style={styles.input} value={profile.country} onChangeText={(text) => setProfile({ ...profile, country: text })} placeholderTextColor={DS.textMuted} {...getFieldProps('country')} />
           </View>
           <View style={[styles.inputGroup, { flex: 1 }]}>
             <Text style={styles.label}>Pincode</Text>
-            <TextInput style={styles.input} value={profile.pincode} onChangeText={(text) => setProfile({ ...profile, pincode: text })} keyboardType="number-pad" maxLength={6} placeholderTextColor={DS.textMuted} />
+            <TextInput style={styles.input} value={profile.pincode} onChangeText={(text) => setProfile({ ...profile, pincode: text })} keyboardType="number-pad" maxLength={6} placeholderTextColor={DS.textMuted} {...getFieldProps('pincode')} />
           </View>
         </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Bio</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={profile.bio} onChangeText={(text) => setProfile({ ...profile, bio: text })} multiline numberOfLines={3} placeholderTextColor={DS.textMuted} />
+          <TextInput style={[styles.input, styles.textArea]} value={profile.bio} onChangeText={(text) => setProfile({ ...profile, bio: text })} multiline numberOfLines={3} placeholderTextColor={DS.textMuted} {...getFieldProps('bio', handleSave)} />
         </View>
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>

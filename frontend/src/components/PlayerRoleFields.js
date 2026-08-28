@@ -49,11 +49,11 @@ export default function PlayerRoleFields({ value, onChange, errors = {} }) {
             <TouchableOpacity key={r.value} style={[s.card, on && s.cardOn]}
               onPress={() => pickRole(r.value)} activeOpacity={0.85}>
               <View style={[s.cardIcon, on && { backgroundColor: DS.lime }]}>
-                <Icon name={r.icon} size={19} color={on ? DS.onLime : DS.textVariant} />
+                <Icon name={r.icon} size={16} color={on ? DS.onLime : DS.textVariant} />
               </View>
               <Text style={[s.cardTitle, on && { color: DS.lime }]}>{r.value}</Text>
-              <Text style={s.cardBlurb} numberOfLines={2}>{r.blurb}</Text>
-              {on && <Icon name="check-circle" size={16} color={DS.lime} style={s.cardTick} />}
+              <Text style={s.cardBlurb} numberOfLines={1}>{r.blurb}</Text>
+              {on && <Icon name="check-circle" size={14} color={DS.lime} style={s.cardTick} />}
             </TouchableOpacity>
           );
         })}
@@ -125,19 +125,19 @@ const makeStyles = (DS) => StyleSheet.create({
   req: { fontSize: 10, fontWeight: '800', color: DS.lime, letterSpacing: 0.4 },
   opt: { fontSize: 10, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.4 },
 
-  cardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  cardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   card: {
-    width: '47.5%', borderRadius: 16, padding: 13,
+    width: '48%', borderRadius: 12, padding: 10,
     backgroundColor: DS.surfaceHigh, borderWidth: 1.5, borderColor: DS.border,
   },
   cardOn: { borderColor: DS.lime, backgroundColor: DS.lime + '12' },
   cardIcon: {
-    width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: DS.surfaceHighest, marginBottom: 9,
+    width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: DS.surfaceHighest, marginBottom: 6,
   },
-  cardTitle: { fontSize: 14, fontWeight: '900', color: DS.textPrimary },
-  cardBlurb: { fontSize: 10.5, fontWeight: '600', color: DS.textMuted, marginTop: 3, lineHeight: 14 },
-  cardTick: { position: 'absolute', top: 10, right: 10 },
+  cardTitle: { fontSize: 13, fontWeight: '900', color: DS.textPrimary },
+  cardBlurb: { fontSize: 10, fontWeight: '600', color: DS.textMuted, marginTop: 2, lineHeight: 12 },
+  cardTick: { position: 'absolute', top: 8, right: 8 },
 
   segment: { flexDirection: 'row', gap: 8 },
   segBtn: {

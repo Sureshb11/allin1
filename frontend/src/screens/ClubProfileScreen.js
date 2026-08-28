@@ -1,3 +1,4 @@
+import { useFocusOrder } from '../utils/keyboard';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import legendsApi from '../services/LegendsApi';
@@ -15,10 +16,21 @@ import legendsApi from '../services/LegendsApi';
 
 
 
+const FIELDS = [
+  { key: 'clubName', label: 'Club Name' }, { key: 'president', label: 'President' }, { key: 'secretary', label: 'Secretary' },
+  { key: 'foundedYear', label: 'Founded Year', keyboard: 'numeric' }, { key: 'address', label: 'Address' },
+  { key: 'city', label: 'City' }, { key: 'state', label: 'State' }, { key: 'country', label: 'Country' },
+  { key: 'phone', label: 'Phone', keyboard: 'phone-pad' }, { key: 'email', label: 'Email', keyboard: 'email-address' },
+  { key: 'website', label: 'Website' }, { key: 'membershipFee', label: 'Membership Fee' },
+  { key: 'facilities', label: 'Facilities (comma separated)', multiline: true }, { key: 'bio', label: 'Bio', multiline: true }
+];
+const FIELD_KEYS = FIELDS.map(f => f.key);
+
 const ClubProfileScreen = ({ navigation, route }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const { clubId } = route.params || {};
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const getFieldProps = useFocusOrder(FIELD_KEYS);
   const [profile, setProfile] = useState({
     clubName: '', president: '', secretary: '', foundedYear: '', address: '',
     city: '', state: '', country: '', phone: '', email: '', website: '',
@@ -79,25 +91,20 @@ const ClubProfileScreen = ({ navigation, route }) => {const DS = useTheme().colo
 
   if (loading) return <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}><ActivityIndicator size="large" color={DS.lime} /></View>;
 
-  const fields = [
-  { key: 'clubName', label: 'Club Name' }, { key: 'president', label: 'President' }, { key: 'secretary', label: 'Secretary' },
-  { key: 'foundedYear', label: 'Founded Year', keyboard: 'numeric' }, { key: 'address', label: 'Address' },
-  { key: 'city', label: 'City' }, { key: 'state', label: 'State' }, { key: 'country', label: 'Country' },
-  { key: 'phone', label: 'Phone', keyboard: 'phone-pad' }, { key: 'email', label: 'Email', keyboard: 'email-address' },
-  { key: 'website', label: 'Website' }, { key: 'membershipFee', label: 'Membership Fee' },
-  { key: 'facilities', label: 'Facilities (comma separated)', multiline: true }, { key: 'bio', label: 'Bio', multiline: true }];
+
 
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.form}>
-        {fields.map((f) =>
+        {FIELDS.map((f) =>
         <View key={f.key} style={styles.inputGroup}>
             <Text style={styles.label}>{f.label}</Text>
             <TextInput style={[styles.input, f.multiline && styles.textArea]} value={profile[f.key]}
           onChangeText={(text) => setProfile({ ...profile, [f.key]: text })}
           placeholderTextColor={DS.textMuted}
-          keyboardType={f.keyboard || 'default'} multiline={f.multiline} numberOfLines={f.multiline ? 3 : 1} />
+          keyboardType={f.keyboard || 'default'} multiline={f.multiline} numberOfLines={f.multiline ? 3 : 1}
+          {...getFieldProps(f.key, handleSave)} />
           </View>
         )}
         <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>

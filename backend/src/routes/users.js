@@ -274,6 +274,11 @@ const ProfileSchema = z.object({
   state: z.string().optional().nullable(),
   country: z.string().optional().nullable(),
   pincode: z.string().optional().nullable(),
+  dateOfBirth: z.string().optional().nullable(),
+  height: z.string().optional().nullable(),
+  weight: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  email: z.string().email().optional().nullable(),
 });
 
 // Partial update — only the fields actually sent are changed, so an avatar-only
@@ -282,7 +287,7 @@ router.put('/me', authMiddleware, async (req, res) => {
   try {
     const data = ProfileSchema.parse(req.body);
     const update = {};
-    for (const k of ['firstName', 'lastName', 'avatarUrl', 'coverUrl', 'bio', 'city', 'district', 'state', 'country', 'pincode']) {
+    for (const k of ['firstName', 'lastName', 'avatarUrl', 'coverUrl', 'bio', 'city', 'district', 'state', 'country', 'pincode', 'dateOfBirth', 'height', 'weight', 'phone', 'email']) {
       if (data[k] !== undefined) update[k] = data[k];
     }
     const user = await prisma.user.update({ where: { id: req.user.sub }, data: update });

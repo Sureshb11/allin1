@@ -1,3 +1,4 @@
+import { useFocusOrder } from "../utils/keyboard";
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, StatusBar, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -21,6 +22,7 @@ const CreateProductScreen = ({ navigation }) => {const DS = useTheme().colors;co
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('equipment');
   const [location, setLocation] = useState('');
+  const getFieldProps = useFocusOrder(['title', 'description', 'price', 'location']);
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -148,7 +150,8 @@ const CreateProductScreen = ({ navigation }) => {const DS = useTheme().colors;co
             value={title}
             onChangeText={setTitle}
             placeholder="e.g. English Willow Bat"
-            placeholderTextColor={DS.textMuted} />
+            placeholderTextColor={DS.textMuted}
+            {...getFieldProps('title')} />
           
 
           <Text style={styles.label}>Description</Text>
@@ -159,7 +162,8 @@ const CreateProductScreen = ({ navigation }) => {const DS = useTheme().colors;co
             placeholder="Describe your item..."
             placeholderTextColor={DS.textMuted}
             multiline
-            numberOfLines={4} />
+            numberOfLines={4}
+            {...getFieldProps('description')} />
           
 
           <Text style={styles.label}>Price (INR)</Text>
@@ -169,7 +173,8 @@ const CreateProductScreen = ({ navigation }) => {const DS = useTheme().colors;co
             onChangeText={setPrice}
             placeholder="e.g. 5000"
             placeholderTextColor={DS.textMuted}
-            keyboardType="numeric" />
+            keyboardType="numeric"
+            {...getFieldProps('price')} />
           
 
           <Text style={styles.label}>Venue</Text>
@@ -178,7 +183,8 @@ const CreateProductScreen = ({ navigation }) => {const DS = useTheme().colors;co
             value={location}
             onChangeText={setLocation}
             placeholder="Search for a venue..."
-            placeholderTextColor={DS.textMuted} />
+            placeholderTextColor={DS.textMuted}
+            {...getFieldProps('location', handleCreate)} />
           
         </View>
 

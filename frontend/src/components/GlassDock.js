@@ -39,7 +39,7 @@ import { sportColor as sportColorFor } from '../sports/colors';
 // came straight back over the table. This list cannot come apart — it is read
 // from the focused route on every render, with nothing to keep in balance.
 const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab', 'Chat', 'MatchSetup', 'TossLineup',
-  'TeamStatLeaderboard', 'TournamentDetail'];
+  'TeamStatLeaderboard', 'TournamentDetail', 'EditPlayerProfile', 'EditTeamProfile', 'ClubProfile'];
 
 export default function GlassDock({
   state, navigation, sportIcon = 'cricket', sportName = 'My Cricket', homeRoute = 'Feed',
