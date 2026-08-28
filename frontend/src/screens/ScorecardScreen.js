@@ -1463,14 +1463,18 @@ function MatchTab({ tab, active, onPress, onLayout, styles, DS }) {
 }
 
 export default function ScorecardScreen({ route, navigation }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);const C = useThemedStyles(makeControls);
-  const { matchId } = route.params || {};
+  // `initialTab` lets a caller open this screen on a specific tab. Without it a
+  // live match always lands on LIVE (see activeTab's fallback below), so the
+  // Live screen's Scorecard tab — which now opens this screen instead of drawing
+  // its own cut-down copy — would have dropped you on commentary.
+  const { matchId, initialTab } = route.params || {};
   const [match, setMatch] = useState(null);
   const matchRef = useRef(null);   // latest match, so the live poll can read status without a state churn
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [inningsTab, setInningsTab] = useState(0);   // which innings' overs to show (OVERS tab)
   const [expandedInnings, setExpandedInnings] = useState(null); // which team's card is open (SCORECARD tab); null = default
-  const [tab, setTab] = useState(null);              // active top tab; null until match first loads
+  const [tab, setTab] = useState(initialTab || null); // active top tab; null falls back per match status
   const shotRef = useRef(null);                      // capture target for "share as image"
   const pagerRef = useRef(null);                     // horizontal swipeable tab content
   const swipingRef = useRef(false);                  // true while a finger swipe drives the pager

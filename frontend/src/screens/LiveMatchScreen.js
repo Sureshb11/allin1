@@ -52,7 +52,12 @@ const HAS_WEBVIEW = (() => {
 })();
 
 const TABS = [
-  { key: 'scorecard',  label: 'Scorecard',  icon: 'clipboard-text-outline' },
+  // Scorecard OPENS the real scorecard rather than showing a pane. It used to
+  // render a cut-down copy here — batter, runs, balls — under a "Full scorecard"
+  // button that went to the actual screen, so the tab was a preview of the thing
+  // it was already offering to open. `route` marks a tab that navigates instead
+  // of switching panes.
+  { key: 'scorecard',  label: 'Scorecard',  icon: 'clipboard-text-outline', route: 'Scorecard' },
   // The tab's user-facing label is "Live" — the spectator screen's name for
   // this feed. `key` stays 'commentary' on purpose: it is internal state
   // (`tab === 'commentary'`) that nothing renders, and the underlying feature
@@ -80,18 +85,6 @@ const SHOTS_TAB = { key: 'shots', label: 'Shots', icon: 'chart-scatter-plot' };
 
 function overs(legalBalls) {
   return `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`;
-}
-
-/** Per-batter row for the Scorecard tab. */
-function batterCard(balls, playerId, nameOf) {
-  if (!playerId) return null;
-  const faced = balls.filter((b) => b.batterId === playerId);
-  return {
-    id: playerId,
-    name: nameOf(playerId),
-    runs: faced.reduce((n, b) => n + b.runs, 0),
-    balls: faced.filter(isLegal).length,
-  };
 }
 
 /**
@@ -468,12 +461,16 @@ export default function LiveMatchScreen({ route, navigation }) {
         {/* ── Tabs ─────────────────────────────────────────────────────── */}
         <View style={styles.tabBar}>
           {(intel?.enabled ? [...TABS, SHOTS_TAB] : TABS).map((t) => {
-            const on = tab === t.key;
+            // A routing tab is never the "on" one — it leaves rather than
+            // selecting, so highlighting it would be a lie about where you are.
+            const on = !t.route && tab === t.key;
             return (
               <TouchableOpacity
                 key={t.key}
                 style={[styles.tab, on && styles.tabOn]}
-                onPress={() => setTab(t.key)}
+                onPress={() => (t.route
+                  ? navigation?.navigate(t.route, { matchId: match?.id ?? matchId, initialTab: 'scorecard' })
+                  : setTab(t.key))}
                 activeOpacity={0.85}
               >
                 <Icon name={t.icon} size={14} color={on ? DS.lime : DS.textMuted} />
@@ -492,7 +489,6 @@ export default function LiveMatchScreen({ route, navigation }) {
         {tab !== 'info' && tab !== 'shots' && !detail && (
           <ActivityIndicator style={styles.tabLoading} color={DS.lime} />
         )}
-        {tab === 'scorecard'  && !!detail && <ScorecardTab  detail={detail} live={L} match={match} styles={styles} navigation={navigation} />}
         {tab === 'commentary' && !!detail && <CommentaryTab detail={detail} styles={styles} DS={DS} />}
         {tab === 'players'    && !!detail && <PlayersTab    match={match} styles={styles} />}
         {tab === 'info'       && <InfoTab summary={summary} match={match} broadcast={broadcast} styles={styles} />}
@@ -588,45 +584,6 @@ function Badge({ styles, DS, text }) {
     <View style={styles.badge}>
       <Icon name="check-decagram" size={12} color={DS.lime} />
       <Text style={styles.badgeText}>{text}</Text>
-    </View>
-  );
-}
-
-function ScorecardTab({ detail, live, match, styles, navigation }) {
-  if (!detail?.current) return <Empty styles={styles} text="Scoring hasn’t started." />;
-  const inn = detail.current;
-  const batters = (match.squads || [])
-    .filter((p) => p.teamId === inn.battingTeamId)
-    .map((p) => ({ id: p.player?.id, name: p.player?.name, ...(batterCard(detail.balls, p.player?.id, detail.nameOf) || {}) }))
-    // Everyone who has actually been to the crease. A named XI who has not
-    // batted yet belongs on the Players tab, not padding the card with zeroes.
-    .filter((b) => b.balls > 0 || b.runs > 0);
-
-  return (
-    <View style={styles.pane}>
-      <Text style={styles.paneTitle}>
-        {inn.battingTeam?.name} — {live ? `${live.runs}/${live.wickets}` : `${inn.totalRuns}/${inn.totalWickets}`} ({detail.overs} ov)
-      </Text>
-      <View style={styles.tableHead}>
-        <Text style={[styles.th, styles.thName]}>Batter</Text>
-        <Text style={styles.th}>R</Text>
-        <Text style={styles.th}>B</Text>
-      </View>
-      {batters.length === 0 && <Empty styles={styles} text="No deliveries yet." />}
-      {batters.map((b) => (
-        <View key={b.id} style={styles.tr}>
-          <Text style={[styles.td, styles.tdName]} numberOfLines={1}>{b.name}</Text>
-          <Text style={[styles.td, styles.tdNum]}>{b.runs}</Text>
-          <Text style={[styles.td, styles.tdNum]}>{b.balls}</Text>
-        </View>
-      ))}
-      <TouchableOpacity
-        style={styles.fullBtn}
-        onPress={() => navigation?.navigate('Scorecard', { matchId: match.id })}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.fullBtnText}>Full scorecard</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -799,7 +756,6 @@ const makeStyles = (DS) => StyleSheet.create({
 
   /* Panes */
   pane: { paddingHorizontal: 16, paddingTop: 14, gap: 2 },
-  paneTitle: { fontSize: 14, fontWeight: '800', color: DS.textPrimary, marginBottom: 8 },
   paneEmpty: { fontSize: 13, color: DS.textMuted, paddingHorizontal: 16, paddingTop: 24, textAlign: 'center' },
   tabLoading: { marginTop: 28 },
 
@@ -823,17 +779,11 @@ const makeStyles = (DS) => StyleSheet.create({
   liveShotBatter: { color: DS.textMuted, fontSize: 12, fontWeight: '700', marginTop: 3, letterSpacing: 0.4 },
   liveShotLine: { color: DS.textPrimary, fontSize: 13, lineHeight: 19, marginTop: 9 },
 
-  tableHead: { flexDirection: 'row', paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: DS.faint },
-  th: { width: 40, fontSize: 10, fontWeight: '800', color: DS.textMuted, textAlign: 'right', letterSpacing: 0.5 },
-  thName: { flex: 1, textAlign: 'left' },
   tr: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: DS.faint },
   td: { fontSize: 13, color: DS.textPrimary },
   tdName: { flex: 1, fontWeight: '700' },
-  tdNum: { width: 40, textAlign: 'right', fontWeight: '800', fontVariant: ['tabular-nums'] },
   tdRole: { fontSize: 11, color: DS.textMuted, fontWeight: '600' },
 
-  fullBtn: { marginTop: 14, alignSelf: 'flex-start', backgroundColor: DS.surfaceHigh, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, borderWidth: 1, borderColor: DS.faint },
-  fullBtnText: { fontSize: 12, fontWeight: '800', color: DS.lime },
 
   group: { marginBottom: 18 },
   groupTitle: { fontSize: 12, fontWeight: '800', color: DS.lime, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 },
