@@ -17,6 +17,11 @@ export function routeForNotification(data = {}) {
   if (data.tournamentId) return ['TournamentDetail', { tournamentId: data.tournamentId }];
   if (data.matchId)      return ['Scorecard', { matchId: data.matchId }];
   if (data.chatId)       return ['Chat', { chatId: data.chatId, chatName: data.chatName || 'Chat' }];
+  // A new follower. The in-app list already opened the person who followed you;
+  // tapping the same notification from the tray landed on the list instead, so
+  // one notification had two destinations depending on where you tapped it.
+  // Unclaimed followers carry no playerId and still fall through.
+  if (data.playerId)     return ['PlayerProfile', { playerId: data.playerId }];
   return ['Notification', undefined];
 }
 
