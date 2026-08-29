@@ -160,22 +160,61 @@ describe('tab wiring', () => {
   });
 });
 
+/**
+ * Routes that have been consolidated away as DESTINATIONS. The screen may still
+ * be registered — LiveMatchScreen still holds the YouTube telecast nothing else
+ * draws — but nothing may navigate to it.
+ *
+ * This exists because LiveMatch was replaced by Scorecard across thirteen call
+ * sites and a fourteenth was missed, so a live match tapped from the feed kept
+ * opening the retired duplicate. Nothing failed; you had to tap your way to it.
+ */
+const RETIRED_ROUTES = ['LiveMatch', 'PlayerInsights'];
+
+/**
+ * Every route named as a destination in one file.
+ *
+ * Deliberately not one regex anchored on a quote right after the paren. That
+ * shape saw only `navigate('X', ...)` — it was blind to `navigate(cond ? 'A' :
+ * 'B')` and, because it matched a literal dot, to every `navigation?.navigate(`
+ * in the app. Both blind spots hid the missed LiveMatch call site, which was a
+ * ternary behind an optional chain. Instead: find the call, take its FIRST
+ * argument, and read every string literal in it.
+ */
+const navigationTargets = (src) => {
+  const out = [];
+  const call = /(?:navigation|nav|navigationRef)\??\.(?:navigate|replace|push)\(/g;
+  let m;
+  while ((m = call.exec(src))) {
+    const from = m.index + m[0].length;
+    const firstArg = src.slice(from, from + 300).split(/[,)]/)[0];
+    for (const lit of firstArg.match(/["'][A-Za-z0-9_]+["']/g) || []) out.push(lit.slice(1, -1));
+  }
+  const reset = /routes:\s*\[\s*\{\s*name:\s*["']([A-Za-z0-9_]+)["']/g;
+  while ((m = reset.exec(src))) out.push(m[1]);
+  return out;
+};
+
 describe('navigation targets', () => {
   it('every navigate/replace/push/reset target is a registered route', () => {
     const routes = registeredRoutes();
     const dangling = [];
-    const re = /(?:navigation|nav|navigationRef)\.(?:navigate|replace|push)\(\s*["']([A-Za-z0-9_]+)["']|routes:\s*\[\s*\{\s*name:\s*["']([A-Za-z0-9_]+)["']/g;
-
     for (const f of allSourceFiles()) {
-      const src = read(f);
-      let m;
-      while ((m = re.exec(src))) {
-        const name = m[1] || m[2];
-        if (!routes.has(name)) {
-          dangling.push(`${path.relative(FRONTEND, f)} -> ${name}`);
-        }
+      for (const name of navigationTargets(read(f))) {
+        if (!routes.has(name)) dangling.push(`${path.relative(FRONTEND, f)} -> ${name}`);
       }
     }
     expect(dangling).toEqual([]);
+  });
+
+  it('nothing navigates to a retired route', () => {
+    const offenders = [];
+    for (const f of allSourceFiles()) {
+      if (path.basename(f) === 'navigation.test.js') continue;
+      for (const name of navigationTargets(read(f))) {
+        if (RETIRED_ROUTES.includes(name)) offenders.push(`${path.relative(FRONTEND, f)} -> ${name}`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });

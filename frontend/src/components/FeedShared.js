@@ -874,10 +874,13 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     }
 
     if (mt.status === 'live') {
-      // Everyone but the scorer lands on the Live match screen — now the single
-      // match destination for every state, not just live ones (see below). The
-      // scorer still goes straight to scoring, because they came to score.
-      navigation.navigate(mt.isScorer ? 'Scoring' : 'LiveMatch', mt.isScorer ? { resume: true, matchId: mt.id } : { matchId: mt.id });
+      // Everyone but the scorer lands on the scorecard, which opens on its LIVE
+      // tab for a match in progress — the same single destination every other
+      // branch below uses. This was the one call site left pointing at the old
+      // LiveMatch screen after that screen was consolidated away, so a live
+      // match tapped from the feed still reached the duplicate. The scorer goes
+      // straight to scoring, because they came to score.
+      navigation.navigate(mt.isScorer ? 'Scoring' : 'Scorecard', mt.isScorer ? { resume: true, matchId: mt.id } : { matchId: mt.id });
       return;
     }
     if (mt.status !== 'scheduled') { navigation.navigate('Scorecard', { matchId: mt.id }); return; }
