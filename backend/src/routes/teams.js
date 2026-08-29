@@ -5,6 +5,7 @@ import { FOLLOW_TYPE as PLAYER_FOLLOW_TYPE } from './players.js';
 import { teamStats, teamStatsFilterOptions } from '../lib/teamStats.js';
 import { bySquadOrder } from '../lib/squadOrder.js';
 import { authMiddleware, optionalAuth } from '../lib/auth.js';
+import { notifyUsers, safeNotify } from '../lib/notify.js';
 import { isTeamAdmin } from '../lib/teamAuth.js';
 
 const router = Router();
@@ -280,6 +281,27 @@ router.post('/:id/join-requests', authMiddleware, async (req, res) => {
       create: { teamId, userId: uid, note, status: 'pending' },
       update: { note, status: 'pending' },
     });
+
+    // The people who can act on it: the owner and any admin. Without this a
+    // request sat unread until an admin happened to open the team page, which
+    // is a request that never gets answered.
+    const [full, admins, me] = await Promise.all([
+      prisma.team.findUnique({ where: { id: teamId }, select: { name: true } }),
+      prisma.player.findMany({ where: { teamId, isAdmin: true, userId: { not: null } }, select: { userId: true } }),
+      prisma.user.findUnique({ where: { id: uid }, select: { firstName: true, lastName: true } }),
+    ]);
+    const recipients = [...new Set([team.ownerId, ...admins.map((a) => a.userId)].filter(Boolean))]
+      .filter((id) => id !== uid);
+    if (recipients.length) {
+      const who = [me?.firstName, me?.lastName].filter(Boolean).join(' ').trim() || 'Someone';
+      await safeNotify(() => notifyUsers(recipients, {
+        type: 'social',
+        title: 'Join request',
+        message: `${who} asked to join ${full?.name || 'your team'}.`,
+        data: { teamId },
+      }));
+    }
+
     res.status(201).json({ request });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -304,6 +326,17 @@ router.post('/:id/join-requests/:userId/approve', authMiddleware, async (req, re
       await prisma.player.create({ data: { name, role: 'Player', teamId, userId, sport: team?.sport || 'cricket' } });
     }
     await prisma.teamJoinRequest.update({ where: { teamId_userId: { teamId, userId } }, data: { status: 'approved' } });
+
+    // You asked to join; you should hear the answer. Without this the only way
+    // to find out was to go back and look.
+    const named = await prisma.team.findUnique({ where: { id: teamId }, select: { name: true } });
+    await safeNotify(() => notifyUsers([userId], {
+      type: 'social',
+      title: 'Request approved',
+      message: `You are now part of ${named?.name || 'the team'}.`,
+      data: { teamId },
+    }));
+
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -318,6 +351,10 @@ router.post('/:id/join-requests/:userId/reject', authMiddleware, async (req, res
       return res.status(403).json({ error: 'Only a team admin can reject requests' });
     }
     await prisma.teamJoinRequest.updateMany({ where: { teamId, userId }, data: { status: 'rejected' } });
+    // No notification on rejection, on purpose. The status is on the team page
+    // for anyone who goes to look, and pushing "you were turned down" to
+    // somebody's lock screen is not information they asked to be interrupted
+    // with. Same reason an unfollow does not notify.
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message });

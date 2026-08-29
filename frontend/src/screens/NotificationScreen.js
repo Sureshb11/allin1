@@ -118,6 +118,11 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
           // profile screen with nothing behind it.
           else if (item.type === 'follow' && item.data?.playerId) navigation.navigate('PlayerProfile', { playerId: item.data.playerId });
           else if (item.data?.listingId) navigation.navigate('LookingFor');
+          // Kept in step with utils/notificationRoute deliberately: when the two
+          // disagreed, one notification opened two different screens depending
+          // on whether you tapped it in the app or in the system tray.
+          else if (item.data?.chatId) navigation.navigate('Chat', { chatId: item.data.chatId, chatName: item.data.chatName || 'Chat' });
+          else if (item.data?.teamId) navigation.navigate('TeamProfile', { teamId: item.data.teamId });
           else if (item.type === 'achievement') navigation.navigate('BadgeDetail');
         }}>
         <View style={styles.notificationContent}>

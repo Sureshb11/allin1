@@ -17,6 +17,8 @@ export function routeForNotification(data = {}) {
   if (data.tournamentId) return ['TournamentDetail', { tournamentId: data.tournamentId }];
   if (data.matchId)      return ['Scorecard', { matchId: data.matchId }];
   if (data.chatId)       return ['Chat', { chatId: data.chatId, chatName: data.chatName || 'Chat' }];
+  // Team join requests and approvals both carry the team.
+  if (data.teamId)       return ['TeamProfile', { teamId: data.teamId }];
   // A new follower. The in-app list already opened the person who followed you;
   // tapping the same notification from the tray landed on the list instead, so
   // one notification had two destinations depending on where you tapped it.

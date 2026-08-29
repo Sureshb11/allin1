@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
+import { notifyUsers, safeNotify } from '../lib/notify.js';
 import { canonicalVenue } from '../lib/venue.js';
 
 const router = Router();
@@ -63,6 +64,22 @@ router.post('/book', authMiddleware, async (req, res) => {
       data: { ...data, userId: req.user.sub, matchDate: new Date(data.matchDate) },
       include: { scorer: true },
     });
+
+    // Confirmation to the person who booked, and ONLY to them.
+    //
+    // The scorer cannot be told: `Scorer` is a directory row — name,
+    // location, contactInfo — with no userId, so there is no account on the
+    // other end of this booking. Notifying them needs a link between a listing
+    // and an account, which is a schema change and a way for them to claim the
+    // listing, not a line here. Until then the booking reaches them the way it
+    // always has: whoever booked calls the contact number.
+    await safeNotify(() => notifyUsers([req.user.sub], {
+      type: 'reminder',
+      title: 'Booking confirmed',
+      message: `${booking.scorer?.name || 'Your scorer'} is booked for ${new Date(booking.matchDate).toDateString()}.`,
+      data: { bookingId: booking.id },
+    }));
+
     res.status(201).json({ booking });
   } catch (e) {
     res.status(400).json({ error: e.message });

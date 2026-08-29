@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
+import { notifyUsers, safeNotify } from '../lib/notify.js';
 
 const router = Router();
 
@@ -128,8 +129,33 @@ router.post('/rooms/:roomId/messages', authMiddleware, async (req, res) => {
       },
       include: {
         sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+        chatRoom: { select: { name: true, members: { select: { userId: true } } } },
       },
     });
+
+    // Everyone else in the room. A chat is the one place where a missing
+    // notification means the feature does not work at all: a message nobody is
+    // told about is a message nobody reads until they happen to open the app.
+    //
+    // Awaited before responding, like every other notify in this codebase: on
+    // Vercel serverless the function can be frozen the moment the response is
+    // flushed, so work deferred past it is not guaranteed to run.
+    const others = (message.chatRoom?.members || [])
+      .map((m) => m.userId)
+      .filter((id) => id && id !== req.user.sub);
+    if (others.length) {
+      const from = [message.sender?.firstName, message.sender?.lastName]
+        .filter(Boolean).join(' ').trim() || 'Someone';
+      await safeNotify(() => notifyUsers(others, {
+        type: 'social',
+        title: message.chatRoom?.name || 'New message',
+        // Named sender first: a group chat's own name is already the title, so
+        // without this you cannot tell who said it without opening the app.
+        message: `${from}: ${message.text.slice(0, 80)}`,
+        data: { chatId: req.params.roomId, chatName: message.chatRoom?.name || 'Chat' },
+      }));
+    }
+
     res.status(201).json({ message });
   } catch (e) {
     res.status(400).json({ error: e.message });
