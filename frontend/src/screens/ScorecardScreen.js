@@ -86,6 +86,29 @@ const overEndBannerStyles = StyleSheet.create({
 // Cheap display-signature of a match — everything the screen actually renders
 // off. Two snapshots with the same signature are visually identical, so we can
 // skip re-rendering when a poll returns unchanged data.
+/**
+ * The same question matchSig answers — "has anything changed?" — asked of the
+ * live-summary payload instead of the full scorecard.
+ *
+ * It has to cover everything matchSig does, or a change would be invisible to
+ * the poll and the screen would sit stale until a manual pull. Ball count comes
+ * from each innings' `legalBalls`, which misses illegal deliveries, so runs and
+ * wickets carry those; the crease pair and the bowler catch a new batter or a
+ * change of bowler before they have faced or bowled anything.
+ */
+function liveSig(d) {
+  if (!d) return '';
+  const inns = (d.innings || [])
+    .map((i) => `${i.runs}/${i.wickets}@${i.legalBalls}`)
+    .join(',');
+  const l = d.live || {};
+  return [
+    d.status, d.result, d.score1, d.score2, inns,
+    l.striker?.id || '', l.nonStriker?.id || '', l.bowler?.id || '',
+    (l.thisOver || []).length,
+  ].join('|');
+}
+
 function matchSig(m) {
   if (!m) return '';
   let balls = 0;
@@ -1511,6 +1534,7 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const { matchId, initialTab } = route.params || {};
   const [match, setMatch] = useState(null);
   const matchRef = useRef(null);   // latest match, so the live poll can read status without a state churn
+  const liveSigRef = useRef('');   // last live-summary fingerprint; see the poll below
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [inningsTab, setInningsTab] = useState(0);   // which innings' overs to show (OVERS tab)
@@ -1662,13 +1686,35 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
         }
       });
 
-      const poll = setInterval(() => {
+      const poll = setInterval(async () => {
         // Read the latest status without mutating state; stop once it's not live.
         if (matchRef.current && matchRef.current.status !== 'live') {
           clearInterval(poll);
           return;
         }
-        loadScorecard(false);
+        // Ask the cheap question first. /scorecard carries every delivery of the
+        // match plus both full rosters and grows all innings long;
+        // /live-summary is the headline state and stays about the same size.
+        // Over a six-second poll from a ground on mobile data that difference is
+        // the whole cost of watching, and most ticks change nothing — six
+        // seconds is shorter than the gap between deliveries.
+        //
+        // A failed cheap poll falls through to the full fetch rather than
+        // skipping the tick: a watcher seeing a frozen score is worse than a
+        // wasted request.
+        //
+        // The first tick after focus always refetches — the fingerprint starts
+        // empty — which costs one full fetch and buys a guarantee that a ball
+        // bowled between the focus load and this tick cannot be missed.
+        const res = await legendsApi.getLiveSummary(matchId);
+        // Only cricket has an innings breakdown to fingerprint. Any other sport
+        // takes the old path rather than a fingerprint that cannot see its
+        // events. This screen is cricket's today; that is not a reason to leave
+        // a silent trap for the day it isn't.
+        if (!res.success || !Array.isArray(res.data?.innings)) { loadScorecard(false); return; }
+        const sig = liveSigRef.current;
+        liveSigRef.current = liveSig(res.data);
+        if (sig !== liveSigRef.current) loadScorecard(false);
       }, LIVE_POLL_MS);
 
       return () => { clearInterval(poll); stopPush?.(); };
