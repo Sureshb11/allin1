@@ -949,7 +949,7 @@ function summaryStatLine(p) {
 // ── SUMMARY tab (completed matches only): Player of the Match, Fighter, Best
 // Batter/Bowler/Fielder, and the full MVP-ranked order — computed server-side
 // from the same MVP algorithm the scorer's post-match awards popup uses.
-function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+function SummaryTab({ matchId, match, onPlayer, onTeam }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
   const [loading, setLoading] = useState(true);
   const [awards, setAwards] = useState(null);
   const [intel, setIntel] = useState(null);
@@ -969,13 +969,39 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
     return () => { alive = false; };
   }, [matchId]);
 
-  // Player photo lookup by name — awards carry names only, so match them against
-  // the squad records (which include each player's avatar).
-  const avatarFor = React.useMemo(() => {
+  // Awards arrive from the MVP algorithm as NAMES — no ids — so everything this
+  // tab wants to know about a player (their photo, and whether their profile can
+  // be opened) has to be looked up against the squad records, which are the only
+  // place a name and an id sit together.
+  const squadByName = React.useMemo(() => {
     const map = {};
-    (match?.squads || []).forEach((s) => { if (s.player?.name) map[s.player.name] = s.player.user?.avatarUrl || null; });
-    return (name) => map[name] || null;
+    (match?.squads || []).forEach((s) => { if (s.player?.name && !map[s.player.name]) map[s.player.name] = s.player; });
+    return map;
   }, [match]);
+  const avatarFor = (name) => squadByName[name]?.user?.avatarUrl || null;
+
+  // Touch props for an award/MVP row. The award itself carries `playerId` for
+  // anyone who was in a squad; the name lookup is the fallback. Off-squad
+  // fielders have neither — the MVP algorithm keys them on "name:…" precisely
+  // because there is no account behind them — so their row stays inert instead
+  // of pushing a profile screen with an undefined id and spinning forever.
+  const playerTap = (award) => {
+    const pl = squadByName[award?.name];
+    const id = award?.playerId || pl?.id;
+    if (!id) return { disabled: true, activeOpacity: 1 };
+    return {
+      activeOpacity: 0.85,
+      onPress: () => onPlayer?.({
+        id,
+        name: award?.name || pl?.name,
+        team: award?.teamName || null,
+        avatarUrl: pl?.user?.avatarUrl || null,
+      }),
+    };
+  };
+  const teamTap = (team) => (team?.id
+    ? { activeOpacity: 0.85, onPress: () => onTeam?.(team) }
+    : { disabled: true, activeOpacity: 1 });
 
   if (loading) return <ActivityIndicator color={DS.lime} style={{ marginTop: 40 }} />;
 
@@ -1034,16 +1060,16 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
     <View style={{ gap: 12 }}>
       {/* Match summary — both teams' scores/overs + result. */}
       <View style={styles.summaryMatchCard}>
-        <View style={styles.summaryTeamLine}>
+        <TouchableOpacity style={styles.summaryTeamLine} {...teamTap(match?.team1)}>
           <HexAvatar size={30} color={DS.lime}><Text style={styles.summaryTeamInit}>{t1[0]}</Text></HexAvatar>
           <Text style={styles.summaryTeamNm} numberOfLines={1}>{t1}</Text>
           <Text style={styles.summaryTeamSc}>{match?.score1 || '—'}</Text>
-        </View>
-        <View style={styles.summaryTeamLine}>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.summaryTeamLine} {...teamTap(match?.team2)}>
           <HexAvatar size={30} color={DS.blue}><Text style={styles.summaryTeamInit}>{t2[0]}</Text></HexAvatar>
           <Text style={styles.summaryTeamNm} numberOfLines={1}>{t2}</Text>
           <Text style={[styles.summaryTeamSc, { color: DS.blue }]}>{match?.score2 || '—'}</Text>
-        </View>
+        </TouchableOpacity>
         {!!match?.result &&
           <View style={styles.summaryResultBanner}>
             <Icon name="trophy-variant" size={15} color={DS.lime} />
@@ -1058,7 +1084,7 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
             <Icon name="trophy-variant" size={13} color={DS.onLime} />
             <Text style={styles.summaryHeroBadgeTxt}>PLAYER OF THE MATCH</Text>
           </View>
-          <View style={styles.summaryHeroRow}>
+          <TouchableOpacity style={styles.summaryHeroRow} {...playerTap(motm)}>
             {/* Big profile pic */}
             <HexAvatar round size={72} color={DS.lime} uri={avatarFor(motm.name)}><Text style={styles.summaryHeroInit}>{summaryInitials(motm.name)}</Text></HexAvatar>
             <View style={{ flex: 1, marginLeft: 14 }}>
@@ -1070,13 +1096,13 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
               <Text style={styles.summaryMvpVal}>{motm.total}</Text>
               <Text style={styles.summaryMvpLbl}>MVP</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
       }
 
       {/* Fighter + Best Batter/Bowler/Fielder — smaller profile pic than the MotM */}
       {awardRows.map(({ key, label, icon, color, p }) => (
-        <View key={key} style={[styles.summaryAwardRow, key === 'fighter' && { borderColor: color + '55' }]}>
+        <TouchableOpacity key={key} style={[styles.summaryAwardRow, key === 'fighter' && { borderColor: color + '55' }]} {...playerTap(p)}>
           <HexAvatar round size={46} color={color} uri={avatarFor(p.name)}><Text style={styles.summaryAwardInit}>{summaryInitials(p.name)}</Text></HexAvatar>
           <View style={{ flex: 1 }}>
             <View style={styles.summaryAwardLabelRow}>
@@ -1087,7 +1113,7 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
             {!!summaryStatLine(p) && <Text style={styles.summaryAwardStat} numberOfLines={1}>{summaryStatLine(p)}</Text>}
           </View>
           <Text style={styles.summaryAwardMvp}>{p.total}</Text>
-        </View>
+        </TouchableOpacity>
       ))}
 
       {mvpOrder.length > 0 &&
@@ -1104,7 +1130,7 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
               one line rather than as columns: four numeric columns leave nothing
               for a name on a phone. */}
           {mvpOrder.map((p, i) => (
-            <View key={i} style={[styles.mvpRankRow, i === 0 && { borderTopWidth: 0 }]}>
+            <TouchableOpacity key={i} style={[styles.mvpRankRow, i === 0 && { borderTopWidth: 0 }]} {...playerTap(p)}>
               <Text style={styles.mvpRank}>{i + 1}</Text>
               <HexAvatar round size={30} color={DS.surfaceHighest} uri={avatarFor(p.name)}><Text style={styles.mvpRankInit}>{summaryInitials(p.name)}</Text></HexAvatar>
               <View style={{ flex: 1 }}>
@@ -1120,7 +1146,7 @@ function SummaryTab({ matchId, match }) {const DS = useTheme().colors;const styl
                 </Text>
               </View>
               <Text style={styles.mvpRankVal}>{p.total}</Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       }
@@ -1311,7 +1337,7 @@ function resolveSquadPlayer(s) {
   };
 }
 
-function PlayerRow({ name, role, avatarUrl, jerseyNumber, isCaptain, isViceCaptain, isKeeper, sport }) {
+function PlayerRow({ name, role, avatarUrl, jerseyNumber, isCaptain, isViceCaptain, isKeeper, sport, onPress }) {
   const styles = useThemedStyles(makeStyles);
   // "Bat", "Batsman", "allrounder", "Wicket Keeper" all live in this column —
   // the role is free text typed by whoever added the player. Folded, so a squad
@@ -1324,8 +1350,11 @@ function PlayerRow({ name, role, avatarUrl, jerseyNumber, isCaptain, isViceCapta
   // whatever they were given: "Defender" is right for football, and
   // canonicalRole only knows how to name cricket's four.
   const shown = canonicalRole(role, sport) || (sport === 'cricket' ? null : role);
+  // A row with no id behind it stays a plain View: TouchableOpacity would give
+  // it press feedback and then do nothing, which reads as a broken tap.
+  const Row = onPress ? TouchableOpacity : View;
   return (
-    <View style={styles.squadRow}>
+    <Row style={styles.squadRow} {...(onPress ? { onPress, activeOpacity: 0.85 } : null)}>
       <PlayerAvatar name={name} avatarUrl={avatarUrl} size={30} />
       <View style={{ flex: 1 }}>
         <View style={styles.squadNameRow}>
@@ -1344,11 +1373,11 @@ function PlayerRow({ name, role, avatarUrl, jerseyNumber, isCaptain, isViceCapta
         </View>
         {!!shown && <Text style={styles.squadRole}>{shown}</Text>}
       </View>
-    </View>
+    </Row>
   );
 }
 
-function SquadsTab({ match }) {const styles = useThemedStyles(makeStyles);
+function SquadsTab({ match, onPlayer, onTeam }) {const styles = useThemedStyles(makeStyles);
   const teams = [match.team1, match.team2];
   const sport = match.sport || 'cricket';
   // A keeper is whoever is keeping today, or — since nothing sets that yet —
@@ -1368,12 +1397,15 @@ function SquadsTab({ match }) {const styles = useThemedStyles(makeStyles);
         const bench = sortSquad((team?.players || []).filter((p) => !squadIds.has(p.id)));
         return (
           <View key={team?.id || ti} style={styles.squadCol}>
-            <Text style={styles.squadTeamName} numberOfLines={1}>{team?.name || `Team ${ti + 1}`}</Text>
+            <TouchableOpacity disabled={!team?.id} activeOpacity={0.85} onPress={() => onTeam?.(team)}>
+              <Text style={styles.squadTeamName} numberOfLines={1}>{team?.name || `Team ${ti + 1}`}</Text>
+            </TouchableOpacity>
             <Text style={styles.squadSectionLabel}>PLAYING XI</Text>
             {squad.map((s) => (
               <PlayerRow key={s.playerId} name={s.name} role={s.role} sport={sport}
                 avatarUrl={s.user?.avatarUrl} jerseyNumber={s.jerseyNumber}
-                isCaptain={s.isCaptain} isViceCaptain={s.isViceCaptain} isKeeper={keeps(s)} />
+                isCaptain={s.isCaptain} isViceCaptain={s.isViceCaptain} isKeeper={keeps(s)}
+                onPress={s.playerId ? () => onPlayer?.({ id: s.playerId, name: s.name, role: s.role, team: team?.name, avatarUrl: s.user?.avatarUrl || null }) : undefined} />
             ))}
             {squad.length === 0 && <Text style={styles.emptyTabText}>Not announced yet.</Text>}
             {bench.length > 0 &&
@@ -1382,7 +1414,8 @@ function SquadsTab({ match }) {const styles = useThemedStyles(makeStyles);
                 {bench.map((p) => (
                   <PlayerRow key={p.id} name={p.name} role={p.role} sport={sport}
                     avatarUrl={p.user?.avatarUrl} jerseyNumber={p.jerseyNumber}
-                    isCaptain={p.isCaptain} isViceCaptain={p.isViceCaptain} isKeeper={keeps(p)} />
+                    isCaptain={p.isCaptain} isViceCaptain={p.isViceCaptain} isKeeper={keeps(p)}
+                    onPress={p.id ? () => onPlayer?.({ id: p.id, name: p.name, role: p.role, team: team?.name, avatarUrl: p.user?.avatarUrl || null }) : undefined} />
                 ))}
               </>
             }
@@ -1685,6 +1718,11 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   const openPlayer = useCallback((p) => {
     if (!p?.id) return;
     navigation?.navigate('PlayerProfile', { playerId: p.id, player: p });
+  }, [navigation]);
+
+  const openTeam = useCallback((t) => {
+    if (!t?.id) return;
+    navigation?.navigate('TeamProfile', { teamId: t.id });
   }, [navigation]);
 
   const activeTab = tab || (isLive ? 'live' : isCompleted ? 'summary' : 'scorecard');
@@ -2004,9 +2042,9 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
                 {t.key === 'overs' &&
                   (selectedInnings ? <InningsOvers innings={selectedInnings} /> : <Text style={styles.emptyTabText}>No overs yet.</Text>)}
 
-                {t.key === 'summary' && <SummaryTab matchId={matchId} match={match} />}
+                {t.key === 'summary' && <SummaryTab matchId={matchId} match={match} onPlayer={openPlayer} onTeam={openTeam} />}
 
-                {t.key === 'squads' && <SquadsTab match={match} />}
+                {t.key === 'squads' && <SquadsTab match={match} onPlayer={openPlayer} onTeam={openTeam} />}
 
                 {t.key === 'highlights' && <HighlightsTab match={match} />}
               </View>
