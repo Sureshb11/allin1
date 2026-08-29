@@ -69,9 +69,12 @@ adding a sport doesn't mean editing six screens.
   tag, color, accent; plus a `custom: { homeRoute }` for sports with dedicated screens).
 - Data-table domains are kept in one file each (they share design tokens / helpers, so
   splitting per-folder added risk with no gain): `scoring.js` (`getScoringConfig`),
-  `formats.js` (`getFormats`), `dashboard.js` (`SPORTS` + `getDashboard`), `find.js`
-  (`getFind`), `start.js` (`getStartFormat`). Consumer screens read these via the getters
-  (e.g. `SportScoringScreen` → `getScoringConfig(sport)`).
+  `dashboard.js` (`SPORTS` + `getDashboard`), `find.js` (`getFind`), `start.js`
+  (`getStartFormat`), `tournament.js` (`getTournamentConfig`). Consumer screens read
+  these via the getters (e.g. `SportScoringScreen` → `getScoringConfig(sport)`).
+  There was a `formats.js` too; nothing ever imported its `getFormats` — the setup
+  screen it was written for had been removed — so it is gone. Match formats come
+  from `start.js`.
 - Sport-specific **screens** live with their sport, e.g. `src/sports/rummy/screens/`.
 - **Landing feed** — every match sport shares ONE themed template,
   `src/screens/SportFeedScreen.js` (featured live match + results rail + quick actions +
@@ -84,7 +87,7 @@ adding a sport doesn't mean editing six screens.
 
 **Adding a sport:** add `src/sports/<id>/index.js` (+ register it in `sports/index.js` and
 the picker). It gets a themed feed automatically; add an optional `feed:{}` block to
-customise colour/copy, and a `scoring.js`/`formats.js`/etc. entry only where it needs
+customise colour/copy, and a `scoring.js`/`start.js`/etc. entry only where it needs
 custom behaviour (otherwise it falls back to the generic/cricket default). Individual
 (1v1) sports set `individual: true` + `competitorLabel: 'Player'`. Sport-specific API
 routes go in `backend/src/routes/sports/` (e.g. `rummy.js`), mounted in `backend/src/index.js`.

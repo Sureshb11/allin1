@@ -6,7 +6,6 @@
 //
 // Domains (all optional — a sport can fill in only what it needs):
 //   meta:      id, name, icon (MaterialCommunityIcons), tag, color, accent
-//   formats:   match formats           → (data only; the setup screen was removed)
 //   scoring:   { periods, maxPeriods, actions, extras, scoreLabel, oversLabel }
 //                                        → SportScoringScreen
 //   dashboard: { ctaSubtitle, navTabs, quickAccess, features } → HomeScreen
@@ -33,7 +32,6 @@ export const defineSport = (def) => ({
   // dressing room, a dojo, a ringside…). Keep it short — it's a tab label.
   pavilionLabel: def.pavilionLabel || (def.id === 'cricket' ? 'Pavilion' : 'Clubhouse'),
   // domains default to null so consumers can fall back to their generic config
-  formats: def.formats || null,
   scoring: def.scoring || null,
   dashboard: def.dashboard || null,
   find: def.find || null,

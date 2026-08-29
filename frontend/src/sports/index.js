@@ -2,7 +2,7 @@
 //
 //   import { getSport, listSports } from '../sports';
 //   const sport = getSport('cricket');   // SportDefinition (or null if unknown)
-//   sport.scoring / sport.formats / sport.dashboard / sport.find / sport.custom
+//   sport.scoring / sport.dashboard / sport.find / sport.custom
 //
 // Order below is the canonical Arena-picker order.
 
