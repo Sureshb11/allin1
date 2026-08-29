@@ -356,15 +356,21 @@ router.get('/:id/career', optionalAuth, async (req, res) => {
         ? prisma.like.count({ where: { userId: player.userId, targetType: FOLLOW_TYPE } })
         : 0,
       player.userId ? prisma.teamFollow.count({ where: { userId: player.userId } }) : 0,
-      // Posts are written by an ACCOUNT, so an unclaimed row has none.
+      // Counted the way the FEED attributes a post: Post.playerId when it is
+      // set, otherwise the account behind it. Counting authorId alone would
+      // exclude a post the feed shows under this player's name — you would tap
+      // it, land here, and find it missing from their own list.
       //
       // Scoped to this player's sport, because the list behind the number is:
       // GET /posts takes a sport and this profile is a cricketer's or a
       // footballer's, not the account's whole output. Unscoped, the header said
       // 7 and the list it opened showed 6.
-      player.userId
-        ? prisma.post.count({ where: { authorId: player.userId, sport: player.sport } })
-        : 0,
+      prisma.post.count({
+        where: {
+          sport: player.sport,
+          OR: [{ playerId: player.id }, ...(player.userId ? [{ authorId: player.userId }] : [])],
+        },
+      }),
     ]);
 
     res.json({
@@ -406,10 +412,12 @@ router.post('/:id/follow', authMiddleware, async (req, res) => {
     if (existing) { await prisma.like.delete({ where: key }); following = false; }
     else { await prisma.like.create({ data: { userId, targetType: FOLLOW_TYPE, targetId } }); following = true; }
 
-    res.json({ following });
-
-    // Tell them, after the response — the follow is already saved and the app is
-    // waiting on nothing else, so a slow push must not hold the tap.
+    // Tell them BEFORE responding. Deferring it past res.json() looked like a
+    // free win — the follow is saved, the app is waiting on nothing — but this
+    // API runs on Vercel serverless, where the function can be frozen the moment
+    // the response is flushed. Work after that point is not guaranteed to run,
+    // so the notification would simply go missing some of the time. Likes and
+    // comments await theirs first for the same reason.
     //
     // Only on the way IN. Being unfollowed is not news anyone wants delivered.
     // Through notifyUsers rather than a direct notification write: the helper
@@ -441,6 +449,8 @@ router.post('/:id/follow', authMiddleware, async (req, res) => {
         }));
       }
     }
+
+    res.json({ following });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

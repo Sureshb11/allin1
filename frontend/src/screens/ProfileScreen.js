@@ -295,7 +295,7 @@ export default function ProfileScreen({ navigation }) {
                       style={styles.followStat}
                       activeOpacity={0.7}
                       onPress={() => (key === 'posts'
-                        ? navigation.navigate('SavedPosts', { mode: 'player', playerId: player.id, name: displayName })
+                        ? navigation.navigate('PlayerPosts', { playerId: player.id, name: displayName, sport: sport.id })
                         : navigation.navigate('FollowList', { playerId: player.id, name: displayName, initialTab: key }))}
                       accessibilityRole="button"
                       accessibilityLabel={`${count} ${label}`}>

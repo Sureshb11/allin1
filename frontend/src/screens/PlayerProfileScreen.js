@@ -286,7 +286,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
                 style={styles.followStat}
                 activeOpacity={0.7}
                 onPress={() => (key === 'posts'
-                  ? navigation.navigate('PlayerPosts', { playerId, name })
+                  ? navigation.navigate('PlayerPosts', { playerId, name, sport: sportId })
                   : navigation.navigate('FollowList', { playerId, name, initialTab: key }))}
                 accessibilityRole="button"
                 accessibilityLabel={`${count} ${label}`}>

@@ -25,11 +25,20 @@ router.get('/', optionalAuth, async (req, res) => {
     const author = await prisma.player.findUnique({
       where: { id: String(playerId) }, select: { userId: true },
     });
-    // An unclaimed player has written nothing — nobody has ever signed in as
-    // them. An empty list is the right answer, not every post in the sport,
-    // which is what an unfiltered `where` would have returned.
-    if (!author?.userId) return res.json({ posts: [] });
-    where.authorId = author.userId;
+    if (!author) return res.json({ posts: [] });
+    // Matched the way `authorPlayerId` below attributes a post: an explicit
+    // Post.playerId first, otherwise the account behind the player. Filtering on
+    // authorId alone would drop a post this very route hands back under this
+    // player's name — tap the name, and the post is missing from their list.
+    //
+    // An unclaimed player can still have posts filed against them by id, so this
+    // does not short-circuit on a missing userId. What it must never do is fall
+    // through with no filter at all: that would answer "this player's posts"
+    // with every post in the sport.
+    where.OR = [
+      { playerId: String(playerId) },
+      ...(author.userId ? [{ authorId: author.userId }] : []),
+    ];
   }
   const rows = await prisma.post.findMany({
     where, orderBy: { createdAt: 'desc' }, take: 50,

@@ -39,7 +39,11 @@ export default function PostsListScreen({ route, navigation }) {
   const hideTabBar = useHideTabBarOnScroll();
   const tabClear = useTabBarClearance();
 
-  const sportId = getSelectedSport().sport?.id || 'cricket';
+  // A player's posts are scoped to THEIR sport, not to whichever Arena you
+  // happen to be in: the count on their profile is scoped that way, and the two
+  // disagreeing is how you get "6 posts" opening a list of 2. The saved list has
+  // no subject, so it follows the selected sport as it always has.
+  const sportId = route?.params?.sport || getSelectedSport().sport?.id || 'cricket';
   const sport = getSport(sportId);
 
   const [posts, setPosts] = useState([]);

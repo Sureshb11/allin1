@@ -93,8 +93,12 @@ export default function FollowListScreen({ route, navigation }) {
     if (res.success) {
       showToast(res.following ? `Following ${row.name}` : `Unfollowed ${row.name}`, 'success');
       // The Following tab now disagrees with the server, and it is one cheap
-      // request away from agreeing again.
-      legendsApi.getPlayerFollowing(playerId).then((g) => { if (g.success) setFollowing(g.data); });
+      // request away from agreeing again. Not on a team list: there is no
+      // Following tab there, and playerId is undefined, so this would be a
+      // request to /players/undefined/following that could only 404.
+      if (!isTeam) {
+        legendsApi.getPlayerFollowing(playerId).then((g) => { if (g.success) setFollowing(g.data); });
+      }
     } else {
       setFollowers((prev) => prev && {
         ...prev,
@@ -103,7 +107,7 @@ export default function FollowListScreen({ route, navigation }) {
       showToast('Could not update follow', 'error');
     }
     setBusyId(null);
-  }, [busyId, playerId]);
+  }, [busyId, playerId, isTeam]);
 
   const openPlayer = (id, nm) => id && navigation.navigate('PlayerProfile', { playerId: id, player: { id, name: nm } });
   const openTeam = (id) => id && navigation.navigate('TeamProfile', { teamId: id });

@@ -8,9 +8,8 @@
 // The server has always returned it — GET /notifications carries `unread`, and
 // the Notification model has an index whose comment says "Unread badge counts".
 // Nothing had ever drawn the badge.
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback } from 'react';
 import legendsApi from '../services/LegendsApi';
 import { onForegroundMessage } from '../services/push';
 

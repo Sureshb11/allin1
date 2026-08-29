@@ -86,7 +86,15 @@ router.get('/me', authMiddleware, async (req, res) => {
     // Sport-scoped like the list it opens — and like `player` above, which this
     // same route already scopes with ?sport=. An unscoped count would name more
     // posts than the list can show.
-    prisma.post.count({ where: { authorId: user.id, ...inSport } }),
+    //
+    // Attributed the way the feed does it: an explicit Post.playerId on any row
+    // this account holds, or the account itself.
+    prisma.post.count({
+      where: {
+        ...inSport,
+        OR: [{ authorId: user.id }, ...(selfIds.length ? [{ playerId: { in: selfIds } }] : [])],
+      },
+    }),
   ]);
 
   const { sports, ...userBase } = user;
