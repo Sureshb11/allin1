@@ -1342,9 +1342,8 @@ router.get('/:id/live-state', async (req, res) => {
 /**
  * GET /:id/live-summary — the headline score, small and cacheable.
  *
- * The same `liveSummary` the broadcast overlay renders, so the score a
- * spectator reads in the app and the score burned into the video are produced
- * by one function and cannot drift apart. Public: a live score is public.
+ * One function computes it, so every surface showing a live score agrees.
+ * Public: a live score is public.
  *
  * Exists separately from /scorecard because the app polls this every few
  * seconds from a cricket ground on mobile data, and /scorecard carries every

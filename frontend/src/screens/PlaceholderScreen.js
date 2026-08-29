@@ -12,7 +12,6 @@ const SCREEN_ICONS = {
   'Tournaments': 'trophy-outline',
   'Statistics': 'chart-bar',
   'My Performance': 'chart-line',
-  'Streaming': 'broadcast',
   'Marketplace': 'store-outline',
   'Chat': 'message-outline',
   'Profile': 'account-outline',

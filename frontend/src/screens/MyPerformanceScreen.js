@@ -155,8 +155,8 @@ export default function MyPerformanceScreen({ navigation, inline, onRegisterFab,
             <Icon name="chart-line" size={48} color={DS.textMuted} />
             <Text style={styles.emptyText}>No stats available yet</Text>
             <Text style={styles.emptySub}>Score or play a match and your career stats show up here.</Text>
-            <TouchableOpacity style={styles.emptyCta} onPress={() => navigation.navigate('StreamingLanding')} activeOpacity={0.85}>
-              <Icon name="broadcast" size={16} color={DS.live} />
+            <TouchableOpacity style={styles.emptyCta} onPress={() => navigation.navigate('StartMatch')} activeOpacity={0.85}>
+              <Icon name="cricket" size={16} color={DS.live} />
               <Text style={styles.emptyCtaText}>Score a live match</Text>
             </TouchableOpacity>
           </View>

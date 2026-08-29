@@ -10,7 +10,6 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const FEATURES = [
 { icon: 'chart-line', title: 'Advanced Analytics', desc: 'Detailed match insights, player performance analytics, and tactical reports' },
-{ icon: 'broadcast', title: 'Live Streaming', desc: 'Stream your matches live to followers and fans worldwide' },
 { icon: 'trophy', title: 'Tournament Management', desc: 'Create and manage professional tournaments with advanced features' },
 { icon: 'database', title: 'Unlimited Storage', desc: 'Store unlimited match videos, photos, and scorecards' },
 { icon: 'video', title: 'Video Analysis', desc: 'AI-powered video analysis for technique improvement' },

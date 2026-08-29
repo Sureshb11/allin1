@@ -1,15 +1,15 @@
-// The compact live match state the broadcast overlay renders (spec §7, §19).
+// The compact live match state: score, wickets, overs, batsmen, bowler, rates.
 //
-// The spec asks for a `LiveMatchState` table holding score, wickets, overs,
-// batsmen, bowler, run rates. This module computes that same shape instead of
-// storing it. That is a deliberate substitution: `Inning`/`Over`/`Ball` are
-// already the source of truth that the scorer writes and the scorecard reads,
-// and a second stored copy is a second thing that can be wrong — the failure
-// mode being an overlay that says 153/4 while the scorecard says 157/4, live,
-// on air, with no way to tell which lied.
+// Computed, not stored. `Inning`/`Over`/`Ball` are already the source of truth
+// the scorer writes and the scorecard reads, and a second stored copy is a
+// second thing that can be wrong — one screen saying 153/4 while another says
+// 157/4, live, with no way to tell which lied.
 //
 // Derivation is cheap (one indexed query per match) and the read path is edge-
 // cached, so the copy buys nothing it costs.
+//
+// This began as the feed for the live-telecast overlay, which has been removed
+// pending a rebuild. It stays because the app polls it for the headline score.
 
 import { prisma } from './prisma.js';
 import { isLegalDelivery, isBowlerWicket } from './deliveries.js';
@@ -30,11 +30,10 @@ function rate(runs, legalBalls) {
 }
 
 /**
- * Build the overlay state for a match. Returns null if the match doesn't exist.
+ * Build the live state for a match. Returns null if the match doesn't exist.
  *
- * Cricket only for now: the other sports' feeds do not have a broadcast overlay
- * yet, and their score already lives denormalised on `Match.score1/score2`, so
- * they get the simple branch.
+ * Cricket only for now: the other sports' score already lives denormalised on
+ * `Match.score1/score2`, so they get the simple branch.
  */
 export async function liveSummary(matchId) {
   const match = await prisma.match.findUnique({

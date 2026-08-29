@@ -14,7 +14,6 @@ import notificationsRoutes from './routes/notifications.js';
 import devicesRoutes from './routes/devices.js';
 import badgesRoutes from './routes/badges.js';
 import tournamentsRoutes from './routes/tournaments.js';
-import streamsRoutes from './routes/streams.js';
 import searchRoutes from './routes/search.js';
 import teamsRoutes from './routes/teams.js';
 import playersRoutes from './routes/players.js';
@@ -35,8 +34,6 @@ import uploadRoutes from './routes/upload.js';
 import galleryRoutes from './routes/gallery.js';
 import pincodeRoutes from './routes/pincodes.js';
 import historicalStatsRoutes from './routes/historicalStats.js';
-import broadcastRoutes from './routes/broadcast.js';
-import overlayRoutes from './routes/overlay.js';
 
 const app = express();
 // Live-scoring API: never serve 304s — RN's fetch surfaces the empty 304 body
@@ -87,11 +84,6 @@ app.use('/notifications', notificationsRoutes);
 app.use('/devices', devicesRoutes);
 app.use('/badges', badgesRoutes);
 app.use('/tournaments', tournamentsRoutes);
-app.use('/streams', streamsRoutes);
-app.use('/broadcast', broadcastRoutes);
-// Not under /broadcast: this is loaded by an encoder's browser source as a
-// bare URL, and the shorter path is one less thing to mistype at a ground.
-app.use('/overlay', overlayRoutes);
 app.use('/search', searchRoutes);
 app.use('/grounds', groundsRoutes);
 app.use('/quizzes', quizzesRoutes);

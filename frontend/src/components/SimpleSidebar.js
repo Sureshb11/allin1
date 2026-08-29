@@ -35,7 +35,6 @@ const MENU_SECTIONS = [
   {
     title: 'Explore',
     items: [
-      { id: 'go-live',      label: 'Go Live',               icon: 'broadcast',      screen: 'StreamingLanding' },
       { id: 'looking-for',  label: 'Looking For',           icon: 'telescope',      screen: 'LookingFor' },
       { id: 'coaching',     label: 'Find a Coach',          icon: 'school',         screen: 'Coaching' },
       { id: 'umpires',      label: 'Find an Umpire',        icon: 'whistle',        screen: 'Umpires' },

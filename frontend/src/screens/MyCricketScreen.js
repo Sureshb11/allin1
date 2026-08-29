@@ -33,7 +33,6 @@ const SECTIONS = [
     title: 'More',
     data: [
       { icon: 'teach', label: 'Coaching', sub: 'Book a coach', screen: 'Coaching' },
-      { icon: 'broadcast', label: 'Go Live', sub: 'Stream a match', screen: 'StreamingLanding' },
     ]
   }
 ];

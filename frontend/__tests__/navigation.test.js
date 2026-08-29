@@ -168,8 +168,12 @@ describe('tab wiring', () => {
  * This exists because LiveMatch was replaced by Scorecard across thirteen call
  * sites and a fourteenth was missed, so a live match tapped from the feed kept
  * opening the retired duplicate. Nothing failed; you had to tap your way to it.
+ *
+ * The live-telecast screens are listed for a different reason: they were pulled
+ * out to be built again later, and "Go Live" had four separate entry points.
+ * A rebuild that reinstates one of them without its screen fails here.
  */
-const RETIRED_ROUTES = ['LiveMatch', 'PlayerInsights'];
+const RETIRED_ROUTES = ['LiveMatch', 'PlayerInsights', 'StreamingLanding', 'CreateStream'];
 
 /**
  * Every route named as a destination in one file.

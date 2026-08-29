@@ -1340,6 +1340,14 @@ model Like {
 // ─────────────────────────────────────────────────────────────────────────────
 // Live Telecast — broadcast authorization and audit.
 //
+// DORMANT. The telecast code (routes/broadcast, routes/overlay, routes/streams,
+// lib/broadcastAuth, lib/pairing, lib/broadcastAudit, lib/matchLifecycle, and
+// the app's Go Live screens) was removed to be built again later. These models
+// and their tables are LEFT IN PLACE on purpose: dropping them is a destructive
+// migration against the live database for no gain, and the rebuild wants them
+// back. Nothing reads or writes them today. The design they implement is still
+// in docs/LIVE-TELECAST.md.
+//
 // Design principle (see docs/LIVE-TELECAST.md): a Match id IDENTIFIES a match
 // and is never a credential. Who you are comes from the JWT; what you may do
 // comes from UserRole (app-wide capability) + MatchRole (this match); and the

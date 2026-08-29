@@ -743,23 +743,11 @@ class LegendsApi {
     }
   }
 
-  // Headline live score — small, cacheable, and computed by the same server
-  // function that feeds the broadcast overlay, so the two can never disagree.
-  // Poll this; fetch the full scorecard only when a tab needs it.
+  // Headline live score — small and cacheable. Poll this; fetch the full
+  // scorecard only when a tab needs it.
   async getLiveSummary(matchId) {
     try {
       const json = await this.request(`/matches/${matchId}/live-summary`);
-      return { success: true, data: json };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-
-  // Is this match being telecast right now, and is it a verified broadcast?
-  // Public — a live telecast is public by definition, so this needs no token.
-  async getMatchBroadcast(matchId) {
-    try {
-      const json = await this.request(`/broadcast/matches/${matchId}/public`);
       return { success: true, data: json };
     } catch (error) {
       return { success: false, error: error.message };
@@ -965,7 +953,6 @@ class LegendsApi {
       success: true,
       data: [
         { id: '1', name: 'Advanced Analytics', description: 'Detailed player and match analytics', price: 299, duration: 'monthly' },
-        { id: '2', name: 'Live Streaming', description: 'Stream matches to followers', price: 499, duration: 'monthly' },
       ],
     };
   }
@@ -1321,36 +1308,6 @@ class LegendsApi {
     try {
       const json = await this.request(`/chat/rooms/${roomId}/messages`, { method: 'POST', body: { text } });
       return { success: true, data: json.message };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-
-  // Live Streaming APIs
-  async getLiveStreams(sport) {
-    try {
-      const json = await this.request('/streams' + this._sportQs(sport));
-      const streams = (json.streams || []).filter(s => s.status === 'live');
-      return { success: true, data: streams };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-
-  async getUpcomingStreams() {
-    try {
-      const json = await this.request('/streams');
-      const streams = (json.streams || []).filter(s => s.status === 'upcoming');
-      return { success: true, data: streams };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-
-  async createStream(streamData) {
-    try {
-      const json = await this.request('/streams', { method: 'POST', body: streamData });
-      return { success: true, data: json.stream };
     } catch (error) {
       return { success: false, error: error.message };
     }

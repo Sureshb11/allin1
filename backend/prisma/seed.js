@@ -101,16 +101,6 @@ async function main() {
     await prisma.tournament.create({ data: t });
   }
 
-  // ── Streams ─────────────────────────────────────────────────────
-  const streamsData = [
-    { title: 'Mumbai vs Chennai - Live', channel: 'own', quality: 'HD', status: 'live', description: 'Watch the clash of titans live!' },
-    { title: 'RCB vs DC - Highlights', channel: 'youtube', quality: '4K', status: 'completed', description: 'Full match highlights' },
-    { title: 'KKR vs MI - Upcoming', channel: 'own', quality: 'HD', status: 'upcoming', description: 'Catch the game tomorrow at 7:30 PM' },
-  ];
-  for (const s of streamsData) {
-    await prisma.stream.create({ data: s });
-  }
-
   // ── Grounds ─────────────────────────────────────────────────────
   const groundsData = [
     { name: 'Mumbai Cricket Ground', location: 'Andheri, Mumbai', price: 2000, facilities: ['Floodlights', 'Pavilion', 'Parking', 'Washroom'] },

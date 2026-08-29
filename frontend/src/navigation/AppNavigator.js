@@ -23,8 +23,6 @@ import TournamentScreen from '../screens/TournamentScreen';
 import GroundBookingScreen from '../screens/GroundBookingScreen';
 import PremiumScreen from '../screens/PremiumScreen';
 import ChatScreen from '../screens/ChatScreen';
-import StreamingLandingScreen from '../screens/StreamingLandingScreen';
-import CreateStreamScreen from '../screens/CreateStreamScreen';
 import VideoAnalysisScreen from '../screens/VideoAnalysisScreen';
 import QuizScreen from '../screens/QuizScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -40,7 +38,6 @@ import MatchSetupScreen from '../screens/MatchSetupScreen';
 import SportScoringScreen from '../screens/SportScoringScreen';
 import MyMatchesScreen from '../screens/MyMatchesScreen';
 import ScorecardScreen from '../screens/ScorecardScreen';
-import LiveMatchScreen from '../screens/LiveMatchScreen';
 import BallLabScreen from '../screens/BallLabScreen';
 import ClubProfileScreen from '../screens/ClubProfileScreen';
 import EditPlayerProfileScreen from '../screens/EditPlayerProfileScreen';
@@ -232,24 +229,6 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
       }}
     />
     <Stack.Screen 
-      name="StreamingLanding" 
-      component={StreamingLandingScreen}
-      options={{
-        title: 'Live Streaming',
-        headerStyle: {backgroundColor: DS.surfaceLow},
-        headerTitleStyle: {color: DS.textPrimary},
-      }}
-    />
-    <Stack.Screen 
-      name="CreateStream" 
-      component={CreateStreamScreen}
-      options={{
-        title: 'Create Stream',
-        headerStyle: {backgroundColor: DS.surfaceLow},
-        headerTitleStyle: {color: DS.textPrimary},
-      }}
-    />
-    <Stack.Screen 
       name="VideoAnalysis" 
       component={VideoAnalysisScreen}
       options={{
@@ -304,16 +283,6 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
       }}
     />
     {/* Live Telecast — the spectator's watch screen (video + live score). */}
-    <Stack.Screen
-      name="LiveMatch"
-      component={LiveMatchScreen}
-      options={{
-        title: 'Live',
-        headerStyle: {backgroundColor: DS.surfaceLow},
-        headerTitleStyle: {color: DS.textPrimary},
-        headerTintColor: DS.textPrimary,
-      }}
-    />
     <Stack.Screen
       name="Scorecard"
       component={ScorecardScreen}

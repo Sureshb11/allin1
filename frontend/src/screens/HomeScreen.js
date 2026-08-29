@@ -61,7 +61,6 @@ const chaseLine = (m) => {
 };
 
 const MORE_ITEMS = [
-  { label: 'Go Live',        icon: 'broadcast',                  screen: 'StreamingLanding', color: '#EF4444' },
   { label: 'News Feed',      icon: 'newspaper-variant-outline',  screen: 'NewsFeed',         color: '#3B82F6' },
   { label: 'Marketplace',    icon: 'store-outline',              screen: 'MarketPlace',      color: '#10B981' },
   { label: 'Ground Booking', icon: 'map-marker-outline',         screen: 'GroundBooking',    color: '#F59E0B' },
