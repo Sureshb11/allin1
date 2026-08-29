@@ -55,7 +55,7 @@ import TournamentDetailScreen from '../screens/TournamentDetailScreen';
 import MatchInsightsScreen from '../screens/MatchInsightsScreen';
 import PlaceholderScreen from '../screens/PlaceholderScreen';
 import PavilionScreen from '../screens/PavilionScreen';
-import SavedPostsScreen from '../screens/SavedPostsScreen';
+import PostsListScreen from '../screens/PostsListScreen';
 import FollowListScreen from '../screens/FollowListScreen';
 import GroundDetailScreen from '../screens/GroundDetailScreen';
 
@@ -396,7 +396,10 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
     <Stack.Screen name="BadgeLeaderboardFilter" component={PlaceholderScreen} initialParams={{title: 'Badge Leaderboard'}} />
     <Stack.Screen name="Pavilion" component={PavilionScreen} options={{ headerShown: false }} />
     {/* Opened from Profile. Draws its own header, like the rest of this stack. */}
-    <Stack.Screen name="SavedPosts" component={SavedPostsScreen} options={{ headerShown: false }} />
+    {/* One screen, two routes — the saved set and one player's posts differ only
+        in what fills them. See PostsListScreen. */}
+    <Stack.Screen name="SavedPosts" component={PostsListScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="PlayerPosts" component={PostsListScreen} initialParams={{ mode: 'player' }} options={{ headerShown: false }} />
     <Stack.Screen name="FollowList" component={FollowListScreen} options={{ headerShown: false }} />
   </Stack.Navigator>
   );

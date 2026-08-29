@@ -8,6 +8,7 @@ import { canonicalRole } from '../lib/squadOrder.js';
 import { resyncShotZones } from '../lib/ballIntelligence.js';
 import { LEGAL_DELIVERY_WHERE } from '../lib/deliveries.js';
 import { playerShots } from '../lib/playerShots.js';
+import { notifyUsers, safeNotify } from '../lib/notify.js';
 import { benchmarkForPlayer } from '../lib/benchmark.js';
 
 // Store the app's spelling of a role, not whoever's.
@@ -343,7 +344,7 @@ router.get('/:id/career', optionalAuth, async (req, res) => {
     // to the list routes so opening a profile is still one request — the header
     // needs the numbers, the lists are only fetched if somebody taps them.
     const selfIds = await selfRowIds(player);
-    const [followerRows, followsPlayers, followsTeams] = await Promise.all([
+    const [followerRows, followsPlayers, followsTeams, postCount] = await Promise.all([
       // Distinct users, not rows: see selfRowIds. groupBy rather than count,
       // because one person may follow two of this player's rows.
       prisma.like.findMany({
@@ -355,6 +356,15 @@ router.get('/:id/career', optionalAuth, async (req, res) => {
         ? prisma.like.count({ where: { userId: player.userId, targetType: FOLLOW_TYPE } })
         : 0,
       player.userId ? prisma.teamFollow.count({ where: { userId: player.userId } }) : 0,
+      // Posts are written by an ACCOUNT, so an unclaimed row has none.
+      //
+      // Scoped to this player's sport, because the list behind the number is:
+      // GET /posts takes a sport and this profile is a cricketer's or a
+      // footballer's, not the account's whole output. Unscoped, the header said
+      // 7 and the list it opened showed 6.
+      player.userId
+        ? prisma.post.count({ where: { authorId: player.userId, sport: player.sport } })
+        : 0,
     ]);
 
     res.json({
@@ -364,6 +374,7 @@ router.get('/:id/career', optionalAuth, async (req, res) => {
       // Players and teams together: the profile shows one "Following" number,
       // and a follow is a follow whichever kind of thing is on the other end.
       followingCount: followsPlayers + followsTeams,
+      postCount,
       // The header this feeds draws a face and a name, which the career itself
       // knows nothing about.
       // userId so the profile can tell whether it is showing YOU — a Follow
@@ -396,6 +407,40 @@ router.post('/:id/follow', authMiddleware, async (req, res) => {
     else { await prisma.like.create({ data: { userId, targetType: FOLLOW_TYPE, targetId } }); following = true; }
 
     res.json({ following });
+
+    // Tell them, after the response — the follow is already saved and the app is
+    // waiting on nothing else, so a slow push must not hold the tap.
+    //
+    // Only on the way IN. Being unfollowed is not news anyone wants delivered.
+    // Through notifyUsers rather than a direct notification write: the helper
+    // also pushes to the device, and a follow that only appears next time you
+    // happen to open the bell screen is the one kind of notification whose whole
+    // point is that it reaches you.
+    if (following) {
+      const target = await prisma.player.findUnique({
+        where: { id: targetId }, select: { userId: true, name: true },
+      });
+      // Nobody to tell if the player is unclaimed, and nobody wants to hear that
+      // they followed themselves — which is reachable, since a person can hold a
+      // player row per team and tap one of their own.
+      if (target?.userId && target.userId !== userId) {
+        const me = await prisma.user.findUnique({
+          where: { id: userId }, select: { firstName: true, lastName: true },
+        });
+        const myName = [me?.firstName, me?.lastName].filter(Boolean).join(' ').trim() || 'Someone';
+        // The follower's own player row, so tapping the notification can open
+        // the person who followed you rather than a dead end.
+        const myPlayer = await prisma.player.findFirst({
+          where: { userId }, select: { id: true }, orderBy: { createdAt: 'asc' },
+        });
+        await safeNotify(() => notifyUsers([target.userId], {
+          type: 'follow',
+          title: 'New follower',
+          message: `${myName} started following you`,
+          data: { playerId: myPlayer?.id || null, userId },
+        }));
+      }
+    }
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -472,19 +517,32 @@ router.get('/:id/followers', optionalAuth, async (req, res) => {
       if (!held || (pl.sport === player.sport && held.sport !== player.sport)) playerFor[pl.userId] = pl;
     }
 
-    // Which of these the viewer already follows, so the list can paint its
-    // buttons in one round trip instead of one per row.
-    let mine = new Set();
-    if (req.user) {
-      const ids = Object.values(playerFor).map((pl) => pl.id);
-      if (ids.length) {
-        const f = await prisma.like.findMany({
-          where: { userId: req.user.sub, targetType: FOLLOW_TYPE, targetId: { in: ids } },
-          select: { targetId: true },
-        });
-        mine = new Set(f.map((x) => x.targetId));
-      }
-    }
+    // Two different questions, both answered in one round trip each rather than
+    // one per row:
+    //
+    //   `mine`      — does the VIEWER follow this row? Drives the Follow button.
+    //   `followedBack` — does the SUBJECT of this list follow them? Drives the
+    //                 "Follows you" marker, which is the label that makes a
+    //                 follower list worth reading. On your own list the two
+    //                 coincide; on someone else's they do not, and conflating
+    //                 them would put "Follows you" on strangers.
+    const rowPlayerIds = Object.values(playerFor).map((pl) => pl.id);
+    const [viewerFollows, subjectFollows] = await Promise.all([
+      req.user && rowPlayerIds.length
+        ? prisma.like.findMany({
+            where: { userId: req.user.sub, targetType: FOLLOW_TYPE, targetId: { in: rowPlayerIds } },
+            select: { targetId: true },
+          })
+        : [],
+      player.userId && rowPlayerIds.length
+        ? prisma.like.findMany({
+            where: { userId: player.userId, targetType: FOLLOW_TYPE, targetId: { in: rowPlayerIds } },
+            select: { targetId: true },
+          })
+        : [],
+    ]);
+    const mine = new Set(viewerFollows.map((x) => x.targetId));
+    const followedBack = new Set(subjectFollows.map((x) => x.targetId));
 
     const byId = Object.fromEntries(users.map((u) => [u.id, u]));
     const firstSeen = new Map();
@@ -504,6 +562,9 @@ router.get('/:id/followers', optionalAuth, async (req, res) => {
           playerId: pl?.id || null,
           sport: pl?.sport || null,
           following: pl ? mine.has(pl.id) : false,
+          // Mutual: this follower is also followed by the person whose list
+          // this is. Named for what the reader sees, not for the set operation.
+          followsBack: pl ? followedBack.has(pl.id) : false,
           followedAt: firstSeen.get(uid),
         };
       });
@@ -543,7 +604,7 @@ router.get('/:id/following', optionalAuth, async (req, res) => {
       ? await prisma.player.findMany({
           where: { id: { in: likes.map((l) => l.targetId) } },
           select: {
-            id: true, name: true, role: true, sport: true,
+            id: true, name: true, role: true, sport: true, userId: true,
             team: { select: { name: true } },
             user: { select: { avatarUrl: true } },
           },
@@ -553,12 +614,24 @@ router.get('/:id/following', optionalAuth, async (req, res) => {
     const order = Object.fromEntries(likes.map((l, i) => [l.targetId, i]));
     players.sort((a, b) => order[a.id] - order[b.id]);
 
+    // Which of these follow the subject back. Asked from the other side: every
+    // row this account owns, and who among the followed accounts follows one.
+    const selfIds = await selfRowIds({ id: player.id, userId: player.userId });
+    const followerUserIds = players.length
+      ? new Set((await prisma.like.findMany({
+          where: { targetType: FOLLOW_TYPE, targetId: { in: selfIds } },
+          select: { userId: true },
+          distinct: ['userId'],
+        })).map((x) => x.userId))
+      : new Set();
+
     res.json({
       linked: true,
       count: players.length + teamRows.length,
       players: players.map((p) => ({
         id: p.id, name: p.name, role: p.role, sport: p.sport,
         team: p.team?.name || null, avatarUrl: p.user?.avatarUrl || null,
+        followsBack: !!p.userId && followerUserIds.has(p.userId),
       })),
       teams: teamRows.filter((t) => t.team).map((t) => ({
         id: t.team.id, name: t.team.name, shortName: t.team.shortName,

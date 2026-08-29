@@ -12,9 +12,25 @@ const router = Router();
 const SAVE_TYPE = 'post_save';
 
 // GET /posts?sport=cricket — community feed posts for a sport (+ comment counts)
+// GET /posts?sport=&playerId= — the community feed, or one person's posts.
+//
+// `playerId` filters to the ACCOUNT behind that player rather than adding a
+// route of its own, so one person's posts come back through the same liked /
+// saved / authorPlayerId annotation the feed uses. A second route would have
+// meant a second copy of all of it, drifting the first time one was fixed.
 router.get('/', optionalAuth, async (req, res) => {
-  const { sport } = req.query;
+  const { sport, playerId } = req.query;
   const where = sport ? { sport: String(sport) } : {};
+  if (playerId) {
+    const author = await prisma.player.findUnique({
+      where: { id: String(playerId) }, select: { userId: true },
+    });
+    // An unclaimed player has written nothing — nobody has ever signed in as
+    // them. An empty list is the right answer, not every post in the sport,
+    // which is what an unfiltered `where` would have returned.
+    if (!author?.userId) return res.json({ posts: [] });
+    where.authorId = author.userId;
+  }
   const rows = await prisma.post.findMany({
     where, orderBy: { createdAt: 'desc' }, take: 50,
     include: { _count: { select: { comments: true } } },

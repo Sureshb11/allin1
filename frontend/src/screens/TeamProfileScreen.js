@@ -550,7 +550,18 @@ const TeamProfileScreen = ({ navigation, route }) => {
                 a national side has only the country. */}
             {[team.city, team.state, team.city || team.state ? null : team.country]
               .filter(Boolean).join(', ') || (team.sport || 'cricket')}
-            {`  ·  ${followerCount} follower${followerCount === 1 ? '' : 's'}`}
+            {'  ·  '}
+            {/* The count has been here a long time with nothing behind it.
+                Nested Text rather than a sibling so it stays on the same line
+                as the place, which is where it has always read. */}
+            <Text
+              style={followerCount > 0 ? styles.teamMetaLink : null}
+              suppressHighlighting
+              onPress={followerCount > 0
+                ? () => navigation.navigate('FollowList', { teamId, name: team.name })
+                : undefined}>
+              {`${followerCount} follower${followerCount === 1 ? '' : 's'}`}
+            </Text>
           </Text>
           {!!team.website && (
             <TouchableOpacity onPress={() => Linking.openURL(/^https?:\/\//.test(team.website) ? team.website : `https://${team.website}`).catch(() => showToast('Could not open that link', 'error'))}
@@ -1300,6 +1311,7 @@ const makeStyles = (DS) => StyleSheet.create({
   memberNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   memberName: { color: DS.textPrimary, fontSize: 15, fontWeight: '600' },
   memberRole: { color: DS.textMuted, fontSize: 12, marginTop: 2 },
+  teamMetaLink: { color: DS.lime, fontWeight: '700' },
   memberAction: { paddingLeft: 10 },
   roleBadge: { backgroundColor: DS.surfaceHighest, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
   roleBadgeTxt: { fontSize: 9, fontWeight: '900', letterSpacing: 0.8, color: DS.lime },

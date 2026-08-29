@@ -73,7 +73,7 @@ router.get('/me', authMiddleware, async (req, res) => {
   // three of them, and a follow lands on whichever one the follower tapped.
   // Following is a property of the account, so it is counted once.
   const selfIds = rows.map((r) => r.id);
-  const [followerRows, followsPlayers, followsTeams] = await Promise.all([
+  const [followerRows, followsPlayers, followsTeams, postCount] = await Promise.all([
     selfIds.length
       ? prisma.like.findMany({
           where: { targetType: PLAYER_FOLLOW_TYPE, targetId: { in: selfIds } },
@@ -83,6 +83,10 @@ router.get('/me', authMiddleware, async (req, res) => {
       : [],
     prisma.like.count({ where: { userId: user.id, targetType: PLAYER_FOLLOW_TYPE } }),
     prisma.teamFollow.count({ where: { userId: user.id } }),
+    // Sport-scoped like the list it opens — and like `player` above, which this
+    // same route already scopes with ?sport=. An unscoped count would name more
+    // posts than the list can show.
+    prisma.post.count({ where: { authorId: user.id, ...inSport } }),
   ]);
 
   const { sports, ...userBase } = user;
@@ -94,6 +98,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     entitlements: entitlementsFor(user),
     followerCount: followerRows.length,
     followingCount: followsPlayers + followsTeams,
+    postCount,
   });
 });
 

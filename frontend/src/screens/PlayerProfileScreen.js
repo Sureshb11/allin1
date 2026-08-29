@@ -200,6 +200,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
   // the same flicker the Follow pill had.
   const followCounts = career
     ? [
+        ['posts', career.postCount || 0, (career.postCount === 1) ? 'Post' : 'Posts'],
         ['followers', career.followerCount || 0, (career.followerCount === 1) ? 'Follower' : 'Followers'],
         ['following', career.followingCount || 0, 'Following'],
       ]
@@ -284,7 +285,9 @@ export default function PlayerProfileScreen({ route, navigation }) {
               <TouchableOpacity
                 style={styles.followStat}
                 activeOpacity={0.7}
-                onPress={() => navigation.navigate('FollowList', { playerId, name, initialTab: key })}
+                onPress={() => (key === 'posts'
+                  ? navigation.navigate('PlayerPosts', { playerId, name })
+                  : navigation.navigate('FollowList', { playerId, name, initialTab: key }))}
                 accessibilityRole="button"
                 accessibilityLabel={`${count} ${label}`}>
                 <Text style={styles.followStatNum}>{count}</Text>
@@ -367,7 +370,7 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.surfaceLow, paddingBottom: 14, paddingHorizontal: 12,
   },
   followStatWrap: { flexDirection: 'row', alignItems: 'center' },
-  followStat: { alignItems: 'center', paddingHorizontal: 22, paddingVertical: 4 },
+  followStat: { alignItems: 'center', paddingHorizontal: 18, paddingVertical: 4 },
   followStatNum: { fontSize: 18, fontWeight: '900', color: DS.textPrimary, letterSpacing: -0.4, fontVariant: ['tabular-nums'] },
   followStatLbl: { fontSize: 10.5, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.6, marginTop: 1 },
   followDivider: { width: StyleSheet.hairlineWidth, height: 24, backgroundColor: DS.surfaceHighest },

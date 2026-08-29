@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { FOLLOW_TYPE as PLAYER_FOLLOW_TYPE } from './players.js';
 import { teamStats, teamStatsFilterOptions } from '../lib/teamStats.js';
 import { bySquadOrder } from '../lib/squadOrder.js';
-import { authMiddleware } from '../lib/auth.js';
+import { authMiddleware, optionalAuth } from '../lib/auth.js';
 import { isTeamAdmin } from '../lib/teamAuth.js';
 
 const router = Router();
@@ -839,6 +840,70 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
       achievements: team.achievements || '',
       awards: Array.isArray(team.awards) ? team.awards : [],
     });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
+// GET /teams/:id/followers — the accounts following a team.
+//
+// Teams have had a follower COUNT on their profile for a long time with nothing
+// behind it. The shape matches GET /players/:id/followers so one screen renders
+// both; `followsBack` has no meaning here — a team does not follow anybody — so
+// it is absent rather than sent as a permanent false.
+router.get('/:id/followers', optionalAuth, async (req, res) => {
+  try {
+    const teamId = req.params.id;
+    const team = await prisma.team.findUnique({ where: { id: teamId }, select: { id: true, sport: true } });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+
+    const rows = await prisma.teamFollow.findMany({
+      where: { teamId },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      include: { user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
+    });
+    if (!rows.length) return res.json({ count: 0, followers: [] });
+
+    const userIds = rows.map((r) => r.userId);
+    // Their player row, so a follower is tappable — preferring the team's own
+    // sport, since a user can hold one per sport.
+    const linked = await prisma.player.findMany({
+      where: { userId: { in: userIds } },
+      select: { id: true, userId: true, sport: true, name: true },
+    });
+    const playerFor = {};
+    for (const pl of linked) {
+      const held = playerFor[pl.userId];
+      if (!held || (pl.sport === team.sport && held.sport !== team.sport)) playerFor[pl.userId] = pl;
+    }
+
+    let mine = new Set();
+    if (req.user) {
+      const ids = Object.values(playerFor).map((pl) => pl.id);
+      if (ids.length) {
+        const f = await prisma.like.findMany({
+          where: { userId: req.user.sub, targetType: PLAYER_FOLLOW_TYPE, targetId: { in: ids } },
+          select: { targetId: true },
+        });
+        mine = new Set(f.map((x) => x.targetId));
+      }
+    }
+
+    const followers = rows.filter((r) => r.user).map((r) => {
+      const pl = playerFor[r.userId] || null;
+      return {
+        userId: r.userId,
+        name: [r.user.firstName, r.user.lastName].filter(Boolean).join(' ').trim() || pl?.name || 'Player',
+        avatarUrl: r.user.avatarUrl || null,
+        playerId: pl?.id || null,
+        sport: pl?.sport || null,
+        following: pl ? mine.has(pl.id) : false,
+        followedAt: r.createdAt,
+      };
+    });
+    res.json({ count: followers.length, followers });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

@@ -1,4 +1,10 @@
-// SavedPostsScreen — the posts you bookmarked from the feed, opened from Profile.
+// PostsListScreen — a list of posts with a source: the ones you bookmarked, or
+// the ones a player has written.
+//
+// One screen, two routes. The two lists differ by which request fills them and
+// what an empty one means; everything else — the card, liking, commenting,
+// sharing, saving, opening an author — is identical, and a second screen would
+// have been a second copy of all of it, drifting the first time one was fixed.
 //
 // Sport-scoped, like every other post surface: it shows saves for the sport the
 // Arena is currently on, so switching sport shows that sport's saves rather than
@@ -23,7 +29,11 @@ import CommentsSheet from '../components/CommentsSheet';
 // a raw API post is what blanked the home feed once already.
 import { mapPost } from '../components/FeedShared';
 
-export default function SavedPostsScreen({ navigation }) {
+export default function PostsListScreen({ route, navigation }) {
+  // `mode` decides the source. Defaulting to 'saved' keeps the SavedPosts route
+  // working without params, which is how Profile has always opened it.
+  const { mode = 'saved', playerId, name: subjectName } = route?.params || {};
+  const isSaved = mode !== 'player';
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const hideTabBar = useHideTabBarOnScroll();
@@ -38,9 +48,11 @@ export default function SavedPostsScreen({ navigation }) {
   const [activePost, setActivePost] = useState(null);
 
   const load = useCallback(async () => {
-    const res = await legendsApi.getSavedPosts(sportId);
+    const res = isSaved
+      ? await legendsApi.getSavedPosts(sportId)
+      : await legendsApi.getPlayerPosts(playerId, sportId);
     if (res.success) setPosts((res.data || []).map(mapPost));
-  }, [sportId]);
+  }, [isSaved, playerId, sportId]);
 
   useFocusEffect(useCallback(() => {
     // Reload on every focus, not just on mount: unsaving from the feed has to be
@@ -61,12 +73,16 @@ export default function SavedPostsScreen({ navigation }) {
     }
   }, []);
 
-  // Unsaving here removes the row — this list IS the saved set, so leaving a
-  // now-unsaved post sitting in it would be lying about what is saved.
+  // Unsaving drops the row ONLY on the saved list, which IS the saved set —
+  // leaving a now-unsaved post in it would be lying about what is saved. On a
+  // player's posts, unsaving just flips the bookmark: the post still belongs
+  // there, and removing it would look like it had been deleted.
   const toggleSave = useCallback(async (post) => {
     const res = await legendsApi.toggleSavePost(post.id);
-    if (res.success && !res.saved) setPosts((prev) => prev.filter((p) => p.id !== post.id));
-  }, []);
+    if (!res.success) return;
+    if (isSaved && !res.saved) setPosts((prev) => prev.filter((p) => p.id !== post.id));
+    else setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, saved: res.saved } : p)));
+  }, [isSaved]);
 
   const sharePost = useCallback((post) => {
     Share.share({ message: `${post.author?.name || 'A player'} on Local Legends: ${post.caption || ''}`.trim() });
@@ -91,8 +107,8 @@ export default function SavedPostsScreen({ navigation }) {
           <Icon name="arrow-left" size={22} color={DS.textPrimary} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Saved posts</Text>
-          <Text style={styles.subtitle}>{sport?.name || 'Cricket'}</Text>
+          <Text style={styles.title} numberOfLines={1}>{isSaved ? 'Saved posts' : (subjectName || 'Posts')}</Text>
+          <Text style={styles.subtitle}>{isSaved ? (sport?.name || 'Cricket') : `${sport?.name || 'Cricket'} posts`}</Text>
         </View>
       </View>
 
@@ -120,11 +136,13 @@ export default function SavedPostsScreen({ navigation }) {
         ListEmptyComponent={!loading ? (
           <View style={styles.emptyCard}>
             <View style={styles.emptyIconBox}>
-              <Icon name="bookmark-outline" size={40} color={DS.textMuted} />
+              <Icon name={isSaved ? 'bookmark-outline' : 'image-multiple-outline'} size={40} color={DS.textMuted} />
             </View>
-            <Text style={styles.emptyTitle}>Nothing saved yet</Text>
+            <Text style={styles.emptyTitle}>{isSaved ? 'Nothing saved yet' : 'No posts yet'}</Text>
             <Text style={styles.emptySub}>
-              Tap the bookmark icon under any {(sport?.name || 'cricket').toLowerCase()} post to save it here.
+              {isSaved
+                ? `Tap the bookmark icon under any ${(sport?.name || 'cricket').toLowerCase()} post to save it here.`
+                : `${subjectName || 'This player'} hasn't posted in ${(sport?.name || 'cricket').toLowerCase()} yet.`}
             </Text>
           </View>
         ) : <FeedSkeleton DS={DS} />}

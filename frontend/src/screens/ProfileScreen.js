@@ -10,6 +10,7 @@ import { pickAndUploadImage } from '../utils/imageUpload';
 import { useFocusEffect } from '@react-navigation/native';
 import AppHeader from '../components/AppHeader';
 import { setCurrentAvatar, clearCurrentUser } from '../utils/currentUser';
+import { clearUnreadCount } from '../utils/unreadCount';
 import { clearPlayerSetup } from '../utils/playerSetup';
 import legendsApi from '../services/LegendsApi';
 import { unregisterFromPush } from '../services/push';
@@ -67,7 +68,7 @@ export default function ProfileScreen({ navigation }) {
   const [statsStatus, setStatsStatus] = useState(null);
   // Counts come back on /users/me alongside the profile, so the header has them
   // on first paint rather than after a second request.
-  const [follow, setFollow] = useState({ followerCount: 0, followingCount: 0 });
+  const [follow, setFollow] = useState({ followerCount: 0, followingCount: 0, postCount: 0 });
 
 
   useLayoutEffect(() => {
@@ -87,6 +88,7 @@ export default function ProfileScreen({ navigation }) {
         setFollow({
           followerCount: profileRes.followerCount || 0,
           followingCount: profileRes.followingCount || 0,
+          postCount: profileRes.postCount || 0,
         });
         setCurrentAvatar(profileRes.data?.avatarUrl || null);
 
@@ -138,6 +140,8 @@ export default function ProfileScreen({ navigation }) {
           await unregisterFromPush();
           await legendsApi.logout();
           clearCurrentUser();
+          // Same reason: the next account must not inherit this one's badge.
+          clearUnreadCount();
           clearPlayerSetup();
           const root = navigation.getParent('RootStack') || navigation;
           root.reset({ index: 0, routes: [{ name: 'Auth' }] });
@@ -281,6 +285,7 @@ export default function ProfileScreen({ navigation }) {
             {!!player?.id && (
               <View style={styles.followStats}>
                 {[
+                  ['posts', follow.postCount, follow.postCount === 1 ? 'Post' : 'Posts'],
                   ['followers', follow.followerCount, follow.followerCount === 1 ? 'Follower' : 'Followers'],
                   ['following', follow.followingCount, 'Following'],
                 ].map(([key, count, label], i) => (
@@ -289,9 +294,9 @@ export default function ProfileScreen({ navigation }) {
                     <TouchableOpacity
                       style={styles.followStat}
                       activeOpacity={0.7}
-                      onPress={() => navigation.navigate('FollowList', {
-                        playerId: player.id, name: displayName, initialTab: key,
-                      })}
+                      onPress={() => (key === 'posts'
+                        ? navigation.navigate('SavedPosts', { mode: 'player', playerId: player.id, name: displayName })
+                        : navigation.navigate('FollowList', { playerId: player.id, name: displayName, initialTab: key }))}
                       accessibilityRole="button"
                       accessibilityLabel={`${count} ${label}`}>
                       <Text style={styles.followStatNum}>{count}</Text>
@@ -558,7 +563,7 @@ const ActionIcon = ({ icon, color, onPress, label, styles }) => (
 const makeStyles = (DS) => StyleSheet.create({
   followStats: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
   followStatWrap: { flexDirection: 'row', alignItems: 'center' },
-  followStat: { alignItems: 'center', paddingHorizontal: 22, paddingVertical: 4 },
+  followStat: { alignItems: 'center', paddingHorizontal: 18, paddingVertical: 4 },
   followStatNum: { fontSize: 19, fontWeight: '900', color: DS.textPrimary, letterSpacing: -0.4, fontVariant: ['tabular-nums'] },
   followStatLbl: { fontSize: 11, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.6, marginTop: 1 },
   followDivider: { width: StyleSheet.hairlineWidth, height: 26, backgroundColor: DS.surfaceHighest },

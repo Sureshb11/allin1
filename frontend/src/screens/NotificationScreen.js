@@ -6,6 +6,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useDockLock } from '../components/AutoHideTabBar';
 import legendsApi from '../services/LegendsApi';
+// The header's bell badge reads the same number this screen does — kept in
+// step here rather than left to expire on the next focus, so walking back out
+// of a read notification does not leave a stale count behind you.
+import { setUnreadCount, bumpUnreadCount } from '../utils/unreadCount';
 
 
 
@@ -47,6 +51,7 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
       if (response.success) {
         setNotifications(response.data);
         setServerUnread(response.unread ?? 0);
+        setUnreadCount(response.unread ?? 0);
       }
     } catch (error) {Alert.alert('Error', 'Failed to load notifications');} finally
     {setRefreshing(false);}
@@ -64,6 +69,7 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
         // keep the server-derived badge in step with what the user just read
         if (!notifications.find((n) => n.id === notificationId)?.read) {
           setServerUnread((c) => Math.max(0, c - 1));
+          bumpUnreadCount(-1);
         }
       }
     } catch (error) {console.log('Error marking notification as read:', error);}
@@ -75,6 +81,7 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
       if (response.success) {
         setNotifications(notifications.map((notif) => ({ ...notif, read: true })));
         setServerUnread(0);
+        setUnreadCount(0);
         Alert.alert('Success', 'All notifications marked as read');
       }
     } catch (error) {Alert.alert('Error', 'Failed to mark notifications as read');}
@@ -90,6 +97,7 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
       case 'system':return { icon: 'cog-outline', bg: DS.textMuted };
       case 'like':return { icon: 'heart', bg: DS.live };
       case 'comment':return { icon: 'comment-text-outline', bg: DS.blue };
+      case 'follow':return { icon: 'account-plus', bg: DS.lime };
       default:return { icon: 'bell-outline', bg: DS.blue };
     }
   };
@@ -105,6 +113,10 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
           // goes nowhere when tapped is worse than none — it looks broken.
           if (item.data?.tournamentId) navigation.navigate('TournamentDetail', { tournamentId: item.data.tournamentId });
           else if (item.data?.matchId) navigation.navigate('Scorecard', { matchId: item.data.matchId });
+          // A new follower opens the person who followed you. Unclaimed rows
+          // carry no playerId, so the tap stays put rather than opening a
+          // profile screen with nothing behind it.
+          else if (item.type === 'follow' && item.data?.playerId) navigation.navigate('PlayerProfile', { playerId: item.data.playerId });
           else if (item.data?.listingId) navigation.navigate('LookingFor');
           else if (item.type === 'achievement') navigation.navigate('BadgeDetail');
         }}>

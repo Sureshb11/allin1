@@ -37,13 +37,17 @@ function Avatar({ uri, name, styles, square }) {
 }
 
 export default function FollowListScreen({ route, navigation }) {
-  const { playerId, name: subjectName, initialTab } = route.params || {};
+  // A team is followers-only: nothing follows on a team's behalf, so the segment
+  // collapses to a single heading rather than showing a "Following" tab that
+  // could only ever read zero.
+  const { playerId, teamId, name: subjectName, initialTab } = route.params || {};
+  const isTeam = !!teamId;
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const C = useThemedStyles(makeControls);
   const meUser = useCurrentUser();
 
-  const [tab, setTab] = useState(initialTab === 'following' ? 'following' : 'followers');
+  const [tab, setTab] = useState(initialTab === 'following' && !teamId ? 'following' : 'followers');
   const [followers, setFollowers] = useState(null);   // null = not loaded yet
   const [following, setFollowing] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -53,13 +57,19 @@ export default function FollowListScreen({ route, navigation }) {
     // Both at once. Each is one short list, and fetching the other tab only on
     // tap makes the counts on the segment appear late — which is the moment the
     // row is least useful, since the count is why you would switch.
+    if (isTeam) {
+      const f = await legendsApi.getTeamFollowers(teamId);
+      if (f.success) setFollowers(f.data);
+      setFollowing({ count: 0, players: [], teams: [], linked: true });
+      return;
+    }
     const [f, g] = await Promise.all([
       legendsApi.getPlayerFollowers(playerId),
       legendsApi.getPlayerFollowing(playerId),
     ]);
     if (f.success) setFollowers(f.data);
     if (g.success) setFollowing(g.data);
-  }, [playerId]);
+  }, [isTeam, teamId, playerId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -112,7 +122,14 @@ export default function FollowListScreen({ route, navigation }) {
         onPress={() => openPlayer(item.playerId, item.name)}>
         <Avatar uri={item.avatarUrl} name={item.name} styles={styles} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+            {/* The label that makes a follower list worth reading: which of
+                these the subject follows back. */}
+            {item.followsBack && (
+              <View style={styles.mutual}><Text style={styles.mutualTxt}>Follows you</Text></View>
+            )}
+          </View>
           {!item.playerId && <Text style={styles.rowSub} numberOfLines={1}>No player profile yet</Text>}
         </View>
         {!!item.playerId && !isMe && (
@@ -141,7 +158,12 @@ export default function FollowListScreen({ route, navigation }) {
       onPress={() => (item.kind === 'team' ? openTeam(item.id) : openPlayer(item.id, item.name))}>
       <Avatar uri={item.avatarUrl || item.logoUrl} name={item.name} styles={styles} square={item.kind === 'team'} />
       <View style={{ flex: 1 }}>
-        <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+          {item.followsBack && (
+            <View style={styles.mutual}><Text style={styles.mutualTxt}>Follows you</Text></View>
+          )}
+        </View>
         {!!item.sub && <Text style={styles.rowSub} numberOfLines={1}>{item.sub}</Text>}
       </View>
       <Icon name="chevron-right" size={20} color={DS.textMuted} />
@@ -178,16 +200,19 @@ export default function FollowListScreen({ route, navigation }) {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.title} numberOfLines={1}>{subjectName || 'Player'}</Text>
-          <Text style={styles.subtitle}>Followers and following</Text>
+          <Text style={styles.subtitle}>{isTeam ? 'Followers' : 'Followers and following'}</Text>
         </View>
       </View>
 
       <View style={styles.segWrap}>
         <View style={C.segment}>
-          {[
-            ['followers', 'Followers', followers?.count],
-            ['following', 'Following', following?.count],
-          ].map(([key, label, count]) => {
+          {(isTeam
+            ? [['followers', 'Followers', followers?.count]]
+            : [
+                ['followers', 'Followers', followers?.count],
+                ['following', 'Following', following?.count],
+              ]
+          ).map(([key, label, count]) => {
             const on = tab === key;
             return (
               <TouchableOpacity key={key} style={[C.segBtn, on && C.segBtnOn]} onPress={() => setTab(key)}
@@ -213,9 +238,17 @@ export default function FollowListScreen({ route, navigation }) {
           renderItem={isFollowers ? followerRow : followingRow}
           contentContainerStyle={styles.listPad}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}
+          // Both routes cap at 200 with no paging. Saying so beats a list that
+          // silently stops — the reader has no other way to tell the difference
+          // between "that is everyone" and "that is the first 200".
+          ListFooterComponent={(isFollowers ? (followers?.followers || []) : followingRows).length >= 200
+            ? <Text style={styles.truncated}>Showing the most recent 200.</Text>
+            : null}
           ListEmptyComponent={isFollowers
             ? empty('account-group-outline', 'No followers yet',
-                `Nobody follows ${subjectName || 'this player'} yet. Following someone puts their matches in your circle.`)
+                isTeam
+                  ? `Nobody follows ${subjectName || 'this team'} yet. Following a team puts its matches in your circle.`
+                  : `Nobody follows ${subjectName || 'this player'} yet. Following someone puts their matches in your circle.`)
             // An unclaimed player row — one added to a squad by somebody else,
             // never signed into — follows nothing, and that is a different fact
             // from an empty list.
@@ -251,7 +284,14 @@ const makeStyles = (DS) => StyleSheet.create({
   avatarSquare: { borderRadius: 10 },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
   avatarTxt: { color: DS.lime, fontWeight: '800', fontSize: 15 },
-  rowName: { fontSize: 15, fontWeight: '700', color: DS.textPrimary },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  rowName: { fontSize: 15, fontWeight: '700', color: DS.textPrimary, flexShrink: 1 },
+  mutual: {
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
+    backgroundColor: DS.surfaceHighest,
+  },
+  mutualTxt: { fontSize: 9.5, fontWeight: '800', color: DS.textMuted, letterSpacing: 0.3 },
+  truncated: { fontSize: 12, color: DS.textMuted, textAlign: 'center', paddingVertical: 18 },
   rowSub: { fontSize: 12, color: DS.textMuted, marginTop: 2 },
 
   followBtn: {

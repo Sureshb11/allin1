@@ -1521,6 +1521,30 @@ class LegendsApi {
   // backend route is still there; re-add a client for it only alongside a
   // computation that agrees with playerCareer.js.
 
+  // A team's followers, in the same shape as a player's so FollowList renders
+  // both. Teams follow nobody, so there is no matching "following" call.
+  async getTeamFollowers(teamId) {
+    try {
+      const json = await this.request(`/teams/${teamId}/followers`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // One player's posts. The same /posts route the feed uses, filtered by author,
+  // so these rows carry the same liked / saved / authorPlayerId annotation and
+  // render through the same mapPost.
+  async getPlayerPosts(playerId, sport) {
+    try {
+      const qs = new URLSearchParams({ playerId, ...(sport ? { sport } : {}) });
+      const json = await this.request(`/posts?${qs}`);
+      return { success: true, data: json.posts || [] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Who follows a player, and what that player's account follows. Two calls,
   // because the two directions hold different things — followers are accounts,
   // what you follow is players and teams. Both are public; a token only changes
