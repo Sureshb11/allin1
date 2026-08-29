@@ -1717,8 +1717,11 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   // contract Rankings uses.
   const openPlayer = useCallback((p) => {
     if (!p?.id) return;
-    navigation?.navigate('PlayerProfile', { playerId: p.id, player: p });
-  }, [navigation]);
+    // Carry the sport: the profile hero folds a free-text role into the squad
+    // vocabulary, and it can only do that safely once it knows which sport's
+    // vocabulary to use.
+    navigation?.navigate('PlayerProfile', { playerId: p.id, player: { sport: match?.sport, ...p } });
+  }, [navigation, match?.sport]);
 
   const openTeam = useCallback((t) => {
     if (!t?.id) return;

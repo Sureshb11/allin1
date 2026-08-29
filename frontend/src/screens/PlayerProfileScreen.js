@@ -9,6 +9,7 @@ import ShotBoard from '../components/ShotBoard';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
+import { canonicalRole } from '../utils/squadOrder';
 
 // A player's career, opened from Rankings.
 //
@@ -169,9 +170,30 @@ export default function PlayerProfileScreen({ route, navigation }) {
   // Your own profile: the career response carries the player's linked userId.
   const isMe = !!meUser?.id && career?.player?.userId === meUser.id;
   const name = passed?.name || career?.player?.name || 'Player';
-  const role = passed?.role || career?.role || career?.player?.role || 'Cricketer';
   const teamName = passed?.team || career?.team || '';
   const sportId = passed?.sport || career?.sport;
+
+  // The role goes through the SAME folding as every squad list — this screen was
+  // the one place printing it raw, so a player read "Wicket Keeper" here and
+  // "Wicketkeeper" in the squad two taps away. "Player" is dropped for the
+  // reason canonicalRole drops it: it was the field's old default, so it sits
+  // under most of the database and names nothing.
+  // Only fold once the sport is actually known. canonicalRole defaults to
+  // cricket when it isn't told, and its matching is by what the string CONTAINS
+  // — so a football "Goalkeeper" would come back "Wicketkeeper" in the moment
+  // before the career answers. Unknown sport keeps the raw word, which is at
+  // worst untidy; the other way is wrong.
+  const rawRole = passed?.role || career?.role || career?.player?.role || null;
+  const role = (sportId ? canonicalRole(rawRole, sportId) : null)
+    || (rawRole && rawRole !== 'Player' ? rawRole : null);
+
+  // What to write under the name — and nothing at all when we know nothing. The
+  // fallback used to be the literal string 'Cricketer', which printed under
+  // badminton players; the sport-aware version of it is no better, because
+  // `competitorLabel` is a word for a SLOT ("Team" by default, "Player" for
+  // badminton), not a description of anybody. An empty line is the honest
+  // answer, and it is the one the squad lists already give.
+  const heroSub = [role, teamName].filter(Boolean).join(' · ');
   const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   // Rankings passes the row through, which carries the linked account's photo.
   const avatarUrl = passed?.avatarUrl || passed?.user?.avatarUrl || career?.player?.avatarUrl || null;
@@ -208,9 +230,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
           : <View style={styles.heroAvatar}><Text style={styles.heroAvatarTxt}>{initials}</Text></View>}
         <View style={{ flex: 1 }}>
           <Text style={styles.heroTitle} numberOfLines={1}>{name}</Text>
-          <Text style={styles.heroSub} numberOfLines={1}>
-            {role}{teamName ? ` · ${teamName}` : ''}
-          </Text>
+          {!!heroSub && <Text style={styles.heroSub} numberOfLines={1}>{heroSub}</Text>}
         </View>
         {/* Carried from Rankings — the reason you opened this profile. */}
         {standing != null && (
