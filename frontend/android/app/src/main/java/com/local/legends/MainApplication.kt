@@ -45,7 +45,7 @@ class MainApplication : Application(), ReactApplication {
         // by RN — they must be registered here, else text falls back to the system
         // font, giving a non-uniform look app-wide.
         ReactFontManager.getInstance().addCustomFont(this, "selawik", R.font.selawik)
-        createNotificationChannel()
+        createNotificationChannels()
         SoLoader.init(this, false)
         if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
             // If you opted-in for the New Architecture, we load the native entry point for this app.
@@ -54,7 +54,7 @@ class MainApplication : Application(), ReactApplication {
     }
 
     /**
-     * The notification channel every push names.
+     * The notification channels pushes name.
      *
      * AndroidManifest declares `default_notification_channel_id = "default"` and
      * the server sends `android.notification.channelId = "default"` — but nothing
@@ -68,28 +68,37 @@ class MainApplication : Application(), ReactApplication {
      * JS does not. A channel created in JS would only exist after someone had
      * already opened the app, which is precisely the case that already worked.
      *
-     * Creating a channel that already exists is a no-op, but the id is checked
-     * first so a user who has turned this channel down does not have their
-     * choice quietly reset on the next launch.
+     * Three of them, not one, so a person can silence the noisy kind in Android's
+     * own settings without losing the kind they care about. Chat pushes on every
+     * message; matches do not. `default` stays because the manifest names it and
+     * an unmapped type still has to land somewhere.
+     *
+     * Creating a channel that already exists is a no-op, but each id is checked
+     * first so a user who has turned one down does not have their choice quietly
+     * reset on the next launch.
      */
-    private fun createNotificationChannel() {
+    private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java) ?: return
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Match & social updates",
-            NotificationManager.IMPORTANCE_HIGH,
-        ).apply {
-            description = "Live scores and results, and when someone follows you or reacts to your posts."
-            enableVibration(true)
-            setShowBadge(true)
+        for ((id, name, description) in CHANNELS) {
+            if (manager.getNotificationChannel(id) != null) continue
+            manager.createNotificationChannel(
+                NotificationChannel(id, name, NotificationManager.IMPORTANCE_HIGH).apply {
+                    this.description = description
+                    enableVibration(true)
+                    setShowBadge(true)
+                }
+            )
         }
-        manager.createNotificationChannel(channel)
     }
 
     companion object {
-        /** Must match the manifest meta-data AND backend lib/push.js. */
-        private const val CHANNEL_ID = "default"
+        /** Ids must match backend lib/push.js; "default" also matches the manifest. */
+        private val CHANNELS = listOf(
+            Triple("matches", "Matches", "Live scores, results and tournament updates."),
+            Triple("social", "Social", "Followers, likes and comments on your posts."),
+            Triple("chat", "Messages", "Team and direct messages."),
+            Triple("default", "General", "Anything else from Local Legends."),
+        )
     }
 }

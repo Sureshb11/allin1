@@ -1516,7 +1516,12 @@ const SetupSchema = z.object({
 
 router.post('/:id/setup', authMiddleware, async (req, res) => {
   try {
-    if (!(await assertScorer(req, res, req.params.id))) return;
+    // The row assertScorer already fetched, kept for its status: this route
+    // sets `live` unconditionally, and re-submitting a corrected line-up would
+    // otherwise announce "Match started" to both circles a second time.
+    const before = await assertScorer(req, res, req.params.id);
+    if (!before) return;
+    const wasLive = before.status === 'live';
     const data = SetupSchema.parse(req.body);
     const matchId = req.params.id;
 
@@ -1536,8 +1541,9 @@ router.post('/:id/setup', authMiddleware, async (req, res) => {
       return m;
     });
 
-    // Same as the cricket toss: this is what puts the match on air.
-    await safeNotify(async () => {
+    // Same as the cricket toss: this is what puts the match on air — but only
+    // the first time. A match already live is being corrected, not started.
+    if (!wasLive) await safeNotify(async () => {
       const full = await prisma.match.findUnique({
         where: { id: matchId },
         include: { team1: { select: { name: true } }, team2: { select: { name: true } } },
@@ -1565,7 +1571,11 @@ const TossSchema = z.object({
 
 router.post('/:id/toss', authMiddleware, async (req, res) => {
   try {
-    if (!(await assertScorer(req, res, req.params.id))) return;
+    const before = await assertScorer(req, res, req.params.id);
+    if (!before) return;
+    // A re-submitted toss corrects a match that is already on air. Announcing it
+    // again would push "Match started" to everyone who was told the first time.
+    const wasLive = before.status === 'live';
     const data = TossSchema.parse(req.body);
     const matchId = req.params.id;
 
@@ -1617,9 +1627,9 @@ router.post('/:id/toss', authMiddleware, async (req, res) => {
       return m;
     });
 
-    // The toss is what puts a match on air — tell both teams' circles it's live.
-    // The scorer already knows, so they're left out.
-    await safeNotify(async () => {
+    // The toss is what puts a match on air — tell both teams' circles it's live,
+    // once. The scorer already knows, so they're left out.
+    if (!wasLive) await safeNotify(async () => {
       const full = await prisma.match.findUnique({
         where: { id: matchId },
         include: { team1: { select: { name: true } }, team2: { select: { name: true } } },

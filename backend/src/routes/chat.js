@@ -147,7 +147,9 @@ router.post('/rooms/:roomId/messages', authMiddleware, async (req, res) => {
       const from = [message.sender?.firstName, message.sender?.lastName]
         .filter(Boolean).join(' ').trim() || 'Someone';
       await safeNotify(() => notifyUsers(others, {
-        type: 'social',
+        // Its own type so it lands on its own Android channel: a busy group
+        // chat must be silenceable without also silencing match alerts.
+        type: 'chat',
         title: message.chatRoom?.name || 'New message',
         // Named sender first: a group chat's own name is already the title, so
         // without this you cannot tell who said it without opening the app.

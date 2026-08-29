@@ -98,6 +98,7 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
       case 'like':return { icon: 'heart', bg: DS.live };
       case 'comment':return { icon: 'comment-text-outline', bg: DS.blue };
       case 'follow':return { icon: 'account-plus', bg: DS.lime };
+      case 'chat':return { icon: 'message-text', bg: DS.blue };
       default:return { icon: 'bell-outline', bg: DS.blue };
     }
   };

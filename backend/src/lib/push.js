@@ -73,6 +73,26 @@ export async function pushDataToUsers(userIds, data = {}) {
  * Best-effort: never throws, returns the number of messages delivered.
  * `data` values must be strings — FCM rejects other types.
  */
+/**
+ * Which Android channel a notification belongs to.
+ *
+ * Three, not one, so a person can silence the noisy kind without losing the
+ * kind they care about. That became necessary the moment chat started pushing
+ * on every message: one channel meant muting a busy group chat also muted
+ * "your match is live". Android exposes channels in system settings, so this is
+ * per-user control that costs no UI of our own.
+ *
+ * Anything unmapped falls to `default`, which the manifest also names, so a new
+ * notification type is quiet-by-default rather than undeliverable.
+ */
+const CHANNELS = {
+  chat: 'chat',
+  like: 'social', comment: 'social', follow: 'social', social: 'social',
+  match: 'matches', tournament: 'matches', achievement: 'matches',
+  milestone: 'matches', stats: 'matches', reminder: 'matches',
+};
+const channelFor = (type) => CHANNELS[type] || 'default';
+
 export async function pushToUsers(userIds, { title, message, data = {}, silent = false } = {}) {
   const uniq = [...new Set((userIds || []).filter(Boolean))];
   if (!uniq.length) return 0;
@@ -109,7 +129,10 @@ export async function pushToUsers(userIds, { title, message, data = {}, silent =
         data: stringData,
         android: silent
           ? { priority: 'high' }
-          : { priority: 'high', notification: { channelId: 'default', sound: 'default' } },
+          : {
+              priority: 'high',
+              notification: { channelId: channelFor(data.type), sound: 'default' },
+            },
       });
       sent += res.successCount;
       res.responses.forEach((r, j) => {
