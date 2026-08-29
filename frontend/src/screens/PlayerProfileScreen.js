@@ -98,6 +98,11 @@ export default function PlayerProfileScreen({ route, navigation }) {
   // already follow. Toggling is optimistic, then reconciled.
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  // Whether the career has answered yet. Until it has we do not know if this is
+  // your OWN profile, and `isMe` reads false by default — so the Follow pill
+  // painted on open and then vanished a moment later on your own page.
+  const [identityKnown, setIdentityKnown] = useState(false);
+  const followFade = useRef(new Animated.Value(0)).current;
   
   const [shotData, setShotData] = useState(null);   // { shots, analytics, insights, player }
   const [loading, setLoading] = useState(true);
@@ -110,20 +115,28 @@ export default function PlayerProfileScreen({ route, navigation }) {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  const load = useCallback(() => Promise.all([
-    legendsApi.getPlayerCareer(playerId),
-    
-    // Kept a SEPARATE fetch from the career on purpose: shot data covers only
-    // the deliveries somebody chose to capture, which for a long time will be a
-    // thin and uneven slice. Folding it into the career board would make those
-    // numbers quietly mean something different depending on whether a scorer
-    // happened to switch the feature on that day.
-    legendsApi.getPlayerShots(playerId),
-  ]).then(([c, sh]) => {
-    if (c.success) { setCareer(c.data); setFollowing(!!c.data?.following); }
-    
-    if (sh.success) setShotData(sh.data);
-  }), [playerId]);
+  const load = useCallback(() => {
+    const careerReq = legendsApi.getPlayerCareer(playerId);
+    // Gate the Follow pill on the CAREER settling rather than on `loading`,
+    // which also waits for the shot fetch below. Waiting for both would hold the
+    // pill back long after we already knew the answer.
+    careerReq.finally(() => setIdentityKnown(true));
+
+    return Promise.all([
+      careerReq,
+      
+      // Kept a SEPARATE fetch from the career on purpose: shot data covers only
+      // the deliveries somebody chose to capture, which for a long time will be a
+      // thin and uneven slice. Folding it into the career board would make those
+      // numbers quietly mean something different depending on whether a scorer
+      // happened to switch the feature on that day.
+      legendsApi.getPlayerShots(playerId),
+    ]).then(([c, sh]) => {
+      if (c.success) { setCareer(c.data); setFollowing(!!c.data?.following); }
+      
+      if (sh.success) setShotData(sh.data);
+    });
+  }, [playerId]);
 
   const toggleFollow = useCallback(async () => {
     if (!playerId || followBusy) return;
@@ -163,6 +176,23 @@ export default function PlayerProfileScreen({ route, navigation }) {
   // Rankings passes the row through, which carries the linked account's photo.
   const avatarUrl = passed?.avatarUrl || passed?.user?.avatarUrl || career?.player?.avatarUrl || null;
 
+  // Fade in rather than snap: the pill is deliberately withheld for the length
+  // of one request, so it lands after the hero has already painted.
+  //
+  // `meUser?.id` is part of the gate for the same reason as `identityKnown`:
+  // opening a profile cold (from a push, say) can land the career before the
+  // cached identity, and `isMe` reads false while we are still id-less. Waiting
+  // for both means the pill paints once, in its final state. Never learning who
+  // you are means staying hidden, which is right — following needs an account.
+  const showFollow = !!playerId && identityKnown && !!meUser?.id && !isMe;
+  useEffect(() => {
+    Animated.timing(followFade, {
+      toValue: showFollow ? 1 : 0,
+      duration: 160,
+      useNativeDriver: true,
+    }).start();
+  }, [showFollow, followFade]);
+
 
   return (
     <View style={styles.container}>
@@ -192,7 +222,8 @@ export default function PlayerProfileScreen({ route, navigation }) {
         {/* Following a player puts their matches in your circle feed — the same
             place the teams you follow appear. Hidden on your own profile: you
             cannot follow yourself, and the button would be nonsense there. */}
-        {!!playerId && !isMe && (
+        {showFollow && (
+          <Animated.View style={{ opacity: followFade }}>
           <TouchableOpacity
             style={[styles.followBtn, following && styles.followBtnOn]}
             onPress={toggleFollow}
@@ -208,6 +239,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
               {following ? 'Following' : 'Follow'}
             </Text>
           </TouchableOpacity>
+          </Animated.View>
         )}
       </View>
 
