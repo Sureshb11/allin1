@@ -144,12 +144,21 @@ export default function PlayerProfileScreen({ route, navigation }) {
     setFollowBusy(true);
     const next = !following;
     setFollowing(next);                       // optimistic
+    // The header counts THIS player's followers, and you are one of them the
+    // moment you tap. Without moving it, the pill said Following while the
+    // number beside it still read the old total until a pull-to-refresh.
+    const bump = (d) => setCareer((c) => (c ? { ...c, followerCount: Math.max(0, (c.followerCount || 0) + d) } : c));
+    bump(next ? 1 : -1);
     const res = await legendsApi.toggleFollowPlayer(playerId);
     if (res.success) {
       setFollowing(res.following);
+      // Reconcile against what the server actually did, in case it disagreed
+      // with the optimistic guess (a double tap, or a stale `following`).
+      if (res.following !== next) bump(res.following ? 1 : -1);
       showToast(res.following ? `Following ${name}` : `Unfollowed ${name}`, 'success');
     } else {
       setFollowing(!next);                    // put it back
+      bump(next ? -1 : 1);
       showToast('Could not update follow', 'error');
     }
     setFollowBusy(false);
