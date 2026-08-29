@@ -1,6 +1,7 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { useState, useEffect, useLayoutEffect, useCallback} from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, StatusBar } from
+  View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, StatusBar,
+  ActivityIndicator } from
 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -42,6 +43,11 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
   // True unread count from the server — the loaded page alone would
   // undercount once there are more unread than fit in one page.
   const [serverUnread, setServerUnread] = useState(0);
+  // The server has always paged this route — it returns a nextCursor and caps
+  // `limit` server-side — and the client only ever asked for the first page. A
+  // notification older than the most recent 30 was simply unreachable.
+  const [cursor, setCursor] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {loadNotifications();}, []);
 
@@ -50,6 +56,7 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
       const response = await legendsApi.getNotifications();
       if (response.success) {
         setNotifications(response.data);
+        setCursor(response.nextCursor);
         setServerUnread(response.unread ?? 0);
         setUnreadCount(response.unread ?? 0);
       }
@@ -57,7 +64,29 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
     {setRefreshing(false);}
   };
 
-  const handleRefresh = () => {setRefreshing(true);loadNotifications();};
+  // One page at a time as you reach the end. Guarded on `loadingMore` because
+  // onEndReached fires repeatedly during a fast scroll, and on `cursor` being
+  // null, which is how the server says there is nothing after this.
+  const loadMore = async () => {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const response = await legendsApi.getNotifications({ cursor });
+      if (response.success) {
+        // Appended by id rather than blindly concatenated: a notification
+        // arriving between two page fetches shifts the window, and the same row
+        // can come back on both pages — which React answers with a duplicate-key
+        // warning and a row rendered twice.
+        setNotifications((prev) => {
+          const seen = new Set(prev.map((n) => n.id));
+          return [...prev, ...response.data.filter((n) => !seen.has(n.id))];
+        });
+        setCursor(response.nextCursor);
+      }
+    } finally { setLoadingMore(false); }
+  };
+
+  const handleRefresh = () => {setRefreshing(true);setCursor(null);loadNotifications();};
 
   const markAsRead = async (notificationId) => {
     try {
@@ -176,6 +205,9 @@ const NotificationScreen = ({ navigation }) => {const DS = useTheme().colors;con
         renderItem={renderNotificationItem}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={DS.lime} />}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={loadingMore ? <ActivityIndicator color={DS.lime} style={{ marginVertical: 18 }} /> : null}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
