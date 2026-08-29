@@ -286,7 +286,11 @@ export default function PlayerProfileScreen({ route, navigation }) {
                 style={styles.followStat}
                 activeOpacity={0.7}
                 onPress={() => (key === 'posts'
-                  ? navigation.navigate('PlayerPosts', { playerId, name, sport: sportId })
+                  // career.sport first, not sportId: the count was taken in the
+                  // player's OWN sport server-side, while sportId prefers what
+                  // the row that opened this screen carried. When those differ
+                  // the header and the list it opens disagree.
+                  ? navigation.navigate('PlayerPosts', { playerId, name, sport: career?.sport || sportId })
                   : navigation.navigate('FollowList', { playerId, name, initialTab: key }))}
                 accessibilityRole="button"
                 accessibilityLabel={`${count} ${label}`}>

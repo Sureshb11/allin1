@@ -344,18 +344,15 @@ router.get('/:id/career', optionalAuth, async (req, res) => {
     // to the list routes so opening a profile is still one request — the header
     // needs the numbers, the lists are only fetched if somebody taps them.
     const selfIds = await selfRowIds(player);
-    const [followerRows, followsPlayers, followsTeams, postCount] = await Promise.all([
-      // Distinct users, not rows: see selfRowIds. groupBy rather than count,
-      // because one person may follow two of this player's rows.
+    const [followerRows, followingCount, postCount] = await Promise.all([
+      // Distinct users, not rows: see selfRowIds. One person may follow two of
+      // this player's rows and is still one follower.
       prisma.like.findMany({
         where: { targetType: FOLLOW_TYPE, targetId: { in: selfIds } },
         select: { userId: true },
         distinct: ['userId'],
       }),
-      player.userId
-        ? prisma.like.count({ where: { userId: player.userId, targetType: FOLLOW_TYPE } })
-        : 0,
-      player.userId ? prisma.teamFollow.count({ where: { userId: player.userId } }) : 0,
+      followingCountFor(player.userId),
       // Counted the way the FEED attributes a post: Post.playerId when it is
       // set, otherwise the account behind it. Counting authorId alone would
       // exclude a post the feed shows under this player's name — you would tap
@@ -379,7 +376,7 @@ router.get('/:id/career', optionalAuth, async (req, res) => {
       followerCount: followerRows.length,
       // Players and teams together: the profile shows one "Following" number,
       // and a follow is a follow whichever kind of thing is on the other end.
-      followingCount: followsPlayers + followsTeams,
+      followingCount,
       postCount,
       // The header this feeds draws a face and a name, which the career itself
       // knows nothing about.
@@ -484,6 +481,34 @@ async function selfRowIds(player) {
     where: { userId: player.userId }, select: { id: true },
   });
   return rows.length ? rows.map((r) => r.id) : [player.id];
+}
+
+/**
+ * How many distinct things this account follows.
+ *
+ * Deduped by PERSON, not by row, for the same reason selfRowIds exists: a
+ * Player row is a team membership, so one human can be followed twice — once
+ * per club — and five of the accounts in this database hold more than one row.
+ * Counting like-rows would make the header say 5 where the list shows 4.
+ * Unclaimed rows have nobody behind them, so each stands for itself.
+ */
+export async function followingCountFor(userId) {
+  if (!userId) return 0;
+  const [likes, teams] = await Promise.all([
+    prisma.like.findMany({ where: { userId, targetType: FOLLOW_TYPE }, select: { targetId: true } }),
+    prisma.teamFollow.count({ where: { userId } }),
+  ]);
+  if (!likes.length) return teams;
+  // A follow whose player has since been deleted counts for nothing — the list
+  // cannot show it either.
+  const players = await prisma.player.findMany({
+    where: { id: { in: likes.map((l) => l.targetId) } },
+    select: { id: true, userId: true },
+  });
+  const persons = new Set();
+  let unclaimed = 0;
+  for (const pl of players) { if (pl.userId) persons.add(pl.userId); else unclaimed += 1; }
+  return persons.size + unclaimed + teams;
 }
 
 /** Users following this player, newest first. */
@@ -624,10 +649,21 @@ router.get('/:id/following', optionalAuth, async (req, res) => {
     const order = Object.fromEntries(likes.map((l, i) => [l.targetId, i]));
     players.sort((a, b) => order[a.id] - order[b.id]);
 
+    // One row per PERSON. Following the same human twice — their club side and
+    // their office team are two Player rows — would otherwise list them twice,
+    // and the count beside the list already counts them once.
+    const seenPerson = new Set();
+    const uniquePlayers = players.filter((pl) => {
+      if (!pl.userId) return true;              // unclaimed rows stand alone
+      if (seenPerson.has(pl.userId)) return false;
+      seenPerson.add(pl.userId);
+      return true;
+    });
+
     // Which of these follow the subject back. Asked from the other side: every
     // row this account owns, and who among the followed accounts follows one.
     const selfIds = await selfRowIds({ id: player.id, userId: player.userId });
-    const followerUserIds = players.length
+    const followerUserIds = uniquePlayers.length
       ? new Set((await prisma.like.findMany({
           where: { targetType: FOLLOW_TYPE, targetId: { in: selfIds } },
           select: { userId: true },
@@ -637,8 +673,8 @@ router.get('/:id/following', optionalAuth, async (req, res) => {
 
     res.json({
       linked: true,
-      count: players.length + teamRows.length,
-      players: players.map((p) => ({
+      count: uniquePlayers.length + teamRows.length,
+      players: uniquePlayers.map((p) => ({
         id: p.id, name: p.name, role: p.role, sport: p.sport,
         team: p.team?.name || null, avatarUrl: p.user?.avatarUrl || null,
         followsBack: !!p.userId && followerUserIds.has(p.userId),

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { FOLLOW_TYPE as PLAYER_FOLLOW_TYPE } from './players.js';
+import { FOLLOW_TYPE as PLAYER_FOLLOW_TYPE, followingCountFor } from './players.js';
 import { publicUser } from '../lib/publicUser.js';
 import { authMiddleware } from '../lib/auth.js';
 import { entitlementsFor } from '../lib/entitlements.js';
@@ -72,17 +72,34 @@ router.get('/me', authMiddleware, async (req, res) => {
   // follower — a Player row is a team membership, so someone in three clubs has
   // three of them, and a follow lands on whichever one the follower tapped.
   // Following is a property of the account, so it is counted once.
+  //
+  // Deliberately NOT sport-scoped, and `rows` above IS: this route takes a
+  // ?sport= and the profile always sends one. Counting followers off `rows`
+  // meant your own profile reported your cricket followers while
+  // /players/:id/career — which someone else's view of you uses, and which the
+  // follower LIST uses — counted every row you hold. The same person had two
+  // follower counts depending on how you reached them, and your own count
+  // disagreed with the list it opened. A follower follows a person, not a
+  // squad membership, so the unscoped answer is the right one everywhere.
+  //
+  // Posts stay sport-scoped below, because a post genuinely belongs to a sport
+  // and the list behind that number is filtered by one.
+  const allRows = await prisma.player.findMany({
+    where: { userId: user.id }, select: { id: true },
+  });
+  const followerIds = allRows.length ? allRows.map((r) => r.id) : rows.map((r) => r.id);
   const selfIds = rows.map((r) => r.id);
-  const [followerRows, followsPlayers, followsTeams, postCount] = await Promise.all([
-    selfIds.length
+  const [followerRows, followingCount, postCount] = await Promise.all([
+    followerIds.length
       ? prisma.like.findMany({
-          where: { targetType: PLAYER_FOLLOW_TYPE, targetId: { in: selfIds } },
+          where: { targetType: PLAYER_FOLLOW_TYPE, targetId: { in: followerIds } },
           select: { userId: true },
           distinct: ['userId'],
         })
       : [],
-    prisma.like.count({ where: { userId: user.id, targetType: PLAYER_FOLLOW_TYPE } }),
-    prisma.teamFollow.count({ where: { userId: user.id } }),
+    // Shared with /players/:id/career so your own profile and someone else's
+    // view of it cannot report different numbers.
+    followingCountFor(user.id),
     // Sport-scoped like the list it opens — and like `player` above, which this
     // same route already scopes with ?sport=. An unscoped count would name more
     // posts than the list can show.
@@ -105,7 +122,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     sports,
     entitlements: entitlementsFor(user),
     followerCount: followerRows.length,
-    followingCount: followsPlayers + followsTeams,
+    followingCount,
     postCount,
   });
 });
