@@ -149,18 +149,98 @@ export async function matchAudience(teamIds) {
   return [...new Set([...members, ...followers])];
 }
 
+// Player follows live in the polymorphic Like table — see routes/players.js.
+// Spelled out here rather than imported, because notify.js is used by routes
+// that must not depend on a route module.
+const PLAYER_FOLLOW = 'player_follow';
+
+/**
+ * Every player in a match: the squad rows, plus the two competitor slots the
+ * 1v1 sports use instead of a squad.
+ *
+ * Fetched here rather than asked of the caller. Three routes announce a match
+ * and none of them include squads; making each fetch them would put the rule
+ * "who counts as playing" in three places, to be updated in two of them.
+ */
+async function matchPlayerIds(match) {
+  const squads = await prisma.matchPlayer.findMany({
+    where: { matchId: match.id }, select: { playerId: true },
+  });
+  return [...new Set([
+    ...squads.map((s) => s.playerId),
+    match.player1Id, match.player2Id,
+  ].filter(Boolean))];
+}
+
+/**
+ * Who follows the players in this match, and which of them they follow.
+ *
+ * The name matters: "Match started" tells someone who follows a player nothing
+ * about why they are hearing about two teams they may not know. Returns
+ * Map<userId, playerName> keeping the first follow found, which is enough to
+ * say "Suresh is playing".
+ */
+async function followerMapForPlayers(playerIds) {
+  const map = new Map();
+  if (!playerIds.length) return map;
+  const follows = await prisma.like.findMany({
+    where: { targetType: PLAYER_FOLLOW, targetId: { in: playerIds } },
+    select: { userId: true, targetId: true },
+  });
+  if (!follows.length) return map;
+  const players = await prisma.player.findMany({
+    where: { id: { in: [...new Set(follows.map((f) => f.targetId))] } },
+    select: { id: true, name: true },
+  });
+  const nameOf = Object.fromEntries(players.map((p) => [p.id, p.name]));
+  for (const f of follows) {
+    if (!map.has(f.userId)) map.set(f.userId, nameOf[f.targetId] || 'A player you follow');
+  }
+  return map;
+}
+
 const vs = (m) => `${m.team1?.name || 'Team 1'} vs ${m.team2?.name || 'Team 2'}`;
 
 // A circle team's match just went live. `match` must include team1/team2.
+//
+// Two audiences, told two different things. People in the teams' circles hear
+// about the fixture, which is what they follow. People who follow a PLAYER hear
+// about the player — "Match started: A vs B" tells someone who followed one
+// cricketer nothing about why it reached them, and two team names they may not
+// recognise is how a notification gets swiped away.
 export async function notifyMatchLive(match, { exclude = [] } = {}) {
-  const audience = (await matchAudience([match.team1Id, match.team2Id]))
-    .filter((u) => !exclude.includes(u));
-  return notifyUsers(audience, {
+  const skip = new Set(exclude);
+  const [teamAudience, playerFollowers] = await Promise.all([
+    matchAudience([match.team1Id, match.team2Id]),
+    matchPlayerIds(match).then(followerMapForPlayers),
+  ]);
+
+  const circle = teamAudience.filter((u) => !skip.has(u));
+  let sent = await notifyUsers(circle, {
     type: 'match',
     title: 'Match started',
     message: `${vs(match)} is live now.`,
     data: { matchId: match.id },
   });
+
+  // Only those the circle did not already reach — a team-mate who also follows
+  // a player in the match should not get told twice.
+  const already = new Set([...circle, ...skip]);
+  const byName = new Map();
+  for (const [userId, name] of playerFollowers) {
+    if (already.has(userId)) continue;
+    if (!byName.has(name)) byName.set(name, []);
+    byName.get(name).push(userId);
+  }
+  for (const [name, userIds] of byName) {
+    sent += await notifyUsers(userIds, {
+      type: 'match',
+      title: `${name} is playing`,
+      message: `${vs(match)} is live now.`,
+      data: { matchId: match.id },
+    });
+  }
+  return sent;
 }
 
 // A circle team's match finished — result to everyone, awards to the winners.
@@ -199,15 +279,49 @@ export async function notifyMatchResult(match, awards) {
     });
   }
 
-  // Result round-up for everyone else in the circle.
   const motm = awards?.manOfMatch?.name;
-  const rest = audience.filter((u) => !awarded.has(u));
-  await notifyUsers(rest, {
+
+  // Who actually played. They get the performances; the circle gets the result.
+  //
+  // Someone who was on the field already knows the score — they were there. What
+  // they do not know is how the numbers came out, and "X won Man of the Match"
+  // alone leaves out the two players who did the work. Everyone else is watching
+  // a fixture, and a list of names from a match they did not play reads as noise.
+  const playerIds = await matchPlayerIds(match);
+  const playedRows = playerIds.length
+    ? await prisma.player.findMany({
+        where: { id: { in: playerIds }, userId: { not: null } },
+        select: { userId: true },
+      })
+    : [];
+  const played = new Set(playedRows.map((p) => p.userId).filter((u) => !awarded.has(u)));
+
+  // Best batter and bowler beside the MotM. Each line only appears when the
+  // award exists — a match nobody bowled in should not claim a best bowler.
+  const topLine = [
+    motm ? `🏆 ${motm}` : null,
+    awards?.bestBatter?.name ? `🏏 ${awards.bestBatter.name}` : null,
+    awards?.bestBowler?.name ? `🎯 ${awards.bestBowler.name}` : null,
+  ].filter(Boolean).join('   ');
+
+  let sent = 0;
+  if (played.size) {
+    sent += await notifyUsers([...played], {
+      type: 'match',
+      title: 'Top players in your match',
+      message: [match.result || vs(match), topLine || null].filter(Boolean).join(' · '),
+      data: { matchId: match.id },
+    });
+  }
+
+  // Result round-up for everyone else in the circle.
+  const rest = audience.filter((u) => !awarded.has(u) && !played.has(u));
+  sent += await notifyUsers(rest, {
     type: 'match',
     title: 'Match finished',
     message: [match.result || vs(match), motm ? `${motm} won Man of the Match.` : null]
       .filter(Boolean).join(' · '),
     data: { matchId: match.id },
   });
-  return awarded.size + rest.length;
+  return awarded.size + sent;
 }
