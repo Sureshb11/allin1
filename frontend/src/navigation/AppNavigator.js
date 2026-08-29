@@ -56,6 +56,7 @@ import MatchInsightsScreen from '../screens/MatchInsightsScreen';
 import PlaceholderScreen from '../screens/PlaceholderScreen';
 import PavilionScreen from '../screens/PavilionScreen';
 import SavedPostsScreen from '../screens/SavedPostsScreen';
+import FollowListScreen from '../screens/FollowListScreen';
 import GroundDetailScreen from '../screens/GroundDetailScreen';
 
 const Tab = createBottomTabNavigator();
@@ -396,6 +397,7 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
     <Stack.Screen name="Pavilion" component={PavilionScreen} options={{ headerShown: false }} />
     {/* Opened from Profile. Draws its own header, like the rest of this stack. */}
     <Stack.Screen name="SavedPosts" component={SavedPostsScreen} options={{ headerShown: false }} />
+    <Stack.Screen name="FollowList" component={FollowListScreen} options={{ headerShown: false }} />
   </Stack.Navigator>
   );
 };

@@ -65,6 +65,9 @@ export default function ProfileScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [uploading, setUploading] = useState(null);
   const [statsStatus, setStatsStatus] = useState(null);
+  // Counts come back on /users/me alongside the profile, so the header has them
+  // on first paint rather than after a second request.
+  const [follow, setFollow] = useState({ followerCount: 0, followingCount: 0 });
 
 
   useLayoutEffect(() => {
@@ -81,6 +84,10 @@ export default function ProfileScreen({ navigation }) {
         setProfile(profileRes.data);
         setPlayer(profileRes.player || null);
         setTeams(profileRes.teams || []);
+        setFollow({
+          followerCount: profileRes.followerCount || 0,
+          followingCount: profileRes.followingCount || 0,
+        });
         setCurrentAvatar(profileRes.data?.avatarUrl || null);
 
         if (profileRes.player?.id) {
@@ -262,6 +269,38 @@ export default function ProfileScreen({ navigation }) {
                 </View>
               )}
             </View>
+
+            {/* Followers · Following. Two numbers, both tappable, opening the
+                same list on the tab you asked for — the shape every social
+                profile uses, so it needs no explaining.
+
+                Only drawn once a player row exists. Followers attach to a
+                player, not to an account, so before you have one the honest
+                answer is not "0 followers" but that there is nothing to follow
+                yet, and a pair of dead zeros says the wrong thing. */}
+            {!!player?.id && (
+              <View style={styles.followStats}>
+                {[
+                  ['followers', follow.followerCount, follow.followerCount === 1 ? 'Follower' : 'Followers'],
+                  ['following', follow.followingCount, 'Following'],
+                ].map(([key, count, label], i) => (
+                  <View key={key} style={styles.followStatWrap}>
+                    {i > 0 && <View style={styles.followDivider} />}
+                    <TouchableOpacity
+                      style={styles.followStat}
+                      activeOpacity={0.7}
+                      onPress={() => navigation.navigate('FollowList', {
+                        playerId: player.id, name: displayName, initialTab: key,
+                      })}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${count} ${label}`}>
+                      <Text style={styles.followStatNum}>{count}</Text>
+                      <Text style={styles.followStatLbl}>{label}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </View>
 
@@ -517,6 +556,13 @@ const ActionIcon = ({ icon, color, onPress, label, styles }) => (
 );
 
 const makeStyles = (DS) => StyleSheet.create({
+  followStats: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
+  followStatWrap: { flexDirection: 'row', alignItems: 'center' },
+  followStat: { alignItems: 'center', paddingHorizontal: 22, paddingVertical: 4 },
+  followStatNum: { fontSize: 19, fontWeight: '900', color: DS.textPrimary, letterSpacing: -0.4, fontVariant: ['tabular-nums'] },
+  followStatLbl: { fontSize: 11, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.6, marginTop: 1 },
+  followDivider: { width: StyleSheet.hairlineWidth, height: 26, backgroundColor: DS.surfaceHighest },
+
   container: { flex: 1, backgroundColor: DS.bg },
 
   // Hero / Player Card

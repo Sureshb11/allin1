@@ -1382,7 +1382,17 @@ class LegendsApi {
       // belong to the player, not the account.
       // `teams` is every club this person turns out for — a Player row is a
       // team membership, so someone in three clubs has three of them.
-      return { success: true, data: json.user, player: json.player || null, teams: json.teams || [], sports: json.sports || [] };
+      return {
+        success: true,
+        data: json.user,
+        player: json.player || null,
+        teams: json.teams || [],
+        sports: json.sports || [],
+        // Follower/following counts for the profile header, computed server-side
+        // across every player row this account holds — see GET /users/me.
+        followerCount: json.followerCount || 0,
+        followingCount: json.followingCount || 0,
+      };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -1510,6 +1520,28 @@ class LegendsApi {
   // a whole over — while CareerBoard reads the same career as My Stats. The
   // backend route is still there; re-add a client for it only alongside a
   // computation that agrees with playerCareer.js.
+
+  // Who follows a player, and what that player's account follows. Two calls,
+  // because the two directions hold different things — followers are accounts,
+  // what you follow is players and teams. Both are public; a token only changes
+  // whether each row reports that YOU already follow it.
+  async getPlayerFollowers(playerId) {
+    try {
+      const json = await this.request(`/players/${playerId}/followers`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getPlayerFollowing(playerId) {
+    try {
+      const json = await this.request(`/players/${playerId}/following`);
+      return { success: true, data: json };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
 
   // One player's career in the SAME shape as getUserStats — same endpoint family,
   // same computation (backend lib/playerCareer.js) — so a tapped player and My

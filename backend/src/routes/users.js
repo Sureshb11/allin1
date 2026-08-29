@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { FOLLOW_TYPE as PLAYER_FOLLOW_TYPE } from './players.js';
 import { publicUser } from '../lib/publicUser.js';
 import { authMiddleware } from '../lib/auth.js';
 import { entitlementsFor } from '../lib/entitlements.js';
@@ -63,8 +64,37 @@ router.get('/me', authMiddleware, async (req, res) => {
     rows.map((r) => r.team).filter(Boolean).map((t) => [t.id, t]),
   ).values()];
 
+  // Follower / following counts for the profile header. Computed here because
+  // the profile already loads this route, and asking /players/:id/career for two
+  // numbers would mean recomputing a whole career to draw them.
+  //
+  // Followers are counted across EVERY player row this account holds, deduped by
+  // follower — a Player row is a team membership, so someone in three clubs has
+  // three of them, and a follow lands on whichever one the follower tapped.
+  // Following is a property of the account, so it is counted once.
+  const selfIds = rows.map((r) => r.id);
+  const [followerRows, followsPlayers, followsTeams] = await Promise.all([
+    selfIds.length
+      ? prisma.like.findMany({
+          where: { targetType: PLAYER_FOLLOW_TYPE, targetId: { in: selfIds } },
+          select: { userId: true },
+          distinct: ['userId'],
+        })
+      : [],
+    prisma.like.count({ where: { userId: user.id, targetType: PLAYER_FOLLOW_TYPE } }),
+    prisma.teamFollow.count({ where: { userId: user.id } }),
+  ]);
+
   const { sports, ...userBase } = user;
-  res.json({ user: publicUser(userBase), player, teams, sports, entitlements: entitlementsFor(user) });
+  res.json({
+    user: publicUser(userBase),
+    player,
+    teams,
+    sports,
+    entitlements: entitlementsFor(user),
+    followerCount: followerRows.length,
+    followingCount: followsPlayers + followsTeams,
+  });
 });
 
 // The logged-in user's career. This route is now just the lookup — which Player

@@ -185,6 +185,16 @@ export default function PlayerProfileScreen({ route, navigation }) {
   // badminton), not a description of anybody. An empty line is the honest
   // answer, and it is the one the squad lists already give.
   const heroSub = [role, teamName].filter(Boolean).join(' · ');
+
+  // Counts ride along on the career response, so they cost nothing extra here.
+  // Only drawn once it has answered: painting 0/0 first and then correcting is
+  // the same flicker the Follow pill had.
+  const followCounts = career
+    ? [
+        ['followers', career.followerCount || 0, (career.followerCount === 1) ? 'Follower' : 'Followers'],
+        ['following', career.followingCount || 0, 'Following'],
+      ]
+    : null;
   const initials = name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   // Rankings passes the row through, which carries the linked account's photo.
   const avatarUrl = passed?.avatarUrl || passed?.user?.avatarUrl || career?.player?.avatarUrl || null;
@@ -254,6 +264,28 @@ export default function PlayerProfileScreen({ route, navigation }) {
         )}
       </View>
 
+      {/* Followers · Following, under the hero rather than in it: the hero row is
+          already back arrow, avatar, name, an optional rank pill and the Follow
+          button, and a phone has no width left in it. */}
+      {!!followCounts && !!playerId && (
+        <View style={styles.followStats}>
+          {followCounts.map(([key, count, label], i) => (
+            <View key={key} style={styles.followStatWrap}>
+              {i > 0 && <View style={styles.followDivider} />}
+              <TouchableOpacity
+                style={styles.followStat}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('FollowList', { playerId, name, initialTab: key })}
+                accessibilityRole="button"
+                accessibilityLabel={`${count} ${label}`}>
+                <Text style={styles.followStatNum}>{count}</Text>
+                <Text style={styles.followStatLbl}>{label}</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
       <ScrollView showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}>
         <View style={styles.body}>
@@ -320,6 +352,17 @@ const makeStyles = (DS) => StyleSheet.create({
     backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 18, paddingHorizontal: 16,
   },
   backBtn: { padding: 4 },
+
+  followStats: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: DS.surfaceLow, paddingBottom: 14, paddingHorizontal: 12,
+  },
+  followStatWrap: { flexDirection: 'row', alignItems: 'center' },
+  followStat: { alignItems: 'center', paddingHorizontal: 22, paddingVertical: 4 },
+  followStatNum: { fontSize: 18, fontWeight: '900', color: DS.textPrimary, letterSpacing: -0.4, fontVariant: ['tabular-nums'] },
+  followStatLbl: { fontSize: 10.5, fontWeight: '700', color: DS.textMuted, letterSpacing: 0.6, marginTop: 1 },
+  followDivider: { width: StyleSheet.hairlineWidth, height: 24, backgroundColor: DS.surfaceHighest },
+
   heroAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: DS.lime, alignItems: 'center', justifyContent: 'center' },
   heroAvatarImg: { width: 44, height: 44, borderRadius: 22, backgroundColor: DS.surfaceHighest },
   heroAvatarTxt: { color: DS.onLime, fontWeight: '800', fontSize: 16 },

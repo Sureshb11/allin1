@@ -338,9 +338,32 @@ router.get('/:id/career', optionalAuth, async (req, res) => {
     const following = req.user ? !!(await prisma.like.findUnique({
       where: { userId_targetType_targetId: { userId: req.user.sub, targetType: FOLLOW_TYPE, targetId: player.id } },
     })) : false;
+
+    // The two counts the profile header shows. Computed here rather than left
+    // to the list routes so opening a profile is still one request — the header
+    // needs the numbers, the lists are only fetched if somebody taps them.
+    const selfIds = await selfRowIds(player);
+    const [followerRows, followsPlayers, followsTeams] = await Promise.all([
+      // Distinct users, not rows: see selfRowIds. groupBy rather than count,
+      // because one person may follow two of this player's rows.
+      prisma.like.findMany({
+        where: { targetType: FOLLOW_TYPE, targetId: { in: selfIds } },
+        select: { userId: true },
+        distinct: ['userId'],
+      }),
+      player.userId
+        ? prisma.like.count({ where: { userId: player.userId, targetType: FOLLOW_TYPE } })
+        : 0,
+      player.userId ? prisma.teamFollow.count({ where: { userId: player.userId } }) : 0,
+    ]);
+
     res.json({
       ...career,
       following,
+      followerCount: followerRows.length,
+      // Players and teams together: the profile shows one "Following" number,
+      // and a follow is a follow whichever kind of thing is on the other end.
+      followingCount: followsPlayers + followsTeams,
       // The header this feeds draws a face and a name, which the career itself
       // knows nothing about.
       // userId so the profile can tell whether it is showing YOU — a Follow
@@ -373,6 +396,175 @@ router.post('/:id/follow', authMiddleware, async (req, res) => {
     else { await prisma.like.create({ data: { userId, targetType: FOLLOW_TYPE, targetId } }); following = true; }
 
     res.json({ following });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Who follows whom ─────────────────────────────────────────────────────────
+//
+// Two routes, not one, because the two directions are not the same kind of
+// thing. A FOLLOWER is a user account. What you FOLLOW is a player or a team.
+// Merging them into a single "connections" list would mean inventing a shape
+// that fits neither and losing the distinction the UI has to draw anyway.
+//
+// Both are public, like the counts on the profile that link to them. The viewer
+// only changes what the rows say about THEM: whether they already follow each
+// row, so a list can carry a working Follow button.
+
+const FOLLOW_PAGE = 200;
+
+/**
+ * Every player row that is this same person.
+ *
+ * A Player row IS a team membership — someone in three clubs has three rows, and
+ * a user holds one per sport besides. A follow attaches to whichever row the
+ * follower happened to tap, so "who follows this person" has to ask about all of
+ * them; otherwise the same profile reports a different follower count depending
+ * on which row you arrived by. An unclaimed row is only ever itself.
+ */
+async function selfRowIds(player) {
+  if (!player?.userId) return [player.id];
+  const rows = await prisma.player.findMany({
+    where: { userId: player.userId }, select: { id: true },
+  });
+  return rows.length ? rows.map((r) => r.id) : [player.id];
+}
+
+/** Users following this player, newest first. */
+router.get('/:id/followers', optionalAuth, async (req, res) => {
+  try {
+    const playerId = req.params.id;
+    const player = await prisma.player.findUnique({
+      where: { id: playerId }, select: { id: true, sport: true, userId: true },
+    });
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+
+    const rows = await prisma.like.findMany({
+      where: { targetType: FOLLOW_TYPE, targetId: { in: await selfRowIds(player) } },
+      orderBy: { createdAt: 'desc' },
+      take: FOLLOW_PAGE,
+    });
+    // One person following two of your rows is one follower, not two.
+    const userIds = [...new Set(rows.map((r) => r.userId))];
+    if (!userIds.length) return res.json({ count: 0, followers: [] });
+
+    const [users, linked] = await Promise.all([
+      prisma.user.findMany({
+        where: { id: { in: userIds } },
+        // User has no `name` column — it is composed from first/last, the same
+        // way /users/me does it.
+        select: { id: true, firstName: true, lastName: true, avatarUrl: true },
+      }),
+      // A follower is only tappable if their account has a player behind it.
+      // Prefer one in the same sport as the profile being viewed: a user can
+      // hold a player row per sport, and opening a cricketer's follower on
+      // their badminton profile is the wrong page.
+      prisma.player.findMany({
+        where: { userId: { in: userIds } },
+        select: { id: true, userId: true, sport: true, name: true },
+      }),
+    ]);
+
+    const playerFor = {};
+    for (const pl of linked) {
+      const held = playerFor[pl.userId];
+      if (!held || (pl.sport === player.sport && held.sport !== player.sport)) playerFor[pl.userId] = pl;
+    }
+
+    // Which of these the viewer already follows, so the list can paint its
+    // buttons in one round trip instead of one per row.
+    let mine = new Set();
+    if (req.user) {
+      const ids = Object.values(playerFor).map((pl) => pl.id);
+      if (ids.length) {
+        const f = await prisma.like.findMany({
+          where: { userId: req.user.sub, targetType: FOLLOW_TYPE, targetId: { in: ids } },
+          select: { targetId: true },
+        });
+        mine = new Set(f.map((x) => x.targetId));
+      }
+    }
+
+    const byId = Object.fromEntries(users.map((u) => [u.id, u]));
+    const firstSeen = new Map();
+    for (const r of rows) if (!firstSeen.has(r.userId)) firstSeen.set(r.userId, r.createdAt);
+    // Built before it is counted: a deleted account leaves its follow row
+    // behind, and a count taken off the rows would name more followers than the
+    // list can show.
+    const followers = userIds
+      .filter((uid) => !!byId[uid])
+      .map((uid) => {
+        const u = byId[uid];
+        const pl = playerFor[uid] || null;
+        return {
+          userId: uid,
+          name: [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || pl?.name || 'Player',
+          avatarUrl: u.avatarUrl || null,
+          playerId: pl?.id || null,
+          sport: pl?.sport || null,
+          following: pl ? mine.has(pl.id) : false,
+          followedAt: firstSeen.get(uid),
+        };
+      });
+    res.json({ count: followers.length, followers });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** Players and teams this player's account follows. */
+router.get('/:id/following', optionalAuth, async (req, res) => {
+  try {
+    const player = await prisma.player.findUnique({
+      where: { id: req.params.id }, select: { id: true, userId: true },
+    });
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+    // Following is a property of an ACCOUNT, not of a player row. An unclaimed
+    // player — one somebody added to a squad who has never signed in — follows
+    // nothing, and that is a real answer rather than a missing one.
+    if (!player.userId) return res.json({ count: 0, players: [], teams: [], linked: false });
+
+    const [likes, teamRows] = await Promise.all([
+      prisma.like.findMany({
+        where: { userId: player.userId, targetType: FOLLOW_TYPE },
+        orderBy: { createdAt: 'desc' },
+        take: FOLLOW_PAGE,
+      }),
+      prisma.teamFollow.findMany({
+        where: { userId: player.userId },
+        orderBy: { createdAt: 'desc' },
+        take: FOLLOW_PAGE,
+        include: { team: { select: { id: true, name: true, shortName: true, logoUrl: true, sport: true } } },
+      }),
+    ]);
+
+    const players = likes.length
+      ? await prisma.player.findMany({
+          where: { id: { in: likes.map((l) => l.targetId) } },
+          select: {
+            id: true, name: true, role: true, sport: true,
+            team: { select: { name: true } },
+            user: { select: { avatarUrl: true } },
+          },
+        })
+      : [];
+    // Keep the order the follows were made in; findMany does not.
+    const order = Object.fromEntries(likes.map((l, i) => [l.targetId, i]));
+    players.sort((a, b) => order[a.id] - order[b.id]);
+
+    res.json({
+      linked: true,
+      count: players.length + teamRows.length,
+      players: players.map((p) => ({
+        id: p.id, name: p.name, role: p.role, sport: p.sport,
+        team: p.team?.name || null, avatarUrl: p.user?.avatarUrl || null,
+      })),
+      teams: teamRows.filter((t) => t.team).map((t) => ({
+        id: t.team.id, name: t.team.name, shortName: t.team.shortName,
+        logoUrl: t.team.logoUrl, sport: t.team.sport,
+      })),
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
