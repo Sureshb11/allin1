@@ -67,6 +67,32 @@ export function canonicalRole(role, sport = 'cricket') {
 }
 
 /**
+ * What to PRINT for a role, or null when the honest answer is nothing.
+ *
+ * One rule, because the same role is shown on a scorecard's squad list, a team's
+ * members, the toss line-up, the scorer's pickers, match setup and a player's
+ * profile — and they had drifted into six slightly different answers for the
+ * same string.
+ *
+ *   · "Player" is dropped. It was the field's default when it was typed, so it
+ *     sits under most of the database and describes nobody.
+ *   · Cricket gets canonicalRole's four names, and nothing for a word it does
+ *     not recognise — a reader is better served by a blank than by free text
+ *     that may be a typo.
+ *   · Other sports keep the word they were given: "Defender" is right for
+ *     football, and this only knows how to name cricket's roles.
+ *   · An UNKNOWN sport keeps the word too, and is never assumed to be cricket:
+ *     the matching is by what a string contains, so a football "Goalkeeper"
+ *     would otherwise come back "Wicketkeeper".
+ */
+export function roleLabel(role, sport) {
+  const raw = String(role || '').trim();
+  if (!raw || raw.toLowerCase() === 'player') return null;
+  if (!sport) return raw;
+  return canonicalRole(raw, sport) || (sport === 'cricket' ? null : raw);
+}
+
+/**
  * Comparator. Ties break on shirt number, then name, so the order is stable
  * rather than whatever the database happened to return.
  */

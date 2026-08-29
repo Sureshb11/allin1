@@ -19,7 +19,7 @@ import { BRAND_NAME, BRAND_TAGLINE } from '../components/BrandLogo';
 import { useHideTabBarOnScroll, useTabBarClearance, useDockTranslate } from '../components/AutoHideTabBar';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
-import { canonicalRole } from '../utils/squadOrder';
+import { roleLabel } from '../utils/squadOrder';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
 function ProfileSkeleton({ DS }) {
@@ -110,7 +110,7 @@ export default function ProfileScreen({ navigation }) {
     const sp = getSelectedSport().sport || { name: 'Cricket' };
     const name = profile.name || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Player';
     const bits = [
-      canonicalRole(player?.role, sp.id) || player?.role,
+      roleLabel(player?.role, sp.id),
       player?.team?.name && `plays for ${player.team.name}`,
     ].filter(Boolean).join(' · ');
     try {
@@ -168,7 +168,7 @@ export default function ProfileScreen({ navigation }) {
     .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   const isPremium = profile.plan === 'pro';
   const sport = getSelectedSport().sport || { id: 'cricket', name: 'Cricket' };
-  const role = canonicalRole(player?.role, sport.id) || (player?.role !== 'Player' ? player?.role : null);
+  const role = roleLabel(player?.role, sport.id);
   const isCricket = sport.id === 'cricket';
   const hasPlayInfo = !!(role || player?.battingStyle || player?.bowlingStyle);
   const place = [profile.city, profile.district, profile.state, profile.country]

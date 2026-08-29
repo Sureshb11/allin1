@@ -135,7 +135,14 @@ export default function FindPlayersScreen({ navigation, route }) {const DS = use
       <TouchableOpacity
         style={s.row}
         activeOpacity={0.8}
-        onPress={() => navigation.navigate('PlayerInsights', { playerId: item.id, player: item })}>
+        onPress={() => navigation.navigate('PlayerProfile', {
+          playerId: item.id,
+          // The card's own shape, not the profile's: `team` here is a display
+          // string that reads "Free agent" when there is no team, which would
+          // print as a team name in the profile hero.
+          player: { id: item.id, name: item.name, role: item.role, sport,
+                    team: item.team === 'Free agent' ? '' : item.team },
+        })}>
         <Avatar name={item.name} color={item.color} />
         <View style={{ flex: 1, marginLeft: 12 }}>
           <View style={s.nameRow}>

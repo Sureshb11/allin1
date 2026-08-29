@@ -1,6 +1,6 @@
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { makeControls } from '../theme/controls';
-import { sortSquad, canonicalRole, roleRank, ROLE_RANK } from '../utils/squadOrder';
+import { sortSquad, roleLabel, roleRank, ROLE_RANK } from '../utils/squadOrder';
 // Moved out of this file so the Live match screen can show the same cards —
 // see utils/overSummary.js for why it is not simply copied there.
 import { computeOverEndSummaries } from '../utils/overSummary';
@@ -1340,16 +1340,11 @@ function resolveSquadPlayer(s) {
 function PlayerRow({ name, role, avatarUrl, jerseyNumber, isCaptain, isViceCaptain, isKeeper, sport, onPress }) {
   const styles = useThemedStyles(makeStyles);
   // "Bat", "Batsman", "allrounder", "Wicket Keeper" all live in this column —
-  // the role is free text typed by whoever added the player. Folded, so a squad
-  // doesn't read "Bat, Batsman, Bowl, Bowler" down one side.
-  //
-  // And nothing at all when the text is a non-answer. Most of this database
-  // says "Player", which is not a role — it was the default when the field was
-  // typed, so it prints identically under all 22 names and tells a reader
-  // nothing. A blank line is more honest and much quieter. Other sports keep
-  // whatever they were given: "Defender" is right for football, and
-  // canonicalRole only knows how to name cricket's four.
-  const shown = canonicalRole(role, sport) || (sport === 'cricket' ? null : role);
+  // the role is free text typed by whoever added the player — so a squad would
+  // otherwise read "Bat, Batsman, Bowl, Bowler" down one side. roleLabel is the
+  // fold, and it is deliberately shared with every other list that prints a
+  // role; its own comment carries the rules.
+  const shown = roleLabel(role, sport);
   // A row with no id behind it stays a plain View: TouchableOpacity would give
   // it press feedback and then do nothing, which reads as a broken tap.
   const Row = onPress ? TouchableOpacity : View;

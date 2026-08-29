@@ -19,6 +19,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { roleLabel } from '../utils/squadOrder';
 import legendsApi from '../services/LegendsApi';
 import { useTheme } from '../theme/ThemeContext';
 import { haptic } from '../utils/haptics';
@@ -188,7 +189,8 @@ export default function MatchSetupScreen({ route, navigation }) {
                   {on && <Icon name="check" size={14} color={DS.onLime || '#fff'} />}
                 </View>
                 <Text style={[s.playerName, on && s.playerNameOn]} numberOfLines={1}>{p.name}</Text>
-                <Text style={s.playerRole}>{p.role || 'Player'}</Text>
+                {/* Same fold and the same silence as every other squad list. */}
+                {!!roleLabel(p.role, sportId) && <Text style={s.playerRole}>{roleLabel(p.role, sportId)}</Text>}
               </TouchableOpacity>
             );
           })

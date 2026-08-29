@@ -30,7 +30,6 @@ import QuizScreen from '../screens/QuizScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import MarketPlaceScreen from '../screens/MarketPlaceScreen';
 import BadgeDetailScreen from '../screens/BadgeDetailScreen';
-import PlayerInsightsScreen from '../screens/PlayerInsightsScreen';
 import PlayerProfileScreen from '../screens/PlayerProfileScreen';
 import NotificationScreen from '../screens/NotificationScreen';
 import StartMatchScreen from '../screens/StartMatchScreen';
@@ -291,15 +290,6 @@ const HomeStack = ({ route: stackRoute, initialRouteName }) => {
       component={BadgeDetailScreen}
       options={{
         title: 'Badges',
-        headerStyle: {backgroundColor: DS.surfaceLow},
-        headerTitleStyle: {color: DS.textPrimary},
-      }}
-    />
-    <Stack.Screen 
-      name="PlayerInsights" 
-      component={PlayerInsightsScreen}
-      options={{
-        title: 'Player Insights',
         headerStyle: {backgroundColor: DS.surfaceLow},
         headerTitleStyle: {color: DS.textPrimary},
       }}

@@ -8,7 +8,7 @@ import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 import { Spacing, Radius } from '../theme';
 import { useTheme } from '../theme/ThemeContext';
 import { haptic } from '../utils/haptics';
-import { sortSquad, roleRank, ROLE_RANK } from '../utils/squadOrder';
+import { sortSquad, roleRank, ROLE_RANK, roleLabel } from '../utils/squadOrder';
 import legendsApi from '../services/LegendsApi';
 import { useTabBarClearance } from '../components/AutoHideTabBar';
 
@@ -180,8 +180,11 @@ function PlayerList({ teamId, teamName, color, xi, setXI, available, setAvailabl
 
         const initial = (p.name || '?').charAt(0).toUpperCase();
         // The shirt number beside the role, so picking an XI shows the same
-        // identifiers the scorecard will print.
-        const role = [p.jerseyNumber != null ? `#${p.jerseyNumber}` : null, (p.role || 'PLAYER').toUpperCase()]
+        // identifiers the scorecard will print — including the same fold, so a
+        // "Wicket Keeper" here is the "Wicketkeeper" the scorecard shows. No
+        // "PLAYER" fallback: that was the field's old default and names nobody.
+        const role = [p.jerseyNumber != null ? `#${p.jerseyNumber}` : null,
+                      roleLabel(p.role, 'cricket')?.toUpperCase()]
           .filter(Boolean).join(' · ');
 
         if (inXI) {

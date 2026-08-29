@@ -9,7 +9,7 @@ import ShotBoard from '../components/ShotBoard';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
-import { canonicalRole } from '../utils/squadOrder';
+import { roleLabel } from '../utils/squadOrder';
 
 // A player's career, opened from Rankings.
 //
@@ -173,19 +173,10 @@ export default function PlayerProfileScreen({ route, navigation }) {
   const teamName = passed?.team || career?.team || '';
   const sportId = passed?.sport || career?.sport;
 
-  // The role goes through the SAME folding as every squad list — this screen was
-  // the one place printing it raw, so a player read "Wicket Keeper" here and
-  // "Wicketkeeper" in the squad two taps away. "Player" is dropped for the
-  // reason canonicalRole drops it: it was the field's old default, so it sits
-  // under most of the database and names nothing.
-  // Only fold once the sport is actually known. canonicalRole defaults to
-  // cricket when it isn't told, and its matching is by what the string CONTAINS
-  // — so a football "Goalkeeper" would come back "Wicketkeeper" in the moment
-  // before the career answers. Unknown sport keeps the raw word, which is at
-  // worst untidy; the other way is wrong.
-  const rawRole = passed?.role || career?.role || career?.player?.role || null;
-  const role = (sportId ? canonicalRole(rawRole, sportId) : null)
-    || (rawRole && rawRole !== 'Player' ? rawRole : null);
+  // The same fold every squad list uses. This screen was the one place printing
+  // the role raw, so a player read "Wicket Keeper" here and "Wicketkeeper" in
+  // the squad two taps away.
+  const role = roleLabel(passed?.role || career?.role || career?.player?.role, sportId);
 
   // What to write under the name — and nothing at all when we know nothing. The
   // fallback used to be the literal string 'Cricketer', which printed under

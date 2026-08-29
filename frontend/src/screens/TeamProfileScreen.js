@@ -23,6 +23,7 @@ import Reanimated, { FadeInRight, FadeInLeft, useSharedValue, useAnimatedStyle, 
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { getFind } from '../sports/find';
+import { roleLabel } from '../utils/squadOrder';
 import legendsApi from '../services/LegendsApi';
 import TeamStats from '../components/TeamStats';
 import { makeControls, controlColors } from '../theme/controls';
@@ -126,6 +127,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
   // the self-serve "Leave team" option for members who aren't the admin.
   const myMembership = (data?.members || []).find((m) => m.userId && m.userId === me?.id);
   const sport = team?.sport || 'cricket';
+  const roleFor = (r) => roleLabel(r, sport);
   const isCricket = sport === 'cricket';
   const sportIcon = sportMeta(sport).icon;
   const tabs = [
@@ -193,9 +195,9 @@ const TeamProfileScreen = ({ navigation, route }) => {
   const canChat = isOwner || isAdmin || joinStatus === 'member';
 
   useLayoutEffect(() => {
-    // Hidden like the rest of this stack. Unlike PlayerInsights and
-    // TeamInsights this screen had NO back affordance of its own — it leaned
-    // entirely on the navigator's — so one is drawn over the cover below.
+    // Hidden like the rest of this stack. Unlike the profile screens this one
+    // had NO back affordance of its own — it leaned entirely on the
+    // navigator's — so one is drawn over the cover below.
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
@@ -312,7 +314,12 @@ const TeamProfileScreen = ({ navigation, route }) => {
     else showToast(res.error || 'Failed', 'error');
   };
 
-  const openMember = (m) => navigation.navigate('PlayerInsights', { playerId: m.id });
+  // Hand over what the row already knows so the hero paints before the career
+  // request returns, the same way Rankings and the scorecard do.
+  const openMember = (m) => navigation.navigate('PlayerProfile', {
+    playerId: m.id,
+    player: { id: m.id, name: m.name, role: m.role, team: team?.name, sport, avatarUrl: m.avatarUrl || null },
+  });
 
   const openManage = (m) => {
     setManageForm({
@@ -677,6 +684,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
         {tab === 'squad' && (
           <SquadTab
             members={data.members || []} isAdmin={isAdmin} styles={styles} DS={DS}
+            roleLabel={roleFor}
             addingMember={addingMember}
             searchPhone={searchPhone} setSearchPhone={setSearchPhone} searchUser={searchUser}
             searching={searching} foundUser={foundUser} setFoundUser={setFoundUser} addFoundMember={addFoundMember}
@@ -826,7 +834,7 @@ const TeamProfileScreen = ({ navigation, route }) => {
 };
 
 // ── Small presentational pieces ────────────────────────────────────────────────
-const SquadTab = ({ members, isAdmin, styles, DS, addingMember, searchPhone, setSearchPhone, searchUser, searching, foundUser, setFoundUser, addFoundMember, canLeave, onLeave, joinRequests, onApprove, onReject, onOpenMember, isOwner, onManage, onDelete }) => (
+const SquadTab = ({ members, isAdmin, styles, DS, roleLabel, addingMember, searchPhone, setSearchPhone, searchUser, searching, foundUser, setFoundUser, addFoundMember, canLeave, onLeave, joinRequests, onApprove, onReject, onOpenMember, isOwner, onManage, onDelete }) => (
   <View>
     {/* Pending join requests — admins only. */}
     {isAdmin && joinRequests.length > 0 && (
@@ -909,7 +917,10 @@ const SquadTab = ({ members, isAdmin, styles, DS, addingMember, searchPhone, set
                   ? <View style={styles.roleBadge}><Text style={styles.roleBadgeTxt}>ADMIN</Text></View>
                   : null}
             </View>
-            <Text style={styles.memberRole}>{m.role || 'Player'}</Text>
+            {/* Folded to the squad vocabulary, and blank rather than "Player" —
+                the field's old default, which sits under most of the database
+                and names nobody. Same rule as the scorecard's squad list. */}
+            {!!roleLabel(m.role) && <Text style={styles.memberRole}>{roleLabel(m.role)}</Text>}
           </View>
         </TouchableOpacity>
         {isAdmin && (

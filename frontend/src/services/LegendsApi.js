@@ -1548,15 +1548,11 @@ class LegendsApi {
     return { success: true, data: categories };
   }
 
-  // Insights & Analytics APIs
-  async getPlayerInsights(playerId) {
-    try {
-      const json = await this.request(`/players/${playerId}/insights`);
-      return { success: true, data: json.insights || { performance: {}, statistics: {}, recommendations: [] } };
-    } catch (error) {
-      return { success: true, data: { performance: {}, statistics: {}, recommendations: [] } };
-    }
-  }
+  // /players/:id/insights has no caller. It fed PlayerInsightsScreen, which was
+  // retired because it computed cricket a third way — a two-ball over counted as
+  // a whole over — while CareerBoard reads the same career as My Stats. The
+  // backend route is still there; re-add a client for it only alongside a
+  // computation that agrees with playerCareer.js.
 
   // One player's career in the SAME shape as getUserStats — same endpoint family,
   // same computation (backend lib/playerCareer.js) — so a tapped player and My

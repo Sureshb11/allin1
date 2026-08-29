@@ -6,7 +6,7 @@ import {
 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { sortSquad } from '../utils/squadOrder';
+import { sortSquad, roleLabel } from '../utils/squadOrder';
 import legendsApi from '../services/LegendsApi';
 import { haptic } from '../utils/haptics';
 import { activateKeepAwake, deactivateKeepAwake } from '../utils/keepAwake';
@@ -1994,7 +1994,8 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={setup.modalRowName}>{p.name}</Text>
-                      {p.role ? <Text style={setup.modalRowRole}>{p.role}</Text> : null}
+                      {/* Folded, and silent when the role says nothing. */}
+                      {!!roleLabel(p.role, 'cricket') && <Text style={setup.modalRowRole}>{roleLabel(p.role, 'cricket')}</Text>}
                     </View>
                     <Icon name="chevron-right" size={20} color={DS.textMuted} />
                   </TouchableOpacity>
@@ -2624,7 +2625,7 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
                       <Text style={styles.playerInitial}>{(p.name || '?').charAt(0).toUpperCase()}</Text>
                     </View>
                     <Text style={[styles.playerName, { flex: 1 }]}>{p.name}</Text>
-                    {p.role ? <Text style={[styles.modalSub, { marginBottom: 0 }]}>{p.role}</Text> : null}
+                    {!!roleLabel(p.role, 'cricket') && <Text style={[styles.modalSub, { marginBottom: 0 }]}>{roleLabel(p.role, 'cricket')}</Text>}
                     <Icon name="plus-circle" size={18} color={DS.lime} />
                   </TouchableOpacity>
                 ));
