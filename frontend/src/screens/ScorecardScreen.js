@@ -15,6 +15,7 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTabBarClearance } from "../components/AutoHideTabBar";
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { captureRef } from 'react-native-view-shot';
 import RNShare from 'react-native-share';
@@ -29,7 +30,6 @@ import { isBallFaced, offTheBat, isBoundary, isSix, isBowlerWicket, NON_BALL_EXT
 import { cricketColors } from "../theme/cricketColors";
 import LiveBall from "../components/CricketBall/LiveBall";
 import EventSound from "../components/CricketBall/EventSound";
-import { useDockLock, useHideTabBarOnScroll, useTabBarClearance } from "../components/AutoHideTabBar";
 import Skeleton from "../components/Skeleton";
 
 // Latest COMPLETED over of the current (last) innings — used to pop an
@@ -1559,18 +1559,22 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
   // an hour ago or is being scored right now.
   //
   // It used to lock only while live, and scroll-hide otherwise; a completed
-  // scorecard therefore kept bouncing the dock in and out as you read it.
-  const lockDock = useDockLock();
-  useFocusEffect(useCallback(() => {
-    lockDock(true);
-    return () => lockDock(false);
-  }, [lockDock]));
-
-  // Kept even though the lock above makes it a no-op today: the lock ignores
-  // any reveal while it is held, so this costs nothing and is what would carry
-  // the behaviour if the dock is ever let back onto this screen.
-  const hideTabBar = useHideTabBarOnScroll();
-  const tabClear = useTabBarClearance();   // so the floating dock/ball doesn't cover the last rows
+  // scorecard therefore kept bouncing the dock in and out as you read it. Then
+  // it held useDockLock for the whole screen — and that still let the dock back
+  // over the table, because the lock is an acquire/release pair and the pair
+  // comes apart: GlassDock's own note records the release firing 357ms after
+  // the acquire while the screen was still the one you were looking at.
+  //
+  // This route is now in GlassDock's FULLSCREEN list instead. That is read from
+  // the focused route on every render, with nothing to keep in balance, so the
+  // dock is simply never drawn here rather than hidden and hopefully kept
+  // hidden. Nothing on this screen manages it any more.
+  //
+  // The clearance below stays. It was never reserving dock height — it is for
+  // the LiveBall, the spectator companion this screen draws itself while a
+  // match is live, which sits bottom-centre over the content. Removing it put
+  // the ball on top of the last rows of commentary.
+  const tabClear = useTabBarClearance();
 
   // Ceremony moments (poster spec): innings break → one fast spin + big ring;
   // match finished → golden trophy ripple, ball lingers a beat, dock returns.
@@ -2030,11 +2034,10 @@ export default function ScorecardScreen({ route, navigation }) {const DS = useTh
             const near = Math.abs(ti - activeIndex) <= 1;
             return (
             <ScrollView key={t.key} style={{ width: SCREEN_WIDTH }} showsVerticalScrollIndicator={false}
-              {...hideTabBar}
-              // Clearance only while the LiveBall is down there. The dock is
-              // locked away for this whole screen now, so reserving its height
-              // on a finished scorecard was ~90pt of empty space at the end of
-              // every tab, kept clear for something that is not there.
+              // Clearance only while the LiveBall is down there — it is drawn
+              // for a live match and nothing else, so a finished scorecard
+              // would otherwise end in ~90pt of space kept clear for something
+              // that is not there.
               contentContainerStyle={{ paddingTop: 12, paddingBottom: (isLive ? tabClear : 0) + 12 }}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DS.lime} colors={[DS.lime]} />}>
               {near && <>
