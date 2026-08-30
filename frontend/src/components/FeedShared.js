@@ -433,7 +433,7 @@ function PostMedia({ kind, media }) {const DS = useTheme().colors;const c = useT
     </View>);
 }
 
-export function PostCard({ post, onLike, onShare, onComment, onSave, onAuthor }) {const DS = useTheme().colors;const p = useThemedStyles(makeP);
+export function PostCard({ post, onLike, onShare, onComment, onSave, onAuthor, onDelete }) {const DS = useTheme().colors;const p = useThemedStyles(makeP);
   const popRef = useRef(new Animated.Value(1)).current;
   const heartOverlay = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
@@ -474,6 +474,21 @@ export function PostCard({ post, onLike, onShare, onComment, onSave, onAuthor })
   const openMenu = () => {
     Alert.alert(post.author.handle, undefined, [
       { text: 'Share post', onPress: () => onShare(post) },
+      // Your own post only, and only where the caller can carry a delete out.
+      // Offering it on someone else's would be a button that can only fail —
+      // the server checks authorship regardless of what the menu shows.
+      ...(onDelete && post.mine ? [{
+        text: 'Delete post',
+        style: 'destructive',
+        onPress: () => Alert.alert(
+          'Delete this post?',
+          'It will be removed for everyone, along with its likes and comments. This cannot be undone.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: () => onDelete(post) },
+          ],
+        ),
+      }] : []),
       { text: 'Report post', style: 'destructive', onPress: () => showToast('Thanks — we\'ll review this post.', 'success') },
       { text: 'Cancel', style: 'cancel' },
     ]);
