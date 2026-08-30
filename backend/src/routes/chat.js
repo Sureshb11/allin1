@@ -231,6 +231,42 @@ router.get('/rooms/:roomId/messages', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /chat/unread — one number for the header badge.
+//
+// The rooms list already counts unread per room, but the header cannot pay for
+// that: it would fetch every room, its members and its last message on every
+// screen focus, to draw a dot. This is one aggregate query over the rooms you
+// are in, using each membership's own lastReadAt — a room you have never opened
+// counts everything in it, which is what "unread" means there.
+router.get('/unread', authMiddleware, async (req, res) => {
+  try {
+    const me = req.user.sub;
+    const memberships = await prisma.chatMember.findMany({
+      where: { userId: me }, select: { chatRoomId: true, lastReadAt: true },
+    });
+    if (!memberships.length) return res.json({ unread: 0, rooms: 0 });
+
+    // Your own messages are never unread to you.
+    const clauses = memberships.map((m) => ({
+      chatRoomId: m.chatRoomId,
+      senderId: { not: me },
+      ...(m.lastReadAt ? { createdAt: { gt: m.lastReadAt } } : {}),
+    }));
+
+    const [unread, withUnread] = await Promise.all([
+      prisma.chatMessage.count({ where: { OR: clauses } }),
+      // How many CONVERSATIONS are waiting, which is the more useful number on
+      // a chat icon — twenty messages in one room is still one room to open.
+      prisma.chatMessage.findMany({
+        where: { OR: clauses }, select: { chatRoomId: true }, distinct: ['chatRoomId'],
+      }),
+    ]);
+    res.json({ unread, rooms: withUnread.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /chat/rooms/:roomId/members — who is in the room.
 //
 // The composer needs this to offer names after an "@". Members only: the list

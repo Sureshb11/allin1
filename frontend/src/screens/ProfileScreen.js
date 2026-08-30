@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AppHeader from '../components/AppHeader';
 import { setCurrentAvatar, clearCurrentUser } from '../utils/currentUser';
 import { clearUnreadCount } from '../utils/unreadCount';
+import { clearUnreadChats } from '../utils/unreadChats';
 import { clearPlayerSetup } from '../utils/playerSetup';
 import legendsApi from '../services/LegendsApi';
 import { unregisterFromPush } from '../services/push';
@@ -142,6 +143,7 @@ export default function ProfileScreen({ navigation }) {
           clearCurrentUser();
           // Same reason: the next account must not inherit this one's badge.
           clearUnreadCount();
+          clearUnreadChats();
           clearPlayerSetup();
           const root = navigation.getParent('RootStack') || navigation;
           root.reset({ index: 0, routes: [{ name: 'Auth' }] });

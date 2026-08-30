@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { useCurrentUser } from '../utils/currentUser';
 import { useUnreadCount } from '../utils/unreadCount';
+import { useUnreadChats } from '../utils/unreadChats';
 import BrandLogo from './BrandLogo';
 import HexAvatar from './HexAvatar';
 import { Text } from 'react-native';
@@ -27,6 +28,7 @@ export default function AppHeader({ onComposePress, showCompose = false, transpa
   // means the header sits right whatever the status bar is doing.
   const insets = useSafeAreaInsets();
   const unread = useUnreadCount();
+  const unreadChats = useUnreadChats();
 
   return (
     <View style={[styles.topBar, {
@@ -71,8 +73,19 @@ export default function AppHeader({ onComposePress, showCompose = false, transpa
         {/* Chats — sits next to notifications because it's the same kind of
             thing: something waiting for you. Shared header, so every screen
             using it gets the entry point, not just Scout. */}
-        <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Chats')}>
+        <TouchableOpacity hitSlop={8} onPress={() => navigation.navigate('Chats')}
+          accessibilityRole="button"
+          accessibilityLabel={unreadChats > 0
+            ? `Chats, ${unreadChats} conversation${unreadChats === 1 ? '' : 's'} waiting`
+            : 'Chats'}>
           <Icon name="chat-outline" size={24} color={DS.textPrimary} />
+          {/* Conversations waiting, not messages: twenty in one room is still
+              one room to open. Same badge as the bell beside it. */}
+          {unreadChats > 0 && (
+            <View style={[styles.badge, { backgroundColor: DS.live || '#EF4444', borderColor: transparent ? 'transparent' : DS.surfaceLow }]}>
+              <Text style={styles.badgeTxt} numberOfLines={1}>{unreadChats > 99 ? '99+' : unreadChats}</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         {/* Notifications, with the count the server has always returned and

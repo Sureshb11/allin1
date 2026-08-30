@@ -1324,6 +1324,19 @@ class LegendsApi {
     }
   }
 
+  // One number for the chat badge. Deliberately not getChatRooms(): the header
+  // would otherwise fetch every room, its members and its last message just to
+  // draw a dot.
+  async getUnreadChats() {
+    try {
+      if (!this.token) return { success: true, unread: 0, rooms: 0 };
+      const json = await this.request('/chat/unread');
+      return { success: true, unread: json.unread || 0, rooms: json.rooms || 0 };
+    } catch (error) {
+      return { success: false, unread: 0, rooms: 0, error: error.message };
+    }
+  }
+
   // Who is in a room — what the composer offers after an "@".
   async getChatMembers(roomId) {
     try {
