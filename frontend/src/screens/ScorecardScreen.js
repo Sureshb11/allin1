@@ -616,7 +616,13 @@ function buildCommentary(innings) {
           ? (() => {
               const outId = ball.dismissedPlayerId;
               const t = tally[outId] || { runs: 0, balls: 0, fours: 0, sixes: 0, name: batterName };
-              const how = formatDismissal(ball.wicketType, ball.fielderName || ball.catcherName, bowlerName, ball.directHit);
+              // wicketAssists is the field — the catcher, keeper or run-out
+              // fielder, written by the scorer (ScoringScreen line 709). I had
+              // guessed `fielderName`/`catcherName`, which do not exist, so
+              // every dismissal here said "c fielder b …" and every run out
+              // named nobody. The scorecard tab has always read the right field;
+              // this now reads the same one.
+              const how = formatDismissal(ball.wicketType, ball.wicketAssists, bowlerName, ball.directHit);
               const extras = [t.fours ? `4s-${t.fours}` : null, t.sixes ? `6s-${t.sixes}` : null].filter(Boolean).join(' ');
               return `${t.name} ${how} ${t.runs}(${t.balls})${extras ? ` [${extras}]` : ''}`;
             })()
