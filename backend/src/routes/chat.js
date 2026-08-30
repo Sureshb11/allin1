@@ -37,8 +37,20 @@ async function notifyRoom(message, senderId, bodyOverride) {
   const from = [message.sender?.firstName, message.sender?.lastName]
     .filter(Boolean).join(' ').trim() || 'Someone';
   const room = message.chatRoom?.name || 'Chat';
-  const body = `${from}: ${(bodyOverride || message.text).slice(0, 80)}`;
-  const data = { chatId: message.chatRoomId, chatName: room };
+  const text = (bodyOverride || message.text).slice(0, 80);
+
+  // A GROUP is titled by the room and needs the speaker named in the body —
+  // "D-Vigo-S XI · Team Chat" / "Mani BP: practice at 6".
+  //
+  // A ONE-TO-ONE is titled by the person, and naming them again in the body
+  // would be saying it twice. It also must NOT be titled by the room: these
+  // rooms are named after the Scout listing that started them, so every direct
+  // message arrived as "Looking for a Player · Wicket-keeper · T20" — the
+  // advert, not the human typing.
+  const group = message.chatRoom?.type === 'team' || message.chatRoom?.type === 'tournament';
+  const title = group ? room : from;
+  const body = group ? `${from}: ${text}` : text;
+  const data = { chatId: message.chatRoomId, chatName: group ? room : from };
 
   // Being named is a different event from a message arriving, so it says so.
   // In a room that has been talking all afternoon, "Mani BP mentioned you" is
@@ -56,7 +68,9 @@ async function notifyRoom(message, senderId, bodyOverride) {
       sent += await notifyUsers([...named], {
         type: 'chat',
         title: `${from} mentioned you`,
-        message: `${room} · ${(bodyOverride || message.text).slice(0, 80)}`,
+        // The room only earns a place when there is a room to distinguish —
+        // in a one-to-one, "X mentioned you" already says where.
+        message: group ? `${room} · ${text}` : text,
         data,
       });
     }
@@ -66,9 +80,7 @@ async function notifyRoom(message, senderId, bodyOverride) {
         // Its own type so it lands on its own Android channel: a busy group
         // chat must be silenceable without also silencing match alerts.
         type: 'chat',
-        title: room,
-        // Named sender first: a group chat's own name is already the title, so
-        // without this you cannot tell who said it without opening the app.
+        title,
         message: body,
         data,
       });
@@ -329,6 +341,10 @@ router.post('/rooms/:roomId/polls', authMiddleware, async (req, res) => {
         chatRoom: {
           select: {
             name: true,
+            // `type` decides what a notification is titled — a one-to-one room
+            // is named after the Scout listing that started it, which is not
+            // who is talking to you. See notifyRoom.
+            type: true,
             members: { select: { userId: true, user: { select: { firstName: true, lastName: true } } } },
           },
         },
@@ -412,6 +428,10 @@ router.post('/rooms/:roomId/messages', authMiddleware, async (req, res) => {
         chatRoom: {
           select: {
             name: true,
+            // `type` decides what a notification is titled — a one-to-one room
+            // is named after the Scout listing that started it, which is not
+            // who is talking to you. See notifyRoom.
+            type: true,
             members: { select: { userId: true, user: { select: { firstName: true, lastName: true } } } },
           },
         },
