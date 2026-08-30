@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
 import { notifyUsers, safeNotify } from '../lib/notify.js';
+import { mentionedUserIds, memberName } from '../lib/mentions.js';
 
 const router = Router();
 
@@ -30,22 +31,50 @@ const MAX_OPTIONS = 12;
  * never fail the message it is announcing.
  */
 async function notifyRoom(message, senderId, bodyOverride) {
-  const others = (message.chatRoom?.members || [])
-    .map((m) => m.userId)
-    .filter((id) => id && id !== senderId);
+  const members = message.chatRoom?.members || [];
+  const others = members.map((m) => m.userId).filter((id) => id && id !== senderId);
   if (!others.length) return 0;
   const from = [message.sender?.firstName, message.sender?.lastName]
     .filter(Boolean).join(' ').trim() || 'Someone';
-  return safeNotify(() => notifyUsers(others, {
-    // Its own type so it lands on its own Android channel: a busy group chat
-    // must be silenceable without also silencing match alerts.
-    type: 'chat',
-    title: message.chatRoom?.name || 'New message',
-    // Named sender first: a group chat's own name is already the title, so
-    // without this you cannot tell who said it without opening the app.
-    message: `${from}: ${(bodyOverride || message.text).slice(0, 80)}`,
-    data: { chatId: message.chatRoomId, chatName: message.chatRoom?.name || 'Chat' },
-  }));
+  const room = message.chatRoom?.name || 'Chat';
+  const body = `${from}: ${(bodyOverride || message.text).slice(0, 80)}`;
+  const data = { chatId: message.chatRoomId, chatName: room };
+
+  // Being named is a different event from a message arriving, so it says so.
+  // In a room that has been talking all afternoon, "Mani BP mentioned you" is
+  // the one line worth interrupting for, and it has to be distinguishable on a
+  // lock screen from the forty that are not about you.
+  const named = new Set(
+    mentionedUserIds(message.text, members.map((m) => ({
+      userId: m.userId, name: memberName(m.user),
+    }))).filter((id) => id !== senderId),
+  );
+
+  return safeNotify(async () => {
+    let sent = 0;
+    if (named.size) {
+      sent += await notifyUsers([...named], {
+        type: 'chat',
+        title: `${from} mentioned you`,
+        message: `${room} · ${(bodyOverride || message.text).slice(0, 80)}`,
+        data,
+      });
+    }
+    const rest = others.filter((id) => !named.has(id));
+    if (rest.length) {
+      sent += await notifyUsers(rest, {
+        // Its own type so it lands on its own Android channel: a busy group
+        // chat must be silenceable without also silencing match alerts.
+        type: 'chat',
+        title: room,
+        // Named sender first: a group chat's own name is already the title, so
+        // without this you cannot tell who said it without opening the app.
+        message: body,
+        data,
+      });
+    }
+    return sent;
+  });
 }
 
 /**
@@ -202,6 +231,30 @@ router.get('/rooms/:roomId/messages', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /chat/rooms/:roomId/members — who is in the room.
+//
+// The composer needs this to offer names after an "@". Members only: the list
+// is who you can address, and it is also who can read what you write.
+router.get('/rooms/:roomId/members', authMiddleware, async (req, res) => {
+  try {
+    const mine = await prisma.chatMember.findFirst({
+      where: { chatRoomId: req.params.roomId, userId: req.user.sub }, select: { id: true },
+    });
+    if (!mine) return res.status(403).json({ error: 'You are not in this chat' });
+    const rows = await prisma.chatMember.findMany({
+      where: { chatRoomId: req.params.roomId },
+      select: { userId: true, user: { select: { firstName: true, lastName: true, avatarUrl: true } } },
+    });
+    res.json({
+      members: rows
+        .map((r) => ({ userId: r.userId, name: memberName(r.user), avatarUrl: r.user?.avatarUrl || null }))
+        .filter((m) => m.name),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Polls ────────────────────────────────────────────────────────────────────
 
 const PollSchema = z.object({
@@ -235,7 +288,14 @@ router.post('/rooms/:roomId/polls', authMiddleware, async (req, res) => {
       },
       include: {
         sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        chatRoom: { select: { name: true, members: { select: { userId: true } } } },
+        // Names too, not just ids: notifyRoom has to work out who the text
+        // mentions, and that needs the members' names.
+        chatRoom: {
+          select: {
+            name: true,
+            members: { select: { userId: true, user: { select: { firstName: true, lastName: true } } } },
+          },
+        },
       },
     });
 
@@ -311,7 +371,14 @@ router.post('/rooms/:roomId/messages', authMiddleware, async (req, res) => {
       },
       include: {
         sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        chatRoom: { select: { name: true, members: { select: { userId: true } } } },
+        // Names too, not just ids: notifyRoom has to work out who the text
+        // mentions, and that needs the members' names.
+        chatRoom: {
+          select: {
+            name: true,
+            members: { select: { userId: true, user: { select: { firstName: true, lastName: true } } } },
+          },
+        },
       },
     });
 

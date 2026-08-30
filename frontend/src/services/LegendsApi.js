@@ -1313,6 +1313,16 @@ class LegendsApi {
     }
   }
 
+  // Who is in a room — what the composer offers after an "@".
+  async getChatMembers(roomId) {
+    try {
+      const json = await this.request(`/chat/rooms/${roomId}/members`);
+      return { success: true, data: json.members || [] };
+    } catch (error) {
+      return { success: true, data: [] };
+    }
+  }
+
   // A poll is a chat message with kind:'poll' — same thread, same order, same
   // notification. `tally` rides along on every read, so results never arrive a
   // beat after the question.

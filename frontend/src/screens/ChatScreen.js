@@ -102,7 +102,58 @@ function PollBody({ item, mine, onVote, styles, DS }) {
   );
 }
 
-function ChatBubble({ item, mine, showMeta, onRetry, onVote, styles, DS }) {
+// Draw a message with its mentions picked out.
+//
+// The same rule the server notifies on (backend lib/mentions.js): longest names
+// first, matched spans consumed, a mention starts at the beginning or after
+// whitespace. If these two ever disagree, the app highlights one person and
+// wakes another — so they are written to the same spec deliberately.
+const ALL_TOKENS = ['everyone', 'all', 'team'];
+
+function renderWithMentions(text, members, styles, mine) {
+  const src = String(text || '');
+  if (!src.includes('@')) return src;
+
+  const names = [
+    ...ALL_TOKENS,
+    ...(members || []).map((m) => m.name).filter(Boolean),
+  ].sort((a, b) => b.length - a.length);
+
+  const spans = [];
+  const taken = [];
+  const overlaps = (a, b) => taken.some(([x, y]) => a < y && b > x);
+  const escape = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  for (const name of names) {
+    const re = new RegExp(`(^|\\s)@${escape(name)}(?![\\w])`, 'gi');
+    let m;
+    while ((m = re.exec(src))) {
+      const start = m.index + m[1].length;
+      const end = start + 1 + name.length;
+      if (overlaps(start, end)) continue;
+      taken.push([start, end]);
+      spans.push([start, end]);
+    }
+  }
+  if (!spans.length) return src;
+
+  spans.sort((a, b) => a[0] - b[0]);
+  const out = [];
+  let cursor = 0;
+  spans.forEach(([start, end], i) => {
+    if (start > cursor) out.push(src.slice(cursor, start));
+    out.push(
+      <Text key={`m${i}`} style={[styles.mention, mine && styles.mentionMine]}>
+        {src.slice(start, end)}
+      </Text>,
+    );
+    cursor = end;
+  });
+  if (cursor < src.length) out.push(src.slice(cursor));
+  return out;
+}
+
+function ChatBubble({ item, mine, showMeta, onRetry, onVote, members, styles, DS }) {
   const failed = item.status === 'failed';
   const pending = item.status === 'pending';
   return (
@@ -121,7 +172,9 @@ function ChatBubble({ item, mine, showMeta, onRetry, onVote, styles, DS }) {
         {!mine && showMeta && <Text style={styles.senderName}>{getSenderName(item, false)}</Text>}
         {item.kind === 'poll'
           ? <PollBody item={item} mine={mine} onVote={onVote} styles={styles} DS={DS} />
-          : <Text style={[styles.msgText, mine && styles.msgTextMine]}>{item.text}</Text>}
+          : <Text style={[styles.msgText, mine && styles.msgTextMine]}>
+              {renderWithMentions(item.text, members, styles, mine)}
+            </Text>}
         <View style={styles.timeRow}>
           <Text style={[styles.msgTime, mine && styles.msgTimeMine]}>{getTime(item)}</Text>
           {/* A real status, not a permanent double-tick: clock while in flight,
@@ -272,6 +325,43 @@ const ChatScreen = ({ route, navigation }) => {
     }
   }, []);
 
+  // Who is in the room, for the "@" picker and for highlighting what has
+  // already been said. Loaded once per room, not per poll of the thread.
+  const [members, setMembers] = useState([]);
+  useEffect(() => {
+    if (!chatId) return;
+    legendsApi.getChatMembers(chatId).then((r) => { if (r.success) setMembers(r.data); });
+  }, [chatId]);
+
+  // The "@" picker. `mentionQuery` is null when it is closed; an empty string
+  // means "@" was just typed and everyone is on offer.
+  const [mentionQuery, setMentionQuery] = useState(null);
+
+  // Reads the word being typed at the caret. Anchored to the END of the text
+  // rather than a tracked caret position: RN gives selection events, but the
+  // composer is multiline and a caret chased through re-renders is a bug farm.
+  // People type a mention as they reach it, which is what this catches.
+  const onChangeMessage = useCallback((v) => {
+    setNewMessage(v);
+    const m = /(^|\s)@([^@\s]*(?:\s[^@\s]*)?)$/.exec(v);
+    setMentionQuery(m ? m[2] : null);
+  }, []);
+
+  const mentionMatches = useMemo(() => {
+    if (mentionQuery == null) return [];
+    const q = mentionQuery.trim().toLowerCase();
+    const pool = members.filter((m) => m.userId !== me?.id);
+    if (!q) return pool.slice(0, 6);
+    return pool.filter((m) => m.name.toLowerCase().includes(q)).slice(0, 6);
+  }, [mentionQuery, members, me?.id]);
+
+  // Replace the half-typed "@…" with the full name, and leave a trailing space
+  // so the next word is not glued onto the mention.
+  const insertMention = useCallback((name) => {
+    setNewMessage((prev) => `${prev.replace(/(^|\s)@([^@\s]*(?:\s[^@\s]*)?)$/, `$1@${name} `)}`);
+    setMentionQuery(null);
+  }, []);
+
   const [pollOpen, setPollOpen] = useState(false);
   const [pollQ, setPollQ] = useState('');
   const [pollOpts, setPollOpts] = useState(['', '']);
@@ -323,6 +413,7 @@ const ChatScreen = ({ route, navigation }) => {
     };
     setMessages((prev) => [...prev, draft]);
     setNewMessage('');
+    setMentionQuery(null);
     setSending(true);
     setTimeout(() => scrollToEnd(true), 50);
     await deliver(draft);
@@ -413,6 +504,7 @@ const ChatScreen = ({ route, navigation }) => {
                 showMeta={item.showMeta}
                 onRetry={retry}
                 onVote={vote}
+                members={members}
                 styles={styles}
                 DS={DS} />
             );
@@ -503,6 +595,21 @@ const ChatScreen = ({ route, navigation }) => {
         </View>
       )}
 
+      {/* Sits directly on top of the composer, where the words are appearing.
+          A list that covers the thread would hide the message being replied
+          to, which is usually the reason someone is naming a person at all. */}
+      {mentionQuery != null && mentionMatches.length > 0 && (
+        <View style={styles.mentionBar}>
+          {mentionMatches.map((m) => (
+            <TouchableOpacity key={m.userId} style={styles.mentionRow} activeOpacity={0.8}
+              onPress={() => insertMention(m.name)}>
+              <PlayerAvatar name={m.name} avatarUrl={m.avatarUrl} size={26} />
+              <Text style={styles.mentionName} numberOfLines={1}>{m.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       <View style={styles.inputBar}>
         {/* Polls are for deciding things as a group, so the button lives in
             team and tournament rooms and not in a one-to-one conversation. */}
@@ -517,7 +624,7 @@ const ChatScreen = ({ route, navigation }) => {
           placeholder="Type a message…"
           placeholderTextColor={DS.textMuted}
           value={newMessage}
-          onChangeText={setNewMessage}
+          onChangeText={onChangeMessage}
           multiline
           maxLength={2000} />
 
@@ -534,6 +641,18 @@ const ChatScreen = ({ route, navigation }) => {
 
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
+
+  // A named person, inside a message. Weight as well as colour, so it still
+  // reads as a name on the lime bubble where a colour shift alone would not.
+  mention: { color: DS.lime, fontWeight: '800' },
+  mentionMine: { color: DS.onLime, fontWeight: '800', textDecorationLine: 'underline' },
+
+  mentionBar: {
+    backgroundColor: DS.surfaceLow, borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: DS.surfaceHighest, paddingVertical: 4,
+  },
+  mentionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 8 },
+  mentionName: { flex: 1, fontSize: 14, fontWeight: '600', color: DS.textPrimary },
 
   // ── Poll, in the thread ──
   pollHead: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
