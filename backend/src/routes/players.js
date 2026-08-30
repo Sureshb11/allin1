@@ -421,31 +421,39 @@ router.post('/:id/follow', authMiddleware, async (req, res) => {
     // also pushes to the device, and a follow that only appears next time you
     // happen to open the bell screen is the one kind of notification whose whole
     // point is that it reaches you.
-    if (following) {
+    //
+    // The whole block is inside safeNotify, not just the notifyUsers call. It
+    // used to be bare awaits, and one of them — a findFirst ordered by a
+    // `createdAt` that Player does not have — threw. The row was already
+    // written, so every follow succeeded in the database and came back 500:
+    // the pill snapped back to "Follow" and the app said "Could not update
+    // follow" while the follow had in fact happened. Telling someone about a
+    // follow must never be able to fail the follow.
+    if (following) await safeNotify(async () => {
       const target = await prisma.player.findUnique({
-        where: { id: targetId }, select: { userId: true, name: true },
+        where: { id: targetId }, select: { userId: true, sport: true, name: true },
       });
       // Nobody to tell if the player is unclaimed, and nobody wants to hear that
       // they followed themselves — which is reachable, since a person can hold a
       // player row per team and tap one of their own.
-      if (target?.userId && target.userId !== userId) {
-        const me = await prisma.user.findUnique({
-          where: { id: userId }, select: { firstName: true, lastName: true },
-        });
-        const myName = [me?.firstName, me?.lastName].filter(Boolean).join(' ').trim() || 'Someone';
-        // The follower's own player row, so tapping the notification can open
-        // the person who followed you rather than a dead end.
-        const myPlayer = await prisma.player.findFirst({
-          where: { userId }, select: { id: true }, orderBy: { createdAt: 'asc' },
-        });
-        await safeNotify(() => notifyUsers([target.userId], {
-          type: 'follow',
-          title: 'New follower',
-          message: `${myName} started following you`,
-          data: { playerId: myPlayer?.id || null, userId },
-        }));
-      }
-    }
+      if (!target?.userId || target.userId === userId) return 0;
+      const me = await prisma.user.findUnique({
+        where: { id: userId }, select: { firstName: true, lastName: true },
+      });
+      const myName = [me?.firstName, me?.lastName].filter(Boolean).join(' ').trim() || 'Someone';
+      // The follower's own player row, so tapping the notification opens the
+      // person who followed you rather than a dead end. Preferring the sport
+      // they were followed in, since a user holds a row per sport; no ordering,
+      // because Player has no createdAt to order by.
+      const mine = await prisma.player.findMany({ where: { userId }, select: { id: true, sport: true } });
+      const myPlayer = mine.find((pl) => pl.sport === target.sport) || mine[0] || null;
+      return notifyUsers([target.userId], {
+        type: 'follow',
+        title: 'New follower',
+        message: `${myName} started following you`,
+        data: { playerId: myPlayer?.id || null, userId },
+      });
+    });
 
     res.json({ following });
   } catch (e) {
