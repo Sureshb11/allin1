@@ -57,11 +57,12 @@ export default function MatchStatsScreen({ navigation, route }) {const A = useAr
   const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Match Stats',
-    });
+    // The route already sets headerShown:false, and this screen draws its own
+    // header below — back chevron, "<sport> · Match Stats". Turning the
+    // navigator's back on stacked a second bar above it, in the light system
+    // styling every other screen in this stack opts out of. Same mistake
+    // PlayerProfileScreen records fixing; this one kept it.
+    navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   // Live-watch like the cricket scorecard: poll the sport stats on a short cadence
