@@ -471,28 +471,15 @@ export function PostCard({ post, onLike, onShare, onComment, onSave, onAuthor, o
     onSave?.(post);
   };
 
-  const openMenu = () => {
-    Alert.alert(post.author.handle, undefined, [
-      { text: 'Share post', onPress: () => onShare(post) },
-      // Your own post only, and only where the caller can carry a delete out.
-      // Offering it on someone else's would be a button that can only fail —
-      // the server checks authorship regardless of what the menu shows.
-      ...(onDelete && post.mine ? [{
-        text: 'Delete post',
-        style: 'destructive',
-        onPress: () => Alert.alert(
-          'Delete this post?',
-          'It will be removed for everyone, along with its likes and comments. This cannot be undone.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: () => onDelete(post) },
-          ],
-        ),
-      }] : []),
-      { text: 'Report post', style: 'destructive', onPress: () => showToast('Thanks — we\'ll review this post.', 'success') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
+  // The post menu is a themed sheet, not Alert.alert.
+  //
+  // As an Alert it was a white dialog in a dark app; Android reversed the
+  // buttons, so the order read Report, Delete, Share; and `style:'destructive'`
+  // is iOS-only, so the one item that deletes something was the same colour as
+  // the one that shares it. None of that is fixable from inside an Alert.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const openMenu = () => setMenuOpen(true);
 
   return (
     <View style={p.card}>
@@ -589,6 +576,90 @@ export function PostCard({ post, onLike, onShare, onComment, onSave, onAuthor, o
           <Text style={p.viewComments}>View all {post.commentCount || post.comments.length} comments</Text>
         </TouchableOpacity>
       }
+
+      {/* ── Post menu ── */}
+      <Modal visible={menuOpen} transparent animationType="slide" onRequestClose={() => setMenuOpen(false)}>
+        <TouchableOpacity style={p.sheetBackdrop} activeOpacity={1} onPress={() => setMenuOpen(false)}>
+          <TouchableOpacity style={p.sheet} activeOpacity={1}>
+            <View style={p.sheetHandle} />
+            <Text style={p.sheetTitle}>{post.author.handle}</Text>
+
+            <TouchableOpacity style={p.sheetRow} onPress={() => { setMenuOpen(false); onShare(post); }}>
+              <Icon name="share-variant" size={19} color={DS.textVariant} />
+              <Text style={p.sheetRowText}>Share post</Text>
+            </TouchableOpacity>
+
+            {/* Your own post only. Offering it on someone else's would be a
+                button that can only fail — the server checks authorship
+                regardless of what the menu shows. */}
+            {!!onDelete && !!post.mine && (
+              <TouchableOpacity style={p.sheetRow} onPress={() => { setMenuOpen(false); setConfirmOpen(true); }}>
+                <Icon name="trash-can-outline" size={19} color={DS.live} />
+                <Text style={[p.sheetRowText, { color: DS.live }]}>Delete post</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={p.sheetRow}
+              onPress={() => { setMenuOpen(false); showToast('Thanks — we\'ll review this post.', 'success'); }}>
+              <Icon name="flag-outline" size={19} color={DS.textVariant} />
+              <Text style={p.sheetRowText}>Report post</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={p.sheetCancel} onPress={() => setMenuOpen(false)}>
+              <Text style={p.sheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── Delete confirmation ── */}
+      <Modal visible={confirmOpen} transparent animationType="fade" onRequestClose={() => setConfirmOpen(false)}>
+        <View style={p.sheetBackdropCentre}>
+          <View style={p.confirmCard}>
+            <View style={p.confirmIconRing}>
+              <Icon name="trash-can-outline" size={24} color={DS.live} />
+            </View>
+            <Text style={p.confirmTitle}>Delete this post?</Text>
+
+            {/* WHICH post. The dialog described the action and not the thing —
+                fine with one post, a blind confirm with six. The thumbnail and
+                the first line of the caption are how you recognise your own
+                post at a glance. */}
+            <View style={p.confirmPreview}>
+              {post.media
+                ? <Image source={{ uri: post.media }} style={p.confirmThumb} />
+                : <View style={[p.confirmThumb, p.confirmThumbText]}>
+                    <Icon name="format-quote-close" size={18} color={DS.textMuted} />
+                  </View>}
+              <View style={{ flex: 1 }}>
+                <Text style={p.confirmCaption} numberOfLines={2}>
+                  {post.caption?.trim() || 'Photo'}
+                </Text>
+                <Text style={p.confirmMeta}>{post.time}</Text>
+              </View>
+            </View>
+
+            {/* What goes with it, counted rather than described: "along with its
+                likes and comments" is also true of a post that has neither. */}
+            <Text style={p.confirmBody}>
+              {[
+                post.likes ? `${post.likes} like${post.likes === 1 ? '' : 's'}` : null,
+                post.commentCount ? `${post.commentCount} comment${post.commentCount === 1 ? '' : 's'}` : null,
+              ].filter(Boolean).join(' · ') || 'No likes or comments yet'}
+              {'\n'}Removed for everyone. This cannot be undone.
+            </Text>
+            <View style={p.confirmRow}>
+              <TouchableOpacity style={p.confirmCancel} onPress={() => setConfirmOpen(false)}>
+                <Text style={p.confirmCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={p.confirmDelete}
+                onPress={() => { setConfirmOpen(false); onDelete(post); }}>
+                <Text style={p.confirmDeleteText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>);
 
 }
@@ -623,6 +694,7 @@ function CommentRow({ item, DS, cm }) {
           <Icon name={liked ? 'heart' : 'heart-outline'} size={18} color={liked ? DS.live : DS.textMuted} />
         </Animated.View>
       </TouchableOpacity>
+
     </View>
   );
 }
@@ -1342,6 +1414,43 @@ const makeM = (DS) => StyleSheet.create({
 });
 
 const makeP = (DS) => StyleSheet.create({
+  // ── Post menu + delete confirmation ──
+  // The app's own sheet, not Alert.alert: dark, ordered as written, and with a
+  // destructive item that is actually red on Android.
+  sheetBackdrop: { flex: 1, backgroundColor: '#000000aa', justifyContent: 'flex-end' },
+  sheetBackdropCentre: { flex: 1, backgroundColor: '#000000aa', alignItems: 'center', justifyContent: 'center', padding: 28 },
+  sheet: {
+    backgroundColor: DS.surfaceLow, borderTopLeftRadius: 22, borderTopRightRadius: 22,
+    paddingTop: 10, paddingBottom: 24, paddingHorizontal: 8,
+  },
+  sheetHandle: { width: 40, height: 4, backgroundColor: DS.surfaceHighest, borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
+  sheetTitle: { fontSize: 12.5, fontWeight: '700', color: DS.textMuted, textAlign: 'center', marginBottom: 8 },
+  sheetRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 15 },
+  sheetRowText: { fontSize: 15, fontWeight: '600', color: DS.textPrimary },
+  sheetCancel: { marginTop: 6, marginHorizontal: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: DS.surfaceHigh, alignItems: 'center' },
+  sheetCancelText: { fontSize: 15, fontWeight: '800', color: DS.textVariant },
+
+  confirmCard: { width: '100%', backgroundColor: DS.surfaceLow, borderRadius: 22, padding: 22, alignItems: 'center', gap: 10 },
+  confirmIconRing: {
+    width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: DS.live + '22', marginBottom: 2,
+  },
+  confirmPreview: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, alignSelf: 'stretch',
+    backgroundColor: DS.surfaceHigh, borderRadius: 14, padding: 10, marginTop: 2,
+  },
+  confirmThumb: { width: 46, height: 46, borderRadius: 10, backgroundColor: DS.surfaceHighest },
+  confirmThumbText: { alignItems: 'center', justifyContent: 'center' },
+  confirmCaption: { fontSize: 13.5, fontWeight: '600', color: DS.textPrimary, lineHeight: 18 },
+  confirmMeta: { fontSize: 11.5, color: DS.textMuted, marginTop: 3 },
+  confirmTitle: { fontSize: 17, fontWeight: '800', color: DS.textPrimary },
+  confirmBody: { fontSize: 13, color: DS.textVariant, textAlign: 'center', lineHeight: 19 },
+  confirmRow: { flexDirection: 'row', gap: 10, marginTop: 8, alignSelf: 'stretch' },
+  confirmCancel: { flex: 1, paddingVertical: 13, borderRadius: 999, backgroundColor: DS.surfaceHigh, alignItems: 'center' },
+  confirmCancelText: { fontSize: 14.5, fontWeight: '800', color: DS.textVariant },
+  confirmDelete: { flex: 1, paddingVertical: 13, borderRadius: 999, backgroundColor: DS.live, alignItems: 'center' },
+  confirmDeleteText: { fontSize: 14.5, fontWeight: '800', color: DS.white },
+
   card: { 
     backgroundColor: DS.surface, marginTop: 16, marginHorizontal: 16, paddingBottom: 16, borderRadius: 28,
     borderWidth: 1, borderColor: DS.line, overflow: 'hidden',
