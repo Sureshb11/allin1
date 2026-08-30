@@ -1,0 +1,21 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      Plain HTTP, for debug builds only.
+
+      This lived in the main manifest, so every RELEASE build shipped permission
+      to talk to any http:// host. It was never needed there: apiConfig sets
+      `useLocal = __DEV__ && DEV_USES_LOCAL_BACKEND`, so a release build can only
+      ever reach https://allin1-api.vercel.app. It is needed here, because a dev
+      build pointed at the local server talks to http://10.0.2.2:4000, and Metro
+      itself is plain HTTP.
+
+      Scoped to the debug source set rather than deleted, so flipping
+      DEV_USES_LOCAL_BACKEND still works and the release build stops carrying a
+      permission it cannot use.
+    -->
+    <application
+        android:usesCleartextTraffic="true"
+        tools:replace="android:usesCleartextTraffic" />
+</manifest>

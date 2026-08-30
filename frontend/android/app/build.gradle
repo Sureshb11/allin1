@@ -55,6 +55,17 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
+            // Real phones are ARM. This APK shipped four ABIs — including x86 and
+            // x86_64, which exist only for Intel emulators — for about 30MB of
+            // uncompressed libraries no user can execute. Even the test emulator
+            // here is arm64-v8a (Apple Silicon), so nothing is lost by dropping
+            // them.
+            //
+            // Debug keeps all four, so an Intel emulator can still run a dev
+            // build. If a release APK is ever needed on one, build an AAB
+            // instead: Play splits per device and this filter stops mattering.
+            ndk { abiFilters "arm64-v8a", "armeabi-v7a" }
+
             minifyEnabled false
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             signingConfig signingConfigs.release
