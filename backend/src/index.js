@@ -67,6 +67,20 @@ app.get('/health', async (req, res) => {
       ok: true, service: 'local-legends-api', version: '1.0.1',
       commit: COMMIT ? COMMIT.slice(0, 7) : 'unknown',
       deployedAt: process.env.VERCEL_DEPLOYMENT_ID ? undefined : 'local',
+      // Whether this deployment can send a device push at all.
+      //
+      // Without it the failure is invisible: lib/push.js warns to a log nobody
+      // reads and returns 0, so notification ROWS are still written and the
+      // bell still fills up while no phone ever buzzes. Every local test passes,
+      // because a developer machine has the credentials — which is exactly how
+      // this went unnoticed.
+      //
+      // GOOGLE_APPLICATION_CREDENTIALS is a FILE PATH and cannot work on
+      // Vercel; a deployment needs FIREBASE_SERVICE_ACCOUNT, the JSON inline.
+      // Reports which one is set, never any part of its contents.
+      push: process.env.FIREBASE_SERVICE_ACCOUNT ? 'inline'
+        : process.env.GOOGLE_APPLICATION_CREDENTIALS ? 'file-path'
+        : 'DISABLED — no Firebase credentials',
     });
   } catch (e) {
     res.status(500).json({ ok: false, error: 'db' });
