@@ -126,6 +126,25 @@ function dockTargets() {
   return targets;
 }
 
+/** Source with comments removed, so prose can neither hide nor fake a match. */
+const stripComments = (src) => src
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+
+const screenFileFor = (component) => {
+  const roots = [path.join(FRONTEND, 'src')];
+  const stack = [...roots];
+  while (stack.length) {
+    const dir = stack.pop();
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) stack.push(p);
+      else if (entry.name === `${component}.js`) return p;
+    }
+  }
+  return null;
+};
+
 describe('tab wiring', () => {
   const routes = registeredRoutes();
 
@@ -198,6 +217,70 @@ const navigationTargets = (src) => {
   while ((m = reset.exec(src))) out.push(m[1]);
   return out;
 };
+
+/**
+ * Two headers.
+ *
+ * A screen that draws its own header bar — a back control and a title — must
+ * also turn the navigator's off, or the app shows two stacked bars, the upper
+ * one in the light system styling every screen in this stack opts out of.
+ *
+ * This was not one screen. An audit found fourteen: six that explicitly asked
+ * for `headerShown: true` while drawing their own, and eight routes sharing
+ * PlaceholderScreen, which never turned it off at all. They are invisible from
+ * the navigator alone — the mistake is only legible when you read the route and
+ * the screen together, which is what this does.
+ */
+describe('headers', () => {
+  const navigatorSources = [
+    { file: path.join(FRONTEND, 'App.js'), label: 'root' },
+    { file: APP_NAV, label: 'app' },
+  ];
+
+  it('no screen draws its own header while the navigator shows one', () => {
+    const offenders = [];
+    for (const { file, label } of navigatorSources) {
+      const src = read(file);
+      const navHidesByDefault =
+        /<Stack\.Navigator[\s\S]{0,400}?screenOptions=\{\{[^}]*headerShown:\s*false/.test(src);
+      const screenRe = /<Stack\.Screen([\s\S]*?)(?:\/>|<\/Stack\.Screen>)/g;
+      let m;
+      while ((m = screenRe.exec(src))) {
+        const block = m[1];
+        const name = /name=["']([A-Za-z0-9_]+)["']/.exec(block)?.[1];
+        const comp = /component=\{([A-Za-z0-9_]+)\}/.exec(block)?.[1];
+        if (!name || !comp) continue;
+        const file2 = screenFileFor(comp);
+        if (!file2) continue;
+        const s2 = read(file2);
+
+        // Comments are stripped BEFORE matching. Without that, the note
+        // explaining why a screen hides the header sat between `setOptions({`
+        // and the flag and pushed it outside the window — the guard then passed
+        // on a screen with the bug deliberately put back, which is the one
+        // result a guard must never give.
+        const code = stripComments(s2);
+        const forcesOn = /setOptions\(\{[\s\S]{0,240}?headerShown:\s*true/.test(code);
+        const hidesItself = /setOptions\(\{[\s\S]{0,240}?headerShown:\s*false/.test(code);
+        const hiddenByRoute = /headerShown:\s*false/.test(stripComments(block));
+        const navHeaderOn = forcesOn ? true
+          : hidesItself ? false
+          : hiddenByRoute ? false
+          : !navHidesByDefault;
+
+        // "Draws its own" = a back control AND a header-ish container. Both,
+        // because a lone goBack() is often a button in an empty state and a
+        // lone `styles.header` is often a section heading.
+        const drawsOwn = /goBack\(\)/.test(s2)
+          && /(chevron-left|arrow-left|keyboard-backspace)/.test(s2)
+          && /(styles?\.header|s\.header|p\.header|styles?\.brandBar|styles?\.hero|s\.hero)/.test(s2);
+
+        if (navHeaderOn && drawsOwn) offenders.push(`${label}: ${name} (${comp})`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
 
 describe('navigation targets', () => {
   it('every navigate/replace/push/reset target is a registered route', () => {

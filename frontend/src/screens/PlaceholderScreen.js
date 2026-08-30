@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react';
 import { useTheme, useThemedStyles } from "../theme/ThemeContext";import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -19,6 +20,13 @@ const SCREEN_ICONS = {
 };
 
 const PlaceholderScreen = ({ route, navigation }) => {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+  // One screen behind eight routes — MatchDetail, TeamDetail, HelpFAQs,
+  // ContactUs, ServicesProfile, QuizResult, VideoStreaming and
+  // BadgeLeaderboardFilter — none of which set headerShown:false, so every one
+  // of them drew the navigator's bar above the header below. Hidden here rather
+  // than in eight places, which is also what makes the ninth placeholder route
+  // correct the day someone adds it.
+  useLayoutEffect(() => { navigation.setOptions({ headerShown: false }); }, [navigation]);
   const { title = 'Coming Soon' } = route.params || {};
   const iconName = SCREEN_ICONS[title] || 'tools';
 

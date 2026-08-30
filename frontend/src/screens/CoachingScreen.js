@@ -31,9 +31,11 @@ export default function CoachingScreen({ navigation }) {const DS = useTheme().co
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Coaching',
+      // headerShown:false — this screen draws its OWN header bar (back control
+      // and title) below. Asking for the navigator's as well stacked a second
+      // bar above it, in the light system styling every screen in this stack
+      // opts out of.
+      headerShown: false,
     });
   }, [navigation]);
   const [refreshing, setRefreshing] = useState(false);

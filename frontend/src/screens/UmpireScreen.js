@@ -34,9 +34,11 @@ export default function UmpireScreen({ navigation }) {const DS = useTheme().colo
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerShown: true,
-      headerBackVisible: true,
-      headerTitle: 'Umpires',
+      // headerShown:false — this screen draws its OWN header bar (back control
+      // and title) below. Asking for the navigator's as well stacked a second
+      // bar above it, in the light system styling every screen in this stack
+      // opts out of.
+      headerShown: false,
     });
   }, [navigation]);
 

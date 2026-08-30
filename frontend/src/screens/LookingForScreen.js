@@ -483,9 +483,11 @@ export default function LookingForScreen({ navigation, route, inline, onRegister
   useLayoutEffect(() => {
     if (!inline) {
       navigation.setOptions({
-        headerShown: true,
-        headerBackVisible: true,
-        headerTitle: 'Looking For',
+      // headerShown:false — this screen draws its OWN header bar (back control
+      // and title) below. Asking for the navigator's as well stacked a second
+      // bar above it, in the light system styling every screen in this stack
+      // opts out of.
+        headerShown: false,
       });
     }
   }, [navigation, inline]);
