@@ -1313,6 +1313,33 @@ class LegendsApi {
     }
   }
 
+  // A poll is a chat message with kind:'poll' — same thread, same order, same
+  // notification. `tally` rides along on every read, so results never arrive a
+  // beat after the question.
+  async createChatPoll(roomId, { question, options, multi = false }) {
+    try {
+      const json = await this.request(`/chat/rooms/${roomId}/polls`, {
+        method: 'POST', body: { question, options, multi },
+      });
+      return { success: true, data: json.message };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Toggling: tapping your own choice again takes it back. Returns the fresh
+  // tally so the bars move without waiting for the next poll of the thread.
+  async voteChatPoll(messageId, optionIndex) {
+    try {
+      const json = await this.request(`/chat/messages/${messageId}/vote`, {
+        method: 'POST', body: { optionIndex },
+      });
+      return { success: true, tally: json.tally };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Video Analysis APIs
   async getMatchVideos() {
     try {

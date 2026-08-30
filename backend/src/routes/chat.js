@@ -6,6 +6,86 @@ import { notifyUsers, safeNotify } from '../lib/notify.js';
 
 const router = Router();
 
+// Poll votes live in the polymorphic Like table — no new table, the same
+// pattern saved posts and player follows use. One row per (user, option):
+// targetId is `<messageId>:<optionIndex>`, and the table's unique constraint on
+// (userId, targetType, targetId) is exactly "you may vote for this option once".
+// Multi-select therefore needs no extra rule; single-select is the one that
+// needs enforcing, by clearing the voter's other options for that message.
+const VOTE_TYPE = 'poll_vote';
+const voteTarget = (messageId, i) => `${messageId}:${i}`;
+const MAX_OPTIONS = 12;
+
+/**
+ * Tell the rest of the room. Shared by plain messages and polls, so a poll
+ * announces itself exactly as a message does.
+ *
+ * A chat is the one place where a missing notification means the feature does
+ * not work at all: a message nobody is told about is a message nobody reads
+ * until they happen to open the app.
+ *
+ * Awaited before responding, like every notify in this codebase — on Vercel
+ * serverless the function can be frozen the moment the response is flushed, so
+ * work deferred past it is not guaranteed to run. Inside safeNotify, so it can
+ * never fail the message it is announcing.
+ */
+async function notifyRoom(message, senderId, bodyOverride) {
+  const others = (message.chatRoom?.members || [])
+    .map((m) => m.userId)
+    .filter((id) => id && id !== senderId);
+  if (!others.length) return 0;
+  const from = [message.sender?.firstName, message.sender?.lastName]
+    .filter(Boolean).join(' ').trim() || 'Someone';
+  return safeNotify(() => notifyUsers(others, {
+    // Its own type so it lands on its own Android channel: a busy group chat
+    // must be silenceable without also silencing match alerts.
+    type: 'chat',
+    title: message.chatRoom?.name || 'New message',
+    // Named sender first: a group chat's own name is already the title, so
+    // without this you cannot tell who said it without opening the app.
+    message: `${from}: ${(bodyOverride || message.text).slice(0, 80)}`,
+    data: { chatId: message.chatRoomId, chatName: message.chatRoom?.name || 'Chat' },
+  }));
+}
+
+/**
+ * Fold vote rows into per-message tallies.
+ *
+ * Returns { [messageId]: { votes: number[], myVotes: number[], voters: n } }.
+ * One query for a whole page of messages rather than one per poll.
+ */
+async function tallyPolls(messages, viewerId) {
+  const polls = messages.filter((m) => m.kind === 'poll');
+  if (!polls.length) return {};
+  const targets = polls.flatMap((m) =>
+    (m.poll?.options || []).map((_, i) => voteTarget(m.id, i)));
+  if (!targets.length) return {};
+  const rows = await prisma.like.findMany({
+    where: { targetType: VOTE_TYPE, targetId: { in: targets } },
+    select: { targetId: true, userId: true },
+  });
+  const out = {};
+  for (const m of polls) {
+    const n = (m.poll?.options || []).length;
+    out[m.id] = { votes: Array(n).fill(0), myVotes: [], voters: 0 };
+  }
+  const seenVoter = {};
+  for (const r of rows) {
+    const idx = r.targetId.lastIndexOf(':');
+    const mid = r.targetId.slice(0, idx);
+    const opt = Number(r.targetId.slice(idx + 1));
+    const t = out[mid];
+    if (!t || !Number.isInteger(opt) || opt < 0 || opt >= t.votes.length) continue;
+    t.votes[opt] += 1;
+    if (r.userId === viewerId) t.myVotes.push(opt);
+    // A multi-select voter picking three options is still one voter, which is
+    // what "12 votes" under a poll has to mean.
+    (seenVoter[mid] ||= new Set()).add(r.userId);
+  }
+  for (const mid of Object.keys(out)) out[mid].voters = seenVoter[mid]?.size || 0;
+  return out;
+}
+
 // Get chat rooms for user
 // Every room you're in, newest activity first, with an unread count.
 //
@@ -110,9 +190,111 @@ router.get('/rooms/:roomId/messages', authMiddleware, async (req, res) => {
         data: { lastReadAt: new Date() },
       });
     }
-    res.json({ messages });
+    // Tallies ride along with the messages. Results fetched in a second request
+    // would draw empty bars and fill them a beat later, and this endpoint is
+    // polled every few seconds — that flicker would be permanent, not momentary.
+    const tallies = await tallyPolls(messages, req.user.sub);
+    res.json({
+      messages: messages.map((m) => (tallies[m.id] ? { ...m, tally: tallies[m.id] } : m)),
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Polls ────────────────────────────────────────────────────────────────────
+
+const PollSchema = z.object({
+  question: z.string().trim().min(1).max(200),
+  options: z.array(z.string().trim().min(1).max(80)).min(2).max(MAX_OPTIONS),
+  multi: z.boolean().optional().default(false),
+});
+
+// POST /chat/rooms/:roomId/polls — a poll is a message with a kind.
+router.post('/rooms/:roomId/polls', authMiddleware, async (req, res) => {
+  try {
+    const data = PollSchema.parse(req.body);
+    // De-duplicated AFTER trimming and before the count is judged, so "A, A"
+    // is one option and fails rather than becoming a two-way poll with one
+    // answer written twice.
+    const options = [...new Set(data.options.map((o) => o.trim()).filter(Boolean))];
+    if (options.length < 2) return res.status(400).json({ error: 'A poll needs at least two different options' });
+
+    const member = await prisma.chatMember.findFirst({
+      where: { chatRoomId: req.params.roomId, userId: req.user.sub }, select: { id: true },
+    });
+    if (!member) return res.status(403).json({ error: 'You are not in this chat' });
+
+    const message = await prisma.chatMessage.create({
+      data: {
+        chatRoomId: req.params.roomId,
+        senderId: req.user.sub,
+        text: data.question,          // doubles as preview and push body
+        kind: 'poll',
+        poll: { options, multi: !!data.multi },
+      },
+      include: {
+        sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+        chatRoom: { select: { name: true, members: { select: { userId: true } } } },
+      },
+    });
+
+    await notifyRoom(message, req.user.sub, `Poll: ${data.question}`);
+
+    const { chatRoom, ...msg } = message;
+    res.status(201).json({
+      message: { ...msg, tally: { votes: options.map(() => 0), myVotes: [], voters: 0 } },
+    });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// POST /chat/messages/:id/vote — toggle one option.
+//
+// A toggle, not a set: tapping your own choice again takes it back, which is
+// what every poll people have used already does. A single-choice poll clears
+// the voter's other options in the same breath, so changing your mind is one
+// tap rather than un-vote then vote.
+router.post('/messages/:id/vote', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const optionIndex = Number(req.body?.optionIndex);
+    const message = await prisma.chatMessage.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, kind: true, poll: true, chatRoomId: true },
+    });
+    if (!message || message.kind !== 'poll') return res.status(404).json({ error: 'Poll not found' });
+
+    const options = message.poll?.options || [];
+    if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= options.length) {
+      return res.status(400).json({ error: 'Unknown option' });
+    }
+    // Members only. Without this the poll is open to anyone who can guess a
+    // message id.
+    const member = await prisma.chatMember.findFirst({
+      where: { chatRoomId: message.chatRoomId, userId }, select: { id: true },
+    });
+    if (!member) return res.status(403).json({ error: 'You are not in this chat' });
+
+    const target = voteTarget(message.id, optionIndex);
+    const key = { userId_targetType_targetId: { userId, targetType: VOTE_TYPE, targetId: target } };
+    const existing = await prisma.like.findUnique({ where: key });
+    if (existing) {
+      await prisma.like.delete({ where: key });
+    } else {
+      if (!message.poll?.multi) {
+        await prisma.like.deleteMany({
+          where: { userId, targetType: VOTE_TYPE, targetId: { in: options.map((_, i) => voteTarget(message.id, i)) } },
+        });
+      }
+      await prisma.like.create({ data: { userId, targetType: VOTE_TYPE, targetId: target } });
+    }
+
+    const tallies = await tallyPolls([message], userId);
+    res.json({ tally: tallies[message.id] });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
 
@@ -133,30 +315,7 @@ router.post('/rooms/:roomId/messages', authMiddleware, async (req, res) => {
       },
     });
 
-    // Everyone else in the room. A chat is the one place where a missing
-    // notification means the feature does not work at all: a message nobody is
-    // told about is a message nobody reads until they happen to open the app.
-    //
-    // Awaited before responding, like every other notify in this codebase: on
-    // Vercel serverless the function can be frozen the moment the response is
-    // flushed, so work deferred past it is not guaranteed to run.
-    const others = (message.chatRoom?.members || [])
-      .map((m) => m.userId)
-      .filter((id) => id && id !== req.user.sub);
-    if (others.length) {
-      const from = [message.sender?.firstName, message.sender?.lastName]
-        .filter(Boolean).join(' ').trim() || 'Someone';
-      await safeNotify(() => notifyUsers(others, {
-        // Its own type so it lands on its own Android channel: a busy group
-        // chat must be silenceable without also silencing match alerts.
-        type: 'chat',
-        title: message.chatRoom?.name || 'New message',
-        // Named sender first: a group chat's own name is already the title, so
-        // without this you cannot tell who said it without opening the app.
-        message: `${from}: ${message.text.slice(0, 80)}`,
-        data: { chatId: req.params.roomId, chatName: message.chatRoom?.name || 'Chat' },
-      }));
-    }
+    await notifyRoom(message, req.user.sub);
 
     res.status(201).json({ message });
   } catch (e) {

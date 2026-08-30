@@ -47,7 +47,62 @@ const KIND_LABEL = {
   direct: 'Direct message',
 };
 
-function ChatBubble({ item, mine, showMeta, onRetry, styles, DS }) {
+// A poll, drawn inside the bubble it arrived in.
+//
+// Results are always visible rather than hidden until you vote. In a squad of
+// eleven deciding a ground, who has answered is the useful half — you are
+// chasing the four who have not, and hiding the count to preserve some purity
+// of opinion is the wrong trade for a team chat.
+function PollBody({ item, mine, onVote, styles, DS }) {
+  const options = item.poll?.options || [];
+  const tally = item.tally || { votes: options.map(() => 0), myVotes: [], voters: 0 };
+  const total = tally.votes.reduce((a, b) => a + b, 0);
+  const leader = Math.max(0, ...tally.votes);
+
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={styles.pollHead}>
+        <Icon name="poll" size={13} color={mine ? DS.onLime : DS.lime} />
+        <Text style={[styles.pollKicker, mine && styles.pollKickerMine]}>
+          {item.poll?.multi ? 'Select one or more' : 'Select one'}
+        </Text>
+      </View>
+      <Text style={[styles.pollQuestion, mine && styles.msgTextMine]}>{item.text}</Text>
+
+      {options.map((opt, i) => {
+        const count = tally.votes[i] || 0;
+        const picked = tally.myVotes.includes(i);
+        // Share of the votes cast, not of the members — a poll where three of
+        // eleven have answered is still 100% for the option all three chose,
+        // and "3 votes" underneath is what carries the turnout.
+        const pct = total ? Math.round((count / total) * 100) : 0;
+        return (
+          <TouchableOpacity key={i} activeOpacity={0.8} onPress={() => onVote(item, i)} style={styles.pollOpt}>
+            <View style={[styles.pollFill, { width: `${pct}%` }, picked && styles.pollFillOn,
+              count === leader && count > 0 && styles.pollFillLead]} />
+            <View style={styles.pollOptRow}>
+              <Icon
+                name={picked
+                  ? (item.poll?.multi ? 'checkbox-marked' : 'check-circle')
+                  : (item.poll?.multi ? 'checkbox-blank-outline' : 'circle-outline')}
+                size={15}
+                color={picked ? DS.lime : DS.textMuted} />
+              <Text style={[styles.pollOptTxt, picked && styles.pollOptTxtOn]} numberOfLines={2}>{opt}</Text>
+              <Text style={styles.pollPct}>{pct}%</Text>
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+
+      <Text style={[styles.pollFoot, mine && styles.pollFootMine]}>
+        {tally.voters === 0 ? 'No votes yet'
+          : `${tally.voters} ${tally.voters === 1 ? 'vote' : 'votes'}`}
+      </Text>
+    </View>
+  );
+}
+
+function ChatBubble({ item, mine, showMeta, onRetry, onVote, styles, DS }) {
   const failed = item.status === 'failed';
   const pending = item.status === 'pending';
   return (
@@ -64,7 +119,9 @@ function ChatBubble({ item, mine, showMeta, onRetry, styles, DS }) {
         pending && styles.bubblePending,
       ]}>
         {!mine && showMeta && <Text style={styles.senderName}>{getSenderName(item, false)}</Text>}
-        <Text style={[styles.msgText, mine && styles.msgTextMine]}>{item.text}</Text>
+        {item.kind === 'poll'
+          ? <PollBody item={item} mine={mine} onVote={onVote} styles={styles} DS={DS} />
+          : <Text style={[styles.msgText, mine && styles.msgTextMine]}>{item.text}</Text>}
         <View style={styles.timeRow}>
           <Text style={[styles.msgTime, mine && styles.msgTimeMine]}>{getTime(item)}</Text>
           {/* A real status, not a permanent double-tick: clock while in flight,
@@ -187,6 +244,57 @@ const ChatScreen = ({ route, navigation }) => {
     if (res.success && res.data?.createdAt) lastTimestampRef.current = res.data.createdAt;
   };
 
+  // Voting is optimistic on the tapped row only, then replaced by the server's
+  // tally. The thread polls every few seconds, so a slow round trip would
+  // otherwise leave the tap looking ignored for up to a poll interval.
+  const vote = useCallback(async (msg, optionIndex) => {
+    const multi = !!msg.poll?.multi;
+    setMessages((prev) => prev.map((m) => {
+      if (m.id !== msg.id) return m;
+      const t = m.tally || { votes: (m.poll?.options || []).map(() => 0), myVotes: [], voters: 0 };
+      const had = t.myVotes.includes(optionIndex);
+      const votes = [...t.votes];
+      let myVotes;
+      if (had) { votes[optionIndex] = Math.max(0, votes[optionIndex] - 1); myVotes = t.myVotes.filter((i) => i !== optionIndex); }
+      else if (multi) { votes[optionIndex] += 1; myVotes = [...t.myVotes, optionIndex]; }
+      else {
+        // Single choice: the previous pick loses its vote in the same frame,
+        // which is what the server is about to do.
+        for (const i of t.myVotes) votes[i] = Math.max(0, votes[i] - 1);
+        votes[optionIndex] += 1; myVotes = [optionIndex];
+      }
+      const voters = Math.max(0, t.voters + (had && myVotes.length === 0 ? -1 : (!t.myVotes.length && myVotes.length ? 1 : 0)));
+      return { ...m, tally: { votes, myVotes, voters } };
+    }));
+    const res = await legendsApi.voteChatPoll(msg.id, optionIndex);
+    if (res.success && res.tally) {
+      setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, tally: res.tally } : m)));
+    }
+  }, []);
+
+  const [pollOpen, setPollOpen] = useState(false);
+  const [pollQ, setPollQ] = useState('');
+  const [pollOpts, setPollOpts] = useState(['', '']);
+  const [pollMulti, setPollMulti] = useState(false);
+  const [pollBusy, setPollBusy] = useState(false);
+
+  const resetPoll = () => { setPollQ(''); setPollOpts(['', '']); setPollMulti(false); };
+
+  const createPoll = async () => {
+    const question = pollQ.trim();
+    const options = pollOpts.map((o) => o.trim()).filter(Boolean);
+    if (!question || options.length < 2 || pollBusy || !chatId) return;
+    setPollBusy(true);
+    const res = await legendsApi.createChatPoll(chatId, { question, options, multi: pollMulti });
+    setPollBusy(false);
+    if (res.success) {
+      setMessages((prev) => [...prev, res.data]);
+      setPollOpen(false);
+      resetPoll();
+      setTimeout(() => scrollToEnd(true), 50);
+    }
+  };
+
   const sendMessage = async () => {
     const text = newMessage.trim();
     // A room with no id can't take a message. This used to fabricate a local
@@ -290,6 +398,7 @@ const ChatScreen = ({ route, navigation }) => {
                 mine={mine}
                 showMeta={item.showMeta}
                 onRetry={retry}
+                onVote={vote}
                 styles={styles}
                 DS={DS} />
             );
@@ -312,7 +421,83 @@ const ChatScreen = ({ route, navigation }) => {
         )}
       </View>
 
+      {/* Poll composer. A plain overlay rather than a bottom sheet: this screen
+          already runs a KeyboardAvoidingView for its own composer, and putting
+          a second keyboard-managing container inside it is how the tournament
+          form ended up with its footer above the keyboard. */}
+      {pollOpen && (
+        <View style={styles.pollSheetWrap}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1}
+            onPress={() => { setPollOpen(false); resetPoll(); }} />
+          <View style={styles.pollSheet}>
+            <View style={styles.pollSheetHead}>
+              <Text style={styles.pollSheetTitle}>New poll</Text>
+              <TouchableOpacity onPress={() => { setPollOpen(false); resetPoll(); }} hitSlop={10}>
+                <Icon name="close" size={20} color={DS.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={styles.pollInput}
+              placeholder="Ask something…"
+              placeholderTextColor={DS.textMuted}
+              value={pollQ}
+              onChangeText={setPollQ}
+              maxLength={200}
+              autoFocus />
+
+            {pollOpts.map((opt, i) => (
+              <View key={i} style={styles.pollOptRowEdit}>
+                <TextInput
+                  style={[styles.pollInput, { flex: 1, marginBottom: 0 }]}
+                  placeholder={`Option ${i + 1}`}
+                  placeholderTextColor={DS.textMuted}
+                  value={opt}
+                  onChangeText={(v) => setPollOpts((prev) => prev.map((o, j) => (j === i ? v : o)))}
+                  maxLength={80} />
+                {/* Only past the two a poll needs — removing one of two leaves
+                    a poll that cannot be posted. */}
+                {pollOpts.length > 2 && (
+                  <TouchableOpacity hitSlop={8} onPress={() => setPollOpts((prev) => prev.filter((_, j) => j !== i))}>
+                    <Icon name="close-circle-outline" size={19} color={DS.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+
+            {pollOpts.length < 12 && (
+              <TouchableOpacity style={styles.pollAdd} onPress={() => setPollOpts((prev) => [...prev, ''])} activeOpacity={0.8}>
+                <Icon name="plus" size={16} color={DS.lime} />
+                <Text style={styles.pollAddTxt}>Add option</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={styles.pollMultiRow} onPress={() => setPollMulti((v) => !v)} activeOpacity={0.8}>
+              <Icon name={pollMulti ? 'checkbox-marked' : 'checkbox-blank-outline'} size={19}
+                color={pollMulti ? DS.lime : DS.textMuted} />
+              <Text style={styles.pollMultiTxt}>Allow more than one answer</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.pollPost, (!pollQ.trim() || pollOpts.filter((o) => o.trim()).length < 2 || pollBusy) && styles.pollPostOff]}
+              onPress={createPoll}
+              disabled={!pollQ.trim() || pollOpts.filter((o) => o.trim()).length < 2 || pollBusy}
+              activeOpacity={0.85}>
+              <Text style={styles.pollPostTxt}>{pollBusy ? 'Posting…' : 'Post poll'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <View style={styles.inputBar}>
+        {/* Polls are for deciding things as a group, so the button lives in
+            team and tournament rooms and not in a one-to-one conversation. */}
+        {chatType !== 'direct' && chatType !== 'scout' && (
+          <TouchableOpacity style={styles.pollBtn} onPress={() => setPollOpen(true)} hitSlop={6}
+            accessibilityRole="button" accessibilityLabel="Create a poll">
+            <Icon name="poll" size={20} color={DS.lime} />
+          </TouchableOpacity>
+        )}
         <TextInput
           style={styles.textInput}
           placeholder="Type a message…"
@@ -335,6 +520,49 @@ const ChatScreen = ({ route, navigation }) => {
 
 const makeStyles = (DS) => StyleSheet.create({
   container: { flex: 1, backgroundColor: DS.bg },
+
+  // ── Poll, in the thread ──
+  pollHead: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
+  pollKicker: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6, color: DS.lime, textTransform: 'uppercase' },
+  pollKickerMine: { color: DS.onLime, opacity: 0.85 },
+  pollQuestion: { fontSize: 15, fontWeight: '700', color: DS.textPrimary, marginBottom: 2 },
+  pollOpt: {
+    borderRadius: 10, overflow: 'hidden', backgroundColor: DS.surfaceHighest,
+    minWidth: 210, justifyContent: 'center',
+  },
+  // The bar is behind the label, not beside it: a row that is both the result
+  // and the button reads as one thing to tap.
+  pollFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: DS.surfaceHigh },
+  pollFillLead: { backgroundColor: DS.lime + '2e' },
+  pollFillOn: { backgroundColor: DS.lime + '45' },
+  pollOptRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 9 },
+  pollOptTxt: { flex: 1, fontSize: 13.5, color: DS.textPrimary },
+  pollOptTxtOn: { fontWeight: '700' },
+  pollPct: { fontSize: 12, fontWeight: '800', color: DS.textVariant, fontVariant: ['tabular-nums'] },
+  pollFoot: { fontSize: 11, color: DS.textMuted, marginTop: 1 },
+  pollFootMine: { color: DS.onLime, opacity: 0.8 },
+
+  // ── Poll composer ──
+  pollBtn: { paddingHorizontal: 6, paddingVertical: 8 },
+  pollSheetWrap: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000aa', justifyContent: 'flex-end', zIndex: 20 },
+  pollSheet: {
+    backgroundColor: DS.surfaceLow, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 18, paddingBottom: 26, gap: 10,
+  },
+  pollSheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  pollSheetTitle: { fontSize: 17, fontWeight: '800', color: DS.textPrimary },
+  pollInput: {
+    backgroundColor: DS.surfaceHigh, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11,
+    color: DS.textPrimary, fontSize: 14.5,
+  },
+  pollOptRowEdit: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pollAdd: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
+  pollAddTxt: { fontSize: 13.5, fontWeight: '700', color: DS.lime },
+  pollMultiRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 4 },
+  pollMultiTxt: { fontSize: 13.5, color: DS.textVariant },
+  pollPost: { backgroundColor: DS.lime, borderRadius: 999, paddingVertical: 13, alignItems: 'center', marginTop: 4 },
+  pollPostOff: { opacity: 0.45 },
+  pollPostTxt: { fontSize: 14.5, fontWeight: '800', color: DS.onLime },
 
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 10,

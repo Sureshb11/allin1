@@ -940,6 +940,19 @@ model ChatMessage {
   text       String
   chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id])
   sender     User     @relation(fields: [senderId], references: [id])
+
+  // A poll is a message, not a thing beside one: it belongs in the thread in
+  // order, it is quoted in the room list, and it notifies like any other
+  // message. `text` holds the QUESTION for all of those, so every existing
+  // reader — the preview, the push body, an older app build — shows something
+  // true without knowing what a poll is.
+  //
+  // `kind` defaults to "text", so every row already in this table is correct
+  // without being touched. Votes are NOT here: they live in the polymorphic
+  // Like table under `poll_vote`, the same pattern saved posts and player
+  // follows use, which is why this needs two columns and no new table.
+  kind       String   @default("text")   // "text" | "poll"
+  poll       Json?                       // { options: string[], multi: boolean }
 }
 
 model Video {
