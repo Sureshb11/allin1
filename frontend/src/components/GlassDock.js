@@ -38,9 +38,13 @@ import { sportColor as sportColorFor } from '../sports/colors';
 // the screen was still the one you were looking at, so the dock slid away and
 // came straight back over the table. This list cannot come apart — it is read
 // from the focused route on every render, with nothing to keep in balance.
+// Match detail is one screen per sport family — Scorecard for cricket,
+// MatchStats for everyone else — and BOTH have to be here. Listing only the
+// cricket one left the dock floating over a finished football or kabaddi match,
+// which is the same screen to the person looking at it.
 const FULLSCREEN = ['Scoring', 'SportScoring', 'BallLab', 'Chat', 'MatchSetup', 'TossLineup',
-  'Scorecard', 'TeamStatLeaderboard', 'TournamentDetail', 'EditPlayerProfile', 'EditTeamProfile',
-  'ClubProfile'];
+  'Scorecard', 'MatchStats', 'TeamStatLeaderboard', 'TournamentDetail', 'EditPlayerProfile',
+  'EditTeamProfile', 'ClubProfile'];
 
 export default function GlassDock({
   state, navigation, sportIcon = 'cricket', sportName = 'My Cricket', homeRoute = 'Feed',
