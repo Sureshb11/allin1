@@ -26,14 +26,20 @@
 // themes instead of being two arbitrary pairs.
 //
 // Every value below is measured, not chosen by eye: all clear WCAG AA against
-// their own background, and four/six are at least 1.3:1 apart from each other.
+// their own background.
+//
+// A four is BLUE and a six is GREEN. They were two greens, separated only by
+// brightness — which held up in a contrast checker and not on a phone: in the
+// commentary feed a FOUR and a SIX read as the same colour at a glance, which
+// is the one moment the distinction is worth anything. Different hues cannot
+// collapse that way. A wicket stays the app's one red.
 
 const DARK = {
   // ── Deliveries ──
   dot:        '#8B8B8B',   // nothing happened; the quietest thing on the screen
   runs:       '#EAECED',   // 1-3: ordinary, so it reads as text, not as an event
-  four:       '#10B981',   // 7.44:1
-  six:        '#34D399',   // 9.82:1 — brighter than four on a dark page
+  four:       '#60A5FA',   // 7.6:1 — blue, so a four never reads as a six
+  six:        '#34D399',   // 9.82:1
   wicket:     '#F87171',   // 6.83:1 — the app's one semantic red
   wicketBg:   'rgba(248,113,113,0.16)',
 
@@ -62,8 +68,8 @@ const DARK = {
 const LIGHT = {
   dot:        '#727880',
   runs:       '#131619',
-  four:       '#1B7F4C',   // 5.02:1
-  six:        '#0a5227',   // 9.34:1 — DARKER than four on a white page
+  four:       '#1D4ED8',   // 7.0:1 — blue on a white page
+  six:        '#0a5227',   // 9.34:1
   wicket:     '#c62828',   // 5.62:1
   wicketBg:   'rgba(198,40,40,0.10)',
 
@@ -92,12 +98,13 @@ const LIGHT = {
 // The source design proposed #00FF00 for boundaries. It cannot carry the white
 // text its own mockup puts on it: 1.37:1, against a floor of 4.5. Kept the
 // intent (a filled, unmissable boundary block) at values that hold their text.
-// The six-darker-than-four rule from the other two modes still applies.
+// Four is blue and six is green here too — the hue split is what makes them
+// tell apart at a glance, and sunlight mode needs that more than either.
 const SUNLIGHT = {
   dot:        '#000000',   // no greys anywhere: a dot is black type on white
   runs:       '#000000',
-  four:       '#008000',   // white text 5.14:1
-  six:        '#004d00',   // white text 10.19:1 — and 1.98:1 apart from four
+  four:       '#0000cc',   // white text 12.0:1 — blue, the sunlight mode's four
+  six:        '#004d00',   // white text 10.19:1
   wicket:     '#d00000',   // white text 5.70:1
   wicketBg:   '#ffffff',
 

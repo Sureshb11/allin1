@@ -528,30 +528,120 @@ function ballCommentary(ball) {
   return ball.commentary || `${ball.runs} run${ball.runs === 1 ? '' : 's'}.`;
 }
 
+// What happened on the ball, in the words a commentary feed uses.
+//
+// The clause that comes straight after "Bowler to Batter," and before the
+// description — SIX, FOUR, out, no run, 2 runs, wide. Cricket's own shorthand,
+// which is why "no run" and not "0 runs".
+function ballOutcome(ball) {
+  if (ball.isWicket) return 'out';
+  const et = ball.extraType;
+  if (et === 'wide') return ball.extras > 1 ? `${ball.extras - 1} wide` : 'wide';
+  if (et === 'noBall') return ball.runs ? `no ball, ${ball.runs} run${ball.runs === 1 ? '' : 's'}` : 'no ball';
+  if (et === 'bye') return `${ball.extras} bye${ball.extras === 1 ? '' : 's'}`;
+  if (et === 'legBye') return `${ball.extras} leg bye${ball.extras === 1 ? '' : 's'}`;
+  if (isSix(ball)) return 'SIX';
+  if (isBoundary(ball)) return 'FOUR';
+  if (!ball.runs) return 'no run';
+  return `${ball.runs} run${ball.runs === 1 ? '' : 's'}`;
+}
+
 // Ball-by-ball commentary for a whole innings, newest ball first.
+//
+// The feed reads the way a spectator follows a match: who bowled it to whom,
+// what came of it, then the description — and the moments that are not a ball
+// at all threaded in where they happened. A fifty, a new batter walking out and
+// the dismissal line under a wicket are the three things a scorecard alone
+// cannot tell you, and they are what makes a feed worth scrolling.
 function buildCommentary(innings) {
   // An "End of over N" summary is threaded into the feed right after that over's
   // last ball, so each completed over's total/batsmen/bowler shows inline in the
   // ball-by-ball — no separate list needed.
   const overEndByNum = {};
   computeOverEndSummaries(innings).forEach((o) => { overEndByNum[o.over] = o; });
+
+  // Running per-batter figures, walked forward with the innings, so a milestone
+  // is detected at the ball that CROSSED it rather than worked out afterwards
+  // from a total that has moved on.
+  const tally = {};   // id -> { runs, balls, fours, sixes, name }
+  const seen = new Set();
+  let pendingWicket = false;
+
   const lines = [];
   (innings.oversData || []).forEach((over) => {
     let legalInOver = 0;
     (over.balls || []).forEach((ball, idx) => {
       const isLegal = !NON_BALL_EXTRAS.includes(ball.extraType);
       if (isLegal) legalInOver += 1;
+
+      const batterName = ball.batter?.name || 'Batter';
+      const bowlerName = ball.bowler?.name || over.bowler?.name || 'Bowler';
+      const id = ball.batterId;
+
+      // A batter facing their first ball after a wicket has just walked out.
+      if (id && pendingWicket && !seen.has(id)) {
+        lines.push({ type: 'crease', key: `${over.id}-${idx}-in`, text: `${batterName} comes to the crease` });
+        pendingWicket = false;
+      }
+      if (id) seen.add(id);
+
+      const before = id ? (tally[id]?.runs || 0) : 0;
+      if (id) {
+        const t = (tally[id] ||= { runs: 0, balls: 0, fours: 0, sixes: 0, name: batterName });
+        t.name = batterName;
+        if (isBallFaced(ball)) t.balls += 1;
+        if (offTheBat(ball)) {
+          t.runs += ball.runs;
+          if (ball.runs === 4) t.fours += 1;
+          if (ball.runs === 6) t.sixes += 1;
+        }
+      }
+
       lines.push({
         type: 'ball',
         key: `${over.id}-${idx}`,
         label: `${over.overNumber - 1}.${legalInOver}`,
+        bowler: bowlerName,
+        batter: batterName,
+        outcome: ballOutcome(ball),
         text: ballCommentary(ball),
         isWicket: !!ball.isWicket,
         // Shared rule, not `!extraType`: a four off a no ball is the batter's
         // four, and the batting table above this already counted it as one.
         isBoundary: isBoundary(ball),
         isSix: isSix(ball),          // a six gets its own accent — it's the moment
+        // The card line a dismissal gets on the scorecard, repeated under the
+        // ball that caused it: how out, off whom, and for what.
+        dismissal: ball.isWicket && ball.dismissedPlayerId
+          ? (() => {
+              const outId = ball.dismissedPlayerId;
+              const t = tally[outId] || { runs: 0, balls: 0, fours: 0, sixes: 0, name: batterName };
+              const how = formatDismissal(ball.wicketType, ball.fielderName || ball.catcherName, bowlerName, ball.directHit);
+              const extras = [t.fours ? `4s-${t.fours}` : null, t.sixes ? `6s-${t.sixes}` : null].filter(Boolean).join(' ');
+              return `${t.name} ${how} ${t.runs}(${t.balls})${extras ? ` [${extras}]` : ''}`;
+            })()
+          : null,
       });
+
+      // Fifty and hundred, at the ball that got there. Checked after the runs
+      // are added and against the total BEFORE them, so a boundary that takes
+      // someone from 48 to 52 still raises the fifty.
+      if (id) {
+        const after = tally[id].runs;
+        for (const mark of [100, 50]) {
+          if (before < mark && after >= mark) {
+            lines.push({
+              type: 'milestone',
+              key: `${over.id}-${idx}-m${mark}`,
+              kind: mark === 100 ? 'hundred' : 'fifty',
+              text: `${batterName} brings up ${mark === 100 ? 'a HUNDRED' : 'a FIFTY'} off ${tally[id].balls} ball${tally[id].balls === 1 ? '' : 's'}`,
+            });
+            break;   // one line, not two, on the ball that passes both
+          }
+        }
+      }
+
+      if (ball.isWicket) pendingWicket = true;
     });
     const oe = overEndByNum[over.overNumber];
     if (oe) lines.push({ type: 'overend', key: `oe-${over.overNumber}`, data: oe });
@@ -1298,9 +1388,21 @@ function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
         {commentary.slice(0, 60).map((line) => (
           line.type === 'overend' ? (
             <View key={line.key} style={styles.commentaryOverEnd}>
+              {/* Over, score, and the over as it was bowled — the three things
+                  read first when catching up on a match. */}
               <View style={styles.overEndHead}>
-                <Text style={styles.overEndTitle}>End of over {line.data.over}</Text>
+                <Text style={styles.overEndTitle}>Over {line.data.over}</Text>
                 <Text style={styles.overEndTotal}>{line.data.total}</Text>
+                <View style={{ flex: 1 }} />
+                <View style={styles.overSeqRow}>
+                  {(line.data.seq || []).map((v, i) => (
+                    <Text key={i} style={[styles.overSeqBall,
+                      v === 'W' && { color: DS.live, fontWeight: '900' },
+                      v === '4' && { color: CK.four, fontWeight: '800' },
+                      v === '6' && { color: CK.six, fontWeight: '900' }]}>{v}</Text>
+                  ))}
+                  <Text style={styles.overSeqRuns}>({line.data.runs} run{line.data.runs === 1 ? '' : 's'})</Text>
+                </View>
               </View>
               <View style={styles.overEndLine}>
                 <Icon name="cricket" size={12} color={DS.lime} />
@@ -1315,18 +1417,49 @@ function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
                 </Text>
               </View>
             </View>
+          ) : line.type === 'milestone' ? (
+            <View key={line.key} style={styles.milestoneRow}>
+              <Icon name={line.kind === 'hundred' ? 'crown' : 'star-circle'} size={15}
+                color={line.kind === 'hundred' ? CK.six : DS.lime} />
+              <Text style={styles.milestoneText}>{line.text}</Text>
+            </View>
+          ) : line.type === 'crease' ? (
+            <Text key={line.key} style={styles.creaseText}>{line.text}</Text>
           ) : (
             <View key={line.key} style={styles.commentaryRow}>
-              <Text style={[styles.commentaryLabel, line.isWicket && { color: DS.live }]}>{line.label || ''}</Text>
-              {/* Six gets its own amber — the single-green accent theme folds
-                  blue/success back to green, so a four and a six looked identical.
-                  Amber (#f59e0b) is the app's "special" colour (aces/bonuses). */}
-              <Text style={[styles.commentaryText,
-                line.isWicket && { fontWeight: '800', color: DS.textPrimary },
-                line.isBoundary && !line.isSix && { color: CK.four, fontWeight: '700' },
-                line.isSix && { color: CK.six, fontWeight: '800' }]}>
-                {line.text || ''}
-              </Text>
+              <View style={styles.commentaryGutter}>
+                <Text style={[styles.commentaryLabel, line.isWicket && { color: DS.live }]}>{line.label || ''}</Text>
+                {/* The badge a scorecard puts beside the ball — the thing you
+                    scan for when skimming an innings. Only the three that are
+                    worth stopping on. */}
+                {(line.isWicket || line.isBoundary) && (
+                  <View style={[styles.ballBadge,
+                    line.isWicket ? { backgroundColor: DS.live }
+                      : line.isSix ? { backgroundColor: CK.six } : { backgroundColor: CK.four }]}>
+                    <Text style={styles.ballBadgeText}>
+                      {line.isWicket ? 'W' : line.isSix ? '6' : '4'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                {/* "Bowler to Batter, OUTCOME, description" — the shape every
+                    commentary feed uses, so the eye finds the outcome without
+                    reading the sentence. */}
+                <Text style={styles.commentaryText}>
+                  {!!line.bowler && (
+                    <Text style={styles.commentaryWho}>{line.bowler} to {line.batter}, </Text>
+                  )}
+                  <Text style={[
+                    styles.commentaryOutcome,
+                    line.isWicket && { color: DS.live },
+                    line.isBoundary && !line.isSix && { color: CK.four },
+                    line.isSix && { color: CK.six },
+                  ]}>{line.outcome}</Text>
+                  {line.text ? `, ${line.text}` : ''}
+                </Text>
+                {!!line.dismissal && <Text style={styles.dismissalText}>{line.dismissal}</Text>}
+              </View>
             </View>
           )
         ))}
@@ -2328,7 +2461,10 @@ const makeStyles = (DS) => StyleSheet.create({
   // End-of-over summary block, threaded inline into the ball-by-ball feed — a
   // tinted band so it reads as a divider between overs.
   commentaryOverEnd: { backgroundColor: DS.surfaceHighest, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: DS.line, gap: 4 },
-  overEndHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  // gap, not space-between: the head now holds four things (over, score, a
+  // spacer, the sequence) and space-between pushed the over number and the
+  // score flush against each other — "Over 7173/2".
+  overEndHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   overEndTitle: { fontSize: 12.5, fontWeight: '800', color: DS.textPrimary },
   overEndTotal: { fontSize: 13, fontWeight: '900', color: DS.lime },
   overEndLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -2337,8 +2473,33 @@ const makeStyles = (DS) => StyleSheet.create({
   // LIVE tab: ball-by-ball commentary
   commentaryBox: { backgroundColor: DS.surface, borderRadius: 14, paddingVertical: 4 },
   commentaryRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: DS.line },
-  commentaryLabel: { fontSize: 12, fontWeight: '800', color: DS.textMuted, width: 34 },
+  // Fixed-width gutter so the ball numbers line up down the feed and the badge
+  // sits under its own ball rather than pushing the text around.
+  commentaryGutter: { width: 34, alignItems: 'flex-start', gap: 4 },
+  commentaryLabel: { fontSize: 12, fontWeight: '800', color: DS.textMuted },
   commentaryText: { flex: 1, fontSize: 13, color: DS.textVariant, lineHeight: 19 },
+  commentaryWho: { color: DS.textMuted },
+  commentaryOutcome: { fontWeight: '800', color: DS.textPrimary },
+  ballBadge: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  ballBadgeText: { fontSize: 11, fontWeight: '900', color: DS.white },
+  dismissalText: { marginTop: 5, fontSize: 12, fontWeight: '800', color: DS.textPrimary },
+
+  // The over as it was bowled, on the over card.
+  overSeqRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  overSeqBall: { fontSize: 12, fontWeight: '700', color: DS.textVariant, fontVariant: ['tabular-nums'] },
+  overSeqRuns: { fontSize: 11.5, color: DS.textMuted, marginLeft: 2 },
+
+  // Moments that are not a ball: a milestone reached, a batter walking out.
+  milestoneRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 9,
+    borderTopWidth: 1, borderTopColor: DS.line, backgroundColor: DS.surfaceHigh,
+  },
+  milestoneText: { flex: 1, fontSize: 12.5, fontWeight: '800', color: DS.textPrimary },
+  creaseText: {
+    paddingHorizontal: 14, paddingVertical: 9, fontSize: 12.5, fontWeight: '700',
+    color: DS.textVariant, borderTopWidth: 1, borderTopColor: DS.line,
+  },
 
   // SQUADS tab
   squadsGrid: { flexDirection: 'row', gap: 14 },

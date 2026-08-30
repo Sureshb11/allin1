@@ -28,7 +28,10 @@ import { NON_BALL_EXTRAS, isBowlerWicket } from './cricketRules';
 /**
  * Summaries for every COMPLETED over in an innings, newest first.
  *
- * Returns `[{ over, total, bat: [{name, runs, balls}], bowler: {name, fig} }]`.
+ * Returns `[{ over, total, runs, seq, bat: [{name, runs, balls}], bowler: {name, fig} }]`,
+ * where `seq` is the over as it was bowled — `['0','4','2','0','0','6']`, with
+ * 'W' for a wicket and 'Wd'/'Nb' for extras — and `runs` is what the over cost.
+ * Both are what a reader scans first: an over is remembered as its shape.
  * An over still in progress is deliberately absent — "End of over 7" under a
  * three-ball over would be a lie, and the current over is already on screen
  * above the feed as the live ball strip.
@@ -85,9 +88,22 @@ export function computeOverEndSummaries(innings) {
     if (overLegal >= 6 && overCharged === 0 && overBowlers.size === 1) bowl[[...overBowlers][0]].maidens += 1;
     if (legalIn(over) >= 6) {   // completed over only
       const bw = bowl[lastBowlerId] || { name: 'Bowler', balls: 0, maidens: 0, runs: 0, wkts: 0 };
+      // The over as a sequence, the way a scorecard prints it. Built from the
+      // same balls the figures above came from, so the shape and the numbers
+      // cannot disagree.
+      const seq = (over.balls || []).map((b) => {
+        if (b.isWicket) return 'W';
+        if (b.extraType === 'wide') return `${b.extras > 1 ? b.extras - 1 : ''}Wd`;
+        if (b.extraType === 'noBall') return `${b.runs || ''}Nb`;
+        if (b.extraType === 'bye') return `${b.extras}B`;
+        if (b.extraType === 'legBye') return `${b.extras}Lb`;
+        return String(b.runs || 0);
+      });
       out.push({
         over: over.overNumber,
         total: `${runningRuns}/${runningWkts}`,
+        runs: (over.runs || 0) + (over.extras || 0),
+        seq,
         bat: [lastStriker, lastNon].filter(Boolean).map((id) => ({ name: batName[id] || 'Batter', runs: batRuns[id] || 0, balls: batBalls[id] || 0 })),
         // Standard O-M-R-W bowling figures, matching the format used across the app.
         bowler: { name: bw.name, fig: `${Math.floor(bw.balls / 6)}.${bw.balls % 6}-${bw.maidens}-${bw.runs}-${bw.wkts}` },
