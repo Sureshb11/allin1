@@ -7,6 +7,7 @@ import { useCurrentUser } from '../utils/currentUser';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import PlayerAvatar from '../components/PlayerAvatar';
 import { useDockLock } from '../components/AutoHideTabBar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Rooms are grouped by where the conversation came from. ChatRoom.type carries
 // it: 'scout' for a Scout connection, 'team' for a squad room, 'tournament' for
@@ -45,6 +46,9 @@ export default function ChatsScreen({ navigation }) {
   }, [lockDock]));
 
   const DS = useTheme().colors;
+  // Measured, not the hardcoded 52 this header used to clear the status bar
+  // with — see the same fix in ChatScreen.
+  const insets = useSafeAreaInsets();
   const styles = useThemedStyles(makeStyles);
   const me = useCurrentUser();
   const [rooms, setRooms] = useState([]);
@@ -144,7 +148,7 @@ export default function ChatsScreen({ navigation }) {
     // Drawn here, not by the navigator: this stack sets headerShown:false
     // everywhere else and each screen supplies its own, so the default header
     // would have been a light system bar sitting in a dark app.
-    <View style={styles.hero}>
+    <View style={[styles.hero, { paddingTop: insets.top + 8 }]}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={8}>
         <Icon name="arrow-left" size={22} color={DS.textPrimary} />
       </TouchableOpacity>

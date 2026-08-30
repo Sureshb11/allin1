@@ -10,6 +10,7 @@ import legendsApi from '../services/LegendsApi';
 import { useCurrentUser } from '../utils/currentUser';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 import PlayerAvatar from '../components/PlayerAvatar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const POLL_MS = 3000;
 // Two messages from the same person inside this window read as one turn in the
@@ -212,6 +213,11 @@ const ChatScreen = ({ route, navigation }) => {
 
   const DS = useTheme().colors;
   const styles = useThemedStyles(makeStyles);
+  // The header cleared the status bar with a hardcoded paddingTop: 52 — a guess
+  // at an inset that is 24-28dp on most devices, so every chat opened under a
+  // band of empty space. AppHeader has measured it properly for a while; this
+  // does the same.
+  const insets = useSafeAreaInsets();
   const me = useCurrentUser();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -224,6 +230,9 @@ const ChatScreen = ({ route, navigation }) => {
   const listRef = useRef(null);
   // Mirrors atBottom for use inside callbacks that shouldn't re-subscribe.
   const atBottomRef = useRef(true);
+  // The first content measure of this room, which is the one that must land on
+  // the newest message however the reader is positioned.
+  const didInitialScroll = useRef(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -454,11 +463,14 @@ const ChatScreen = ({ route, navigation }) => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
+      // No behavior on Android. The manifest sets adjustResize, so the OS has
+      // already shrunk the window by the keyboard's height — 'height' then
+      // subtracts it a second time and the composer ends up half off-screen.
+      // iOS does not resize, so it still needs 'padding'.
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar barStyle="light-content" backgroundColor={DS.bg} />
 
-      <View style={styles.hero}>
+      <View style={[styles.hero, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={8}>
           <Icon name="arrow-left" size={22} color={DS.textPrimary} />
         </TouchableOpacity>
@@ -482,7 +494,18 @@ const ChatScreen = ({ route, navigation }) => {
           // Only follow new content when the reader is already at the bottom.
           // This used to scrollToEnd unconditionally, so a poll landing while you
           // read history threw you back to the newest message.
-          onContentSizeChange={() => { if (atBottomRef.current) listRef.current?.scrollToEnd({ animated: false }); }}
+          // Opening a conversation lands on the LAST message — you came to read
+          // what was just said, not the oldest thing in the room. The first
+          // measure always jumps; after that the rule above applies, so a poll
+          // landing while you read history cannot drag you back down.
+          onContentSizeChange={() => {
+            if (!didInitialScroll.current) {
+              didInitialScroll.current = true;
+              listRef.current?.scrollToEnd({ animated: false });
+              return;
+            }
+            if (atBottomRef.current) listRef.current?.scrollToEnd({ animated: false });
+          }}
           renderItem={({ item }) => {
             if (item.kind === 'day') {
               return (
@@ -699,7 +722,7 @@ const makeStyles = (DS) => StyleSheet.create({
 
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: DS.surfaceLow, paddingTop: 52, paddingBottom: 14, paddingHorizontal: 16,
+    backgroundColor: DS.surfaceLow, paddingBottom: 12, paddingHorizontal: 16,
     borderBottomWidth: 1, borderBottomColor: DS.surfaceHigh,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 4, zIndex: 10
   },
