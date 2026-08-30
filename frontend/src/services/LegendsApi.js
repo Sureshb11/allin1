@@ -1313,6 +1313,17 @@ class LegendsApi {
     }
   }
 
+  // Remove your own post. The server checks authorship; the app only decides
+  // whether to offer the option.
+  async deletePost(postId) {
+    try {
+      await this.request(`/posts/${postId}`, { method: 'DELETE' });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // Who is in a room — what the composer offers after an "@".
   async getChatMembers(roomId) {
     try {

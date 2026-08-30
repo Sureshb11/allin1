@@ -97,6 +97,10 @@ export const mapPost = (po) => ({
   liked: !!po.liked,   // authoritative per-user state from the server (persists across app restarts)
   saved: !!po.saved,   // same: annotated per-caller by GET /posts
   authorPlayerId: po.authorPlayerId || null,   // resolved server-side; null when the author has no player
+  // Whose post this is, decided server-side. The card has no idea who is
+  // logged in, and comparing ids in three list screens would be three chances
+  // to get it wrong.
+  mine: !!po.mine,
   comments: [],
   commentCount: po.commentCount || 0,
 });
@@ -844,6 +848,27 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
     }
   }, [DS.lime]);
 
+  // Removed from the list before the request returns — the alternative is a row
+  // sitting there looking undeleted for a round trip. If the server refuses, it
+  // goes back WHERE IT WAS: a failed delete that silently moved someone's post
+  // to the top of the feed would be a worse bug than the one it is recovering
+  // from.
+  const deletePost = useCallback(async (post) => {
+    let at = -1;
+    setPosts((prev) => {
+      at = prev.findIndex((x) => x.id === post.id);
+      return prev.filter((x) => x.id !== post.id);
+    });
+    const res = await legendsApi.deletePost(post.id);
+    if (res.success) { showToast('Post deleted', 'success'); return; }
+    setPosts((prev) => {
+      const next = [...prev];
+      next.splice(at < 0 ? next.length : at, 0, post);
+      return next;
+    });
+    showToast(res.error || 'Could not delete the post', 'error');
+  }, []);
+
   const sharePost = useCallback(async (post) => {
     try {
       await Share.share({ message: `${post.author.name} on ${BRAND_NAME}:\n\n"${post.caption}"\n\n${BRAND_TAGLINE}` });
@@ -1062,6 +1087,7 @@ export default function CricketFeedScreen({ navigation }) {const { colors: DS, i
         ListHeaderComponent={renderHeader}
         renderItem={({ item }) =>
         <PostCard post={item} onLike={toggleLike} onShare={sharePost} onComment={openComments} onSave={toggleSave}
+          onDelete={deletePost}
                   onAuthor={(po) => navigation.navigate('PlayerProfile', { playerId: po.authorPlayerId, player: { id: po.authorPlayerId, name: po.author?.name } })} />
         }
         ListEmptyComponent={(loading || refreshing) ?

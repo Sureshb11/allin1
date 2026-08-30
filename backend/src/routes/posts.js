@@ -84,8 +84,52 @@ router.get('/', optionalAuth, async (req, res) => {
     liked: likedSet.has(p.id),
     saved: savedSet.has(p.id),
     authorPlayerId: p.playerId || playerByUser[p.authorId] || null,
+    // Whose post this is, so the app knows whether to offer Delete. Decided
+    // here rather than by comparing ids in each list screen — the server is
+    // going to check authorship on the delete anyway, so this is the same
+    // answer from the same place.
+    mine: !!req.user && p.authorId === req.user.sub,
   }));
   res.json({ posts });
+});
+
+// DELETE /posts/:id — remove your own post.
+//
+// There was no way to do this at all: the feed's ⋯ menu offered Share and a
+// Report that showed a toast and filed nothing, so a post — a photo, a typo, a
+// thing said in temper — was permanent to the person who wrote it.
+//
+// Author only. Not "admin or author": there is no moderation surface in this
+// app yet, and a delete that anyone could reach is worse than no delete.
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    const post = await prisma.post.findUnique({
+      where: { id: req.params.id }, select: { id: true, authorId: true },
+    });
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    if (!post.authorId || post.authorId !== req.user.sub) {
+      return res.status(403).json({ error: 'You can only delete your own post' });
+    }
+
+    // Comments hold a foreign key to the post, so they go first or the delete
+    // is rejected. Likes and saves live in the polymorphic Like table with no
+    // constraint to enforce that — which means nothing would fail, they would
+    // just linger as rows pointing at a post that no longer exists, and count
+    // towards nothing forever.
+    await prisma.$transaction([
+      prisma.comment.deleteMany({ where: { postId: post.id } }),
+      prisma.like.deleteMany({ where: { targetType: { in: ['post', SAVE_TYPE] }, targetId: post.id } }),
+      prisma.post.delete({ where: { id: post.id } }),
+    ]);
+
+    // Notifications about the post are deliberately left alone. They are a
+    // record of something that did happen — "X liked your post" was true when
+    // it was sent — and their deep link already falls through to the
+    // notification list rather than a missing screen.
+    res.json({ deleted: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
 });
 
 // GET /posts/saved?sport=cricket — the caller's saved posts, newest save first.
@@ -121,6 +165,9 @@ router.get('/saved', authMiddleware, async (req, res) => {
     .filter(Boolean)
     .map(({ _count, ...p }) => ({
       ...p, commentCount: _count.comments, liked: likedSet2.has(p.id), saved: true,
+      // Same flag the feed sets — a post you saved can be your own, and the
+      // Delete option has to appear there too.
+      mine: p.authorId === req.user.sub,
     }));
   res.json({ posts });
 });

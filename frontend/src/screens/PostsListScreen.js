@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
+import { showToast } from '../components/Toast';
 import { getSelectedSport } from '../utils/selectedSport';
 import { getSport } from '../sports';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
@@ -88,6 +89,24 @@ export default function PostsListScreen({ route, navigation }) {
     else setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, saved: res.saved } : p)));
   }, [isSaved]);
 
+  // Same rule as the feed: gone immediately, restored to its own position if
+  // the server refuses.
+  const deletePost = useCallback(async (post) => {
+    let at = -1;
+    setPosts((prev) => {
+      at = prev.findIndex((x) => x.id === post.id);
+      return prev.filter((x) => x.id !== post.id);
+    });
+    const res = await legendsApi.deletePost(post.id);
+    if (res.success) { showToast('Post deleted', 'success'); return; }
+    setPosts((prev) => {
+      const next = [...prev];
+      next.splice(at < 0 ? next.length : at, 0, post);
+      return next;
+    });
+    showToast(res.error || 'Could not delete the post', 'error');
+  }, []);
+
   const sharePost = useCallback((post) => {
     Share.share({ message: `${post.author?.name || 'A player'} on Local Legends: ${post.caption || ''}`.trim() });
   }, []);
@@ -131,6 +150,7 @@ export default function PostsListScreen({ route, navigation }) {
             onShare={sharePost}
             onComment={setActivePost}
             onSave={toggleSave}
+            onDelete={deletePost}
             onAuthor={(po) => navigation.navigate('PlayerProfile', {
               playerId: po.authorPlayerId, player: { id: po.authorPlayerId, name: po.author?.name },
             })}
