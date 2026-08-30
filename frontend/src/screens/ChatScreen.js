@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  TextInput, KeyboardAvoidingView, Platform, StatusBar } from
+  TextInput, KeyboardAvoidingView, Platform, StatusBar, BackHandler } from
 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -279,6 +279,20 @@ const ChatScreen = ({ route, navigation }) => {
   const [pollBusy, setPollBusy] = useState(false);
 
   const resetPoll = () => { setPollQ(''); setPollOpts(['', '']); setPollMulti(false); };
+
+  // Back closes the composer, not the conversation. Without this, backing out
+  // of a half-written poll threw away the whole screen and dropped you in the
+  // chat list — which is what an overlay costs if you do not claim the button
+  // a bottom sheet would have claimed for you.
+  useEffect(() => {
+    if (!pollOpen) return undefined;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setPollOpen(false);
+      resetPoll();
+      return true;    // handled — do not let the navigator pop the screen
+    });
+    return () => sub.remove();
+  }, [pollOpen]);
 
   const createPoll = async () => {
     const question = pollQ.trim();
