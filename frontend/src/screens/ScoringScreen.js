@@ -1732,8 +1732,11 @@ export default function ScoringScreen({ route, navigation }) {const { colors: DS
     // tokens picked by hand — a four was DS.blue here, a colour the brand retired
     // and which sunlight mode renders as black. The tint carries the emphasis,
     // the text carries the meaning, and both follow the mode.
-    else if (str.includes('4')) { bg = DS.tintAccent; color = CKdot.four; } // Fours
-    else if (str.includes('6')) { bg = DS.tintAccentStrong; color = CKdot.six; } // Sixes
+    // Wash and ink both from the cricket palette now. They used the brand's
+    // green tint, which was fine while a four and a six were both green and
+    // wrong the moment a four turned blue.
+    else if (str.includes('4')) { bg = CKdot.fourBg; color = CKdot.four; } // Fours
+    else if (str.includes('6')) { bg = CKdot.sixBg; color = CKdot.six; } // Sixes
     else if (label === '0') { bg = DS.surfaceHighest; color = DS.textMuted; } // Dots
     else { bg = DS.surfaceHigh; color = DS.textPrimary; } // Normal runs
 

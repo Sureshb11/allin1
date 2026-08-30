@@ -995,6 +995,7 @@ function InningsScorecard({ innings, index, squads, totalOvers, expanded = true,
 
 // ── OVERS tab: every over as a row of colour-coded ball chips ─────────────────
 function InningsOvers({ innings }) {const DS = useTheme().colors;const styles = useThemedStyles(makeStyles);
+  const CKo = cricketColors(DS);
   const overs = [...(innings.oversData || [])].sort((a, b) => a.overNumber - b.overNumber);
   if (!overs.length) {
     return <Text style={styles.emptyTabText}>No overs bowled yet.</Text>;
@@ -1033,10 +1034,18 @@ function InningsOvers({ innings }) {const DS = useTheme().colors;const styles = 
           <View style={styles.overLineBalls}>
             {(ov.balls || []).map((b, i) => {
               const lbl = ballLabel(b);
-              const isW = b.isWicket, isBoundary = !b.extraType && (b.runs === 4 || b.runs === 6), isExtra = ['wide', 'noBall', 'bye', 'legBye', 'penalty'].includes(b.extraType);
+              // Same split as the LIVE strip — this is the OVERS tab and reads
+              // the same way. Shared rules, not `!extraType`: a four off a no
+              // ball is still the batter's four.
+              const isW = b.isWicket, six = isSix(b), four = !six && isBoundary(b);
+              const isExtra = ['wide', 'noBall', 'bye', 'legBye', 'penalty'].includes(b.extraType);
               return (
-                <View key={i} style={[styles.ballChip, isW && styles.ballChipW, isBoundary && styles.ballChipBoundary, isExtra && styles.ballChipExtra]}>
-                  <Text style={[styles.ballChipText, isW && { color: DS.white }, isBoundary && { color: DS.bg }]}>{lbl}</Text>
+                <View key={i} style={[styles.ballChip,
+                  isExtra && styles.ballChipExtra,
+                  isW && { backgroundColor: CKo.wicket },
+                  four && { backgroundColor: CKo.four },
+                  six && { backgroundColor: CKo.six }]}>
+                  <Text style={[styles.ballChipText, (isW || four || six) && { color: DS.bg }]}>{lbl}</Text>
                 </View>
               );
             })}
@@ -1350,10 +1359,16 @@ function LiveTab({ innings, squads, totalOvers }) {const DS = useTheme().colors;
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.liveBallRow}>
             {lastOver.balls.map((b, i) => {
               const lbl = ballLabel(b);
-              const isW = b.isWicket, isBoundary = !b.extraType && (b.runs === 4 || b.runs === 6);
+              // A four and a six were the same lime chip — the one strip where
+              // the difference is read at a glance. Four blue, six green,
+              // wicket red, straight from the cricket palette.
+              const isW = b.isWicket, six = isSix(b), four = !six && isBoundary(b);
               return (
-                <View key={i} style={[styles.ballChip, isW && styles.ballChipW, isBoundary && styles.ballChipBoundary]}>
-                  <Text style={[styles.ballChipText, isW && { color: DS.white }, isBoundary && { color: DS.bg }]}>{lbl}</Text>
+                <View key={i} style={[styles.ballChip,
+                  isW && { backgroundColor: CK.wicket },
+                  four && { backgroundColor: CK.four },
+                  six && { backgroundColor: CK.six }]}>
+                  <Text style={[styles.ballChipText, (isW || four || six) && { color: DS.bg }]}>{lbl}</Text>
                 </View>
               );
             })}

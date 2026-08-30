@@ -42,6 +42,12 @@ const DARK = {
   six:        '#34D399',   // 9.82:1
   wicket:     '#F87171',   // 6.83:1 — the app's one semantic red
   wicketBg:   'rgba(248,113,113,0.16)',
+  // A boundary chip's wash follows its OWN hue. The strip used the brand's
+  // green tint for both, which was invisible under a green six and a clash
+  // under a blue four — same reason wicketBg exists rather than a red tint
+  // borrowed from somewhere else.
+  fourBg:     'rgba(96,165,250,0.16)',
+  sixBg:      'rgba(52,211,153,0.16)',
 
   // ── Extras ──
   // Wides and no balls cost the bowling side something; byes and leg byes are
@@ -72,6 +78,8 @@ const LIGHT = {
   six:        '#0a5227',   // 9.34:1
   wicket:     '#c62828',   // 5.62:1
   wicketBg:   'rgba(198,40,40,0.10)',
+  fourBg:     'rgba(29,78,216,0.10)',
+  sixBg:      'rgba(10,82,39,0.10)',
 
   wide:       '#8a5200',   // 6.39:1 — amber fails on white, so this is its dark twin
   noBall:     '#8a5200',
@@ -107,6 +115,10 @@ const SUNLIGHT = {
   six:        '#004d00',   // white text 10.19:1
   wicket:     '#d00000',   // white text 5.70:1
   wicketBg:   '#ffffff',
+  // Sunlight mode carries no washes at all — the fill is white and the ink
+  // does the work, which is the whole point of the mode.
+  fourBg:     '#ffffff',
+  sixBg:      '#ffffff',
 
   // Extras are black-on-white with a black border, not coloured fills. Adding a
   // third and fourth hue to a screen designed around two would undo the point.
