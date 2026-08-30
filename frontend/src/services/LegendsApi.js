@@ -1392,6 +1392,7 @@ class LegendsApi {
         // across every player row this account holds — see GET /users/me.
         followerCount: json.followerCount || 0,
         followingCount: json.followingCount || 0,
+        postCount: json.postCount || 0,
       };
     } catch (error) {
       return { success: false, error: error.message };

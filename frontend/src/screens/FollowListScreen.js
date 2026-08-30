@@ -19,7 +19,6 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import legendsApi from '../services/LegendsApi';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
-import { makeControls } from '../theme/controls';
 import { roleLabel } from '../utils/squadOrder';
 import { showToast } from '../components/Toast';
 import { useCurrentUser } from '../utils/currentUser';
@@ -44,7 +43,6 @@ export default function FollowListScreen({ route, navigation }) {
   const isTeam = !!teamId;
   const { colors: DS, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const C = useThemedStyles(makeControls);
   const meUser = useCurrentUser();
 
   const [tab, setTab] = useState(initialTab === 'following' && !teamId ? 'following' : 'followers');
@@ -208,29 +206,32 @@ export default function FollowListScreen({ route, navigation }) {
         </View>
       </View>
 
-      <View style={styles.segWrap}>
-        <View style={C.segment}>
-          {(isTeam
+      {/* Local styles, not theme/controls' segment.
+          Pavilion's segment works because every button holds exactly ONE Text.
+          Used here — two buttons, each with a label and a count bubble — it
+          rendered as two flat bars on device: no labels, and the bubbles
+          stretched to the pill's width at four pixels tall. Rows on this same
+          screen draw their text correctly, so it is those styles in this
+          composition, not the screen. The count is folded into the label
+          instead, which removes the second child and the bubble with it. */}
+      <View style={styles.segRow}>
+        {(isTeam
             ? [['followers', 'Followers', followers?.count]]
             : [
                 ['followers', 'Followers', followers?.count],
                 ['following', 'Following', following?.count],
               ]
-          ).map(([key, label, count]) => {
+        ).map(([key, label, count]) => {
             const on = tab === key;
             return (
-              <TouchableOpacity key={key} style={[C.segBtn, on && C.segBtnOn]} onPress={() => setTab(key)}
+              <TouchableOpacity key={key} style={[styles.segBtn, on && styles.segBtnOn]} onPress={() => setTab(key)}
                 activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}>
-                <Text style={[C.segText, on && C.segTextOn]}>{label}</Text>
-                {count != null && (
-                  <View style={[C.segCount, on && C.segCountOn]}>
-                    <Text style={[C.segCountText, on && C.segCountTextOn]}>{count}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                <Text style={[styles.segTxt, on && styles.segTxtOn]} numberOfLines={1}>
+                  {label}{count != null ? `  ${count}` : ''}
+                </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {loading ? (
@@ -277,7 +278,14 @@ const makeStyles = (DS) => StyleSheet.create({
   title: { fontSize: 19, fontWeight: '800', color: DS.textPrimary },
   subtitle: { fontSize: 12, color: DS.textMuted, marginTop: 2 },
 
-  segWrap: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
+  segRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
+  segBtn: {
+    flex: 1, height: 40, alignItems: 'center', justifyContent: 'center',
+    borderRadius: 999, backgroundColor: DS.surfaceHigh,
+  },
+  segBtnOn: { backgroundColor: DS.lime },
+  segTxt: { fontSize: 13.5, fontWeight: '700', color: DS.textVariant, letterSpacing: 0.2 },
+  segTxtOn: { color: DS.onLime, fontWeight: '800' },
 
   listPad: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, flexGrow: 1 },
   row: {
